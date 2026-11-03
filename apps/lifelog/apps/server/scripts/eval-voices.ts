@@ -20,6 +20,7 @@ import { eq } from "drizzle-orm";
 import {
   evidenceRows,
   match,
+  type ProfilesByModel,
   speakerOf,
   strangerRows,
   voiceId,
@@ -71,8 +72,6 @@ function outcome(
   }
   return said ? "wrongPerson" : "leftUnnamed";
 }
-
-type ProfilesByModel = ReturnType<typeof weighProfiles>;
 
 // One answered voice replayed: each judged turn's outcome, his likeness for each turn inside a voice
 // recognized as him, and whether the voice holds him, him and another, and was credited to him.

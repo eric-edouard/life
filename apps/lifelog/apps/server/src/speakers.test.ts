@@ -46,3 +46,12 @@ test("a turn that sounds more like a stranger than the owner stays put, unless h
   expect(moved(null)).toEqual([]);
   expect(moved({ people: ["owner"], unknown: false })).toEqual(["owner"]);
 });
+
+test("a new voice unlike everyone is no stranger, however little it sounds like the people", () => {
+  const voices = { people: profiles, strangers: [[0, 0, 1]] };
+  const isStranger = (vector: number[]) =>
+    decide({ samples: [], vector }, voices).isStranger;
+  // 0.30 to the owner, 0.50 to the stranger: ahead, but not as alike as one group's voices.
+  expect(isStranger([0.3, 0.2, 0.5, Math.sqrt(0.62)])).toBe(false);
+  expect(isStranger([0.3, 0.2, 0.7, Math.sqrt(0.38)])).toBe(true);
+});

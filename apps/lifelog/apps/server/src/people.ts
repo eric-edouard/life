@@ -251,7 +251,7 @@ export function weighProfiles(
     ])
   );
 }
-type ProfilesByModel = Map<string, Profiles>;
+export type ProfilesByModel = Map<string, Profiles>;
 
 // The evidence that counts, one row per clip: its voice and whose it is.
 export const evidenceRows = (db: Db) =>

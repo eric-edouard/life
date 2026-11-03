@@ -122,6 +122,9 @@ reverse it, change its entry here in the same commit.
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
 - **One list of voices to name**, rebuilt nightly by average likeness and asked one voice at a time; strangers and
   media are never asked about. Voice data that is nobody's evidence goes after 30 days.
+- **"Not anyone I know" is a stranger he doesn't care about** (his words, 3 Nov 2026). A voice that sounds more like
+  those than like anyone he named is a stranger too (status `stranger`): never named, grouped or asked about, for as
+  long as the strangers' clips are kept (30 days).
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the

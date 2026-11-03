@@ -99,9 +99,18 @@ function nameOf(vector: Vector, { strangers, people }: Profiles) {
     best.margin >= RECOGNITION.margin
       ? best
       : null;
-  // Weighed for a voice that missed too, so the nearby step leaves it alone.
+  // Weighed for a voice that missed too, so the nearby step leaves it alone. A stranger is as like
+  // them as an unnamed group's voices are alike: a new voice unlike everyone still gets asked about.
   const isStranger =
-    !!best && isMoreLikeStrangers(strangers, vector, best.score);
+    !!best &&
+    isMoreLikeStrangers(
+      strangers,
+      vector,
+      Math.max(
+        best.score,
+        RECOGNITION.candidateThreshold - RECOGNITION.strangerLead
+      )
+    );
   return {
     best,
     isStranger,

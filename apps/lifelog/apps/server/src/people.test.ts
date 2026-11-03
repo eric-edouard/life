@@ -383,6 +383,19 @@ test('a voice like one he answered "Not anyone I know" for is a stranger, nearby
   );
 });
 
+test("a stranger stays one: not regrouped, nothing rewritten, and after its voice data goes", async () => {
+  await enroll("Clara", v([50, 1]));
+  const unknown = recording(v([50, 1], [51, 1]), 0);
+  await assign(unknown, "speaker_0", { target: { kind: "unknown" } });
+  const voice = recording(v([50, 1], [51, 1.1]), 20);
+  expect(speaker(recognize(voice), "speaker_0")?.status).toBe("stranger");
+  expect(regroup(env.db)).toBe(0);
+  expect(recognizeJob(env.db, voice)).toBe(false);
+  env.db.delete(voiceSamples).where(eq(voiceSamples.jobId, voice)).run();
+  expect(recognizeJob(env.db, voice)).toBe(false);
+  expect(speaker(speakersOf(voice), "speaker_0")?.status).toBe("stranger");
+});
+
 test("a voice that missed its match and sounds like a stranger isn't named from nearby", async () => {
   await enroll("Carol", v([60, 1]));
   await enroll("Dana", v([60, 1], [61, 0.5])); // too close to Carol for a margin
