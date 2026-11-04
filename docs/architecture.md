@@ -140,6 +140,12 @@ fail any that does, and `scripts/imports.test.ts` fails any import cycle. Within
 `contract.ts`. The layers are folders, not packages: a folder becomes a package only when a second app imports it.
 The reasons are in the [architecture plan](plans/2026-10-22-architecture.md).
 
+Connectors are built in, not loaded. Every source and to-do backend ships inside Life, behind its contract, and an
+install turns on the ones it wants in its settings (`sources`, `todo_list`). That is what packaging Life for others
+needs. A runtime plugin loader would let outside code run inside Life with all of the owner's data, and freeze the
+contracts for code Life can't change, so it waits until someone outside Life wants to write a connector (decided
+4 Nov 2026). Until then a new connector is one reader file and its descriptor in `SOURCES`.
+
 The repo around it is a Bun workspace:
 
 | Path | What it holds |
