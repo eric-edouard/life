@@ -202,7 +202,8 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 ## Gotchas
 
 - Every worktree reads and writes the same live data and lock. Point `LIFE_OWNER_DATA_DIR` at a copy to experiment; copy
-  `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
+  `derived/settings.json` into a worktree before model runs, and a copy of the live voice store (`watch/lifelog.sqlite`,
+  `sqlite3 .backup`) before a bench. `bun test` uses its own made-up copy.
 - A worktree installs its own dependencies (`bun install --ignore-scripts`); never link another checkout's
   `node_modules`: its workspace links resolve back into that checkout, so the worktree would run that checkout's code.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).

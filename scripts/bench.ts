@@ -35,6 +35,7 @@ import {
   NONE,
   type Tokens,
 } from "@life/server/src/models/llm";
+import { newestTurn } from "@life/server/src/sources/lifelog";
 import { Truth, type timelineScore } from "./timeline";
 
 const EVALS = join(OWNER_DATA_DIR, "docs/evals");
@@ -209,6 +210,17 @@ async function bench(models: string[], runs: number, judge?: string) {
     }
     const files = await truthFiles();
     const windows = await Promise.all(files.map(readTruth));
+    // The runs read the voice store linked from this process's state: a worktree's own is stale unless copied.
+    const last =
+      windows
+        .map((w) => w.to)
+        .toSorted()
+        .at(-1) ?? "";
+    if ((newestTurn() ?? "") < last) {
+      throw new Error(
+        `the voice store in ${LIFE_STATE_DIR}/watch ends before ${last}: copy the live one there`
+      );
+    }
     const days = windows.map((w) =>
       w.from === w.to ? w.from : `${w.from}–${w.to}`
     );
