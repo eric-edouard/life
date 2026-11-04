@@ -34,6 +34,16 @@ settings, then name the folder:
 bun life settings set '{"repos":"~/Code"}'
 ```
 
+## Your devices in Screen Time
+
+Life reads Screen Time from the Mac and from each iPhone or iPad that shares it. Turn on **Screen Time** under
+**Sources**, then name each device by its id (the folders in `~/Library/Biome/streams/restricted/App.InFocus/remote/`);
+one left out shows as "iOS device":
+
+```sh
+bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"iPhone 17"}}'
+```
+
 ## Older months
 
 Each night reads the last 7 days. To read further back, set a range; Life reads it a week at a time, oldest first, at

@@ -74,7 +74,7 @@ async function keepAppsOpen() {
 }
 
 /** The deleted messages one store kept since `since`, opened read-only: the archive is their only copy. */
-function deletedIn(name: string, media: string, since: string) {
+function deletedIn(name: string, since: string, media = "''") {
   const path = archiveDb(name);
   if (!existsSync(path)) {
     return [];
@@ -102,8 +102,8 @@ function deletedIn(name: string, media: string, since: string) {
 
 function printDeleted(days: number) {
   const since = new Date(clock().getTime() - days * DAY).toISOString();
-  const rows = ARCHIVED.flatMap((s) =>
-    deletedIn(s.name, s.store.media, since)
+  const rows = ARCHIVED.flatMap(({ name, store }) =>
+    store.deleted ? deletedIn(name, since, store.deleted.media) : []
   ).sort((a, b) => a.at.localeCompare(b.at));
   for (const r of rows) {
     const media = r.media ? ` [${join(ARCHIVE, "media", r.media)}]` : "";

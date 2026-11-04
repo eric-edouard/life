@@ -42,8 +42,11 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
-| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
+| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `claude`, `chatgpt`, and the agent's. | |
+| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `agent`. | |
+| activity | What his devices record he did, never anyone's words: the `repo` and `screen` kinds (`isActivity`). Never extracted, importance 1 at most. | |
+| stint | One stretch of time in one app or website on one device, from Screen Time; the same one back within 2 minutes is one stint. Not a Claude session. | |
+| device-day | A Screen Time unit: one device's stints on one local day, its time by app and website and its stints of 5 minutes or more. The device is named by the `devices` setting. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
@@ -56,7 +59,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
+| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
 | unkept | A unit Life read before that its latest verdict no longer keeps: its facts are replaced by none (`unkept` in extracted.jsonl). Not a dropped unit, which a code rule leaves out. | |
