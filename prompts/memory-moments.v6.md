@@ -178,7 +178,9 @@ to several (a chat day often plans one thing and reports another).
 Only what happened is a moment. Not moments: plans and talk about later (the units keep them), TV, videos and
 podcasts, strangers near the recorder, the owner dictating to an AI alone, money moved, mail, receipts and notices
 received, newsletters, one-line chat replies, his coding agents' commits and his agents' reports (their work, not
-his), and screen time alone (it shows when he was at a device, never what happened).
+his), and screen time alone (it shows when he was at a device, never what happened). But arranging is doing: booking a
+driver or a hotel, settling a deal, helping someone set something up is a moment of the day it was done, even when what
+it arranges is later. A remote exchange that mattered (a long chat thread, a call) is a moment too.
 
 **Group across channels.** The iMessage that announces a trip, the recordings during it, the WhatsApp family group that
 organises it and the booking mail all belong to the same moment. A recorded conversation may hold several topics; a
