@@ -78,5 +78,4 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - A decision model for identity, tried locally and too heavy; a hosted model is the way back in.
 - lifelog's app freeze: a watchdog now crashes the app on a freeze so the crash report names the cause. It becomes
   work only if the freeze returns.
-- Mac screen time as a source ([life#82](https://github.com/eric-edouard/life/issues/82)).
 - A send gateway: dropped, since the agent keeps its own send routes and Life already reads sent messages.

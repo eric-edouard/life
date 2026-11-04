@@ -23,6 +23,7 @@ import {
 import { lifelogMissing } from "../sources/lifelog";
 import { mailRoot, newestMail, readMail } from "../sources/mail";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
+import { copyScreen, newestScreen, readScreen } from "../sources/screen";
 import {
   copyWhatsapp,
   isWhatsappGroup,
@@ -159,6 +160,18 @@ const LISTED: Descriptor[] = [
     newest: newestCommit,
     read: (since, { me, repos }) => readGit(since, repos, me),
     silentAfter: 72 * HOUR,
+  },
+  // His time in each app and website (Biome), on the Mac and the iOS devices that sync to it. The system writes it, so
+  // no app is kept open; Biome prunes it after about a week, so the archive's copy is what is read.
+  {
+    kind: "screen",
+    label: "Screen Time",
+    macOnly: true,
+    name: "screen",
+    newest: newestScreen,
+    read: (since) => readScreen(since),
+    silentAfter: 24 * HOUR,
+    store: { copies: "events", copy: () => copyScreen() },
   },
 ];
 

@@ -89,7 +89,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
-  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026).
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). An agent reads what it pulls through the connector as data
   (`SECURITY.md`, "Agents"). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported

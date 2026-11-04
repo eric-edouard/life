@@ -1,0 +1,194 @@
+import { Database } from "bun:sqlite";
+import { expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { toAppleS } from "./imessage";
+import { copyScreen, parseSegb, readScreen, stintsOf } from "./screen";
+
+// Made-up Biome files: protobuf records in a SEGB v2 file, as Biome writes them.
+
+const varint = (n: number) => {
+  const out: number[] = [];
+  let x = n;
+  while (x >= 0x80) {
+    out.push((x % 0x80) + 0x80);
+    x = Math.floor(x / 0x80);
+  }
+  out.push(x);
+  return out;
+};
+type Value = number | string | { double: number };
+/** A protobuf message: a number is a varint, a string bytes, `{double}` a fixed64. */
+const message = (fields: Record<number, Value>) =>
+  Buffer.concat(
+    Object.entries(fields).map(([n, v]) => {
+      if (typeof v === "number") {
+        return Buffer.from([...varint(Number(n) * 8), ...varint(v)]);
+      }
+      if (typeof v === "string") {
+        const bytes = Buffer.from(v);
+        return Buffer.concat([
+          Buffer.from([...varint(Number(n) * 8 + 2), ...varint(bytes.length)]),
+          bytes,
+        ]);
+      }
+      const d = Buffer.alloc(8);
+      d.writeDoubleLE(v.double);
+      return Buffer.concat([Buffer.from(varint(Number(n) * 8 + 1)), d]);
+    })
+  );
+/** A SEGB v2 file of `records`, each kept (state 1) unless `pruned` (state 3, blanked). */
+function segb(records: { data: Buffer; pruned?: boolean }[]) {
+  const body: Buffer[] = [];
+  const table: Buffer[] = [];
+  let at = 0;
+  for (const r of records) {
+    const pad = (4 - (at % 4)) % 4;
+    body.push(Buffer.alloc(pad));
+    at += pad;
+    const data = r.pruned ? Buffer.alloc(r.data.length) : r.data;
+    body.push(Buffer.alloc(8), data);
+    at += 8 + data.length;
+    const entry = Buffer.alloc(16);
+    entry.writeUInt32LE(at, 0);
+    entry.writeUInt32LE(r.pruned ? 3 : 1, 4);
+    table.unshift(entry);
+  }
+  const head = Buffer.alloc(32);
+  head.write("SEGB", 0, "latin1");
+  head.writeUInt32LE(records.length, 4);
+  return Buffer.concat([head, ...body, ...table]);
+}
+
+const MAC = "MAC-1";
+const PHONE = "PHONE-1";
+const T0 = Date.parse("2026-03-10T02:00:00Z");
+const at = (min: number) => T0 + min * 60_000;
+const apple = (min: number) => ({ double: toAppleS(at(min)) });
+/** The Mac's app time (Screen Time's stream: unix seconds), the phone's app in front, a Safari visit. */
+const macApp = (min: number, bundle: string, starting: boolean) =>
+  message({ 1: Number(starting), 2: { double: at(min) / 1000 }, 3: bundle });
+const phoneApp = (min: number, bundle: string, starting: boolean) =>
+  message({ 3: Number(starting), 4: apple(min), 6: bundle });
+const visit = (min: number, id: string, domain: string, starting: boolean) =>
+  message({
+    1: id,
+    2: apple(min),
+    3: starting ? 3 : 1,
+    5: domain,
+    6: "com.apple.Safari",
+  });
+
+/** A made-up Biome folder: its sync database naming this Mac and a phone, and the given files. */
+function biomeFixture(files: Record<string, Buffer>) {
+  const root = mkdtempSync(join(tmpdir(), "life-biome-"));
+  mkdirSync(join(root, "sync"), { recursive: true });
+  const db = new Database(join(root, "sync/sync.db"));
+  db.run(
+    "create table DevicePeer (device_identifier text, me boolean, platform integer)"
+  );
+  db.run("insert into DevicePeer values (?, 1, 3), (?, 0, 2)", [MAC, PHONE]);
+  db.close();
+  const write = (path: string, bytes: Buffer) => {
+    const full = join(root, "streams/restricted", path);
+    mkdirSync(join(full, ".."), { recursive: true });
+    writeFileSync(full, bytes);
+  };
+  for (const [path, bytes] of Object.entries(files)) {
+    write(path, bytes);
+  }
+  return { archive: join(root, "archive"), root, write };
+}
+
+test("a SEGB file gives its kept records only, in order", () => {
+  const a = message({ 6: "a" });
+  const b = message({ 6: "bb" });
+  const c = message({ 6: "ccc" });
+  expect(
+    parseSegb(segb([{ data: a }, { data: b, pruned: true }, { data: c }])).map(
+      (r) => Buffer.from(r).toString("hex")
+    )
+  ).toEqual([a.toString("hex"), c.toString("hex")]);
+  expect(() => parseSegb(Buffer.from("nope"))).toThrow();
+});
+
+test("each device's records are copied once; one synced late with an older time still lands", () => {
+  const { archive, root, write } = biomeFixture({
+    "App.WebUsage/local/1": segb([
+      { data: visit(0, "v1", "example.org", true) },
+      { data: visit(12, "v1", "example.org", false) },
+    ]),
+    "ScreenTime.AppUsage/local/1": segb([
+      { data: macApp(0, "com.example.editor", true) },
+      { data: macApp(30, "com.example.editor", false) },
+    ]),
+  });
+  expect(copyScreen(root, archive)).toBe(4);
+  expect(copyScreen(root, archive)).toBe(0);
+  write(
+    `App.InFocus/remote/${PHONE}/1`,
+    segb([
+      { data: phoneApp(-60, "com.example.chat", true) },
+      { data: phoneApp(-50, "com.example.chat", false) },
+    ])
+  );
+  expect(copyScreen(root, archive)).toBe(2);
+  const events = readScreen(new Date(at(-120)), archive, root);
+  expect(
+    events.map((e) => [e.chat, e.chatName, e.text, e.at, e.until])
+  ).toEqual([
+    [
+      PHONE,
+      "iOS device",
+      "com.example.chat",
+      new Date(at(-60)).toISOString(),
+      new Date(at(-50)).toISOString(),
+    ],
+    [
+      MAC,
+      "Mac",
+      "com.example.editor",
+      new Date(at(0)).toISOString(),
+      new Date(at(30)).toISOString(),
+    ],
+    [
+      MAC,
+      "Mac",
+      "web: example.org",
+      new Date(at(0)).toISOString(),
+      new Date(at(12)).toISOString(),
+    ],
+  ]);
+});
+
+test("stints: the next app ends the one in front, frames end it but are left out, the same app back within 2 minutes is one", () => {
+  const record = (min: number, bundle: string, starting: number) => ({
+    at: new Date(at(min)).toISOString(),
+    bundle,
+    device: PHONE,
+    domain: "",
+    starting,
+    visit: "",
+  });
+  const stints = stintsOf(
+    [
+      record(0, "com.example.chat", 1),
+      // An end of another app ends nothing.
+      record(2, "com.example.maps", 0),
+      record(5, "com.apple.springboard", 1),
+      record(6, "com.example.chat", 1),
+      record(10, "com.example.chat", 0),
+      record(10, "com.apple.InCallService", 1),
+      record(20, "com.apple.InCallService", 0),
+      record(30, "com.example.chat", 1),
+      record(31, "com.example.chat", 0),
+    ],
+    "app"
+  ).map((s) => [s.what, s.at.slice(11, 16), s.until.slice(11, 16)]);
+  expect(stints).toEqual([
+    ["com.example.chat", "02:00", "02:10"],
+    ["com.apple.InCallService", "02:10", "02:20"],
+    ["com.example.chat", "02:30", "02:31"],
+  ]);
+});
