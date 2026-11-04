@@ -62,6 +62,8 @@ export interface Message {
   known: boolean;
   sender: string;
   text: string;
+  /** Mail only: an order, booking, receipt, delivery or bank notice (Mail's own sorting). */
+  transaction?: boolean;
 }
 
 /** Who a name, handle or address is (`resolver`, who.ts: the one resolver), or null. */
@@ -401,6 +403,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       known: !!e.contact || resolve(e.sender) !== null,
       sender: e.sender,
       text: e.text,
+      transaction: e.transaction,
     })),
     text: `${title}\n${lines.join("\n")}`,
     unit: {
@@ -552,8 +555,12 @@ const RULES: [
       ),
   ],
   ["newsletter", newsletter],
-  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in: search still finds it.
-  ["not-a-person", (b) => isMail(b) && !b.messages.some((m) => m.known)],
+  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in, other than his orders,
+  // bookings, receipts, deliveries and bank notices: search still finds it.
+  [
+    "not-a-person",
+    (b) => isMail(b) && !b.messages.some((m) => m.known || m.transaction),
+  ],
 ];
 
 /** Marks each unit a rule drops (`unit.drop` names the rule); `kept`: the imported conversations the import kept. */

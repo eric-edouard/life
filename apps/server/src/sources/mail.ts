@@ -418,18 +418,26 @@ interface Row {
   rowid: number;
   sender: string | null;
   subject: string | null;
+  transaction: number;
 }
 
 /** Messages received at or after `since`, oldest first, with where each is stored. */
 function messagesSince(since: Date, root = mailRoot()): Row[] {
   const db = openIndex(root);
   try {
+    // Mail's own sorting, on a Mac that sorts mail: category 1 is Transactions (orders, bookings, receipts, deliveries, bank).
+    const sorts = db
+      .query(
+        "select 1 from pragma_table_info('message_global_data') where name = 'model_category'"
+      )
+      .get();
     return db
       .query<Row, [number]>(
         `select m.ROWID as rowid, m.global_message_id as globalId, m.date_received as received,
                 m.conversation_id as conversation, m.subject_prefix as prefix,
                 s.subject, a.address as sender, mb.url as mailbox, g.message_id_header as header,
-                (coalesce(m.list_id_hash, 0) != 0 or coalesce(m.unsubscribe_type, 0) != 0) as bulk
+                (coalesce(m.list_id_hash, 0) != 0 or coalesce(m.unsubscribe_type, 0) != 0) as bulk,
+                ${sorts ? "coalesce(g.model_category, 0) = 1" : "0"} as "transaction"
            from messages m
            join mailboxes mb on mb.ROWID = m.mailbox
            left join subjects s on s.ROWID = m.subject
@@ -497,6 +505,7 @@ export function readMail(
         : `${r.mailbox}#${subject}`,
       ...(subject ? { chatName: subject } : {}),
       ...(contacts.has(handleKey(sender)) ? { contact: true as const } : {}),
+      ...(r.transaction === 1 ? { transaction: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
