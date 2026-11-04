@@ -6,7 +6,8 @@ held, 42% of false ones restated).
 
 What is wrong today (review of 4 Nov, his agreement): a moment is a title; facts don't know their moment; no trip level;
 the phone's stays are ignored; things he didn't do become moments (money moved, mail received, his agents' commits);
-plans are moments and go stale; a day is read about 10 times.
+plans are moments and go stale; a day is read about 10 times, each time in full (one new message changes its
+chat-day unit's hash, so the whole day of ~140 units goes again).
 
 His rules for the new shape: overlaps are fine when both truly happened (a call during a drive, a dinner inside a
 trip); never two in-person places at once, never one event as several moments; nesting only where it makes sense.
@@ -62,16 +63,31 @@ trip); never two in-person places at once, never one event as several moments; n
 - [ ] Bench: today's prompt v5 against v6 on the truth set (facts and timeline), then v6 at efforts high / low and
       the hosts he allows. He picks.
 
-## Milestone 3: a day read once (measured first)
+## Milestone 3: read only what's new (his choice, 4 Nov: in v6, not a later step)
 
-- [ ] Log why a day is read again (`moments.ts`: which units changed, and whether new messages, a file described or
-      lifelog regrouping). One week of logs, then decide: read a past day again only when a unit got new words.
-- [ ] The decision goes into `docs/operations.md`.
+One way of reading, whether the day is new or read before: the day's current moments are the state, and only the
+units not judged on their current content are new evidence (the existing verdict cache, `judged`, `moments.ts`:335;
+no new state). A first reading is the same step with no moments yet; so is the backfill.
+
+- [ ] Input: a unit judged on its current content (and not `reread` since) goes as a stub (id, source, times, title,
+      its verdict's `reason`), never its text; the others go in full, as today. The day's current moments go with their
+      `what` (they already go, as `earlier`).
+- [ ] Output: verdicts only for the units sent in full (today's `fresh` already keeps only those); `moments`: the new
+      and changed ones only, in full; `gone`: ids of this day's moments no longer true. The day's file is its
+      current lines minus `gone`, with the changed ones replaced and the new ones added (`dayFileOf`, which already
+      keeps hidden ones). A moment left out is kept as it is.
+- [ ] Measured on the bench: tokens per day across the three truth days read as they arrived (in the hourly slices the
+      log shows), against v5; duplicates show as extra moments in the timeline score. A night pass that merges a day's
+      duplicate moments (moments and stays only, no units) is added only if the score shows them.
+- [ ] `docs/operations.md`: how a day is read (stubs, the state, when a unit counts as new).
+
+ponytail: new is per unit, so a chat-day with one new message goes in full (that chat-day only, not the day); per
+message would need a record of what was read, add it if the bench shows chat-days dominate.
 
 ## Milestone 4: backfill (his OK on the cost)
 
 - [ ] `bun life memory backfill --from 2026-09-06 --to 2026-11-04` under v6: about $4 at today's rate (one read per day,
-      ~75k tokens). Extraction is not re-run: facts reach their moment through their unit.
+      ~75k tokens; every unit is new to v6, so each day goes in full once). Extraction is not re-run: facts reach their moment through their unit.
 
 ## Later, not here
 
@@ -92,13 +108,13 @@ Inventory (`rg -n "momentsNow|Moment\b|mom_|moments" apps/server/src scripts`):
 Shape: the moment record stays the one source of a moment; its span, its stay and its facts are derived (span beside
 `daysOf`, stay by time, facts by `readBy`), each in one function the inline copies move into. Plans live only as facts with `when`. One
 eval script grades facts and timeline; the bench reuses it.
-State: `what` and `within` per moment (model output, rewritten with its day). No new global state; the re-read reason
-in milestone 3 is a log field, not stored.
+State: `what` and `within` per moment (model output, rewritten with its day). What is new to a reading is derived from
+the verdict cache; no new state.
 Deletes: `status` and its four values, `why`, the plan wording in `earlierFor` (its `CARRY_DAYS` code stays), the `unsure-moment` doubt, the calendar's
 status filter, its inline stay and facts lookups and `span`'s second home, bench's fixed week, prompt v5 once v6 runs.
-Net lines: about +220 / −120 (the timeline score is most of the plus; the migration, ~40, leaves after it runs).
+Net lines: about +260 / −130 (the timeline score is most of the plus; the migration, ~40, leaves after it runs).
 Plan review: reshape on the first review (fresh top reviewer, 4 Nov), all taken: one rule for a unit's moment
 (`readBy`), `span` moved beside `daysOf`, stays through `placesOf`, `within` local ids mapped in `parseDay`, the
 timeline score counts extra moments instead of reading prose `notMoments`, lifelog failure paths said, missed readers
 (`fact-checks.ts`, `momentGroup`, SCHEMA.md:341) added, glossary lines for stay and `what`, the AGENTS.md note on
-dropping moment lines. The shape didn't change: no second review.
+dropping moment lines. Then incremental reading was folded in (his choice): second review: pending.
