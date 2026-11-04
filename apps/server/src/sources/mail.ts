@@ -3,6 +3,7 @@ import { basename, dirname, join } from "node:path";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
+import { handleKey, readContacts } from "./contacts";
 import type { Newest } from "./contract";
 import { sourceFile } from "./contract";
 
@@ -464,7 +465,8 @@ function parse(path: string, id: string) {
 export function readMail(
   since: Date,
   root = mailRoot(),
-  accountsDb = ACCOUNTS_DB
+  accountsDb = ACCOUNTS_DB,
+  contacts: Map<string, string> = readContacts()
 ): SourceEvent[] {
   const mine = new Set(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
@@ -494,6 +496,7 @@ export function readMail(
         ? `mail:${r.conversation}`
         : `${r.mailbox}#${subject}`,
       ...(subject ? { chatName: subject } : {}),
+      ...(contacts.has(handleKey(sender)) ? { contact: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
