@@ -450,6 +450,10 @@ test("mail reaches memory only from someone Jean knows, in a thread he wrote in,
         mail("m10", "booking@airline.test", "Your flight", "Seat 12A.", {
           transaction: true,
         }),
+        mail("m11", "ci@forge.test", "Build passed", "All green.", {
+          bulk: true,
+          transaction: true,
+        }),
       ],
       (s) => (s === "marie@example.test" ? "person:marie" : null)
     )
@@ -465,6 +469,7 @@ test("mail reaches memory only from someone Jean knows, in a thread he wrote in,
     null,
     "not-a-person",
     null,
+    "newsletter",
   ]);
 });
 

@@ -425,7 +425,7 @@ interface Row {
 function messagesSince(since: Date, root = mailRoot()): Row[] {
   const db = openIndex(root);
   try {
-    // Mail's own sorting, on a Mac that sorts mail: category 1 is Transactions (orders, bookings, receipts, deliveries, bank).
+    // Mail's own sorting, on a Mac that sorts mail: category 1 is `SourceEvent.transaction`.
     const sorts = db
       .query(
         "select 1 from pragma_table_info('message_global_data') where name = 'model_category'"

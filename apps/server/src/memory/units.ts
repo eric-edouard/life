@@ -62,7 +62,7 @@ export interface Message {
   known: boolean;
   sender: string;
   text: string;
-  /** Mail only: an order, booking, receipt, delivery or bank notice (Mail's own sorting). */
+  /** Mail only: see `SourceEvent.transaction`. */
   transaction?: boolean;
 }
 
@@ -555,8 +555,8 @@ const RULES: [
       ),
   ],
   ["newsletter", newsletter],
-  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in, other than his orders,
-  // bookings, receipts, deliveries and bank notices: search still finds it.
+  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in, other than a transaction
+  // (a bulk one is still a newsletter, above): search still finds it.
   [
     "not-a-person",
     (b) => isMail(b) && !b.messages.some((m) => m.known || m.transaction),

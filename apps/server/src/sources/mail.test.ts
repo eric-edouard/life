@@ -246,4 +246,16 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ).toBe(
     "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
   );
+  // A Mac that doesn't sort mail has no category: nothing is a transaction.
+  const unsorted = new Database(join(root, "MailData", "Envelope Index"));
+  unsorted.run("alter table message_global_data drop column model_category");
+  unsorted.close();
+  const plain = readMail(
+    new Date("2026-10-08T00:00:00Z"),
+    root,
+    join(base, "none.sqlite"),
+    new Map()
+  );
+  expect(plain.length).toBeGreaterThan(0);
+  expect(plain.filter((e) => e.transaction)).toEqual([]);
 });
