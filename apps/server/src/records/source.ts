@@ -30,6 +30,8 @@ export const SourceEvent = z
     bulk: z.boolean().optional(),
     chat: z.string(),
     chatName: z.string().optional(),
+    // Mail only: his Contacts hold the sender's address.
+    contact: z.literal(true).optional(),
     // WhatsApp and the bridged networks: the sender deleted it for everyone; the text is the archive's copy. Notes: he deleted the note.
     deleted: z.boolean().optional(),
     files: z.array(SourceFile).optional(),

@@ -52,30 +52,14 @@ const OTP =
 const CODE_SUBJECT =
   /\b(?:verification|confirmation|security|login|sign-in|one-time) code\b|code de (?:vérification|confirmation|sécurité)|\bis your (?:\w+ )?code\b|\botp\b/i;
 const CODE_MAIL_MAX = 1500;
-// Mail from an address that is not a person: no-reply, notifications, alerts.
-const AUTOMATED =
-  /no[-_.]?reply|nepasrepondre|do[-_.]?not[-_.]?reply|notif(?:y|ication)|mailer-daemon|automated|alerts?|onboarding/i;
-// What keeps such a mail away from the drop rule: money, a booking, a deadline, an account or a delivery to deal with,
-// bad news, health or legal matters. The model judges those.
-const MATTERS = new RegExp(
-  [
-    "[€$฿£]",
-    String.raw`\b\d[\d.,]*\s?(?:eur|euros?|usd|thb|baht)\b`,
-    String.raw`\b(?:invoices?|factures?|payments?|paiements?|paid|pay|virements?|transfers?|refunds?|billing|charged?|d[ée]bit\w*|pr[ée]l[èe]vement|subscriptions?|abonnements?|renew\w*|tax\w*|bank|banque|banc\w*|cr[ée]dit)\b`,
-    String.raw`\b(?:legal|court|lawyer|avocat|doctor|medical|health|sant[ée]|clinic)\b`,
-    String.raw`\b(?:fail\w*|declin\w*|overdue|unpaid|suspend\w*|expir\w*|paused|restricted|delist\w*|discontinu\w*|urgent|action (?:needed|required)|requise|security|unrecogni[sz]ed|breach|alert|incident|down)\b`,
-    String.raw`\b(?:booking|reservation|r[ée]servation|confirmed|confirmation|flight|vol|train|d[ée]part|hotel|trip|ticket|billet|boarding|order|commande|shipment|colis|delivery|livr\w*)\b`,
-    String.raw`\b(?:domain|dns|verify|validate|log in|login|password|deadline|lead|modif\w*|chang\w*)\b`,
-    String.raw`\b(?:by|before|until|due|avant le|jusqu'au|d'ici)\b[^.\n]{0,25}\b(?:\d{1,2}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|janv|f[ée]vr|avr|juin|juil|ao[uû]t|sept|d[ée]c)`,
-  ].join("|"),
-  "i"
-);
 
 export interface Message {
   at: string;
   bulk?: boolean;
   fromMe: boolean;
   id: string;
+  /** The sender is someone he knows: a person `resolve` names, or (mail) one his Contacts hold. */
+  known: boolean;
   sender: string;
   text: string;
 }
@@ -414,6 +398,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       bulk: e.bulk,
       fromMe: e.fromMe,
       id: e.id,
+      known: !!e.contact || resolve(e.sender) !== null,
       sender: e.sender,
       text: e.text,
     })),
@@ -567,14 +552,8 @@ const RULES: [
       ),
   ],
   ["newsletter", newsletter],
-  // Vendor and notification mail from a no-reply or alerts address the owner never answered, with nothing in it that matters.
-  [
-    "automated",
-    (b) =>
-      isMail(b) &&
-      !MATTERS.test(b.text) &&
-      b.messages.every((m) => AUTOMATED.test(m.sender.split("@")[0] ?? "")),
-  ],
+  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in: search still finds it.
+  ["not-a-person", (b) => isMail(b) && !b.messages.some((m) => m.known)],
 ];
 
 /** Marks each unit a rule drops (`unit.drop` names the rule); `kept`: the imported conversations the import kept. */

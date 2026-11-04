@@ -71,7 +71,7 @@ export const Settings = z
       .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
-    /** Who mails him his agents' reports: their mail is judged, not dropped as automated. */
+    /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
     repos: z.string().optional(),

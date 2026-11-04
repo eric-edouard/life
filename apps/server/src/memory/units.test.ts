@@ -383,8 +383,14 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
   ]);
 });
 
-test("login-code mails and vendor notifications Jean never answered are dropped, unless they carry bad news; his agents' reports are kept, Life's own mail is not", () => {
-  const mail = (id: string, sender: string, title: string, text: string) =>
+test("mail reaches memory only from someone Jean knows or in a thread he wrote in; login codes and Life's own mail never; his agents' reports always", () => {
+  const mail = (
+    id: string,
+    sender: string,
+    title: string,
+    text: string,
+    over: Partial<SourceEvent> = {}
+  ) =>
     msg({
       chat: id,
       chatName: title,
@@ -392,6 +398,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
       sender,
       source: "mail",
       text: `${title}\n${text}`,
+      ...over,
     });
   const built = applyRules(
     messageUnits(
@@ -432,17 +439,28 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
           "Dinner",
           "Are you free on Friday evening?"
         ),
+        mail("m7", "paul@example.test", "Boat", "The boat is ready.", {
+          contact: true,
+        }),
+        mail("m8", "sales@shop.test", "Your quote", "Here is the quote."),
+        mail("m8", "jean@mine.test", "Re: Your quote", "Deal.", {
+          fromMe: true,
+        }),
+        mail("m9", "stranger@example.test", "Hello", "Want to buy my boat?"),
       ],
-      () => null
+      (s) => (s === "marie@example.test" ? "person:marie" : null)
     )
   );
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     "one-time-code",
-    "automated",
-    null,
+    "not-a-person",
+    "not-a-person",
     null,
     "life-output",
     null,
+    null,
+    null,
+    "not-a-person",
   ]);
 });
 
