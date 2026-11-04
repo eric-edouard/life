@@ -87,7 +87,7 @@ const LISTED: Descriptor[] = [
       app: "WhatsApp",
       copies: "messages",
       copy: copyWhatsapp,
-      media: "media",
+      deleted: { media: "media" },
     },
   },
   ...NETWORKS.map((b) => bridgedSource(b.name, b.label)),
@@ -123,7 +123,7 @@ const LISTED: Descriptor[] = [
       app: "Notes",
       copies: "versions",
       copy: copyNotes,
-      media: "''",
+      deleted: {},
     },
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never

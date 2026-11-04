@@ -430,5 +430,5 @@ export const bridgedSource = (name: Bridged, label: string): Descriptor => ({
   read: (since) => readBridged(name, since),
   searchDays: 90,
   silentAfter: 72 * HOUR,
-  store: { copies: "messages", copy: () => copyBridged(name), media: "''" },
+  store: { copies: "messages", copy: () => copyBridged(name), deleted: {} },
 });

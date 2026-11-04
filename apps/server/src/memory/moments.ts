@@ -9,6 +9,7 @@ import { LocalTime, Moment } from "../records/moment";
 import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
+import { isActivity } from "../sources/contract";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
@@ -171,12 +172,12 @@ export const momentId = (key: string[]) =>
   `mom_${digest("sha1", key.join("|"), 12)}`;
 
 /**
- * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit holding one of his asks 3, an
+ * Code's last word on a verdict's importance: activity 1 at most (never extracted), a unit holding one of his asks 3, an
  * agent's report at least KEEP_AT (always read, for what it may close).
  */
 export function importanceOf(u: Unit, importance: number) {
   const kind = kindOf(u.source);
-  if (kind === "repo") {
+  if (isActivity(kind)) {
     return Math.min(importance, 1);
   }
   if (u.marked) {

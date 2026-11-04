@@ -9,6 +9,7 @@ import {
   Unresolved,
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
+import { isActivity } from "../sources/contract";
 import type { LifelogConversation } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
@@ -97,7 +98,7 @@ export function groupsOf(
   const worth = (id: string) => {
     const b = byId.get(id);
     return b &&
-      kindOf(b.unit.source) !== "repo" &&
+      !isActivity(kindOf(b.unit.source)) &&
       !(b.unit.drop || copied.has(id)) &&
       (verdictOf(verdicts, b.unit)?.importance ?? 0) >= SEARCHABLE_AT
       ? [b]
