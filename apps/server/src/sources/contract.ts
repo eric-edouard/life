@@ -19,16 +19,17 @@ export interface Newest {
 }
 
 /**
- * An app's own store the archive copies (`archive.ts`), because the app wipes what is deleted. `app` writes it and is
- * kept running: closed, it receives nothing. `copy` copies what is new and says how many versions; `copies` is the
- * table each copy is a row of, `media` the column of its `deleted` view that names a copied file.
+ * An app's own store the archive copies (`archive.ts`), because the app wipes what is deleted or ages out. `app` writes
+ * it and is kept running: closed, it receives nothing. `copy` copies what is new and says how many versions; `copies` is
+ * the table each copy is a row of. `deleted`: what the app deletes is kept in the archive's `deleted` view, `media` its
+ * column that names a copied file.
  */
 export interface AppStore {
   /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). */
   app?: string;
   copies: string;
   copy: () => number;
-  media: string;
+  deleted?: { media?: string };
 }
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
@@ -61,9 +62,10 @@ export type Descriptor = {
   | {
       /**
        * own_writing: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
-       * report they did, evidence of it, never anyone's words.
+       * report they did, evidence of it, never anyone's words; screen: the time he spent in each app and website, as his
+       * devices record it.
        */
-      kind: "agent" | "chat" | "mail" | "own_writing";
+      kind: "agent" | "chat" | "mail" | "own_writing" | "screen";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
     }
@@ -75,6 +77,10 @@ export type Descriptor = {
   /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
   | { kind: "voice" }
 );
+
+/** Activity: what his devices record he did (commits, Screen Time), never anyone's words: never extracted, importance 1 at most. */
+export const isActivity = (kind: Descriptor["kind"]) =>
+  kind === "repo" || kind === "screen";
 
 /** Which project and area a repo belongs to: his map (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
 export interface Placement {

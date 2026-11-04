@@ -1101,3 +1101,42 @@ test("a shared note's lines are never his: extract reads them as an unknown spea
   ]);
   expect(unit?.unit.stats.fromMe).toBe(0);
 });
+
+test("a device-day: its time by app and website (a minute or more), its stints of 5 minutes or more as lines", () => {
+  const stint = (from: number, until: number, text: string) =>
+    msg({
+      at: new Date(
+        Date.parse("2026-10-09T10:00:00.000Z") + from * MIN
+      ).toISOString(),
+      chat: "PHONE-1",
+      chatName: "iPhone",
+      fromMe: true,
+      id: `screen:PHONE-1/${text}/${from}`,
+      sender: "me",
+      source: "screen",
+      text,
+      until: new Date(
+        Date.parse("2026-10-09T10:00:00.000Z") + until * MIN
+      ).toISOString(),
+    });
+  const [day, ...more] = messageUnits(
+    [
+      stint(0, 40, "com.example.chat"),
+      stint(45, 47, "com.example.chat"),
+      stint(50, 50.5, "com.example.maps"),
+      stint(60, 75, "web: example.org"),
+    ],
+    () => null
+  );
+  expect(more).toEqual([]);
+  const lines = (day?.text ?? "").split("\n");
+  expect(lines[0]).toBe("iPhone: 42 min in apps, most com.example.chat 42 min");
+  expect(lines[1]).toBe(
+    "Time: com.example.chat 42 min, web: example.org 15 min"
+  );
+  expect(lines.slice(2).map((l) => l.slice(12))).toEqual([
+    "com.example.chat",
+    "web: example.org",
+  ]);
+  expect(day?.unit.end).toBe("2026-10-09T11:15:00.000Z");
+});

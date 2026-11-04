@@ -32,6 +32,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "chatgpt",
     AGENT_WORD,
     "git",
+    "screen",
   ]);
 });
 

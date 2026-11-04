@@ -45,6 +45,8 @@ export const SourceEvent = z
     text: z.string(),
     // Mail only: Mail sorted it as a transaction (an order, booking, receipt, delivery or bank notice).
     transaction: z.literal(true).optional(),
+    // Screen Time only: when the app or website left the front.
+    until: isoDateTime.optional(),
   })
   .strict();
 

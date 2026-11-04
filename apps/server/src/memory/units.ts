@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { redact } from "../core/redact";
@@ -18,6 +18,7 @@ import {
   turnRef,
   withStore,
 } from "../sources/lifelog";
+import { WEB } from "../sources/screen";
 import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
@@ -336,11 +337,14 @@ const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** One chat's, thread's, note's or repo's events of a day, cut into its unit by its source's kind. */
-const cut = (list: SourceEvent[], resolve: Resolve) =>
-  kindOf((list[0] as SourceEvent).source) === "repo"
-    ? repoDay(list)
-    : chatDay(list, resolve);
+/** One chat's, thread's, note's, repo's or device's events of a day, cut into its unit by its source's kind. */
+function cut(list: SourceEvent[], resolve: Resolve) {
+  const kind = kindOf((list[0] as SourceEvent).source);
+  if (kind === "repo") {
+    return repoDay(list);
+  }
+  return kind === "screen" ? deviceDay(list) : chatDay(list, resolve);
+}
 
 /** Chat-days, mail thread-days, note-days and repo-days: every event of one chat, thread, note or repo on one local day. */
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
@@ -483,6 +487,58 @@ function repoDay(list: SourceEvent[]): Built {
       stats,
       summary: clip(messages.map((m) => redact(m.text)).join("; ")),
       title: `${unit.key}: ${count(unit.stats.items, "commit")}${by > 0 ? ` (${by} by others)` : ""}, ${lineCounts([stats])}`,
+    },
+  };
+}
+
+/** "1 h 38 min", "12 min". */
+function minutes(ms: number) {
+  const m = Math.round(ms / MIN);
+  return m < 60
+    ? `${m} min`
+    : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
+}
+
+/** A device-day's stints this long are its lines; shorter ones count in its totals only. */
+const LINE_STINT = 5 * MIN;
+
+/**
+ * The unit of one device's Screen Time on a local day (a device-day), made like a chat-day: the time by app and website
+ * (a minute or more), then each stint of 5 minutes or more. The title: the time in apps and the top one.
+ */
+function deviceDay(list: SourceEvent[]): Built {
+  list.sort((a, b) => a.at.localeCompare(b.at));
+  const length = (e: SourceEvent) =>
+    Date.parse(e.until ?? e.at) - Date.parse(e.at);
+  const lines = list.filter((e) => length(e) >= LINE_STINT);
+  const { messages, unit } = chatDay(
+    lines.length > 0 ? lines : list,
+    () => null
+  );
+  const totals = [...Map.groupBy(list, (e) => e.text)]
+    .map(([what, l]) => ({ ms: l.reduce((n, e) => n + length(e), 0), what }))
+    .filter((t) => t.ms >= MIN)
+    .sort((a, b) => b.ms - a.ms);
+  const apps = totals.filter((t) => !t.what.startsWith(WEB));
+  const [top] = apps;
+  const body = [
+    `Time: ${totals.map((t) => `${t.what} ${minutes(t.ms)}`).join(", ")}`,
+    ...lines.map((e) => `${time(e.at)}–${time(e.until ?? e.at)} ${e.text}`),
+  ].join("\n");
+  const title = `${unit.title}: ${minutes(apps.reduce((n, t) => n + t.ms, 0))} in apps${top ? `, most ${top.what} ${minutes(top.ms)}` : ""}`;
+  return {
+    messages,
+    text: `${title}\n${body}`,
+    unit: {
+      ...unit,
+      end: list
+        .map((e) => e.until ?? e.at)
+        .sort()
+        .at(-1) as string,
+      hash: contentHash(body),
+      start: (list.at(0) as SourceEvent).at,
+      summary: clip(body.split("\n")[0] as string),
+      title,
     },
   };
 }

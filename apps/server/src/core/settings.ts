@@ -58,6 +58,8 @@ export const Settings = z
       })
       .strict()
       .optional(),
+    /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
+    devices: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
