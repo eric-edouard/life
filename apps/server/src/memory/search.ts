@@ -18,6 +18,7 @@ import type { Unit, Verdict } from "../records/unit";
 import { KEEP_AT } from "../records/unit";
 import {
   conversationsWith,
+  lifelogMissing,
   searchVoice,
   speakers,
   turnPlace,
@@ -339,11 +340,7 @@ export async function search(words: string, o: Days = {}) {
   ]);
   return withIndex((db) => [
     ...(found.length > 0
-      ? [
-          "Moments (what happened or is planned):",
-          ...cut(found.map(momentLine), true),
-          "",
-        ]
+      ? ["Moments (what happened):", ...cut(found.map(momentLine), true), ""]
       : []),
     ...(found.length > 0 ? ["Observations and units:"] : []),
     ...matches(db, words, o),
@@ -609,6 +606,13 @@ export interface DayMoment {
   stay?: string;
 }
 
+/** A unit's moment among those shown (`readBy`'s pick), else undefined: its facts then sit under no moment. */
+export const shownMoment =
+  (byMoment: Map<string, Moment>, shown: Set<Moment>) => (unit: string) => {
+    const m = byMoment.get(unit);
+    return m && shown.has(m) ? m : undefined;
+  };
+
 /**
  * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what he did (its
  * moments in time order, each with where he was, what happened and its key facts), the key facts in no moment, its units
@@ -687,7 +691,10 @@ export async function day(date: string) {
     .filter(inDays({ from: date, to: date }))
     .toSorted((a, b) => (a.start ?? a.day).localeCompare(b.start ?? b.day));
   const byMoment = readBy(all);
-  const stays = await staysOf({ at: date }).catch(() => null);
+  // None without lifelog; null when it is set up but could not be read.
+  const stays = lifelogMissing()
+    ? []
+    : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, truth);
   return withIndex((db) => {
     const facts = db
@@ -696,8 +703,9 @@ export async function day(date: string) {
            order by o.importance desc, o.at limit ${DAY_FACTS}`
       )
       .all(date);
+    const of = shownMoment(byMoment, new Set(moments));
     const factsOf = (m: Moment | undefined) =>
-      facts.filter((f) => byMoment.get(f.unit) === m).map(line);
+      facts.filter((f) => of(f.unit) === m).map(line);
     return dayLines({
       actions,
       born,

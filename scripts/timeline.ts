@@ -16,7 +16,7 @@ import { LocalTime, type Moment } from "@life/server/src/records/moment";
 import { type Stay, visits } from "@life/server/src/sources/lifelog";
 import { z } from "zod";
 
-export const Truth = z.object({
+export const TruthSet = z.object({
   from: z.iso.date(),
   timeline: z.array(
     z.object({
@@ -31,7 +31,7 @@ export const Truth = z.object({
   ),
   to: z.iso.date(),
 });
-type Truth = z.infer<typeof Truth>;
+type TruthSet = z.infer<typeof TruthSet>;
 
 const NEAR_MIN = 15;
 const NEAR_M = 150;
@@ -62,7 +62,11 @@ const offBy = (a: string | null, b: string | null, x: number, y: number) =>
     ? Math.round(Math.abs(x - y) / MIN)
     : undefined;
 
-export function timelineScore(truth: Truth, moments: Moment[], stays: Stay[]) {
+export function timelineScore(
+  truth: TruthSet,
+  moments: Moment[],
+  stays: Stay[]
+) {
   const [from, to] = [
     edgeTime(true, truth.from),
     edgeTime(true, daysBefore(truth.to, -1)),
@@ -178,7 +182,7 @@ function cells(r: Score["rows"][number]) {
 export const timelineLine = ({ counts: c }: Score) =>
   `${c.found}/${c.truth} found, ${c.merged} merged into another, ${c.missed} missed, ${c.extra} extra, ${c.duplicates} duplicates; start within ${NEAR_MIN} min ${c.start.ok}/${c.start.checked}, end ${c.end.ok}/${c.end.checked}, place within ${NEAR_M} m ${c.place.ok}/${c.place.checked}`;
 
-export const timelineTable = (s: Score, truth: Truth) =>
+export const timelineTable = (s: Score, truth: TruthSet) =>
   [
     `Timeline ${truth.from}${truth.to === truth.from ? "" : ` to ${truth.to}`}: ${timelineLine(s)}.`,
     "",
@@ -195,7 +199,7 @@ if (import.meta.main) {
   if (!file) {
     throw new Error("usage: bun scripts/timeline.ts <truth.json> [--json]");
   }
-  const truth = Truth.parse(await Bun.file(file).json());
+  const truth = TruthSet.parse(await Bun.file(file).json());
   const [lines, people, stays] = await Promise.all([
     readMoments(),
     readPeople(),

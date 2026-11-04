@@ -455,6 +455,7 @@ export async function extract(evidence: Evidence) {
         ).values(),
       ];
       const input = {
+        // Not the moment's `what`: extraction reads the units; the moment only groups them (its prompt's meaning, v5).
         moments: call.map(({ moment: m, sources: ss }) => ({
           id: m?.id ?? "none",
           people: m?.people ?? [],

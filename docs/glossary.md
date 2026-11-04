@@ -65,6 +65,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | what | A moment's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
 | within | The moment holding another (a dinner within a trip). | |
 | stay | One place his phone stayed, from lifelog's location history (`staysOf`); a moment's stay is the one covering most of it (`stayOf`), derived, never stored. | |
+| truth set | Days he checked by hand (`docs/evals/truth-*.json` in his data: facts, timeline), what the bench grades against (`TruthSet`, `scripts/timeline.ts`). Not `truth/`, which only he writes. | |
 | unkept | A unit Life read before that its latest verdict no longer keeps: its facts are replaced by none (`unkept` in extracted.jsonl). Not a dropped unit, which a code rule leaves out. | |
 | kept both | A fact the memory both states and contradicts: a contradiction stored, counted apart from wrong by the eval and the bench. | |
 | judge case | A fact with the claims a judge saw and the grade the owner settled for it (`docs/evals/judge-cases-*.json`): how a judge is measured before use. | |

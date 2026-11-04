@@ -20,6 +20,7 @@ import {
   nextBirthday,
   readIndex,
   matches as searchMatches,
+  shownMoment,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -57,6 +58,21 @@ test("day: its key observations in no moment, then its units, a recorded convers
     "Key observations in no moment:",
     '- obs_1 2026-10-14 todo: Call the glazier "call him"',
   ]);
+});
+
+test("a fact sits under the moment shown that reads its unit; one read by a moment not shown sits under none", () => {
+  const dinner = { id: "mom_000000000001" } as Moment;
+  const later = { id: "mom_000000000002" } as Moment;
+  const of = shownMoment(
+    new Map([
+      ["unit_000000000001", dinner],
+      ["unit_000000000002", later],
+    ]),
+    new Set([dinner])
+  );
+  expect(of("unit_000000000001")).toBe(dinner);
+  expect(of("unit_000000000002")).toBeUndefined();
+  expect(of("unit_000000000003")).toBeUndefined();
 });
 
 test("person: a name two people go by lists both, with relation and count", () => {

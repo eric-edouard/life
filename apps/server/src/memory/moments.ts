@@ -10,6 +10,7 @@ import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
 import { isActivity } from "../sources/contract";
+import { lifelogMissing } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
@@ -267,8 +268,8 @@ const isLived = (units: Unit[]) =>
  * The model's reply for one day, checked: a verdict for a unit of the day (its content hash in `units`), its area one
  * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); a moment of the day's units
  * (`isLived`), people resolved through the map (the owner left out), an earlier moment's id kept, a new one minted from
- * the day and its units, `within` mapped from the reply's own ids (`new-1`) to the minted ones; `gone`, this day's
- * moments of `earlier` he did not hide. Anything else is dropped; `invalid` counts the verdicts dropped.
+ * the day and its units, `within` mapped from the reply's own ids (`new-1`) to the minted ones; `gone`, moments of
+ * `earlier` he did not hide (`dayFileOf` drops only this day's). Anything else is dropped; `invalid` counts the verdicts dropped.
  */
 export function parseDay(
   reply: unknown,
@@ -483,8 +484,10 @@ export async function moments(evidence: Evidence) {
       // The new conversations with their words: fetched only now, for the day being read.
       const spoken = await voiceText(units.filter(isNew), resolve, truth);
       const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
-      // Where he was: lifelog's stays (lifelog unreadable fails the attempt; a day with its units is held already).
-      const stays = (await staysOf({ at: day })) ?? [];
+      // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
+      const stays = lifelogMissing()
+        ? []
+        : ((await staysOf({ at: day })) ?? []);
       // Known: on the map, inferred confidently, or answered earlier in this run (one person, one id).
       const unknown = unknownIn(
         spoken,

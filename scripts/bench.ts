@@ -36,7 +36,7 @@ import {
   type Tokens,
 } from "@life/server/src/models/llm";
 import { newestTurn } from "@life/server/src/sources/lifelog";
-import { Truth, type timelineScore } from "./timeline";
+import { TruthSet, type timelineScore } from "./timeline";
 
 const EVALS = join(OWNER_DATA_DIR, "docs/evals");
 /** The truth set: each file one or more days, with their facts and timeline. */
@@ -45,7 +45,7 @@ const truthFiles = async () =>
     .toSorted()
     .map((f) => join(EVALS, f));
 const readTruth = async (file: string) =>
-  Truth.parse(await Bun.file(file).json());
+  TruthSet.parse(await Bun.file(file).json());
 /** Short names for `--models` (an `engine/model/effort` works too). */
 // Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
 // errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). Through allmodels since 28 Oct:
@@ -89,8 +89,7 @@ function summed<T>(all: T[]): T {
   });
 }
 
-/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): moments then extract over each truth window, its claims to claims.jsonl. */
-/** Reads the truth files' days into the copy this process runs on (they stay in his data: the copy has no docs). */
+/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): moments then extract over each truth file's window (the files are passed in: the copy has no docs), its claims to claims.jsonl. */
 async function readDays(files: string[]) {
   const windows = await Promise.all(files.map(readTruth));
   const done = await locked(async () => {

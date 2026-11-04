@@ -55,7 +55,7 @@ const done = (dir: string) =>
   linesOf(join(dir, DONE)).some((l) => l && JSON.parse(l).name === STEP);
 
 /** Is there anything for the rename to do in memory? */
-export const needsRename = (dir = OWNER_DATA_DIR) =>
+const needsRename = (dir = OWNER_DATA_DIR) =>
   existsSync(join(dir, "memory")) && !done(dir);
 
 /** Memory's moments rewritten, then its line in memory/migrations.jsonl. */
