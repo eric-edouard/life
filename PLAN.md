@@ -16,14 +16,14 @@ trip); never two in-person places at once, never one event as several moments; n
 
 ## Milestone 1: score the timeline
 
-- [ ] `scripts/eval.ts --timeline <truth.json>`: the day's moments against the truth timeline, by code, no model,
-      reusing `factsRun`'s file parsing. A truth moment is found by a Life moment sharing one of its evidence units and
-      overlapping its time. Per day: found, missed, extra (a Life moment matching no truth moment: what the truth's
-      prose `notMoments` describe, counted without reading them), start/end within 15 min, place within 150 m of the
-      truth's `gps` (the moment's stay, below), `within` right.
-- [ ] `scripts/bench.ts` grades with the truth set (its days and facts) instead of the fixed `events-2026-10-16.json` week,
-      and prints the timeline score beside the facts.
-- [ ] Baseline timeline score of today's moments, added to `baseline-2026-11-04.md`.
+- [x] `scripts/timeline.ts <truth.json>`: the day's moments against the truth timeline, by code, no model. Truth and
+      Life moments sharing an evidence unit while overlapping match one to one (most shared units, then most overlap);
+      a truth moment whose only match went to another is merged (two things read as one). Per day: found, merged,
+      missed, extra, duplicates, start/end within 15 min, place within 150 m of the truth's `gps` (`stayOf`, `places.ts`,
+      which the calendar now uses too). `within` is scored once M2 adds it.
+- [x] `scripts/bench.ts` reads and grades the truth set's days (facts, rated statements, timeline) instead of the fixed
+      `events-2026-10-16.json` week.
+- [x] Baseline timeline score added to `baseline-2026-11-04.md`.
 
 ## Milestone 2: the new moment
 
@@ -45,9 +45,9 @@ trip); never two in-person places at once, never one event as several moments; n
       `daysOf` moves there from `ledger.ts` (zones imports ledger, so ledger can't import `dayStart`: a cycle
       `imports.test.ts` rejects). `nextDay` becomes one function beside `daysBefore` (today two private copies and three
       inline `daysBefore(x, -1)`).
-- [ ] A moment's stay is derived, never stored: `placesOf` splits into `staysOf(q)` (read and cut, `Stay[]`) and its
-      formatting; a pure `stayOf(span, stays)` picks the longest overlap. Used by the calendar (today its own per-day
-      `visits` cache, private `daysOf` and inline pick in `past-events.ts`, all gone), the timeline score and `read_day`. `read_day` with lifelog down
+- [ ] A moment's stay is derived, never stored: `stayOf` (`places.ts`, M1) picks the stay covering most of its span;
+      `placesOf` splits into `staysOf(q)` (read and cut, `Stay[]`) and its formatting. Used by the calendar (its own
+      per-day `visits` cache and private `daysOf` in `past-events.ts` go), the timeline score and `read_day`. `read_day` with lifelog down
       shows the moments with their `place` text and a line saying where he was is unknown.
 - [ ] A fact's moment is derived, never stored: `readBy` (`extract.ts` `groupsOf`: the moment reaching furthest, then
       the smallest) moves out as the one rule for a unit's moment; extraction, the calendar's "What Life noted" (today

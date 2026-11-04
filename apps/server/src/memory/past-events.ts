@@ -10,7 +10,7 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { momentsNow, readMoments, readUnits } from "./ledger";
-import { where } from "./places";
+import { stayOf, where } from "./places";
 import { momentText } from "./statements";
 import { clip, dayRange, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
@@ -54,11 +54,11 @@ const instant = (local: string) => {
   return dayStart(day, undefined, hm).toISOString();
 };
 /** An event's edge as an instant: a day's start in his zone then, or the instant itself. */
-const at = (allDay: boolean, edge: string) =>
+export const edgeTime = (allDay: boolean, edge: string) =>
   (allDay ? dayStart(edge) : new Date(edge)).getTime();
 
 /** When a moment was: its timed start to its end (an hour when the sources don't say), else whole days. */
-function span(m: Moment) {
+export function span(m: Pick<Moment, "day" | "end" | "start">) {
   const start = m.start ?? m.day;
   if (!start.includes(" ")) {
     const last = (m.end ?? start).slice(0, 10);
@@ -83,7 +83,7 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
   return moments
     .filter((m) => m.status === "happened")
     .map((m) => ({ m, ...span(m) }))
-    .filter(({ allDay, to }) => at(allDay, to) + SETTLE <= now.getTime())
+    .filter(({ allDay, to }) => edgeTime(allDay, to) + SETTLE <= now.getTime())
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
@@ -153,12 +153,7 @@ async function located(
     .flat()
     .filter((s) => s.arrivedAt < d.to && (s.leftAt ?? d.to) > d.from)
     .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt));
-  const length = (s: Stay) =>
-    Date.parse(s.leftAt ?? d.to) - Date.parse(s.arrivedAt);
-  const longest = stays.reduce<Stay | undefined>(
-    (a, s) => (a && length(a) >= length(s) ? a : s),
-    undefined
-  );
+  const longest = stayOf(d.from, d.to, stays);
   return {
     lines: [
       ...(stays.length > 0

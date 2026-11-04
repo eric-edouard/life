@@ -33,6 +33,19 @@ export interface PlacesQuery {
 export const where = (s: Stay) =>
   `${s.place ?? "unnamed place"} (${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)})`;
 
+/** Where he was from `from` to `to` (ISO instants): the stay that covers the most of it; a stay not left is open. */
+export function stayOf(from: string, to: string, stays: Stay[]) {
+  const [a, b] = [Date.parse(from), Date.parse(to)];
+  const covered = (s: Stay) =>
+    Math.min(b, Date.parse(s.leftAt ?? to)) -
+    Math.max(a, Date.parse(s.arrivedAt));
+  return stays.reduce<Stay | undefined>(
+    (best, s) =>
+      covered(s) > 0 && (!best || covered(s) > covered(best)) ? s : best,
+    undefined
+  );
+}
+
 /** The stays for a question, newest first; null when it names nothing to look for. */
 export async function placesOf(
   q: PlacesQuery,

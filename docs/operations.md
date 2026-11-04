@@ -184,11 +184,15 @@ step: [Back up and restore](use/backup.md).
 
 - **Events eval:** `bun scripts/eval.ts <facts.json>` grades a week of extraction against hand-checked facts (kept in
   the data repo's `docs/evals/`). Run it after a change to moments or extraction.
+- **Timeline score:** `bun scripts/timeline.ts <truth.json>` scores the moments memory holds for a truth file's days
+  (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
+  missed, extra, duplicates, and start, end and place against lifelog's stays.
 - **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real moments and
-  extract over a fixed week, once per candidate, on an empty copy of the data, and judges each run (about 40 minutes;
+  extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
+  timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for a moment.
