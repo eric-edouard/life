@@ -225,7 +225,8 @@ the other side is `with` only on a call.
 - `people`: everyone the units show taking part, as `{ref, role}`: `ref` a person ref from `people` (or
   `unknown:<name as written>`), `role` one of `with` (takes part), `told` (the owner talks or writes to them about the moment
   without them taking part), `organizer`. People only talked about are not listed. The owner is implied; do not list him.
-- `units`: the ids of today's units, new or stubs, that are evidence for it.
+- `units`: the ids of today's units, new or stubs, that are evidence for it; at least one. A stay that no unit speaks
+  of is not a moment. A moment holding others cites their units too.
 - `importance`: 1 ordinary (a coffee, a routine call), 2 worth remembering in a month (a family visit, a trip, a
   meeting that decided something), 3 a landmark (a move, a breakup, a birth, a big purchase). Rank within the day: most
   moments are 1.
