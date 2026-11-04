@@ -383,7 +383,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
   ]);
 });
 
-test("mail reaches memory only from someone Jean knows or in a thread he wrote in; login codes and Life's own mail never; his agents' reports always", () => {
+test("mail reaches memory only from someone Jean knows, in a thread he wrote in, or as a transaction; login codes and Life's own mail never; his agents' reports always", () => {
   const mail = (
     id: string,
     sender: string,
@@ -447,6 +447,13 @@ test("mail reaches memory only from someone Jean knows or in a thread he wrote i
           fromMe: true,
         }),
         mail("m9", "stranger@example.test", "Hello", "Want to buy my boat?"),
+        mail("m10", "booking@airline.test", "Your flight", "Seat 12A.", {
+          transaction: true,
+        }),
+        mail("m11", "ci@forge.test", "Build passed", "All green.", {
+          bulk: true,
+          transaction: true,
+        }),
       ],
       (s) => (s === "marie@example.test" ? "person:marie" : null)
     )
@@ -461,6 +468,8 @@ test("mail reaches memory only from someone Jean knows or in a thread he wrote i
     null,
     null,
     "not-a-person",
+    null,
+    "newsletter",
   ]);
 });
 

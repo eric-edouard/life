@@ -107,7 +107,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   db.run("create table mailboxes (ROWID integer primary key, url text)");
   db.run("create table labels (message_id integer, mailbox_id integer)");
   db.run(
-    "create table message_global_data (ROWID integer primary key, message_id_header text)"
+    "create table message_global_data (ROWID integer primary key, message_id_header text, model_category integer)"
   );
   const acct = "AAAA-1111";
   db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
@@ -121,7 +121,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       (3, 'Me@Other.test', ''), (4, 'Bo@Example.com', 'Bo')`
   );
   db.run(
-    "insert into message_global_data values (10, '<abc@example.com>'), (11, null), (14, '<files@example.com>')"
+    "insert into message_global_data values (10, '<abc@example.com>', 1), (11, null, null), (14, '<files@example.com>', 3)"
   );
   const t = Date.parse("2026-10-09T08:00:00Z") / 1000;
   db.run(`insert into messages values
@@ -174,6 +174,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       sender: "ana@example.com",
       source: "mail",
       text: "Devis\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi.",
+      transaction: true,
     },
     {
       at: "2026-10-09T08:01:00.000Z",
@@ -245,4 +246,16 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ).toBe(
     "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
   );
+  // A Mac that doesn't sort mail has no category: nothing is a transaction.
+  const unsorted = new Database(join(root, "MailData", "Envelope Index"));
+  unsorted.run("alter table message_global_data drop column model_category");
+  unsorted.close();
+  const plain = readMail(
+    new Date("2026-10-08T00:00:00Z"),
+    root,
+    join(base, "none.sqlite"),
+    new Map()
+  );
+  expect(plain.length).toBeGreaterThan(0);
+  expect(plain.filter((e) => e.transaction)).toEqual([]);
 });

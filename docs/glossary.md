@@ -49,6 +49,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
 | conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
 | chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
+| transaction | A mail Mail itself sorted as Transactions (an order, booking, receipt, delivery or bank notice), kept even from a sender he doesn't know. Not a database transaction. | |
 | archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory
