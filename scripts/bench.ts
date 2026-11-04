@@ -89,8 +89,9 @@ function summed<T>(all: T[]): T {
 }
 
 /** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): moments then extract over each truth window, its claims to claims.jsonl. */
-async function readDays() {
-  const windows = await Promise.all((await truthFiles()).map(readTruth));
+/** Reads the truth files' days into the copy this process runs on (they stay in his data: the copy has no docs). */
+async function readDays(files: string[]) {
+  const windows = await Promise.all(files.map(readTruth));
   const done = await locked(async () => {
     const people = await readPeople();
     const read = { calls: 0, failed: 0 };
@@ -257,6 +258,7 @@ async function bench(models: string[], runs: number, judge?: string) {
           const read = await run(code, data, p.llm, [
             "scripts/bench.ts",
             "--read-days",
+            ...files,
           ]);
           const minutes = Math.round((performance.now() - started) / MIN);
           const claims = join(data, "claims.jsonl");
@@ -365,7 +367,8 @@ export function factTable(
 }
 
 if (import.meta.main) {
-  const { values } = parseArgs({
+  const { positionals, values } = parseArgs({
+    allowPositionals: true,
     args: process.argv.slice(2),
     options: {
       judge: { type: "string" },
@@ -376,7 +379,7 @@ if (import.meta.main) {
     },
   });
   if (values["read-days"]) {
-    await readDays();
+    await readDays(positionals);
   } else {
     await spareQuota();
     await bench(
