@@ -67,19 +67,25 @@ trip); never two in-person places at once, never one event as several moments; n
 
 One way of reading, whether the day is new or read before: the day's current moments are the state, and only the
 units not judged on their current content are new evidence (the existing verdict cache, `judged`, `moments.ts`:335;
-no new state). A first reading is the same step with no moments yet; so is the backfill.
+no new state). A moment made by an older prompt is not state, as a verdict by an older prompt is not judged
+(`judged`:338): under a new prompt every unit goes in full and no moment is given, so a first reading, a prompt change
+and the backfill are all the same step with nothing read yet, and the migrated `why`→`what` never outlives it.
 
 - [ ] Input: a unit judged on its current content (and not `reread` since) goes as a stub (id, source, times, title,
-      its verdict's `reason`), never its text; the others go in full, as today. The day's current moments go with their
-      `what` (they already go, as `earlier`).
+      its verdict's `reason`), never its text, and is not fetched (`voiceText` and `unknownIn` run on the full units
+      only); the others go in full, as today. The day's current moments go in `earlier`, now with `what`, `end` and
+      `within`.
 - [ ] Output: verdicts only for the units sent in full (today's `fresh` already keeps only those); `moments`: the new
-      and changed ones only, in full; `gone`: ids of this day's moments no longer true. The day's file is its
-      current lines minus `gone`, with the changed ones replaced and the new ones added (`dayFileOf`, which already
-      keeps hidden ones). A moment left out is kept as it is.
-- [ ] Measured on the bench: tokens per day across the three truth days read as they arrived (in the hourly slices the
-      log shows), against v5; duplicates show as extra moments in the timeline score. A night pass that merges a day's
-      duplicate moments (moments and stays only, no units) is added only if the score shows them.
-- [ ] `docs/operations.md`: how a day is read (stubs, the state, when a unit counts as new).
+      and changed ones only, in full; `gone`: ids of this day's moments no longer true (never one he hid). The day's
+      file is `momentsNow` over its current lines minus `gone`, plus the reply: the one merge rule (the last line wins,
+      units and copies unioned), so a changed moment keeps its earlier units; `dayFileOf`'s own merge and `hiddenOn` in it
+      go. Kept lines pass `parseDay`'s unit filter: a unit gone (a conversation regrouped) leaves them, a moment with no
+      unit left is gone, a `within` naming nothing becomes null. `missing` counts only the units sent in full.
+- [ ] Measured in production, from the log (`model.run` tokens per day), a week before and after; quality on the bench's
+      timeline score, where duplicates show as extra moments. A night pass that merges a day's duplicate moments
+      (moments and stays only, no units) is added only if the score shows them.
+- [ ] Docs say a day reads only what's new: `docs/operations.md` (how: stubs, the state, when a unit counts as new),
+      AGENTS.md:124, `architecture.md`:53, the `moments.ts`:54–58 header, `SCHEMA.md`:67 and :89.
 
 ponytail: new is per unit, so a chat-day with one new message goes in full (that chat-day only, not the day); per
 message would need a record of what was read, add it if the bench shows chat-days dominate.
@@ -117,4 +123,7 @@ Plan review: reshape on the first review (fresh top reviewer, 4 Nov), all taken:
 (`readBy`), `span` moved beside `daysOf`, stays through `placesOf`, `within` local ids mapped in `parseDay`, the
 timeline score counts extra moments instead of reading prose `notMoments`, lifelog failure paths said, missed readers
 (`fact-checks.ts`, `momentGroup`, SCHEMA.md:341) added, glossary lines for stay and `what`, the AGENTS.md note on
-dropping moment lines. Then incremental reading was folded in (his choice): second review: pending.
+dropping moment lines. Then incremental reading was folded in (his choice); second review: reshape, all taken: `momentsNow` is the one merge
+rule for a day's file, kept lines filtered and dangling `within` nulled, older-prompt moments are not state, stubs not
+fetched and not counted missing, `earlier` carries `what`/`end`/`within`, tokens measured from the production log (no
+replay code), the four docs that say a day reads every unit. Shape unchanged by these: no third review.
