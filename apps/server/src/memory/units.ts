@@ -492,7 +492,7 @@ function repoDay(list: SourceEvent[]): Built {
 }
 
 /** "1 h 38 min", "12 min". */
-export function minutes(ms: number) {
+function minutes(ms: number) {
   const m = Math.round(ms / MIN);
   return m < 60
     ? `${m} min`

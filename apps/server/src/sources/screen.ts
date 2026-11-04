@@ -1,7 +1,7 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { clock, HOUR, MIN } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
@@ -20,7 +20,7 @@ import { fromAppleS } from "./imessage";
 // as Apple's Biome records them. Biome prunes them after a week or a few, so `copyScreen` keeps every record in the
 // archive (`screen.sqlite`), raw; `readScreen` reads them back as stints. Nothing in an app is read, only its name.
 
-export const BIOME = join(HOME, "Library/Biome");
+const BIOME = join(HOME, "Library/Biome");
 /** An app's time (`app`) or a website's (`web`). */
 type Stream = "app" | "web";
 
@@ -49,7 +49,7 @@ export function parseSegb(bytes: Uint8Array) {
 
 type Field = number | Uint8Array;
 /** A protobuf message's fields by number (the last one wins): varints and doubles as numbers, the rest as bytes. */
-export function fieldsOf(buf: Uint8Array) {
+function fieldsOf(buf: Uint8Array) {
   const fields = new Map<number, Field>();
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   let i = 0;
@@ -128,7 +128,7 @@ const recordFrom = (
  * (`ScreenTime.AppUsage`, which leaves idle time out); an iOS device syncs only which app is in front (`App.InFocus`,
  * `remote/<device>`); websites are Safari's on the Mac.
  */
-export const FEEDS = [
+const FEEDS = [
   {
     folder: "ScreenTime.AppUsage/local",
     record: (f: Map<number, Field>) =>
@@ -177,7 +177,7 @@ function readPeers(biome = BIOME) {
 
 const PLATFORMS: Record<number, string> = { 2: "iOS device", 3: "Mac" };
 /** What he calls a device (the `devices` setting), else its platform. */
-export const deviceName = (id: string, peers = readPeers()) =>
+const deviceName = (id: string, peers = readPeers()) =>
   settings().devices?.[id] ??
   PLATFORMS[peers.find((p) => p.id === id)?.platform ?? 0] ??
   "device";
@@ -206,59 +206,72 @@ const openScreen = (dir: string) =>
       unique (device, stream, at, bundle, domain, starting))`
   );
 
-// A file is parsed again only when its size or time moves; per process, so a restart reads each once more.
+// A file is parsed again only when its size or time moves, once copied; per process, so a restart reads each once more.
 const seen = new Map<string, string>();
 
 /**
  * Every new kept record of every Biome file into the archive. A record already there is skipped by its key, so one an
- * iPhone syncs late, older than the newest copied, still lands. How many were new.
+ * iPhone syncs late, older than the newest copied, still lands. A file that fails is tried again next pass, after the
+ * others are copied. How many were new.
  */
 export function copyScreen(biome = BIOME, dir = ARCHIVE) {
+  if (!existsSync(join(biome, "sync/sync.db"))) {
+    throw new Error("Biome is not readable: Life needs Full Disk Access");
+  }
   const mac = readPeers(biome).find((p) => p.me)?.id;
   if (!mac) {
     throw new Error("Biome names no device of this Mac's own");
   }
   const changed = FEEDS.flatMap((feed) =>
-    filesOf(biome, feed, mac).filter((f) => {
+    filesOf(biome, feed, mac).flatMap((f) => {
       const s = statSync(f.path);
       const mark = `${s.size}:${s.mtimeMs}`;
-      if (seen.get(f.path) === mark) {
-        return false;
-      }
-      seen.set(f.path, mark);
-      return true;
+      return seen.get(f.path) === mark ? [] : [{ ...f, mark }];
     })
   );
   if (changed.length === 0) {
     return 0;
   }
   const seenAt = clock().toISOString();
-  const rows: SQLQueryBindings[][] = changed.flatMap((f) =>
-    parseSegb(readFileSync(f.path)).flatMap((r) =>
-      f.feed
-        .record(fieldsOf(r))
-        .map((x) => [
-          f.device,
-          f.feed.stream,
-          x.at,
-          x.starting,
-          x.bundle,
-          x.domain,
-          x.visit,
-          seenAt,
-        ])
-    )
-  );
+  const failed: string[] = [];
+  let copied = 0;
   const archive = openScreen(dir);
   try {
-    return insertAll(
-      archive,
-      "insert or ignore into events values (?, ?, ?, ?, ?, ?, ?, ?)",
-      rows
-    );
+    for (const f of changed) {
+      try {
+        const rows: SQLQueryBindings[][] = parseSegb(
+          readFileSync(f.path)
+        ).flatMap((r) =>
+          f.feed
+            .record(fieldsOf(r))
+            .map((x) => [
+              f.device,
+              f.feed.stream,
+              x.at,
+              x.starting,
+              x.bundle,
+              x.domain,
+              x.visit,
+              seenAt,
+            ])
+        );
+        copied += insertAll(
+          archive,
+          "insert or ignore into events values (?, ?, ?, ?, ?, ?, ?, ?)",
+          rows
+        );
+        seen.set(f.path, f.mark);
+      } catch (e) {
+        failed.push(`${f.path}: ${(e as Error).message}`);
+      }
+    }
   } finally {
     archive.close();
   }
+  if (failed.length > 0) {
+    throw new Error(`Screen Time: ${failed.join("; ")}`);
+  }
+  return copied;
 }
 
 /** An app's time in front, or a website's, from when it came to when it left. */
@@ -337,7 +350,7 @@ function joined(stints: Stint[]) {
 
 /**
  * The stints of every device since `since`, as events: chat the device (its name the `devices` setting's), text the app
- * or website, `until` when it left. A stint that began a little before `since` is read from its start.
+ * or website, `until` when it left.
  */
 export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
   const path = archiveDb("screen", dir);
@@ -351,7 +364,7 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
         .query<ScreenRecord & { device: string; stream: Stream }, [string]>(
           "select device, stream, at, starting, bundle, domain, visit from events where at >= ? order by at"
         )
-        .all(new Date(since.getTime() - HOUR).toISOString());
+        .all(since.toISOString());
     } finally {
       db.close();
     }
@@ -360,7 +373,6 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
   const groups = Map.groupBy(rows, (r) => `${r.device}|${r.stream}`);
   return [...groups.values()]
     .flatMap((g) => stintsOf(g, (g[0] as (typeof g)[number]).stream))
-    .filter((s) => s.until >= since.toISOString())
     .map(
       (s): SourceEvent => ({
         at: s.at,

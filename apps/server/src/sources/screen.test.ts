@@ -192,3 +192,25 @@ test("stints: the next app ends the one in front, frames end it but are left out
     ["com.example.chat", "02:30", "02:31"],
   ]);
 });
+
+test("a file that fails stops no other, and is copied once it reads", () => {
+  const { archive, root, write } = biomeFixture({
+    "App.WebUsage/local/1": segb([
+      { data: visit(0, "v1", "example.org", true) },
+      { data: visit(12, "v1", "example.org", false) },
+    ]),
+    // Biome still writing it.
+    "ScreenTime.AppUsage/local/1": Buffer.alloc(0),
+  });
+  expect(() => copyScreen(root, archive)).toThrow("not a SEGB v2 file");
+  expect(readScreen(new Date(at(-1)), archive, root)).toHaveLength(1);
+  expect(() => copyScreen(root, archive)).toThrow();
+  write(
+    "ScreenTime.AppUsage/local/1",
+    segb([
+      { data: macApp(0, "com.example.editor", true) },
+      { data: macApp(30, "com.example.editor", false) },
+    ])
+  );
+  expect(copyScreen(root, archive)).toBe(2);
+});
