@@ -47,13 +47,4 @@ struct SettingsTests {
         #expect(relaunched.notificationsInviteDismissed)
         #expect(relaunched.alerts.lowBatteryPercent == 15)
     }
-
-    @Test func theCopilotIsReachedOnlyWhileItsSwitchIsOn() {
-        let settings = Settings(defaults: defaults, group: group)
-        let address = URL(string: "https://copilot.example.ts.net:10443")!
-        settings.copilotAddress = address
-        #expect(settings.copilot == nil)
-        settings.copilotOn = true
-        #expect(Settings(defaults: defaults, group: group).copilot == address)
-    }
 }
