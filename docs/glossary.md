@@ -61,7 +61,10 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
-| moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
+| moment | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Id `mom_…`. | |
+| what | A moment's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
+| within | The moment holding another (a dinner within a trip). | |
+| stay | One place his phone stayed, from lifelog's location history (`staysOf`); a moment's stay is the one covering most of it (`stayOf`), derived, never stored. | |
 | unkept | A unit Life read before that its latest verdict no longer keeps: its facts are replaced by none (`unkept` in extracted.jsonl). Not a dropped unit, which a code rule leaves out. | |
 | kept both | A fact the memory both states and contradicts: a contradiction stored, counted apart from wrong by the eval and the bench. | |
 | judge case | A fact with the claims a judge saw and the grade the owner settled for it (`docs/evals/judge-cases-*.json`): how a judge is measured before use. | |
@@ -77,7 +80,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | overview | The list of all his decisions on the decisions page: a sidebar from 900 px, a sheet from the top below. Not the nightly report. | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on decisions Life asks itself (`memory/fact-checks.ts`; a loop's until 30 Oct 2026): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
-| doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |
+| doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `low-confidence`. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
 
@@ -85,7 +88,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
+| Past calendar | The calendar Life writes every moment to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |

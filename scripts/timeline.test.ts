@@ -14,10 +14,10 @@ const moment = (over: Partial<Moment>): Moment => ({
   place: null,
   schemaVersion: 1,
   start: null,
-  status: "happened",
   title: "A moment",
   units: ["unit_000000000001"],
-  why: "",
+  what: "",
+  within: null,
   ...over,
 });
 

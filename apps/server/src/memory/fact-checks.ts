@@ -24,7 +24,6 @@ const OPEN = 5;
 const WHY: Record<Doubt, string> = {
   "guessed-person": "who it's about is only guessed",
   "low-confidence": "the reading itself was unsure",
-  "unsure-moment": "the moment it comes from is unsure",
 };
 const OPTIONS = [
   { id: "true", label: "Right" },

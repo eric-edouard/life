@@ -50,10 +50,12 @@ flowchart LR
 - **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a conversation-day, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output, mail from no one he
   knows) before any model sees it.
-- **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
-  writes a verdict per unit (type, importance, area) and what happened or is planned. The same call says who the day's
-  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its
-  words, fetched only for the day being read (`voiceText`).
+- **Moments** (`moments.ts`): one deep model call per day reads the day from every channel in time order, with where
+  his phone stayed: the units not judged yet in full, the rest as stubs, and the day's moments as they stand. It writes
+  a verdict per new unit (type, importance, area) and the moments new, changed or gone: only what happened, each with
+  `what` came of it and the moment holding it (`within`). The same call says who the day's unknown people are
+  (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its words, fetched
+  only for the units sent in full (`voiceText`).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`

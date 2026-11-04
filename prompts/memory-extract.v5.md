@@ -15,8 +15,8 @@ map: `ref`, `name`, `aliases`, `relation`, and `close: true` for the people clos
 
 The user message is one JSON object with `moments` and `prior`.
 
-- Each moment is something that happened or is planned in the owner's life, found by an earlier step from every channel:
-  `id`, `title`, `status` (happened, planned, cancelled, unsure), `start`, `place`, `people` and `units`. The moment
+- Each moment is something that happened in the owner's life, found by an earlier step from every channel:
+  `id`, `title`, `start`, `place`, `people` and `units`. The moment
   itself is already remembered: its title, time, place and people. **The moment header is a model's reading and may be
   wrong**; it tells you what the units are about, the units' lines are the evidence. Its units may come from several
   days, but its earliest days may be left out. A moment with id `none` holds units that belong to no moment.

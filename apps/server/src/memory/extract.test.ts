@@ -51,10 +51,10 @@ const moment = (over: Partial<Moment> = {}): Moment => ({
   place: null,
   schemaVersion: 1,
   start: "2026-10-16",
-  status: "planned",
   title: "Trip to see the sisters with Bastien",
   units: [U1],
-  why: "w",
+  what: "w",
+  within: null,
   ...over,
 });
 
@@ -164,13 +164,12 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
     moment({
       day: "2026-10-16",
       id: pickup,
-      status: "planned",
       units: ids([ask, chapter]),
     }),
     moment({
       day: "2026-10-17",
       id: pickup,
-      status: "happened",
+      title: "Pickup",
       units: ids([reply, drive]),
     }),
     moment({ day: "2026-10-16", id: "mom_383deb827705", units: ids([ask]) }),
@@ -202,13 +201,13 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
   expect(
     groups.map((g) => [
       g.moment?.id,
-      g.moment?.status,
+      g.moment?.title,
       g.units.map((b) => b.unit.id),
     ])
   ).toEqual([
     [
       pickup,
-      "happened",
+      "Pickup",
       [ask.unit.id, chapter.unit.id, reply.unit.id, drive.unit.id],
     ],
   ]);

@@ -23,7 +23,7 @@ const claim = (ref: string, over: Partial<Claim> = {}): Claim => ({
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();
 
-test("a fact is doubtful when who it's about is only inferred or its moment is unsure; low confidence only counts beside one", () => {
+test("a fact is doubtful when who it's about is only inferred; low confidence only counts beside it", () => {
   const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
   const o = (over = {}) => ({
     about: undefined,
@@ -32,19 +32,18 @@ test("a fact is doubtful when who it's about is only inferred or its moment is u
     unit: "unit_a",
     ...over,
   });
-  const unsure = new Set(["unit_b"]);
-  expect(doubtsOf(o(), unsure, refOf)).toEqual([]);
-  expect(doubtsOf(o({ confidence: 0.2 }), unsure, refOf)).toEqual([]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), unsure, refOf)).toEqual([
+  expect(doubtsOf(o(), refOf)).toEqual([]);
+  expect(doubtsOf(o({ confidence: 0.2 }), refOf)).toEqual([]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), refOf)).toEqual([
     "guessed-person",
   ]);
   // An inferred person he since named is not a guess; one a ref folds into still is.
-  expect(doubtsOf(o({ entities: ["person:sam"] }), unsure, refOf)).toEqual([
+  expect(doubtsOf(o({ entities: ["person:sam"] }), refOf)).toEqual([
     "guessed-person",
   ]);
   expect(
-    doubtsOf(o({ confidence: 0.2, unit: "unit_b" }), unsure, refOf)
-  ).toEqual(["unsure-moment", "low-confidence"]);
+    doubtsOf(o({ about: "person:inf_kit", confidence: 0.2 }), refOf)
+  ).toEqual(["guessed-person", "low-confidence"]);
 });
 
 test("the fact checks he sees first: the most important, then the most doubtful, then the newest; never a sure, minor, stated or homeless claim", () => {
@@ -67,7 +66,7 @@ test("the fact checks he sees first: the most important, then the most doubtful,
   expect(doubtful(claims, new Set(), 2)).toHaveLength(2);
 });
 
-test("a moment is said as its status, time (a same-day end as a time only), place and the people it was with", () => {
+test("a moment is said as its title, time (a same-day end as a time only), place and the people it was with", () => {
   const m = {
     end: `${YEAR}-09-07 22:30`,
     people: [
@@ -77,13 +76,12 @@ test("a moment is said as its status, time (a same-day end as a time only), plac
     ],
     place: "Chez Paul",
     start: `${YEAR}-09-07 20:00`,
-    status: "happened",
     title: "Dinner",
   } as Moment;
   const names = new Map([["person:zoe", "Zoé"]]);
   const name = (ref: string) => names.get(ref) ?? ref.split(":")[1] ?? ref;
   expect(momentText(m, name)).toBe(
-    "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé, Bob; told dad."
+    "Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé, Bob; told dad."
   );
   expect(
     momentText(
@@ -92,18 +90,16 @@ test("a moment is said as its status, time (a same-day end as a time only), plac
         end: `${YEAR}-09-08`,
         people: [],
         place: null,
-        status: "planned",
       },
       name
     )
-  ).toBe("Planned: Dinner, 7 Sep 20:00–8 Sep.");
+  ).toBe("Dinner, 7 Sep 20:00–8 Sep.");
 });
 
-test("a moment is rated with the one person with a page it was with, as who.ts says today; else under events; never unsure", () => {
-  const m = (people: [string, string][], status = "happened") =>
+test("a moment is rated with the one person with a page it was with, as who.ts says today; else under events", () => {
+  const m = (people: [string, string][]) =>
     ({
       people: people.map(([ref, role]) => ({ ref, role })),
-      status,
     }) as Moment;
   const paged = new Set(["person:zoe", "person:dad"]);
   const refOf = (r: string) => (r === "unknown:Zoé" ? "person:zoe" : r);
@@ -128,7 +124,4 @@ test("a moment is rated with the one person with a page it was with, as who.ts s
     )
   ).toBe("events");
   expect(momentGroup(m([["person:bob", "with"]]), paged, refOf)).toBe("events");
-  expect(
-    momentGroup(m([["person:zoe", "with"]], "unsure"), paged, refOf)
-  ).toBeNull();
 });

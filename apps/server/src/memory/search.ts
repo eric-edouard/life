@@ -37,6 +37,7 @@ import {
   momentsNow,
   OUT,
   pagePath,
+  readBy,
   readCorrections,
   readLedger,
   readMoments,
@@ -50,8 +51,11 @@ import {
 } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
+import { span } from "./past-events";
+import { stayOf, staysOf, where } from "./places";
 import { goalProjects, loadTruth, OWNER, type Truth } from "./read-truth";
 import { kindOf, listening } from "./sources";
+import { momentText } from "./statements";
 import {
   clip,
   dayRange,
@@ -105,9 +109,9 @@ const cut = (lines: string[], newest = false) =>
       ]
     : lines;
 
-/** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
+/** A moment as the read path prints it: its id (to correct it), `momentText`, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
-  `- ${m.id} ${m.start ?? `${m.day} (undated)`}${m.end ? ` to ${m.end}` : ""} ${m.title}${m.place ? ` @ ${m.place}` : ""} (${m.status}${m.people.length > 0 ? `; ${m.people.map((p) => `${named({ speaker: p.ref })} ${p.role}`).join(", ")}` : ""}) [${m.units.slice(0, 3).join(" ")}]`;
+  `- ${m.id} ${momentText(m, (ref) => named({ speaker: ref }))}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
 
 /** The moments as they stand now that `keep` keeps, by when they happen. */
 const momentsWhere = async (keep: (m: Moment) => boolean) => {
@@ -157,6 +161,8 @@ const line = (r: Row) => {
 interface UnitRow {
   date: string;
   id: string;
+  /** Its verdict's, or null when it has none yet. */
+  importance?: number | null;
   source: SourceName;
   title: string;
   topics: string;
@@ -226,11 +232,11 @@ export function matches(db: Database, q: string, range: Days = {}) {
   return ["(nothing found)"];
 }
 
-/** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
-function latest(db: Database, where: string, value: string, limit = LIMIT) {
+/** The observations `clause` finds worth a page line, newest first: `limit` of them (-1: all). */
+function latest(db: Database, clause: string, value: string, limit = LIMIT) {
   return db
     .query<Row, [string]>(
-      `select ${COLUMNS} from observations o ${where} and o.importance >= ${KEEP_AT} and ${CURRENT}
+      `select ${COLUMNS} from observations o ${clause} and o.importance >= ${KEEP_AT} and ${CURRENT}
        order by o.date desc, o.at desc limit ${limit}`
     )
     .all(value);
@@ -596,10 +602,18 @@ const linkedCount = (db: Database, id: string) =>
     )
     .get(`person:${id}`)?.n ?? 0;
 
+/** A moment of `read_day`: where he was during it (a stay, when lifelog says) and its key facts (`readBy`). */
+export interface DayMoment {
+  facts: string[];
+  moment: Moment;
+  stay?: string;
+}
+
 /**
- * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
- * planned ones included), its units (conversations, chats, mail and the rest), its key observations,
- * then what Life changed for him.
+ * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what he did (its
+ * moments in time order, each with where he was, what happened and its key facts), the key facts in no moment, its units
+ * (conversations, chats, mail and the rest; those judged worth nothing only counted), then what Life changed for him.
+ * `whereUnknown`: lifelog could not be read, so where he was is not shown.
  */
 export function dayLines({
   actions = [],
@@ -608,14 +622,17 @@ export function dayLines({
   facts = [],
   moments = [],
   units = [],
+  whereUnknown = false,
 }: {
   actions?: LedgerEntry[];
   born?: string[];
   due?: string[];
   facts?: string[];
-  moments?: Moment[];
+  moments?: DayMoment[];
   units?: UnitRow[];
+  whereUnknown?: boolean;
 }) {
+  const noise = units.filter((u) => u.importance === 0).length;
   return [
     ...(born.length > 0
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
@@ -629,14 +646,24 @@ export function dayLines({
       : []),
     ...(moments.length > 0
       ? [
-          "Moments (what happened or is planned):",
-          ...moments.map(momentLine),
+          "Moments (what he did, in time order):",
+          ...moments.flatMap(({ facts: of, moment, stay }) => [
+            momentLine(moment),
+            ...(stay ? [`    Where he was: ${stay}`] : []),
+            ...(moment.what ? [`    ${moment.what}`] : []),
+            ...of.map((f) => `    ${f}`),
+          ]),
+          ...(whereUnknown
+            ? ["Where he was is unknown: lifelog could not be read."]
+            : []),
           "",
         ]
       : []),
-    `Units (${units.length}; \`fetch <unit id>\`):`,
-    ...units.map(unitLine),
-    ...(facts.length > 0 ? ["", "Key observations:", ...facts] : []),
+    ...(facts.length > 0
+      ? ["Key observations in no moment:", ...facts, ""]
+      : []),
+    `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
+    ...units.filter((u) => u.importance !== 0).map(unitLine),
     ...(actions.length > 0
       ? [
           "",
@@ -655,28 +682,46 @@ export async function day(date: string) {
   const actions = (await readLedger()).filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
-  const moments = await momentsWhere(inDays({ from: date, to: date }));
+  const all = await momentsWhere(() => true);
+  const moments = all
+    .filter(inDays({ from: date, to: date }))
+    .toSorted((a, b) => (a.start ?? a.day).localeCompare(b.start ?? b.day));
+  const byMoment = readBy(all);
+  const stays = await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, truth);
-  return withIndex((db) =>
-    dayLines({
+  return withIndex((db) => {
+    const facts = db
+      .query<Row & { unit: string }, [string]>(
+        `select ${COLUMNS}, o.unit from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
+           order by o.importance desc, o.at limit ${DAY_FACTS}`
+      )
+      .all(date);
+    const factsOf = (m: Moment | undefined) =>
+      facts.filter((f) => byMoment.get(f.unit) === m).map(line);
+    return dayLines({
       actions,
       born,
       due: dueOf(db, date, context),
-      facts: db
-        .query<Row, [string]>(
-          `select ${COLUMNS} from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
-             order by o.importance desc, o.at limit ${DAY_FACTS}`
-        )
-        .all(date)
-        .map(line),
-      moments,
+      facts: factsOf(undefined),
+      moments: moments.map((moment) => {
+        const s = span(moment);
+        const stay = s.allDay
+          ? undefined
+          : stays && stayOf(s.from, s.to, stays);
+        return {
+          facts: factsOf(moment),
+          moment,
+          stay: stay ? where(stay) : undefined,
+        };
+      }),
       units: db
         .query<UnitRow, [string]>(
-          "select id, date, source, title, topics from units where date = ? order by source, title"
+          "select id, date, source, title, topics, importance from units where date = ? order by source, title"
         )
         .all(date),
-    })
-  );
+      whereUnknown: moments.length > 0 && stays === null,
+    });
+  });
 }
 
 /** How far ahead `read_day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */

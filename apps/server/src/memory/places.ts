@@ -46,11 +46,10 @@ export function stayOf(from: string, to: string, stays: Stay[]) {
   );
 }
 
-/** The stays for a question, newest first; null when it names nothing to look for. */
-export async function placesOf(
+/** The stays for a question, newest first, cut at now (a stay not left by then is open); null when it names nothing to look for. */
+export async function staysOf(
   q: PlacesQuery,
-  read = { visits, where: whereAt },
-  open = openStore
+  read = { visits, where: whereAt }
 ) {
   const located = q.latitude !== undefined && q.longitude !== undefined;
   if (!(q.at || q.place || located)) {
@@ -60,7 +59,7 @@ export async function placesOf(
   const day = q.at && isDay(q.at) ? q.at : undefined;
   const range = day ? dayRange(day, day) : dayRange(q.from, q.to);
   const now = clock().toISOString();
-  const stays = (
+  return (
     q.at && !day
       ? await read.where(q.at)
       : await read.visits({
@@ -72,10 +71,22 @@ export async function placesOf(
           to: range.to,
         })
   )
-    // Nothing after now: a stay not left by then is open.
     .filter((s) => s.arrivedAt <= now)
     .map((s) => (s.leftAt && s.leftAt > now ? { ...s, leftAt: null } : s))
     .slice(0, MAX);
+}
+
+/** The stays for a question as `read_places_visited` lists them, each with the conversations recorded during it. */
+export async function placesOf(
+  q: PlacesQuery,
+  read = { visits, where: whereAt },
+  open = openStore
+) {
+  const stays = await staysOf(q, read);
+  if (!stays) {
+    return null;
+  }
+  const now = clock().toISOString();
   return withStore(
     (store) =>
       asData([

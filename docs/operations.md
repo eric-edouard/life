@@ -83,6 +83,10 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
   closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
+- **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
+  content by the moments prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
+  fetched. The day's moments as they stand are the state; the reply adds or changes some and names those gone. A chat-day
+  with one new message is new as a whole (ponytail: per message would need a record of what was read).
 - **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
@@ -257,8 +261,9 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   newest 5 thread-days holding all the words: `searchableMail`). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
   its conversation as it is now, 5 turns before it.
-- `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what happened: the
-  day's moments, conversations, chat units, key observations, and what Life changed that day and why.
+- `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
+  day's moments in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
+  facts in no moment; the units (those judged worth nothing only counted); and what Life changed that day and why.
 - `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
   month, then every observation and moment linked to them, newest first, paging back with `--before`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's

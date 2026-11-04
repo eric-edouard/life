@@ -64,7 +64,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-moments.v5` since 2 Nov, which times a moment by when it happened, not by everything about it) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-moments.v5` from 2 Nov, which times a moment by when it happened, not by everything about it, `memory-moments.v6` since Nov 2026, which reads the phone's stays, makes only what happened a moment and judges only the new units) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -83,25 +83,29 @@ ID cards, invoices, plans.
 
 ## moments/YYYY-MM-DD.jsonl
 
-What happened, or is planned, in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
-`bun life memory moments` (prompt `memory-moments.v5`) from one day of units read together across every channel, in
-time order, with the moments of the days before that may continue into it (the same call writes the day's verdicts).
-A day's file is rewritten when the day is read again; git keeps the old ones. A moment the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. A moment a later day sees again keeps its id there, and the latest
-day's line is its current state (a plan that happened, or was cancelled), and its units are those of all its days'
-lines. Model-owned, like `people-inferred.jsonl`.
+What happened in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
+`bun life memory moments` (prompt `memory-moments.v6`) from one day of units read together across every channel, in
+time order, with where his phone stayed and the moments of the day before that may continue into it (the same call
+writes the day's verdicts). A plan is never a moment: it is a fact with its `when`. A day read again sends only its
+new units in full; its moments as they stand are the state, and the reply gives the new or changed ones and those
+gone, merged into the day's file as `momentsNow` merges (`dayFileOf`); a moment by an older prompt is not state, so a
+new prompt reads the day afresh. Git keeps the old files. A moment the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. A moment a later day sees again keeps its id there, and the latest
+day's line is its current state, and its units are those of all its days' lines. Where he was during a moment (its
+stay) and which facts are its own (`readBy`) are derived, never stored. Model-owned, like `people-inferred.jsonl`.
 
 | Field | Meaning |
 |---|---|
 | `id` | `mom_` + 12 hex of SHA-1 over its day and units, or the id of the earlier moment it continues. |
 | `day` | The day whose units it was read from. |
 | `title` | Short and factual, naming who and what. |
-| `status` | `happened`, `planned`, `cancelled` or `unsure`. |
+| `what` | One to three factual sentences: what happened and what came of it (`why`, a reason, before Nov 2026). |
+| `within` | The id of the moment holding it (a dinner within a trip), or null. |
 | `start`, `end` | Local `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, or null when the sources don't say. |
 | `place` | As the sources name it, or null. |
 | `people` | `{ref, role}`: `person:<id>` or `unknown:<name>`; `with` (takes part), `told`, `organizer`. The owner is implied. |
 | `units`, `copies` | The day's units that are its evidence; those that are a second copy of another (never read twice). |
 | `importance` | 1 ordinary, 2 worth remembering in a month, 3 a landmark. |
-| `why`, `madeBy` | One line on what shows it; the model and prompt. |
+| `madeBy` | The model and prompt. |
 
 ## observations/YYYY-MM.jsonl (layer L2)
 
@@ -332,15 +336,14 @@ The fact checks: the claims the owner is asked about, one per claim, append-only
 `drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night and midday runs; by hand `bun life memory doubtful <n>`):
 `{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
-(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
-is planned or was cancelled as `Happened: <title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
+(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment as
+`<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
 about it: that home page (`homeOf`), or for a moment the one person with a page it was with, else `events`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
 `moment`), `source` (its channel; null for a moment), `date` (the claim's day) and `units` (what it was read from:
 where a later run's claims about the same thing are). Only doubtful claims are drawn (`doubtsOf`: who it is about is
-only inferred, `guessed-person`; read from an unsure moment, `unsure-moment`; and `low-confidence`, under `SURE_AT`,
-only beside one of those), importance 3 before 2 (never 1), then the most doubts, then the newest. A moment is never
-drawn: none of these doubts is a moment's (an unsure one has no page), only the facts read from it. Statements drawn
+only inferred, `guessed-person`; and `low-confidence`, under `SURE_AT`, only beside it), importance 3 before 2
+(never 1), then the most doubts, then the newest. A moment is never drawn: neither doubt is a moment's. Statements drawn
 before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl

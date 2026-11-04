@@ -260,9 +260,9 @@ for (const d of DEMO) {
       unitHash: u.hash,
     },
   ]);
-  if (d.moment) {
+  // A plan is a fact with its date, never a moment.
+  if (d.moment && !d.facts.some((f) => f[5])) {
     const { place, title } = d.moment;
-    const planned = d.facts.some((f) => f[5]);
     write(join(data, `memory/moments/${day}.jsonl`), [
       {
         copies: [],
@@ -274,11 +274,11 @@ for (const d of DEMO) {
         people: [{ ref: `person:${d.moment.with}`, role: "with" }],
         place,
         schemaVersion: 1,
-        start: planned ? `${d.facts[0]?.[5]} 20:00` : d.at,
-        status: planned ? "planned" : "happened",
+        start: d.at,
         title,
         units: [u.id],
-        why: "demo",
+        what: title,
+        within: null,
       },
     ]);
   }

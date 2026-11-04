@@ -3,23 +3,18 @@ import { digest } from "../core/hash";
 import { redact } from "../core/redact";
 import type { Moment } from "../records/moment";
 import type { Unit } from "../records/unit";
-import {
-  conversationsBetween,
-  type Stay,
-  visits,
-  withStore,
-} from "../sources/lifelog";
-import { momentsNow, readMoments, readUnits } from "./ledger";
+import { conversationsBetween, visits, withStore } from "../sources/lifelog";
+import { momentsNow, readBy, readMoments, readUnits } from "./ledger";
 import { stayOf, where } from "./places";
 import { momentText } from "./statements";
-import { clip, dayRange, daysBefore, time } from "./units";
+import { clip, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
-import { dayStart, localDate } from "./zones";
+import { dayStart } from "./zones";
 
-// The Past calendar (his request, 21 Oct): what it should hold. Every moment that happened, as an event with who,
+// The Past calendar (his request, 21 Oct): what it should hold. Every moment, as an event with what happened, who,
 // where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
 // one-way projection of the moments: each event carries its moment's id and a hash of what it shows,
-// a moment that changed is written again, one gone (hidden, cancelled, never happened) is deleted.
+// a moment that changed is written again, one gone (hidden, or read again as something else) is deleted.
 // `host/past-calendar.ts` writes it.
 
 // ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
@@ -43,7 +38,7 @@ export interface Draft {
 
 interface Known {
   nameOf: (ref: string) => string;
-  /** What Life noted, by unit: the observations that show. */
+  /** What Life noted, by unit: the observations that show (under the unit's moment, `readBy`). */
   noted: Map<string, string[]>;
   units: Map<string, Unit>;
 }
@@ -76,21 +71,25 @@ export function span(m: Pick<Moment, "day" | "end" | "start">) {
 }
 
 /**
- * The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`. They may overlap
- * (his decision, 2 Nov): a big moment holds the smaller ones that happened inside it.
+ * The events the calendar should hold: every moment ended (`SETTLE` ago) by `now`. They may overlap (his decision,
+ * 2 Nov): a big moment holds the smaller ones that happened inside it.
  */
 export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
+  const byMoment = readBy(moments);
   return moments
-    .filter((m) => m.status === "happened")
     .map((m) => ({ m, ...span(m) }))
     .filter(({ allDay, to }) => edgeTime(allDay, to) + SETTLE <= now.getTime())
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
-        ...new Set(m.units.flatMap((id) => k.noted.get(id) ?? [])),
+        ...new Set(
+          m.units.flatMap((id) =>
+            byMoment.get(id) === m ? (k.noted.get(id) ?? []) : []
+          )
+        ),
       ];
       const text = [
-        m.why,
+        m.what,
         "",
         momentText(m, k.nameOf),
         ...(noted.length > 0
@@ -109,7 +108,10 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
         ...when,
         moment: m.id,
         place: m.place,
-        summary: m.title,
+        summary:
+          m.place && !m.title.toLowerCase().includes(m.place.toLowerCase())
+            ? `${m.title} · ${m.place}`
+            : m.title,
         text,
       };
       return { ...draft, hash: digest("sha1", JSON.stringify(draft), 12) };
@@ -134,23 +136,12 @@ export function plan(want: Draft[], held: Held) {
   };
 }
 
-/** The days a timed event spans, in his zone then. */
-function daysOf(d: Draft) {
-  const days = [localDate(d.from)];
-  while ((days.at(-1) as string) < localDate(d.to)) {
-    days.push(nextDay(days.at(-1) as string));
-  }
-  return days;
-}
-
-/** A timed event's stays (read when it is written) and conversations, as description lines and a location. */
+/** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the moment's place. */
 async function located(
   d: Draft,
-  talks: { id: string; start_at: string; title: string }[],
-  staysOn: (day: string) => Promise<Stay[]>
+  talks: { id: string; start_at: string; title: string }[]
 ) {
-  const stays = (await Promise.all(daysOf(d).map(staysOn)))
-    .flat()
+  const stays = (await visits({ from: d.from, to: d.to }))
     .filter((s) => s.arrivedAt < d.to && (s.leftAt ?? d.to) > d.from)
     .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt));
   const longest = stayOf(d.from, d.to, stays);
@@ -174,7 +165,7 @@ async function located(
           ]
         : []),
     ],
-    location: d.place ?? (longest ? where(longest) : null),
+    location: longest ? where(longest) : d.place,
   };
 }
 
@@ -210,16 +201,11 @@ export async function* described(fresh: Draft[]) {
       d.allDay ? [] : conversationsBetween(store, d.from, d.to)
     )
   );
-  // A day's stays (his local day, where he was then), asked once per sync.
-  const days = new Map<string, Promise<Stay[]>>();
-  const staysOn = (day: string) =>
-    days.get(day) ??
-    (days.set(day, visits(dayRange(day, day))).get(day) as Promise<Stay[]>);
   for (const [i, d] of fresh.entries()) {
     const { lines, location } = d.allDay
       ? { lines: [], location: d.place }
       : // biome-ignore lint/performance/noAwaitInLoops: one moment at a time
-        await located(d, talks[i] ?? [], staysOn);
+        await located(d, talks[i] ?? []);
     const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
     yield {
       d,

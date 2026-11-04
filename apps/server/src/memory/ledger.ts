@@ -103,6 +103,19 @@ export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
       : [{ ...m, copies: all("copies"), units: all("units") }];
   });
 
+/**
+ * Each unit's moment, the one its facts sit under: of the moments holding it, the one reaching furthest forward (its
+ * latest day), then the smallest (a dinner, not the trip around it), so a question is read with its answer.
+ */
+export const readBy = (moments: Moment[]) =>
+  new Map(
+    moments
+      .toSorted(
+        (a, b) => a.day.localeCompare(b.day) || b.units.length - a.units.length
+      )
+      .flatMap((m) => m.units.map((u) => [u, m] as const))
+  );
+
 /** Each unit's latest extraction: its last line in extracted.jsonl. */
 export const latestExtractions = (ledger: Extracted[]) =>
   latestBy(ledger, (e) => e.unit);

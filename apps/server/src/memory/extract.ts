@@ -18,6 +18,7 @@ import {
   latestBy,
   momentsNow,
   OBSERVATIONS,
+  readBy,
   readMoments,
   readVerdicts,
   rereadAt,
@@ -82,8 +83,8 @@ export interface Group {
 /**
  * What to read, moment by moment (`moments` as they stand, `momentsNow`): every moment holding a pending unit, with
  * its units worth a searchable line (a copy never, returned apart); then the pending units in no moment, a day at a
- * time. A unit in several moments is read once, with the one reaching furthest forward (of those, the smallest), so a
- * question is read with its answer and the unit's earlier facts give way to the new reading.
+ * time. A unit in several moments is read once, with its moment (`readBy`), so a question is read with its answer and
+ * the unit's earlier facts give way to the new reading.
  */
 export function groupsOf(
   pending: Built[],
@@ -110,18 +111,10 @@ export function groupsOf(
       .flatMap(worth)
       .toSorted((a, b) => a.unit.date.localeCompare(b.unit.date)),
   }));
-  // Furthest last, and of the same reach the smallest last: the last moment to claim a unit keeps it.
-  const readBy = new Map(
-    read
-      .toSorted(
-        (a, b) =>
-          a.moment.day.localeCompare(b.moment.day) ||
-          b.units.length - a.units.length
-      )
-      .flatMap(({ moment, units }) => units.map((b) => [b.unit.id, moment]))
-  );
+  const byMoment = readBy(moments);
+  const claimed = new Set(read.flatMap((r) => r.units.map((b) => b.unit.id)));
   const groups: Group[] = read.flatMap(({ moment, units }) => {
-    const own = units.filter((b) => readBy.get(b.unit.id) === moment);
+    const own = units.filter((b) => byMoment.get(b.unit.id) === moment);
     const first = own.find((b) => waiting.has(b.unit.id))?.unit.date;
     // Read from the day before its first pending unit, so a new day does not re-read a whole trip: the facts of its
     // earlier days come as priors (`priorFor`).
@@ -135,7 +128,7 @@ export function groupsOf(
       : [];
   });
   const rest = pending.filter(
-    (b) => !(copied.has(b.unit.id) || readBy.has(b.unit.id))
+    (b) => !(copied.has(b.unit.id) || claimed.has(b.unit.id))
   );
   for (const units of Map.groupBy(rest, (b) => b.unit.date).values()) {
     groups.push({ moment: null, units });
@@ -467,7 +460,6 @@ export async function extract(evidence: Evidence) {
           people: m?.people ?? [],
           place: m?.place ?? null,
           start: m?.start ?? null,
-          status: m?.status ?? null,
           title: m?.title ?? "units in no moment",
           units: ss.map(({ lines: ls, unit }) => ({
             id: unit.id,

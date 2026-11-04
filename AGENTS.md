@@ -79,7 +79,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
-  A new recipe for new units only, every stored id kept, is not a rename.
+  A new recipe for new units only, every stored id kept, is not a rename. A day's moment file is code's to rewrite on
+  every reading, so a migration may drop moment lines there (no cursor counts them).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating), `decisions.jsonl` (his answers on `/decisions` and Life's fact checks, each one synchronous
   append: `writeDecision`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
@@ -121,7 +122,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   he is asked about, only by `doubtful`.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
-- **Facts are read by moment:** one call per day reads every unit of the day (`moments.ts`), then extraction reads a
+- **Facts are read by moment:** one call per day reads the day, its new units in full (`moments.ts`), then extraction reads a
   moment's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).

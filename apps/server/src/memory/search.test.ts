@@ -26,7 +26,7 @@ import { newestDays } from "./units";
 import { meant, namedLike, nearNames } from "./who";
 import { holdsAll } from "./words";
 
-test("day: its units, a recorded conversation among them, then its key observations", () => {
+test("day: its key observations in no moment, then its units, a recorded conversation among them", () => {
   const lines = dayLines({
     facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
     units: [
@@ -53,8 +53,8 @@ test("day: its units, a recorded conversation among them, then its key observati
   expect(lines).toContain(
     "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"
   );
-  expect(lines.slice(-2)).toEqual([
-    "Key observations:",
+  expect(lines.slice(0, 2)).toEqual([
+    "Key observations in no moment:",
     '- obs_1 2026-10-14 todo: Call the glazier "call him"',
   ]);
 });
@@ -223,7 +223,7 @@ test("readIndex takes no async read: the index closes when the read returns", ()
   expect(refused).toBeFunction();
 });
 
-test("a day opens with what happened: its moments, when, what, where, how they stand and with whom", () => {
+test("a day opens with what he did: its moments in plain words, where he was, what happened and their facts; units worth nothing only counted", () => {
   const m = {
     day: "2026-10-15",
     end: null,
@@ -234,17 +234,49 @@ test("a day opens with what happened: its moments, when, what, where, how they s
     ],
     place: "Claire's house",
     start: "2026-10-16 16:20",
-    status: "happened",
     title: "Road trip to see the sisters with Bastien",
     units: ["unit_000000000001"],
+    what: "They drove to Rouen.",
   } as Moment;
-  expect(momentLine(m)).toBe(
-    "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [unit_000000000001]"
+  expect(momentLine(m)).toStartWith(
+    "- mom_000000000001 Road trip to see the sisters with Bastien, 16 Oct"
   );
-  expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
-    "Moments (what happened or is planned):",
+  expect(momentLine(m)).toEndWith(
+    ", at Claire's house; with bastien, Cédric. [unit_000000000001]"
+  );
+  const unit = (id: string, importance: number | null) => ({
+    date: "2026-10-16",
+    id,
+    importance,
+    source: "whatsapp" as const,
+    title: "Sisters",
+    topics: "",
+  });
+  expect(
+    dayLines({
+      facts: ["- obs_2 a fact in no moment"],
+      moments: [
+        { facts: ["- obs_1 a fact of the trip"], moment: m, stay: "Rouen" },
+      ],
+      units: [unit("unit_000000000001", 2), unit("unit_000000000002", 0)],
+      whereUnknown: false,
+    })
+  ).toEqual([
+    "Moments (what he did, in time order):",
     momentLine(m),
+    "    Where he was: Rouen",
+    "    They drove to Rouen.",
+    "    - obs_1 a fact of the trip",
+    "",
+    "Key observations in no moment:",
+    "- obs_2 a fact in no moment",
+    "",
+    "Units (2; `fetch <unit id>`; 1 worth nothing not listed):",
+    "- unit_000000000001 2026-10-16 whatsapp: Sisters",
   ]);
+  expect(
+    dayLines({ moments: [{ facts: [], moment: m }], whereUnknown: true })
+  ).toContain("Where he was is unknown: lifelog could not be read.");
   expect(dayLines({})[0]).toStartWith("Units (0;");
 });
 

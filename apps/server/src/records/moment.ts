@@ -9,8 +9,8 @@ export const LocalTime = z
   .regex(/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/);
 
 /**
- * memory/moments/<day>.jsonl: one thing that happened or is planned in the owner's life (a trip, a dinner, a flight), found by
- * the moments step from one day of units across every channel. A day's file is rewritten when that day is read again;
+ * memory/moments/<day>.jsonl: one thing that happened in the owner's life (a trip, a dinner, a flight), found by the
+ * moments step from one day of units across every channel and where his phone stayed. A day's file is rewritten when that day is read again;
  * a moment seen again on a later day keeps its id there; the latest day's line is the moment's current state, and its
  * units are those of all its lines (`momentsNow`).
  */
@@ -35,10 +35,12 @@ export const Moment = z
     place: z.string().min(1).nullable(),
     schemaVersion: z.literal(1),
     start: LocalTime.nullable(),
-    status: z.enum(["happened", "planned", "cancelled", "unsure"]),
     title: z.string().min(1).max(200),
     units: z.array(UnitId).min(1),
-    why: z.string().max(300),
+    /** What happened and what came of it, in one to three sentences. */
+    what: z.string().max(600),
+    /** The moment holding it (a dinner within a trip), or null. */
+    within: MomentId.nullable(),
   })
   .strict();
 
