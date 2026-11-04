@@ -163,7 +163,7 @@ async function run(
   });
   if (r.code !== 0) {
     const why = r.stderr.match(ERROR_LINE)?.[0] ?? r.stderr.trim().slice(-300);
-    throw new Error(`${args.join(" ")} exited ${r.code}: ${why}`);
+    throw new Error(`${why} (${args[0]} ${args[1]} exited ${r.code})`);
   }
   return JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
 }
