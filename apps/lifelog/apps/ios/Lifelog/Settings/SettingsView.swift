@@ -19,14 +19,6 @@ struct SettingsView: View {
     @Bindable private var settings = Settings.shared
     @State private var showsSpending = false
 
-    /// The address as typed; empty clears it.
-    private var copilotAddress: Binding<String> {
-        Binding(
-            get: { settings.copilotAddress?.absoluteString ?? "" },
-            set: { settings.copilotAddress = URL(string: $0.trimmingCharacters(in: .whitespaces)) }
-        )
-    }
-
     var body: some View {
         let switches = sync.switches
         ScrollView {
@@ -55,20 +47,6 @@ struct SettingsView: View {
                         SettingsLink("Vocabulary")
                     }
                     .accessibilityIdentifier("settings.vocabulary")
-                }
-                SettingsGroup(
-                    "Copilot",
-                    footer:
-                        "While on, what your Pendant hears goes from this phone to ElevenLabs as it's said, and its words to your copilot. A press asks it to speak now in your AirPods; a press while it speaks stops it."
-                ) {
-                    Toggle("Copilot", isOn: $settings.copilotOn)
-                        .accessibilityIdentifier("settings.copilot")
-                    TextField("Copilot address", text: copilotAddress)
-                        .textContentType(.URL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("settings.copilotAddress")
                 }
                 SettingsGroup(
                     "Alerts",

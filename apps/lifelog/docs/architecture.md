@@ -121,8 +121,7 @@ page holding the source's `sentThrough`, around the server's pages, as after a r
 **App stores.** `AppDelegate` builds the long-lived ones at launch and `LifelogApp` puts them in the environment:
 `CaptureStore`, the library (`\.library`), `SyncStore`, `NamingQueue` (voices to name),
 `PlaybackStore`, `ButtonActions` (the Pendant's button: the press on screen, which `PressOverlay` shows in its own
-window above every screen and sheet, and the finished presses the Presses tab lists, in `presses.json` in Caches),
-`Copilot` (while its switch is on, the live Pendant audio to Scribe and the copilot's answers to the AirPods). `SyncStore` owns the one run: it starts the Kit `Driver` on every trigger, one run at a time,
+window above every screen and sheet, and the finished presses the Presses tab lists, in `presses.json` in Caches). `SyncStore` owns the one run: it starts the Kit `Driver` on every trigger, one run at a time,
 long-polls the feed between runs, holds the status every tab shows, and takes the
 owner's edits (`perform`). Screens build
 their own store for their own data (`LibraryListStore`, `ConversationStore`, `PeopleStore`;

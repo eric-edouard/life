@@ -493,17 +493,6 @@ extension Array {
     #expect(ContinuousClock.now - wait < .milliseconds(100))
 }
 
-@Test func theLiveFeedReadsOnlyPagesAfterItsCursor() async throws {
-    let (store, _) = try await store(seconds: 10, at: temporaryDirectory())
-    let newest = try await RecentAudio.newestSeq(store: store, deviceID: device)
-    #expect(try await RecentAudio.source(afterSeq: newest, store: store, deviceID: device) == nil)
-    let all = try #require(try await RecentAudio.source(afterSeq: 0, store: store, deviceID: device))
-    #expect(all.seq == newest)
-    let later = try #require(try await RecentAudio.source(afterSeq: newest - 3, store: store, deviceID: device))
-    let millis = { (audio: SourceAudio?) in audio?.spans.map(\.interval.millis).reduce(0, +) ?? 0 }
-    #expect(later.seq == newest && millis(later.audio) == 3_000 && millis(all.audio) == 10_000)
-}
-
 @Test func aRecentWindowReadsOnlyTheClockSyncsFromItsPagesOn() async throws {
     let (store, _) = try await store(seconds: 10, at: temporaryDirectory())
     for index in [0, 4, 8] as [UInt64] {
