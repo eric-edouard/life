@@ -1,5 +1,7 @@
 # Moments: what he did, when, where, and what came of it
 
+Order (4 Nov): M1 now; M2–M3 start once `claude/screen-time` is merged (its `isActivity` and screen units feed v6); M4 last.
+
 Goal: `read_day` answers "what did I do today" in one read. Measured on the truth set of 4 Nov
 (`~/Life/docs/evals/truth-2026-10-28.json`, `-11-02`, `-11-03`; baseline in `baseline-2026-11-04.md`: 60% of true facts
 held, 42% of false ones restated).
@@ -35,9 +37,10 @@ trip); never two in-person places at once, never one event as several moments; n
       `within` for a new moment names the model's local id (`new-1`), mapped in `parseDay` to the minted id; one
       naming no moment of the reply or of `earlier` is dropped. `prompts/memory-moments.v6.md`: times and places from the
       stays and the turns first; overlap rules above; `within` for a trip or outing; a remote exchange is never in
-      person; not moments: money moved, mail and notices received, his agents' work, plans.
-- [ ] Code's own guard in `parseDay`: a moment whose units are all repo or agent units is dropped (his agents' work is
-      never something he did), the way `importanceOf` already caps repos.
+      person; Screen Time stints date a moment (when he was at a device), never make one alone; not moments: money moved,
+      mail and notices received, his agents' work, plans.
+- [ ] Code's own guard in `parseDay`: a moment whose units are all activity (`isActivity`, from the Screen Time branch:
+      repo and screen) or agent units is dropped (what his devices log and his agents' work are never a moment alone).
 - [ ] A moment's span as instants: `span` moves from `past-events.ts` beside `daysOf` (`ledger.ts`), one function.
 - [ ] A moment's stay is derived, never stored: the stay overlapping its span longest, one function in `places.ts`, used
       by the calendar (today inline in `past-events.ts`), the timeline score and `read_day`. `read_day` with lifelog down
@@ -97,8 +100,8 @@ message would need a record of what was read, add it if the bench shows chat-day
 
 ## Later, not here
 
-Apple Screen Time and Hevy workouts as sources (his ideas of 4 Nov): structured, cheap, and they fill what the stays
-can't see (work at the computer, the gym).
+Hevy workouts as a source (his idea of 4 Nov): fills what the stays can't see (the gym). Screen Time is its own plan,
+`claude/screen-time`, landing before M2.
 
 ## Golden rule plan
 
