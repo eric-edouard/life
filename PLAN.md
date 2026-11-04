@@ -41,9 +41,13 @@ trip); never two in-person places at once, never one event as several moments; n
       mail and notices received, his agents' work, plans.
 - [ ] Code's own guard in `parseDay`: a moment whose units are all activity (`isActivity`, from the Screen Time branch:
       repo and screen) or agent units is dropped (what his devices log and his agents' work are never a moment alone).
-- [ ] A moment's span as instants: `span` moves from `past-events.ts` beside `daysOf` (`ledger.ts`), one function.
-- [ ] A moment's stay is derived, never stored: the stay overlapping its span longest, one function in `places.ts`, used
-      by the calendar (today inline in `past-events.ts`), the timeline score and `read_day`. `read_day` with lifelog down
+- [ ] A moment's span as instants: `span` (and its private `instant`) moves from `past-events.ts` to `zones.ts`, and
+      `daysOf` moves there from `ledger.ts` (zones imports ledger, so ledger can't import `dayStart`: a cycle
+      `imports.test.ts` rejects). `nextDay` becomes one function beside `daysBefore` (today two private copies and three
+      inline `daysBefore(x, -1)`).
+- [ ] A moment's stay is derived, never stored: `placesOf` splits into `staysOf(q)` (read and cut, `Stay[]`) and its
+      formatting; a pure `stayOf(span, stays)` picks the longest overlap. Used by the calendar (today its own per-day
+      `visits` cache, private `daysOf` and inline pick in `past-events.ts`, all gone), the timeline score and `read_day`. `read_day` with lifelog down
       shows the moments with their `place` text and a line saying where he was is unknown.
 - [ ] A fact's moment is derived, never stored: `readBy` (`extract.ts` `groupsOf`: the moment reaching furthest, then
       the smallest) moves out as the one rule for a unit's moment; extraction, the calendar's "What Life noted" (today
@@ -54,7 +58,7 @@ trip); never two in-person places at once, never one event as several moments; n
       address and coordinates (his ask), the moment's `place` in the title.
 - [ ] Readers follow: `statements.ts` (`momentText` without status; `momentGroup`'s unsure check:51 and the
       `unsure-moment` doubt go, with `fact-checks.ts`:27 and its test), `extract.ts` and
-      `prompts/memory-extract.v5.md` (the moment's fields it is shown; wording only, no bump), `search.ts`, `report.ts`,
+      `prompts/memory-extract.v5.md` (the moment's fields it is shown; wording only, no bump), `search.ts` (`momentLine` becomes id + `momentText` + units: one rendering), `report.ts`,
       `scripts/demo.ts`. `earlierFor` keeps carrying a moment that continues (a trip) but no longer carries plans.
 - [ ] Migration `moments-v2-2026-11` (`host/migrate.ts`, his OK first, together with milestone 4's backfill: `why` is
       a reason, not a summary, so it may stand as `what` only until the backfill reads its day): stored lines that are not
@@ -84,8 +88,8 @@ and the backfill are all the same step with nothing read yet, and the migrated `
       units and copies unioned), so a changed moment keeps its earlier units; `dayFileOf`'s own merge and `hiddenOn` in it
       go. Kept lines pass `parseDay`'s unit filter: a unit gone (a conversation regrouped) leaves them, a moment with no
       unit left is gone, a `within` naming nothing becomes null. `missing` counts only the units sent in full.
-- [ ] Measured in production, from the log (`model.run` tokens per day), a week before and after; quality on the bench's
-      timeline score, where duplicates show as extra moments. A night pass that merges a day's duplicate moments
+- [ ] Measured in production, from the log (`model.run` tokens per day), a week before and after; screen units counted apart (they change all day and on late
+      iPhone syncs, so they go in full each reading); quality on the bench's timeline score, where duplicates show as extra moments. A night pass that merges a day's duplicate moments
       (moments and stays only, no units) is added only if the score shows them.
 - [ ] Docs say a day reads only what's new: `docs/operations.md` (how: stubs, the state, when a unit counts as new),
       AGENTS.md:124, `architecture.md`:53, the `moments.ts`:54–58 header, `SCHEMA.md`:67 and :89.
