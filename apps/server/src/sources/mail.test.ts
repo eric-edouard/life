@@ -153,10 +153,12 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   expect(mailAccounts(root, join(base, "none.sqlite"))).toEqual([
     { addresses: ["me@mine.test", "me@other.test"], id: acct, name: acct },
   ]);
+  // A sender his Contacts hold is marked.
   const events = readMail(
     new Date("2026-10-08T00:00:00Z"),
     root,
-    join(base, "none.sqlite")
+    join(base, "none.sqlite"),
+    new Map([["ana@example.com", "Ana"]])
   );
   expect(events.at(-1)?.text).toBe("Big prize\nPaid & done\nThanks");
   expect(events.slice(0, -1)).toEqual([
@@ -165,6 +167,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       bulk: false,
       chat: "mail:7",
       chatName: "Devis",
+      contact: true,
       files: [],
       fromMe: false,
       id: "mail:abc@example.com",
@@ -189,6 +192,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       bulk: false,
       chat: "mail:10",
       chatName: "Big prize",
+      contact: true,
       files: [
         {
           mime: "application/pdf",
@@ -235,7 +239,8 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
     readMail(
       new Date("2026-10-08T00:00:00Z"),
       root,
-      join(base, "none.sqlite")
+      join(base, "none.sqlite"),
+      new Map()
     ).at(-1)?.text
   ).toBe(
     "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
