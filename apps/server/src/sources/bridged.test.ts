@@ -138,6 +138,10 @@ test("a network's call notices are phone calls: a start takes its length from it
   event("m.room.message", ANA, { body: "can you hear me", msgtype: "m.text" });
   notice("Audio call ended");
   notice("You missed a video chat");
+  // A start then "You missed": one call, not picked up. A start with no end or miss has no length.
+  notice("ana started a video chat");
+  notice("You missed a video chat");
+  notice("ana started an audio call");
   // Typed by a person, not the bridge: words, never a call.
   event("m.room.message", ANA, { body: "Audio call ended", msgtype: "m.text" });
   copyBridged("line", archive, Date.now(), synapse);
@@ -153,6 +157,8 @@ test("a network's call notices are phone calls: a start takes its length from it
     ["ana started an audio call", { seconds: 2, video: false }],
     ["can you hear me", undefined],
     ["You missed a video chat", { seconds: 0, video: true }],
+    ["ana started a video chat", { seconds: 0, video: true }],
+    ["ana started an audio call", { video: false }],
     ["Audio call ended", undefined],
   ]);
   expect(line.callOf("Voice call (1h2m3s)")).toEqual({

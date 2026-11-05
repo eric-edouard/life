@@ -600,7 +600,7 @@ export async function readTranscript(jobId: string) {
   ).turns;
 }
 
-export const Conversation = z.object({
+export const ConversationAnswer = z.object({
   latestRun: z
     .object({
       result: z
@@ -640,12 +640,13 @@ export async function readVoiceKinds(conversationId: string) {
     throw e;
   });
   return new Map<string, VoiceKind>(
-    (Conversation.parse(answer).latestRun?.result?.speakerIdentities ?? []).map(
-      (s) => [
-        voiceKey(s.jobId, s.speakerLabel),
-        { kind: s.kind, withOwner: s.withOwner },
-      ]
-    )
+    (
+      ConversationAnswer.parse(answer).latestRun?.result?.speakerIdentities ??
+      []
+    ).map((s) => [
+      voiceKey(s.jobId, s.speakerLabel),
+      { kind: s.kind, withOwner: s.withOwner },
+    ])
   );
 }
 /** A recording's voice: its job and the transcript's speaker label. */

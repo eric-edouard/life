@@ -38,7 +38,7 @@ export const SourceEvent = z
     fromMe: z.boolean(),
     id: z.string(),
     // A phone call through the chat's network, a message of its chat: its length once it ended (0: not picked up),
-    // none while it is on. Its text is the line Life writes for it (`callLine`, units.ts).
+    // none when no end was seen. Its text is the line Life writes for it (`callLine`, units.ts).
     phoneCall: z
       .object({ seconds: z.int().min(0).optional(), video: z.boolean() })
       .strict()

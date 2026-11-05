@@ -150,7 +150,7 @@ test("unit ids are stable and hashes follow the content", () => {
 const CALL_SPAN = /: \(audio call \d\d:\d\d–\d\d:\d\d, 2 h 38 min\)$/;
 const CALL_MESSAGE = /^\(audio call .+, 2 h 38 min\)$/;
 const CALL_MISSED = /\(video call at \d\d:\d\d, not picked up\)$/;
-const CALL_ON = /, still on\)$/;
+const CALL_ON = /, no end seen\)$/;
 const CALL_SHORT = /, 45 s\)$/;
 
 test("a phone call is a line of its chat: its kind and span, or that no one picked up; two calls' lines differ", () => {

@@ -353,8 +353,7 @@ interface CallNotice {
 
 const INSTAGRAM_CALL =
   /^(?:(?<missed>You missed)|.+ started) an? (?<kind>audio call|video chat)$|^(?<ended>Audio call|Video chat) ended$/;
-// ponytail: only missed calls seen so far (Oct 2026); the length's form is the bridge's (`Voice call (5m33s)`), its
-// time taken as the call's.
+// The length's form is the bridge's (`Voice call (5m33s)`, seen Nov 2026); the notice's time is taken as the call's.
 const LINE_CALL =
   /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
 
@@ -411,12 +410,14 @@ export const NETWORKS = [
     repo: "mautrix/linkedin",
   },
 ] as const;
+// The literal entries keep their names typed; a network with no calls has no `callOf`.
 export type Network = (typeof NETWORKS)[number] & {
   callOf?: (text: string) => CallNotice | undefined;
 };
 /**
- * A network's calls as messages of their chats: a call's notice becomes a phone call, a start taking its length from
- * the chat's next end, which goes (a start with none is still on). Each keyed by chat and time (`keyOf`).
+ * A network's calls as messages of their chats: a call's notice becomes a phone call, a start taking its outcome from
+ * the chat's next end (its length) or missed notice (Instagram's "You missed" follows its start), which goes; a start
+ * with neither has no length. Each keyed by chat and time (`keyOf`): the notice's kind is its row's, not the event's.
  */
 function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
   type Call = NonNullable<SourceEvent["phoneCall"]>;
@@ -427,13 +428,14 @@ function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
       return [e];
     }
     const started = open.get(e.chat);
+    open.delete(e.chat);
+    if (started && (c.ends || c.seconds === 0)) {
+      started.call.seconds = c.ends
+        ? Math.max(0, Math.round((Date.parse(e.at) - started.from) / 1000))
+        : 0;
+      return [];
+    }
     if (c.ends) {
-      open.delete(e.chat);
-      if (started) {
-        started.call.seconds = Math.round(
-          (Date.parse(e.at) - started.from) / 1000
-        );
-      }
       return [];
     }
     const phoneCall: Call =

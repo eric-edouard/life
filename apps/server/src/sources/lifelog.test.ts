@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
   apply,
-  Conversation,
+  ConversationAnswer,
   conversationsWith,
   endedOnSilence,
   Hits,
@@ -443,7 +443,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       "transcript"
     ),
     ...drift(
-      ours(Conversation),
+      ours(ConversationAnswer),
       answer("/conversations/{id}", "get"),
       defs,
       "conversation"

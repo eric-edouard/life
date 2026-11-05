@@ -399,7 +399,7 @@ export function callLine({ at, phoneCall }: SourceEvent) {
   const kind = phoneCall?.video ? "video call" : "audio call";
   const seconds = phoneCall?.seconds;
   if (seconds === undefined) {
-    return `(${kind} from ${time(at)}, still on)`;
+    return `(${kind} from ${time(at)}, no end seen)`;
   }
   if (seconds === 0) {
     return `(${kind} at ${time(at)}, not picked up)`;
