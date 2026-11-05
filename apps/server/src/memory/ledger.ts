@@ -1,8 +1,18 @@
+import type { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
-import { appendJsonl, filesIn, readAppended, rowsOf } from "../core/files";
+import {
+  appendJsonl,
+  filesIn,
+  keptReader,
+  linesOf,
+  readAppended,
+  rowsOf,
+} from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { openReadOnly } from "../core/sqlite";
 import { Episode } from "../records/episode";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import {
@@ -18,8 +28,8 @@ import {
 import { Rating, Statement } from "../records/statement";
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 
-// memory/ on disk: every path, the readers of the ledgers and what they say of an
-// observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
+// memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
+// say of an observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
 export const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
@@ -81,6 +91,44 @@ export const readUnits = (day = "") => readFolder(UNITS, Unit, day);
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 
+/** The search index (`buildIndex`, search.ts). */
+export const INDEX = join(OUT, "index.sqlite");
+
+/**
+ * Reads the index read-only with `read`, or null when it isn't built. A rebuild meanwhile is safe (`buildIndex`); the
+ * wait covers the moment it checkpoints its log into the file. `read` can't be async: the index closes when it returns.
+ */
+export function readIndex<T>(
+  read: (db: Database) => T extends PromiseLike<unknown> ? never : T
+): T | null {
+  if (!existsSync(INDEX)) {
+    return null;
+  }
+  const db = openReadOnly(INDEX);
+  try {
+    return read(db);
+  } finally {
+    db.close();
+  }
+}
+
+/** One unit by id: its day's file, the day from the index; every unit read when the index doesn't hold it (yet). */
+export async function readUnit(id: string) {
+  const date = readIndex(
+    (db) =>
+      db
+        .query<{ date: string }, [string]>(
+          "select date from units where id = ?"
+        )
+        .get(id)?.date
+  );
+  const isMe = (u: Unit) => u.id === id;
+  return (
+    (date ? readUnitsOf([date]).find(isMe) : undefined) ??
+    (await readUnits()).find(isMe)
+  );
+}
+
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 
 /** Every episode line in memory/episodes/, oldest day first. */
@@ -125,6 +173,35 @@ export const latestExtractions = (ledger: Extracted[]) =>
 /** The units an observation can stand on: in memory/units and not dropped by a code rule. */
 export const liveUnits = (units: Unit[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
+const liveIn = keptReader((path) => liveUnits(rowsOf(path, Unit)));
+/** The live units (`liveUnits`), a day's file read again only once it changed (`keptReader`). */
+export const readLiveUnits = async () =>
+  new Set((await filesIn(UNITS)).flatMap((n) => [...liveIn(join(UNITS, n))]));
+
+/** An observation as where it stands is decided (`isCurrent`), with its line in its month, blanks counted. */
+export interface Origin extends Pick<Observation, "id" | "unit"> {
+  madeBy: Pick<Observation["madeBy"], "run" | "unitHash">;
+  n: number;
+}
+const originsIn = keptReader((path): Origin[] =>
+  linesOf(path).flatMap((line, n) => {
+    if (!line) {
+      return [];
+    }
+    const { id, madeBy, unit } = Observation.parse(JSON.parse(line));
+    return [
+      { id, madeBy: { run: madeBy.run, unitHash: madeBy.unitHash }, n, unit },
+    ];
+  })
+);
+/** Each observation month's origins, by its file name: a month is read again only once it changed (`keptReader`). */
+export const readOrigins = async () =>
+  new Map(
+    (await filesIn(OBSERVATIONS)).map((m) => [
+      m,
+      originsIn(join(OBSERVATIONS, m)),
+    ])
+  );
 
 /**
  * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
@@ -133,7 +210,7 @@ export const liveUnits = (units: Unit[]) =>
  */
 export function isCurrent(
   { latest, live }: Pick<Standing, "latest" | "live">,
-  o: Observation
+  o: Pick<Origin, "madeBy" | "unit">
 ) {
   const l = latest.get(o.unit);
   return (
@@ -241,15 +318,21 @@ export interface Standing {
   retired: Map<string, Retirement>;
 }
 
-/** The extraction, unit and supersession ledgers (with what his `outdated` corrections retire after them), with the corrections (and the observations) the caller already holds. */
+/**
+ * The extraction, unit and supersession ledgers (with what his `outdated` corrections retire after them), with the
+ * corrections (and the observations, else their origins) the caller already holds.
+ */
 export async function readStanding(
   corrections: Correction[],
-  read: Observation[] | Promise<Observation[]> = readObservations()
+  read?: Pick<Origin, "id" | "madeBy" | "unit">[] | Promise<Observation[]>
 ): Promise<Standing> {
-  const [units, observations] = await Promise.all([readUnits(), read]);
+  const [live, observations] = await Promise.all([
+    readLiveUnits(),
+    read ?? readOrigins().then((months) => [...months.values()].flat()),
+  ]);
   const extracted = rowsOf(EXTRACTED, Extracted);
   const supersessions = rowsOf(SUPERSESSIONS, Supersession);
-  const c = { latest: latestExtractions(extracted), live: liveUnits(units) };
+  const c = { latest: latestExtractions(extracted), live };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );

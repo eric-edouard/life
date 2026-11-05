@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { readAppended } from "./files";
+import { keptReader, readAppended, readLineCount } from "./files";
 
 test("an append-only file is folded once: grown, rewritten, a partial last line, a bad line", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-files-")), "f.jsonl");
@@ -36,4 +42,23 @@ test("an append-only file is folded once: grown, rewritten, a partial last line,
   expect(read).toThrow();
   writeFileSync(path, "9\n8\n7\n6\n5\n");
   expect(read()).toEqual([9, 8, 7, 6, 5]);
+});
+
+test("a kept read is read again only once its file changed; a line count counts blanks, not a partial line", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "life-files-")), "f.jsonl");
+  let reads = 0;
+  const size = keptReader((p) => {
+    reads += 1;
+    return existsSync(p) ? readFileSync(p).length : 0;
+  });
+  expect(size(path)).toBe(0);
+  writeFileSync(path, "a\n\nb\nc");
+  expect(size(path)).toBe(6);
+  expect(size(path)).toBe(6);
+  expect(reads).toBe(2);
+  expect(readLineCount(path)).toBe(3);
+  appendFileSync(path, "\n");
+  expect(size(path)).toBe(7);
+  expect(reads).toBe(3);
+  expect(readLineCount(path)).toBe(4);
 });

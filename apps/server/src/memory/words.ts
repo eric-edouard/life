@@ -16,7 +16,7 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { type Candidate, owed } from "../todo-list/items";
-import { readInferredRepos, readUnits } from "./ledger";
+import { readInferredRepos, readUnit, readUnitsOf } from "./ledger";
 import type { SourceLine } from "./observe";
 import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
 import { isDirect, kindOf, sourceOf } from "./sources";
@@ -252,9 +252,7 @@ export async function fetchOf(
   const fromTurn = from ?? 0;
   const people = await readPeople();
   const { truth } = people;
-  const unit = UNIT_ID.test(id)
-    ? (await readUnits()).find((u) => u.id === id)
-    : undefined;
+  const unit = UNIT_ID.test(id) ? await readUnit(id) : undefined;
   if (UNIT_ID.test(id) && !unit) {
     return asData([`(no unit ${id})`]);
   }
@@ -411,8 +409,16 @@ function readChats(
   return { end, events, failed, start: new Date(Math.min(...starts)) };
 }
 
+/** The ids of the units in memory among `events`' day units (`dayUnitId`): a day unit is filed under its id's day. */
+const unitIdsOf = (events: SourceEvent[]) =>
+  new Set(
+    readUnitsOf([...new Set(events.map((e) => localDate(e.at)))]).map(
+      (u) => u.id
+    )
+  );
+
 /**
- * The Chats section of `search`: the chat messages and note versions holding all the words, from the last 90 days at
+ * The Chats section of `search`:the chat messages and note versions holding all the words, from the last 90 days at
  * most for a chat and of any age for a note (inside `range`): `withContext`'s.
  */
 export async function chatHits(
@@ -423,7 +429,7 @@ export async function chatHits(
   const { events, failed } = readChats("searchDays", range, sources);
   const { cut, events: found } = withContext(events, words);
   const units = found.some((e) => kindOf(e.source) !== "chat")
-    ? new Set((await readUnits()).map((u) => u.id))
+    ? unitIdsOf(found)
     : undefined;
   return [
     ...unread(failed),
@@ -452,8 +458,8 @@ export async function mailHits(
   if (mail.length === 0) {
     return [...unread(failed), "(nothing found)"];
   }
-  const [people, units] = await Promise.all([readPeople(), readUnits()]);
-  const ids = new Set(units.map((u) => u.id));
+  const people = await readPeople();
+  const ids = unitIdsOf(mail);
   return [
     ...unread(failed),
     ...(mail.length > MAIL_HITS ? [older(mail.length - MAIL_HITS)] : []),

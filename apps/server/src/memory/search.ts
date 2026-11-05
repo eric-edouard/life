@@ -1,6 +1,4 @@
 import { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { newestIn } from "../core/files";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
@@ -38,12 +36,13 @@ import { span } from "./episode-span";
 import {
   daysOf,
   episodesNow,
+  INDEX,
   MEMORY,
-  OUT,
   pagePath,
   readBy,
   readCorrections,
   readEpisodes,
+  readIndex,
   readLedger,
   readUnits,
   readUnresolved,
@@ -109,7 +108,6 @@ import { dayNow, dayStart, localDate, when } from "./zones";
 //   topics [tag]     the top topics, or the units tagged so, by date (--person <id>: only units involving them)
 //   unresolved       names Life could not map to truth/, most seen first
 
-export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
 /** A section's first LIMIT lines (its last, `newest`), saying so when there were more. */
 const cut = (lines: string[], newest = false) =>
@@ -125,6 +123,8 @@ export const episodeLine = (m: Episode) =>
   `- ${m.id} ${episodeText(m, (ref) => named({ speaker: ref }))}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
 
 /** The episodes as they stand now that `keep` keeps, by when they happen. */
+// ponytail: every episode line is read (≈25 MB at 10 years): `person` and `day` need them all (a person's history,
+// `readBy`); index the episodes if a read of them shows up.
 const episodesWhere = async (keep: (m: Episode) => boolean) => {
   const [lines, corrections] = await Promise.all([
     readEpisodes(),
@@ -255,24 +255,6 @@ function latest(db: Database, clause: string, value: string, limit = LIMIT) {
 
 const NOT_BUILT =
   "Life's memory index isn't built yet (bun life memory index).";
-
-/**
- * Reads the index read-only with `read`, or null when it isn't built. A rebuild meanwhile is safe (`buildIndex`); the
- * wait covers the moment it checkpoints its log into the file. `read` can't be async: the index closes when it returns.
- */
-export function readIndex<T>(
-  read: (db: Database) => T extends PromiseLike<unknown> ? never : T
-): T | null {
-  if (!existsSync(INDEX)) {
-    return null;
-  }
-  const db = openReadOnly(INDEX);
-  try {
-    return read(db);
-  } finally {
-    db.close();
-  }
-}
 
 /** `lines` from the index under the usual heading; says so when it isn't built. */
 function withIndex(lines: (db: Database) => string[]) {

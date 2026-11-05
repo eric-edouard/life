@@ -5,9 +5,14 @@ import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { conversationsBetween, visits, withStore } from "../sources/lifelog";
 import { endOf, span } from "./episode-span";
-import { episodesNow, readBy, readEpisodes, readUnitsOf } from "./ledger";
+import {
+  episodesNow,
+  readBy,
+  readEpisodes,
+  readIndex,
+  readUnitsOf,
+} from "./ledger";
 import { stayOf, where } from "./places";
-import { readIndex } from "./search";
 import { episodeText } from "./statements";
 import { clip, time } from "./units";
 import { readPeople } from "./who";

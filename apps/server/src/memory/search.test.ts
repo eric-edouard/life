@@ -8,7 +8,7 @@ import { DAY, MIN } from "../core/clock";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { MEMORY, UNITS } from "./ledger";
+import { MEMORY, readIndex, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
 import { TRUTH } from "./read-truth";
 import {
@@ -22,7 +22,6 @@ import {
   dueOf,
   episodeLine,
   nextBirthday,
-  readIndex,
   readStaleness,
   reindexUnits,
   matches as searchMatches,

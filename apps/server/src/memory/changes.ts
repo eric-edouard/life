@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
-import { filesIn, linesOf } from "../core/files";
+import { filesIn, linesOf, readLineCount } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import {
@@ -30,9 +30,11 @@ import {
   PAGES,
   RATINGS,
   readCorrections,
+  readIndex,
   readInferred,
+  readOrigins,
   readStanding,
-  readUnits,
+  readUnit,
   readUnresolved,
   runAt,
   SUPERSESSIONS,
@@ -40,7 +42,6 @@ import {
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page-format";
 import { OWNER } from "./read-truth";
-import { readIndex } from "./search";
 import { kindOf } from "./sources";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
@@ -78,10 +79,18 @@ type Cursor = Record<string, number>;
 export const parseCursor = (s: string | undefined): Cursor =>
   decode(s, z.record(z.string(), z.int().min(0)), {});
 
-interface Source {
-  lines: string[];
+/** A feed source: its count of lines (cheap: `readLineCount`) and its lines, read only when the cursor is behind it. */
+export interface Source {
+  count: number;
+  lines: () => string[];
   name: string;
 }
+/** An append-only file as a feed source. */
+export const fileSource = (path: string, name: string): Source => ({
+  count: readLineCount(path),
+  lines: () => linesOf(path),
+  name,
+});
 
 /**
  * One page of a feed: the items `item` makes of the lines past `cursor`, source by source in the given order, at most
@@ -99,14 +108,15 @@ export function feedPage<T>(
   let remaining = 0;
   for (const s of sources) {
     const from = cursor[s.name] ?? 0;
-    if (s.lines.length < from) {
+    if (s.count < from) {
       throw new Error(
         `cursor is past the end of ${s.name}: start again without a cursor`
       );
     }
     next[s.name] = from;
-    for (let n = from; n < s.lines.length; n += 1) {
-      const it = item(s.name, s.lines[n] as string, n);
+    const lines = s.count > from ? s.lines() : [];
+    for (let n = from; n < lines.length; n += 1) {
+      const it = item(s.name, lines[n] as string, n);
       if (items.length < limit) {
         if (it) {
           items.push(it);
@@ -453,17 +463,15 @@ const monthName = (file: string) =>
  */
 export async function changeFeed(f: ChangeFilter = {}) {
   const months = await filesIn(OBSERVATIONS);
+  const pageLines = pageCommits();
   const sources: Source[] = [
-    { lines: linesOf(CORRECTIONS), name: "corrections" },
-    { lines: linesOf(SUPERSESSIONS), name: "supersessions" },
-    { lines: linesOf(INFERRED), name: "inferred" },
-    { lines: linesOf(LEDGER), name: "ledger" },
-    { lines: linesOf(RATINGS), name: "ratings" },
-    ...months.map((m) => ({
-      lines: linesOf(join(OBSERVATIONS, m)),
-      name: monthName(m),
-    })),
-    { lines: pageCommits(), name: "pages" },
+    fileSource(CORRECTIONS, "corrections"),
+    fileSource(SUPERSESSIONS, "supersessions"),
+    fileSource(INFERRED, "inferred"),
+    fileSource(LEDGER, "ledger"),
+    fileSource(RATINGS, "ratings"),
+    ...months.map((m) => fileSource(join(OBSERVATIONS, m), monthName(m))),
+    { count: pageLines.length, lines: () => pageLines, name: "pages" },
   ];
   const ctx = await readContext();
   const page = feedPage(
@@ -507,18 +515,14 @@ export async function claim(id: string) {
   if (!ObservationId.safeParse(id).success) {
     throw new Error("an observation id is obs_ and 12 hex");
   }
-  const versions = (await filesIn(OBSERVATIONS)).flatMap((m) =>
-    linesOf(join(OBSERVATIONS, m)).flatMap((line, n) =>
-      line.includes(`"id":"${id}"`)
-        ? [
-            {
-              id: `${monthName(m)}#${n}`,
-              o: Observation.parse(JSON.parse(line)),
-            },
-          ]
-        : []
-    )
-  );
+  const versions = [...(await readOrigins())].flatMap(([m, origins]) => {
+    const ns = origins.flatMap((r) => (r.id === id ? [r.n] : []));
+    const lines = ns.length > 0 ? linesOf(join(OBSERVATIONS, m)) : [];
+    return ns.map((n) => ({
+      id: `${monthName(m)}#${n}`,
+      o: Observation.parse(JSON.parse(lines[n] as string)),
+    }));
+  });
   if (versions.length === 0) {
     throw new Error(`no observation ${id}`);
   }
@@ -526,7 +530,7 @@ export async function claim(id: string) {
   const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
   const people = await readPeople();
-  const unit = (await readUnits()).find((u) => u.id === o.unit);
+  const unit = await readUnit(o.unit);
   const chats = chatHandles(unit ? [unit] : []);
   const now = aboutNow(
     [o],

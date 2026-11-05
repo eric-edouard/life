@@ -25,14 +25,48 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
 
-interface Read {
+/** A file as a read saw it: unchanged while its inode, size and mtime are. */
+interface Seen {
+  ino: number;
+  mtimeMs: number;
+  size: number;
+}
+// An unchanged inode, size and mtime is trusted: a same-size rewrite within one mtime tick (APFS: nanoseconds) would
+// be missed; only code that appends or rewrites whole writes these files.
+const isSameFile = (a: Seen, s: Seen) =>
+  a.ino === s.ino && a.size === s.size && a.mtimeMs === s.mtimeMs;
+const seenOf = ({ ino, mtimeMs, size }: Seen): Seen => ({ ino, mtimeMs, size });
+
+/**
+ * `read` of a file, kept per process: read again only once the file changed (`isSameFile`), whole. For values far
+ * smaller than the file (its line count, its slim rows), read often, of files few of which change.
+ */
+export function keptReader<T>(read: (path: string) => T) {
+  const kept = new Map<string, Seen & { value: T }>();
+  return (path: string): T => {
+    const s = statSync(path, { throwIfNoEntry: false });
+    if (!s) {
+      kept.delete(path);
+      return read(path);
+    }
+    const last = kept.get(path);
+    if (last && isSameFile(last, s)) {
+      return last.value;
+    }
+    const value = read(path);
+    kept.set(path, { ...seenOf(s), value });
+    return value;
+  };
+}
+
+/** A file's complete lines, blanks included (`linesOf`'s count). */
+export const readLineCount = keptReader((path) => linesOf(path).length);
+
+interface Read extends Seen {
   /** The fold so far, of the bytes up to `end` (just past the last newline read). */
   acc: unknown;
   end: number;
   hash: number | bigint;
-  ino: number;
-  mtimeMs: number;
-  size: number;
 }
 const reads = new Map<string, Read>();
 
@@ -43,8 +77,7 @@ const reads = new Map<string, Read>();
  * changes: callers only read it. One fold per path.
  */
 // ponytail: the fold stays in memory and grows with its file (verdicts most), and a change reads and hashes the whole
-// file again (no reparse): keep less state in an only-growing file if that bites. An unchanged inode, size and mtime is
-// trusted: a same-size rewrite within one mtime tick (APFS: nanoseconds) would be missed; only code that appends writes these files.
+// file again (no reparse): keep less state in an only-growing file if that bites.
 export function readAppended<T, F>(
   path: string,
   schema: z.ZodType<T>,
@@ -57,11 +90,7 @@ export function readAppended<T, F>(
     return start();
   }
   const last = reads.get(path);
-  if (
-    last?.ino === s.ino &&
-    last.size === s.size &&
-    last.mtimeMs === s.mtimeMs
-  ) {
+  if (last && isSameFile(last, s)) {
     return last.acc as F;
   }
   const bytes = readFileSync(path);
@@ -85,9 +114,7 @@ export function readAppended<T, F>(
     acc,
     end,
     hash: Bun.hash(bytes.subarray(0, end)),
-    ino: s.ino,
-    mtimeMs: s.mtimeMs,
-    size: s.size,
+    ...seenOf(s),
   });
   return acc;
 }
