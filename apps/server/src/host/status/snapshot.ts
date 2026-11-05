@@ -1,7 +1,6 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY, HOUR, MIN } from "../../core/clock";
-import { filesIn, linesOf } from "../../core/files";
+import { filesIn, linesOf, newestIn } from "../../core/files";
 import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
@@ -10,13 +9,14 @@ import { git } from "../../core/proc";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
+  EPISODES,
   OBSERVATIONS,
   PAGES,
   readLedger,
   readRatings,
   readStatements,
 } from "../../memory/ledger";
-import { loadTruth } from "../../memory/read-truth";
+import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip, daysBefore } from "../../memory/units";
@@ -176,7 +176,7 @@ async function memoryCounts() {
     .trim()
     .split("\n");
   const [episodes, observations, people, areas, portrait] = await Promise.all([
-    filesIn(join(OWNER_DATA_DIR, "memory", "episodes")),
+    filesIn(EPISODES),
     filesIn(OBSERVATIONS),
     filesIn(join(PAGES, "people"), ".md"),
     filesIn(join(PAGES, "areas"), ".md"),
@@ -220,15 +220,10 @@ async function unreflected() {
 
 /** truth/: when he last edited it, and whether the code accepts it. */
 async function truthState() {
-  const dir = join(OWNER_DATA_DIR, "truth");
-  const newest = (d: string): number =>
-    readdirSync(d, { withFileTypes: true }).reduce((m, e) => {
-      const p = join(d, e.name);
-      return Math.max(m, e.isDirectory() ? newest(p) : statSync(p).mtimeMs);
-    }, 0);
+  const edited = newestIn(TRUTH);
   const loaded = await safe(loadTruth);
   return {
-    editedAt: existsSync(dir) ? new Date(newest(dir)).toISOString() : null,
+    editedAt: edited ? new Date(edited).toISOString() : null,
     error: loaded.ok ? null : loaded.error,
     people: loaded.ok ? loaded.value.people.length : 0,
     projects: loaded.ok ? loaded.value.projects.length : 0,

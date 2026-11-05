@@ -21,7 +21,7 @@ import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
-const MEMORY = join(OWNER_DATA_DIR, "memory");
+export const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
 export const runId = (d: Date) => d.toISOString().replaceAll(":", "-");
 const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
@@ -78,6 +78,13 @@ export const readUnits = () => readFolder(UNITS, Unit);
 /** The units of these days only. */
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
+/** The units of `day` and every day after it, oldest day first. */
+export const readUnitsFrom = async (day: string) =>
+  readUnitsOf(
+    (await filesIn(UNITS))
+      .map((n) => n.slice(0, -".jsonl".length))
+      .filter((d) => d >= day)
+  );
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 

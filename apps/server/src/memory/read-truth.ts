@@ -63,6 +63,9 @@ function frontmatter(text: string, path: string) {
   return { body: (body ?? "").trim(), data: Bun.YAML.parse(head) };
 }
 
+/** His truth/ folder. */
+export const TRUTH = join(OWNER_DATA_DIR, "truth");
+
 /** truth/me.md, read fresh. */
 export const loadMe = async (data = OWNER_DATA_DIR) =>
   readMe(await Bun.file(join(data, "truth", "me.md")).text());

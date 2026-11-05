@@ -7,7 +7,7 @@ import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
-import { reindex } from "../memory/search";
+import { readStaleness, reindex, reindexUnits } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
 import { LedgerEntry } from "../records/ledger-entry";
@@ -19,7 +19,8 @@ import { serve } from "./http/server";
 import { inbound } from "./inbound";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
-// anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
+// anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
+// or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
@@ -168,19 +169,51 @@ export function resumed(store: Store, now: number) {
   return pending;
 }
 
-/** Rebuilds the lifelog units and the index holding the lock; false, nothing done, when another run holds it. */
-async function syncUnits(store: Store, cursor: string) {
-  const n = await locked(async () => {
-    const built = await syncLifelogUnits(store);
-    await reindex();
-    return built;
+/**
+ * What the watcher owes the store: the lifelog units from an instant on (null: none), and the whole index
+ * (`isIndexOwed`; otherwise the index follows the units it writes, `reindexUnits`).
+ */
+interface Owed {
+  from: Date | null;
+  isIndexOwed: boolean;
+}
+/** The earlier of two instants the units are owed from. */
+const earliest = (a: Date | null, b: Date | null) =>
+  a && b && b < a ? b : (a ?? b);
+
+/**
+ * Pays what is owed holding the lock, and what the index's staleness adds (`readStaleness`: a correction is
+ * searchable within the minute; a `truth/` edit builds every lifelog unit again); returns what is still owed (all of
+ * it when another run held the lock). A unit that went, or that a code rule dropped or took back, takes the full
+ * `reindex`.
+ */
+async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
+  const stale = readStaleness();
+  const due = {
+    from: stale === "truth" ? new Date(0) : owed.from,
+    isIndexOwed: owed.isIndexOwed || stale !== null,
+  };
+  if (!(due.from || due.isIndexOwed)) {
+    return due;
+  }
+  const done = await locked(async () => {
+    const built = due.from ? await syncLifelogUnits(store, due.from) : null;
+    // Written units no longer differ: if the index update throws, the retry owes the whole index.
+    owed.isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
+    if (due.isIndexOwed || built?.hasGoneOrBack) {
+      await reindex();
+    } else if (built?.written.length) {
+      await reindexUnits(built.written);
+    }
+    return { built };
   });
-  if (n) {
+  if (done?.built) {
+    const n = done.built;
     console.log(
       `${clock().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
     );
   }
-  return n !== null;
+  return done ? { from: null, isIndexOwed: false } : due;
 }
 
 /** Whether Life can act from here, in life-watch.log at start (the connector's `change_todo_item` acts from this process). */
@@ -219,8 +252,8 @@ async function listen(running: string, started: Date): Promise<number> {
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
   let health = readHealth();
-  // Units follow the store even if the last run stopped between the two.
-  let dirty = true;
+  // At start, every unit follows the store and the index is rebuilt: the last run may have stopped between the two.
+  let owed: Owed = { from: new Date(0), isIndexOwed: true };
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
@@ -233,7 +266,7 @@ async function listen(running: string, started: Date): Promise<number> {
         more ? 0 : holdFor(pending, clock().getTime(), speech)
       );
       ({ more } = page);
-      dirty ||= page.changed;
+      owed.from = earliest(owed.from, page.touched);
       for (const h of hearings(
         pending,
         page.owner,
@@ -245,8 +278,10 @@ async function listen(running: string, started: Date): Promise<number> {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         const again = await hear(store, h.conversation, h.from).then(
           ({ heard, marked }) => {
-            // Its marks (its asks' spans) changed: the units on disk carry them at the next sync.
-            dirty ||= marked;
+            // Its marks (its asks' spans, on its turns from `from`) changed: the units carry them at the next sync.
+            if (marked) {
+              owed.from = earliest(owed.from, new Date(h.from));
+            }
             return heard ? null : h.tries;
           },
           (e: Error) => {
@@ -265,9 +300,9 @@ async function listen(running: string, started: Date): Promise<number> {
         }
       }
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
-      // each poll), `dirty` keeps the sync due.
-      if (dirty && !more && !isLocked()) {
-        dirty = !(await syncUnits(store, page.cursor));
+      // each poll), `owed` keeps the sync due.
+      if (!(more || isLocked())) {
+        owed = await settle(store, page.cursor, owed);
       }
       result = { cursor: page.cursor };
     } catch (e) {

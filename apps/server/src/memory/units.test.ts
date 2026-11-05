@@ -734,15 +734,17 @@ test("a conversation that moves to another day leaves its old day's file; other 
     });
   try {
     await writeUnits([chat.date], [chat]);
-    apply(store, on("2026-10-25"));
-    await syncLifelogUnits(store);
+    await syncLifelogUnits(store, apply(store, on("2026-10-25")) as Date);
     expect(await sourcesByDay()).toEqual({
       "2026-10-25": ["whatsapp", "lifelog"],
     });
-    // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day).
-    apply(store, on("2026-10-26"));
-    expect(await syncLifelogUnits(store)).toMatchObject({
+    // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day). The page
+    // touched the old start, so the sync reads the old day too.
+    expect(
+      await syncLifelogUnits(store, apply(store, on("2026-10-26")) as Date)
+    ).toMatchObject({
       added: 1,
+      hasGoneOrBack: true,
       removed: 1,
     });
     expect(await sourcesByDay()).toEqual({
@@ -795,7 +797,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
   );
   try {
     await writeUnits([chapter.date], [chapter, placeholder]);
-    expect(await syncLifelogUnits(store)).toMatchObject({
+    expect(await syncLifelogUnits(store, new Date(0))).toMatchObject({
       added: 1,
       removed: 1,
     });
@@ -805,7 +807,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
     ]);
     expect((await readUnits())[0]).toEqual(chapter);
     // lifelog retires c1 into c3: c1's chapter goes with it, c3's days come.
-    apply(
+    const touched = apply(
       store,
       pageFixture({
         conversations: [
@@ -815,7 +817,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
         turns: [turnFixture(0, at, null, null, "c3")],
       })
     );
-    expect(await syncLifelogUnits(store)).toMatchObject({
+    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
       added: 1,
       removed: 1,
     });
@@ -823,6 +825,77 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
       unitId("lifelog", "c2", "2026-10-20"),
       unitId("lifelog", "c3", "2026-10-20"),
     ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+  }
+});
+
+test("a sync reads from where the page touched: only those days' files are rewritten, a voice unit there it did not read stays, and a page that changes nothing writes nothing", async () => {
+  expect(existsSync(UNITS)).toBe(false);
+  const store = lifelogStore();
+  const talk = (id: string, start: string, end: string) =>
+    feedConversation(id, { endAt: end, startAt: start });
+  apply(
+    store,
+    pageFixture({
+      conversations: [
+        talk("c1", "2026-10-20T10:00:00.000Z", "2026-10-20T10:10:00.000Z"),
+        talk("c2", "2026-10-25T10:00:00.000Z", "2026-10-25T10:10:00.000Z"),
+        talk("c3", "2026-10-25T08:00:00.000Z", "2026-10-25T08:10:00.000Z"),
+      ],
+      turns: [
+        turnFixture(0, "2026-10-20T10:00:00.000Z", null, null, "c1"),
+        turnFixture(1, "2026-10-25T10:00:00.000Z", null, null, "c2"),
+        turnFixture(2, "2026-10-25T08:00:00.000Z", null, null, "c3"),
+      ],
+    })
+  );
+  try {
+    expect(await syncLifelogUnits(store, new Date(0))).toMatchObject({
+      added: 3,
+    });
+    // An older day changed by hand: a sync that never reads it leaves it.
+    const [old] = await readUnits();
+    await writeUnits(["2026-10-20"], [{ ...(old as Unit), title: "Kept" }]);
+    // c2 goes on: the page touches its stored start, 10:00 on the 25th; c3 ended at 08:10, before it.
+    const touched = apply(
+      store,
+      pageFixture({
+        conversations: [
+          talk("c2", "2026-10-25T10:00:00.000Z", "2026-10-25T10:30:00.000Z"),
+        ],
+        turns: [turnFixture(3, "2026-10-25T10:20:00.000Z", null, null, "c2")],
+      })
+    );
+    const synced = await syncLifelogUnits(store, touched as Date);
+    expect(synced).toMatchObject({
+      added: 0,
+      changed: 1,
+      hasGoneOrBack: false,
+      removed: 0,
+    });
+    expect(synced.written.map((u) => u.key)).toEqual(["c2"]);
+    expect((await readUnits()).map((u) => [u.key, u.title])).toEqual([
+      ["c1", "Kept"],
+      ["c3", "The plumber"],
+      ["c2", "The plumber"],
+    ]);
+    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+      added: 0,
+      changed: 0,
+      removed: 0,
+      written: [],
+    });
+    // A unit a code rule had dropped comes back: the observations on it come back with it.
+    const units = await readUnits();
+    await writeUnits(
+      ["2026-10-25"],
+      units.map((u) => (u.key === "c2" ? { ...u, drop: "duplicate" } : u))
+    );
+    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+      changed: 1,
+      hasGoneOrBack: true,
+    });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }

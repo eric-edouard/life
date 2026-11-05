@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
+import { newestIn } from "../core/files";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
@@ -36,6 +37,7 @@ import { levelsWith } from "./closeness";
 import {
   daysOf,
   episodesNow,
+  MEMORY,
   OUT,
   pagePath,
   readBy,
@@ -47,6 +49,7 @@ import {
   readVerdicts,
   type Standing,
   stateOf,
+  type Verdicts,
   verdictOf,
   writtenPeople,
 } from "./ledger";
@@ -54,7 +57,13 @@ import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
 import { span } from "./past-events";
 import { stayOf, staysOf, where } from "./places";
-import { goalProjects, loadTruth, OWNER, type Truth } from "./read-truth";
+import {
+  goalProjects,
+  loadTruth,
+  OWNER,
+  TRUTH,
+  type Truth,
+} from "./read-truth";
 import { kindOf, listening } from "./sources";
 import { episodeText } from "./statements";
 import {
@@ -74,6 +83,7 @@ import {
   namedLike,
   nearNames,
   observationsNow,
+  type People,
   readPeople,
   unitNow,
 } from "./who";
@@ -1025,7 +1035,8 @@ create table units (
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
-create index unit_topics_topic on unit_topics (topic);`;
+create index unit_topics_topic on unit_topics (topic);
+create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`stateOf`). */
 function retirement(o: Observation, standing: Standing) {
@@ -1039,24 +1050,77 @@ interface IndexedUnit {
   verdict?: Verdict;
 }
 
+/** The index rows of `units`: who each is with as of today (the table keeps each once), and its verdict. */
+const indexedOf = (units: Unit[], people: People, verdicts: Verdicts) =>
+  units.map((unit) => ({
+    unit: unitNow(unit, people.refOf),
+    verdict: verdictOf(verdicts, unit),
+  }));
+
+/** `insert or ignore` into `db`'s `table` of `n` columns. */
+const insertInto = (db: Database, table: string, n: number) =>
+  db.prepare(
+    `insert or ignore into ${table} values (${new Array(n).fill("?").join(", ")})`
+  );
+
 /**
- * derived/memory/index.sqlite, rebuilt from scratch: observations (with the observation that replaced each retired
- * one, and its end date), full-text search over claims and quotes, links; and the units (titles, a chapter's or repo-day's summary and
- * the topics of their verdicts), so today's material is searchable before the nightly pass. Rebuilt in place, in one
- * write-ahead-log transaction, so a reader holding the file keeps the old index until the commit and sees the new one
- * after it; a rebuild waits for another to commit.
+ * Writes the index at `path` in one write-ahead-log transaction, so a reader holding the file keeps the old rows until
+ * the commit and sees the new ones after it; a write waits for another to commit.
+ */
+function writeIndex(path: string, write: (db: Database) => void) {
+  const db = new Database(path);
+  db.run("pragma busy_timeout = 30000");
+  db.run("pragma journal_mode = wal");
+  try {
+    db.transaction(() => write(db)).immediate();
+  } finally {
+    // `true`: every statement is finalized first, so the file is let go (and its log checkpointed) at once.
+    db.close(true);
+  }
+}
+
+/** The units' rows: titles, a chapter's or repo-day's summary, the topics of their verdicts, their people. */
+function indexUnits(db: Database, units: IndexedUnit[]) {
+  const unitRow = insertInto(db, "units", 8);
+  const unitText = insertInto(db, "unit_search", 4);
+  const unitTopic = insertInto(db, "unit_topics", 2);
+  const unitPerson = insertInto(db, "unit_people", 2);
+  for (const { unit: u, verdict: v } of units) {
+    const tags = v?.topics ?? [];
+    unitRow.run(
+      u.id,
+      u.date,
+      u.source,
+      u.title,
+      v?.importance ?? null,
+      v?.type ?? null,
+      v?.area ?? null,
+      tags.join(", ")
+    );
+    unitText.run(u.id, u.title, u.summary ?? "", tags.join(" "));
+    for (const t of tags) {
+      unitTopic.run(u.id, t);
+    }
+    for (const p of u.people) {
+      unitPerson.run(u.id, p);
+    }
+  }
+}
+
+/**
+ * derived/memory/index.sqlite, rebuilt from scratch (`writeIndex`): observations (with the observation that replaced
+ * each retired one, and its end date), full-text search over claims and quotes, links; the units (`indexUnits`), so
+ * today's material is searchable before the nightly pass; and `rebuilt`, when its reads began (`readStaleness`).
  */
 export function buildIndex(
   observations: Observation[],
   path: string,
   standing: Standing,
-  units: IndexedUnit[] = []
+  units: IndexedUnit[] = [],
+  builtAt = clock()
 ) {
-  const db = new Database(path);
-  db.run("pragma busy_timeout = 30000");
-  db.run("pragma journal_mode = wal");
   const unique = new Map(observations.map((o) => [o.id, o]));
-  const rebuild = db.transaction(() => {
+  writeIndex(path, (db) => {
     // Every table the file holds, whatever schema built it (a virtual table takes its shadow tables along).
     const tables = db
       .query<[string], []>(
@@ -1064,18 +1128,10 @@ export function buildIndex(
       )
       .values();
     db.run(tables.map(([t]) => `drop table "${t}";`).join("") + INDEX_SCHEMA);
-    // `insert or ignore` into a table of `n` columns.
-    const insert = (table: string, n: number) =>
-      db.prepare(
-        `insert or ignore into ${table} values (${new Array(n).fill("?").join(", ")})`
-      );
-    const row = insert("observations", 17);
-    const text = insert("search", 3);
-    const link = insert("links", 2);
-    const unitRow = insert("units", 8);
-    const unitText = insert("unit_search", 4);
-    const unitTopic = insert("unit_topics", 2);
-    const unitPerson = insert("unit_people", 2);
+    db.run("insert into rebuilt values (?)", [builtAt.toISOString()]);
+    const row = insertInto(db, "observations", 17);
+    const text = insertInto(db, "search", 3);
+    const link = insertInto(db, "links", 2);
     for (const o of unique.values()) {
       const retired = retirement(o, standing);
       row.run(
@@ -1102,50 +1158,75 @@ export function buildIndex(
         link.run(o.id, e);
       }
     }
-    for (const { unit: u, verdict: v } of units) {
-      const tags = v?.topics ?? [];
-      unitRow.run(
-        u.id,
-        u.date,
-        u.source,
-        u.title,
-        v?.importance ?? null,
-        v?.type ?? null,
-        v?.area ?? null,
-        tags.join(", ")
-      );
-      unitText.run(u.id, u.title, u.summary ?? "", tags.join(" "));
-      for (const t of tags) {
-        unitTopic.run(u.id, t);
-      }
-      for (const p of u.people) {
-        unitPerson.run(u.id, p);
-      }
-    }
+    indexUnits(db, units);
   });
-  try {
-    rebuild.immediate();
-  } finally {
-    // `true`: every statement is finalized first, so the file is let go (and its log checkpointed) at once.
-    db.close(true);
-  }
   return unique.size;
 }
 
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
+  const at = clock();
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
-  const units = (await readUnits()).map((unit) => ({
-    // Who a unit is with as of today; the table keeps each once.
-    unit: unitNow(unit, people.refOf),
-    verdict: verdictOf(verdicts, unit),
-  }));
+  const units = indexedOf(await readUnits(), people, verdicts);
   const { observations, standing } = await observationsNow(people);
-  const n = buildIndex(observations, INDEX, standing, units);
+  const n = buildIndex(observations, INDEX, standing, units, at);
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
   );
+}
+
+/**
+ * Rewrites the rows of `units` alone, units the watcher wrote (`syncLifelogUnits`): the observations on them stand as
+ * they did, so the full rebuild's rows hold. A unit that went, or that a code rule dropped or took back, takes the full
+ * `reindex`.
+ */
+export async function reindexUnits(units: Unit[], path = INDEX) {
+  const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
+  const ids = JSON.stringify(units.map((u) => u.id));
+  writeIndex(path, (db) => {
+    for (const [table, id] of [
+      ["units", "id"],
+      ["unit_search", "id"],
+      ["unit_topics", "unit"],
+      ["unit_people", "unit"],
+    ]) {
+      db.run(
+        `delete from ${table} where ${id} in (select value from json_each(?))`,
+        [ids]
+      );
+    }
+    indexUnits(db, indexedOf(units, people, verdicts));
+  });
+}
+
+/**
+ * What changed since the full rebuild's reads began (its `rebuilt` row), so a correction is searchable within the
+ * minute: `truth` (a file under truth/ newer: the lifelog units carry its names, so they are built again too), `index`
+ * (any other file under memory/ newer, units/ and episodes/ aside, which the watcher writes itself; or no index, or one
+ * from before the row), or null. A superset of what the rebuild reads: a list of its inputs would drift.
+ */
+export function readStaleness(path = INDEX): "truth" | "index" | null {
+  let rebuilt: string | undefined;
+  try {
+    const db = openReadOnly(path);
+    try {
+      rebuilt = db
+        .query<{ at: string }, []>("select at from rebuilt")
+        .get()?.at;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return "index";
+  }
+  const at = rebuilt ? Date.parse(rebuilt) : 0;
+  if (newestIn(TRUTH) > at) {
+    return "truth";
+  }
+  return !rebuilt || newestIn(MEMORY, ["units", "episodes"]) > at
+    ? "index"
+    : null;
 }
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */

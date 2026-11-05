@@ -2,11 +2,13 @@ import {
   appendFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
 /**
  * A file's complete lines (none when it is missing): a line still being appended, with no newline yet, waits for the
@@ -47,6 +49,22 @@ export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
     );
   }
 }
+/** When a file under `dir` last changed, folders named in `skip` aside (ms; 0: no file). */
+export const newestIn = (dir: string, skip: string[] = []): number =>
+  existsSync(dir)
+    ? readdirSync(dir, { withFileTypes: true })
+        .filter((e) => !skip.includes(e.name))
+        .reduce((m, e) => {
+          const p = join(dir, e.name);
+          return Math.max(
+            m,
+            e.isDirectory()
+              ? newestIn(p, skip)
+              : // Gone since the listing (an atomic write's rename): it no longer counts.
+                (statSync(p, { throwIfNoEntry: false })?.mtimeMs ?? 0)
+          );
+        }, 0)
+    : 0;
 /** The files of a folder with that extension, by name (observations/: one `.jsonl` per month). */
 export const filesIn = async (dir: string, ext = ".jsonl") =>
   (await readdir(dir).catch(() => [] as string[]))
