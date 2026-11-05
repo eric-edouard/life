@@ -270,6 +270,7 @@ export function refContext(
       name: p.name,
       people: p.people.map((id) => truth.people.find((x) => x.id === id)?.name),
       ref: `project:${p.id}`,
+      status: p.status,
     })),
   };
 }

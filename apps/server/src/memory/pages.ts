@@ -106,7 +106,6 @@ export function areaHold(a: Area, projects: Truth["projects"]) {
   if (projects.length === 0) {
     return "_Nothing about this area in truth/ yet._";
   }
-  // His parked and done projects only counted: they pile up over the years, the page's words would not.
   const underway = projects.filter(isUnderway);
   const rest = projects.length - underway.length;
   const each = underway.map((project) => {
