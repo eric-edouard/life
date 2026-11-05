@@ -122,10 +122,15 @@ export async function situations() {
           input: { ...input, today: step.today },
           prompt: SITUATION_PROMPT,
         });
+        const lines = shownLines(reply, new Set(t.episodes.map((m) => m.id)));
+        // A reply with no line citing what it was shown is a failed call: the last situation stays, the next run retries.
+        if (lines.length === 0) {
+          throw new Error("no line cites the episodes it was shown");
+        }
         const situation: Situation = {
           built: step.now.toISOString(),
           inputs,
-          lines: shownLines(reply, new Set(t.episodes.map((m) => m.id))),
+          lines,
           madeBy: stamp(step.llm, SITUATION_PROMPT, step.run),
           page: t.ref,
           schemaVersion: 1,
@@ -139,7 +144,7 @@ export async function situations() {
       { page: t.ref }
     )
   );
-  // A situation with no page and no recent episode left goes; git keeps it.
+  // A situation whose person is no longer close or has no recent episode goes; git keeps it.
   const keep = new Set(targets.map((t) => situationPath(t.ref)));
   const files = await readdir(SITUATIONS).catch(() => [] as string[]);
   const gone = files

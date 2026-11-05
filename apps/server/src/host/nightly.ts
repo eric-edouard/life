@@ -429,7 +429,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       evidence.built
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
-    await phase.step("situations", () => situations());
+    // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
+    phase.at = "situations";
+    await situations();
     phase.at = "fact checks";
     await askFactChecks();
     phase.at = "index";

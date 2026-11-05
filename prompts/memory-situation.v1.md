@@ -31,9 +31,12 @@ Answer in a few lines the questions he would ask about now. Older days count onl
   money; body and mind; how others see him or react to him; who he spends time with and who has gone quiet. Errands,
   paperwork and admin get one line at most: they are on his to-do list.
 - **Someone close**: the first line says what they are to each other now (together, a couple again, friends, apart,
-  broken up, family, partners in work) as the episodes or page last state it, with the date, and any change within
-  these days ("broke up before 3 Mar; since 20 Mar she has stayed at his flat almost every night, and neither has
-  said whether they are back together"). Time spent together is not a status: when none is stated, say so. Then how
+  broken up, family, partners in work) as the newest days show it. A couple shows in how they talk and live
+  (jealousy, sex, plans as a pair, nights at each other's place), not only in a stated status, and the newest days win
+  over an older statement: never call them exes or apart while the newest days show a couple; give the old statement
+  as history ("together again in practice since 20 Mar: she stays at his flat, says she is jealous, they plan a trip;
+  he had said on 3 Mar he broke up with her"). What the context says about other people is about them, never this
+  person. Then how
   they get along (warm, tense, distant, making up), with what shows it; what they do together; what is open between
   them (owed, promised, waited on); what is going on in that person's life that matters to him.
 

@@ -284,7 +284,7 @@ export function buildServer() {
   tool(
     server,
     "read_person_page",
-    "A person's page, whole: first their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days) and what is open with them (to-dos, promises, waiting on), then the page (who they are to the owner, where things stand, History), their next birthday, what Life holds about them by source and month, then every observation linked to them and the episodes with them, newest first, and recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
+    "A person's page, whole: first their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days), then the page (who they are to the owner, where things stand, History), their next birthday, what Life holds about them by source and month, then every observation linked to them and the episodes with them, newest first, and recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
     z.object({
       before: Day.optional().describe(
         "Page back: only what is older than this day"

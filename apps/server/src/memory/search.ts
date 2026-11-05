@@ -541,10 +541,6 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...birthday,
               ...close,
               ...situationBlock(ref, live, "Situation"),
-              ...section(
-                "Open with them (to-dos, promises, waiting on):",
-                openWith(db, ref)
-              ),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
@@ -568,18 +564,9 @@ const recordedTitle = (heard: { name: string }[]) =>
 const PAGE_ITEMS = 24;
 const SPACES = /\s+/;
 
-/** What is open between him and `ref`: the standing to-dos, promises and waiting-ons linked to them. */
-const openWith = (db: Database, ref: string) =>
-  latest(
-    db,
-    "join links l on l.observation = o.id where l.entity = ? and o.type in ('to_do', 'promise', 'waiting_on_someone')",
-    ref,
-    -1
-  ).map(line);
-
 /** The situations of the people `words` name (him aside): read before the hits, so they are read knowing where things stand. */
 async function situationsNamed(words: string) {
-  const { names, truth } = await readPeople();
+  const { names, nameOf, truth } = await readPeople();
   const said = ` ${normalize(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
     truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
@@ -595,7 +582,7 @@ async function situationsNamed(words: string) {
   }
   const live = new Set((await episodesWhere(() => true)).map((m) => m.id));
   return refs.flatMap((ref) =>
-    situationBlock(ref, live, `Situation with ${names.get(ref)}`)
+    situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
   );
 }
 
