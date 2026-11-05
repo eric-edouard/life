@@ -90,7 +90,7 @@ let cal = eventCalendar(named["calendar"] ?? "")
 switch sub {
 case "held":
   let until = isoDay.date(from: named["until"] ?? "") ?? Date()
-  let from = Calendar.current.date(byAdding: .year, value: -30, to: until) ?? until
+  guard let from = instant(named["from"] ?? "") else { fail("held needs --from=<instant>") }
   var held: [[String: String]] = []
   // EventKit searches at most four years at a time.
   var start = from

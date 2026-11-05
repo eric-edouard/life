@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, DAY, iso } from "../core/clock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { execOk } from "../core/proc";
@@ -53,7 +53,7 @@ function pastCalendar(calendar: string, account: string) {
       "--no-input",
     ]);
   return {
-    async held(until: string) {
+    async held(from: string, until: string) {
       const rows: Row[] = [];
       let page = "";
       do {
@@ -62,7 +62,7 @@ function pastCalendar(calendar: string, account: string) {
           await run([
             "events",
             calendar,
-            "--from=2000-01-01",
+            `--from=${from}`,
             `--to=${until}`,
             "--max=2500",
             ...(page ? [`--page=${page}`] : []),
@@ -116,9 +116,15 @@ function appleCalendar(calendar: string, tool: string) {
   const run = (args: string[]) =>
     execOk([tool, "calendar", ...args, `--calendar=${calendar}`]);
   return {
-    async held(until: string) {
+    async held(from: string, until: string) {
       return heldOf(
-        z.array(Row).parse(JSON.parse(await run(["held", `--until=${until}`])))
+        z
+          .array(Row)
+          .parse(
+            JSON.parse(
+              await run(["held", `--from=${from}`, `--until=${until}`])
+            )
+          )
       );
     },
     async remove(episode: string, id: string) {
@@ -143,8 +149,11 @@ function appleCalendar(calendar: string, tool: string) {
   };
 }
 
-/** Brings the calendar in line with the episodes; null when it is not set up. */
-export async function syncPast(now = clock()) {
+/**
+ * Brings the calendar in line with the episodes ending after `since` (the whole calendar without it); null when it is
+ * not set up or there is no index yet.
+ */
+export async function syncPast(since: Date | undefined, now = clock()) {
   const { past } = settings();
   if (!(past && isOn("past"))) {
     return null;
@@ -153,10 +162,20 @@ export async function syncPast(now = clock()) {
   const cal = past.account
     ? pastCalendar(past.calendar, past.account)
     : appleCalendar(past.calendar, process.env.LIFE_EVENTKIT as string);
-  const want = await wanted(now);
+  const want = await wanted(now, since);
+  if (!want) {
+    return null;
+  }
+  // Listed a day earlier than the drafts: an event ending in that day whose episode is live is left as it is (`plan`).
+  // ponytail: an episode read again with its end moved over a day (back, or forward from an event ended before the
+  // listing) keeps its old copy until the night's whole sync.
   const { fresh, stale } = plan(
-    want,
-    await cal.held(daysBefore(now.toISOString().slice(0, 10), -2))
+    want.drafts,
+    await cal.held(
+      since ? iso(since.getTime() - DAY) : "2000-01-01T00:00:00Z",
+      daysBefore(now.toISOString().slice(0, 10), -2)
+    ),
+    want.live
   );
   for (const e of stale) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
@@ -165,5 +184,9 @@ export async function syncPast(now = clock()) {
   for await (const { d, description, location } of described(fresh)) {
     await cal.write(d, description, location);
   }
-  return { events: want.length, removed: stale.length, written: fresh.length };
+  return {
+    events: want.drafts.length,
+    removed: stale.length,
+    written: fresh.length,
+  };
 }
