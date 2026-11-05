@@ -199,8 +199,16 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
     person: "person:gaston",
     surface: "Gas B",
   });
-  expect(merged([not], both)("person:inf_gas")).toBe("person:inf_gas");
+  expect(merged([not], both)("person:inf_gas")).toBe("person:inf_gas-1");
   expect(resolver(people, both, [not])("Gas B")).toBe("person:inf_gas-1");
+  // A surface that is a name on the map reads as them, and so does a guess made for it before.
+  expect(
+    merged(
+      [],
+      [inferred("inf_gaston-x", ["Gaston"])],
+      people
+    )("person:inf_gaston-x")
+  ).toBe("person:gaston");
 });
 
 test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {

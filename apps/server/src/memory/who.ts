@@ -45,49 +45,6 @@ function guessesOf(inferred: InferredPerson[]) {
   return guessed;
 }
 
-/**
- * Who a person ref is now: the owner's `same-person` folds, over what each inferred person's surface reads as now (its
- * latest confident guess: the person in truth/ it links to, `InferredPerson.person`, else that guess's own id), so
- * every id a surface was ever given is one person. His `this-is` or `not-this-person` on a surface drops it.
- */
-export function merged(
-  corrections: Correction[],
-  inferred: InferredPerson[] = []
-) {
-  const into = new Map<string, string>();
-  const his = new Set(
-    corrections.flatMap((c) =>
-      c.kind === "this-is" || c.kind === "not-this-person"
-        ? keysOf(c.surface)
-        : []
-    )
-  );
-  const guessed = guessesOf(inferred);
-  for (const r of inferred) {
-    const now = r.surfaces
-      .flatMap(keysOf)
-      .map((k) => (his.has(k) ? undefined : guessed.get(k)))
-      .find(Boolean);
-    const to = now && (now.person ?? `person:${now.id}`);
-    if (to && to !== `person:${r.id}`) {
-      into.set(`person:${r.id}`, to);
-    }
-  }
-  for (const c of corrections) {
-    if (c.kind === "same-person") {
-      into.set(c.from, c.to);
-    }
-  }
-  return (ref: string) => {
-    let r = ref;
-    // At most one hop per fold, so a loop cannot spin.
-    for (let i = 0; i < into.size && into.has(r); i += 1) {
-      r = into.get(r) ?? r;
-    }
-    return r;
-  };
-}
-
 const PAREN = /\(.*?\)/g;
 
 /** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
@@ -107,18 +64,17 @@ const handleIndex = (people: Person[]): Map<string, string> =>
   new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
 
 /**
- * Maps a name, handle or address to `person:<slug>`, in this order: what the owner said it is (`this-is`), `truth/`
- * (handles, then names and aliases), then the people Life inferred. A `not-this-person` correction blocks that match;
- * the result is folded (`merged`).
+ * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
+ * (handles, then names and aliases), then its latest confident inferred guess (the person in truth/ it links to, else
+ * the guess). A `not-this-person` correction blocks that match.
  */
-export function resolver(
+function readingOf(
   people: Person[],
-  inferred: InferredPerson[] = [],
-  corrections: Correction[] = []
+  inferred: InferredPerson[],
+  corrections: Correction[]
 ) {
   const handles = handleIndex(people);
   const names = nameIndex(people);
-  const canon = merged(corrections, inferred);
   const said = new Map<string, string>();
   const not = new Set<string>();
   for (const c of corrections) {
@@ -138,12 +94,62 @@ export function resolver(
     const truth = handles.get(ks[0] ?? "") ?? handles.get(ks[1] ?? "");
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
     const named = names.get(normalize(surface.trim().replace(PAREN, "")));
-    const ref = [
-      ...ks.map((k) => said.get(k)),
-      truth && `person:${truth}`,
-      named && `person:${named}`,
-      ...ks.map((k) => guessed.get(k)?.id).map((id) => id && `person:${id}`),
-    ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`)));
+    const guesses = ks.map((k) => guessed.get(k));
+    return (
+      [
+        ...ks.map((k) => said.get(k)),
+        truth && `person:${truth}`,
+        named && `person:${named}`,
+        ...guesses.map((g) => g?.person),
+        ...guesses.map((g) => g && `person:${g.id}`),
+      ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`))) ?? null
+    );
+  };
+}
+
+/**
+ * Who a person ref is now: the owner's `same-person` folds, over what each inferred person's surface reads as now
+ * (`readingOf`), so every id a surface was ever given is the one person it reads as.
+ */
+export function merged(
+  corrections: Correction[],
+  inferred: InferredPerson[] = [],
+  people: Person[] = []
+) {
+  const read = readingOf(people, inferred, corrections);
+  const into = new Map<string, string>();
+  for (const r of inferred) {
+    const self = `person:${r.id}`;
+    const to = r.surfaces.map(read).find((x) => x && x !== self);
+    if (to) {
+      into.set(self, to);
+    }
+  }
+  for (const c of corrections) {
+    if (c.kind === "same-person") {
+      into.set(c.from, c.to);
+    }
+  }
+  return (ref: string) => {
+    let r = ref;
+    // At most one hop per fold, so a loop cannot spin.
+    for (let i = 0; i < into.size && into.has(r); i += 1) {
+      r = into.get(r) ?? r;
+    }
+    return r;
+  };
+}
+
+/** Maps a name, handle or address to `person:<slug>`: what it reads as (`readingOf`), folded (`merged`). */
+export function resolver(
+  people: Person[],
+  inferred: InferredPerson[] = [],
+  corrections: Correction[] = []
+) {
+  const read = readingOf(people, inferred, corrections);
+  const canon = merged(corrections, inferred, people);
+  return (surface: string): string | null => {
+    const ref = read(surface);
     return ref ? canon(ref) : null;
   };
 }
@@ -161,7 +167,7 @@ export function aboutNow(
   corrections: Correction[],
   chatOf: Map<string, string> = new Map()
 ) {
-  const canon = merged(corrections, inferred);
+  const canon = merged(corrections, inferred, people);
   const resolve = resolver(people, inferred, corrections);
   const found = unresolved.flatMap((u) =>
     u.observation
@@ -332,7 +338,7 @@ export async function readPeople() {
     readInferred(),
     readCorrections(),
   ]);
-  const canon = merged(corrections, inferred);
+  const canon = merged(corrections, inferred, truth.people);
   const resolve = resolver(truth.people, inferred, corrections);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>

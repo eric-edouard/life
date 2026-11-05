@@ -170,7 +170,7 @@ Before adding a helper, use the one that exists:
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
-| Who a person ref is now (one folded into another) | `readPeople().canon` (`merged`): his `same-person` over what each inferred id's surface reads as now (its latest confident guess, or the person in truth/ it links to); readers take it from `readPeople`, never rebuild it |
+| Who a person ref is now (one folded into another) | `readPeople().canon` (`merged`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |

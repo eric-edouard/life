@@ -168,8 +168,8 @@ a WhatsApp or Matrix id) or names it goes by, `name` a name or, when the message
 plumber changing the shop sink"), `relation` how it relates to the owner, `evidence` quotes checked to be in the messages
 the model read (a unit of that day), `person` (from `memory-episodes.v7`) the person in `truth/` it is, when the call
 judged it is them, null when it judged no one there is (absent on older guesses, which are asked once more when their
-surface comes back). Every id a surface was given reads as its latest confident guess now: the person it links to, else
-that guess (`merged`), until his `this-is` or `not-this-person` on the surface. Every handle and name of a day that does not resolve yet is asked about, with the
+surface comes back). Every id a surface was given reads as what the surface reads as now: his `this-is`, `truth/`, else
+its latest confident guess, the person it links to before the guess itself; never one his `not-this-person` rules out (`merged`). Every handle and name of a day that does not resolve yet is asked about, with the
 units it appears in, each time that day is read; an unsure answer is asked again with the next day's evidence. Model-owned: the resolver uses it automatically,
 below `truth/` and the owner's corrections, from confidence 0.5; the latest record for a surface wins. It never
 writes `truth/`.

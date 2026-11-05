@@ -20,18 +20,21 @@ person had three inferred pages beside hers.
       linked `inf_` ref folds into them, `not-this-person` blocks the link.
 
 ## Milestone 2: measure
-- [ ] On a data copy, re-read 6–8 days holding the duplicate surfaces with v7; count links right, wrong, missed
+- [x] On a data copy, re-read 21 days holding the duplicate surfaces with v7; count links right, wrong, missed
       (two people on the map with one first name must stay unlinked or right).
-- [ ] Report the count of affected days and the cost of re-reading them live; that re-read only on his yes.
+- [x] Report the count of affected days and the cost of re-reading them live; that re-read only on his yes.
 
 ## Milestone 3: one surface, one person
 Found measuring: a surface re-asked gets a new id each time its name changes (19 surfaces hold 2–10 ids), and a
 confident guess made before v7 is never asked again, so it never links (7 stuck guesses on the copy).
-- [x] `merged`: every id a surface was given folds into what the surface reads as now (its latest confident guess: the
-      linked person, else that guess's id). Same rule as the link, no new state.
+- [x] `merged`: every id a surface was given folds into what the surface reads as now (`readingOf`, the resolver's own
+      order before folds: his `this-is`, truth/, the latest confident guess's link, the guess). The resolver is that
+      reading, folded. No new state.
 - [x] `person` null when the call judged no one on the map is them; absent only on older guesses: the episodes call
       counts a surface as known when it resolves to truth/, or to a guess that was judged (`person` present).
-- [ ] Re-read on the copy the six days holding the stuck surfaces; count links.
+- [x] Re-read on the copy the six days holding the stuck surfaces: each came back and was judged again; one new right
+      link, the rest judged not someone on the map (their map entries say nothing to match), none wrong.
+- Folds: live 13 → 49 with no model call (the fold alone); on the copy after v7 and the re-reads, 111 of 408 ids.
 
 ## Golden rule plan
 Inventory: `InferredPerson` `records/observation.ts:242`; `checkPeople`, `inferredId` `memory/people.ts:31,44`;
@@ -46,7 +49,7 @@ the one fold that already handles his `same-person`: pages, closeness, names, au
 change of their own. `canon` is computed once per read (`readPeople`) and passed, instead of rebuilt in five places.
 State: one nullable field per inferred record, model-owned, append-only (latest record per surface wins, as now).
 Deletes: the prose-and-wait rule; four `merged(corrections)` rebuilds; the duplicate pages they cause.
-Net lines: about +60 / −35 (milestone 3: about +15 / −5, no new function or type).
+Net lines: about +60 / −35 (milestone 3: `readingOf` split out of `resolver`, which merged and the resolver share; about +25 / −15).
 Plan review: reshape → fixed: `person` only a truth/ ref (a link never leads to another guess); the link per surface
 (the latest confident record decides, shared by the resolver and the fold), so an older guess on that surface folds
 too and a newer unlinked answer takes it back; `levelsWith`/`pagedNow` take `readPeople`'s folds; the fold rule
