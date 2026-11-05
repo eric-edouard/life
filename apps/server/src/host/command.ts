@@ -20,6 +20,7 @@ import {
   topicsOf,
   unresolved,
 } from "../memory/search";
+import { situations } from "../memory/situation";
 import { drawDoubtful } from "../memory/statements";
 import { DAYS, gather, isDay, lastDays } from "../memory/units";
 import { readPeople } from "../memory/who";
@@ -210,6 +211,7 @@ const HANDLERS: Record<string, Handler> = {
     ),
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
+  situations: step(() => situations()),
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),

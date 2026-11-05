@@ -55,6 +55,10 @@ export const pagePath = (ref: string) =>
   ref.startsWith("person:")
     ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
     : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
+/** Where things stand with him and each person close to him (`memory/situation.ts`), one file per person. */
+export const SITUATIONS = join(MEMORY, "situations");
+export const situationPath = (ref: string) =>
+  join(SITUATIONS, `${ref.slice("person:".length)}.json`);
 export const EPISODES = join(MEMORY, "episodes");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");

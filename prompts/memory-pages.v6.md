@@ -70,7 +70,9 @@ It is the center of his memory: what he is like and how he is, not a log. Its se
   recording where nobody else is identified), never someone else's words about him or a view he only quotes. Never his goals: they are in `hold`, his
   words. A goal he states that `hold` doesn't have is a `views` line in his name ("… says his priority is …").
 - `health`: his body and mind: illness, treatment, sleep, drugs and sobriety, fitness, appointments.
-- `now`: what he is dealing with that no other page holds: plans, trips, admin.
+- `now`: only the big things he is dealing with that no other page holds: a trip, a move, a big decision, money,
+  legal or official matters with consequences. Never errands, paperwork steps, purchases, quotes or calls to make:
+  his to-do list holds them, and what his days look like is in his situation.
 
 Read him carefully, not as a mirror. "If I…, I'd…", "maybe", a joke, a provocation in a debate, or a view he quotes
 from someone else is not his plan or his belief: leave it out, or say what it was (in his name, "… wondered whether …").

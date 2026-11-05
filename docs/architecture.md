@@ -62,6 +62,10 @@ flowchart LR
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
+- **Situations** (`situation.ts`): where things stand now with him and each person close to him, read nightly by one
+  call from the page and the last 30 days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
+  never from its own last version, so it stays a projection; older days fade into the page's sections and History,
+  and git keeps every version. A reader shows a line only while its episodes are live, the situation first.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
@@ -70,7 +74,8 @@ Model output is cached by unit hash and prompt version, so a night re-reads only
 
 Raw search scales; reading does not. A day of speech is on the order of 100k tokens, so the largest context holds about
 a week. Hence one compressed layer, the pages, each line cited. Not justified so far: an atomic-fact database, graph
-databases, contradiction resolvers, summary hierarchies. This limits memory structures, not initiative: raising things
+databases, contradiction resolvers, deep summary hierarchies. One summary is justified (his decision of 5 Nov 2026):
+the situation, where things stand now, since broad questions ("am I still with her?") found only scattered facts. This limits memory structures, not initiative: raising things
 unasked is the agent's job.
 
 Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`), event (`when`), recorded
@@ -96,7 +101,7 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Old facts can be corrected:** extraction also shows an episode the facts of the last year about the close people
   (`priorFor`), so a newer fact can retire an older one.
 - **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
-  never stored as a summary.
+  never stored as a summary; only the present is (the situation).
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
 - **What a model call is shown:** its context (the same for every call of a run, so it is cached) holds the people close
   to him now, personally or at work, and the projects underway (`refContext`, `contextPeopleBy`). Everyone else on the

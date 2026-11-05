@@ -37,6 +37,7 @@ import {
   turnOf,
 } from "../memory/schedule";
 import { reindex } from "../memory/search";
+import { situations } from "../memory/situation";
 import { keptStores } from "../memory/sources";
 import {
   type Built,
@@ -428,6 +429,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       evidence.built
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
+    // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
+    phase.at = "situations";
+    await situations();
     phase.at = "fact checks";
     await askFactChecks();
     phase.at = "index";

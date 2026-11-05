@@ -76,6 +76,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | modality | How an observation holds: `fact`, `plan`, `reported`, `conditional`. | |
 | importance | How much something matters to the owner: a unit's or an observation's 0–3, an episode's 1–3 (SCHEMA.md). | |
 | page | A person's or an area's page, written from their observations. | |
+| situation | Where things stand now with him or someone close (how he is, together or not, how they get along), read nightly from the last 30 days' episodes and the page; not a page section, not a fact (`memory/situations/`). | |
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. A project is underway while active or waiting (`isUnderway`); parked or done, it is not. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |

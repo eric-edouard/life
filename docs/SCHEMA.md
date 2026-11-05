@@ -292,6 +292,14 @@ because it only narrows a list the owner reads: the owner's to-do in a voice lif
 **The owner's edits** hold: a line the owner writes or rewrites is recorded as `keep-mine` and stays as written; a generated
 line the owner deletes is recorded as `not-important` for its observations on that page.
 
+## situations/<id>.json
+
+Where things stand now with the owner (`me`) or someone close to him (`personallyClose`), written by `situation.ts` each
+night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and `cites`, `ep_` ids of the episodes it
+rests on), `inputs` (a hash of the prompt version, the page and the last 30 days' episodes), `built`, `madeBy`,
+`schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
+is no longer close. A reader drops a line whose episode is no longer live. His correction is a line on the page.
+
 ## ledger.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
