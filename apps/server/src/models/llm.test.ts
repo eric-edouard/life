@@ -191,6 +191,9 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     reply = { ...reply, cut: [], garbled: ["refuseless"] };
     expect(await ask()).toEqual({ ok: true });
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    expect(lastLine()).toContain(
+      '"tokens":{"cached":40,"input":60,"output":14}'
+    );
     reply = { ...reply, garbled: ["refuseless", "hopper"] };
     await expect(ask()).rejects.toThrow("hopper: allmodels: not JSON");
     hostsAsked();
