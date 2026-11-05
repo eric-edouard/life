@@ -105,38 +105,25 @@ English, and keeps Apple's short address or its city. The name travels with the 
 (`POST /location-history`, `placeName`). The server labels a conversation from its most accurate named fix, and a
 long one with its place lines (`places.ts`). It never uses upload time as a place. No place provider is called.
 
-## Search by meaning: OpenAI embeddings
+## Search by meaning: on the Mac
 
 Search on the phone matches words in its own index, offline. When the server is reachable it also
 returns passages that mean the query without using its words, marked "by meaning".
 
-**What is sent to OpenAI** (`text-embedding-3-large`, 1536 dimensions, with `OPENAI_API_KEY`):
+**The model.** EmbeddingGemma-300M (Q8, 768 dimensions), run by llama.cpp's server as a Lifelog Host child
+(`embedder`, on 127.0.0.1:47615). Both are pinned by sha256 and bundled at build time (`scripts/host-app.ts`); nothing
+is downloaded at run time and nothing it embeds leaves the Mac. Chosen on 5 Nov 2026 against OpenAI's
+`text-embedding-3-large` and seven open models: better on the owner's French, English and Thai, and about 10 ms a query.
 
-- passage text: about 30 to 60 seconds of consecutive turns, with the names the owner gave
-  speakers ("<name>: words"); unnamed speakers send their words only. Sent once per passage, and
-  again only when its text changes (a transcript, a turn's speaker or a person's name).
-- each search query the owner types (at least 3 characters, after a pause in typing). Identical
-  queries reuse their embedding for 10 minutes.
+**What is embedded:** passages of about 30 to 60 seconds of consecutive turns, with the names the owner gave speakers
+("<name>: words"), again only when their text changes; and each query.
 
-No audio, voice embeddings, locations, capture times or titles.
+**What we keep.** The passages, their vectors, capture times, speaker names and language in the server's database
+(`search_passages`), rebuilt from the transcript. A passage of another model is re-embedded, never compared.
 
-**What we keep.** The passages, their embeddings (1536 numbers each), capture times, speaker
-names and language in the server's database (`search_passages`). They are derived from the transcript and
-rebuilt from it; there is no automatic expiry yet. Queries are not stored, only their token count
-and cost (`embedding_calls`). Embeddings can be partly inverted back to text, so they get the same
-care as the transcript.
-
-**Retention at OpenAI.** The embeddings endpoint keeps no application state; abuse-monitoring logs
-up to 30 days, no training on API data by default
-([data controls](https://developers.openai.com/api/docs/guides/your-data)).
-
-**Cost.** $0.13 per million tokens (`EMBEDDING_USD_PER_MTOK`). An hour of talk is roughly 10,000
-tokens, about a tenth of a cent; a query costs nothing visible. It shows as Search in Spending.
-Indexing a year of daily recording once costs a few dollars.
-
-**Deploying.** Vectors are scored in the server's memory and keyword candidates come from an FTS5
-trigram table; SQLite needs no extension. Without `OPENAI_API_KEY`, `POST /search` answers 503 and the app
-searches by keyword only.
+**Ranking.** The 200 nearest passages above a similarity floor (0.25) and the passages holding every word of the
+query (an FTS5 trigram table) are merged by reciprocal rank fusion (`core/fusion.ts`). Without the embedder
+(`EMBEDDER_URL`), `POST /search` answers 503 and the app searches by keyword only.
 
 ## Vocabulary: hints to ElevenLabs
 

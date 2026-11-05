@@ -1,20 +1,19 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
+  EMBEDDER_DIMENSIONS,
+  EMBEDDER_MODEL,
+  type Embedder,
+} from "@life/server/src/core/embedder";
+import {
   conversations,
-  EMBEDDING_DIMENSIONS,
   people,
   speakerAssignments,
   type Turn,
 } from "@lifelog/db/schema";
 import { createApp } from "./app";
 import { addQuietRange } from "./quiet-ranges";
-import {
-  cutPassages,
-  type Embedder,
-  searchFor,
-  wordSimilarity,
-} from "./search";
+import { cutPassages, searchFor } from "./search";
 import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
@@ -25,7 +24,6 @@ import {
   testDb,
 } from "./testing";
 import type { LoadedTurn } from "./transcript";
-import { usageSummary } from "./usage";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 
@@ -51,34 +49,31 @@ const auth = {
 
 // A unit vector along one axis.
 const axis = (i: number) =>
-  Array.from({ length: EMBEDDING_DIMENSIONS }, (_, k) => (k === i ? 1 : 0));
+  Array.from({ length: EMBEDDER_DIMENSIONS }, (_, k) => (k === i ? 1 : 0));
 
 // Words hashed into dimensions, so texts sharing words point the same way. `fixed` pins
 // the vector of an exact text. Every input it embeds is recorded.
 function fakeEmbedder(fixed: Record<string, number[]> = {}) {
   const inputs: string[] = [];
   const bagOfWords = (text: string) => {
-    const v = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+    const v = new Array<number>(EMBEDDER_DIMENSIONS).fill(0);
     for (const word of text.toLowerCase().match(/\p{L}+/gu) ?? []) {
       const h = [...word].reduce(
         (a, ch) => (a * 31 + ch.charCodeAt(0)) % 1_000_003,
         7
       );
-      v[h % EMBEDDING_DIMENSIONS] = (v[h % EMBEDDING_DIMENSIONS] ?? 0) + 1;
+      v[h % EMBEDDER_DIMENSIONS] = (v[h % EMBEDDER_DIMENSIONS] ?? 0) + 1;
     }
-    v[EMBEDDING_DIMENSIONS - 1] = 0.01; // never the zero vector
+    v[EMBEDDER_DIMENSIONS - 1] = 0.01; // never the zero vector
     return v;
   };
   const embedder: Embedder & { inputs: string[] } = {
     embed: (texts) => {
       inputs.push(...texts);
-      return Promise.resolve({
-        tokens: texts.join(" ").length,
-        vectors: texts.map((t) => fixed[t] ?? bagOfWords(t)),
-      });
+      return Promise.resolve(texts.map((t) => fixed[t] ?? bagOfWords(t)));
     },
     inputs,
-    model: "text-embedding-3-large",
+    model: EMBEDDER_MODEL,
   };
   return embedder;
 }
@@ -173,7 +168,7 @@ test("turns become passages of 30 to 60 s that never span parts", () => {
   expect(passages[0]?.speakers).toEqual(["Ploy"]);
 });
 
-test("indexing embeds each passage once, with capture times, and logs what it cost", async () => {
+test("indexing embeds each passage once, with capture times", async () => {
   const { app, embedder, search } = setup();
   const { id } = conversation(
     app,
@@ -193,17 +188,6 @@ test("indexing embeds each passage once, with capture times, and logs what it co
   // Nothing changed: no new request.
   await search.index();
   expect(embedder.inputs).toHaveLength(3);
-
-  const summary = await usageSummary(
-    env.db,
-    testConfig("http://localhost:1"),
-    new Date()
-  );
-  expect(summary.today.search.tokens).toBeGreaterThan(0);
-  expect(summary.today.search.usd).toBeGreaterThan(0);
-  expect(summary.today.totalUsd).toBeCloseTo(
-    summary.today.transcription.usd + summary.today.search.usd
-  );
 });
 
 test("naming a speaker re-embeds only the passages they speak in", async () => {
@@ -292,10 +276,12 @@ test("a quiet range that arrives later takes its words out of passages", async (
   ]);
 });
 
-test("a passage with the exact name outranks one that only means the same", async () => {
+test("a passage both rankings find outranks one only meaning finds", async () => {
   const embedder = fakeEmbedder({
-    Somchai: axis(2), // the query means the ferry passage, word for word
-    "Somchai said the boat leaves at six": axis(1),
+    Somchai: axis(2), // the query means the ferry passage most, the boat one a little
+    "Somchai said the boat leaves at six": axis(1).map(
+      (x, i) => x + (i === 2 ? 0.5 : 0)
+    ),
     "the ferry departs early tomorrow": axis(2),
   });
   const { app, search } = setup(embedder);
@@ -374,14 +360,7 @@ test("people keeps the passages one of them speaks in", async () => {
   expect(hits.map((h) => h.conversationId)).toEqual([named.id]);
 });
 
-test("keyword similarity is pg_trgm's word_similarity", () => {
-  // pg_trgm's documented example, and a query a passage doesn't hold at all.
-  expect(wordSimilarity("word", "two words")).toBeCloseTo(0.8);
-  expect(wordSimilarity("ferry", "Somchai said the boat leaves")).toBe(0);
-  expect(wordSimilarity("Somchai", "Somchai said the boat")).toBe(1);
-});
-
-test("search needs the owner's token and an OpenAI key, not summaries", async () => {
+test("search needs the owner's token and an embedder, not summaries", async () => {
   const { app } = setup();
   setSwitches(env.db, { ai: false });
   expect(await find(app, { query: "anything" })).toEqual([]);
@@ -404,4 +383,22 @@ test("search needs the owner's token and an OpenAI key, not summaries", async ()
     method: "POST",
   });
   expect(res.status).toBe(503);
+});
+
+test("with the embedder down, every word typed still finds a passage, in any order", async () => {
+  const fake = fakeEmbedder();
+  const { app, search } = setup({
+    ...fake,
+    embed: (texts, as) =>
+      as === "query"
+        ? Promise.reject(new Error("connection refused"))
+        : fake.embed(texts, as),
+  });
+  conversation(app, ["the ferry to the island departs early tomorrow"]);
+  conversation(app, ["the ferry was late"]);
+  await search.index();
+  const hits = await find(app, { query: "departs ferry" });
+  expect(hits.map((h) => h.text)).toEqual([
+    "the ferry to the island departs early tomorrow",
+  ]);
 });

@@ -5,8 +5,8 @@ import Timeline
 extension ServerClient {
     // MARK: Search
 
-    /// Passages the server finds by meaning (and by the words typed), best first. The query goes to OpenAI to be
-    /// embedded (docs/providers.md).
+    /// Passages the server finds by meaning (and by the words typed), best first. The query is embedded on the Mac
+    /// (docs/providers.md).
     public func search(_ query: String, limit: Int = 20) async throws -> [MeaningHit] {
         struct Body: Encodable {
             var query: String

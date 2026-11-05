@@ -57,7 +57,7 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 ## Optional parts
 
 - **search**: `POST /search` with a query; passages of about 30 to 60 s, best first. Matching by meaning needs the
-  server's embedding key; without it, words only.
+  Mac's embedder; without it, words only.
 - **places**: `GET /where?at=` (an instant: the stay around it) and `GET /visits` (every stay, or by `place`, or
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is

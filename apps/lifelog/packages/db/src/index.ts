@@ -10,7 +10,6 @@ import type { BaseSQLiteDatabase, SQLiteTable } from "drizzle-orm/sqlite-core";
 import {
   conversations,
   diagnostics,
-  embeddingCalls,
   heartbeats,
   intelligenceRuns,
   macWatch,
@@ -28,7 +27,6 @@ import {
 export const schema = {
   conversations,
   diagnostics,
-  embeddingCalls,
   heartbeats,
   intelligenceRuns,
   macWatch,

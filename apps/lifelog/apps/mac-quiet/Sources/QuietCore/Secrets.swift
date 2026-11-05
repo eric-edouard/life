@@ -14,14 +14,13 @@ public struct Secrets: Codable, Equatable, Sendable {
     public var deviceToken: String?
     public var readerToken: String?
     public var elevenLabsKey: String?
-    public var openAIKey: String?
     public var cloudflareToken: String?
     public var resticPassword: String?
     public var identitySecret: String?
 
     public init(
         macToken: String? = nil, claudeToken: String? = nil, deviceToken: String? = nil, readerToken: String? = nil,
-        elevenLabsKey: String? = nil, openAIKey: String? = nil, cloudflareToken: String? = nil,
+        elevenLabsKey: String? = nil, cloudflareToken: String? = nil,
         resticPassword: String? = nil, identitySecret: String? = nil
     ) {
         self.macToken = macToken
@@ -29,7 +28,6 @@ public struct Secrets: Codable, Equatable, Sendable {
         self.deviceToken = deviceToken
         self.readerToken = readerToken
         self.elevenLabsKey = elevenLabsKey
-        self.openAIKey = openAIKey
         self.cloudflareToken = cloudflareToken
         self.resticPassword = resticPassword
         self.identitySecret = identitySecret
@@ -79,7 +77,7 @@ public struct Secrets: Codable, Equatable, Sendable {
 
     private var trimmed: Secrets {
         let fields: [WritableKeyPath<Secrets, String?>] = [
-            \.macToken, \.claudeToken, \.deviceToken, \.readerToken, \.elevenLabsKey, \.openAIKey,
+            \.macToken, \.claudeToken, \.deviceToken, \.readerToken, \.elevenLabsKey,
             \.cloudflareToken, \.resticPassword, \.identitySecret,
         ]
         var copy = self

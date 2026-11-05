@@ -128,25 +128,13 @@ export const NAMING = {
   quotes: 3,
 } as const;
 
-// USD per million input tokens of embedding models (OpenAI pricing page, 2026-10-08).
-export const EMBEDDING_USD_PER_MTOK: Record<string, number> = {
-  "text-embedding-3-large": 0.13,
-};
-
-// Search by meaning.
-// ponytail: first guesses; tune on real EN/FR/TH queries.
+// Search by meaning (search.ts). Measured on the owner's French, English and Thai queries (5 Nov 2026).
 export const SEARCH = {
-  // An identical query reuses its embedding this long (an in-memory cache of this many).
-  cacheEntries: 200,
-  cacheMinutes: 10,
-  // Characters of a passage that are embedded; keyword matching reads all of it.
-  embedChars: 6000,
-  // Score weights: cosine similarity, plus keyword similarity, plus the boost for a
-  // passage containing the query as typed, so exact names win.
-  exactBoost: 1,
-  lexicalWeight: 0.5,
-  // Below this a hit is noise.
-  minScore: 0.3,
+  // Passages each ranking (meaning, words) hands to the fusion.
+  candidates: 200,
+  // Below this cosine a passage is too far in meaning to be a hit: it kept 39 of the bench's 40 right answers and
+  // dropped half the queries that had none.
+  minSimilarity: 0.25,
   // A passage closes once its turns span this long or hold this much text, and never
   // grows past maxSeconds (a single longer turn stays whole).
   passageChars: 1500,
@@ -195,8 +183,9 @@ const Env = z.object({
   // each send waits for its transcript in the answer, for a host the internet can't reach. A
   // restart during that wait leaves the send maybe billed and its block untranscribed.
   ELEVENLABS_WEBHOOK_SECRET: z.string().min(1).optional(),
-  // Search by meaning uses OPENAI_API_KEY; without it only the app's keyword search works.
-  EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-large"),
+  // Search by meaning's embedder (Life's core/embedder.ts), which Lifelog Host runs on loopback; without it only the
+  // app's keyword search works.
+  EMBEDDER_URL: z.url().optional(),
   // The speaker embedding service (apps/identity), with the same IDENTITY_SECRET as that service.
   // Recognition is unavailable without it.
   IDENTITY_SECRET: z.string().min(16).optional(),
@@ -207,7 +196,6 @@ const Env = z.object({
   // The Mac helper's token (apps/mac-quiet), minted by `bun run mint-token mac`. It opens only
   // the Mac's socket (mac-socket.ts); without it the socket refuses everyone.
   MAC_TOKEN_HASH: TokenHash.optional(),
-  OPENAI_API_KEY: z.string().min(1).optional(),
   PORT: z.coerce.number().int().default(3000),
   PUBLIC_BASE_URL: z.url(),
   READ_TOKEN_HASH: TokenHash.optional(),

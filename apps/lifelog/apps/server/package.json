@@ -21,7 +21,6 @@
     "drizzle-orm": "catalog:",
     "hono": "4.13.13",
     "onnxruntime-web": "1.30.0",
-    "openai": "7.30.0",
     "opus-decoder": "0.7.12",
     "zod": "4.6.5"
   },

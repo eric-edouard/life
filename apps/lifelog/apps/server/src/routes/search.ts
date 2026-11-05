@@ -45,10 +45,11 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
   return router().openapi(
     createRoute({
       description:
-        "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best " +
-        "first: a passage containing the query as typed outranks one that only means it. " +
-        "The query is embedded by OpenAI (docs/providers.md); identical queries reuse it for " +
-        "a few minutes. Conversations are indexed in the background after each change.",
+        "Passages (about 30 to 60 s of turns) ranked by meaning and by the passages holding " +
+        "every word typed, the two rankings fused, best first: a passage both find outranks " +
+        "one only one finds; by words alone while the embedder is down. Embedded on the Mac " +
+        "(docs/providers.md). Conversations are " +
+        "indexed in the background after each change.",
       method: "post",
       path: "/search",
       request: {
@@ -59,27 +60,27 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       },
       responses: {
         200: json(z.object({ hits: z.array(SearchHit) }), "Best first"),
-        503: json(ApiError, "No OpenAI key configured"),
+        503: json(ApiError, "The embedder is not configured (EMBEDDER_URL)"),
       },
     }),
     async (c) => {
-      if (!search) {
-        return c.json(
-          {
-            error: "search_unavailable" as const,
-            message: "OPENAI_API_KEY is not set",
-          },
-          503
-        );
-      }
       const { dateRange, limit, people, query } = c.req.valid("json");
-      const hits = await search.query({
+      const hits = await search?.query({
         from: dateRange?.from ? new Date(dateRange.from) : undefined,
         limit,
         people,
         text: query,
         to: dateRange?.to ? new Date(dateRange.to) : undefined,
       });
+      if (!hits) {
+        return c.json(
+          {
+            error: "search_unavailable" as const,
+            message: "EMBEDDER_URL is not set",
+          },
+          503
+        );
+      }
       return c.json({ hits }, 200);
     }
   );

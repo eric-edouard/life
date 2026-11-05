@@ -64,6 +64,13 @@
       "when": 1793268100999,
       "tag": "20261029100140_scribe_words_at",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793882688988,
+      "tag": "20261105124448_drop_embedding_calls",
+      "breakpoints": true
     }
   ]
 }

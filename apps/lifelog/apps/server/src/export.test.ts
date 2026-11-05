@@ -5,12 +5,9 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EMBEDDER_DIMENSIONS } from "@life/server/src/core/embedder";
 import { connect, countRows, holdArchive } from "@lifelog/db";
-import {
-  conversations,
-  EMBEDDING_DIMENSIONS,
-  searchPassages,
-} from "@lifelog/db/schema";
+import { conversations, searchPassages } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { exportArchive, importArchive, runCommand } from "./export";
 import { testDb } from "./testing";
@@ -32,7 +29,7 @@ beforeAll(async () => {
   // A gap in the passages' rowids, which a vacuum may close.
   const passage = (text: string) => ({
     conversationId: randomUUID(),
-    embedding: Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0),
+    embedding: Array.from({ length: EMBEDDER_DIMENSIONS }, () => 0),
     firstTurn: 0,
     jobId: randomUUID(),
     languageCode: "eng",

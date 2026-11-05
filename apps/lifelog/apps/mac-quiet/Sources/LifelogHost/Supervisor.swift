@@ -3,7 +3,7 @@ import QuietCore
 
 /// The processes Host runs: from its bundle's `Contents/Helpers`, and speaker recognition from the venv Host installs.
 enum Child: String, CaseIterable, Sendable {
-    case server, quiet, tunnel, identity
+    case server, quiet, tunnel, identity, embedder
 
     static let helpers = Bundle.main.bundleURL.appending(path: "Contents/Helpers")
     /// Speaker recognition's files (apps/identity's `app.py`, `pyproject.toml`, `uv.lock`), in the bundle.
@@ -12,6 +12,8 @@ enum Child: String, CaseIterable, Sendable {
     /// Its venv, Python and model, installed by `uv sync` and `app.py download` (`HostModel.installIdentity`).
     static let identityHome = HostModel.support.appending(path: "identity")
     static let uv = helpers.appending(path: "uv")
+    /// Search by meaning's model (Life's core/embedder.ts), in the bundle.
+    static let embedderModel = Bundle.main.bundleURL.appending(path: "Contents/Resources/embedder/model.gguf")
 
     var title: String {
         switch self {
@@ -19,6 +21,7 @@ enum Child: String, CaseIterable, Sendable {
         case .quiet: "Mac helper"
         case .tunnel: "Cloudflare tunnel"
         case .identity: "Speaker recognition"
+        case .embedder: "Search by meaning"
         }
     }
 
@@ -28,13 +31,15 @@ enum Child: String, CaseIterable, Sendable {
         case .quiet: Self.helpers.appending(path: "lifelog-quiet")
         case .tunnel: Self.helpers.appending(path: "cloudflared")
         case .identity: Self.identityHome.appending(path: "venv/bin/python3")
+        case .embedder: Self.helpers.appending(path: "llama/llama-server")
         }
     }
 
     /// Codex, for summaries on ChatGPT: the helper runs it, Host signs it in.
     static let codex = helpers.appending(path: "codex")
 
-    /// ~/Library/Logs/lifelog-server.log, -quiet.log (`bun run events` reads it), -tunnel.log and -identity.log.
+    /// ~/Library/Logs/lifelog-server.log, -quiet.log (`bun run events` reads it), -tunnel.log, -identity.log and
+    /// -embedder.log.
     var log: URL {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Logs/lifelog-\(rawValue).log")
     }

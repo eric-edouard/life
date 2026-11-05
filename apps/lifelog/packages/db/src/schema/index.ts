@@ -610,7 +610,7 @@ export const macWatch = sqliteTable("mac_watch", {
 });
 
 // The owner's two switches, one row (switches.ts). Transcription: audio to ElevenLabs and voices to
-// apps/identity. AI: summaries on the Mac and search embeddings. Off, that work waits. No row: both on.
+// apps/identity. AI: summaries on the Mac. Off, that work waits. No row: both on.
 export const macEngines = ["claude", "codex"] as const;
 export type MacEngine = (typeof macEngines)[number];
 // Two latest observations, not a usage history. Only the Mac's authenticated socket writes these.
@@ -856,8 +856,6 @@ export const alertPushToken = sqliteTable("alert_push_token", {
 // can match by meaning. Derived data, rebuilt from transcripts, speaker assignments, people
 // and the time map whenever those change (search.ts).
 
-export const EMBEDDING_DIMENSIONS = 1536;
-
 export const searchPassages = sqliteTable(
   "search_passages",
   {
@@ -897,22 +895,6 @@ export const searchIndex = sqliteTable("search_index", {
   model: text("model").notNull(),
   seq: integer("seq"),
 });
-
-// One row per paid embedding request, written when it answers. Only for spending figures.
-export const embeddingPurposes = ["index", "query"] as const;
-export const embeddingCalls = sqliteTable(
-  "embedding_calls",
-  {
-    // Null for a model without a known price.
-    costUsd: real("cost_usd"),
-    createdAt,
-    id: uuid("id").primaryKey().$defaultFn(newId),
-    model: text("model").notNull(),
-    purpose: text("purpose", { enum: embeddingPurposes }).notNull(),
-    tokens: integer("tokens").notNull(),
-  },
-  (t) => [index("embedding_calls_created_at").on(t.createdAt)]
-);
 
 // One row per press transcribed at once (POST /quick-transcriptions), written once ElevenLabs answered or might
 // have billed it: what it cost, for spending. Neither its audio nor its text is kept.

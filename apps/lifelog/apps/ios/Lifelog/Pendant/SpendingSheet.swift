@@ -3,7 +3,7 @@ import Charts
 import ServerAPI
 import SwiftUI
 
-/// What transcription, summaries, place names and search cost: today, the last 30 days, this month. Shows the driver's last answer at once and reads it again in the background; nothing polls. Every dollar
+/// What transcription, summaries and place names cost: today, the last 30 days, this month. Shows the driver's last answer at once and reads it again in the background; nothing polls. Every dollar
 /// figure is the server's estimate at list prices, so it carries "≈".
 struct SpendingSheet: View {
     /// Previews: shown instead of the driver's.
@@ -144,13 +144,11 @@ private struct MonthCard: View {
 private enum Service: String, CaseIterable, Plottable {
     case transcription = "Transcription"
     case summaries = "Summaries"
-    case search = "Search"
 
     var style: Color {
         switch self {
         case .transcription: Palette.textBody
         case .summaries: Palette.redText
-        case .search: Palette.redFill
         }
     }
 
@@ -158,7 +156,6 @@ private enum Service: String, CaseIterable, Plottable {
         switch self {
         case .transcription: period.transcription.usd
         case .summaries: period.intelligence.usd
-        case .search: period.search.usd
         }
     }
 }
@@ -255,7 +252,6 @@ private struct ServiceSplit: View {
                 "Transcription",
                 "\(Spend.usd(period.transcription.usd)) · \(Spend.hours(period.transcription.hours))")
             TileRow("Summaries", summaries)
-            TileRow("Search", Spend.usd(period.search.usd))
         }
     }
 
@@ -313,12 +309,12 @@ enum Spend {
     extension ServerClient.UsageSummary {
         /// A month of plausible spending, decoded from the server's JSON shape.
         static func preview(provider: Bool = true) throws -> Self {
-            func period(_ hours: Double, _ summaries: Double, _ calls: Int) -> String {
+            func period(_ hours: Double, _ summaries: Double) -> String {
                 let usd = hours * 0.22
                 return """
                     "transcription": {"hours": \(hours), "usd": \(usd)},
                     "intelligence": {"byProvider": {"openai": \(summaries), "anthropic": 0}, "unpricedRuns": 0, "usd": \(summaries)},
-                    "search": {"tokens": \(calls * 900), "usd": 0.0004}, "totalUsd": \(usd + summaries + 0.0004)
+                    "totalUsd": \(usd + summaries)
                     """
             }
             let calendar = Calendar(identifier: .gregorian)
@@ -326,13 +322,13 @@ enum Spend {
                 let date = calendar.date(byAdding: .day, value: offset - 29, to: .now) ?? .now
                 let day = date.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
                 let hours = offset % 6 == 0 ? 0 : Double((offset * 7) % 5) + 0.5
-                return "{\"date\": \"\(day)\", \(period(hours, hours * 0.03, offset % 3))}"
+                return "{\"date\": \"\(day)\", \(period(hours, hours * 0.03))}"
             }
             let json = """
                 {"timeZone": "\(TimeZone.current.identifier)",
-                 "today": {\(period(2.5, 0.08, 4))},
-                 "last30Days": {\(period(61, 1.9, 30))},
-                 "thisMonth": {\(period(14.2, 0.42, 9))},
+                 "today": {\(period(2.5, 0.08))},
+                 "last30Days": {\(period(61, 1.9))},
+                 "thisMonth": {\(period(14.2, 0.42))},
                  "days": [\(days.joined(separator: ","))],
                  "elevenLabsThisMonth": \(provider ? "{\"hours\": 15.1, \"usd\": 3.32}" : "null")}
                 """

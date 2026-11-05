@@ -1252,19 +1252,6 @@
             },
             "required": ["byProvider", "unpricedRuns", "usd"]
           },
-          "search": {
-            "type": "object",
-            "properties": {
-              "tokens": {
-                "type": "integer"
-              },
-              "usd": {
-                "type": "number",
-                "description": "Embeddings for search by meaning, at list prices."
-              }
-            },
-            "required": ["tokens", "usd"]
-          },
           "totalUsd": {
             "type": "number"
           },
@@ -1282,7 +1269,7 @@
             "required": ["hours", "usd"]
           }
         },
-        "required": ["intelligence", "search", "totalUsd", "transcription"]
+        "required": ["intelligence", "totalUsd", "transcription"]
       },
       "SourceBlocks": {
         "type": "object",
@@ -5216,7 +5203,7 @@
     },
     "/search": {
       "post": {
-        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best first: a passage containing the query as typed outranks one that only means it. The query is embedded by OpenAI (docs/providers.md); identical queries reuse it for a few minutes. Conversations are indexed in the background after each change.",
+        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the passages holding every word typed, the two rankings fused, best first: a passage both find outranks one only one finds; by words alone while the embedder is down. Embedded on the Mac (docs/providers.md). Conversations are indexed in the background after each change.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5248,7 +5235,7 @@
             }
           },
           "503": {
-            "description": "No OpenAI key configured",
+            "description": "The embedder is not configured (EMBEDDER_URL)",
             "content": {
               "application/json": {
                 "schema": {

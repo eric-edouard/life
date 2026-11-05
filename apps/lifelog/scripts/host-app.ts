@@ -1,14 +1,16 @@
-// Lifelog Host.app (packaging 4.6b): the menu-bar app, with the server, the Mac helper, cloudflared, restic, Codex and uv
-// in Contents/Helpers, and speaker recognition's files (apps/identity) in Contents/Resources/identity; its icon is the
-// iPhone app's (AppIcon.icon), its menu-bar mark the same ring and dot.
+// Lifelog Host.app (packaging 4.6b): the menu-bar app, with the server, the Mac helper, cloudflared, restic, Codex, uv and
+// llama.cpp's server in Contents/Helpers, speaker recognition's files (apps/identity) in Contents/Resources/identity and
+// search by meaning's model in Contents/Resources/embedder; its icon is the iPhone app's (AppIcon.icon), its menu-bar
+// mark the same ring and dot.
 //   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFELOG_SIGN_IDENTITY is set)
 // An identity (Developer ID, for a release) signs under the hardened runtime, which the server, a Bun binary, needs
 // JIT entitlements for; ad hoc has no runtime, as in Life's scripts/app.ts.
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
+import { EMBEDDER_FILE } from "../../server/src/core/embedder";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -26,8 +28,9 @@ const codex = `codex-${triple}`;
 // The commit it is built from, which Host passes to the server as BUILD_SHA.
 const commit = (await $`git -C ${root} rev-parse HEAD`.text()).trim();
 
-/** cloudflared ("My own domain"), restic (backups), Codex (summaries on ChatGPT) and uv (speaker recognition's install),
- * from their official GitHub releases, pinned by sha256. */
+/** cloudflared ("My own domain"), restic (backups), Codex (summaries on ChatGPT), uv (speaker recognition's install)
+ * and llama.cpp (search by meaning's embedder), from their official GitHub releases, and the embedder's model (Life's
+ * core/embedder.ts) from Hugging Face at a fixed revision, all pinned by sha256. */
 const TOOLS = {
   cloudflared: {
     amd64: "903845b81828c8cb3c5d13d816a2de71c06a3da5785469df8eb0e1b736d92f9f",
@@ -38,6 +41,16 @@ const TOOLS = {
     amd64: "d68e39d8f62639f33f7d00656554cb9c3ef7809e664a3827e62ab3ace3c21b21",
     arm64: "b293a0fcdd871900a44c0a4f40a1aa401b31e02854f790ebdb8bd5d1177fd1fe",
     url: `https://github.com/openai/codex/releases/download/rust-v0.162.1/${codex}.tar.gz`,
+  },
+  embedder: {
+    amd64: EMBEDDER_FILE.sha256,
+    arm64: EMBEDDER_FILE.sha256,
+    url: EMBEDDER_FILE.url,
+  },
+  llama: {
+    amd64: "c8094268b6bf62f4998f0e45656fd9f5e2d4afb6b1cd0044d761db64be1dd47d",
+    arm64: "4f5b8de12e0b9516658ca6a5764c6ffb3d7c659c3dd538556b1413c7b4050662",
+    url: `https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-macos-${arch === "arm64" ? "arm64" : "x64"}.tar.gz`,
   },
   restic: {
     amd64: "c38d579622cf602f665234c5a8c315030b6cf70656028fe6dc29a786b60e5f35",
@@ -133,6 +146,28 @@ await $`tar -xzf ${await download(TOOLS.codex)} -C ${helpers} ${codex}`;
 await rename(join(helpers, codex), join(helpers, "codex"));
 await $`tar -xzf ${await download(TOOLS.uv)} -C ${helpers} --strip-components 1 uv-${triple}/uv`;
 await $`chmod 755 ${join(helpers, "cloudflared")} ${join(helpers, "restic")} ${join(helpers, "codex")} ${join(helpers, "uv")}`;
+// llama.cpp's server and the libraries it loads from beside it (@loader_path); the model and both licenses go to
+// Resources.
+const llama = join(helpers, "llama");
+const embedder = join(resources, "embedder");
+await mkdir(llama);
+await mkdir(embedder);
+const loaded = [
+  "llama-server",
+  "LICENSE",
+  "libllama-server-impl.dylib",
+  "libllama-common*",
+  "libmtmd*",
+  "libllama.*",
+  "libggml*",
+];
+await $`tar -xzf ${await download(TOOLS.llama)} -C ${llama} --strip-components 1 ${loaded.flatMap((f) => ["--include", `*/${f}`])}`;
+await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
+await cp(await download(TOOLS.embedder), join(embedder, "model.gguf"));
+await writeFile(
+  join(embedder, "NOTICE"),
+  "The model (EmbeddingGemma-300M) is Gemma, provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms.\n"
+);
 // Host installs speaker recognition from these (uv sync --frozen, app.py download) into Application Support.
 await mkdir(join(resources, "identity"));
 await $`cp ${["app.py", "pyproject.toml", "uv.lock"].map((f) => join(root, "apps/identity", f))} ${join(resources, "identity")}`;
@@ -151,12 +186,18 @@ const hardened =
 const entitlements = join(out, "server.entitlements");
 await writeFile(entitlements, SERVER_ENTITLEMENTS);
 await $`codesign --force --sign ${identity} ${hardened} --entitlements ${entitlements} ${join(helpers, "lifelog-server")}`;
+// The release links its versioned libraries by name: sign the files, not the links.
+const libraries = [...new Bun.Glob("llama/*.dylib").scanSync(helpers)].filter(
+  (f) => !lstatSync(join(helpers, f)).isSymbolicLink()
+);
 for (const helper of [
   "lifelog-quiet",
   "cloudflared",
   "restic",
   "codex",
   "uv",
+  ...libraries,
+  "llama/llama-server",
 ]) {
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
   await $`codesign --force --sign ${identity} ${hardened} ${join(helpers, helper)}`;

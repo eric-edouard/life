@@ -9,6 +9,18 @@ public enum Host {
     public static let loopback = "http://127.0.0.1:\(port)"
     /// Speaker recognition's (apps/identity), on loopback beside it.
     public static let identityPort = 47614
+    /// Search by meaning's embedder (llama.cpp's server, Life's core/embedder.ts), on loopback too.
+    public static let embedderPort = 47615
+
+    /// The embedder's arguments: `model` (a GGUF) served for embeddings only, on loopback. Four slots of 2048 tokens,
+    /// the model's longest input, on the GPU.
+    public static func embedderArguments(model: String) -> [String] {
+        [
+            "--embedding", "--model", model, "--host", "127.0.0.1", "--port", String(embedderPort),
+            "--ctx-size", "8192", "--batch-size", "2048", "--ubatch-size", "2048", "--parallel", "4",
+            "--n-gpu-layers", "999",
+        ]
+    }
 
     /// How phones reach this Mac: Tailscale Serve on the owner's tailnet (the default), or a Cloudflare tunnel to an
     /// address of the owner's own, which Host runs.
@@ -72,7 +84,7 @@ public enum Host {
 
     /// The server's environment: its file and audio under `support`, the token hashes (never the tokens), the
     /// owner's keys, the address the phone reaches (`server`: Tailscale's HTTPS name, the owner's domain, or this Mac
-    /// alone), restic when backups are on, speaker recognition when it is on, the commit Host was built from
+    /// alone), the embedder, restic when backups are on, speaker recognition when it is on, the commit Host was built from
     /// (`build`, naming the server's error reports), and `extra` (the owner's `server.env`) under them: restic's and
     /// speaker recognition's keys are Host's, set or unset, so turning either off can't be undone by `server.env`.
     public static func serverEnvironment(
@@ -88,7 +100,7 @@ public enum Host {
             "MAC_TOKEN_HASH": secrets.macToken.map(sha256Hex),
             "CORRECTIONS_TOKEN_HASH": secrets.readerToken.map(sha256Hex),
             "ELEVENLABS_API_KEY": secrets.elevenLabsKey,
-            "OPENAI_API_KEY": secrets.openAIKey,
+            "EMBEDDER_URL": "http://127.0.0.1:\(embedderPort)",
             "RESTIC_BINARY": restic?.binary.path,
             "RESTIC_REPOSITORY": restic?.repository.path,
             "RESTIC_PASSWORD": restic == nil ? nil : secrets.resticPassword,

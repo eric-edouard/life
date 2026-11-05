@@ -51,7 +51,9 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   for good.
 - **Never wipe the archive, the Pendant or its pairing, and never factory-reset as a fix.** They hold the only copy.
 - **Model calls run on the owner's ChatGPT or Claude subscription, through the Mac helper, or they wait.** No paid
-  API credits, no paid fallback, no button for one. Search embeddings on OpenAI are the one exception.
+  API credits, no paid fallback, no button for one.
+- **Search by meaning runs on the Mac.** Lifelog Host runs the embedder (`embedder` child, llama.cpp on 127.0.0.1);
+  lifelog's search and Life's memory both use it through `core/embedder.ts`. No text goes out for embeddings.
 - **Paid work happens once.** A Pendant page is in at most one speech fragment and one job that isn't failed
   (`cutter.ts` `holderOf`); a send that may have been billed is never sent again. A new prompt or policy version
   reaches new conversations, failed runs and the owner's Generate, never the whole archive. `holdsPages` seeks by the

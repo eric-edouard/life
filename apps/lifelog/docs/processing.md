@@ -150,7 +150,7 @@ bun run switches transcription off    # transcription | ai | all, on | off
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
 - **AI** covers summaries, titles and chapters on the Mac, and is off by default: Life reads the words, not the
   summaries. Off, no summary is made or waited for: nothing is due, and turned back on, the next drain looks at every
-  conversation once. Search's embeddings follow the OpenAI key alone.
+  conversation once. Search's embeddings run on the Mac's embedder, under neither switch.
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by

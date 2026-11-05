@@ -101,12 +101,12 @@ Sources: [Codex account limits](https://developers.openai.com/codex/app-server),
 ## Lifelog Host (lifelog on your own Mac)
 
 `Lifelog Host.app` runs all of lifelog on a Mac: a menu-bar app with the server, this helper,
-`cloudflared`, `restic`, `codex` and `uv` inside it (`Contents/Helpers`), and speaker recognition (`apps/identity`),
+`cloudflared`, `restic`, `codex`, `uv` and llama.cpp's server (search by meaning) inside it (`Contents/Helpers`), and speaker recognition (`apps/identity`),
 which it installs itself.
 
 ### Setting it up (for a friend)
 
-1. Get an ElevenLabs API key (elevenlabs.io, Developers, API keys) and, if you want search by meaning, an OpenAI one.
+1. Get an ElevenLabs API key (elevenlabs.io, Developers, API keys). Search by meaning runs on the Mac, with no key.
 2. For the phone to reach the Mac, either install Tailscale on the Mac and the iPhone and sign in to the same account
    on both (free), or, with a domain on Cloudflare, create a tunnel in Zero Trust (Networks, Tunnels), copy its
    token and route your address to `http://127.0.0.1:47613`.
