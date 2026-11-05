@@ -8,7 +8,7 @@ import { MACHINE_DIR } from "../core/platform";
 import { exec } from "../core/proc";
 import { expand, settings } from "../core/settings";
 import { localTime } from "../memory/units";
-import { stage } from "./export";
+import { type Manifest, stage } from "./export";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by
 // the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
@@ -64,9 +64,11 @@ export async function backup() {
     }
     return r;
   };
+  // Last night's hashes, read before its staging goes: a file of the same size and mtime is not hashed again.
+  const last = readJson<Manifest>(join(STAGING, "manifest.json"))?.files;
   rmSync(STAGING, { force: true, recursive: true });
   try {
-    await stage(STAGING);
+    await stage(STAGING, undefined, last);
   } catch (e) {
     // No snapshot of half a staging: the day's tries go on (the lock is free again soon), the report says why.
     writeFileSync(

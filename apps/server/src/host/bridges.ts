@@ -52,7 +52,8 @@ const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /**
  * The one job's program: the homeserver and every added bridge (a folder holding its config, run as `./bridge`), each
- * started again 10 s after it stops; on TERM each is stopped and waited for, so the homeserver shuts down cleanly.
+ * started again 10 s after it stops; on TERM each is stopped and waited for, so the homeserver shuts down cleanly. A
+ * bridge's stdout repeats its own capped log (logs/bridge.log): only its errors reach the job's log, which nothing caps.
  */
 export const RUN_BRIDGES = `
 trap 'kill $(jobs -p) 2>/dev/null; wait; exit 0' TERM
@@ -63,7 +64,7 @@ keep() { (
   while :; do "$@" & wait $!; sleep 10; done
 ) & }
 keep synapse .venv/bin/python -m synapse.app.homeserver -c homeserver.yaml
-for c in */config.yaml; do [ -e "$c" ] && keep "\${c%/config.yaml}" ./bridge -c config.yaml; done
+for c in */config.yaml; do [ -e "$c" ] && keep "\${c%/config.yaml}" ./bridge -c config.yaml >/dev/null; done
 wait
 `;
 

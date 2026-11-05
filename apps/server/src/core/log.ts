@@ -5,7 +5,7 @@ import { filesIn, linesOf } from "./files";
 import { LIFE_STATE_DIR } from "./paths";
 import { agentNames } from "./settings";
 
-// One structured event log for everything Life does, so any failure can be traced afterwards:
+// One structured event log for everything Life does, so any failure can be traced for a year (the nightly drops older days):
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
 // error messages. Never message text or quotes (those live in the sources and memory/), with two exceptions:
 // `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars) or why it was refused, never the

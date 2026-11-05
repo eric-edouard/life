@@ -1,11 +1,19 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { DAY } from "../core/clock";
+import { LOG_DIR } from "../core/log";
 import { MACHINE_DIR } from "../core/platform";
-import { latestExtractions } from "../memory/ledger";
+import { latestExtractions, OUT } from "../memory/ledger";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
-import { markedSince, nightly } from "./nightly";
+import { dropOld, markedSince, nightly } from "./nightly";
 
 test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {
   const u = unit({ marked: ["j:1@a", "j:2@a"] });
@@ -58,5 +66,30 @@ test("while another install's watcher runs on this Mac, a tick does nothing", as
   } finally {
     said.mockRestore();
     rmSync(lock, { force: true });
+  }
+});
+
+test("the night drops run folders past 30 days and log days past a year, nothing newer", async () => {
+  const now = new Date("2026-11-05T03:00:00Z");
+  const run = (name: string, age: number) => {
+    const dir = join(OUT, "runs", name);
+    mkdirSync(dir, { recursive: true });
+    const t = (now.getTime() - age * DAY) / 1000;
+    utimesSync(dir, t, t);
+    return dir;
+  };
+  const old = run("extract-old", 31);
+  const kept = run("extract-new", 29);
+  mkdirSync(LOG_DIR, { recursive: true });
+  writeFileSync(join(LOG_DIR, "2025-11-04.jsonl"), "");
+  writeFileSync(join(LOG_DIR, "2025-11-05.jsonl"), "");
+  try {
+    await dropOld(now);
+    expect([existsSync(old), existsSync(kept)]).toEqual([false, true]);
+    expect(existsSync(join(LOG_DIR, "2025-11-04.jsonl"))).toBe(false);
+    expect(existsSync(join(LOG_DIR, "2025-11-05.jsonl"))).toBe(true);
+  } finally {
+    rmSync(join(OUT, "runs"), { force: true, recursive: true });
+    rmSync(join(LOG_DIR, "2025-11-05.jsonl"), { force: true });
   }
 });
