@@ -3,15 +3,19 @@ import { DAY } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { Closeness, type Correction, Level } from "../records/observation";
+import { Closeness, Level } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
-import { CLOSENESS, latestBy, readCorrections, writtenPeople } from "./ledger";
+import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { isDirect, kindOf } from "./sources";
 import { daysBefore, safely, tables } from "./units";
-import { merged, readPeople } from "./who";
+import { type People, readPeople } from "./who";
+
+/** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
+type Folds = Pick<People, "canon" | "corrections">;
+
 import { localDate } from "./zones";
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
@@ -234,7 +238,7 @@ export const readCloseness = () =>
 /** Each person's levels now: the model's latest judgment, then his own word (`closeness` corrections) over it. */
 export function levelsNow(
   rows: Map<string, Closeness>,
-  corrections: Correction[]
+  { canon, corrections }: Folds
 ) {
   const out = new Map<
     string,
@@ -242,7 +246,6 @@ export function levelsNow(
   >();
   // A person folded into another (`same-person`) is that one: only the kept person's own judgment counts (their counts
   // took the folded one's in).
-  const canon = merged(corrections);
   for (const c of rows.values()) {
     if (canon(c.person) === c.person) {
       out.set(c.person, {
@@ -325,14 +328,15 @@ export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
   );
 
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
-export async function pagedNow(truth: Pick<Truth, "people">) {
-  const corrections = await readCorrections();
-  return pagedBy(levelsWith(corrections), await waitingOf(truth, corrections));
+export async function pagedNow(people: Folds & Pick<People, "truth">) {
+  return pagedBy(
+    levelsWith(people),
+    await waitingOf(people.truth, people.canon)
+  );
 }
 
-/** Each person's levels now, from the ledger and `corrections` (his, as read by the caller). */
-export const levelsWith = (corrections: Correction[]) =>
-  levelsNow(readCloseness(), corrections);
+/** Each person's levels now, from the ledger, his corrections and the folds, as read by the caller (`readPeople`). */
+export const levelsWith = (people: Folds) => levelsNow(readCloseness(), people);
 
 /**
  * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his map (he
@@ -341,9 +345,8 @@ export const levelsWith = (corrections: Correction[]) =>
  */
 export async function waitingOf(
   truth: Pick<Truth, "people">,
-  corrections: Correction[]
+  canon: People["canon"]
 ) {
-  const canon = merged(corrections);
   return new Set([
     ...truth.people.map((p) => canon(`person:${p.id}`)),
     ...(await writtenPeople()).map(canon),
@@ -376,7 +379,7 @@ export async function closeness() {
     ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
-  const waiting = await waitingOf(truth, people.corrections);
+  const waiting = await waitingOf(truth, people.canon);
   const judged = readCloseness();
   // Everyone waiting is judged, even with nothing counted (a relation alone can say close family).
   for (const ref of waiting) {

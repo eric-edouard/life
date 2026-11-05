@@ -872,7 +872,7 @@ async function dueContext(date: string, truth: Truth) {
     dayStart(daysBefore(date, -1)).getTime()
   );
   const levels = new Map(
-    [...levelsWith(await readCorrections())].map(([p, l]) => [
+    [...levelsWith(await readPeople())].map(([p, l]) => [
       p,
       Math.min(
         Level.options.indexOf(l.personal),
@@ -1242,7 +1242,7 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
 async function closenessLine(ref: string) {
-  const l = levelsWith(await readCorrections()).get(ref);
+  const l = levelsWith(await readPeople()).get(ref);
   return l
     ? [
         `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,

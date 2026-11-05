@@ -171,6 +171,38 @@ test("a surface resolves to what the owner said, else truth, else a confident in
   ).toBe("person:a");
 });
 
+test("a surface the call linked to someone in truth/ is them, and so is every guess going by it, until he says otherwise", () => {
+  const linked = (confidence: number) => ({
+    ...inferred("inf_gas-1", ["Gas B"], confidence),
+    person: "person:gaston",
+  });
+  // An older guess for the same surface, with a page of its own: the newest confident answer decides.
+  const older = inferred("inf_gas", ["Gas B", "+33644444444"]);
+  const both = [older, linked(0.6)];
+  expect(resolver(people, both)("Gas B")).toBe("person:gaston");
+  expect(merged([], both)("person:inf_gas")).toBe("person:gaston");
+  expect(resolver(people, both)("+33644444444")).toBe("person:gaston");
+  // Unsure, the link is not used; a newer confident answer with no link takes it back, and every id the surface was
+  // given reads as that answer (one surface, one person).
+  expect(merged([], [older, linked(0.4)])("person:inf_gas")).toBe(
+    "person:inf_gas"
+  );
+  const unlinked = merged(
+    [],
+    [older, linked(0.6), inferred("inf_gas-2", ["Gas B"])]
+  );
+  expect(unlinked("person:inf_gas")).toBe("person:inf_gas-2");
+  expect(unlinked("person:inf_gas-1")).toBe("person:inf_gas-2");
+  // His word on the surface beats the link.
+  const not = said({
+    kind: "not-this-person",
+    person: "person:gaston",
+    surface: "Gas B",
+  });
+  expect(merged([not], both)("person:inf_gas")).toBe("person:inf_gas");
+  expect(resolver(people, both, [not])("Gas B")).toBe("person:inf_gas-1");
+});
+
 test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {
   const inferredPeople = [inferred("inf_plumber", ["Plombier"])];
   const fold = said({

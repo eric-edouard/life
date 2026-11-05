@@ -57,7 +57,14 @@ import {
 import { OWNER, type Truth } from "./read-truth";
 import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
-import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
+import {
+  observationsNow,
+  type People,
+  readPeople,
+  type Shown,
+  unitNow,
+  who,
+} from "./who";
 
 // `bun life memory pages`: the pages step (docs/architecture.md, "The pipeline"). One page per person who has enough to
 // say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
@@ -140,14 +147,10 @@ async function readText(path: string) {
 const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
-async function targets(
-  observations: Shown[],
-  truth: Truth,
-  inferred: InferredPerson[],
-  standing: Standing
-) {
-  const levels = levelsWith(standing.corrections);
-  const paged = pagedBy(levels, await waitingOf(truth, standing.corrections));
+async function targets(observations: Shown[], folks: People) {
+  const { inferred, truth } = folks;
+  const levels = levelsWith(folks);
+  const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
   const close = personallyClose(levels);
   const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>
@@ -510,7 +513,7 @@ export async function pages(opts: PagesOptions) {
     close,
     levels,
     targets: all,
-  } = await targets(current.observations, truth, inferred, current.standing);
+  } = await targets(current.observations, people);
   const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
   const { only } = opts;
   const chosen = only

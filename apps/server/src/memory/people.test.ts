@@ -58,6 +58,7 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
     projects: new Set(["bakery"]),
     read: (b: Built) => b.text,
     taken: new Set(["inf_plumber"]),
+    truth: new Set(["person:claire"]),
     unknown: new Map([["+33600000001", [seen]]]),
   };
   const say = (over: Record<string, unknown>) => ({
@@ -96,5 +97,10 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
       ctx
     )
   ).toEqual([]);
+  // A link only to someone in truth/, never to another guess.
+  const linked = (person: string) =>
+    checkPeople([say({ person })], ctx)[0]?.person;
+  expect(linked("person:claire")).toBe("person:claire");
+  expect(linked("person:inf_plumber")).toBeNull();
   expect(inferredId("", "k", new Set())).toBe("inf_person");
 });

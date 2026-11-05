@@ -160,10 +160,13 @@ For each entry of `unknown` that today's units say something about, one entry in
 - `relation`: how it relates to the owner, in a few words ("supplier of the shop", "builder's team", "half-sister hosting
   the owner for the night"). A business, a bot or a notification sender says so.
 - `area`: one of `areas` (its `id`) or null; `project`: one of `projects` or `involved`'s (its `id`, without `project:`) or null.
-- `confidence`: 0-1. 0.8+ when the lines say who it is; 0.5 for a good reading of context; 0.3 or less otherwise. Code
-  uses people from 0.5 up, and a wrong link is worse than none. If it could be someone already on the map (one of its `near`, or the same first
-  name and context: a sister writing in the family group from a number the map lacks), say so in `relation`
-  ("probably Claire Dupont, on the map") and stay below 0.5: The owner's own word settles it.
+- `person`: when it is someone already on the map (one of its `near`, or the same first name and context: a sister
+  writing in the family group from a number the map lacks, a friend lifelog names by first name only), their `ref`;
+  else null. Only a person of the context's or `involved`'s `people`, never an inferred one (`person:inf_…`). With two it could
+  be (two Alices), null.
+- `confidence`: 0-1, how sure you are of who it is (with `person`: that it is them). 0.8+ when the lines say who it is;
+  0.5 for a good reading of context; 0.3 or less otherwise. Code uses it from 0.5 up: the owner corrects it later, so
+  give your real reading, never a lower one to leave it to him.
 - `evidence`: one to three `{unit, quote}`, the quote copied exactly from that unit's `text`.
 
 Do not reason from phone number prefixes. Leave out an `unknown` entry nothing today says anything about.
@@ -244,4 +247,4 @@ wrong or are the same as another (give the one kept, changed, in `episodes`).
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"verdicts":[{"id":"unit_…","type":"…","importance":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"episodes":[{"id":"new-1","title":"…","what":"…","start":"2026-10-16 16:20","end":null,"place":null,"within":null,"people":[{"ref":"person:…","role":"with"}],"units":["unit_…"],"copies":[],"importance":2}],"gone":[],"who":[{"key":"…","name":"…","relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"unit_…","quote":"…"}]}]}
+{"verdicts":[{"id":"unit_…","type":"…","importance":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"episodes":[{"id":"new-1","title":"…","what":"…","start":"2026-10-16 16:20","end":null,"place":null,"within":null,"people":[{"ref":"person:…","role":"with"}],"units":["unit_…"],"copies":[],"importance":2}],"gone":[],"who":[{"key":"…","name":"…","person":null,"relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"unit_…","quote":"…"}]}]}

@@ -112,7 +112,7 @@ export const doubtful = (
 export async function claimsNow(): Promise<Claim[]> {
   const people = await readPeople();
   const { observations, standing } = await observationsNow(people);
-  const paged = await pagedNow(people.truth);
+  const paged = await pagedNow(people);
   const { homes } = placed(observations, people.truth, paged);
   const home = new Map(
     [...homes].flatMap(([page, list]) => list.map(({ o }) => [o.id, page]))
