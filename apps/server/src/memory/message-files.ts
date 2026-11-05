@@ -49,7 +49,7 @@ function fileLine(f: SourceFile, e: FileEntry | undefined) {
  */
 export const showFiles = (
   events: SourceEvent[],
-  known: Map<string, FileEntry>
+  known: ReadonlyMap<string, FileEntry>
 ) =>
   events.flatMap(({ files = [], ...e }) => {
     const text = [

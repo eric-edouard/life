@@ -179,6 +179,7 @@ Before adding a helper, use the one that exists:
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
+| Reading a JSONL file | an append-only one (the ledger, verdicts, files, decisions): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |

@@ -1,5 +1,5 @@
 import { clock, iso } from "../core/clock";
-import { appendJsonl, rowsOf } from "../core/files";
+import { appendJsonl, readAppended } from "../core/files";
 import {
   AnsweredLine,
   type Decision,
@@ -57,19 +57,22 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
 export const decisionId = (loop: string, now: number, n = 1) =>
   `${loop}-${iso(now).replace(/\D/g, "").slice(0, 17)}-${n}`;
 
-/** Every decision as it stands now, by id. */
-export function decisionsNow(
-  lines: DecisionLine[] = rowsOf(DECISIONS, DecisionLine)
-) {
-  const all = new Map<string, Decision>();
-  for (const l of lines) {
-    const d = apply(all.get(l.decision), l);
-    if (d) {
-      all.set(l.decision, d);
-    }
+/** Folds one line into the decisions by id. */
+export function applyLine(all: Map<string, Decision>, l: DecisionLine) {
+  const d = apply(all.get(l.decision), l);
+  if (d) {
+    all.set(l.decision, d);
   }
-  return all;
 }
+
+/** Every decision as it stands now, by id. */
+export const decisionsNow = (): ReadonlyMap<string, Decision> =>
+  readAppended<DecisionLine, Map<string, Decision>>(
+    DECISIONS,
+    DecisionLine,
+    (last) => new Map(last),
+    applyLine
+  );
 
 /** One step a writer asks for: Life's (asked, done, expired) or his (answered). */
 interface Step {
@@ -123,26 +126,23 @@ function refusalOf(
 
 /** Appends the steps when every one is allowed, in order (one read, one append); throws why not. Returns the decisions they leave. */
 export function writeDecision(steps: Step[], now = clock().getTime()) {
-  const lines = rowsOf(DECISIONS, DecisionLine);
+  const after = new Map(decisionsNow());
   const made: DecisionLine[] = [];
   for (const s of steps) {
-    const why = refusalOf(
-      decisionsNow([...lines, ...made]).get(s.decision),
-      s,
-      now
-    );
+    const why = refusalOf(after.get(s.decision), s, now);
     if (why) {
       throw new Error(why);
     }
-    made.push({
+    const line: DecisionLine = {
       at: iso(now),
       data: s.data ?? {},
       decision: s.decision,
       schemaVersion: 1,
       step: s.step,
-    });
+    };
+    made.push(line);
+    applyLine(after, line);
   }
   appendJsonl(DECISIONS, DecisionLine, made);
-  const after = decisionsNow([...lines, ...made]);
   return steps.map((s) => after.get(s.decision) as Decision);
 }

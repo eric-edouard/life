@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
-import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
+import { appendJsonl, filesIn, readAppended, rowsOf } from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { Episode } from "../records/episode";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
@@ -440,7 +440,16 @@ export function recordRating(
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
-export const readLedger = () => rowsOf(LEDGER, LedgerEntry);
+/** The actions ledger, in order (read once per process, then its new lines). */
+export const readLedger = (): readonly LedgerEntry[] =>
+  readAppended<LedgerEntry, LedgerEntry[]>(
+    LEDGER,
+    LedgerEntry,
+    (last) => [...(last ?? [])],
+    (all, e) => {
+      all.push(e);
+    }
+  );
 
 /** One actions ledger line, null for a blank one. */
 export const parseLedgerEntry = (line: string) =>
@@ -453,12 +462,12 @@ export interface Task {
 }
 
 /** The actions ledger as asks, each with its own lines (an agent's updates and replies before 2 Nov 2026). */
-export function tasksOf(lines = linesOf(LEDGER)) {
+export function tasksOf(entries = readLedger()) {
   const tasks = new Map<string, Task>();
-  for (const a of lines.map(parseLedgerEntry)) {
-    if (a?.kind === "ask" && a.instruction) {
+  for (const a of entries) {
+    if (a.kind === "ask" && a.instruction) {
       tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
-    } else if (a) {
+    } else {
       tasks.get(a.target)?.lines.push(a);
     }
   }
@@ -490,14 +499,29 @@ export const readLabels = () => [
 ];
 
 /** What Life read off each file a message carried: the latest line for each ref wins. */
-export const readFiles = () => latestBy(rowsOf(FILES, FileEntry), (e) => e.ref);
+export const readFiles = (): ReadonlyMap<string, FileEntry> =>
+  readAppended<FileEntry, Map<string, FileEntry>>(
+    FILES,
+    FileEntry,
+    (last) => new Map(last),
+    (all, e) => {
+      all.set(e.ref, e);
+    }
+  );
 
 /** Verdicts by unit and content: the latest line for each (unit, hash) wins. */
-export type Verdicts = Map<string, Verdict>;
+export type Verdicts = ReadonlyMap<string, Verdict>;
 export const verdictKey = (unit: string, hash: string) => `${unit}|${hash}`;
 
 export const readVerdicts = (): Verdicts =>
-  latestBy(rowsOf(VERDICTS, Verdict), (v) => verdictKey(v.unit, v.hash));
+  readAppended<Verdict, Map<string, Verdict>>(
+    VERDICTS,
+    Verdict,
+    (last) => new Map(last),
+    (all, v) => {
+      all.set(verdictKey(v.unit, v.hash), v);
+    }
+  );
 
 export const appendVerdicts = (list: Verdict[]) =>
   appendJsonl(VERDICTS, Verdict, list);

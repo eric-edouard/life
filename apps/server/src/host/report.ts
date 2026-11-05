@@ -35,7 +35,7 @@ type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
 export interface Night {
   /** Life's actions of the last 24 h, and what keeps it from acting (a remctl check that failed). */
   acted: {
-    actions: LedgerEntry[];
+    actions: readonly LedgerEntry[];
     problems: string[];
   };
   /** The archive's failures since the last night (`archiveLine`). */
