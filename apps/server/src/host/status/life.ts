@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
 import { recentEvents } from "../../core/log";
 import { systemZone } from "../../core/platform";
+import { INDEX } from "../../memory/ledger";
 import { lockedSince } from "../../memory/memory-lock";
 import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
 import {
@@ -12,7 +13,6 @@ import {
   readMidday,
   readState,
 } from "../../memory/schedule";
-import { INDEX } from "../../memory/search";
 import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
 import type { Quota } from "../../models/llm";

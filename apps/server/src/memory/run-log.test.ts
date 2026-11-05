@@ -116,7 +116,14 @@ test("runs page back through the log days, newest first, none lost or repeated, 
   const line = (step: string, at: string, kind = "run.start") =>
     `${JSON.stringify(ev(kind, step, at, { failed: 0, run: id(at) }))}\n`;
   const starts: string[] = [];
-  for (const day of ["2026-10-12", "2026-10-13", "2026-10-14"]) {
+  for (const day of [
+    "2026-10-09",
+    "2026-10-10",
+    "2026-10-11",
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14",
+  ]) {
     let text = "";
     for (const h of ["01", "09", "17"]) {
       const at = `${day}T${h}:00:00.000Z`;
@@ -155,6 +162,28 @@ test("runs page back through the log days, newest first, none lost or repeated, 
   const first = await runs({ limit: 1 }, dir);
   expect(first.items[0]?.startedAt).toBe("2026-10-15T08:00:00.000Z");
   expect(first.items[0]?.outcome).toBe("unfinished");
+  // A rare step on the first and last days: each page reads back as far as it needs (assembled at 1, 2, 4… days).
+  for (const [day, at] of [
+    ["2026-10-09", "2026-10-09T05:00:00.000Z"],
+    ["2026-10-15", "2026-10-15T09:00:00.000Z"],
+  ] as const) {
+    appendFileSync(
+      join(dir, `${day}.jsonl`),
+      line("memory.rare", at) + line("memory.rare", at, "run.end")
+    );
+  }
+  const rare = await runs({ limit: 1, steps: ["memory.rare"] }, dir);
+  expect(rare.items.map((r) => r.startedAt)).toEqual([
+    "2026-10-15T09:00:00.000Z",
+  ]);
+  const older = await runs(
+    { cursor: rare.cursor ?? undefined, limit: 1, steps: ["memory.rare"] },
+    dir
+  );
+  expect(older.items.map((r) => r.startedAt)).toEqual([
+    "2026-10-09T05:00:00.000Z",
+  ]);
+  expect(older.cursor).toBeNull();
 });
 
 test("a run's use: its calls' tokens and its steps', and for a metered run the quota it logged at its start and end", () => {

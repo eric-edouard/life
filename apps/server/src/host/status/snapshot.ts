@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { clock, DAY, HOUR, MIN } from "../../core/clock";
-import { filesIn, linesOf, newestIn } from "../../core/files";
+import { filesIn, newestIn, readLineCount } from "../../core/files";
 import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
@@ -184,10 +184,10 @@ async function memoryCounts() {
   ]);
   return {
     commitAt: at ? new Date(at).toISOString() : null,
-    corrections: linesOf(CORRECTIONS).length,
+    corrections: readLineCount(CORRECTIONS),
     episodes: episodes.length,
     observations: observations.reduce(
-      (n, m) => n + linesOf(join(OBSERVATIONS, m)).length,
+      (n, m) => n + readLineCount(join(OBSERVATIONS, m)),
       0
     ),
     pages: people.length + areas.length,

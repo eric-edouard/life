@@ -1,8 +1,9 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
 import type {
   Correction,
@@ -13,22 +14,29 @@ import type {
 import { type Rating, Statement } from "../records/statement";
 import {
   hiding,
+  INDEX,
   isCurrent,
   latestExtractions,
   latestRatings,
   newSince,
+  OBSERVATIONS,
   outdatedBy,
   ratedCorrections,
   ratedFacts,
+  readOrigins,
   readRatings,
+  readStanding,
+  readUnit,
   recordRating,
   retiredBy,
   STATEMENTS,
   type Standing,
   shownOf,
   stateOf,
+  UNITS,
 } from "./ledger";
 import { knownOn } from "./page-format";
+import { madeBy, unit as unitFixture } from "./record-fixtures";
 import { buildIndex } from "./search";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
@@ -428,4 +436,65 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
     undefined,
   ]);
   expect(facts.get(old)?.outdated).toBe(true);
+});
+
+test("a unit by id is read from its day (the index says which), or from every day when the index doesn't hold it; a standing from origins is the standing from observations", async () => {
+  const indexed = unitFixture({ date: "2026-10-20", id: "unit_00000000000a" });
+  const newer = unitFixture({ date: "2026-10-21", id: "unit_00000000000b" });
+  mkdirSync(UNITS, { recursive: true });
+  mkdirSync(dirname(INDEX), { recursive: true });
+  try {
+    for (const u of [indexed, newer]) {
+      writeFileSync(join(UNITS, `${u.date}.jsonl`), `${JSON.stringify(u)}\n`);
+    }
+    const standing = {
+      corrections: [],
+      latest: new Map(),
+      live: new Set<string>(),
+      retired: new Map(),
+    };
+    buildIndex([], INDEX, standing, [{ unit: indexed }]);
+    expect(await readUnit(indexed.id)).toEqual(indexed);
+    expect(await readUnit(newer.id)).toEqual(newer);
+    expect(await readUnit("unit_00000000000c")).toBeUndefined();
+    const fact = (id: string, unitId: string): Observation => ({
+      area: null,
+      at: "2026-10-20T10:00:00.000Z",
+      confidence: 1,
+      date: "2026-10-20",
+      entities: [],
+      id,
+      importance: 2,
+      madeBy: { ...madeBy, unitHash: indexed.hash },
+      quote: "q",
+      schemaVersion: 1,
+      source: { channel: "lifelog", ref: "j:0@x" },
+      speaker: "person:me",
+      text: "t",
+      type: "to_do",
+      tz: "UTC",
+      unit: unitId,
+      validFrom: null,
+      validTo: null,
+      when: null,
+    });
+    const facts = [
+      fact("obs_00000000000a", indexed.id),
+      fact("obs_00000000000b", "unit_0000000000ff"),
+    ];
+    mkdirSync(OBSERVATIONS, { recursive: true });
+    writeFileSync(
+      join(OBSERVATIONS, "2026-10.jsonl"),
+      `${facts.map((o) => JSON.stringify(o)).join("\n\n")}\n`
+    );
+    const origins = await readOrigins();
+    expect(origins.get("2026-10.jsonl")?.map((o) => o.n)).toEqual([0, 2]);
+    expect(await readStanding([])).toEqual(
+      await readStanding([], Promise.resolve(facts))
+    );
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(OBSERVATIONS, { force: true, recursive: true });
+    rmSync(INDEX, { force: true });
+  }
 });

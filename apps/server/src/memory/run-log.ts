@@ -338,6 +338,8 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
   const days = await logDays(dir);
   const lock = lockedSince();
   const events: LogEvent[] = [];
+  let read = 0;
+  let next = 1;
   let page: Run[] = [];
   let more = false;
   const older = (r: Run) =>
@@ -349,7 +351,14 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
       continue;
     }
     events.push(...runEvents(name, dir));
+    read += 1;
     const last = i === days.length - 1;
+    // ponytail: assembled after 1, 2, 4, 8… days read, so a rare step's page costs about twice one assembly of
+    // every day; a page may read up to twice the days it needs.
+    if (!last && read < next) {
+      continue;
+    }
+    next *= 2;
     // Assembled with the whole pipeline, so a sweep lists its steps whatever `steps` shows.
     const ready = assembleRuns(events, new Set([...PIPELINE, ...steps]), lock)
       .filter(

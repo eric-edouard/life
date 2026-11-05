@@ -1,9 +1,9 @@
 import { clock, iso } from "../core/clock";
-import { appendJsonl, linesOf } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { startDetached } from "../core/proc";
 import { settings } from "../core/settings";
-import { feedPage, PAGE, parseCursor } from "../memory/changes";
+import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
 import { clip } from "../memory/units";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
@@ -57,7 +57,7 @@ export function ask(
  */
 export function asksFor(agent: string, cursor?: string, limit = PAGE) {
   const page = feedPage(
-    [{ lines: linesOf(LEDGER), name: "ledger" }],
+    [fileSource(LEDGER, "ledger")],
     parseCursor(cursor),
     limit,
     (_, line) => {

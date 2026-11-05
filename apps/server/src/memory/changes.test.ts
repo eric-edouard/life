@@ -7,6 +7,13 @@ import { changeFeed, feedPage, matchesFilter } from "./changes";
 import { LEDGER } from "./ledger";
 import { action } from "./record-fixtures";
 
+/** A feed source of `lines` as they are now. */
+const asSource = (s: { lines: string[]; name: string }) => ({
+  count: s.lines.length,
+  lines: () => s.lines,
+  name: s.name,
+});
+
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
 function drain(
   sources: { lines: string[]; name: string }[],
@@ -17,7 +24,7 @@ function drain(
   const seen: string[] = [];
   let cursor = {};
   for (let page = 0; page < 50; page += 1) {
-    const r = feedPage(sources, cursor, limit, (_s, line) =>
+    const r = feedPage(sources.map(asSource), cursor, limit, (_s, line) =>
       keep(line) ? line : null
     );
     expect(r.items.length).toBeLessThanOrEqual(limit);
@@ -50,7 +57,9 @@ test("the feed returns every line once across pages, with lines appended to any 
 
 test("a filter skips lines without losing any match, and `remaining` counts only matches", () => {
   const s = { lines: ["x0", "y1", "x2", "y3", "x4", "x5"], name: "s" };
-  const first = feedPage([s], {}, 2, (_n, l) => (l.startsWith("x") ? l : null));
+  const first = feedPage([asSource(s)], {}, 2, (_n, l) =>
+    l.startsWith("x") ? l : null
+  );
   expect(first.items).toEqual(["x0", "x2"]);
   expect(first.remaining).toBe(2);
   expect(drain([s], 1, undefined, (l) => l.startsWith("x"))).toEqual([
@@ -63,7 +72,7 @@ test("a filter skips lines without losing any match, and `remaining` counts only
 
 test("a cursor past the end of a ledger (it shrank) is an error, not a silent restart", () => {
   const s = { lines: ["a"], name: "s" };
-  expect(() => feedPage([s], { s: 2 }, 5, (_n, l) => l)).toThrow(
+  expect(() => feedPage([asSource(s)], { s: 2 }, 5, (_n, l) => l)).toThrow(
     "cursor is past the end of s"
   );
 });
@@ -111,4 +120,21 @@ test("a run filter takes the id as runs gives it, or bare", () => {
   expect(
     matchesFilter(it, { run: "memory.extract/2026-10-17T00-00-00.000Z" })
   ).toBe(false);
+});
+
+test("a source the cursor has reached is not read", () => {
+  const unread = {
+    count: 1,
+    lines: () => {
+      throw new Error("read");
+    },
+    name: "b",
+  };
+  const page = feedPage(
+    [asSource({ lines: ["a0"], name: "a" }), unread],
+    { b: 1 },
+    5,
+    (_s, l) => l
+  );
+  expect(page.items).toEqual(["a0"]);
 });
