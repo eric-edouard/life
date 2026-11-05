@@ -200,7 +200,8 @@ step: [Back up and restore](use/backup.md).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
   A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of
-  its day, the judge and the claims it cites are unchanged; only the rest are judged again, so a batch holds only those.
+  its day, the judge and the claims it cites are unchanged; only the rest are judged again. A batch now holds only those,
+  so a grade sees other neighbours' claims than before: from 5 Nov 2026 a score may shift a little for that alone.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real episodes and
   extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
   timeline (about 40 minutes;

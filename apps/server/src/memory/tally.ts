@@ -2,7 +2,7 @@
 // they come to.
 import { join } from "node:path";
 import { z } from "zod";
-import { askOnce, llmFor } from "../models/llm";
+import { askOnce, llmFor, llmSpec } from "../models/llm";
 
 /** What a judge may say of a fact against the claims. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;
@@ -18,8 +18,9 @@ const Grades = z.object({
   ),
 });
 export type Grade = z.infer<typeof Grades>["grades"][number];
-/** The judge's prompt: with its model, what a kept grade was judged by (`--ratings`, scripts/eval.ts). */
-export const JUDGE_PROMPT = "eval-judge.v2";
+const JUDGE_PROMPT = "eval-judge.v2";
+/** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--ratings`, scripts/eval.ts). */
+export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
 
 /**
  * A grade kept between `--ratings` runs: the key of what it was judged on (its fact, the claims on its units as of its

@@ -69,10 +69,10 @@ test("while another install's watcher runs on this Mac, a tick does nothing", as
   }
 });
 
-test("the night drops run folders past 30 days and log days past a year, nothing newer", async () => {
+test("the night drops run and eval folders past 30 days and log days past a year, nothing newer", async () => {
   const now = new Date("2026-11-05T03:00:00Z");
-  const run = (name: string, age: number) => {
-    const dir = join(OUT, "runs", name);
+  const run = (name: string, age: number, folder = "runs") => {
+    const dir = join(OUT, folder, name);
     mkdirSync(dir, { recursive: true });
     const t = (now.getTime() - age * DAY) / 1000;
     utimesSync(dir, t, t);
@@ -80,16 +80,24 @@ test("the night drops run folders past 30 days and log days past a year, nothing
   };
   const old = run("extract-old", 31);
   const kept = run("extract-new", 29);
+  const oldEval = run("eval-old", 31, "evals");
+  const keptEval = run("eval-new", 29, "evals");
   mkdirSync(LOG_DIR, { recursive: true });
   writeFileSync(join(LOG_DIR, "2025-11-04.jsonl"), "");
   writeFileSync(join(LOG_DIR, "2025-11-05.jsonl"), "");
   try {
     await dropOld(now);
-    expect([existsSync(old), existsSync(kept)]).toEqual([false, true]);
+    expect([old, kept, oldEval, keptEval].map((d) => existsSync(d))).toEqual([
+      false,
+      true,
+      false,
+      true,
+    ]);
     expect(existsSync(join(LOG_DIR, "2025-11-04.jsonl"))).toBe(false);
     expect(existsSync(join(LOG_DIR, "2025-11-05.jsonl"))).toBe(true);
   } finally {
     rmSync(join(OUT, "runs"), { force: true, recursive: true });
+    rmSync(join(OUT, "evals"), { force: true, recursive: true });
     rmSync(join(LOG_DIR, "2025-11-05.jsonl"), { force: true });
   }
 });

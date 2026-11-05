@@ -24,8 +24,8 @@ import {
   GRADES,
   type Grade,
   isGradeKept,
-  JUDGE_PROMPT,
   judge,
+  judgedBy,
   type KeptGrade,
   tally,
 } from "@life/server/src/memory/tally";
@@ -76,7 +76,8 @@ const GRADES_KEPT = join(OUT, "fact-check-grades.json");
  * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
  * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A statement none of whose units exist any more (a conversation regrouped) can't be judged: it is
  * listed apart and left out of the score. A grade is kept (`GRADES_KEPT`) while its key (the fact, the claims on its
- * units as of its day, the judge) holds and every claim it cites says the same; only the rest are judged again.
+ * units as of its day, the judge) holds and every claim it cites says the same (a batch also shows its other facts'
+ * claims, which a grade may rest on); only the rest are judged again.
  */
 async function ratedRun() {
   const [claims, live] = await Promise.all([claimsNow(), readLiveUnits()]);
@@ -94,7 +95,7 @@ async function ratedRun() {
       () => true
     ).toSorted((a, b) => a.id.localeCompare(b.id));
   const said = new Map(claims.map((c) => [c.ref, c.text]));
-  const by = `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
+  const by = judgedBy();
   const keyOf = (f: (typeof judged)[number]) =>
     String(
       Bun.hash(
@@ -119,14 +120,19 @@ async function ratedRun() {
   await inBatches(chunks(asked, PER_CALL), DIR, async (part, dir) => {
     const seen = claimsOn(part.flatMap((f) => f.units));
     for (const grade of await judge(part, seen, { dir, run })) {
-      kept[grade.fact] = {
-        cited: grade.claims.map((id) => [id, said.get(id) ?? null]),
-        grade,
-        key: keys.get(grade.fact) ?? "",
-      };
+      const key = keys.get(grade.fact);
+      if (key) {
+        kept[grade.fact] = {
+          cited: grade.claims.map((id) => [id, said.get(id) ?? null]),
+          grade,
+          key,
+        };
+      }
     }
+    // Each batch's grades saved at once, so a later failed batch costs only its own calls.
+    writeJson(GRADES_KEPT, kept);
   });
-  // Only after every batch was judged (`inBatches` throws on a failed one).
+  // Again at the end: a run that asked nothing still drops the grades of statements gone.
   writeJson(GRADES_KEPT, kept);
   const t = tally(
     judged,
@@ -165,7 +171,7 @@ async function judgeCasesRun(path: string) {
   const agreed = cases.filter((c) => got.get(c.id)?.grade === c.expect).length;
   console.log(
     [
-      `Judge ${llmSpec(llmFor("main"))}: ${agreed}/${cases.length} cases graded as the owner settled.`,
+      `Judge ${judgedBy()}: ${agreed}/${cases.length} cases graded as the owner settled.`,
       "",
       "| case | expected | judge | why it should | judge's why |",
       "|---|---|---|---|---|",
