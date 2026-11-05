@@ -122,7 +122,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   he is asked about, only by `doubtful`.
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
-- **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
+- **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), and a second
+  look places its leftovers (`leftoversOf`), then extraction reads an
   episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).

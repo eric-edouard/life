@@ -58,10 +58,11 @@ import { voiceText } from "./words";
 // judged already as stubs, where his phone stayed, the day's episodes as they stand and those of the day before that may
 // continue into it. It returns a verdict per new unit (memory/verdicts.jsonl: what it is, its area, topics,
 // importance), the episodes new or changed and those gone (memory/episodes/<day>.jsonl) and who the day's unknown handles
-// and names are (memory/people-inferred.jsonl).
+// and names are (memory/people-inferred.jsonl). The units it kept but put in no episode (`leftoversOf`) get a second
+// look: one more call, those units only, the day as the first left it as `earlier`, to place them.
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const EPISODES_PROMPT = "memory-episodes.v7";
+export const EPISODES_PROMPT = "memory-episodes.v8";
 // ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
 // into halves with the episodes of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;
@@ -351,6 +352,49 @@ export function parseDay(
   };
 }
 
+/**
+ * The day's leftovers: units this reading judged (`said`, its fresh verdicts) worth keeping (`KEEP_AT`) that can make an
+ * episode (`isLived`) but are in none of the day's episodes (`file`, as `dayFileOf` leaves it). The second look reads them.
+ */
+export const leftoversOf = (
+  said: Verdict[],
+  units: Map<string, Unit>,
+  file: Episode[]
+) => {
+  const placed = new Set(file.flatMap((m) => m.units));
+  return new Set(
+    said.flatMap((v) => {
+      const u = units.get(v.unit);
+      return u && v.importance >= KEEP_AT && !placed.has(u.id) && isLived([u])
+        ? [u.id]
+        : [];
+    })
+  );
+};
+
+/** An episode of `earlier` as a call sees it: what it is, never its units or who made it. */
+const shownOf = ({
+  end,
+  hidden,
+  id,
+  people,
+  place,
+  start,
+  title,
+  what,
+  within,
+}: ReturnType<typeof earlierFor>[number]) => ({
+  end,
+  hidden,
+  id,
+  people,
+  place,
+  start,
+  title,
+  what,
+  within,
+});
+
 const ratio = (a: number, b: number) => (b === 0 ? null : a / b);
 
 /**
@@ -488,6 +532,13 @@ export async function episodes(evidence: Evidence) {
     const earlier = earlierFor(day, lines, corrections).map((m) =>
       episodeNow(m, refOf)
     );
+    // What a reading of the day, `shown` the episodes it saw, leaves in its file (`dayFileOf`).
+    const fileOf = (shown: { id: string }[]) => ({
+      corrections,
+      earlier: new Set(shown.map((m) => m.id)),
+      lines,
+      units: new Set(units.map((b) => b.unit.id)),
+    });
     // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
     const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
     // biome-ignore lint/performance/noAwaitInLoops: a day reads the episodes the day before it wrote
@@ -524,75 +575,90 @@ export async function episodes(evidence: Evidence) {
           ...[...near.values()].flat(),
         ])
       );
-      const json = await step.ask({
-        context: { ...refs.context, topics: topTopics(verdicts.values()) },
-        dir: join(step.dir, day),
-        input: {
-          day,
-          earlier: earlier.map(
-            ({
-              end,
-              hidden,
-              id,
-              people,
-              place,
-              start,
-              title,
-              what,
-              within,
-            }) => ({
-              end,
-              hidden,
-              id,
-              people,
-              place,
-              start,
-              title,
-              what,
-              within,
-            })
-          ),
-          involved,
-          stays: stays
-            .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
-            .map((s) => ({
-              from: localTime(s.arrivedAt),
-              place: where(s),
-              to: s.leftAt && localTime(s.leftAt),
-            })),
-          units: units.map(({ unit }) => {
-            const text = texts.get(unit.id);
-            return {
-              areaHint: hints.get(unit.key),
-              end: localTime(unit.end),
-              id: unit.id,
-              people: unitNow(unit, refOf).people,
-              source: unit.source,
-              start: localTime(unit.start),
-              title: unit.title,
-              ...(text === undefined
-                ? { read: verdictOf(verdicts, unit)?.reason }
-                : { text: head(text) }),
-            };
-          }),
-          unknown: [...unknown].map(([key, seen]) => ({
-            key,
-            near: near.get(key) ?? [],
-            units: seen.map((b) => b.unit.id),
-          })),
-        },
-        prompt: EPISODES_PROMPT,
-      });
-      const reading = parseDay(json, {
-        areas,
+      const context = { ...refs.context, topics: topTopics(verdicts.values()) };
+      const input = {
         day,
-        earlier: new Set(earlier.map((m) => m.id)),
-        hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
-        madeBy,
-        people: new Set(refs.map.people.map((p) => p.ref)),
-        resolve,
-        units: new Map(units.map((b) => [b.unit.id, b.unit])),
-      });
+        earlier: earlier.map(shownOf),
+        involved,
+        stays: stays
+          .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
+          .map((s) => ({
+            from: localTime(s.arrivedAt),
+            place: where(s),
+            to: s.leftAt && localTime(s.leftAt),
+          })),
+        units: units.map(({ unit }) => {
+          const text = texts.get(unit.id);
+          return {
+            areaHint: hints.get(unit.key),
+            end: localTime(unit.end),
+            id: unit.id,
+            people: unitNow(unit, refOf).people,
+            source: unit.source,
+            start: localTime(unit.start),
+            title: unit.title,
+            ...(text === undefined
+              ? { read: verdictOf(verdicts, unit)?.reason }
+              : { text: head(text) }),
+          };
+        }),
+        unknown: [...unknown].map(([key, seen]) => ({
+          key,
+          near: near.get(key) ?? [],
+          units: seen.map((b) => b.unit.id),
+        })),
+      };
+      const byId = new Map(units.map((b) => [b.unit.id, b.unit]));
+      const parse = (json: unknown, shown: typeof earlier) =>
+        parseDay(json, {
+          areas,
+          day,
+          earlier: new Set(shown.map((m) => m.id)),
+          hidden: new Set(shown.flatMap((m) => (m.hidden ? [m.id] : []))),
+          madeBy,
+          people: new Set(refs.map.people.map((p) => p.ref)),
+          resolve,
+          units: byId,
+        });
+      const reading = parse(
+        await step.ask({
+          context,
+          dir: join(step.dir, day),
+          input,
+          prompt: EPISODES_PROMPT,
+        }),
+        earlier
+      );
+      // The second look: the units kept but in no episode, with the day as this reading leaves it.
+      const file = dayFileOf(day, reading, fileOf(earlier));
+      const leftovers = leftoversOf(
+        fresh(reading.verdicts, units, verdicts, rereads),
+        byId,
+        file
+      );
+      if (leftovers.size > 0) {
+        const now = earlierFor(
+          day,
+          [...lines.filter((m) => m.day !== day), ...file],
+          corrections
+        ).map((m) => episodeNow(m, refOf));
+        const second = parse(
+          await step.ask({
+            context,
+            dir: join(step.dir, day, "leftovers"),
+            input: {
+              ...input,
+              earlier: now.map(shownOf),
+              pass: "leftovers",
+              units: input.units.filter((u) => leftovers.has(u.id)),
+              unknown: [],
+            },
+            prompt: EPISODES_PROMPT,
+          }),
+          now
+        );
+        reading.episodes.push(...second.episodes);
+      }
       const who = checkPeople(reading.who, {
         areas,
         at: step.now.toISOString(),
@@ -608,12 +674,7 @@ export async function episodes(evidence: Evidence) {
     if (got) {
       // The episodes first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
-      const kept = dayFileOf(day, got, {
-        corrections,
-        earlier: new Set(earlier.map((m) => m.id)),
-        lines,
-        units: new Set(units.map((b) => b.unit.id)),
-      });
+      const kept = dayFileOf(day, got, fileOf(earlier));
       await writeDay(day, kept);
       const judgedNow = fresh(got.verdicts, units, verdicts, rereads);
       await appendVerdicts(judgedNow);

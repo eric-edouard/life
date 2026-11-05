@@ -9,6 +9,7 @@ import {
   EPISODES_PROMPT,
   earlierFor,
   fresh,
+  leftoversOf,
   parseDay,
   unread,
 } from "./episodes";
@@ -457,4 +458,32 @@ test("a chat's area hint is the area of the projects that list it, by network ch
   ]);
   expect(hints.get("1@g.us")).toEqual(["construction", "family-money"]);
   expect(hints.has("!b:matrix.local")).toBe(false);
+});
+
+test("the second look reads the units kept but in no episode, never activity; a placed one joins its episode in the day's file", () => {
+  const U4 = "unit_000000000004";
+  const chat = unit({ id: U1, source: "whatsapp" });
+  const placed = unit({ id: U2 });
+  const small = unit({ id: U3, source: "line" });
+  const commits = unit({ id: U4, source: "git" });
+  const units = new Map([chat, placed, small, commits].map((u) => [u.id, u]));
+  const dinner = episode({ units: [U2] });
+  const said = [
+    verdict(chat, { importance: 3 }),
+    verdict(placed),
+    verdict(small, { importance: 1 }),
+    verdict(commits),
+  ];
+  expect([...leftoversOf(said, units, [dinner])]).toEqual([U1]);
+  // The second look adds it to the dinner: one line, both units, its words.
+  const again = episode({ units: [U1], what: "w2" });
+  const ctx = {
+    corrections: [],
+    earlier: new Set<string>(),
+    lines: [],
+    units: new Set(units.keys()),
+  };
+  expect(
+    dayFileOf(dinner.day, { episodes: [dinner, again], gone: [] }, ctx)
+  ).toEqual([{ ...again, units: [U2, U1] }]);
 });

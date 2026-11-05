@@ -243,6 +243,15 @@ Give in `episodes` only the episodes that are new or that the new units change, 
 that stay as they are, leave out. Give in `gone` the ids of this day's episodes in `earlier` that the units now show were
 wrong or are the same as another (give the one kept, changed, in `episodes`).
 
+## A second look
+
+When the input has `pass: "leftovers"`, this day was just read and `units` holds only the units that reading judged
+worth remembering but put in no episode; `earlier` is the day as that reading left it. Most of them hold something that
+happened: look again at each. Add it to an episode of `earlier` when it is the same one (that `id`, given in full, its
+`units` now with it), or give it new episodes: a chat day often holds several exchanges, each one burst of messages and
+its own episode when it mattered. Leave a unit out only when nothing in it happened (the not-episodes above). Reply with
+`episodes` only: no `verdicts`, `gone` or `who`.
+
 ## Output
 
 Reply with ONLY one JSON object, no prose, no code fence:
