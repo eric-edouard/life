@@ -5,12 +5,13 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DAY, MIN } from "../core/clock";
+import { writeJson } from "../core/files";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { MEMORY, readIndex, UNITS } from "./ledger";
+import { MEMORY, readIndex, situationPath, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
-import { TRUTH } from "./read-truth";
+import { OWNER, TRUTH } from "./read-truth";
 import {
   areaFor,
   birthdaysNear,
@@ -26,6 +27,7 @@ import {
   reindexUnits,
   matches as searchMatches,
   shownEpisode,
+  situationsNamed,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -585,4 +587,33 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("house", truth).project?.id).toBe("house");
   expect(areaFor("the house", truth).id).toBe("construction");
   expect(areaFor("constr", truth).id).toBeUndefined();
+});
+
+test("a search naming no one opens with his own situation, unless days bound it", async () => {
+  const ep = "ep_00000000000a";
+  writeJson(situationPath(OWNER), {
+    built: "2026-11-05T00:00:00.000Z",
+    inputs: "0123456789abcdef",
+    lines: [
+      { cites: [ep], text: "He argues with his father about the house." },
+    ],
+    madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+    page: OWNER,
+    schemaVersion: 1,
+  });
+  try {
+    await expect(
+      situationsNamed("what bothers me lately", new Set([ep]), true)
+    ).resolves.toEqual([
+      "His situation (where things stand, read each night from the last 30 days):",
+      `- He argues with his father about the house. [${ep}]`,
+      "",
+    ]);
+    // A search into given days is not about now: no situation of his.
+    await expect(
+      situationsNamed("what bothers me lately", new Set([ep]), false)
+    ).resolves.toEqual([]);
+  } finally {
+    rmSync(situationPath(OWNER), { force: true });
+  }
 });
