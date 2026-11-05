@@ -75,7 +75,7 @@ test("new since the last good night means a line first cited since: a re-read is
     // Tonight's re-read of the same chat-day: the same fact re-made, and one re-worded, from the line already cited.
     cites("ask", "msg_ask", TONIGHT),
     cites("ask-reworded", "msg_ask", TONIGHT),
-    // A midday run's line counts in tonight's report; so does the message the chat-day grew by.
+    // A hand run's line counts in tonight's report; so does the message the chat-day grew by.
     cites("noon", "msg_noon", NOON),
     cites("reply", "msg_reply", TONIGHT),
   ];

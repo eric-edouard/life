@@ -47,8 +47,8 @@ function lastOf(list: Run[], step: string) {
 }
 /**
  * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
- * lifelog in as it arrives; the archive copies chats), extraction (midday, nightly, backfill weeks), consolidation
- * (pages: midday and nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
+ * lifelog in as it arrives; the archive copies chats), extraction (nightly, backfill weeks), consolidation
+ * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
 export async function lifeStatus(now = clock()) {

@@ -563,7 +563,7 @@ export async function pages(opts: PagesOptions) {
 }
 
 /**
- * Each page that changed since `~/Life`'s last commit (the night's), midday runs' rewrites included, against its
+ * Each page that changed since `~/Life`'s last commit (the night's), hand runs' rewrites included, against its
  * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
  */
 export function changedSinceCommit(root = OWNER_DATA_DIR, dir = PAGES) {

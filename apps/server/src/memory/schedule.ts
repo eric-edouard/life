@@ -17,7 +17,7 @@ export interface NightState {
   attempts: number;
   date: string;
   lastAt: string;
-  /** When the last successful night ended: what the next report counts from (midday runs in between included). */
+  /** When the last successful night ended: what the next report counts from (the episodes of midday runs in between included). */
   okAt?: string;
   status: "ok" | "failed";
 }
@@ -73,7 +73,7 @@ export async function spareQuota(engine?: Engine) {
   }
 }
 
-/** The hours of the midday runs (episodes, extract and pages of the day so far; no commit, no email). */
+/** The hours of the midday runs (episodes of the day so far; no commit, no email). */
 const MIDDAYS = [13, 19];
 
 /** True at the first tick after a midday hour that no run has used yet (`last`: when the last midday run started). */
