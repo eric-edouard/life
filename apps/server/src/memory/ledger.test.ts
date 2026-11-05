@@ -12,6 +12,7 @@ import type {
 } from "../records/observation";
 import { type Rating, Statement } from "../records/statement";
 import {
+  hiding,
   isCurrent,
   latestExtractions,
   latestRatings,
@@ -270,6 +271,19 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
   expect(
     stateOf(x, at({ corrections: [wrong()], latest, retired }))
   ).toMatchObject({ correction: "wrong", state: "hidden" });
+});
+
+test("hiding gives each correction hiding an id once, in his order, from one index per list", () => {
+  const c = (at: string, observations: string[], kind = "wrong") =>
+    ({ at, kind, observations }) as Correction;
+  const list = [
+    c("t1", ["A", "A", "B"]),
+    c("t2", ["A"], "outdated"),
+    c("t3", ["A"], "not-important"),
+  ];
+  expect(hiding(list, "A").map((h) => h.at)).toEqual(["t1", "t3"]);
+  expect(hiding(list, "B").map((h) => h.at)).toEqual(["t1"]);
+  expect(hiding(list, "C")).toEqual([]);
 });
 
 test("a retirement stands only while its replacement is current; the first one recorded wins", () => {

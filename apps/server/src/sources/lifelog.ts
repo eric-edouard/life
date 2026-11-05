@@ -206,6 +206,7 @@ export function openStore(dir = WATCH) {
   create table if not exists marks (
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
+  create index if not exists turns_start on turns (start_at);
   drop table if exists jobs;`);
   // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
   // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
@@ -595,15 +596,15 @@ export function speakers(store: Store) {
     .all();
 }
 
-/** Every turn someone other than the owner spoke in a live conversation, by lifelog's own speaker (never a model's): who and when. */
-export function speakerTurns(store: Store) {
+/** Every turn someone other than the owner spoke in a live conversation since `since`, by lifelog's own speaker (never a model's): who and when. */
+export function speakerTurns(store: Store, since: Date) {
   return store.db
-    .query<{ at: string; id: string; name: string | null }, []>(
+    .query<{ at: string; id: string; name: string | null }, [string]>(
       `select t.person_id as id, t.person_name as name, t.start_at as at from turns t
         join conversations c on c.id = t.conversation_id
-        where ${LIVE} and t.person_id is not null and t.is_owner = 0`
+        where ${LIVE} and t.person_id is not null and t.is_owner = 0 and t.start_at >= ?`
     )
-    .all();
+    .all(since.toISOString());
 }
 
 /** The live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */
