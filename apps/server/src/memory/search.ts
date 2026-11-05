@@ -325,13 +325,20 @@ export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
   // lifelog's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
-  const [voice, chats, mail, found, situations] = await Promise.all([
+  const [voice, chats, mail, all] = await Promise.all([
     voiceHits(words, range),
     chatHits(words, range),
     mailHits(words, range),
-    episodesWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
-    situationsNamed(words),
+    episodesWhere(() => true),
   ]);
+  const found = all.filter(
+    (m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)
+  );
+  const situations = await situationsNamed(
+    words,
+    new Set(all.map((m) => m.id)),
+    !(o.from || o.to)
+  );
   return withIndex((db) => [
     ...situations,
     ...(found.length > 0
@@ -565,10 +572,14 @@ const PAGE_ITEMS = 24;
 const SPACES = /\s+/;
 
 /**
- * The situations of the people `words` name (him aside), else his own: read before the hits, so they are read knowing
- * where things stand.
+ * The situations of the people `words` name (him aside), else his own when the search is about now (`isNow`: no days
+ * bound it): read before the hits, so they are read knowing where things stand. `live`: the episodes there are.
  */
-export async function situationsNamed(words: string) {
+export async function situationsNamed(
+  words: string,
+  live: ReadonlySet<string>,
+  isNow: boolean
+) {
   const { names, nameOf, truth } = await readPeople();
   const said = ` ${normalize(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
@@ -580,12 +591,12 @@ export async function situationsNamed(words: string) {
         (n) => n && said.includes(` ${normalize(n)} `)
       )
   );
-  const live = new Set((await episodesWhere(() => true)).map((m) => m.id));
-  return mentioned.length > 0
-    ? mentioned.flatMap((ref) =>
-        situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
-      )
-    : situationBlock(OWNER, live, "His situation");
+  if (mentioned.length > 0) {
+    return mentioned.flatMap((ref) =>
+      situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
+    );
+  }
+  return isNow ? situationBlock(OWNER, live, "His situation") : [];
 }
 
 const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);

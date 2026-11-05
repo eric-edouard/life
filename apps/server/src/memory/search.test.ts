@@ -9,10 +9,9 @@ import { writeJson } from "../core/files";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { EPISODES, MEMORY, readIndex, situationPath, UNITS } from "./ledger";
+import { MEMORY, readIndex, situationPath, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
 import { OWNER, TRUTH } from "./read-truth";
-import { madeBy } from "./record-fixtures";
 import {
   areaFor,
   birthdaysNear,
@@ -590,29 +589,8 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("constr", truth).id).toBeUndefined();
 });
 
-test("a search naming no one opens with his own situation", async () => {
+test("a search naming no one opens with his own situation, unless days bound it", async () => {
   const ep = "ep_00000000000a";
-  const file = join(EPISODES, "2026-11-04.jsonl");
-  mkdirSync(EPISODES, { recursive: true });
-  writeFileSync(
-    file,
-    `${JSON.stringify({
-      copies: [],
-      day: "2026-11-04",
-      end: null,
-      id: ep,
-      importance: 2,
-      madeBy,
-      people: [],
-      place: null,
-      schemaVersion: 1,
-      start: null,
-      title: "House call",
-      units: ["unit_00000000000a"],
-      what: "w",
-      within: null,
-    })}\n`
-  );
   writeJson(situationPath(OWNER), {
     built: "2026-11-05T00:00:00.000Z",
     inputs: "0123456789abcdef",
@@ -624,14 +602,18 @@ test("a search naming no one opens with his own situation", async () => {
     schemaVersion: 1,
   });
   try {
-    expect(
-      (await situationsNamed("what bothers me lately")).slice(0, 2)
-    ).toEqual([
+    await expect(
+      situationsNamed("what bothers me lately", new Set([ep]), true)
+    ).resolves.toEqual([
       "His situation (where things stand, read each night from the last 30 days):",
       `- He argues with his father about the house. [${ep}]`,
+      "",
     ]);
+    // A search into given days is not about now: no situation of his.
+    await expect(
+      situationsNamed("what bothers me lately", new Set([ep]), false)
+    ).resolves.toEqual([]);
   } finally {
     rmSync(situationPath(OWNER), { force: true });
-    rmSync(file, { force: true });
   }
 });
