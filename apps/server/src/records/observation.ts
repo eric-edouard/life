@@ -29,6 +29,12 @@ export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
 
+/** Life's inferred people not folded into another (`foldsOf`): one id per person. */
+export const unfoldedOf = (
+  inferred: InferredPerson[],
+  canon: (ref: string) => string
+) => inferred.filter((p) => canon(`person:${p.id}`) === `person:${p.id}`);
+
 /** L2: one small dated claim, cited to the exact place in its source. memory/observations/<yyyy-mm>.jsonl. */
 export const Observation = z
   .object({

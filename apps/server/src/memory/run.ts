@@ -15,7 +15,11 @@ import {
   quota,
   type Tier,
 } from "../models/llm";
-import { INFERRED_USE_AT, type InferredPerson } from "../records/observation";
+import {
+  INFERRED_USE_AT,
+  type InferredPerson,
+  unfoldedOf,
+} from "../records/observation";
 import { isUnderway } from "../records/truth";
 import { OUT, runId } from "./ledger";
 import type { Truth } from "./read-truth";
@@ -268,13 +272,9 @@ export function refContext(
         relation: p.relation,
         ...flag(`person:${p.id}`),
       })),
-      // One ref per person: an inferred id folded into another (`canon`) is that one.
-      ...inferred
-        .filter(
-          (p) =>
-            p.confidence >= INFERRED_USE_AT &&
-            canon(`person:${p.id}`) === `person:${p.id}`
-        )
+      // One ref per person: an inferred id folded into another is that one.
+      ...unfoldedOf(inferred, canon)
+        .filter((p) => p.confidence >= INFERRED_USE_AT)
         .map((p) => ({
           aliases: [] as string[],
           name: p.name,

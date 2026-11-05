@@ -50,7 +50,7 @@ import {
   UNKNOWN,
   writeUnits,
 } from "./units";
-import { namedIn, nearNames, readPeople, unitNow } from "./who";
+import { episodeNow, namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
 
 // `bun life memory episodes`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
@@ -484,7 +484,10 @@ export async function episodes(evidence: Evidence) {
     if (held.has(day) || !unread(units, verdicts, rereads)) {
       continue;
     }
-    const earlier = earlierFor(day, lines, corrections);
+    // Who they are today, as the units and the map show them.
+    const earlier = earlierFor(day, lines, corrections).map((m) =>
+      episodeNow(m, refOf)
+    );
     // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
     const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
     // biome-ignore lint/performance/noAwaitInLoops: a day reads the episodes the day before it wrote
@@ -517,7 +520,7 @@ export async function episodes(evidence: Evidence) {
             resolve,
             refs.map.projects
           ),
-          ...earlier.flatMap((m) => m.people.map((p) => refOf(p.ref))),
+          ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
           ...[...near.values()].flat(),
         ])
       );
@@ -541,8 +544,7 @@ export async function episodes(evidence: Evidence) {
               end,
               hidden,
               id,
-              // Who they are today, as the units and the map show them.
-              people: people.map((p) => ({ ...p, ref: refOf(p.ref) })),
+              people,
               place,
               start,
               title,

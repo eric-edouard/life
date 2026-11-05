@@ -88,7 +88,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | fold | One person ref read as another (`foldsOf`'s `canon`): his `same-person`, and every inferred id a surface was given read as what the surface reads as now. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`; `person` when it is someone in `truth/`, then read as them), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
-| map | Everyone and every project a model reply may name: the people of `truth/` and those Life inferred, and his projects (`refContext`'s `map`). A call's context shows only part of it. | |
+| map | Everyone and every project a model reply may name: the people of `truth/` and those Life inferred (not folded into another), and his projects (`refContext`'s `map`). A call's context shows only part of it. | |
 | involved | The map entries a model call involves that its context leaves out, given in its input (`involvedOf`). Everyone not close now (once close, not yet judged, inferred) and every project not underway reaches a model only this way. | |
 
 ## Running

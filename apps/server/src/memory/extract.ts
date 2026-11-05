@@ -42,7 +42,14 @@ import {
   UNKNOWN,
   within,
 } from "./units";
-import { namedIn, observationsNow, readPeople, unitNow, who } from "./who";
+import {
+  episodeNow,
+  namedIn,
+  observationsNow,
+  readPeople,
+  unitNow,
+  who,
+} from "./who";
 import { chatLines, spokenLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
@@ -382,8 +389,8 @@ export async function extract(evidence: Evidence) {
     pending.map((p) => p.b),
     inWindow,
     verdicts,
-    // An episode the owner said is wrong groups nothing.
-    episodesNow(written, corrections)
+    // An episode the owner said is wrong groups nothing; its people are who they are today.
+    episodesNow(written, corrections).map((m) => episodeNow(m, refOf))
   );
 
   const read = groups.flatMap((g) => g.units);
@@ -460,8 +467,7 @@ export async function extract(evidence: Evidence) {
         // Not the episode's `what`: extraction reads the units; the episode only groups them (its prompt's meaning, v5).
         episodes: call.map(({ episode: m, sources: ss }) => ({
           id: m?.id ?? "none",
-          // Who they are today, as the map shows them.
-          people: (m?.people ?? []).map((p) => ({ ...p, ref: refOf(p.ref) })),
+          people: m?.people ?? [],
           place: m?.place ?? null,
           start: m?.start ?? null,
           title: m?.title ?? "units in no episode",
@@ -471,7 +477,7 @@ export async function extract(evidence: Evidence) {
               (l, n) =>
                 `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
-            people: unitNow(unit, refOf).people,
+            people: unit.people,
             source: unit.source,
             title: unit.title,
             triage: unit.marked
