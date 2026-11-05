@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
+import { type Field, fieldsOf } from "../core/protobuf";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
@@ -45,45 +46,6 @@ export function parseSegb(bytes: Uint8Array) {
     start = Math.ceil(end / 4) * 4;
   }
   return records;
-}
-
-type Field = number | Uint8Array;
-/** A protobuf message's fields by number (the last one wins): varints and doubles as numbers, the rest as bytes. */
-function fieldsOf(buf: Uint8Array) {
-  const fields = new Map<number, Field>();
-  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  let i = 0;
-  const varint = () => {
-    let n = 0;
-    for (let shift = 1; ; shift *= 128) {
-      const x = buf[i] ?? 0;
-      i += 1;
-      n += (x % 128) * shift;
-      if (x < 128 || i >= buf.length) {
-        return n;
-      }
-    }
-  };
-  while (i < buf.length) {
-    const key = varint();
-    const wire = key % 8;
-    const field = Math.floor(key / 8);
-    if (wire === 0) {
-      fields.set(field, varint());
-    } else if (wire === 1) {
-      fields.set(field, view.getFloat64(i, true));
-      i += 8;
-    } else if (wire === 2) {
-      const n = varint();
-      fields.set(field, buf.subarray(i, i + n));
-      i += n;
-    } else if (wire === 5) {
-      i += 4;
-    } else {
-      break;
-    }
-  }
-  return fields;
 }
 
 const text = (f: Field | undefined) =>

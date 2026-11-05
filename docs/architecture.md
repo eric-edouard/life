@@ -105,7 +105,12 @@ A question like "what is my arc with this friend?" needs more than recent logist
   year, and nothing is forgotten: replies are checked and names resolved against the whole map.
 - **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
 
-Known limits: no call records, no unrecorded time together, no location history before lifelog's; a spoken claim about
+**Phone calls** are messages of their chat, never a second record: a call reads as a line of its chat-day ("(audio call
+10:02–10:40, 38 min)"), and a voice lifelog heard over a phone, or nearby but not with him, reads with that prefix
+(`heardAs`, words.ts), so the episodes call joins a call to what was said in the room by time and by how voices were heard,
+never by a timing rule of Life's.
+
+Known limits: no phone or FaceTime call records (CallHistory), no Telegram calls, no unrecorded time together, no location history before lifelog's; a spoken claim about
 someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac

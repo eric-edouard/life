@@ -53,12 +53,16 @@ test("a message deleted for everyone keeps its text and media in the archive", (
   wa.run(
     "create table ZWACHATSESSION (Z_PK integer, ZCONTACTJID text, ZPARTNERNAME text)"
   );
-  wa.run("create table ZWAMEDIAITEM (Z_PK integer, ZMEDIALOCALPATH text)");
+  wa.run(
+    "create table ZWAMEDIAITEM (Z_PK integer, ZMEDIALOCALPATH text, ZMETADATA blob)"
+  );
   wa.run(
     "create table ZWAGROUPMEMBER (Z_PK integer, ZMEMBERJID text, ZCONTACTNAME text)"
   );
   wa.run("insert into ZWACHATSESSION values (1, '66@s.whatsapp.net', 'Ana')");
-  wa.run("insert into ZWAMEDIAITEM values (1, 'Media/a.jpg')");
+  wa.run(
+    "insert into ZWAMEDIAITEM (Z_PK, ZMEDIALOCALPATH) values (1, 'Media/a.jpg')"
+  );
   const now = Date.now();
   const date = toAppleS(now) - 60;
   wa.run(

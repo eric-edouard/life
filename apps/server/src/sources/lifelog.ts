@@ -263,7 +263,7 @@ export function readCursor(store: Store) {
   return cursor && DIGITS.test(cursor) ? cursor : "0";
 }
 
-/** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not a note or a call. */
+/** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not dictation or silence. */
 const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
@@ -599,6 +599,59 @@ export async function readTranscript(jobId: string) {
     await call(`/transcription-jobs/${encodeURIComponent(jobId)}/transcript`)
   ).turns;
 }
+
+export const ConversationAnswer = z.object({
+  latestRun: z
+    .object({
+      result: z
+        .object({
+          speakerIdentities: z
+            .array(
+              z.object({
+                jobId: z.string(),
+                kind: z.enum(["live", "phone", "media", "announcement"]),
+                speakerLabel: z.string(),
+                withOwner: z.boolean(),
+              })
+            )
+            .optional(),
+        })
+        .nullable(),
+    })
+    .nullable(),
+});
+export interface VoiceKind {
+  kind: string;
+  withOwner: boolean;
+}
+
+/**
+ * What lifelog's latest summary of a conversation heard of each voice it could not name, by `voiceKey`: how it was heard
+ * (live in the room, over a phone, from a screen, an announcement) and whether it talked with him. None for a conversation
+ * lifelog no longer has. Read-only.
+ */
+export async function readVoiceKinds(conversationId: string) {
+  const answer = await call(
+    `/conversations/${encodeURIComponent(conversationId)}`
+  ).catch((e: { status?: number }) => {
+    if (e.status === 404) {
+      return { latestRun: null };
+    }
+    throw e;
+  });
+  return new Map<string, VoiceKind>(
+    (
+      ConversationAnswer.parse(answer).latestRun?.result?.speakerIdentities ??
+      []
+    ).map((s) => [
+      voiceKey(s.jobId, s.speakerLabel),
+      { kind: s.kind, withOwner: s.withOwner },
+    ])
+  );
+}
+/** A recording's voice: its job and the transcript's speaker label. */
+export const voiceKey = (jobId: string, label: string | null) =>
+  `${jobId} ${label}`;
 
 /**
  * Where one turn is now: its conversation (lifelog may have moved it since it was cited) and how many turns come

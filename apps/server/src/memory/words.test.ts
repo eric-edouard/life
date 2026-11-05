@@ -479,6 +479,17 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
       s === "Nok" ? "person:inf_nok" : null
     ).map((l) => l.speaker)
   ).toEqual(["person:inf_nok", "unknown:Somchai"]);
+  // How lifelog heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
+  const heard = (kind: string, withOwner: boolean) =>
+    voiceLines(
+      [t(1, false)],
+      jobs,
+      () => null,
+      new Map([["job-1 speaker_1", { kind, withOwner }]])
+    )[0]?.text;
+  expect(heard("phone", true)).toBe("(over the phone) Allo");
+  expect(heard("live", false)).toBe("(nearby, not talking with him) Allo");
+  expect(heard("live", true)).toBe("Allo");
 });
 
 /** The `before` a cut chats answer names. */

@@ -91,7 +91,7 @@ const LISTED: Descriptor[] = [
       deleted: { media: "media" },
     },
   },
-  ...NETWORKS.map((b) => bridgedSource(b.name, b.label)),
+  ...NETWORKS.map(bridgedSource),
   {
     kind: "mail",
     label: "Mail",
