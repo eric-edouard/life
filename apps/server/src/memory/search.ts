@@ -482,7 +482,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const birthday = mapped?.birthday
     ? [`Birthday: ${birthdayText(nextBirthday(mapped.birthday, dayNow()))}`, ""]
     : [];
-  const close = await closenessLine(ref);
+  const close = closenessLine(ref, folks);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const all = await episodesWhere(() => true);
@@ -702,7 +702,8 @@ export function dayLines({
 }
 
 export async function day(date: string) {
-  const truth = await loadTruth();
+  const people = await readPeople();
+  const { truth } = people;
   const born = birthdaysNear(truth.people, date);
   const actions = readLedger().filter(
     (a) => isListed(a) && localDate(a.at) === date
@@ -716,7 +717,7 @@ export async function day(date: string) {
   const stays = lifelogMissing()
     ? []
     : await staysOf({ at: date }).catch(() => null);
-  const context = await dueContext(date, truth);
+  const context = await dueContext(date, people);
   return withIndex((db) => {
     const facts = db
       .query<Row & { unit: string }, [string]>(
@@ -853,7 +854,8 @@ export function dueOf(
 }
 
 /** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
-async function dueContext(date: string, truth: Truth) {
+async function dueContext(date: string, people: People) {
+  const { truth } = people;
   const actions = readLedger();
   const reminders = openLinked(actions).map(({ at, fields: f, key, ref }) => ({
     at,
@@ -872,7 +874,7 @@ async function dueContext(date: string, truth: Truth) {
     dayStart(daysBefore(date, -1)).getTime()
   );
   const levels = new Map(
-    [...levelsWith(await readPeople())].map(([p, l]) => [
+    [...levelsWith(people)].map(([p, l]) => [
       p,
       Math.min(
         Level.options.indexOf(l.personal),
@@ -1241,8 +1243,8 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
 }
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
-async function closenessLine(ref: string) {
-  const l = levelsWith(await readPeople()).get(ref);
+function closenessLine(ref: string, people: People) {
+  const l = levelsWith(people).get(ref);
   return l
     ? [
         `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,

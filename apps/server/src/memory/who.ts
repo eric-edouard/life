@@ -108,13 +108,14 @@ function readingOf(
 }
 
 /**
- * Who a person ref is now: the owner's `same-person` folds, over what each inferred person's surface reads as now
- * (`readingOf`), so every id a surface was ever given is the one person it reads as.
+ * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
+ * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
+ * the one person it reads as.
  */
-export function merged(
-  corrections: Correction[],
-  inferred: InferredPerson[] = [],
-  people: Person[] = []
+export function foldsOf(
+  people: Person[],
+  inferred: InferredPerson[],
+  corrections: Correction[]
 ) {
   const read = readingOf(people, inferred, corrections);
   const into = new Map<string, string>();
@@ -130,7 +131,7 @@ export function merged(
       into.set(c.from, c.to);
     }
   }
-  return (ref: string) => {
+  const canon = (ref: string) => {
     let r = ref;
     // At most one hop per fold, so a loop cannot spin.
     for (let i = 0; i < into.size && into.has(r); i += 1) {
@@ -138,25 +139,16 @@ export function merged(
     }
     return r;
   };
-}
-
-/** Maps a name, handle or address to `person:<slug>`: what it reads as (`readingOf`), folded (`merged`). */
-export function resolver(
-  people: Person[],
-  inferred: InferredPerson[] = [],
-  corrections: Correction[] = []
-) {
-  const read = readingOf(people, inferred, corrections);
-  const canon = merged(corrections, inferred, people);
-  return (surface: string): string | null => {
+  const resolve = (surface: string): string | null => {
     const ref = read(surface);
     return ref ? canon(ref) : null;
   };
+  return { canon, resolve };
 }
 
 /**
  * What each observation is about today: the entities it was filed with, plus the names Life could not map when it was
- * read and can now, folded (`merged`); `unmapped` when it still names someone Life cannot map.
+ * read and can now, folded (`foldsOf`); `unmapped` when it still names someone Life cannot map.
  * The pages and the search index both go by this.
  */
 export function aboutNow(
@@ -167,8 +159,7 @@ export function aboutNow(
   corrections: Correction[],
   chatOf: Map<string, string> = new Map()
 ) {
-  const canon = merged(corrections, inferred, people);
-  const resolve = resolver(people, inferred, corrections);
+  const { canon, resolve } = foldsOf(people, inferred, corrections);
   const found = unresolved.flatMap((u) =>
     u.observation
       ? [{ observation: u.observation, ref: resolve(u.surface) }]
@@ -338,8 +329,7 @@ export async function readPeople() {
     readInferred(),
     readCorrections(),
   ]);
-  const canon = merged(corrections, inferred, truth.people);
-  const resolve = resolver(truth.people, inferred, corrections);
+  const { canon, resolve } = foldsOf(truth.people, inferred, corrections);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)

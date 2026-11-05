@@ -6,11 +6,7 @@ import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
-import {
-  type Correction,
-  INFERRED_PREFIX,
-  InferredPerson,
-} from "../records/observation";
+import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
 import { isActivity } from "../sources/contract";
@@ -35,7 +31,7 @@ import {
   verdictOf,
 } from "./ledger";
 import { linkOf } from "./observe";
-import { checkPeople, unknownIn } from "./people";
+import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, involvedOf, refContext } from "./run";
@@ -465,10 +461,7 @@ export async function episodes(evidence: Evidence) {
   );
   const onMap = refs.map.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
-  // Surfaces the call judged against the map (`InferredPerson.person` null or a ref).
-  const linkJudged = new Set(
-    inferred.flatMap((p) => (p.person === undefined ? [] : p.surfaces))
-  );
+  const answered = answeredBy(resolve, inferred);
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
@@ -504,17 +497,11 @@ export async function episodes(evidence: Evidence) {
       const stays = lifelogMissing()
         ? []
         : ((await staysOf({ at: day })) ?? []);
-      // Known: on the map, inferred confidently and judged against the map, or answered earlier in this run (one
-      // person, one id). A guess made before the call could link is asked once more.
-      const unknown = unknownIn(spoken, (s) => {
-        const ref = resolve(s);
-        return (
-          (ref !== null &&
-            (!ref.startsWith(`person:${INFERRED_PREFIX}`) ||
-              linkJudged.has(s))) ||
-          named.some((p) => p.surfaces.includes(s))
-        );
-      });
+      // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
+      const unknown = unknownIn(
+        spoken,
+        (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
+      );
       // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
       const near = new Map(
         [...unknown.keys()].map((k) => [

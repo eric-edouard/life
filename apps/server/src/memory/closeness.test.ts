@@ -24,7 +24,7 @@ import {
   voiceDays,
 } from "./closeness";
 import { pagePath } from "./ledger";
-import { merged } from "./who";
+import { foldsOf } from "./who";
 
 const msg = (
   chat: string,
@@ -133,7 +133,7 @@ test("a level keeps a page when close or once close, never a service's; his word
     } as never,
   ] as Correction[];
   const levels = levelsNow(rows, {
-    canon: merged(corrections),
+    canon: foldsOf([], [], corrections).canon,
     corrections,
   });
   expect(levels.get("person:joe")).toMatchObject({

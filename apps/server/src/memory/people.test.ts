@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { checkPeople, inferredId, unknownIn } from "./people";
+import type { InferredPerson } from "../records/observation";
+import { answeredBy, checkPeople, inferredId, unknownIn } from "./people";
 import type { Built } from "./units";
 
 const SUFFIXED = /^inf_plumber-[0-9a-f]{6}$/;
@@ -103,4 +104,26 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
   expect(linked("person:claire")).toBe("person:claire");
   expect(linked("person:inf_plumber")).toBeNull();
   expect(inferredId("", "k", new Set())).toBe("inf_person");
+});
+
+test("a surface is asked about until it reads as someone in truth/ or as a guess judged against the map", () => {
+  const guess = (surface: string, person?: string | null) =>
+    ({ person, surfaces: [surface] }) as InferredPerson;
+  const reads: Record<string, string> = {
+    Bob: "person:inf_bob",
+    Claire: "person:claire",
+    Dan: "person:inf_dan",
+    Eve: "person:inf_eve",
+  };
+  const answered = answeredBy(
+    (s) => reads[s] ?? null,
+    [guess("Bob"), guess("Dan", null), guess("Eve", "person:claire")]
+  );
+  expect(["Claire", "Bob", "Dan", "Eve", "Zed"].map(answered)).toEqual([
+    true,
+    false,
+    true,
+    true,
+    false,
+  ]);
 });

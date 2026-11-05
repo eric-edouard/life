@@ -253,7 +253,7 @@ export const InferredPerson = z
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */
     name: z.string().min(1),
     /**
-     * The person in truth/ it is, when the call judged it is them (used as them from INFERRED_USE_AT, `merged`); null
+     * The person in truth/ it is, when the call judged it is them (used as them from INFERRED_USE_AT, `foldsOf`); null
      * when it judged no one there is; absent on guesses made before the call could link, asked once more (`unjudged`).
      */
     person: PersonRef.nullable().optional(),

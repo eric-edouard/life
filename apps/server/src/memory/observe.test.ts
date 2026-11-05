@@ -18,14 +18,7 @@ import { locate, parseObservations, type Source } from "./observe";
 import { ledger, unit, verdict } from "./record-fixtures";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
-import {
-  aboutNow,
-  chatHandles,
-  merged,
-  namedIn,
-  renamed,
-  resolver,
-} from "./who";
+import { aboutNow, chatHandles, foldsOf, namedIn, renamed } from "./who";
 
 const people = [
   Person.parse({ aliases: ["Jean"], id: "me", name: "Jean Dupont" }),
@@ -117,7 +110,7 @@ test("a hinted line wins when the quote is there; otherwise the whole text is se
 });
 
 test("names resolve cheapest first: handles, then names and aliases, else nothing", () => {
-  const resolve = resolver(people);
+  const { resolve } = foldsOf(people, [], []);
   expect(resolve("+66600000001")).toBe("person:dad");
   expect(resolve("pops")).toBe("person:dad");
   expect(resolve("Jean (Me)")).toBe("person:me");
@@ -146,7 +139,7 @@ test("a surface resolves to what the owner said, else truth, else a confident in
     inferred("inf_plumber", ["+33611111111", "Plombier"]),
     inferred("inf_maybe", ["+33622222222"], 0.3),
   ];
-  const resolve = resolver(people, inferredPeople, [
+  const { resolve } = foldsOf(people, inferredPeople, [
     said({ kind: "this-is", person: "person:gaston", surface: "+33633333333" }),
     said({ kind: "not-this-person", person: "person:dad", surface: "Pops" }),
     said({
@@ -161,13 +154,15 @@ test("a surface resolves to what the owner said, else truth, else a confident in
   expect(resolve("plombier")).toBe("person:gaston");
   expect(resolve("+33622222222")).toBeNull();
   expect(resolve("Pops")).toBeNull();
-  expect(resolver(people, inferredPeople)("plombier")).toBe(
+  expect(foldsOf(people, inferredPeople, []).resolve("plombier")).toBe(
     "person:inf_plumber"
   );
   expect(
-    merged([said({ from: "person:a", kind: "same-person", to: "person:a" })])(
-      "person:a"
-    )
+    foldsOf(
+      [],
+      [],
+      [said({ from: "person:a", kind: "same-person", to: "person:a" })]
+    ).canon("person:a")
   ).toBe("person:a");
 });
 
@@ -179,18 +174,21 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
   // An older guess for the same surface, with a page of its own: the newest confident answer decides.
   const older = inferred("inf_gas", ["Gas B", "+33644444444"]);
   const both = [older, linked(0.6)];
-  expect(resolver(people, both)("Gas B")).toBe("person:gaston");
-  expect(merged([], both)("person:inf_gas")).toBe("person:gaston");
-  expect(resolver(people, both)("+33644444444")).toBe("person:gaston");
+  expect(foldsOf(people, both, []).resolve("Gas B")).toBe("person:gaston");
+  expect(foldsOf([], both, []).canon("person:inf_gas")).toBe("person:gaston");
+  expect(foldsOf(people, both, []).resolve("+33644444444")).toBe(
+    "person:gaston"
+  );
   // Unsure, the link is not used; a newer confident answer with no link takes it back, and every id the surface was
   // given reads as that answer (one surface, one person).
-  expect(merged([], [older, linked(0.4)])("person:inf_gas")).toBe(
+  expect(foldsOf([], [older, linked(0.4)], []).canon("person:inf_gas")).toBe(
     "person:inf_gas"
   );
-  const unlinked = merged(
+  const unlinked = foldsOf(
     [],
-    [older, linked(0.6), inferred("inf_gas-2", ["Gas B"])]
-  );
+    [older, linked(0.6), inferred("inf_gas-2", ["Gas B"])],
+    []
+  ).canon;
   expect(unlinked("person:inf_gas")).toBe("person:inf_gas-2");
   expect(unlinked("person:inf_gas-1")).toBe("person:inf_gas-2");
   // His word on the surface beats the link.
@@ -199,15 +197,17 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
     person: "person:gaston",
     surface: "Gas B",
   });
-  expect(merged([not], both)("person:inf_gas")).toBe("person:inf_gas-1");
-  expect(resolver(people, both, [not])("Gas B")).toBe("person:inf_gas-1");
+  expect(foldsOf([], both, [not]).canon("person:inf_gas")).toBe(
+    "person:inf_gas-1"
+  );
+  expect(foldsOf(people, both, [not]).resolve("Gas B")).toBe(
+    "person:inf_gas-1"
+  );
   // A surface that is a name on the map reads as them, and so does a guess made for it before.
   expect(
-    merged(
-      [],
-      [inferred("inf_gaston-x", ["Gaston"])],
-      people
-    )("person:inf_gaston-x")
+    foldsOf(people, [inferred("inf_gaston-x", ["Gaston"])], []).canon(
+      "person:inf_gaston-x"
+    )
   ).toBe("person:gaston");
 });
 
@@ -487,7 +487,7 @@ const ctx = {
     "project:bakery",
   ]),
   madeBy,
-  resolve: resolver(people),
+  resolve: foldsOf(people, [], []).resolve,
   sources: new Map([[source.unit.id, source]]),
 };
 const obs = (over: Record<string, unknown>) => ({
@@ -835,7 +835,7 @@ test("a unit read before and no longer kept is unkept once (its facts replaced b
 test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {
   const found = namedIn(
     ["Called Gas about the Garden Shed, then Jean Senior Dupont.", "Nothing"],
-    resolver(people),
+    foldsOf(people, [], []).resolve,
     [{ name: "Garden Shed", ref: "project:shed" }]
   );
   expect([...found].sort()).toEqual([

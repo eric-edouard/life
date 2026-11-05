@@ -98,6 +98,27 @@ export function checkPeople(
 }
 
 /**
+ * Whether a surface has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
+ * inferred guess the call judged against the map (`person` null or a ref). A guess made before the call could link
+ * (`person` absent) is asked once more.
+ */
+export function answeredBy(
+  resolve: (s: string) => string | null,
+  inferred: InferredPerson[]
+) {
+  const judged = new Set(
+    inferred.flatMap((p) => (p.person === undefined ? [] : p.surfaces))
+  );
+  return (s: string) => {
+    const ref = resolve(s);
+    return (
+      ref !== null &&
+      (!ref.startsWith(`person:${INFERRED_PREFIX}`) || judged.has(s))
+    );
+  };
+}
+
+/**
  * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
  * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
