@@ -98,6 +98,11 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
   never stored as a summary.
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
+- **What a model call is shown:** its context (the same for every call of a run, so it is cached) holds the people close
+  to him now, personally or at work, and the projects underway (`refContext`, `contextPeopleBy`). Everyone else on the
+  map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
+  (`namedIn`), earlier facts' or episodes' refs (`involvedOf`). So a call stays small as the map grows by hundreds a
+  year, and nothing is forgotten: replies are checked and names resolved against the whole map.
 - **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
 
 Known limits: no call records, no unrecorded time together, no location history before lifelog's; a spoken claim about

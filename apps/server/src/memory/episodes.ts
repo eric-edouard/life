@@ -11,7 +11,7 @@ import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
 import { isActivity } from "../sources/contract";
 import { lifelogMissing } from "../sources/lifelog";
-import { closeNow } from "./closeness";
+import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import {
   appendVerdicts,
   daysOf,
@@ -34,7 +34,7 @@ import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries, refContext } from "./run";
+import { begin, checkedEntries, involvedOf, refContext } from "./run";
 import { kindOf } from "./sources";
 import {
   areaLookup,
@@ -50,7 +50,7 @@ import {
   UNKNOWN,
   writeUnits,
 } from "./units";
-import { readPeople, unitNow } from "./who";
+import { namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
 
 // `bun life memory episodes`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
@@ -452,7 +452,14 @@ export async function episodes(evidence: Evidence) {
       hints.set(repo, [r.area]);
     }
   }
-  const context = refContext(truth, inferred, await closeNow());
+  const levels = levelsWith(corrections);
+  const refs = refContext(
+    truth,
+    inferred,
+    personallyClose(levels),
+    contextPeopleBy(levels)
+  );
+  const onMap = refs.map.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
@@ -494,8 +501,28 @@ export async function episodes(evidence: Evidence) {
         spoken,
         (s) => resolve(s) !== null || named.some((p) => p.surfaces.includes(s))
       );
+      // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
+      const near = new Map(
+        [...unknown.keys()].map((k) => [
+          k,
+          nearNames(k, onMap).map((p) => p.ref),
+        ])
+      );
+      const involved = involvedOf(
+        refs,
+        new Set([
+          ...units.flatMap(({ unit }) => unitNow(unit, refOf).people),
+          ...namedIn(
+            [...texts.values(), ...units.map((b) => b.unit.title)],
+            resolve,
+            refs.map.projects
+          ),
+          ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
+          ...[...near.values()].flat(),
+        ])
+      );
       const json = await step.ask({
-        context: { ...context, topics: topTopics(verdicts.values()) },
+        context: { ...refs.context, topics: topTopics(verdicts.values()) },
         dir: join(step.dir, day),
         input: {
           day,
@@ -522,6 +549,7 @@ export async function episodes(evidence: Evidence) {
               within,
             })
           ),
+          involved,
           stays: stays
             .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
             .map((s) => ({
@@ -546,6 +574,7 @@ export async function episodes(evidence: Evidence) {
           }),
           unknown: [...unknown].map(([key, seen]) => ({
             key,
+            near: near.get(key) ?? [],
             units: seen.map((b) => b.unit.id),
           })),
         },
@@ -557,7 +586,7 @@ export async function episodes(evidence: Evidence) {
         earlier: new Set(earlier.map((m) => m.id)),
         hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
         madeBy,
-        people: new Set(context.people.map((p) => p.ref)),
+        people: new Set(refs.map.people.map((p) => p.ref)),
         resolve,
         units: new Map(units.map((b) => [b.unit.id, b.unit])),
       });

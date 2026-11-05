@@ -12,7 +12,13 @@ import {
 } from "../records/observation";
 import { type Area, isUnderway, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
-import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
+import {
+  contextPeopleBy,
+  levelsWith,
+  pagedBy,
+  personallyClose,
+  waitingOf,
+} from "./closeness";
 import {
   CORRECTIONS,
   PAGE_KINDS,
@@ -49,7 +55,7 @@ import {
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, inBatches, refContext, type Step } from "./run";
+import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
 import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 
@@ -214,11 +220,11 @@ interface BuiltPage {
 
 interface Run {
   at: string;
-  /** The same for every call of a run, so the prompt cache hits: who the owner is, his people and areas. */
-  context: unknown;
   /** Topic counts of units over the last 90 days, by person ref: "Often talk about". */
   often: (t: Target) => string[];
   rebuild: boolean;
+  /** The map, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
+  refs: ReturnType<typeof refContext>;
   standing: Standing;
   step: Step;
   titles: Map<string, string>;
@@ -387,6 +393,11 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
       section: key,
       text: l.text,
     })),
+    // Who and what the page's observations name beyond the context.
+    involved: involvedOf(
+      r.refs,
+      new Set([t.ref, ...visible.flatMap((o) => o.entities)])
+    ),
     // Newest first, within the character budget: what a new page is built from.
     observations: within(
       fresh.map((o) => asInput(o, r.titles)),
@@ -399,7 +410,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     today: r.today,
   };
   const json = await r.step.ask({
-    context: r.context,
+    context: r.refs.context,
     dir,
     input,
     prompt: PAGES_PROMPT,
@@ -500,7 +511,7 @@ export async function pages(opts: PagesOptions) {
     levels,
     targets: all,
   } = await targets(current.observations, truth, inferred, current.standing);
-  const context = refContext(truth, inferred, close);
+  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
   const { only } = opts;
   const chosen = only
     ? all.filter(
@@ -512,9 +523,9 @@ export async function pages(opts: PagesOptions) {
     : all;
   const r: Run = {
     at: now.toISOString(),
-    context,
     often: oftenBy(units, verdicts, day, people.refOf),
     rebuild: opts.rebuild ?? false,
+    refs,
     standing: current.standing,
     step,
     titles: new Map(units.map((u) => [u.id, u.title])),

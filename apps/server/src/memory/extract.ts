@@ -11,7 +11,7 @@ import {
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { isActivity } from "../sources/contract";
 import type { LifelogConversation } from "../sources/lifelog";
-import { closeNow } from "./closeness";
+import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import {
   EXTRACTED,
   episodesNow,
@@ -30,7 +30,7 @@ import {
 } from "./ledger";
 import { parseObservations, type Reject, type Source } from "./observe";
 import { othersIn } from "./read-truth";
-import { begin, inBatches, refContext } from "./run";
+import { begin, inBatches, involvedOf, refContext } from "./run";
 import { kindOf } from "./sources";
 import {
   areaLookup,
@@ -42,7 +42,7 @@ import {
   UNKNOWN,
   within,
 } from "./units";
-import { observationsNow, readPeople, unitNow, who } from "./who";
+import { namedIn, observationsNow, readPeople, unitNow, who } from "./who";
 import { chatLines, spokenLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
@@ -79,6 +79,11 @@ export interface Group {
   episode: Episode | null;
   units: Built[];
 }
+/** Who a group shows taking part: its units' people and its episode's, the owner among them. */
+const peopleOf = (g: Group) => [
+  ...g.units.flatMap((b) => b.unit.people),
+  ...(g.episode?.people.map((p) => p.ref) ?? []),
+];
 
 /**
  * What to read, episode by episode (`episodes` as they stand, `episodesNow`): every episode holding a pending unit, with
@@ -291,12 +296,7 @@ export function priorFor(
   max = PRIOR_MAX
 ) {
   const day = group.units.at(-1)?.unit.date ?? "";
-  const people = new Set(
-    othersIn([
-      ...group.units.flatMap((b) => b.unit.people),
-      ...(group.episode?.people.map((p) => p.ref) ?? []),
-    ])
-  );
+  const people = new Set(othersIn(peopleOf(group)));
   const about = (o: Observation) =>
     o.date >= daysBefore(day, PRIOR_DAYS) &&
     (o.entities.some((e) => people.has(e)) ||
@@ -423,10 +423,12 @@ export async function extract(evidence: Evidence) {
   );
   const lanes = lanesOf(calls);
 
-  const close = await closeNow();
-  const context = refContext(truth, inferred, close);
+  const levels = levelsWith(corrections);
+  const close = personallyClose(levels);
+  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
+  // Refs are checked against the whole map, not only what a call was shown.
   const candidates = new Set(
-    [context.people, context.projects].flatMap((l) => l.map((x) => x.ref))
+    [refs.map.people, refs.map.projects].flatMap((l) => l.map((x) => x.ref))
   );
 
   const madeBy = stamp(step.llm, EXTRACT_PROMPT, step.run);
@@ -476,10 +478,23 @@ export async function extract(evidence: Evidence) {
               : reasons.get(unit.id),
           })),
         })),
+        // Who and what the call involves beyond its context: its people, whom its lines name, its earlier facts' refs.
+        involved: involvedOf(
+          refs,
+          new Set([
+            ...call.flatMap(peopleOf),
+            ...namedIn(
+              sources.flatMap((s) => s.lines.map((l) => l.text)),
+              resolve,
+              refs.map.projects
+            ),
+            ...prior.flatMap((o) => o.entities),
+          ])
+        ),
         prior: prior.map((o) => ({ date: o.date, id: o.id, text: o.text })),
       };
       const json = await step.ask({
-        context,
+        context: refs.context,
         dir: bdir,
         input,
         prompt: EXTRACT_PROMPT,

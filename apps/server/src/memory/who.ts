@@ -215,6 +215,35 @@ export function authorFrom(o: Observation, chatOf: Map<string, string>) {
   return o.speaker === OWNER ? undefined : chatOf.get(o.unit);
 }
 
+/** Words of a text, as `namedIn` reads names out of it. */
+const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
+
+/**
+ * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or surface)
+ * or that is a project's name. What a call involves beyond its people (`involvedOf`); a word that is also a name only
+ * adds a map entry to the call's input.
+ */
+export function namedIn(
+  texts: string[],
+  resolve: (surface: string) => string | null,
+  projects: { name: string; ref: string }[]
+) {
+  const projectNamed = new Map(projects.map((p) => [normalize(p.name), p.ref]));
+  const found = new Set<string>();
+  for (const words of texts.map((t) => t.match(WORD) ?? [])) {
+    for (const [i] of words.entries()) {
+      for (let n = 1; n <= 3 && i + n <= words.length; n += 1) {
+        const s = words.slice(i, i + n).join(" ");
+        const ref = resolve(s) ?? projectNamed.get(normalize(s));
+        if (ref) {
+          found.add(ref);
+        }
+      }
+    }
+  }
+  return found;
+}
+
 /** `text` with each whole-word `names` (any case) replaced by `name`. */
 export function renamed(text: string, names: string[], name: string) {
   return names

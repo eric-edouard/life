@@ -275,6 +275,19 @@ export function levelsNow(
 
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
 const PAGED = new Set<Level>(["inner", "regular", "faded"]);
+/** The levels of someone close now. */
+const NOW = new Set<Level>(["inner", "regular"]);
+
+/**
+ * The people every memory call's context shows (`refContext`): those close to him now, personally or at work, not a
+ * service. Everyone else on the map comes in a call's input when it involves them (`involvedOf`).
+ */
+export const contextPeopleBy = (levels: ReturnType<typeof levelsNow>) =>
+  new Set(
+    [...levels].flatMap(([ref, l]) =>
+      !l.service && (NOW.has(l.personal) || NOW.has(l.work)) ? [ref] : []
+    )
+  );
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
@@ -309,10 +322,6 @@ export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
       !l.service && PAGED.has(l.personal) ? [ref] : []
     )
   );
-
-/** Who is close to him personally now (`personallyClose` over the ledger and his corrections). */
-export const closeNow = async () =>
-  personallyClose(levelsWith(await readCorrections()));
 
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
