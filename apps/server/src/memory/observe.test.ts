@@ -18,7 +18,14 @@ import { locate, parseObservations, type Source } from "./observe";
 import { ledger, unit, verdict } from "./record-fixtures";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
-import { aboutNow, chatHandles, merged, renamed, resolver } from "./who";
+import {
+  aboutNow,
+  chatHandles,
+  merged,
+  namedIn,
+  renamed,
+  resolver,
+} from "./who";
 
 const people = [
   Person.parse({ aliases: ["Jean"], id: "me", name: "Jean Dupont" }),
@@ -783,4 +790,18 @@ test("a unit read before and no longer kept is unkept once (its facts replaced b
   });
   expect(isCurrent(standing([read]), fact as Observation)).toBe(true);
   expect(isCurrent(standing([read, emptied]), fact as Observation)).toBe(false);
+});
+
+test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {
+  const found = namedIn(
+    ["Called Gas about the Garden Shed, then Jean Senior Dupont.", "Nothing"],
+    resolver(people),
+    [{ name: "Garden Shed", ref: "project:shed" }]
+  );
+  expect([...found].sort()).toEqual([
+    "person:dad",
+    "person:gaston",
+    "person:me",
+    "project:shed",
+  ]);
 });
