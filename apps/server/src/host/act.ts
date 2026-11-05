@@ -158,7 +158,7 @@ const isGranted = (a: LedgerEntry) =>
   a.kind === "add" && Boolean(a.instruction?.ref.startsWith("obs_"));
 
 /** The grant's earlier add from this observation, if one stands: the same observation adds once. */
-export const grantedFrom = (actions: LedgerEntry[], obs: string) =>
+export const grantedFrom = (actions: readonly LedgerEntry[], obs: string) =>
   actions.find((a) => isGranted(a) && a.instruction?.ref === obs && stands(a));
 
 /**
@@ -169,7 +169,7 @@ export const grantedFrom = (actions: LedgerEntry[], obs: string) =>
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function grantRefusal(g: {
-  actions: LedgerEntry[];
+  actions: readonly LedgerEntry[];
   mine: boolean;
   now: string;
   o: Pick<Observation, "importance" | "source" | "type">;

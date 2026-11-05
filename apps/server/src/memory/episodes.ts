@@ -28,7 +28,6 @@ import {
   rereadAt,
   runAt,
   type Verdicts,
-  verdictKey,
   verdictOf,
 } from "./ledger";
 import { linkOf } from "./observe";
@@ -444,8 +443,8 @@ export async function episodes(evidence: Evidence) {
       (u) => skipped.includes(u.source) || isFrozen(u)
     );
   }
-  const [verdicts, { corrections, inferred, refOf, resolve }] =
-    await Promise.all([readVerdicts(), readPeople()]);
+  let verdicts = readVerdicts();
+  const { corrections, inferred, refOf, resolve } = await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -588,9 +587,7 @@ export async function episodes(evidence: Evidence) {
       // Who the day's unknown people are, used by the resolver from the next run on.
       await appendJsonl(INFERRED, InferredPerson, got.who);
       named.push(...got.who);
-      for (const v of judgedNow) {
-        verdicts.set(verdictKey(v.unit, v.hash), v);
-      }
+      verdicts = readVerdicts();
       missing += got.sent - judgedNow.length;
       lines = [...lines.filter((m) => m.day !== day), ...kept].toSorted(
         (a, b) => a.day.localeCompare(b.day)
@@ -604,7 +601,7 @@ export async function episodes(evidence: Evidence) {
     agreement: agreement(
       await readLabels(),
       new Map((await readUnits()).map((u) => [u.id, u])),
-      await readVerdicts()
+      readVerdicts()
     ),
     days: days.length,
     episodes: found,

@@ -172,12 +172,13 @@ test("the success email includes every fact, counts pages and lists models once"
 
 test("every report section includes all rows beyond the former 15-row cap", () => {
   const n = night(0);
-  n.acted.actions = [];
+  n.acted.actions = Array.from({ length: 20 }, (_, i) =>
+    action({ after: { title: `action ${i}` } })
+  );
   n.paged.changes = [];
   n.episodes.people = [];
   for (let i = 0; i < 20; i += 1) {
     n.acted.problems.push(`problem ${i}`);
-    n.acted.actions.push(action({ after: { title: `action ${i}` } }));
     n.code.push({ name: `repo ${i}`, relation: `commit ${i}` });
     n.repos.suggestions.push({
       area: null,

@@ -189,9 +189,7 @@ test("no authority: his new reminder that reads like an order is one item of his
     via: "reminders",
   });
   expect(lines[0]?.instruction).toBeUndefined();
-  expect(tasksOf([...base, ...lines].map((l) => JSON.stringify(l)))).toEqual(
-    []
-  );
+  expect(tasksOf([...base, ...lines])).toEqual([]);
   // Life's own add whose answer was lost is Life's: imported, not his.
   const lostAdd = action({
     after: { title: order.title },

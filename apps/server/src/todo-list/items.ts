@@ -92,7 +92,7 @@ function apply(it: Linked, a: LedgerEntry) {
 }
 
 /** Every item Life links, by its target now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
-export function linked(actions: LedgerEntry[]) {
+export function linked(actions: readonly LedgerEntry[]) {
   const items = new Map<string, Linked>();
   for (const a of actions) {
     const n = a.target;
@@ -130,7 +130,7 @@ export function linked(actions: LedgerEntry[]) {
 }
 
 /** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
-export const openLinked = (actions: LedgerEntry[], prefix?: string) =>
+export const openLinked = (actions: readonly LedgerEntry[], prefix?: string) =>
   [...linked(actions).values()].filter(
     ({ fields: f, target }) =>
       !(f.completed || f.deleted || f.lost) &&

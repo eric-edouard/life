@@ -19,10 +19,78 @@ export function linesOf(path: string) {
   all.pop();
   return all;
 }
+/** A file's rows, every line parsed: for files code rewrites (units/, episodes/); an append-only one is `readAppended`. */
 export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
   linesOf(path)
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
+
+interface Read {
+  /** The fold so far, of the bytes up to `end` (just past the last newline read). */
+  acc: unknown;
+  end: number;
+  hash: number | bigint;
+  ino: number;
+  mtimeMs: number;
+  size: number;
+}
+const reads = new Map<string, Read>();
+
+/**
+ * An append-only file as `add` folds its rows, kept per process: a read parses only the complete lines appended since
+ * the last one; a file replaced or rewritten (a migration, a restore, a test) is read whole again. A grown file gets
+ * a new result (`start(last)` copies the last one, then its new rows are added), so a result already returned never
+ * changes: callers only read it. One fold per path.
+ */
+// ponytail: the fold stays in memory and grows with its file (verdicts most), and a change reads and hashes the whole
+// file again (no reparse): keep less state in an only-growing file if that bites. An unchanged inode, size and mtime is
+// trusted: a same-size rewrite within one mtime tick (APFS: nanoseconds) would be missed; only code that appends writes these files.
+export function readAppended<T, F>(
+  path: string,
+  schema: z.ZodType<T>,
+  start: (last?: F) => F,
+  add: (acc: F, row: T) => void
+): F {
+  const s = statSync(path, { throwIfNoEntry: false });
+  if (!s) {
+    reads.delete(path);
+    return start();
+  }
+  const last = reads.get(path);
+  if (
+    last?.ino === s.ino &&
+    last.size === s.size &&
+    last.mtimeMs === s.mtimeMs
+  ) {
+    return last.acc as F;
+  }
+  const bytes = readFileSync(path);
+  const isGrown =
+    last?.ino === s.ino &&
+    bytes.length >= last.end &&
+    Bun.hash(bytes.subarray(0, last.end)) === last.hash;
+  const from = isGrown ? last.end : 0;
+  const end = bytes.lastIndexOf(10) + 1;
+  // Parsed before any is added: a bad line throws and leaves the last read as it was.
+  const rows = new TextDecoder()
+    .decode(bytes.subarray(from, end))
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => schema.parse(JSON.parse(l)));
+  const acc = start(isGrown ? (last.acc as F) : undefined);
+  for (const r of rows) {
+    add(acc, r);
+  }
+  reads.set(path, {
+    acc,
+    end,
+    hash: Bun.hash(bytes.subarray(0, end)),
+    ino: s.ino,
+    mtimeMs: s.mtimeMs,
+    size: s.size,
+  });
+  return acc;
+}
 /** Writes a small JSON state file (the schedule's, the backfill's), its folder made if missing. */
 export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });

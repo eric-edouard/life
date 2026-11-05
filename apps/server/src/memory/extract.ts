@@ -344,7 +344,7 @@ export async function extract(evidence: Evidence) {
   step.stats.failed += failed.length;
   // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
   const closed = closedConversations(conversations);
-  const verdicts = await readVerdicts();
+  const verdicts = readVerdicts();
   const people = await readPeople();
   const { corrections, inferred, refOf, resolve } = people;
   // Who each unit is with as of now: the people the episodes step just inferred included.

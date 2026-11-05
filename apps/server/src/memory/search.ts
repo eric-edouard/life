@@ -638,7 +638,7 @@ export function dayLines({
   units = [],
   whereUnknown = false,
 }: {
-  actions?: LedgerEntry[];
+  actions?: readonly LedgerEntry[];
   born?: string[];
   due?: string[];
   facts?: string[];
@@ -693,7 +693,7 @@ export function dayLines({
 export async function day(date: string) {
   const truth = await loadTruth();
   const born = birthdaysNear(truth.people, date);
-  const actions = (await readLedger()).filter(
+  const actions = readLedger().filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
   const all = await episodesWhere(() => true);

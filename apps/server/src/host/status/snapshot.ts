@@ -322,7 +322,7 @@ async function reads(now: Date) {
       const page = await runs({ limit: 30, steps: SPENDING });
       return { ...page, items: page.items.filter((x) => !x.sweep) };
     }),
-    cached("actions", 15_000, readLedger),
+    readLedger(),
     cached("actionChecks", MIN, checks),
     newestOf(),
     // Every messaging connector's live check (`bun life bridge`'s): its bridge, as last found.

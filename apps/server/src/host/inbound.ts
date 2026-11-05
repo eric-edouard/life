@@ -110,7 +110,11 @@ function linesOf(
 }
 
 /** The lines this pass adds: his changes and his new reminders (`add`), and imports, which change nothing. */
-export function inbound(s: Snapshot, ledger: LedgerEntry[], at: string) {
+export function inbound(
+  s: Snapshot,
+  ledger: readonly LedgerEntry[],
+  at: string
+) {
   // Only this backend's lines: another backend's items (before a switch) are never read here, never marked lost.
   const actions = ledger.filter((a) => a.target.startsWith(`${s.prefix}:`));
   const first = !actions.some((a) => a.kind === "import");
@@ -156,7 +160,7 @@ export function inbound(s: Snapshot, ledger: LedgerEntry[], at: string) {
 }
 
 /** The titles of Life's adds with no answer yet (an intent or a failure, no ok), each with when it was tried: such a reminder is Life's. */
-function lostAdds(actions: LedgerEntry[]) {
+function lostAdds(actions: readonly LedgerEntry[]) {
   const ok = new Set(actions.filter(stands).map((a) => a.id));
   const title = (a: LedgerEntry) => normalize(`${a.after.title}`);
   // Once imported, the title is free again: a later reminder of his by that name is his.

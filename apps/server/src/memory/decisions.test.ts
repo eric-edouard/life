@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { decisionsNow, writeDecision } from "./decisions";
+import { applyLine, decisionsNow, writeDecision } from "./decisions";
 import { DECISIONS } from "./ledger";
 
 const NOW = Date.parse("2026-10-29T10:00:00.000Z");
@@ -95,7 +95,14 @@ test("an old line still folds: a loop's decision to nothing, a fact check's take
     step,
   });
   const loop = "asks-20261029100000-1";
-  const all = decisionsNow([
+  const fold = (lines: ReturnType<typeof line>[]) => {
+    const all = new Map();
+    for (const l of lines) {
+      applyLine(all, l);
+    }
+    return all;
+  };
+  const all = fold([
     line(loop, "asked", { ...ask, loop: "asks" }),
     line(loop, "answered", { answer: "true" }),
     line(id, "asked", ask),
@@ -105,7 +112,7 @@ test("an old line still folds: a loop's decision to nothing, a fact check's take
   expect(all.has(loop)).toBe(false);
   expect(all.get(id)).toMatchObject({ answer: "note", status: "answered" });
   // An answer line with no note at all, as nothing writes now but a line once might have.
-  const bare = decisionsNow([
+  const bare = fold([
     line(id, "asked", ask),
     line(id, "answered", { answer: "true" }),
     line(id, "done", { result: "Recorded in Life" }),

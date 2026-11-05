@@ -78,7 +78,7 @@ const STUCK_MS = 3 * HOUR;
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();
-  let actions: LedgerEntry[] = [];
+  let actions: readonly LedgerEntry[] = [];
   try {
     actions = readLedger();
   } catch (e) {
