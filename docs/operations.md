@@ -29,7 +29,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 - Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/host/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
-- What stays bounded: the nightly deletes each run's model files (`LIFE_STATE_DIR/memory/runs`) after 30 days and the
+- What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
   `~/Library/Logs/life-*.log` becomes `life-*.old.log` past 10 MB when its process starts; a bridge
   logs to its own capped `logs/bridge.log`, only its errors to the bridges job's log. The backup hashes only files whose
@@ -199,6 +199,8 @@ step: [Back up and restore](use/backup.md).
 - **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
+  A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of
+  its day, the judge and the claims it cites are unchanged; only the rest are judged again, so a batch holds only those.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real episodes and
   extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
   timeline (about 40 minutes;
