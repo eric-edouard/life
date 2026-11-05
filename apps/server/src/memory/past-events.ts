@@ -38,32 +38,28 @@ export interface Draft {
 }
 
 interface Known {
+  /** Each unit's episode, of every episode (`readBy`): a fact shows under it only. */
+  byEpisode: ReadonlyMap<string, Episode>;
   nameOf: (ref: string) => string;
-  /** What Life noted, by unit: the observations that show (under the unit's episode, `readBy`). */
+  /** What Life noted, by unit: the observations that show. */
   noted: Map<string, string[]>;
   units: Map<string, Unit>;
 }
 
 /**
- * The events the calendar should hold: every episode ended (`SETTLE` ago) by `now`, after `since` (ms). They may
- * overlap (his decision, 2 Nov): a big episode holds the smaller ones that happened inside it.
+ * The events the calendar should hold of `episodes`: those ended (`SETTLE` ago) by `now`. They may overlap (his
+ * decision, 2 Nov): a big episode holds the smaller ones that happened inside it.
  */
-export function drafts(
-  episodes: Episode[],
-  k: Known,
-  now: Date,
-  since = 0
-): Draft[] {
-  const byEpisode = readBy(episodes);
+export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
   return episodes
-    .filter((m) => endOf(m) > since && endOf(m) + SETTLE <= now.getTime())
+    .filter((m) => endOf(m) + SETTLE <= now.getTime())
     .map((m) => ({ m, ...span(m) }))
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
         ...new Set(
           m.units.flatMap((id) =>
-            byEpisode.get(id) === m ? (k.noted.get(id) ?? []) : []
+            k.byEpisode.get(id) === m ? (k.noted.get(id) ?? []) : []
           )
         ),
       ];
@@ -101,13 +97,9 @@ export type Held = Map<string, { hash?: string; id: string }[]>;
 
 /**
  * What a sync does: the events to delete (of an episode gone or changed, and any second copy) and the drafts to write.
- * A held event of a `live` episode not wanted (outside the sync's window, or not ended yet) stays.
+ * A held event of a `live` episode not drafted (outside the sync's window, or not ended `SETTLE` ago) stays.
  */
-export function plan(
-  want: Draft[],
-  held: Held,
-  live = new Set(want.map((d) => d.episode))
-) {
+export function plan(want: Draft[], held: Held, live: ReadonlySet<string>) {
   const drafted = new Set(want.map((d) => d.episode));
   const keep = new Set(
     want.flatMap((d) => {
@@ -166,12 +158,11 @@ export async function wanted(now: Date, since?: Date) {
   const [people, lines] = await Promise.all([readPeople(), readEpisodes()]);
   const episodes = episodesNow(lines, people.corrections);
   const after = since?.getTime() ?? 0;
-  const shown = new Set(
-    episodes.filter((m) => endOf(m) > after).map((m) => m.id)
-  );
+  const shown = episodes.filter((m) => endOf(m) > after);
+  const ids = new Set(shown.map((m) => m.id));
   // An episode line's units are of its day (episodes.ts reads a day's units).
   const units = readUnitsOf([
-    ...new Set(lines.filter((l) => shown.has(l.id)).map((l) => l.day)),
+    ...new Set(lines.filter((l) => ids.has(l.id)).map((l) => l.day)),
   ]);
   const noted = readIndex((db) =>
     db
@@ -184,6 +175,7 @@ export async function wanted(now: Date, since?: Date) {
     return null;
   }
   const k: Known = {
+    byEpisode: readBy(episodes),
     nameOf: people.nameOf,
     noted: new Map(
       [...Map.groupBy(noted, (o) => o.unit)].map(([u, os]) => [
@@ -194,7 +186,7 @@ export async function wanted(now: Date, since?: Date) {
     units: new Map(units.map((u) => [u.id, u])),
   };
   return {
-    drafts: drafts(episodes, k, now, after),
+    drafts: drafts(shown, k, now),
     live: new Set(episodes.map((m) => m.id)),
   };
 }

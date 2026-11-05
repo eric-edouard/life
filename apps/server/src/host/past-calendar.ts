@@ -149,14 +149,11 @@ function appleCalendar(calendar: string, tool: string) {
   };
 }
 
-/** What a sync that isn't the whole calendar brings in line: the episodes ending in the last 3 days. */
-const RECENT = 3 * DAY;
-
 /**
- * Brings the calendar in line with the episodes, the whole calendar or the recent ones; null when it is not set up or
- * there is no index yet.
+ * Brings the calendar in line with the episodes ending after `since` (the whole calendar without it); null when it is
+ * not set up or there is no index yet.
  */
-export async function syncPast(isWhole: boolean, now = clock()) {
+export async function syncPast(since: Date | undefined, now = clock()) {
   const { past } = settings();
   if (!(past && isOn("past"))) {
     return null;
@@ -165,13 +162,13 @@ export async function syncPast(isWhole: boolean, now = clock()) {
   const cal = past.account
     ? pastCalendar(past.calendar, past.account)
     : appleCalendar(past.calendar, process.env.LIFE_EVENTKIT as string);
-  const since = isWhole ? undefined : new Date(now.getTime() - RECENT);
   const want = await wanted(now, since);
   if (!want) {
     return null;
   }
   // Listed a day earlier than the drafts: an event ending in that day whose episode is live is left as it is (`plan`).
-  // ponytail: an episode read again with its end moved back over a day keeps its old copy until the night's whole sync.
+  // ponytail: an episode read again with its end moved over a day (back, or forward from an event ended before the
+  // listing) keeps its old copy until the night's whole sync.
   const { fresh, stale } = plan(
     want.drafts,
     await cal.held(

@@ -119,7 +119,7 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
+A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
 properties `lifeEpisode` and `lifeHash`. A changed episode is written again, a gone one deleted; events without
 `lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
