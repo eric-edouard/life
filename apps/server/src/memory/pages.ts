@@ -10,7 +10,7 @@ import {
   type InferredPerson,
   type Observation,
 } from "../records/observation";
-import type { Area, Person } from "../records/truth";
+import { type Area, isUnderway, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
 import {
@@ -101,11 +101,14 @@ function inferredHold(p: InferredPerson) {
   return `${quote(`**${p.name}** · ${p.relation}`)}\n\n_Inferred by Life from messages (confidence ${p.confidence}), not in truth/: it may be wrong. Tell Claude who this is and it is recorded._`;
 }
 
-function areaHold(a: Area, projects: Truth["projects"]) {
+/** An area page's hold: his underway projects in full (each capped), the parked or done ones counted. */
+export function areaHold(a: Area, projects: Truth["projects"]) {
   if (projects.length === 0) {
     return "_Nothing about this area in truth/ yet._";
   }
-  const each = projects.map((project) => {
+  const underway = projects.filter(isUnderway);
+  const rest = projects.length - underway.length;
+  const each = underway.map((project) => {
     const head = [
       `**${project.name}** · ${project.status}`,
       ...project.deadlines.map((d) => `- ${d.date}: ${d.what}`),
@@ -116,8 +119,11 @@ function areaHold(a: Area, projects: Truth["projects"]) {
       ? `${head.slice(0, HOLD_MAX)}…`
       : head.trimEnd();
   });
-  const files = projects.map((p) => `truth/projects/${p.id}.md`).join(", ");
-  return `${quote(each.join("\n\n"))}\n\n_From ${files} (area ${a.name}): yours. Life never edits it._`;
+  if (rest > 0) {
+    each.push(`${rest} parked or done (truth/projects/).`);
+  }
+  const files = underway.map((p) => `truth/projects/${p.id}.md`).join(", ");
+  return `${quote(each.join("\n\n"))}\n\n_From ${files || "truth/projects/"} (area ${a.name}): yours. Life never edits it._`;
 }
 
 async function readText(path: string) {

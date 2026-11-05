@@ -251,7 +251,8 @@ is the owner's.
 Sections, in order:
 
 - **What I hold**: quoted read-only from `truth/` (the owner's; on the owner's own page all of `truth/me.md`, the owner's goals included),
-  or for an inferred person what Life guesses; never generated.
+  or for an inferred person what Life guesses; never generated. An area's hold quotes its underway projects in full (each
+  capped) and only counts the parked or done ones.
 - **Views, values and habits** (the owner's own page only): what the owner believes and values, their philosophy, the priorities they state,
   habits and tastes, `- <text> [obs_…]`, from what the owner said in their own words (the prompt's rule: `speaker` is not yet reliable
   enough for code to check it); never ages: a line leaves when it is done, replaced, or rewritten by the owner.

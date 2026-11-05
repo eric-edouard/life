@@ -87,3 +87,7 @@ export const Project = z
   .strict();
 
 export type Project = z.infer<typeof Project>;
+
+/** A project he is still on (active, or waiting on someone); a parked or done one is not. */
+export const isUnderway = (p: Project) =>
+  p.status === "active" || p.status === "waiting";

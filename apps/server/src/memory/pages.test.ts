@@ -3,8 +3,38 @@ import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../core/proc";
+import { type Area, Project } from "../records/truth";
 import { layoutOf, renderPage } from "./page-format";
-import { changedSinceCommit, removeOrphans } from "./pages";
+import { areaHold, changedSinceCommit, removeOrphans } from "./pages";
+
+test("an area page holds its underway projects in full and only counts the parked or done ones, however many pile up", () => {
+  const project = (id: string, status: Project["status"]) => ({
+    ...Project.parse({
+      area: "work",
+      id,
+      name: `Project ${id}`,
+      schemaVersion: 1,
+      status,
+    }),
+    notes: "Long notes. ".repeat(50),
+  });
+  const hold = areaHold({ id: "work", name: "Work" } as Area, [
+    project("shop", "active"),
+    project("visa", "waiting"),
+    ...Array.from({ length: 40 }, (_, i) => project(`old-${i}`, "done")),
+    project("band", "parked"),
+  ]);
+  expect(hold).toContain("**Project shop** · active");
+  expect(hold).toContain("**Project visa** · waiting");
+  expect(hold).not.toContain("Project old-1");
+  expect(hold).toContain("41 parked or done");
+  expect(hold).toContain("truth/projects/shop.md, truth/projects/visa.md");
+  const done = areaHold({ id: "work", name: "Work" } as Area, [
+    project("old", "done"),
+  ]);
+  expect(done).not.toContain("Project old");
+  expect(done).toContain("_From truth/projects/ (area Work)");
+});
 
 test("pages no target claims are deleted, the others stay", async () => {
   const dir = await mkdtemp(join(tmpdir(), "pages-"));
