@@ -62,7 +62,7 @@ flowchart LR
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
+- **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit came or went or an input is newer than it (`isIndexStale`); read by the CLI and the connector.
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
 

@@ -1,11 +1,14 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
+import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { DAY, MIN } from "../core/clock";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
+import { MEMORY, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
 import {
   areaFor,
@@ -17,8 +20,10 @@ import {
   dayLines,
   dueOf,
   episodeLine,
+  isIndexStale,
   nextBirthday,
   readIndex,
+  reindexUnits,
   matches as searchMatches,
   shownEpisode,
   withSpans,
@@ -191,7 +196,41 @@ test("search: an observation hit names the unit it comes from and who is in it",
     "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes"
   );
   expect(cover.at(-1)).toContain("calls");
+  // A unit rewritten in place takes its rows alone: the observations stay.
+  await reindexUnits([{ ...unit, title: "Plumbing call" }], path);
+  expect(searchMatches(db, "beautify")[0]).toContain('lifelog "Plumbing call"');
+  expect(db.query("select count(*) as n from units").get()).toEqual({ n: 1 });
   db.close();
+});
+
+test("the index is stale when what the full rebuild reads changed after its reads began, units/ aside", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "life-stale-")), "i.sqlite");
+  expect(isIndexStale(path)).toBe(true);
+  const standing = {
+    corrections: [],
+    latest: new Map(),
+    live: new Set<string>(),
+    retired: new Map(),
+  };
+  const later = new Date(Date.now() + DAY);
+  buildIndex([], path, standing, [], later);
+  expect(isIndexStale(path)).toBe(false);
+  const touch = (file: string, at: Date) => {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "");
+    utimesSync(file, at, at);
+  };
+  const unitFile = join(UNITS, "2026-10-20.jsonl");
+  const correction = join(MEMORY, "stale-test.jsonl");
+  try {
+    touch(unitFile, new Date(later.getTime() + MIN));
+    expect(isIndexStale(path)).toBe(false);
+    touch(correction, new Date(later.getTime() + MIN));
+    expect(isIndexStale(path)).toBe(true);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(correction, { force: true });
+  }
 });
 
 test("person: a misheard or misspelled name lists the names near it, never a guess", () => {

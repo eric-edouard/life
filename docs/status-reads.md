@@ -26,7 +26,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |
-| `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
+| `indexBuiltAt` | last written: by the watcher on any lifelog change (its units' rows) or newer input (the whole index), and by each sweep: **not new memory** | index file time |
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
   health file).
@@ -116,7 +116,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
 - **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`
   (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its page). `null`: does
   not apply, no index, or an identity correction (not tracked). A correction is recorded at once; it shows after the
-  next index (minutes) and the next pages run (the night).
+  next index (within the minute: the watcher rebuilds it when a correction is newer than it) and the next pages run (the night).
 
 **Cursor.** Opaque; it counts the complete lines read from each source (corrections, supersessions, inferred, actions,
 ratings, each month of observations, then page commits). The ledgers are append-only, so a line never moves: a page ends

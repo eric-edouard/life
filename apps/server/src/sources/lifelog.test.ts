@@ -170,9 +170,30 @@ test("applying a page twice changes nothing, and an empty store is no conversati
   });
   apply(s, p);
   const once = JSON.stringify(readConversations(s, since));
-  expect(apply(s, p)).toBe(true);
+  expect(apply(s, p)).toEqual(new Date("2026-10-14T10:00:00.000Z"));
   expect(JSON.stringify(readConversations(s, since))).toBe(once);
-  expect(apply(s, pageFixture())).toBe(false);
+  expect(apply(s, pageFixture())).toBeNull();
+});
+
+test("a page touches from the earliest start it writes or replaces: a conversation moved later touches its old start; a row never stored, nothing", () => {
+  const s = store();
+  const on = (at: string) =>
+    pageFixture({
+      conversations: [conversation("c1", { startAt: at })],
+      turns: [turnFixture(0, at, null, null)],
+    });
+  expect(apply(s, on("2026-10-14T10:00:00.000Z"))).toEqual(
+    new Date("2026-10-14T10:00:00.000Z")
+  );
+  expect(apply(s, on("2026-10-16T10:00:00.000Z"))).toEqual(
+    new Date("2026-10-14T10:00:00.000Z")
+  );
+  expect(
+    apply(s, pageFixture({ removed: [{ kind: "turn", ref: "job-9:0" }] }))
+  ).toBeNull();
+  expect(
+    apply(s, pageFixture({ removed: [{ kind: "conversation", ref: "c1" }] }))
+  ).toEqual(new Date("2026-10-16T10:00:00.000Z"));
 });
 
 test("a turn's place in its conversation, and a person's conversations newest first", () => {

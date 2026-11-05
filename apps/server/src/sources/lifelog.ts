@@ -291,25 +291,50 @@ export const ownerSpoke = (store: Store, ref: string) => {
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
-/** Deletes what the feed says went: a conversation or a turn (`<job>:<turn>`). */
+/** A stored conversation's or turn's start: where the units built from it begin. */
+const startOf = (db: Database) => ({
+  conversation: (id: string) =>
+    db
+      .query<{ at: string }, [string]>(
+        "select start_at as at from conversations where id = ?"
+      )
+      .get(id)?.at,
+  turn: (job: string, index: number) =>
+    db
+      .query<{ at: string }, [string, number]>(
+        "select start_at as at from turns where job_id = ? and turn_index = ?"
+      )
+      .get(job, index)?.at,
+});
+
+/** Deletes what the feed says went: a conversation or a turn (`<job>:<turn>`). Returns its stored start. */
 function drop(db: Database, r: Page["removed"][number]) {
   if (r.kind === "conversation") {
+    const at = startOf(db).conversation(r.ref);
     db.run("delete from conversations where id = ?", [r.ref]);
-  } else if (r.kind === "turn") {
-    const at = r.ref.lastIndexOf(":");
+    return at;
+  }
+  if (r.kind === "turn") {
+    const cut = r.ref.lastIndexOf(":");
+    const [job, index] = [r.ref.slice(0, cut), Number(r.ref.slice(cut + 1))];
+    const at = startOf(db).turn(job, index);
     db.run("delete from turns where job_id = ? and turn_index = ?", [
-      r.ref.slice(0, at),
-      Number(r.ref.slice(at + 1)),
+      job,
+      index,
     ]);
+    return at;
   }
 }
 
 /**
  * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
- * keeps when it was first `seen`: when the hearing could first have heard it.
+ * keeps when it was first `seen`: when the hearing could first have heard it. Returns the earliest instant the page
+ * touched (a row's start before and after it), where its units begin; null when it carried nothing units are built from.
  */
 export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const { db } = store;
+  const stored = startOf(db);
+  const starts: (string | undefined)[] = [];
   const conversation = db.prepare(
     `insert or replace into conversations (id, start_at, end_at, kind, state, title, successor, closed)
     values (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -329,6 +354,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
       job.run(j.id, j.endedOnSilence ? 1 : 0);
     }
     for (const c of page.conversations) {
+      starts.push(stored.conversation(c.id), c.startAt);
       conversation.run(
         c.id,
         c.startAt,
@@ -341,6 +367,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
       );
     }
     for (const t of page.turns) {
+      starts.push(stored.turn(t.jobId, t.turnIndex), t.startAt);
       turn.run(
         t.jobId,
         t.turnIndex,
@@ -354,17 +381,17 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
       );
     }
     for (const r of page.removed) {
-      drop(db, r);
+      starts.push(drop(db, r));
     }
   })();
-  return (
-    page.conversations.length + page.turns.length + page.removed.length > 0
-  );
+  // A removed row never stored built no unit: it touches nothing.
+  const [earliest] = starts.filter((s): s is string => !!s).sort();
+  return earliest ? new Date(earliest) : null;
 }
 
 /**
  * Reads one page of the feed after the saved cursor (holding the request up to `wait` seconds for news), folds it into
- * the store and saves its cursor. `changed`: the page carried something units are built from; `more`: ask again now.
+ * the store and saves its cursor. `touched`: where the units it changed begin (`apply`); `more`: ask again now.
  */
 export async function poll(store: Store, wait: number) {
   const since = readCursor(store);
@@ -380,10 +407,9 @@ export async function poll(store: Store, wait: number) {
       ? !row?.is_owner
       : !(row || t.speaker.personId || t.speaker.personName);
   });
-  const changed = apply(store, page);
+  const touched = apply(store, page);
   writeFileSync(store.cursor, `${JSON.stringify({ cursor: page.cursor })}\n`);
   return {
-    changed,
     cursor: page.cursor,
     more: page.more && page.cursor !== since,
     /** The turns that just became the owner's (new, or re-sent as his) or are new and unattributed: which conversation, and when. */
@@ -391,6 +417,7 @@ export async function poll(store: Store, wait: number) {
       at: t.startAt,
       conversation: t.conversationId,
     })),
+    touched,
   };
 }
 
