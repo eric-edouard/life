@@ -4,23 +4,24 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
+import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
-import { LocalTime, Moment } from "../records/moment";
 import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
 import { isActivity } from "../sources/contract";
+import { lifelogMissing } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
   daysOf,
+  EPISODES,
+  episodesNow,
   hiding,
   INFERRED,
   isRereadSince,
-  MOMENTS,
-  momentsNow,
+  readEpisodes,
   readLabels,
-  readMoments,
   readUnits,
   readUnitsOf,
   readVerdicts,
@@ -32,6 +33,7 @@ import {
 } from "./ledger";
 import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
+import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, refContext } from "./run";
 import { kindOf } from "./sources";
@@ -52,18 +54,19 @@ import {
 import { readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
 
-// `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
-// judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
-// with the moments of the days before that may continue into it (`MOMENTS_PROMPT`), and returns a verdict per unit
-// (memory/verdicts.jsonl: what it is, its area, topics, importance), the day's moments (memory/moments/<day>.jsonl) and
-// who the day's unknown handles and names are (memory/people-inferred.jsonl).
-// Extraction then reads a moment's units together (extract.ts). Units are written here too (units.ts builds them).
+// `bun life memory episodes`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
+// judged on its current content, the deep-tier model reads the day (`EPISODES_PROMPT`): those units in full, the ones
+// judged already as stubs, where his phone stayed, the day's episodes as they stand and those of the day before that may
+// continue into it. It returns a verdict per new unit (memory/verdicts.jsonl: what it is, its area, topics,
+// importance), the episodes new or changed and those gone (memory/episodes/<day>.jsonl) and who the day's unknown handles
+// and names are (memory/people-inferred.jsonl).
+// Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const MOMENTS_PROMPT = "memory-moments.v5";
+export const EPISODES_PROMPT = "memory-episodes.v6";
 // ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
-// into halves with the moments of the first as `earlier` if a day ever outgrows the model's context.
+// into halves with the episodes of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;
-/** A moment of an earlier day is shown to the next days until the day after it ends (a plan: after its date). */
+/** An episode of an earlier day is shown to the next days until the day after it ends. */
 const CARRY_DAYS = 1;
 
 /** The most frequent topics of these verdicts: the vocabulary the next calls are asked to reuse. */
@@ -96,46 +99,74 @@ export function chatAreas(truth: Truth) {
   return out;
 }
 
+/** Whether an episode line is state for this prompt: made by it, or hidden by him (his correction holds whatever made it). */
+const isState = (m: Episode, corrections: Correction[]) =>
+  m.madeBy.prompt === EPISODES_PROMPT || hiding(corrections, m.id).length > 0;
+
 /**
- * What a reading of `day` is shown as `earlier`: its own moments from an earlier reading (to keep their ids), those of
- * the days before that may continue into it, ending (or, for a plan, dated) no earlier than the day before, and its own
- * moments the owner hid, each with his correction (`hidden`: what he said, in his words), so it is not made again.
+ * What a reading of `day` is shown as `earlier`: its own episodes as they stand, those of the days before that may
+ * continue into it, ending no earlier than the day before, and its own episodes the owner hid, each with his correction
+ * (`hidden`: what he said, in his words), so it is not made again. An episode by an older prompt is not state: under a
+ * new prompt the day is read as if for the first time.
  */
 export function earlierFor(
   day: string,
-  lines: Moment[],
+  lines: Episode[],
   corrections: Correction[]
-): (Moment & { hidden?: { kind: string; note?: string } })[] {
+): (Episode & { hidden?: { kind: string; note?: string } })[] {
   const since = daysBefore(day, CARRY_DAYS);
-  const shown = momentsNow(
-    lines.filter((m) => m.day <= day),
+  const shown = episodesNow(
+    lines.filter((m) => m.day <= day && isState(m, corrections)),
     corrections
   ).filter((m) => m.day === day || daysOf(m)[1] >= since);
   return [...shown, ...hiddenOn(day, lines, corrections)];
 }
 
-/** `day`'s moments the owner hid (`hiding`), each with his latest correction of it. */
-const hiddenOn = (day: string, lines: Moment[], corrections: Correction[]) =>
+/** `day`'s episodes the owner hid (`hiding`), each with his latest correction of it. */
+const hiddenOn = (day: string, lines: Episode[], corrections: Correction[]) =>
   lines.flatMap((m) => {
     const c = m.day === day ? hiding(corrections, m.id).at(-1) : undefined;
     return c ? [{ ...m, hidden: { kind: c.kind, note: c.note } }] : [];
   });
 
-/** What a reading of `day` leaves in its file: the moments it gave, and the hidden ones it did not give again (his corrections keep them). */
-export const dayFileOf = (
+/**
+ * What a reading of `day` leaves in its file: the day's lines that are state, but those `gone`, then the reading's
+ * episodes, one line per episode (`episodesNow`'s merge: the last line wins, units and copies joined), each kept to the
+ * day's units still there (`units`, ids) and dropped with none; a `within` naming no episode here or in `earlier` is null.
+ */
+export function dayFileOf(
   day: string,
-  given: Moment[],
-  lines: Moment[],
-  corrections: Correction[]
-) => [
-  ...given,
-  ...hiddenOn(day, lines, corrections)
-    .filter((m) => !given.some((g) => g.id === m.id))
-    .map(({ hidden: _, ...m }) => m),
-];
+  reading: { gone: string[]; episodes: Episode[] },
+  ctx: {
+    corrections: Correction[];
+    earlier: Set<string>;
+    lines: Episode[];
+    units: Set<string>;
+  }
+) {
+  const kept = ctx.lines.filter(
+    (m) =>
+      m.day === day &&
+      isState(m, ctx.corrections) &&
+      !reading.gone.includes(m.id)
+  );
+  const merged = episodesNow([...kept, ...reading.episodes], []).flatMap(
+    (m) => {
+      const units = m.units.filter((u) => ctx.units.has(u));
+      return units.length > 0
+        ? [{ ...m, copies: m.copies.filter((u) => units.includes(u)), units }]
+        : [];
+    }
+  );
+  const ids = new Set(merged.map((m) => m.id)).union(ctx.earlier);
+  return merged.map((m) =>
+    m.within && !ids.has(m.within) ? { ...m, within: null } : m
+  );
+}
 
 const Reply = z.object({
-  moments: z.array(z.unknown()).default([]),
+  episodes: z.array(z.unknown()).default([]),
+  gone: z.array(z.unknown()).default([]),
   verdicts: z.array(z.unknown()).default([]),
   who: z.array(z.unknown()).default([]),
 });
@@ -151,12 +182,11 @@ const Judged = z.object({
   type: MemoryType.catch("nothing"),
   when: z.iso.date().nullable().default(null),
 });
-const Said = Moment.pick({
+const Said = Episode.pick({
   importance: true,
   people: true,
-  status: true,
   title: true,
-  why: true,
+  what: true,
 }).extend({
   copies: z.array(z.string()).default([]),
   end: z.string().nullable().default(null),
@@ -164,12 +194,13 @@ const Said = Moment.pick({
   place: z.string().nullable().default(null),
   start: z.string().nullable().default(null),
   units: z.array(z.string()),
+  within: z.string().nullable().default(null),
 });
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
-/** A moment's id, minted from what it is: its day, its start and units (its title too when two moments share those). */
-export const momentId = (key: string[]) =>
-  `mom_${digest("sha1", key.join("|"), 12)}`;
+/** An episode's id, minted from what it is: its day, its start and units (its title too when two episodes share those). */
+export const episodeId = (key: string[]) =>
+  `ep_${digest("sha1", key.join("|"), 12)}`;
 
 /**
  * Code's last word on a verdict's importance: activity 1 at most (never extracted), a unit holding one of his asks 3, an
@@ -228,11 +259,19 @@ function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
   return "surface" in link ? `${UNKNOWN}${link.surface}` : null;
 }
 
+/** Whether these units can make an episode: not when all are what his devices log or his agents did (`isActivity`, agent). */
+const isLived = (units: Unit[]) =>
+  units.some((u) => {
+    const kind = kindOf(u.source);
+    return !isActivity(kind) && kind !== "agent";
+  });
+
 /**
  * The model's reply for one day, checked: a verdict for a unit of the day (its content hash in `units`), its area one
- * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); a moment of the day's units,
- * people resolved through the map (the owner left out), an earlier moment's id kept, a new one minted from the day and its
- * units. Anything else is dropped; `invalid` counts the verdicts dropped.
+ * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); an episode of the day's units
+ * (`isLived`), people resolved through the map (the owner left out), an earlier episode's id kept, a new one minted from
+ * the day and its units, `within` mapped from the reply's own ids (`new-1`) to the minted ones; `gone`, episodes of
+ * `earlier` he did not hide (`dayFileOf` drops only this day's). Anything else is dropped; `invalid` counts the verdicts dropped.
  */
 export function parseDay(
   reply: unknown,
@@ -240,7 +279,7 @@ export function parseDay(
     areas: Map<string, string>;
     day: string;
     earlier: Set<string>;
-    /** The ids of this day's moments he hid (`earlierFor`). */
+    /** The ids of this day's episodes he hid (`earlierFor`). */
     hidden: Set<string>;
     madeBy: MadeBy;
     /** The person refs the model was given. */
@@ -251,11 +290,13 @@ export function parseDay(
 ) {
   const said = Reply.parse(reply);
   const verdicts = verdictsOf(said.verdicts, ctx);
-  const found = new Map<string, Moment>();
-  for (const raw of said.moments) {
+  const found = new Map<string, Episode>();
+  // The reply's own id of each new episode, to the minted one.
+  const minted = new Map<string, string>();
+  for (const raw of said.episodes) {
     const r = Said.safeParse(raw);
     const units = r.success ? r.data.units.filter((u) => ctx.units.has(u)) : [];
-    if (!(r.success && units.length > 0)) {
+    if (!(r.success && isLived(units.map((u) => ctx.units.get(u) as Unit)))) {
       continue;
     }
     const m = r.data;
@@ -265,12 +306,15 @@ export function parseDay(
     });
     const key = [ctx.day, m.start ?? "", ...units.toSorted()];
     const isReused = ctx.earlier.has(m.id);
-    // Taken: by a moment of this reply, or, unless the model reused it, by one he hid (read again, it stands on the same units).
+    // Taken: by an episode of this reply, or, unless the model reused it, by one he hid (read again, it stands on the same units).
     const isTaken = (x: string) =>
       found.has(x) || (!isReused && ctx.hidden.has(x));
-    let id = isReused ? m.id : momentId(key);
+    let id = isReused ? m.id : episodeId(key);
     for (let salt = [m.title]; isTaken(id); salt = [...salt, "again"]) {
-      id = momentId([...key, ...salt]);
+      id = episodeId([...key, ...salt]);
+    }
+    if (!isReused) {
+      minted.set(m.id, id);
     }
     found.set(id, {
       copies: m.copies.filter((u) => units.includes(u)),
@@ -283,15 +327,26 @@ export function parseDay(
       place: m.place || null,
       schemaVersion: 1,
       start: at(m.start),
-      status: m.status,
       title: m.title,
       units,
-      why: m.why,
+      what: m.what,
+      within: m.within,
     });
   }
+  const within = (w: string | null) => {
+    const id = (w && minted.get(w)) ?? w;
+    return id && (found.has(id) || ctx.earlier.has(id)) ? id : null;
+  };
   return {
+    episodes: [...found.values()].map((m) => {
+      const w = within(m.within);
+      return { ...m, within: w === m.id ? null : w };
+    }),
+    gone: said.gone.filter(
+      (id): id is string =>
+        typeof id === "string" && ctx.earlier.has(id) && !ctx.hidden.has(id)
+    ),
     invalid: said.verdicts.length - verdicts.size,
-    moments: [...found.values()],
     verdicts: [...verdicts.values()],
     who: said.who,
   };
@@ -336,7 +391,7 @@ export function agreement(
 const judged = (u: Unit, verdicts: Verdicts, rereads: Map<string, string>) => {
   const v = verdictOf(verdicts, u);
   return (
-    v?.madeBy.prompt === MOMENTS_PROMPT &&
+    v?.madeBy.prompt === EPISODES_PROMPT &&
     !isRereadSince(rereads, u.id, runAt(v.madeBy.run))
   );
 };
@@ -362,18 +417,18 @@ export const fresh = (
   });
 };
 
-async function writeDay(day: string, list: Moment[]) {
-  await mkdir(MOMENTS, { recursive: true });
+async function writeDay(day: string, list: Episode[]) {
+  await mkdir(EPISODES, { recursive: true });
   await Bun.write(
-    join(MOMENTS, `${day}.jsonl`),
-    list.map((m) => `${JSON.stringify(Moment.parse(m))}\n`).join("")
+    join(EPISODES, `${day}.jsonl`),
+    list.map((m) => `${JSON.stringify(Episode.parse(m))}\n`).join("")
   );
 }
 
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
-export async function moments(evidence: Evidence) {
-  const step = await begin("moments", "deep", {
-    prompt: MOMENTS_PROMPT,
+export async function episodes(evidence: Evidence) {
+  const step = await begin("episodes", "deep", {
+    prompt: EPISODES_PROMPT,
     ...evidence.window,
   });
   const { built: all, failed, read: sources, repos, skipped, truth } = evidence;
@@ -403,15 +458,15 @@ export async function moments(evidence: Evidence) {
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
-  const madeBy = stamp(step.llm, MOMENTS_PROMPT, step.run);
-  let lines = await readMoments();
+  const madeBy = stamp(step.llm, EPISODES_PROMPT, step.run);
+  let lines = await readEpisodes();
   const rereads = rereadAt(corrections, lines);
   let read = 0;
   let found = 0;
   let invalid = 0;
   // Units the model gave no verdict for: their day is read again next time.
   let missing = 0;
-  // A day holding units of a source that can't be read now waits for it: read without them, its moments would lose theirs.
+  // A day holding units of a source that can't be read now waits for it: read without them, its episodes would lose theirs.
   const held = new Set(
     readUnitsOf(skipped.length > 0 ? days : [])
       .filter((u) => skipped.includes(u.source))
@@ -424,10 +479,17 @@ export async function moments(evidence: Evidence) {
       continue;
     }
     const earlier = earlierFor(day, lines, corrections);
-    // biome-ignore lint/performance/noAwaitInLoops: a day reads the moments the day before it wrote
+    // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
+    const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
+    // biome-ignore lint/performance/noAwaitInLoops: a day reads the episodes the day before it wrote
     const got = await step.attempt(async () => {
-      // The day's conversations with their words: fetched only now, for the day being read.
-      const spoken = await voiceText(units, resolve, truth);
+      // The new conversations with their words: fetched only now, for the day being read.
+      const spoken = await voiceText(units.filter(isNew), resolve, truth);
+      const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
+      // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
+      const stays = lifelogMissing()
+        ? []
+        : ((await staysOf({ at: day })) ?? []);
       // Known: on the map, inferred confidently, or answered earlier in this run (one person, one id).
       const unknown = unknownIn(
         spoken,
@@ -439,32 +501,56 @@ export async function moments(evidence: Evidence) {
         input: {
           day,
           earlier: earlier.map(
-            ({ hidden, id, people, place, start, status, title }) => ({
+            ({
+              end,
               hidden,
               id,
               people,
               place,
               start,
-              status,
               title,
+              what,
+              within,
+            }) => ({
+              end,
+              hidden,
+              id,
+              people,
+              place,
+              start,
+              title,
+              what,
+              within,
             })
           ),
-          units: spoken.map(({ text, unit }) => ({
-            areaHint: hints.get(unit.key),
-            end: localTime(unit.end),
-            id: unit.id,
-            people: unitNow(unit, refOf).people,
-            source: unit.source,
-            start: localTime(unit.start),
-            text: head(text),
-            title: unit.title,
-          })),
+          stays: stays
+            .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
+            .map((s) => ({
+              from: localTime(s.arrivedAt),
+              place: where(s),
+              to: s.leftAt && localTime(s.leftAt),
+            })),
+          units: units.map(({ unit }) => {
+            const text = texts.get(unit.id);
+            return {
+              areaHint: hints.get(unit.key),
+              end: localTime(unit.end),
+              id: unit.id,
+              people: unitNow(unit, refOf).people,
+              source: unit.source,
+              start: localTime(unit.start),
+              title: unit.title,
+              ...(text === undefined
+                ? { read: verdictOf(verdicts, unit)?.reason }
+                : { text: head(text) }),
+            };
+          }),
           unknown: [...unknown].map(([key, seen]) => ({
             key,
             units: seen.map((b) => b.unit.id),
           })),
         },
-        prompt: MOMENTS_PROMPT,
+        prompt: EPISODES_PROMPT,
       });
       const reading = parseDay(json, {
         areas,
@@ -474,7 +560,7 @@ export async function moments(evidence: Evidence) {
         madeBy,
         people: new Set(context.people.map((p) => p.ref)),
         resolve,
-        units: new Map(spoken.map((b) => [b.unit.id, b.unit])),
+        units: new Map(units.map((b) => [b.unit.id, b.unit])),
       });
       const who = checkPeople(reading.who, {
         areas,
@@ -485,12 +571,17 @@ export async function moments(evidence: Evidence) {
         taken,
         unknown,
       });
-      return { ...reading, who };
+      return { ...reading, sent: texts.size, who };
     });
     if (got) {
-      // The moments first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
+      // The episodes first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
-      const kept = dayFileOf(day, got.moments, lines, corrections);
+      const kept = dayFileOf(day, got, {
+        corrections,
+        earlier: new Set(earlier.map((m) => m.id)),
+        lines,
+        units: new Set(units.map((b) => b.unit.id)),
+      });
       await writeDay(day, kept);
       const judgedNow = fresh(got.verdicts, units, verdicts, rereads);
       await appendVerdicts(judgedNow);
@@ -500,12 +591,12 @@ export async function moments(evidence: Evidence) {
       for (const v of judgedNow) {
         verdicts.set(verdictKey(v.unit, v.hash), v);
       }
-      missing += units.length - got.verdicts.length;
+      missing += got.sent - judgedNow.length;
       lines = [...lines.filter((m) => m.day !== day), ...kept].toSorted(
         (a, b) => a.day.localeCompare(b.day)
       );
       read += 1;
-      found += got.moments.length;
+      found += got.episodes.length;
       invalid += got.invalid;
     }
   }
@@ -516,9 +607,9 @@ export async function moments(evidence: Evidence) {
       await readVerdicts()
     ),
     days: days.length,
+    episodes: found,
     invalid,
     missing,
-    moments: found,
     /** Who Life now thinks they are: a name and a relation, never the handles. */
     people: named.map((p) => ({ name: p.name, relation: p.relation })),
     read,

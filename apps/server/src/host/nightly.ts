@@ -2,11 +2,11 @@ import { clock, DAY, HOUR } from "../core/clock";
 import { holder, isOtherLife } from "../core/lock";
 import { log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
+import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
 import { newSince, readLedger } from "../memory/ledger";
 import { locked, lockedSince } from "../memory/memory-lock";
-import { moments } from "../memory/moments";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { codeOn, mapRepos } from "../memory/repos";
@@ -119,11 +119,11 @@ export async function archiveLine(since: string) {
 }
 
 /**
- * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
+ * Repo map, episodes (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
  * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else the midday
- * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
+ * pass (episodes, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
  */
@@ -162,7 +162,7 @@ export async function nightly(days: number, force = false) {
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
       : await daytime(turn, now, day);
-  // The Past calendar follows the moments each tick (past-calendar.ts); a failure only logs, the next tick tries again.
+  // The Past calendar follows the episodes each tick (past-calendar.ts); a failure only logs, the next tick tries again.
   await syncPast(now).then(
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
@@ -203,7 +203,7 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 }
 
 /**
- * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
+ * A midday run (about 13:00 and 19:00, same 30-minute tick): episodes and extract of today, so the day's speech is read
  * while it is fresh, then the index, then the pages that have new observations, then his fact checks topped up. No
  * commit, no email: the nightly commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
@@ -264,7 +264,7 @@ async function backfilled(day: string) {
 }
 
 /**
- * One sweep without commit or email: the evidence of `window`, read once for moments and extract, then `pages` (the
+ * One sweep without commit or email: the evidence of `window`, read once for episodes and extract, then `pages` (the
  * midday's pages), then the index; recorded as `name`, every step's failure caught and logged, and returned (null when
  * it went through). The caller holds the lock.
  */
@@ -278,7 +278,7 @@ async function sweep(
   try {
     phase.at = "gather";
     const evidence = await gather(window, await readPeople());
-    const found = await phase.step("moments", () => moments(evidence));
+    const found = await phase.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
     const extracted = await phase.step("extract", () => extract(evidence));
     console.log(JSON.stringify(extracted));
@@ -397,7 +397,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const evidence = await gather(window, await readPeople());
-    const found = await phase.step("moments", () => moments(evidence));
+    const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
     await phase.step("closeness", () => closeness());
@@ -423,12 +423,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       archive,
       backup: backupLine(now),
       code: commits,
+      episodes: found,
       extracted,
       facts,
       files: evidence.files,
       from: window.from,
       marked,
-      moments: found,
       observed,
       paged,
       quota: hasQuota() ? quotaLine(q) : undefined,

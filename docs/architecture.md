@@ -33,7 +33,7 @@ flowchart LR
   subgraph Mac["The Mac"]
     direction LR
     S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a conversation-day, a chat-day, a thread-day"]
-    U --> M["Moments<br/>one read per day,<br/>a verdict per unit"]
+    U --> M["Episodes<br/>one read per day,<br/>a verdict per unit"]
     M --> O["Observations<br/>quote-checked facts"]
     O --> P["Pages<br/>people · areas · the owner"]
     O --> I[("Search index")]
@@ -50,11 +50,13 @@ flowchart LR
 - **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a conversation-day, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output, mail from no one he
   knows) before any model sees it.
-- **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
-  writes a verdict per unit (type, importance, area) and what happened or is planned. The same call says who the day's
-  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its
-  words, fetched only for the day being read (`voiceText`).
-- **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
+- **Episodes** (`episodes.ts`): one deep model call per day reads the day from every channel in time order, with where
+  his phone stayed: the units not judged yet in full, the rest as stubs, and the day's episodes as they stand. It writes
+  a verdict per new unit (type, importance, area) and the episodes new, changed or gone: only what happened, each with
+  `what` came of it and the episode holding it (`within`). The same call says who the day's unknown people are
+  (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its words, fetched
+  only for the units sent in full (`voiceText`).
+- **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`
   correction).
@@ -91,9 +93,9 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **A section that does not age:** close people's pages have "Between us" (role, agreements, boundaries, dynamics,
   turning points), each line cited and attributed; a line with no new evidence in 12 months moves to History.
   Close means close personally now or once, so a dip never empties the section.
-- **Old facts can be corrected:** extraction also shows a moment the facts of the last year about the close people
+- **Old facts can be corrected:** extraction also shows an episode the facts of the last year about the close people
   (`priorFor`), so a newer fact can retire an older one.
-- **Arcs are assembled when asked** (the relationship section, History, paged evidence, moments, a month timeline),
+- **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
   never stored as a summary.
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
 - **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
@@ -127,11 +129,11 @@ core  ←  records  ←  models, sources, todo-list  ←  memory  ←  host
 | Folder | What it holds |
 |---|---|
 | `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
-| `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `moment.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
+| `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `episode.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends and open items |
-| `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
+| `memory/` | The pipeline (units, episodes, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
 | `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the asks (`asks.ts`), `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the status snapshot, Life's status), and the outputs (report, the Past calendar) |
 | `test-data/` | The made-up data tests read |
 
@@ -139,6 +141,12 @@ What the check enforces is the order: no file imports a layer to its right, fall
 fail any that does, and `scripts/imports.test.ts` fails any import cycle. Within it, a capability's contract has its own
 `contract.ts`. The layers are folders, not packages: a folder becomes a package only when a second app imports it.
 The reasons are in the [architecture plan](plans/2026-10-22-architecture.md).
+
+Connectors are built in, not loaded. Every source and to-do backend ships inside Life, behind its contract, and an
+install turns on the ones it wants in its settings (`sources`, `todo_list`). That is what packaging Life for others
+needs. A runtime plugin loader would let outside code run inside Life with all of the owner's data, and freeze the
+contracts for code Life can't change, so it waits until someone outside Life wants to write a connector (decided
+4 Nov 2026). Until then a new connector is one reader file and its descriptor in `SOURCES`.
 
 The repo around it is a Bun workspace:
 

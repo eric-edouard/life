@@ -87,7 +87,7 @@ export function timings(from = "", to = "9999", tasks = tasksOf()) {
     .map(({ ask: a }) => ({
       id: a.id,
       // In order (an array: the formatter sorts object keys).
-      moments: [
+      instants: [
         ["spoke", a.instruction.at],
         ["ended", a.timing?.ended ?? null],
         ["arrived", a.timing?.arrived ?? null],

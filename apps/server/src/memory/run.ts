@@ -128,7 +128,7 @@ export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
 }
 
 /**
- * A run of one memory step (`moments`, `extract`, `pages`), recorded with its model: its id, today's date, its
+ * A run of one memory step (`episodes`, `extract`, `pages`), recorded with its model: its id, today's date, its
  * folder `derived/memory/runs/<step>-<run>` and the counters every step reports (`stats`).
  * `ask` is one model call, counted; `attempt` runs a piece of work whose failure costs only that piece (counted and
  * logged, not thrown: the next run retries it); `error` logs a failure that costs nothing; `end` logs the run as ended
@@ -234,7 +234,7 @@ export function meContext(truth: Truth) {
 }
 
 /**
- * The owner, his areas, the people on his map (with those Life inferred) and his projects, as the moments, extract and
+ * The owner, his areas, the people on his map (with those Life inferred) and his projects, as the episodes, extract and
  * pages prompts name them: the refs a reply may use.
  */
 export function refContext(

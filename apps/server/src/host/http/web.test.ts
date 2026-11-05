@@ -76,7 +76,7 @@ test("his decisions: his tap lands and is recorded as the rating; another site's
     {
       at: "2026-10-29T10:00:00.000Z",
       date: "2026-10-28",
-      group: "events",
+      group: "episodes",
       kind: "fact",
       ref,
       schemaVersion: 1,

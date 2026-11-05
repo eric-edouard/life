@@ -79,10 +79,14 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 `turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
 
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
-  the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
+  the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
+- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes, extract of its
   closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
+- **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
+  content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
+  fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
+  with one new message is new as a whole (ponytail: per message would need a record of what was read).
 - **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
@@ -100,7 +104,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   is derived when read: `useOf` in `run-log.ts`.
 - **Failures:** a failed model call (one waits up to an hour, `MODEL_TIMEOUT_MS`) or a source that throws fails the
   whole night: non-zero exit, nothing committed, a failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
-  logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' moments
+  logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' episodes
   wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
   leaves its files as tags until the next run) never fail the night.
 
@@ -183,15 +187,19 @@ step: [Back up and restore](use/backup.md).
 ## Measuring
 
 - **Events eval:** `bun scripts/eval.ts <facts.json>` grades a week of extraction against hand-checked facts (kept in
-  the data repo's `docs/evals/`). Run it after a change to moments or extraction.
+  the data repo's `docs/evals/`). Run it after a change to episodes or extraction.
+- **Timeline score:** `bun scripts/timeline.ts <truth.json>` scores the episodes memory holds for a truth file's days
+  (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
+  missed, extra, duplicates, and start, end and place against lifelog's stays.
 - **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
-- **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real moments and
-  extract over a fixed week, once per candidate, on an empty copy of the data, and judges each run (about 40 minutes;
+- **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real episodes and
+  extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
+  timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
-- To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for a moment.
+- To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits
 
@@ -246,17 +254,18 @@ policy (P).
 
 Everything is in the CLI (`bun life memory …`), and the connector's tools are the same reads:
 
-- `search <words> [--from d --to d]`: moments, observations (each says who spoke when not the
+- `search <words> [--from d --to d]`: episodes, observations (each says who spoke when not the
   owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
   (the best 20, each with a conversation id and a turn), chat messages (the last 90 days, or from `--from`), note
   versions and messages to AI assistants (any age), then mail (the last 90 days, no newsletters nor Life's own, the
   newest 5 thread-days holding all the words: `searchableMail`). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
   its conversation as it is now, 5 turns before it.
-- `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what happened: the
-  day's moments, conversations, chat units, key observations, and what Life changed that day and why.
+- `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
+  day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
+  facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.
 - `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
-  month, then every observation and moment linked to them, newest first, paging back with `--before`. `person me` is
+  month, then every observation and episode linked to them, newest first, paging back with `--before`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
 - `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).

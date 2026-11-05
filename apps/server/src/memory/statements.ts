@@ -1,12 +1,12 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import { INFERRED_PREFIX, type Observation } from "../records/observation";
 import { Statement } from "../records/statement";
 import { pagedNow } from "./closeness";
 import {
-  momentsNow,
-  readMoments,
+  episodesNow,
+  readEpisodes,
   readStatements,
   STATEMENTS,
   shows,
@@ -25,8 +25,8 @@ import { when } from "./zones";
 export const plain = (t: string) =>
   `${when(t.slice(0, 10)).date}${t.startsWith(String(clock().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
 
-/** A moment in plain words: "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */
-export function momentText(m: Moment, name: (ref: string) => string) {
+/** An episode in plain words: "Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */
+export function episodeText(m: Episode, name: (ref: string) => string) {
   const end = m.end?.startsWith(m.start?.slice(0, 10) ?? "-")
     ? m.end.slice(11)
     : m.end && plain(m.end);
@@ -39,32 +39,28 @@ export function momentText(m: Moment, name: (ref: string) => string) {
       return them.length > 0 ? `; ${role} ${them.join(", ")}` : "";
     })
     .join("");
-  return `${m.status[0]?.toUpperCase()}${m.status.slice(1)}: ${m.title}${time && `, ${time}`}${m.place ? `, at ${m.place}` : ""}${roles}.`;
+  return `${m.title}${time && `, ${time}`}${m.place ? `, at ${m.place}` : ""}${roles}.`;
 }
 
-/** Where a moment is rated: the one person with a page it was with (as who.ts says today), else `events`; never an unsure one. */
-export function momentGroup(
-  m: Moment,
+/** Where an episode is rated: the one person with a page it was with (as who.ts says today), else `episodes`. */
+export function episodeGroup(
+  m: Episode,
   paged: ReadonlySet<string>,
   refOf: (ref: string) => string
 ) {
-  if (m.status === "unsure") {
-    return null;
-  }
   const withPage = new Set(
     m.people.flatMap((p) => (p.role === "with" ? [refOf(p.ref)] : []))
   ).intersection(paged);
-  return withPage.size === 1 ? ([...withPage][0] as string) : "events";
+  return withPage.size === 1 ? ([...withPage][0] as string) : "episodes";
 }
 type Draft = Omit<Statement, "at" | "schemaVersion">;
 
-/** Why a claim may be wrong, by rules on what is stored: who it is about is only inferred, it was read from an unsure moment, the model was unsure. */
-export type Doubt = "guessed-person" | "unsure-moment" | "low-confidence";
+/** Why a claim may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
+export type Doubt = "guessed-person" | "low-confidence";
 
 /** An observation's doubts (the one place "doubtful" is decided): low confidence counts only beside another doubt. */
 export function doubtsOf(
   o: Pick<Observation, "about" | "confidence" | "entities" | "unit">,
-  unsureUnits: ReadonlySet<string>,
   refOf: (ref: string) => string
 ): Doubt[] {
   const found: Doubt[] = [];
@@ -74,9 +70,6 @@ export function doubtsOf(
     )
   ) {
     found.push("guessed-person");
-  }
-  if (unsureUnits.has(o.unit)) {
-    found.push("unsure-moment");
   }
   return found.length > 0 && o.confidence < SURE_AT
     ? [...found, "low-confidence"]
@@ -112,9 +105,9 @@ export const doubtful = (
     .slice(0, n);
 
 /**
- * What the memory holds now, in the words it is stated and judged in: the active observations and the moments.
+ * What the memory holds now, in the words it is stated and judged in: the active observations and the episodes.
  * `group` is where the owner would rate it, or null: an observation's home page when it is a line there (`placed`,
- * not hidden on it); a moment's `momentGroup`.
+ * not hidden on it); an episode's `episodeGroup`.
  */
 export async function claimsNow(): Promise<Claim[]> {
   const people = await readPeople();
@@ -124,10 +117,7 @@ export async function claimsNow(): Promise<Claim[]> {
   const home = new Map(
     [...homes].flatMap(([page, list]) => list.map(({ o }) => [o.id, page]))
   );
-  const moments = momentsNow(await readMoments(), people.corrections);
-  const unsureUnits = new Set(
-    moments.flatMap((m) => (m.status === "unsure" ? m.units : []))
-  );
+  const episodes = episodesNow(await readEpisodes(), people.corrections);
   const facts = observations.flatMap((o) => {
     const s = stateOf(o, standing);
     if (s.state !== "active") {
@@ -137,7 +127,7 @@ export async function claimsNow(): Promise<Claim[]> {
     return [
       {
         date: o.date,
-        doubts: doubtsOf(o, unsureUnits, people.refOf),
+        doubts: doubtsOf(o, people.refOf),
         group: page && shows(s, page) ? page : null,
         importance: o.importance,
         kind:
@@ -153,15 +143,15 @@ export async function claimsNow(): Promise<Claim[]> {
   });
   return [
     ...facts,
-    ...moments.map((m) => ({
+    ...episodes.map((m) => ({
       date: m.day,
       doubts: [],
-      group: momentGroup(m, paged, people.refOf),
+      group: episodeGroup(m, paged, people.refOf),
       importance: m.importance,
-      kind: "moment" as const,
+      kind: "episode" as const,
       ref: m.id,
       source: null,
-      text: momentText(m, people.nameOf),
+      text: episodeText(m, people.nameOf),
       units: m.units,
     })),
   ];

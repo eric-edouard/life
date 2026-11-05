@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import {
   Extracted,
   Observation,
@@ -14,11 +14,12 @@ import type { LifelogConversation } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
   EXTRACTED,
+  episodesNow,
   isRereadSince,
   latestBy,
-  momentsNow,
   OBSERVATIONS,
-  readMoments,
+  readBy,
+  readEpisodes,
   readVerdicts,
   rereadAt,
   SUPERSESSIONS,
@@ -44,25 +45,25 @@ import {
 import { observationsNow, readPeople, unitNow, who } from "./who";
 import { chatLines, spokenLines } from "./words";
 
-// `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, moments.ts),
-// the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
+// `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
+// the deep-tier model reads the episode it belongs to (episodes.ts: every unit of it, from every channel and day, from
 // the day before its first unit to read; groupsOf) with
 // the earlier facts about its people, and returns observations; code checks each quote against the source and each
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
-// the moment's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
+// the episode's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
 const EXTRACT_PROMPT = "memory-extract.v5";
-/** Characters of unit text per call: whole moments, as many as fit. */
+/** Characters of unit text per call: whole episodes, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
-/** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
+/** Earlier facts shown with an episode: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
 /** What lasts between him and someone close (`about_a_person` facts), shown from this far back, at most this many. */
 const BOND_DAYS = 365;
 const BOND_MAX = 10;
-/** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
-const MOMENT_MAX = 20;
+/** Facts from the episode's own units, of any age (a plan carried to its day), at most this many. */
+const EPISODE_MAX = 20;
 
 /**
  * The ids of the conversations lifelog has settled (the contract's `closed`, its own signal, never a timing rule of
@@ -73,28 +74,28 @@ export const closedConversations = (conversations: LifelogConversation[]) =>
 
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);
 
-/** What one moment gives extraction to read: the moment (null for kept units in no moment) and its units. */
+/** What one episode gives extraction to read: the episode (null for kept units in no episode) and its units. */
 export interface Group {
-  moment: Moment | null;
+  episode: Episode | null;
   units: Built[];
 }
 
 /**
- * What to read, moment by moment (`moments` as they stand, `momentsNow`): every moment holding a pending unit, with
- * its units worth a searchable line (a copy never, returned apart); then the pending units in no moment, a day at a
- * time. A unit in several moments is read once, with the one reaching furthest forward (of those, the smallest), so a
- * question is read with its answer and the unit's earlier facts give way to the new reading.
+ * What to read, episode by episode (`episodes` as they stand, `episodesNow`): every episode holding a pending unit, with
+ * its units worth a searchable line (a copy never, returned apart); then the pending units in no episode, a day at a
+ * time. A unit in several episodes is read once, with its episode (`readBy`), so a question is read with its answer and
+ * the unit's earlier facts give way to the new reading.
  */
 export function groupsOf(
   pending: Built[],
   built: Built[],
   verdicts: Verdicts,
-  moments: Moment[]
+  episodes: Episode[]
 ) {
   const byId = new Map(built.map((b) => [b.unit.id, b]));
   const waiting = new Set(pending.map((b) => b.unit.id));
-  // A copy of another unit is never read, in its moment or alone: it is marked read with nothing in it.
-  const copied = new Set(moments.flatMap((m) => m.copies));
+  // A copy of another unit is never read, in its episode or alone: it is marked read with nothing in it.
+  const copied = new Set(episodes.flatMap((m) => m.copies));
   const worth = (id: string) => {
     const b = byId.get(id);
     return b &&
@@ -104,41 +105,33 @@ export function groupsOf(
       ? [b]
       : [];
   };
-  const read = moments.map((moment) => ({
-    moment,
-    units: moment.units
+  const read = episodes.map((episode) => ({
+    episode,
+    units: episode.units
       .flatMap(worth)
       .toSorted((a, b) => a.unit.date.localeCompare(b.unit.date)),
   }));
-  // Furthest last, and of the same reach the smallest last: the last moment to claim a unit keeps it.
-  const readBy = new Map(
-    read
-      .toSorted(
-        (a, b) =>
-          a.moment.day.localeCompare(b.moment.day) ||
-          b.units.length - a.units.length
-      )
-      .flatMap(({ moment, units }) => units.map((b) => [b.unit.id, moment]))
-  );
-  const groups: Group[] = read.flatMap(({ moment, units }) => {
-    const own = units.filter((b) => readBy.get(b.unit.id) === moment);
+  const byEpisode = readBy(episodes);
+  const claimed = new Set(read.flatMap((r) => r.units.map((b) => b.unit.id)));
+  const groups: Group[] = read.flatMap(({ episode, units }) => {
+    const own = units.filter((b) => byEpisode.get(b.unit.id) === episode);
     const first = own.find((b) => waiting.has(b.unit.id))?.unit.date;
     // Read from the day before its first pending unit, so a new day does not re-read a whole trip: the facts of its
     // earlier days come as priors (`priorFor`).
     return first
       ? [
           {
-            moment,
+            episode,
             units: own.filter((b) => b.unit.date >= daysBefore(first, 1)),
           },
         ]
       : [];
   });
   const rest = pending.filter(
-    (b) => !(copied.has(b.unit.id) || readBy.has(b.unit.id))
+    (b) => !(copied.has(b.unit.id) || claimed.has(b.unit.id))
   );
   for (const units of Map.groupBy(rest, (b) => b.unit.date).values()) {
-    groups.push({ moment: null, units });
+    groups.push({ episode: null, units });
   }
   return { copies: pending.filter((b) => copied.has(b.unit.id)), groups };
 }
@@ -168,7 +161,7 @@ export function packed<T extends { sources: Source[] }>(
 }
 
 /**
- * A group cut between its days into runs that fit the budget (a day is never cut): a moment over the budget alone, a
+ * A group cut between its days into runs that fit the budget (a day is never cut): an episode over the budget alone, a
  * long trip read whole, is read too thinly (one call wrote 15 facts for 48 units where day by day wrote 39).
  */
 export function byDays<T extends Group & { sources: Source[] }>(
@@ -246,15 +239,15 @@ async function appendObservations(list: Observation[]) {
 }
 
 /**
- * Calls in lanes, run PARALLEL lanes at a time and a lane's calls one after another: the calls holding one moment (cut
+ * Calls in lanes, run PARALLEL lanes at a time and a lane's calls one after another: the calls holding one episode (cut
  * between its days) share a lane, in order, so its later days see what its earlier ones wrote.
  */
-export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
+export function lanesOf<T extends { episode: Episode | null }[]>(calls: T[]) {
   const index = new Map(calls.map((c, i) => [c, i]));
   const laneOf = new Map<string, T[]>();
   const lanes = new Set<T[]>();
   for (const call of calls) {
-    const ids = call.flatMap((g) => (g.moment ? [g.moment.id] : []));
+    const ids = call.flatMap((g) => (g.episode ? [g.episode.id] : []));
     const met = new Set(
       ids.flatMap((id) => {
         const l = laneOf.get(id);
@@ -285,7 +278,7 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
  * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
+ * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the episode's own
  * units at any age, and the `about_a_person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
@@ -301,22 +294,22 @@ export function priorFor(
   const people = new Set(
     othersIn([
       ...group.units.flatMap((b) => b.unit.people),
-      ...(group.moment?.people.map((p) => p.ref) ?? []),
+      ...(group.episode?.people.map((p) => p.ref) ?? []),
     ])
   );
   const about = (o: Observation) =>
     o.date >= daysBefore(day, PRIOR_DAYS) &&
     (o.entities.some((e) => people.has(e)) ||
       (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
-  const own = new Set(group.moment?.units);
-  const ofMoment = (o: Observation) => own.has(o.unit);
+  const own = new Set(group.episode?.units);
+  const ofEpisode = (o: Observation) => own.has(o.unit);
   const lasting = (o: Observation) =>
     o.type === "about_a_person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
     o.entities.some((e) => people.has(e) && close.has(e));
   const slots: [(o: Observation) => boolean, number][] = [
     [about, max],
-    [ofMoment, MOMENT_MAX],
+    [ofEpisode, EPISODE_MAX],
     [lasting, BOND_MAX],
   ];
   const candidates = shown
@@ -354,7 +347,7 @@ export async function extract(evidence: Evidence) {
   const verdicts = await readVerdicts();
   const people = await readPeople();
   const { corrections, inferred, refOf, resolve } = people;
-  // Who each unit is with as of now: the people the moments step just inferred included.
+  // Who each unit is with as of now: the people the episodes step just inferred included.
   const inWindow = built
     .filter(
       (b) =>
@@ -366,7 +359,7 @@ export async function extract(evidence: Evidence) {
       unit: unitNow(b.unit, refOf),
     }));
   const [written, { observations: known, standing }] = await Promise.all([
-    readMoments(),
+    readEpisodes(),
     observationsNow(people),
   ]);
   const { kept, pending, stale, unkept } = toExtract(
@@ -389,8 +382,8 @@ export async function extract(evidence: Evidence) {
     pending.map((p) => p.b),
     inWindow,
     verdicts,
-    // A moment the owner said is wrong groups nothing.
-    momentsNow(written, corrections)
+    // An episode the owner said is wrong groups nothing.
+    episodesNow(written, corrections)
   );
 
   const read = groups.flatMap((g) => g.units);
@@ -462,13 +455,13 @@ export async function extract(evidence: Evidence) {
         ).values(),
       ];
       const input = {
-        moments: call.map(({ moment: m, sources: ss }) => ({
+        // Not the episode's `what`: extraction reads the units; the episode only groups them (its prompt's meaning, v5).
+        episodes: call.map(({ episode: m, sources: ss }) => ({
           id: m?.id ?? "none",
           people: m?.people ?? [],
           place: m?.place ?? null,
           start: m?.start ?? null,
-          status: m?.status ?? null,
-          title: m?.title ?? "units in no moment",
+          title: m?.title ?? "units in no episode",
           units: ss.map(({ lines: ls, unit }) => ({
             id: unit.id,
             lines: ls.map(
@@ -578,8 +571,8 @@ export async function extract(evidence: Evidence) {
   return step.end({
     added: observations.length,
     cached: kept.length - pending.length,
+    episodes: groups.filter((g) => g.episode).length,
     kept: kept.length,
-    moments: groups.filter((g) => g.moment).length,
     read: finished.length,
     rejects: rejects.length,
     retired: retired.length,

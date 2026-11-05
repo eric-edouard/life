@@ -11,6 +11,7 @@ import { InferredRepo } from "../records/observation";
 import type { Unit } from "../records/unit";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
+import { topTopics } from "./episodes";
 import {
   REPOS_INFERRED,
   readInferredRepos,
@@ -19,7 +20,6 @@ import {
   type Verdicts,
   verdictOf,
 } from "./ledger";
-import { topTopics } from "./moments";
 import { loadTruth, ownerIn } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf } from "./sources";
@@ -215,7 +215,7 @@ export function codeRows(
     }));
 }
 
-/** The Code rows for one day's git units, as the moments step wrote them. */
+/** The Code rows for one day's git units, as the episodes step wrote them. */
 export async function codeOn(day: string) {
   const [truth, inferredRepos, units, verdicts] = await Promise.all([
     loadTruth(),

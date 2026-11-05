@@ -6,8 +6,8 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { openReadOnly } from "../core/sqlite";
+import type { Episode } from "../records/episode";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
-import type { Moment } from "../records/moment";
 import {
   INFERRED_USE_AT,
   Level,
@@ -18,6 +18,7 @@ import type { Unit, Verdict } from "../records/unit";
 import { KEEP_AT } from "../records/unit";
 import {
   conversationsWith,
+  lifelogMissing,
   searchVoice,
   speakers,
   turnPlace,
@@ -34,12 +35,13 @@ import {
 import { levelsWith } from "./closeness";
 import {
   daysOf,
-  momentsNow,
+  episodesNow,
   OUT,
   pagePath,
+  readBy,
   readCorrections,
+  readEpisodes,
   readLedger,
-  readMoments,
   readUnits,
   readUnresolved,
   readVerdicts,
@@ -50,8 +52,11 @@ import {
 } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
+import { span } from "./past-events";
+import { stayOf, staysOf, where } from "./places";
 import { goalProjects, loadTruth, OWNER, type Truth } from "./read-truth";
 import { kindOf, listening } from "./sources";
+import { episodeText } from "./statements";
 import {
   clip,
   dayRange,
@@ -85,10 +90,10 @@ import { dayNow, dayStart, localDate, when } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (apps/server/src/host/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
-//   search <words>   moments, observations and units matching the words, the exact spoken words (lifelog's search) and chats
-//   day <date>       what happened that day (its moments), its units (recorded conversations among them) and its key
+//   search <words>   episodes, observations and units matching the words, the exact spoken words (lifelog's search) and chats
+//   day <date>       what happened that day (its episodes), its units (recorded conversations among them) and its key
 //                    observations
-//   person [name]    a person's page, what Life holds about them, their observations, moments and recorded conversations,
+//   person [name]    a person's page, what Life holds about them, their observations, episodes and recorded conversations,
 //                    paged back by day; with no name, the people
 //   area <id>        an area's page and latest observations
 //   topics [tag]     the top topics, or the units tagged so, by date (--person <id>: only units involving them)
@@ -105,17 +110,17 @@ const cut = (lines: string[], newest = false) =>
       ]
     : lines;
 
-/** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
-export const momentLine = (m: Moment) =>
-  `- ${m.id} ${m.start ?? `${m.day} (undated)`}${m.end ? ` to ${m.end}` : ""} ${m.title}${m.place ? ` @ ${m.place}` : ""} (${m.status}${m.people.length > 0 ? `; ${m.people.map((p) => `${named({ speaker: p.ref })} ${p.role}`).join(", ")}` : ""}) [${m.units.slice(0, 3).join(" ")}]`;
+/** An episode as the read path prints it: its id (to correct it), `episodeText`, and units to `fetch`. */
+export const episodeLine = (m: Episode) =>
+  `- ${m.id} ${episodeText(m, (ref) => named({ speaker: ref }))}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
 
-/** The moments as they stand now that `keep` keeps, by when they happen. */
-const momentsWhere = async (keep: (m: Moment) => boolean) => {
+/** The episodes as they stand now that `keep` keeps, by when they happen. */
+const episodesWhere = async (keep: (m: Episode) => boolean) => {
   const [lines, corrections] = await Promise.all([
-    readMoments(),
+    readEpisodes(),
     readCorrections(),
   ]);
-  return momentsNow(lines, corrections)
+  return episodesNow(lines, corrections)
     .filter(keep)
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
@@ -157,6 +162,8 @@ const line = (r: Row) => {
 interface UnitRow {
   date: string;
   id: string;
+  /** Its verdict's, or null when it has none yet. */
+  importance?: number | null;
   source: SourceName;
   title: string;
   topics: string;
@@ -189,8 +196,8 @@ const between = (col: string, r: Days) => ({
 const daysMeet = (r: Days, first: string, last = first) =>
   (!r.from || last >= r.from.slice(0, 10)) &&
   (!r.to || first <= r.to.slice(0, 10));
-/** A moment that has a day inside `r`. */
-const inDays = (r: Days) => (m: Moment) => daysMeet(r, ...daysOf(m));
+/** An episode that has a day inside `r`. */
+const inDays = (r: Days) => (m: Episode) => daysMeet(r, ...daysOf(m));
 
 export function matches(db: Database, q: string, range: Days = {}) {
   const o = between("o.date", range);
@@ -226,11 +233,11 @@ export function matches(db: Database, q: string, range: Days = {}) {
   return ["(nothing found)"];
 }
 
-/** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
-function latest(db: Database, where: string, value: string, limit = LIMIT) {
+/** The observations `clause` finds worth a page line, newest first: `limit` of them (-1: all). */
+function latest(db: Database, clause: string, value: string, limit = LIMIT) {
   return db
     .query<Row, [string]>(
-      `select ${COLUMNS} from observations o ${where} and o.importance >= ${KEEP_AT} and ${CURRENT}
+      `select ${COLUMNS} from observations o ${clause} and o.importance >= ${KEEP_AT} and ${CURRENT}
        order by o.date desc, o.at desc limit ${limit}`
     )
     .all(value);
@@ -329,15 +336,11 @@ export async function search(words: string, o: Days = {}) {
     voiceHits(words, range),
     chatHits(words, range),
     mailHits(words, range),
-    momentsWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
+    episodesWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
   ]);
   return withIndex((db) => [
     ...(found.length > 0
-      ? [
-          "Moments (what happened or is planned):",
-          ...cut(found.map(momentLine), true),
-          "",
-        ]
+      ? ["Episodes (what happened):", ...cut(found.map(episodeLine), true), ""]
       : []),
     ...(found.length > 0 ? ["Observations and units:"] : []),
     ...matches(db, words, o),
@@ -404,7 +407,7 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
 /** One thing of a person's timeline: its day, which list it shows in, and its line. */
 interface Dated {
   day: string;
-  kind: "conversation" | "moment" | "observation";
+  kind: "conversation" | "episode" | "observation";
   line: string;
 }
 
@@ -449,7 +452,7 @@ export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
     ...months.map((m) => {
       const here = (byMonth.get(m) ?? []).toSorted((a, b) => b.n - a.n);
       const by = here.map((r) => `${r.source} ${r.n}`).join(", ");
-      return `- ${m}: ${total(here)} units${by ? ` (${by})` : ""}, ${count(m, "observation")} observations, ${count(m, "moment")} moments`;
+      return `- ${m}: ${total(here)} units${by ? ` (${by})` : ""}, ${count(m, "observation")} observations, ${count(m, "episode")} episodes`;
     }),
     "Not in Life: calls, and time together that wasn't recorded.",
   ];
@@ -457,7 +460,7 @@ export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
 
 /**
  * A person: their page, whole, and what Life holds about them by source and month; then their observations (every
- * one linked to them, whatever page it lives on) and the moments with them, newest first by whole days, and their
+ * one linked to them, whatever page it lives on) and the episodes with them, newest first by whole days, and their
  * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
  * two people go by lists them, then shows the first; a name on no page nor map is looked for among lifelog's
  * speakers; a name no one goes by says so and lists the names near it.
@@ -487,7 +490,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const close = await closenessLine(ref);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
-  const moments = await momentsWhere((m) =>
+  const episodes = await episodesWhere((m) =>
     m.people.some((p) => refOf(p.ref) === ref)
   );
   return withStore((store) =>
@@ -501,7 +504,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
         return noOne(name, people, voices);
       }
       const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
-      // One timeline, newest first, paged once: observations, moments and recorded conversations.
+      // One timeline, newest first, paged once: observations, episodes and recorded conversations.
       const timeline: Dated[] = [
         ...latest(
           db,
@@ -513,10 +516,10 @@ export async function person(name?: string, o: { before?: string } = {}) {
           kind: "observation" as const,
           line: line(r),
         })),
-        ...moments.toReversed().map((m) => ({
+        ...episodes.toReversed().map((m) => ({
           day: daysOf(m)[0],
-          kind: "moment" as const,
-          line: momentLine(m),
+          kind: "episode" as const,
+          line: episodeLine(m),
         })),
         ...conversationsWith(store, ids).map((c) => ({
           day: localDate(c.start_at),
@@ -544,7 +547,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
               "",
               ...coverageLines(db, ref, timeline),
             ]),
-        ...section("Moments with them:", lines("moment")),
+        ...section("Episodes with them:", lines("episode")),
         ...section(recordedTitle(heard), lines("conversation")),
         "",
         next
@@ -596,26 +599,44 @@ const linkedCount = (db: Database, id: string) =>
     )
     .get(`person:${id}`)?.n ?? 0;
 
+/** An episode of `read_day`: where he was during it (a stay, when lifelog says) and its key facts (`readBy`). */
+export interface DayEpisode {
+  episode: Episode;
+  facts: string[];
+  stay?: string;
+}
+
+/** A unit's episode among those shown (`readBy`'s pick), else undefined: its facts then sit under no episode. */
+export const shownEpisode =
+  (byEpisode: Map<string, Episode>, shown: Set<Episode>) => (unit: string) => {
+    const m = byEpisode.get(unit);
+    return m && shown.has(m) ? m : undefined;
+  };
+
 /**
- * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
- * planned ones included), its units (conversations, chats, mail and the rest), its key observations,
- * then what Life changed for him.
+ * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what he did (its
+ * episodes in time order, each with where he was, what happened and its key facts), the key facts in no episode, its units
+ * (conversations, chats, mail and the rest; those judged worth nothing only counted), then what Life changed for him.
+ * `whereUnknown`: lifelog could not be read, so where he was is not shown.
  */
 export function dayLines({
   actions = [],
   born = [],
   due = [],
   facts = [],
-  moments = [],
+  episodes = [],
   units = [],
+  whereUnknown = false,
 }: {
   actions?: LedgerEntry[];
   born?: string[];
   due?: string[];
   facts?: string[];
-  moments?: Moment[];
+  episodes?: DayEpisode[];
   units?: UnitRow[];
+  whereUnknown?: boolean;
 }) {
+  const noise = units.filter((u) => u.importance === 0).length;
   return [
     ...(born.length > 0
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
@@ -627,16 +648,26 @@ export function dayLines({
           "",
         ]
       : []),
-    ...(moments.length > 0
+    ...(episodes.length > 0
       ? [
-          "Moments (what happened or is planned):",
-          ...moments.map(momentLine),
+          "Episodes (what he did, in time order):",
+          ...episodes.flatMap(({ facts: of, episode, stay }) => [
+            episodeLine(episode),
+            ...(stay ? [`    Where he was: ${stay}`] : []),
+            ...(episode.what ? [`    ${episode.what}`] : []),
+            ...of.map((f) => `    ${f}`),
+          ]),
+          ...(whereUnknown
+            ? ["Where he was is unknown: lifelog could not be read."]
+            : []),
           "",
         ]
       : []),
-    `Units (${units.length}; \`fetch <unit id>\`):`,
-    ...units.map(unitLine),
-    ...(facts.length > 0 ? ["", "Key observations:", ...facts] : []),
+    ...(facts.length > 0
+      ? ["Key observations in no episode:", ...facts, ""]
+      : []),
+    `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
+    ...units.filter((u) => u.importance !== 0).map(unitLine),
     ...(actions.length > 0
       ? [
           "",
@@ -655,28 +686,50 @@ export async function day(date: string) {
   const actions = (await readLedger()).filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
-  const moments = await momentsWhere(inDays({ from: date, to: date }));
+  const all = await episodesWhere(() => true);
+  const episodes = all
+    .filter(inDays({ from: date, to: date }))
+    .toSorted((a, b) => (a.start ?? a.day).localeCompare(b.start ?? b.day));
+  const byEpisode = readBy(all);
+  // None without lifelog; null when it is set up but could not be read.
+  const stays = lifelogMissing()
+    ? []
+    : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, truth);
-  return withIndex((db) =>
-    dayLines({
+  return withIndex((db) => {
+    const facts = db
+      .query<Row & { unit: string }, [string]>(
+        `select ${COLUMNS}, o.unit from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
+           order by o.importance desc, o.at limit ${DAY_FACTS}`
+      )
+      .all(date);
+    const of = shownEpisode(byEpisode, new Set(episodes));
+    const factsOf = (m: Episode | undefined) =>
+      facts.filter((f) => of(f.unit) === m).map(line);
+    return dayLines({
       actions,
       born,
       due: dueOf(db, date, context),
-      facts: db
-        .query<Row, [string]>(
-          `select ${COLUMNS} from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
-             order by o.importance desc, o.at limit ${DAY_FACTS}`
-        )
-        .all(date)
-        .map(line),
-      moments,
+      episodes: episodes.map((episode) => {
+        const s = span(episode);
+        const stay = s.allDay
+          ? undefined
+          : stays && stayOf(s.from, s.to, stays);
+        return {
+          episode,
+          facts: factsOf(episode),
+          stay: stay ? where(stay) : undefined,
+        };
+      }),
+      facts: factsOf(undefined),
       units: db
         .query<UnitRow, [string]>(
-          "select id, date, source, title, topics from units where date = ? order by source, title"
+          "select id, date, source, title, topics, importance from units where date = ? order by source, title"
         )
         .all(date),
-    })
-  );
+      whereUnknown: episodes.length > 0 && stays === null,
+    });
+  });
 }
 
 /** How far ahead `read_day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */
@@ -883,7 +936,7 @@ export const topicsOf = (tag: string | undefined, who?: string) =>
         .all(...args);
       return rows.length > 0
         ? rows.map((r) => `- ${r.topic}: ${r.n}`)
-        : ["(no topics yet: run moments)"];
+        : ["(no topics yet: run episodes)"];
     }
     const wanted = normalizeTopics([tag])[0] ?? tag;
     const rows = db

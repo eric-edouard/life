@@ -2,8 +2,8 @@ import EventKit
 import Foundation
 
 // life-eventkit: the Past calendar on an Apple calendar, through EventKit, for an install without Google
-// (apps/server/src/memory/past-events.ts, `calendar held|create|delete`). Life's events carry their moment and hash in their URL,
-// `life://moment/<id>?hash=<hash>`, as Google's carry them in private properties. Reminders is remctl's, never this.
+// (apps/server/src/memory/past-events.ts, `calendar held|create|delete`). Life's events carry their episode and hash in their URL,
+// `life://episode/<id>?hash=<hash>`, as Google's carry them in private properties. Reminders is remctl's, never this.
 
 let store = EKEventStore()
 
@@ -70,11 +70,12 @@ func eventCalendar(_ title: String) -> EKCalendar {
   return c
 }
 
-func moment(of e: EKEvent) -> (id: String, hash: String)? {
-  guard let url = e.url, url.scheme == "life", url.host == "moment",
+// Any `life:` URL is Life's; one not naming an episode (an older Life's) gets no id, so it is never wanted and goes.
+func episode(of e: EKEvent) -> (id: String, hash: String)? {
+  guard let url = e.url, url.scheme == "life",
     let parts = URLComponents(url: url, resolvingAgainstBaseURL: false)
   else { return nil }
-  let id = String(url.path.dropFirst())
+  let id = url.host == "episode" ? String(url.path.dropFirst()) : ""
   let hash = parts.queryItems?.first { $0.name == "hash" }?.value ?? ""
   return (id, hash)
 }
@@ -96,7 +97,7 @@ case "held":
   while start < until {
     let end = min(Calendar.current.date(byAdding: .year, value: 4, to: start) ?? until, until)
     for e in store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: [cal])) {
-      if let m = moment(of: e) { held.append(["hash": m.hash, "id": e.eventIdentifier, "moment": m.id]) }
+      if let m = episode(of: e) { held.append(["hash": m.hash, "id": e.eventIdentifier, "episode": m.id]) }
     }
     start = end
   }
@@ -116,8 +117,8 @@ case "create":
   e.endDate = e.isAllDay ? end.addingTimeInterval(-1) : end
   var url = URLComponents()
   url.scheme = "life"
-  url.host = "moment"
-  url.path = "/\(named["moment"] ?? "")"
+  url.host = "episode"
+  url.path = "/\(named["episode"] ?? "")"
   url.queryItems = [URLQueryItem(name: "hash", value: named["hash"] ?? "")]
   e.url = url.url
   do { try store.save(e, span: .thisEvent, commit: true) } catch { fail("create: \(error.localizedDescription)") }

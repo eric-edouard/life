@@ -35,7 +35,7 @@
 
 Documents are `AnyObject`-constrained, so a document is a class. Mark it `@Observable` so SwiftUI tracks individual property changes instead of recreating the model.
 
-A **snapshot** is the document's state at one moment. It can be any type — `String`, a struct, or the document itself — and reading and writing may use different snapshot types. Keep snapshot, reader, and writer types at `internal` access; protocol requirements expose them in signatures, so `private` or `fileprivate` fails to compile.
+A **snapshot** is the document's state at one episode. It can be any type — `String`, a struct, or the document itself — and reading and writing may use different snapshot types. Keep snapshot, reader, and writer types at `internal` access; protocol requirements expose them in signatures, so `private` or `fileprivate` fails to compile.
 
 ## Read and Write Flow
 

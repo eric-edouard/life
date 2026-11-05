@@ -12,9 +12,9 @@ import {
   renderHtml,
   type Section,
 } from "../memory/email";
+import type { episodes } from "../memory/episodes";
 import type { extract } from "../memory/extract";
 import type { describeFiles } from "../memory/message-files";
-import type { moments } from "../memory/moments";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
@@ -44,6 +44,8 @@ export interface Night {
   backup: string;
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
+  /** The days whose episodes were read again, and how many episodes they hold. */
+  episodes: Result<typeof episodes>;
   extracted: Result<typeof extract>;
   /** The importance-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
   facts: { id: string; page: string; text: string }[];
@@ -53,8 +55,6 @@ export interface Night {
   from: string;
   /** Each unit holding one of his asks, read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
-  /** The days whose moments were read again, and how many moments they hold. */
-  moments: Result<typeof moments>;
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
   observed: number;
   paged: Result<typeof pages>;
@@ -132,9 +132,9 @@ export function successReport(day: string, ms: number, n: Night) {
   const { date, weekday } = when(day);
   const { changes } = n.paged;
   const { actions: done, problems } = n.acted;
-  const a = n.moments.agreement;
+  const a = n.episodes.agreement;
   const models = [
-    ...new Set([n.moments, n.extracted, n.paged].map((s) => s.model)),
+    ...new Set([n.episodes, n.extracted, n.paged].map((s) => s.model)),
   ].join(", ");
   const mail = compose(
     `${date} · ${count(n.facts.length, "new fact")}, ${count(changes.length, "page")}${done.length > 0 ? `, ${count(done.length, "action")}` : ""}`,
@@ -156,7 +156,7 @@ export function successReport(day: string, ms: number, n: Night) {
             .join(", ") || "none (turn one on to start)"
         }`,
         `Lifelog: ${watcherLine()}`,
-        `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
+        `Read ${when(n.from).date}–${date}: ${n.episodes.units} units, ${count(n.episodes.episodes, "episode")} on ${count(n.episodes.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.episodes.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
         n.backup,
@@ -164,7 +164,7 @@ export function successReport(day: string, ms: number, n: Night) {
         ...n.spent,
         "Failures: none",
       ],
-      preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.moments.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
+      preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         {
           kind: "pairs",
@@ -190,16 +190,16 @@ export function successReport(day: string, ms: number, n: Night) {
         },
         { kind: "pairs", list: n.marked, title: "Asks remembered" },
         { kind: "facts", list: n.facts, title: "What it found" },
-        { kind: "pairs", list: n.moments.people, title: "New people" },
+        { kind: "pairs", list: n.episodes.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },
       ],
       stats: [
         { label: "new facts", value: String(n.facts.length) },
         { label: "pages changed", value: String(changes.length) },
-        { label: "people inferred", value: String(n.moments.people.length) },
+        { label: "people inferred", value: String(n.episodes.people.length) },
         { label: "agreement", value: percent(a.agreement) },
         { label: "duration", value: duration(ms) },
-        { label: "units read", value: String(n.moments.units) },
+        { label: "units read", value: String(n.episodes.units) },
       ],
       verdict: "OK · memory committed",
       weekday,
@@ -296,7 +296,7 @@ export const sourcesReport = (
       step: "reading its sources",
     },
     notes: [
-      "Days holding a source Life can't read wait for it: no moments or facts for them until it reads again.",
+      "Days holding a source Life can't read wait for it: no episodes or facts for them until it reads again.",
       "While the archive can't copy a store, messages deleted and note versions replaced meanwhile are lost.",
       "Details: the app's Sources cards, derived/log",
     ],

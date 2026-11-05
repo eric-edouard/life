@@ -30,12 +30,12 @@ and cites where each answer comes from.
 >
 > **1. Pay the October rent by Friday 16 October:** kept, a day early.
 > - The promise: *"I'll send the rent by Friday, sorry for the delay"* (obs_7938971d6db7)
-> - On 15 October at 18:40 you wrote *"Done, the October rent is sent"* (obs_58f120ffa801, mom_33cb4cebbcea).
+> - On 15 October at 18:40 you wrote *"Done, the October rent is sent"* (obs_58f120ffa801, ep_33cb4cebbcea).
 >
 > **2. Be home Saturday 17 October to let the plumber in for the kitchen sink:** kept.
 > - The promise: *"I'll be home Saturday morning to let the plumber in"* (obs_031fc9a8b3e7)
 > - Your lifelog shows Hans fixed the sink at the flat at 10:00 that Saturday. He told you *"the drain pipe was cracked,
->   I put in a new one"* (obs_a5b48d28a3c9, mom_3d2da4745984).
+>   I put in a new one"* (obs_a5b48d28a3c9, ep_3d2da4745984).
 >
 > **Coming up:** on 21 October, Claire Dupont said she'll send the 2027 lease for you to sign before the end of October
 > (obs_63f9c7b97304). That's something you're waiting on from her, not a promise you made.

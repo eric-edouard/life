@@ -119,11 +119,11 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the moments (`apps/server/src/memory/past-events.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
-one event per moment that happened, overlapping as they happened (a big moment holds smaller ones), found by its private
-properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gone one deleted; events without
-`lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its
-events with `lifeMoment` are Life's output and must be dropped.
+A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
+one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
+properties `lifeEpisode` and `lifeHash`. A changed episode is written again, a gone one deleted; events without
+`lifeEpisode` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its
+events with `lifeEpisode` are Life's output and must be dropped.
 
 ## Marks
 
@@ -131,7 +131,7 @@ What he asks is worth remembering: each ask's span (`asksIn`, `apps/server/src/h
 hearing in the watcher's store as a mark (`writeMarks`, refs only). There is no other marker: "hey Life" is one of the
 agent's wake words in his settings, like its name. The unit carries its marks (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
-importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
+importance 3 (`episodes.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
 observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask is what the agent pulls.
 
 ## The connector

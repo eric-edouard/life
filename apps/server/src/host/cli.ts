@@ -30,9 +30,13 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
+
+// Episodes become what happened once, before any command reads the memory (AGENTS.md, "A rename backfills").
+await migrateStored();
 
 /** The one agent, when there is exactly one: the default of `ask`. */
 const only = () => {
@@ -149,7 +153,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     return Promise.resolve(0);
   },
   /**
-   * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each moment as
+   * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each instant as
    * the time since the one before it (apps/server/src/host/asks.ts `timings`).
    */
   asks() {
@@ -158,12 +162,12 @@ const commands: Record<string, () => number | Promise<number>> = {
       options: { from: { type: "string" }, to: { type: "string" } },
     });
     const { from, to } = dayRange(values.from, values.to);
-    for (const { id, via, moments, quote } of timings(from, to)) {
-      const [[, spoke] = [], ...rest] = moments;
+    for (const { id, via, instants, quote } of timings(from, to)) {
+      const [[, spoke] = [], ...rest] = instants;
       let prev = spoke ?? "";
-      const hops = rest.flatMap(([moment, at]) => {
+      const hops = rest.flatMap(([what, at]) => {
         const hop = at
-          ? [`${moment} +${duration(Date.parse(at) - Date.parse(prev))}`]
+          ? [`${what} +${duration(Date.parse(at) - Date.parse(prev))}`]
           : [];
         prev = at ?? prev;
         return hop;
@@ -296,7 +300,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log("Life: data ready");
     return 0;
   },
-  /** The memory pipeline and its read path: `memory nightly|moments|extract|search…` (apps/server/src/host/command.ts). */
+  /** The memory pipeline and its read path: `memory nightly|episodes|extract|search…` (apps/server/src/host/command.ts). */
   memory: () => memoryCommand(process.argv.slice(3)),
   /**
    * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it

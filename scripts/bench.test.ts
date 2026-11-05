@@ -30,9 +30,20 @@ const row = (label: string, model: string, held?: number) => ({
         held: counts(held),
         minutes: 40,
         stated: counts(90),
+        timeline: {
+          duplicates: 1,
+          end: { checked: 8, ok: 5 },
+          extra: 3,
+          found: 10,
+          merged: 2,
+          missed: 4,
+          place: { checked: 9, ok: 8 },
+          start: { checked: 10, ok: 7 },
+          truth: 16,
+        },
       }),
 });
-const about = { facts: 38, rated: 99 };
+const about = { days: ["2026-10-20"], facts: 38, rated: 99 };
 
 test("bench table: within the baseline's spread (or 3) is a tie; no baseline is said so", () => {
   const t = factTable(
@@ -49,6 +60,9 @@ test("bench table: within the baseline's spread (or 3) is a tie; no baseline is 
   expect(t).toContain("| mimo1 | mimo | 9/21 | 2 | 1 | -6.0 |");
   expect(t).toContain("90/21, 2 wrong, 1 kept both");
   expect(t).toContain("wrong (of 38)");
+  expect(t).toContain(
+    "10/16, 2 merged, 3 extra, 1 dup, start 7/10, end 5/8, place 8/9"
+  );
   const alone = factTable(
     [row("life1", "life"), row("opus1", "opus", 17)],
     about

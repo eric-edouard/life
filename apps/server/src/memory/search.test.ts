@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { layoutOf, perSection, renderPage } from "./page-format";
@@ -16,17 +16,18 @@ import {
   coverageLines,
   dayLines,
   dueOf,
-  momentLine,
+  episodeLine,
   nextBirthday,
   readIndex,
   matches as searchMatches,
+  shownEpisode,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
 import { meant, namedLike, nearNames } from "./who";
 import { holdsAll } from "./words";
 
-test("day: its units, a recorded conversation among them, then its key observations", () => {
+test("day: its key observations in no episode, then its units, a recorded conversation among them", () => {
   const lines = dayLines({
     facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
     units: [
@@ -53,10 +54,25 @@ test("day: its units, a recorded conversation among them, then its key observati
   expect(lines).toContain(
     "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"
   );
-  expect(lines.slice(-2)).toEqual([
-    "Key observations:",
+  expect(lines.slice(0, 2)).toEqual([
+    "Key observations in no episode:",
     '- obs_1 2026-10-14 todo: Call the glazier "call him"',
   ]);
+});
+
+test("a fact sits under the episode shown that reads its unit; one read by an episode not shown sits under none", () => {
+  const dinner = { id: "ep_000000000001" } as Episode;
+  const later = { id: "ep_000000000002" } as Episode;
+  const of = shownEpisode(
+    new Map([
+      ["unit_000000000001", dinner],
+      ["unit_000000000002", later],
+    ]),
+    new Set([dinner])
+  );
+  expect(of("unit_000000000001")).toBe(dinner);
+  expect(of("unit_000000000002")).toBeUndefined();
+  expect(of("unit_000000000003")).toBeUndefined();
 });
 
 test("person: a name two people go by lists both, with relation and count", () => {
@@ -172,7 +188,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(cover[0]).toContain("its memory starts on 2026-10-14");
   expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
   expect(cover).toContain(
-    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 moments"
+    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes"
   );
   expect(cover.at(-1)).toContain("calls");
   db.close();
@@ -223,28 +239,60 @@ test("readIndex takes no async read: the index closes when the read returns", ()
   expect(refused).toBeFunction();
 });
 
-test("a day opens with what happened: its moments, when, what, where, how they stand and with whom", () => {
+test("a day opens with what he did: its episodes in plain words, where he was, what happened and their facts; units worth nothing only counted", () => {
   const m = {
     day: "2026-10-15",
     end: null,
-    id: "mom_000000000001",
+    id: "ep_000000000001",
     people: [
       { ref: "person:bastien", role: "with" },
       { ref: "unknown:Cédric", role: "with" },
     ],
     place: "Claire's house",
     start: "2026-10-16 16:20",
-    status: "happened",
     title: "Road trip to see the sisters with Bastien",
     units: ["unit_000000000001"],
-  } as Moment;
-  expect(momentLine(m)).toBe(
-    "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [unit_000000000001]"
+    what: "They drove to Rouen.",
+  } as Episode;
+  expect(episodeLine(m)).toStartWith(
+    "- ep_000000000001 Road trip to see the sisters with Bastien, 16 Oct"
   );
-  expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
-    "Moments (what happened or is planned):",
-    momentLine(m),
+  expect(episodeLine(m)).toEndWith(
+    ", at Claire's house; with bastien, Cédric. [unit_000000000001]"
+  );
+  const unit = (id: string, importance: number | null) => ({
+    date: "2026-10-16",
+    id,
+    importance,
+    source: "whatsapp" as const,
+    title: "Sisters",
+    topics: "",
+  });
+  expect(
+    dayLines({
+      episodes: [
+        { episode: m, facts: ["- obs_1 a fact of the trip"], stay: "Rouen" },
+      ],
+      facts: ["- obs_2 a fact in no episode"],
+      units: [unit("unit_000000000001", 2), unit("unit_000000000002", 0)],
+      whereUnknown: false,
+    })
+  ).toEqual([
+    "Episodes (what he did, in time order):",
+    episodeLine(m),
+    "    Where he was: Rouen",
+    "    They drove to Rouen.",
+    "    - obs_1 a fact of the trip",
+    "",
+    "Key observations in no episode:",
+    "- obs_2 a fact in no episode",
+    "",
+    "Units (2; `fetch <unit id>`; 1 worth nothing not listed):",
+    "- unit_000000000001 2026-10-16 whatsapp: Sisters",
   ]);
+  expect(
+    dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
+  ).toContain("Where he was is unknown: lifelog could not be read.");
   expect(dayLines({})[0]).toStartWith("Units (0;");
 });
 

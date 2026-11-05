@@ -3,7 +3,7 @@
 Reference: every file in `memory/`.
 
 Life's long-term memory, written for a future system that has never seen this code. The enforced copy of every record below is its zod schema in `apps/server/src/records/` (truth, ledger, sources, units,
-moments, observations, statements), with the fixed names in `core/names.ts`.
+episodes, observations, statements), with the fixed names in `core/names.ts`.
 Everything is plain text: JSON Lines (one JSON object per line), UTF-8. Times are ISO 8601 with a zone; dates
 (`YYYY-MM-DD`) and local times are where the owner was at that instant (`zones.jsonl`), whatever zone the Mac is in
 when they are read again. Every record has `schemaVersion`; a record a model judged says
@@ -34,7 +34,7 @@ One line per unit that started that day. A unit is one conversation-day (the tur
 local day; or one of lifelog's chapters, stored before conversation-days, kept as stored and never built again while
 its conversation is live, removed with it when lifelog retires or drops it: its conversation gets no conversation-days), one chat-day (every message of one chat on one
 day), one mail thread-day, one note-day (what the owner changed in one Apple Note on one day) or one repo-day (the owner's commits in one repo on one day). Deterministic code output only (no model's judgement): rebuilt by `bun life memory
-moments` for the days it covers; the conversation-days are also kept current by `bun life watch` (every change to a
+episodes` for the days it covers; the conversation-days are also kept current by `bun life watch` (every change to a
 conversation's turns) and checked by the nightly.
 
 | Field | Meaning |
@@ -55,8 +55,8 @@ conversation's turns) and checked by the nightly.
 
 ## verdicts.jsonl
 
-The model's judgement of units, append-only, one line per unit and run, written by `bun life memory moments` (one
-call per day, with the day's moments; before 18 Oct by a triage step of its own): `{schemaVersion: 1, unit, hash, type,
+The model's judgement of units, append-only, one line per unit and run, written by `bun life memory episodes` (one
+call per day, with the day's episodes; before 18 Oct by a triage step of its own): `{schemaVersion: 1, unit, hash, type,
 when, area, importance, topics, reason, kind?, madeBy: {engine, model, prompt, run}}`. `unit` and `hash` are the unit's `id` and
 the `hash` of the content judged; `type`, `when`, `area` and `importance` as defined above; `reason`: one line from the
 model saying why; `topics` (from `memory-triage.v3`, the same in v3.1; absent, read as none, before): one to three lowercase English
@@ -64,7 +64,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-moments.v5` since 2 Nov, which times a moment by when it happened, not by everything about it) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` since Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -81,37 +81,41 @@ file is gone from the Mac. A file met under a new ref with a known hash (a forwa
 model call. A prompt bump reads the model's files again. Unlike the rest of memory/, this holds documents' words:
 ID cards, invoices, plans.
 
-## moments/YYYY-MM-DD.jsonl
+## episodes/YYYY-MM-DD.jsonl
 
-What happened, or is planned, in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
-`bun life memory moments` (prompt `memory-moments.v5`) from one day of units read together across every channel, in
-time order, with the moments of the days before that may continue into it (the same call writes the day's verdicts).
-A day's file is rewritten when the day is read again; git keeps the old ones. A moment the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. A moment a later day sees again keeps its id there, and the latest
-day's line is its current state (a plan that happened, or was cancelled), and its units are those of all its days'
-lines. Model-owned, like `people-inferred.jsonl`.
+What happened in the owner's life: one line per episode (a trip, a dinner, a flight, a coffee), written by
+`bun life memory episodes` (prompt `memory-episodes.v6`) from one day of units read together across every channel, in
+time order, with where his phone stayed and the episodes of the day before that may continue into it (the same call
+writes the day's verdicts). A plan is never an episode: it is a fact with its `when`. A day read again sends only its
+new units in full; its episodes as they stand are the state, and the reply gives the new or changed ones and those
+gone, merged into the day's file as `episodesNow` merges (`dayFileOf`); an episode by an older prompt is not state, so a
+new prompt reads the day afresh. Git keeps the old files. An episode the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. An episode a later day sees again keeps its id there, and the latest
+day's line is its current state, and its units are those of all its days' lines. Where he was during an episode (its
+stay) and which facts are its own (`readBy`) are derived, never stored. Model-owned, like `people-inferred.jsonl`.
 
 | Field | Meaning |
 |---|---|
-| `id` | `mom_` + 12 hex of SHA-1 over its day and units, or the id of the earlier moment it continues. |
+| `id` | `ep_` + 12 hex of SHA-1 over its day and units, or the id of the earlier episode it continues. |
 | `day` | The day whose units it was read from. |
 | `title` | Short and factual, naming who and what. |
-| `status` | `happened`, `planned`, `cancelled` or `unsure`. |
+| `what` | One to three factual sentences: what happened and what came of it (`why`, a reason, before Nov 2026). |
+| `within` | The id of the episode holding it (a dinner within a trip), or null. |
 | `start`, `end` | Local `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, or null when the sources don't say. |
 | `place` | As the sources name it, or null. |
 | `people` | `{ref, role}`: `person:<id>` or `unknown:<name>`; `with` (takes part), `told`, `organizer`. The owner is implied. |
 | `units`, `copies` | The day's units that are its evidence; those that are a second copy of another (never read twice). |
 | `importance` | 1 ordinary, 2 worth remembering in a month, 3 a landmark. |
-| `why`, `madeBy` | One line on what shows it; the model and prompt. |
+| `madeBy` | The model and prompt. |
 
 ## observations/YYYY-MM.jsonl (layer L2)
 
 The memory ledger: small dated claims, each cited to the exact place it comes from, one per line, filed by the
 month of `date`. Append-only: a line is never edited or removed; one a newer observation replaces is retired in
 `supersessions.jsonl`. Written by `bun life memory extract` for kept units (importance 2 or 3; a importance-1 unit stays in the
-units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its moment
-(every unit of it worth a searchable line), and with the earlier facts about the moment's people, which it may retire.
-From `memory-extract.v4` a moment is read across its days, from the day before its first unit to read and cut
-between days to fit a call (a unit in several moments with the one reaching furthest forward, of those the smallest),
+units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its episode
+(every unit of it worth a searchable line), and with the earlier facts about the episode's people, which it may retire.
+From `memory-extract.v4` an episode is read across its days, from the day before its first unit to read and cut
+between days to fit a call (a unit in several episodes with the one reaching furthest forward, of those the smallest),
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
 include the `about_a_person` facts of the last year about the people close to the owner (`priorFor`). The model context marks those
@@ -153,11 +157,11 @@ regrouped, Life's own mail).
 
 Names Life could not map to `truth/`: `{schemaVersion: 1, surface, unit, observation?, date, via, at}`. `via` is
 `model` (the extractor named someone not on the map) or `speaker` (lifelog named a voice the map doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
-could not place is no longer asked about (the moments call asks about the day's unknown chat senders and lifelog voices).
+could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and lifelog voices).
 
 ## people-inferred.jsonl
 
-Who Life thinks an unknown handle or name is, written by `bun life memory moments` (the same call that reads the day;
+Who Life thinks an unknown handle or name is, written by `bun life memory episodes` (the same call that reads the day;
 before 18 Oct by an infer step of its own), append-only: `{schemaVersion: 1, id, surfaces, name, relation, area, project, confidence, evidence: [{unit,
 quote}], madeBy, at}`. `id` is `inf_` and a slug (truth ids never start with `inf_`), `surfaces` the handles (a phone,
 a WhatsApp or Matrix id) or names it goes by, `name` a name or, when the messages give none, a description ("the
@@ -202,7 +206,7 @@ move or the prompt changes. The latest record per person wins (a person folded i
 
 His decisions: Life's fact checks and what he answered (`records/decision.ts`). Append-only, one line per step
 (`{at, decision, step, data, agent?, run?, schemaVersion}`); a decision now is the fold of its lines (`decisionsNow`,
-`memory/decisions.ts`), never rewritten. Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
+`memory/decisions.ts`), never rewritten (but by a rename's migration, in place). Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
 Oct 2026): at each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; then `done` or `expired`. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or null to clear), recorded as
 its rating at once (a note alone as Partly); an expired one is rated `skip`. One synchronous read-and-append per write
 (`writeDecision`), so his tap and Life closing the same decision can't both land: once closed, his answer is refused.
@@ -220,14 +224,14 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 
 | `kind` | Fields | Effect |
 |---|---|---|
-| `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading; its day is read again, shown it with `note`), or off that page only |
+| `wrong` | `observations: [obs_…, ep_…]`, optional `page` | Never shown (pages, search; an episode: every read, and the next days' reading; its day is read again, shown it with `note`), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact the owner does not want |
 | `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His fact-check `outdated` answers read as these |
 | `keep-mine` | `page`, `section` (`now`, `history`; on the owner's own page also `views`, `health`; on a close person's `bond`), `text` | The line stays on the page as written |
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
-| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's moments are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
+| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -280,7 +284,7 @@ because it only narrows a list the owner reads: the owner's to-do in a voice lif
 - **Aging.** A Now line with no observation newer than 21 days moves to History by code (Health: 60 days).
 - **800 words** per page (a close person's: 1,100; the owner's own: 2,000), hold included: the live lines with the oldest evidence move to History
   beyond that (those of a section that ages first, the owner's views last), and History loses its oldest.
-- **Conflicts** are settled by extraction, where the evidence is: a moment's lines retire the earlier facts they show
+- **Conflicts** are settled by extraction, where the evidence is: an episode's lines retire the earlier facts they show
   are no longer true (`supersessions.jsonl`). The owner's lines win over everything. A `conditional` observation is
   never a page line.
 
@@ -330,17 +334,16 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 The fact checks: the claims the owner is asked about, one per claim, append-only, written by
 `drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night and midday runs; by hand `bun life memory doubtful <n>`):
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
-(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
-is planned or was cancelled as `Happened: <title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
-about it: that home page (`homeOf`), or for a moment the one person with a page it was with, else `events`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
+(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
+`<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
+about it: that home page (`homeOf`), or for an episode the one person with a page it was with, else `episodes`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
-`moment`), `source` (its channel; null for a moment), `date` (the claim's day) and `units` (what it was read from:
+`episode`), `source` (its channel; null for an episode), `date` (the claim's day) and `units` (what it was read from:
 where a later run's claims about the same thing are). Only doubtful claims are drawn (`doubtsOf`: who it is about is
-only inferred, `guessed-person`; read from an unsure moment, `unsure-moment`; and `low-confidence`, under `SURE_AT`,
-only beside one of those), importance 3 before 2 (never 1), then the most doubts, then the newest. A moment is never
-drawn: none of these doubts is a moment's (an unsure one has no page), only the facts read from it. Statements drawn
+only inferred, `guessed-person`; and `low-confidence`, under `SURE_AT`, only beside it), importance 3 before 2
+(never 1), then the most doubts, then the newest. An episode is never drawn: neither doubt is an episode's. Statements drawn
 before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
@@ -353,8 +356,8 @@ rated. What each answer means is one table (`ANSWERS`, `ledger.ts`). The latest 
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction
-(`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on a
-moment it changes nothing. A skipped statement is not asked again.
+(`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on an
+episode it changes nothing. A skipped statement is not asked again.
 
 ## scores.jsonl
 
@@ -371,7 +374,7 @@ judged because none of their units is live any more (a regrouped conversation, o
 Observations a newer one replaced, written by code (the ledger is never edited): `{schemaVersion: 1, observation, by,
 validTo, why, page?, madeBy, at}`. `observation` holds until `validTo` (the newer one's `validFrom`, else its day).
 Retired observations leave the pages and searches; they stay in the ledger. Extraction (from `memory-extract.v3`, no
-`page`) retires an earlier fact a moment's lines show is no longer true; `by` was said after it. Until 18 Oct pages
+`page`) retires an earlier fact an episode's lines show is no longer true; `by` was said after it. Until 18 Oct pages
 decided it (`page`; `by` outranked `observation`: later day, then written over spoken, then the owner's own words). A
 retirement stands only while `by` is current: a replacement re-read away retires nothing.
 

@@ -44,7 +44,7 @@ What Life is building next, in order, and what is parked. Each item gets its own
   (only Better-T-Stack's `add` reads it). Not taken from Better-T-Stack: oRPC or tRPC (a third way to define an
   endpoint), Better Auth (a second issuer), Turborepo. Before relying on the keyboard layout: one pass on his iPhone
   (the layout check runs Chromium only).
-- A rework of the memory layer: how sources become units, moments, observations and pages
+- A rework of the memory layer: how sources become units, episodes, observations and pages
   ([architecture](architecture.md)).
 - Two release channels from one codebase: the Mac app and the server.
 - A release pipeline: publishing a release ships the update to every install, the Mac app through its updater

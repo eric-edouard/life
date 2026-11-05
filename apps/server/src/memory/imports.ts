@@ -23,7 +23,7 @@ import { localDate } from "./zones";
 // claude-import-scope-2026-10-21.md). The export is pruned by code (`pruned`), copied into his data, and each
 // conversation is judged once by the fast model from the start of his messages: about his life, or only work with the
 // assistant (memory/imported.jsonl). The kept ones are a source like any other (`sources/assistants.ts`): the backfill
-// reads their days with every other channel's, through the one moments and extract path.
+// reads their days with every other channel's, through the one episodes and extract path.
 
 const IMPORT_PROMPT = "import.v1";
 const PER_CALL = 10;

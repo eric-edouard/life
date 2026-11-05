@@ -40,16 +40,16 @@ export const RecordingKind = z.enum([
 /**
  * The importance policy: the importance from which a unit is kept and its observations are shown. Extraction reads a kept unit
  * in full; pages and searches list its claims. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
- * mostly right. A importance-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with a moment that
+ * mostly right. A importance-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with an episode that
  * holds a kept unit.
  */
 export const KEEP_AT = 2;
 
-/** The importance from which a unit is worth a searchable line, and is read with its moment. */
+/** The importance from which a unit is worth a searchable line, and is read with its episode. */
 export const SEARCHABLE_AT = 1;
 
 /**
- * memory/verdicts.jsonl: the moments model's judgement of one unit's content (`unit` + `hash`), append-only. The latest
+ * memory/verdicts.jsonl: the episodes model's judgement of one unit's content (`unit` + `hash`), append-only. The latest
  * line for a (unit, hash) wins; a unit a code rule dropped (`Unit.drop`) has none that counts.
  */
 export const Verdict = z

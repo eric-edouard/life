@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import type { Correction } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { daysOf, isRereadSince, momentsNow, rereadAt } from "./ledger";
 import {
   agreement,
   chatAreas,
   dayFileOf,
+  EPISODES_PROMPT,
   earlierFor,
   fresh,
-  MOMENTS_PROMPT,
   parseDay,
   unread,
-} from "./moments";
+} from "./episodes";
+import { daysOf, episodesNow, isRereadSince, rereadAt } from "./ledger";
 import type { Truth } from "./read-truth";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { areaLookup, type Built } from "./units";
@@ -26,32 +26,32 @@ const U1 = "unit_000000000001";
 const U2 = "unit_000000000002";
 const U3 = "unit_000000000003";
 
-const moment = (over: Partial<Moment> = {}): Moment => ({
+const episode = (over: Partial<Episode> = {}): Episode => ({
   copies: [],
   day: "2026-10-15",
   end: null,
-  id: "mom_000000000001",
+  id: "ep_000000000001",
   importance: 2,
-  madeBy,
+  madeBy: { ...madeBy, prompt: EPISODES_PROMPT },
   people: [{ ref: "person:bastien", role: "with" }],
   place: null,
   schemaVersion: 1,
   start: "2026-10-16",
-  status: "planned",
   title: "Trip to see the sisters with Bastien",
   units: [U1],
-  why: "w",
+  what: "w",
+  within: null,
   ...over,
 });
 
-test("a day's reply is checked: verdicts and moments for its own units only, people from the map, ids kept or minted", () => {
+test("a day's reply is checked: verdicts and episodes for its own units only, people from the map, ids kept or minted", () => {
   const u1 = unit({ id: U1 });
   const commits = unit({ id: U2, source: "git" });
   const ctx = {
     areas: areaLookup([{ id: "shop", name: "Shop" }]),
     day: "2026-10-15",
-    earlier: new Set(["mom_00000000000e", "mom_00000000000f"]),
-    hidden: new Set(["mom_00000000000f"]),
+    earlier: new Set(["ep_00000000000e", "ep_00000000000f"]),
+    hidden: new Set(["ep_00000000000f"]),
     madeBy,
     people: new Set(["person:bastien"]),
     resolve: (s: string) => (s === "Bast" ? "person:bastien" : null),
@@ -69,19 +69,20 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
       { ref: "person:invented", role: "with" },
     ],
     start: "2026-10-16 15:00",
-    status: "planned",
     title: "Trip with Bastien",
-    why: "w",
+    what: "w",
   };
   const v = { importance: 3, reason: "r", type: "to_do" };
   const day = parseDay(
     {
-      moments: [
+      episodes: [
         { ...said, end: "tomorrow", id: "new", units: [U2, U1, U3] },
         { ...said, id: "new", title: "Same units", units: [U1, U2] },
-        { ...said, id: "mom_00000000000e", units: [U1] },
+        { ...said, id: "ep_00000000000e", units: [U1] },
         { ...said, id: "new", units: [U3] },
-        { ...said, id: "new", status: "maybe", units: [U1] },
+        { ...said, id: "new", units: [U1], what: 3 },
+        // Only his agents' commits: never an episode alone.
+        { ...said, id: "new", units: [U2] },
       ],
       verdicts: [
         { ...v, area: "SHOP", id: U1, topics: ["Houses"], when: "2026-10-22" },
@@ -118,40 +119,64 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
     ).verdicts.map((x) => x.importance)
   ).toEqual([3]);
   expect(day.invalid).toBe(3);
-  expect(day.moments).toHaveLength(3);
-  const [first, twin, again] = day.moments;
+  expect(day.episodes).toHaveLength(3);
+  const [first, twin, again] = day.episodes;
   expect(first?.units).toEqual([U2, U1]);
   expect(first?.end).toBeNull();
   expect(first?.people).toEqual([
     { ref: "person:bastien", role: "with" },
     { ref: "unknown:Cédric", role: "with" },
   ]);
-  // Two moments on the same units stay two; the same reply mints the same ids on every run.
+  // Two episodes on the same units stay two; the same reply mints the same ids on every run.
   expect(twin?.id).not.toBe(first?.id);
-  expect(again?.id).toBe("mom_00000000000e");
+  expect(again?.id).toBe("ep_00000000000e");
   expect(
-    parseDay({ moments: [{ ...said, id: "new", units: [U1, U2] }] }, ctx)
-      .moments[0]?.id
+    parseDay({ episodes: [{ ...said, id: "new", units: [U1, U2] }] }, ctx)
+      .episodes[0]?.id
   ).toBe(first?.id);
-  expect(() => parseDay({ moments: 3 }, ctx)).toThrow();
-  // A moment read again after he hid it stands on the same day, start and units: it never takes the hidden one's id,
+  expect(() => parseDay({ episodes: 3 }, ctx)).toThrow();
+  // `within` names the reply's own id or an earlier episode, else nothing; `gone` only this day's episodes he did not hide.
+  const nested = parseDay(
+    {
+      episodes: [
+        { ...said, id: "new-1", title: "Trip", units: [U1, U3] },
+        { ...said, id: "new-2", units: [U1], within: "new-1" },
+        {
+          ...said,
+          id: "new-3",
+          title: "Lunch",
+          units: [U3],
+          within: "ep_00000000000e",
+        },
+        { ...said, id: "new-4", title: "Coffee", units: [U3], within: "new-9" },
+      ],
+      gone: ["ep_00000000000e", "ep_00000000000f", "ep_000000000099", 4],
+    },
+    { ...ctx, units: new Map([...ctx.units, [U3, unit({ id: U3 })]]) }
+  );
+  const [trip, inTrip, lunch, coffee] = nested.episodes;
+  expect(inTrip?.within).toBe(trip?.id as string);
+  expect(lunch?.within).toBe("ep_00000000000e");
+  expect(coffee?.within).toBeNull();
+  expect(nested.gone).toEqual(["ep_00000000000e"]);
+  // An episode read again after he hid it stands on the same day, start and units: it never takes the hidden one's id,
   // unless the model reuses that id on purpose (a not-important one stays hidden).
   const readAgain = { ...said, id: "new", units: [U1] };
-  const minted = parseDay({ moments: [readAgain] }, ctx).moments[0]
+  const minted = parseDay({ episodes: [readAgain] }, ctx).episodes[0]
     ?.id as string;
   const hidden = { ...ctx, hidden: new Set([minted]) };
-  const titled = parseDay({ moments: [readAgain] }, hidden).moments[0]
+  const titled = parseDay({ episodes: [readAgain] }, hidden).episodes[0]
     ?.id as string;
   expect(titled).not.toBe(minted);
   // Nor when its title's id is hidden too.
   const both = { ...ctx, hidden: new Set([minted, titled]) };
   expect([minted, titled]).not.toContain(
-    parseDay({ moments: [readAgain] }, both).moments[0]?.id
+    parseDay({ episodes: [readAgain] }, both).episodes[0]?.id
   );
   expect(
-    parseDay({ moments: [{ ...readAgain, id: "mom_00000000000f" }] }, ctx)
-      .moments[0]?.id
-  ).toBe("mom_00000000000f");
+    parseDay({ episodes: [{ ...readAgain, id: "ep_00000000000f" }] }, ctx)
+      .episodes[0]?.id
+  ).toBe("ep_00000000000f");
   // 29 Oct: the model put the recording kind in `type` for 198 of a day's 370 units; each is kept, read as nothing.
   const kindAsType = parseDay(
     {
@@ -175,76 +200,79 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
   });
 });
 
-test("the next days see a moment until the day after it ends, or after its date for a plan; the latest day's line is current", () => {
+test("the next days see an episode until the day after it ends; the latest day's line is current; an older prompt's episode is not seen", () => {
   const lines = [
-    moment(),
-    moment({
+    episode(),
+    episode({
       day: "2026-10-12",
-      id: "mom_000000000002",
+      id: "ep_000000000002",
       start: "2026-10-12 09:00",
-      status: "happened",
     }),
-    moment({
+    episode({
       day: "2026-10-14",
-      id: "mom_000000000003",
+      id: "ep_000000000003",
       start: "2026-10-14 20:00",
-      status: "happened",
     }),
   ];
-  // The 15th sees the 14th's dinner, and its own plan from an earlier reading of it.
+  // Under a new prompt the day is read as for the first time.
+  const old = episode({ id: "ep_000000000005", madeBy });
+  expect(
+    earlierFor("2026-10-15", [...lines, old], []).map((m) => m.id)
+  ).not.toContain(old.id);
+  // The 15th sees the 14th's dinner, and its own episode from an earlier reading of it.
   expect(earlierFor("2026-10-15", lines, []).map((m) => m.id)).toEqual([
-    "mom_000000000001",
-    "mom_000000000003",
+    "ep_000000000001",
+    "ep_000000000003",
   ]);
   expect(earlierFor("2026-10-16", lines, []).map((m) => m.id)).toEqual([
-    "mom_000000000001",
+    "ep_000000000001",
   ]);
-  // A day read again sees its own moments, to keep their ids.
+  // A day read again sees its own episodes, to keep their ids.
   expect(earlierFor("2026-10-14", lines, []).map((m) => m.id)).toContain(
-    "mom_000000000003"
+    "ep_000000000003"
   );
   // Whatever it is dated.
-  const back = moment({
+  const back = episode({
     day: "2026-10-14",
-    id: "mom_000000000004",
+    id: "ep_000000000004",
     start: "2026-10-10",
   });
   expect(
     earlierFor("2026-10-14", [...lines, back], []).map((m) => m.id)
-  ).toContain("mom_000000000004");
-  // A plan is not carried past the day after its date.
+  ).toContain("ep_000000000004");
+  // Not carried past the day after it ends.
   expect(earlierFor("2026-10-18", lines, [])).toEqual([]);
-  const later = moment({ day: "2026-10-16", status: "happened" });
+  const later = episode({ day: "2026-10-16" });
   expect(
-    momentsNow([...lines, later], []).find((m) => m.id === later.id)
+    episodesNow([...lines, later], []).find((m) => m.id === later.id)
   ).toEqual(later);
-  // A moment the owner said is wrong is gone, from the reads and from what the next days see.
+  // An episode the owner said is wrong is gone, from the reads and from what the next days see.
   const wrong: Correction = {
     at: "t",
     kind: "wrong",
-    observations: ["mom_000000000001"],
+    observations: ["ep_000000000001"],
     schemaVersion: 1,
   };
-  expect(momentsNow(lines, [wrong]).map((m) => m.id)).not.toContain(
-    "mom_000000000001"
+  expect(episodesNow(lines, [wrong]).map((m) => m.id)).not.toContain(
+    "ep_000000000001"
   );
   expect(earlierFor("2026-10-16", lines, [wrong])).toEqual([]);
   expect(
-    momentsNow(lines, [{ ...wrong, page: "person:bastien" }]).map((m) => m.id)
-  ).not.toContain("mom_000000000001");
-  // The days a moment covers: start to end, else its start, else the day that read it.
+    episodesNow(lines, [{ ...wrong, page: "person:bastien" }]).map((m) => m.id)
+  ).not.toContain("ep_000000000001");
+  // The days an episode covers: start to end, else its start, else the day that read it.
   expect(
-    daysOf(moment({ end: "2026-10-17 06:00", start: "2026-10-15 18:00" }))
+    daysOf(episode({ end: "2026-10-17 06:00", start: "2026-10-15 18:00" }))
   ).toEqual(["2026-10-15", "2026-10-17"]);
-  expect(daysOf(moment({ end: null, start: null }))).toEqual([
+  expect(daysOf(episode({ end: null, start: null }))).toEqual([
     "2026-10-15",
     "2026-10-15",
   ]);
 });
 
-test("a moment he says is wrong rereads its units, and every later reading of its day sees it with his words and keeps it (29 Oct 2026: a trip came back with the same mistake)", () => {
-  const trip = moment({ id: "mom_00000000000a", units: [U1, U2] });
-  const other = moment({ id: "mom_00000000000b", units: [U3] });
+test("an episode he says is wrong rereads its units, and every later reading of its day sees it with his words and keeps it (29 Oct 2026: a trip came back with the same mistake)", () => {
+  const trip = episode({ id: "ep_00000000000a", units: [U1, U2] });
+  const other = episode({ id: "ep_00000000000b", units: [U3] });
   const wrong: Correction = {
     at: "2026-10-29T09:00:00.000Z",
     kind: "wrong",
@@ -264,19 +292,60 @@ test("a moment he says is wrong rereads its units, and every later reading of it
     note: "Nadia is not coming; Rose and Lou are",
   });
   expect(seen.find((m) => m.id === other.id)?.hidden).toBeUndefined();
-  // The reading gives a new moment; the hidden one stays in the day's file, so the next reading sees his words again.
-  const fixed = moment({
-    id: "mom_00000000000c",
+  // The reading gives a new episode; the hidden one stays in the day's file, so the next reading sees his words again.
+  const fixed = episode({
+    id: "ep_00000000000c",
     title: "Trip with Rose and Lou",
   });
-  const written = dayFileOf(trip.day, [fixed], [trip, other], [wrong]);
-  expect(written.map((m) => m.id)).toEqual([fixed.id, trip.id]);
+  const ctx = {
+    corrections: [wrong],
+    earlier: new Set<string>(),
+    lines: [trip, other],
+    units: new Set([U1, U2, U3]),
+  };
+  const written = dayFileOf(trip.day, { episodes: [fixed], gone: [] }, ctx);
+  expect(written.map((m) => m.id)).toEqual([trip.id, other.id, fixed.id]);
   expect(
     earlierFor(trip.day, written, [wrong]).find((m) => m.id === trip.id)?.hidden
       ?.note
   ).toBe("Nadia is not coming; Rose and Lou are");
   // Given again under its id, it is the reading's line, once.
-  expect(dayFileOf(trip.day, [trip], [trip], [wrong])).toEqual([trip]);
+  expect(
+    dayFileOf(
+      trip.day,
+      { episodes: [trip], gone: [] },
+      { ...ctx, lines: [trip] }
+    )
+  ).toEqual([trip]);
+});
+
+test("a day read again keeps its episodes, but those gone; a changed one keeps its units; units gone leave them; a dangling `within` is null; an older prompt's lines go", () => {
+  const dinner = episode({ id: "ep_00000000000a", units: [U1, U2] });
+  const call = episode({ id: "ep_00000000000b", units: [U3] });
+  const walk = episode({ id: "ep_00000000000c", units: [U2] });
+  const old = episode({ id: "ep_00000000000d", madeBy });
+  const ctx = {
+    corrections: [],
+    earlier: new Set<string>(),
+    lines: [dinner, call, walk, old],
+    // U2 regrouped away.
+    units: new Set([U1, U3]),
+  };
+  const changed = { ...dinner, title: "Dinner with Zoé", units: [U3] };
+  const inside = episode({
+    id: "ep_00000000000e",
+    units: [U1],
+    within: "ep_000000000077",
+  });
+  const written = dayFileOf(
+    dinner.day,
+    { episodes: [changed, inside], gone: [call.id] },
+    ctx
+  );
+  expect(written).toEqual([
+    { ...changed, units: [U1, U3] },
+    { ...inside, within: null },
+  ]);
 });
 
 test("a day is read again when one of its units has no verdict by this prompt on its current content", () => {
@@ -286,14 +355,14 @@ test("a day is read again when one of its units has no verdict by this prompt on
     unread(
       [b],
       ledger([
-        verdict(b.unit, { madeBy: { ...madeBy, prompt: MOMENTS_PROMPT } }),
+        verdict(b.unit, { madeBy: { ...madeBy, prompt: EPISODES_PROMPT } }),
       ])
     )
   ).toBe(false);
   expect(unread([b], ledger([verdict(b.unit)]))).toBe(true);
   // Read again, the day keeps the verdict of a unit already judged on this content, and takes the others.
   const c = built(U2);
-  const v2 = { ...madeBy, prompt: MOMENTS_PROMPT };
+  const v2 = { ...madeBy, prompt: EPISODES_PROMPT };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
   const said = [
     verdict(b.unit, { importance: 0, madeBy: v2 }),
@@ -306,7 +375,7 @@ test("a unit he said was read wrong after its verdict reads its day again, and t
   const b = built(U1);
   const v2 = {
     ...madeBy,
-    prompt: MOMENTS_PROMPT,
+    prompt: EPISODES_PROMPT,
     run: "2026-10-16T10-00-00.000Z",
   };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
