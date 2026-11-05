@@ -147,7 +147,8 @@ function leftOut() {
  * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
  * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
  * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held. A file of the
- * same path, size and mtime as in `previous` (the last staging's manifest; copies keep mtimes) keeps its hash.
+ * same path, size and mtime as in `previous` (the last staging's manifest) keeps its hash, as restic trusts the same:
+ * the folder clones keep mtimes, the stores' copies are new files and always hashed.
  */
 export async function stage(
   dir: string,

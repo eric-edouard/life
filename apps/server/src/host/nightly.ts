@@ -382,7 +382,8 @@ async function spent(rec: Metered, now: Quota | undefined) {
 export async function dropOld(now: Date) {
   const runFiles = join(OUT, "runs");
   for (const name of await filesIn(runFiles, "")) {
-    if (statSync(join(runFiles, name)).mtimeMs < now.getTime() - 30 * DAY) {
+    const at = statSync(join(runFiles, name), { throwIfNoEntry: false });
+    if (at && at.mtimeMs < now.getTime() - 30 * DAY) {
       rmSync(join(runFiles, name), { force: true, recursive: true });
     }
   }

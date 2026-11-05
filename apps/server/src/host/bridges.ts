@@ -53,7 +53,7 @@ const isAdded = (n: Network) => isBridgeAdded(n.name);
 /**
  * The one job's program: the homeserver and every added bridge (a folder holding its config, run as `./bridge`), each
  * started again 10 s after it stops; on TERM each is stopped and waited for, so the homeserver shuts down cleanly. A
- * bridge's stdout repeats its own capped log (logs/bridge.log): only its errors reach the job's log, which nothing caps.
+ * bridge's stdout repeats its own capped log (logs/bridge.log, every level): only its stderr reaches the job's log, which nothing caps.
  */
 export const RUN_BRIDGES = `
 trap 'kill $(jobs -p) 2>/dev/null; wait; exit 0' TERM

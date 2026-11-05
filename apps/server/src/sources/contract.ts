@@ -28,7 +28,8 @@ export interface AppStore {
   /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). */
   app?: string;
   copies: string;
-  copy: () => number;
+  /** Copies what is new into the archive (its count, for tests: Life reads none). */
+  copy: () => void;
   deleted?: { media?: string };
 }
 export type Descriptor = {
