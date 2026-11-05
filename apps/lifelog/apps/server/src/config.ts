@@ -130,11 +130,6 @@ export const NAMING = {
 
 // Search by meaning (search.ts). Measured on the owner's French, English and Thai queries (5 Nov 2026).
 export const SEARCH = {
-  // Passages each ranking (meaning, words) hands to the fusion.
-  candidates: 200,
-  // Below this cosine a passage is too far in meaning to be a hit: it kept 39 of the bench's 40 right answers and
-  // dropped half the queries that had none.
-  minSimilarity: 0.25,
   // A passage closes once its turns span this long or hold this much text, and never
   // grows past maxSeconds (a single longer turn stays whole).
   passageChars: 1500,

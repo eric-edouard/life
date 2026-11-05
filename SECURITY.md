@@ -10,6 +10,9 @@ agents that act for him. This page says what it protects and what it does not.
 - Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
   keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone and old note
   versions.
+- Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
+  (the `embedder` setting takes no other address); their vectors are derived (`derived/memory/vectors.sqlite`), kept
+  out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
   named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup.
 

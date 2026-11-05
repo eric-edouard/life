@@ -97,6 +97,8 @@ export const readUnitsOf = (dates: string[]) =>
 
 /** The search index (`buildIndex`, search.ts). */
 export const INDEX = join(OUT, "index.sqlite");
+/** Search by meaning's vectors, by text (`vectors.ts`): apart from the index, which every rebuild drops whole. */
+export const VECTORS = join(OUT, "vectors.sqlite");
 
 /**
  * Reads the index read-only with `read`, or null when it isn't built. A rebuild meanwhile is safe (`buildIndex`); the

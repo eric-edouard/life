@@ -12,6 +12,8 @@ import { HOME } from "./platform";
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 const NON_WORD = /\W+/g;
+/** The hosts of this machine: an embedder elsewhere would take his words off the Mac. */
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
 /** A wake word as heard, compared: lower case, one space between words. */
 export const asHeard = (w: string) =>
   w.toLowerCase().replace(NON_WORD, " ").trim();
@@ -60,6 +62,15 @@ export const Settings = z
       .optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     devices: z.record(z.string().min(1), z.string().min(1)).optional(),
+    /** The embedder for search by meaning (Lifelog Host's, `core/embedder.ts`), on this Mac only: nothing leaves it. */
+    embedder: z
+      .object({
+        url: z
+          .url()
+          .refine((u) => LOOPBACK.has(new URL(u).hostname), "loopback only"),
+      })
+      .strict()
+      .optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */

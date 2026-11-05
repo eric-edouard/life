@@ -7,30 +7,21 @@
 //   unchanged keeps its embedding, so a rebuild only embeds what changed.
 // - Nothing leaves the Mac: the embedder listens on loopback.
 import {
+  CANDIDATES,
   type Embedder,
+  embedAll,
   embedderAt,
+  nearest,
   textHashOf,
+  vectorOf,
 } from "@life/server/src/core/embedder";
 import { fuse } from "@life/server/src/core/fusion";
 import type { Db } from "@lifelog/db";
-import { float32, searchIndex, searchPassages } from "@lifelog/db/schema";
+import { searchIndex, searchPassages } from "@lifelog/db/schema";
 import { eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { touchedSince } from "./change-log";
 import { type Config, SEARCH, singleFlight } from "./config";
 import { type LoadedTurn, loadTurns } from "./transcript";
-
-// Texts per request to the embedder.
-const BATCH = 32;
-
-async function embed(embedder: Embedder, texts: string[]) {
-  const vectors: number[][] = [];
-  for (let i = 0; i < texts.length; i += BATCH) {
-    // biome-ignore lint/performance/noAwaitInLoops: the embedder runs one batch at a time
-    const batch = await embedder.embed(texts.slice(i, i + BATCH), "passage");
-    vectors.push(...batch);
-  }
-  return vectors;
-}
 
 // ---- Passages -----------------------------------------------------------------
 
@@ -128,7 +119,7 @@ async function indexConversation(
     ),
   ];
   if (missing.length > 0) {
-    const vectors = await embed(
+    const vectors = await embedAll(
       embedder,
       missing.map(([, text]) => text)
     );
@@ -248,18 +239,7 @@ const LIKE_SPECIAL = /[\\%_]/g;
 // and apostrophes, of 3 characters or more, the trigram index's least.
 const WORDS = /[\p{L}\p{M}\p{N}']+/gu;
 
-function cosine(a: Float32Array, b: Float32Array) {
-  let [dot, aa, bb] = [0, 0, 0];
-  for (let i = 0; i < a.length; i += 1) {
-    const [x, y] = [a[i] ?? 0, b[i] ?? 0];
-    dot += x * y;
-    aa += x * x;
-    bb += y * y;
-  }
-  return dot / Math.sqrt(aa * bb);
-}
-
-// Two rankings, fused: the passages nearest in meaning (at least SEARCH.minSimilarity), and those holding every word
+// Two rankings, fused: the passages nearest in meaning (core's `nearest`), and those holding every word
 // of 3 characters or more (the FTS5 trigram index, best match first; a query with no such word, the passages
 // containing it as typed). Only passages embedded by `model` are compared; with no `vector` (the embedder down), the
 // words rank alone.
@@ -287,17 +267,15 @@ function rank(
   const filters = sql.join(conditions, sql` and `);
   // ponytail: the meaning ranking scans every passage's embedding in JS (~20k × 768 floats per query);
   // a vector index (sqlite-vec) when the archive outgrows that.
-  const query = vector && Float32Array.from(vector);
-  const nearest = query
-    ? db
-        .all<{ embedding: Uint8Array; id: string }>(
-          sql`select p.id, p.embedding from search_passages p where ${filters} and p.model = ${model}`
-        )
-        .map((r) => [r.id, cosine(query, float32(r.embedding))] as const)
-        .filter(([, similarity]) => similarity >= SEARCH.minSimilarity)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, SEARCH.candidates)
-        .map(([id]) => id)
+  const near = vector
+    ? nearest(
+        vector,
+        db
+          .all<{ embedding: Uint8Array; id: string }>(
+            sql`select p.id, p.embedding from search_passages p where ${filters} and p.model = ${model}`
+          )
+          .map((r) => [r.id, vectorOf(r.embedding)] as const)
+      )
     : [];
   const words = (q.text.match(WORDS) ?? []).filter((w) => [...w].length >= 3);
   const holding = (
@@ -306,13 +284,13 @@ function rank(
           join search_passages p on p.rowid = search_text.rowid
           where search_text match ${words.map((w) => `"${w.replaceAll('"', '""')}"`).join(" AND ")}
             and ${filters}
-          order by search_text.rank limit ${SEARCH.candidates}`)
+          order by search_text.rank limit ${CANDIDATES}`)
       : db.all<{ id: string }>(sql`select p.id from search_passages p
           where ${filters}
             and p.text like ${`%${q.text.replace(LIKE_SPECIAL, "\\$&")}%`} escape '\\'
-          order by p.captured_from desc nulls last limit ${SEARCH.candidates}`)
+          order by p.captured_from desc nulls last limit ${CANDIDATES}`)
   ).map((r) => r.id);
-  const fused = fuse([nearest, holding]).slice(0, q.limit);
+  const fused = fuse([near, holding]).slice(0, q.limit);
   const typed = q.text.toLowerCase();
   const { embedding: _, ...shown } = getTableColumns(searchPassages);
   const rows = new Map(
