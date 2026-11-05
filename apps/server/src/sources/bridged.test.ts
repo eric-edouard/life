@@ -107,7 +107,7 @@ test("a bridged chat keeps every version: the message, its edit, its deletion wi
   event("m.room.message", ANA, { body: "here", msgtype: "m.text" });
   expect(copyBridged("line", archive, Date.now(), synapse)).toBe(1);
 
-  const read = readBridged("line", new Date(0), archive);
+  const read = readBridged(NETWORKS[0], new Date(0), archive);
   expect(
     read.map((e) => [e.text, e.fromMe, e.sender, e.deleted ?? false])
   ).toEqual([
@@ -127,6 +127,40 @@ test("a bridged chat keeps every version: the message, its edit, its deletion wi
 test("a login id becomes the localpart the bridge writes for it", () => {
   expect(localpartOf("uMe")).toBe("u_me");
   expect(localpartOf("a_b c")).toBe("a__b=20c");
+});
+
+test("a network's call notices are phone calls: a start takes its length from its end, which goes", () => {
+  const { event, synapse } = stores();
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  const notice = (body: string) =>
+    event("m.room.message", ANA, { body, msgtype: "m.notice" });
+  notice("ana started an audio call");
+  event("m.room.message", ANA, { body: "can you hear me", msgtype: "m.text" });
+  notice("Audio call ended");
+  notice("You missed a video chat");
+  // Typed by a person, not the bridge: words, never a call.
+  event("m.room.message", ANA, { body: "Audio call ended", msgtype: "m.text" });
+  copyBridged("line", archive, Date.now(), synapse);
+
+  const [line, instagram] = NETWORKS;
+  // This made-up homeserver bridges LINE; Instagram's notices read through its own `callOf`.
+  const read = readBridged(
+    { ...line, callOf: instagram.callOf },
+    new Date(0),
+    archive
+  );
+  expect(read.map((e) => [e.text, e.phoneCall])).toEqual([
+    ["ana started an audio call", { seconds: 2, video: false }],
+    ["can you hear me", undefined],
+    ["You missed a video chat", { seconds: 0, video: true }],
+    ["Audio call ended", undefined],
+  ]);
+  expect(line.callOf("Voice call (1h2m3s)")).toEqual({
+    seconds: 3723,
+    video: false,
+  });
+  expect(line.callOf("Missed video call")).toEqual({ seconds: 0, video: true });
+  expect(line.callOf("Voice call")).toBeUndefined();
 });
 
 test("every bridged network is a stored source name", () => {

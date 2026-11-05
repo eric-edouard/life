@@ -147,6 +147,33 @@ test("unit ids are stable and hashes follow the content", () => {
   expect(unitId("x", "y")).not.toBe(unitId("x", "z"));
 });
 
+const CALL_SPAN = /: \(audio call \d\d:\d\d–\d\d:\d\d, 2 h 38 min\)$/;
+const CALL_MESSAGE = /^\(audio call .+, 2 h 38 min\)$/;
+const CALL_MISSED = /\(video call at \d\d:\d\d, not picked up\)$/;
+const CALL_ON = /, still on\)$/;
+const CALL_SHORT = /, 45 s\)$/;
+
+test("a phone call is a line of its chat: its kind and span, or that no one picked up; two calls' lines differ", () => {
+  const call = (at: string, phoneCall: SourceEvent["phoneCall"]) =>
+    messageUnits([msg({ at, phoneCall, text: "" })], () => null)[0];
+  const long = call("2026-10-09T10:00:00.000Z", {
+    seconds: 9480,
+    video: false,
+  });
+  expect(long?.text).toMatch(CALL_SPAN);
+  expect(long?.messages[0]?.text).toMatch(CALL_MESSAGE);
+  const missed = call("2026-10-09T10:00:00.000Z", { seconds: 0, video: true });
+  const later = call("2026-10-09T11:00:00.000Z", { seconds: 0, video: true });
+  expect(missed?.text).toMatch(CALL_MISSED);
+  expect(missed?.unit.hash).not.toBe(later?.unit.hash as string);
+  expect(call("2026-10-09T10:00:00.000Z", { video: false })?.text).toMatch(
+    CALL_ON
+  );
+  expect(
+    call("2026-10-09T10:00:00.000Z", { seconds: 45, video: false })?.text
+  ).toMatch(CALL_SHORT);
+});
+
 test("a chat-day groups one chat's messages of one day, names known senders in its text, keeps its senders unresolved and only refs", () => {
   const handles = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const built = messageUnits(

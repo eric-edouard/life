@@ -37,6 +37,12 @@ export const SourceEvent = z
     files: z.array(SourceFile).optional(),
     fromMe: z.boolean(),
     id: z.string(),
+    // A phone call through the chat's network, a message of its chat: its length once it ended (0: not picked up),
+    // none while it is on. Its text is the line Life writes for it (`callLine`, units.ts).
+    phoneCall: z
+      .object({ seconds: z.int().min(0).optional(), video: z.boolean() })
+      .strict()
+      .optional(),
     removed: z.int().min(0).optional(),
     // The sender's handle as the source shows it: phone, email, a network's participant id; git: the author's name.
     sender: z.string(),

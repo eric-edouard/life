@@ -344,18 +344,55 @@ const mediaOf = (url: string) => {
     : undefined;
 };
 
+/** What a bridge's notice says of a call: it started (its end comes later), it ended, or the whole call. */
+interface CallNotice {
+  ends?: true;
+  seconds?: number;
+  video: boolean;
+}
+
+const INSTAGRAM_CALL =
+  /^(?:(?<missed>You missed)|.+ started) an? (?<kind>audio call|video chat)$|^(?<ended>Audio call|Video chat) ended$/;
+// ponytail: only missed calls seen so far (Oct 2026); the length's form is the bridge's (`Voice call (5m33s)`), its
+// time taken as the call's.
+const LINE_CALL =
+  /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
+
+const VIDEO = /video/i;
+
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * what he calls it, the bridge's repository and command to build. The one list.
+ * what he calls it, the bridge's repository and command to build, and how its notices say a call (`callOf`). The one list.
  */
 export const NETWORKS = [
   {
+    callOf: (text: string): CallNotice | undefined => {
+      const g = LINE_CALL.exec(text)?.groups;
+      if (!g || (!g.missed && g.s === undefined)) {
+        return undefined;
+      }
+      const seconds = g.missed
+        ? 0
+        : Number(g.h ?? 0) * 3600 + Number(g.m ?? 0) * 60 + Number(g.s);
+      return { seconds, video: VIDEO.test(g.kind ?? "") };
+    },
     cmd: "cmd/matrix-line",
     label: "LINE",
     name: "line",
     repo: "beeper/line",
   },
   {
+    callOf: (text: string): CallNotice | undefined => {
+      const g = INSTAGRAM_CALL.exec(text)?.groups;
+      if (!g) {
+        return undefined;
+      }
+      const video = VIDEO.test(g.kind ?? g.ended ?? "");
+      if (g.ended) {
+        return { ends: true, video };
+      }
+      return g.missed ? { seconds: 0, video } : { video };
+    },
     cmd: "cmd/mautrix-instagram",
     label: "Instagram",
     name: "instagram",
@@ -374,8 +411,42 @@ export const NETWORKS = [
     repo: "mautrix/linkedin",
   },
 ] as const;
-export type Network = (typeof NETWORKS)[number];
-type Bridged = Network["name"];
+export type Network = (typeof NETWORKS)[number] & {
+  callOf?: (text: string) => CallNotice | undefined;
+};
+/**
+ * A network's calls as messages of their chats: a call's notice becomes a phone call, a start taking its length from
+ * the chat's next end, which goes (a start with none is still on). Each keyed by chat and time (`keyOf`).
+ */
+function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
+  type Call = NonNullable<SourceEvent["phoneCall"]>;
+  const open = new Map<string, { call: Call; from: number }>();
+  return events.flatMap((e) => {
+    const c = notices.get(keyOf(e));
+    if (!c) {
+      return [e];
+    }
+    const started = open.get(e.chat);
+    if (c.ends) {
+      open.delete(e.chat);
+      if (started) {
+        started.call.seconds = Math.round(
+          (Date.parse(e.at) - started.from) / 1000
+        );
+      }
+      return [];
+    }
+    const phoneCall: Call =
+      c.seconds === undefined
+        ? { video: c.video }
+        : { seconds: c.seconds, video: c.video };
+    if (c.seconds === undefined) {
+      open.set(e.chat, { call: phoneCall, from: Date.parse(e.at) });
+    }
+    return [{ ...e, phoneCall }];
+  });
+}
+const keyOf = (r: { at: string; chat: string }) => `${r.chat} ${r.at}`;
 
 /**
  * Of the archive's versions, the latest ones but for what the bridge backfilled from before its cutover (written after
@@ -384,51 +455,65 @@ type Bridged = Network["name"];
 const SINCE_CUTOVER = `${LATEST_VERSIONS}
     and not (m.at < coalesce((select min(at) from cutover), '') and m.seenAt >= coalesce((select min(at) from cutover), ''))`;
 
-/** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`). */
-export const readBridged = (
-  bridge: Bridged,
+/** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`), its calls as phone calls. */
+export function readBridged(
+  { callOf, name: bridge }: Network,
   since: Date,
   archive = ARCHIVE
-): SourceEvent[] =>
-  readArchived<Row & { files: string | null }>(
+): SourceEvent[] {
+  const notices = new Map<string, CallNotice>();
+  const events = readArchived<Row & { files: string | null; type: string }>(
     bridge,
     SINCE_CUTOVER,
     since,
     archive,
     (s) => s,
-    (r) => ({
-      files: (
-        JSON.parse(r.files ?? "[]") as {
-          fileName?: string;
-          id: string;
-          mimeType?: string;
-          path?: string;
-        }[]
-      ).map((f) =>
-        sourceFile({
-          mime: f.mimeType,
-          name: f.fileName,
-          // An imported file has its copy's path; the bridge's are in the homeserver's media.
-          path: f.path ?? mediaOf(f.id),
-          ref: `${bridge}:${f.id}`,
-        })
-      ),
-    })
+    (r) => {
+      const call = r.type.toLowerCase().includes("notice")
+        ? callOf?.(r.text)
+        : undefined;
+      if (call) {
+        notices.set(keyOf(r), call);
+      }
+      return {
+        files: (
+          JSON.parse(r.files ?? "[]") as {
+            fileName?: string;
+            id: string;
+            mimeType?: string;
+            path?: string;
+          }[]
+        ).map((f) =>
+          sourceFile({
+            mime: f.mimeType,
+            name: f.fileName,
+            // An imported file has its copy's path; the bridge's are in the homeserver's media.
+            path: f.path ?? mediaOf(f.id),
+            ref: `${bridge}:${f.id}`,
+          })
+        ),
+      };
+    }
   );
+  return notices.size ? withCalls(events, notices) : events;
+}
 
 /** A bridged network as a source: its archive's copy, its reading and newest. */
-export const bridgedSource = (name: Bridged, label: string): Descriptor => ({
-  chatDays: 7,
-  kind: "chat",
-  label,
-  name,
-  newest: () =>
-    newestArchived(
-      name,
-      "select at, coalesce(chatName, '?') || ': ' || text as words from messages order by at desc limit 1"
-    ),
-  read: (since) => readBridged(name, since),
-  searchDays: 90,
-  silentAfter: 72 * HOUR,
-  store: { copies: "messages", copy: () => copyBridged(name), deleted: {} },
-});
+export const bridgedSource = (network: Network): Descriptor => {
+  const { label, name } = network;
+  return {
+    chatDays: 7,
+    kind: "chat",
+    label,
+    name,
+    newest: () =>
+      newestArchived(
+        name,
+        "select at, coalesce(chatName, '?') || ': ' || text as words from messages order by at desc limit 1"
+      ),
+    read: (since) => readBridged(network, since),
+    searchDays: 90,
+    silentAfter: 72 * HOUR,
+    store: { copies: "messages", copy: () => copyBridged(name), deleted: {} },
+  };
+};

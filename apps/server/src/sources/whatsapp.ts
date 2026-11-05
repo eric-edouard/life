@@ -1,7 +1,9 @@
+import type { Database } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
+import { fieldsOf } from "../core/protobuf";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
@@ -25,14 +27,23 @@ export const WHATSAPP = join(
 // WhatsApp from Life's own archive.
 
 // Type 6 is a group event (JSON, ids), 7 a link (its media is the preview), 8 a document (its text is the file name),
-// 14 the "deleted" placeholder. Channels and status posts are not conversations.
+// 14 the "deleted" placeholder, 59 a call (its details in `phone_calls`, the latest copy). Channels and status posts are not conversations.
 // A message is deleted when a placeholder shares its chat, time and author (the archive's `deleted` view, read here from
 // the placeholders once: going through the view for each message took 1.3 s for 90 days, this 10 ms).
-// Of a message's versions, the latest with a text or a file, else the latest.
-const SQL = `with gone as materialized (select chat, at, fromMe from messages where type = 14)
+// Of a message's versions, the latest with a text or a file, else the latest. A store the archive has not opened since
+// it learned calls (Life just updated) has no `phone_calls` yet: its calls read with no details until it does.
+const sqlOf = (
+  db: Database
+) => `with gone as materialized (select chat, at, fromMe from messages where type = 14)
   select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type,
     iif(m.type = 8, '', m.text) as text, iif(m.type = 8, m.text, '') as name, iif(m.type = 7, '', m.media) as media,
-    exists (select 1 from gone g where g.chat is m.chat and g.at = m.at and g.fromMe = m.fromMe) as deleted
+    exists (select 1 from gone g where g.chat is m.chat and g.at = m.at and g.fromMe = m.fromMe) as deleted,
+    ${
+      db.query("select 1 from sqlite_master where name = 'phone_calls'").get()
+        ? `iif(m.type = 59, (select c.details from phone_calls c where c.chat is m.chat and c.id = m.id
+      order by c.seenAt desc limit 1))`
+        : "null"
+    } as call
   from messages m
   where m.at >= ? and m.type not in (6, 14)
     and m.chat not like '%@newsletter' and m.chat not like '%@broadcast'
@@ -47,6 +58,25 @@ const SENT_AS: Record<number, string> = {
   3: "audio/ogg",
   11: "video/mp4",
 };
+
+const CALL = 59;
+const bytesOf = (f: number | Uint8Array | undefined) =>
+  f instanceof Uint8Array ? f : new Uint8Array();
+
+/**
+ * A call's details as WhatsApp keeps them (a protobuf, checked against its call log on 5 Nov 2026): at 87.1, its
+ * length in seconds (3; 0 when not picked up) and whether it was a video call (1).
+ */
+export function phoneCallOf(details: Uint8Array) {
+  const call = fieldsOf(
+    bytesOf(fieldsOf(bytesOf(fieldsOf(details).get(87))).get(1))
+  );
+  const seconds = call.get(3);
+  return {
+    seconds: typeof seconds === "number" ? seconds : 0,
+    video: call.get(1) === 1,
+  };
+}
 
 /** WhatsApp senders are `<lid>@lid` now; the address book knows the phone behind each. */
 const phonesOfLids = (dir: string) =>
@@ -71,14 +101,17 @@ export function readWhatsapp(
   whatsapp = WHATSAPP
 ): SourceEvent[] {
   const phones = phonesOfLids(whatsapp);
-  return readArchived<Row & { media: string; name: string; type: number }>(
+  return readArchived<
+    Row & { call: Uint8Array | null; media: string; name: string; type: number }
+  >(
     "whatsapp",
-    SQL,
+    sqlOf,
     since,
     archive,
     (jid) => phones.get(jid) ?? phoneOf(jid) ?? jid,
     // The archive keeps a copy of each file under media/.
     (r) => ({
+      ...(r.call && { phoneCall: phoneCallOf(r.call) }),
       files:
         r.media || r.name || SENT_AS[r.type]
           ? [
@@ -133,7 +166,10 @@ const open = (dir: string) =>
   create view deleted as
     select m.*, d.seenAt as deletedSeenAt from messages m
       join messages d on d.chat is m.chat and d.at = m.at and d.fromMe = m.fromMe and d.type = 14
-     where m.type <> 14 and (m.text <> '' or m.media <> '')`
+     where m.type <> 14 and (m.text <> '' or m.media <> '');
+  -- A call's details, one row per version seen: its length lands only once it ends.
+  create table if not exists phone_calls (chat text, id text not null, details blob not null, seenAt text not null,
+    unique (chat, id, details))`
   );
 
 /** Copies new and changed messages (and their media) into the archive. Returns how many versions were new. */
@@ -162,6 +198,27 @@ export function copyWhatsapp(
       )
       .all(since);
     const seenAt = new Date(now).toISOString();
+    // Every call WhatsApp still holds on the table's first copy (its chats keep them for years), later the window.
+    const callsSince = archive.query("select 1 from phone_calls limit 1").get()
+      ? toAppleS(now) - WINDOW_S
+      : 0;
+    insertAll(
+      archive,
+      "insert or ignore into phone_calls (chat, id, details, seenAt) values (?, ?, ?, ?)",
+      whatsapp
+        .query<
+          { chat: string | null; details: Uint8Array; id: string },
+          [number, number]
+        >(
+          `select coalesce(m.ZSTANZAID, 'pk:' || m.Z_PK) as id, s.ZCONTACTJID as chat, i.ZMETADATA as details
+             from ZWAMESSAGE m
+             join ZWAMEDIAITEM i on i.Z_PK = m.ZMEDIAITEM
+             left join ZWACHATSESSION s on s.Z_PK = m.ZCHATSESSION
+            where m.ZMESSAGETYPE = ? and m.ZMESSAGEDATE > ? and i.ZMETADATA is not null`
+        )
+        .all(CALL, callsSince)
+        .map((c) => [c.chat, c.id, c.details, seenAt])
+    );
     const added = insertAll(
       archive,
       `insert or ignore into messages (id, chat, chatName, sender, senderName, fromMe, at, type, text, media, seenAt)

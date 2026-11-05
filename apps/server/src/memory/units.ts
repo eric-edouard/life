@@ -382,13 +382,41 @@ export const lineOf = (
 ) =>
   `${time(at)} ${speaker.startsWith(UNKNOWN) ? unknownAs : speaker.replace(PERSON, "")}: ${text}`;
 
+const lengthOf = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (seconds < 60) {
+    return `${seconds} s`;
+  }
+  return h ? `${h} h ${m} min` : `${m} min`;
+};
+
+/**
+ * The line Life writes for a phone call (`SourceEvent.phoneCall`), its text in its chat: its kind and span, so a model
+ * reads what was said in the room against it, or that no one picked up. Its times make two calls' lines differ.
+ */
+export function callLine({ at, phoneCall }: SourceEvent) {
+  const kind = phoneCall?.video ? "video call" : "audio call";
+  const seconds = phoneCall?.seconds;
+  if (seconds === undefined) {
+    return `(${kind} from ${time(at)}, still on)`;
+  }
+  if (seconds === 0) {
+    return `(${kind} at ${time(at)}, not picked up)`;
+  }
+  const end = new Date(Date.parse(at) + seconds * 1000).toISOString();
+  return `(${kind} ${time(at)}–${time(end)}, ${lengthOf(seconds)})`;
+}
+
 /**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
  * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
  * episodes step, names them as `speakerOf` does now.
  */
 function chatDay(list: SourceEvent[], resolve: Resolve): Built {
-  const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
+  const sorted = list
+    .map((e) => (e.phoneCall ? { ...e, text: callLine(e) } : e))
+    .sort((a, b) => a.at.localeCompare(b.at));
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;
   const kind = kindOf(first.source);

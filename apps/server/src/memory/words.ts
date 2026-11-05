@@ -10,9 +10,12 @@ import {
   openStore,
   parseTurnRef,
   readTranscript,
+  readVoiceKinds,
   turnPlace,
   turnRef,
   turnsBetween,
+  type VoiceKind,
+  voiceKey,
   withStore,
 } from "../sources/lifelog";
 import { type Candidate, owed } from "../todo-list/items";
@@ -71,31 +74,36 @@ const UNIT_ID = /^unit_[0-9a-f]{12}$/;
 
 const FETCHES = 8;
 
-/**
- * The transcripts of every recording these turns are in, a few requests at a time. A recording lifelog no longer has
- * (404) has no words; any other failure throws, so a fetch that failed never reads as silence.
- */
-export async function transcripts(turns: LifelogTurn[]) {
-  const out = new Map<string, Awaited<ReturnType<typeof readTranscript>>>();
-  const list = [...new Set(turns.map((t) => t.jobId))];
+/** `read` of each key, a few requests at a time, by key. */
+async function readEach<T>(keys: string[], read: (key: string) => Promise<T>) {
+  const out = new Map<string, T>();
+  const list = [...new Set(keys)];
   for (let i = 0; i < list.length; i += FETCHES) {
     // biome-ignore lint/performance/noAwaitInLoops: a few requests at a time, not hundreds at once
     await Promise.all(
-      list.slice(i, i + FETCHES).map(async (job) => {
-        out.set(
-          job,
-          await readTranscript(job).catch((e: { status?: number }) => {
-            if (e.status === 404) {
-              return [];
-            }
-            throw e;
-          })
-        );
+      list.slice(i, i + FETCHES).map(async (key) => {
+        out.set(key, await read(key));
       })
     );
   }
   return out;
 }
+
+/**
+ * The transcripts of every recording these turns are in. A recording lifelog no longer has (404) has no words; any
+ * other failure throws, so a fetch that failed never reads as silence.
+ */
+export const transcripts = (turns: LifelogTurn[]) =>
+  readEach(
+    turns.map((t) => t.jobId),
+    (job) =>
+      readTranscript(job).catch((e: { status?: number }) => {
+        if (e.status === 404) {
+          return [];
+        }
+        throw e;
+      })
+  );
 
 /**
  * The lines of each voice unit among `units`, by unit id: who spoke and when from the watcher's store, the words from
@@ -122,8 +130,13 @@ export async function spokenLines(
     open
   );
   const jobs = await transcripts([...turns.values()].flat());
+  const heard = await readEach(
+    voice.map((u) => u.key),
+    readVoiceKinds
+  );
+  const kinds = new Map([...heard.values()].flatMap((m) => [...m]));
   return new Map(
-    [...turns].map(([id, said]) => [id, voiceLines(said, jobs, resolve)])
+    [...turns].map(([id, said]) => [id, voiceLines(said, jobs, resolve, kinds)])
   );
 }
 
@@ -183,11 +196,26 @@ const fromOf = (t: LifelogTurn) => {
   return from ? { from } : {};
 };
 
-/** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed one lifelog says is his is the owner's. */
+/** How a voice no one named was heard, when not in the room talking with him (`readVoiceKinds`): its words' prefix. */
+const HEARD: Record<string, string> = {
+  announcement: "(an announcement) ",
+  media: "(from a screen or speaker) ",
+  phone: "(over the phone) ",
+};
+const heardAs = (v: VoiceKind | undefined) =>
+  v
+    ? (HEARD[v.kind] ?? (v.withOwner ? "" : "(nearby, not talking with him) "))
+    : "";
+
+/**
+ * The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed
+ * one lifelog says is his is the owner's, another says how it was heard (`kinds`, `heardAs`): over a phone, nearby.
+ */
 export function voiceLines(
   turns: LifelogTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
-  resolve: Resolve
+  resolve: Resolve,
+  kinds = new Map<string, VoiceKind>()
 ): SourceLine[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
@@ -203,7 +231,7 @@ export function voiceLines(
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
-        text: redact(turn.text),
+        text: `${t.name || t.owner ? "" : heardAs(kinds.get(voiceKey(t.jobId, turn.speakerId)))}${redact(turn.text)}`,
       },
     ];
   });

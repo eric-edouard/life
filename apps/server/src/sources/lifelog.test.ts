@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
   apply,
+  Conversation,
   conversationsWith,
   endedOnSilence,
   Hits,
@@ -399,15 +400,17 @@ function drift(
   defs: Record<string, Json>,
   at = ""
 ): string[] {
-  const t = theirs.$ref
-    ? (defs[theirs.$ref.split("/").at(-1) ?? ""] ?? {})
-    : theirs;
   const nullable = (s: Json) =>
     [s.type].flat().includes("null") ||
     !!s.anyOf?.some((x) => x.type === "null");
-  const l = life.anyOf?.find((x) => x.type !== "null") ?? life;
+  const nonNull = (s: Json) => s.anyOf?.find((x) => x.type !== "null") ?? s;
+  const u = nonNull(theirs);
+  const t = u.$ref ? (defs[u.$ref.split("/").at(-1) ?? ""] ?? {}) : u;
+  const l = nonNull(life);
   const out =
-    nullable(t) && life.type && !nullable(life) ? [`${at}: null`] : [];
+    (nullable(theirs) || nullable(t)) && life.type && !nullable(life)
+      ? [`${at}: null`]
+      : [];
   for (const [k, v] of Object.entries(l.properties ?? {})) {
     const theirsK = t.properties?.[k];
     if (!theirsK) {
@@ -438,6 +441,12 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       answer("/transcription-jobs/{id}/transcript", "get"),
       defs,
       "transcript"
+    ),
+    ...drift(
+      ours(Conversation),
+      answer("/conversations/{id}", "get"),
+      defs,
+      "conversation"
     ),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),

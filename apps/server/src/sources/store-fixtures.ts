@@ -68,7 +68,9 @@ export function whatsappFixture() {
   wa.run(
     "create table ZWACHATSESSION (Z_PK integer, ZCONTACTJID text, ZPARTNERNAME text)"
   );
-  wa.run("create table ZWAMEDIAITEM (Z_PK integer, ZMEDIALOCALPATH text)");
+  wa.run(
+    "create table ZWAMEDIAITEM (Z_PK integer, ZMEDIALOCALPATH text, ZMETADATA blob)"
+  );
   wa.run(
     "create table ZWAGROUPMEMBER (Z_PK integer, ZMEMBERJID text, ZCONTACTNAME text)"
   );
@@ -96,7 +98,10 @@ export function whatsappFixture() {
     if (media) {
       mkdirSync(join(source, "Message", dirname(media)), { recursive: true });
       writeFileSync(join(source, "Message", media), "bytes");
-      wa.run("insert into ZWAMEDIAITEM values (?, ?)", [pk, media]);
+      wa.run("insert into ZWAMEDIAITEM (Z_PK, ZMEDIALOCALPATH) values (?, ?)", [
+        pk,
+        media,
+      ]);
     }
     wa.run(
       "insert into ZWAMESSAGE values (?, ?, ?, 0, ?, ?, ?, 1, 1, '120@g.us', null)",
@@ -110,7 +115,7 @@ const varint = (n: number): number[] =>
   n < 128 ? [n] : [(n % 128) + 128, ...varint(Math.floor(n / 128))];
 
 /** A protobuf message of `[field, number | string | bytes]` pairs. */
-const proto = (
+export const proto = (
   ...fields: (readonly [number, number | string | Uint8Array])[]
 ) =>
   Uint8Array.from(

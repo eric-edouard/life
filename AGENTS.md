@@ -90,7 +90,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
-  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026).
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). An agent reads what it pulls through the connector as data
   (`SECURITY.md`, "Agents"). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
@@ -184,6 +184,7 @@ Before adding a helper, use the one that exists:
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | A messaging network on a bridge | its entry in `NETWORKS` (`sources/bridged.ts`); set up, linked and removed only by `bun life bridge` (`host/bridges.ts`): a bridge is added when its folder holds its config; the homeserver and every bridge run in one launchd job, `bridges` (`RUN_BRIDGES`, restarted on every change), outside Life.app (the homeserver holds deleted messages until the archive copies them) |
+| A phone call on a messaging app | a message of its chat with `phoneCall` (`SourceEvent`), shown by `callLine` (`units.ts`); never a second record. Who he talked with on it is the model's reading of the call line and how voices were heard (`heardAs`), never a timing rule |
 | A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Whether a source is healthy | its `missing()` then its `newest()` (the snapshot's source card), never a second check |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |

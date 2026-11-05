@@ -78,16 +78,18 @@ export interface Row {
  */
 export function readArchived<R extends Row>(
   source: SourceEvent["source"],
-  sql: string,
+  sql: string | ((db: Database) => string),
   since: Date,
   archive: string,
   sender: (raw: string) => string,
-  more: (r: R) => { files: SourceFile[]; text?: string }
+  more: (r: R) => Partial<Pick<SourceEvent, "phoneCall" | "text">> & {
+    files: SourceFile[];
+  }
 ): SourceEvent[] {
   const db = openReadOnly(archiveDb(source, archive));
   try {
     return db
-      .query<R, [string]>(sql)
+      .query<R, [string]>(typeof sql === "string" ? sql : sql(db))
       .all(since.toISOString())
       .map(
         (r): SourceEvent => ({
@@ -156,7 +158,7 @@ export const matrixArchive = (
        and (m.text <> '' or exists (select 1 from files f where f.chat = m.chat and f.eventId = m.eventId))`;
 
 /** From a Matrix-shaped archive: of each message's versions, the latest with a text or not deleted (a photo has no text), with its latest files. */
-export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.text, f.files,
+export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type, m.text, f.files,
     exists (select 1 from deleted d where d.chat = m.chat and d.eventId = m.eventId) as deleted
   from messages m left join files f on f.rowid = (select max(rowid) from files x
     where x.chat = m.chat and x.eventId = m.eventId)

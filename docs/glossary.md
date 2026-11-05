@@ -53,6 +53,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
 | chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
 | transaction | A mail Mail itself sorted as Transactions (an order, booking, receipt, delivery or bank notice), kept even from a sender he doesn't know. Not a database transaction. | |
+| phone call | A voice or video call on a messaging app (WhatsApp, LINE, Instagram): one message of its chat, with its length once it ended (0: not picked up), its line written by Life (`callLine`). "Call" alone is a model call. | |
+| heard as | How lifelog heard a voice it could not name (`readVoiceKinds`): live with him, live nearby but not talking with him, over a phone, from a screen or speaker, an announcement. Its words carry it as a prefix. | |
 | archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory
