@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { isLoopback } from "./embedder";
 import { Engine, SourceName } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
@@ -13,7 +14,6 @@ export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 const NON_WORD = /\W+/g;
 /** The hosts of this machine: an embedder elsewhere would take his words off the Mac. */
-const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
 /** A wake word as heard, compared: lower case, one space between words. */
 export const asHeard = (w: string) =>
   w.toLowerCase().replace(NON_WORD, " ").trim();
@@ -65,9 +65,7 @@ export const Settings = z
     /** The embedder for search by meaning (Lifelog Host's, `core/embedder.ts`), on this Mac only: nothing leaves it. */
     embedder: z
       .object({
-        url: z
-          .url()
-          .refine((u) => LOOPBACK.has(new URL(u).hostname), "loopback only"),
+        url: z.url().refine(isLoopback, "loopback only"),
       })
       .strict()
       .optional(),

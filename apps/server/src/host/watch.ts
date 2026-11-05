@@ -15,7 +15,7 @@ import {
 } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
-import { embedderNow, embedNew } from "../memory/vectors";
+import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
@@ -69,7 +69,11 @@ async function embedSearched() {
   }
   embedding = true;
   try {
-    await embedNew(embedder, await readSearchedTexts());
+    const { isWhole, texts } = await readSearchedTexts();
+    if (isWhole) {
+      pruneVectors(embedder, texts);
+    }
+    await embedNew(embedder, texts);
   } finally {
     embedding = false;
   }

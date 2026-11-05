@@ -395,10 +395,38 @@ test("search's chats: past the best 10 passages the cut is said; a passage found
       texts.map((t) => (t.includes("window") ? [1, 0] : [0, 1])),
     model: EMBEDDER_MODEL,
   };
-  await embedNew(embedder, readChatTexts(sources, {}));
+  await embedNew(embedder, readChatTexts(sources, {}).texts);
   const near = (await chatHits("glass", {}, sources, [1, 0])).join("\n");
   expect(near).toContain(": the window broke");
   expect(near).not.toContain("vitre");
+});
+
+test("a passage across a range's edge is found by meaning as the watcher embedded it", async () => {
+  const at = (min: number) =>
+    new Date(Date.now() - DAY + min * MIN).toISOString();
+  const e = (i: number, min: number, text: string) => ({
+    at: at(min),
+    chat: "!edge",
+    chatName: "Edge",
+    fromMe: false,
+    id: `edge${i}`,
+    sender: "x",
+    source: "line" as const,
+    text,
+  });
+  const sources = {
+    line: () => [e(0, 0, "the pane cracked"), e(1, 2, "shards on the floor")],
+  };
+  const embedder = {
+    embed: async (texts: string[]) =>
+      texts.map((t) => (t.includes("cracked") ? [1, 0] : [0, 1])),
+    model: EMBEDDER_MODEL,
+  };
+  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  const found = (
+    await chatHits("glass", { from: at(1) }, sources, [1, 0])
+  ).join("\n");
+  expect(found).toContain(": shards on the floor");
 });
 
 test("a long hit, a voice passage or a note, keeps its lines holding a word, cut to its max; a short one stays whole", () => {

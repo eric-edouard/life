@@ -75,7 +75,10 @@ function readKnown(hashes: string[]) {
 /** How many texts it embeds before writing them. */
 const WRITE_EVERY = 256;
 
-/** Embeds the texts that have no vector yet, newest first, writing as it goes; how many it embedded. */
+/**
+ * Embeds the texts that have no vector yet, newest first, writing as it goes; how many it embedded. A part the embedder
+ * refuses is skipped, so it never holds back the older ones, and said at the end.
+ */
 export async function embedNew(embedder: Embedder, texts: Searched[]) {
   const byHash = new Map(
     texts
@@ -93,6 +96,7 @@ export async function embedNew(embedder: Embedder, texts: Searched[]) {
   db.run("pragma journal_mode = wal");
   db.run(SCHEMA);
   const insert = db.prepare("insert or ignore into vectors values (?, ?)");
+  const failed: string[] = [];
   try {
     for (let i = 0; i < missing.length; i += WRITE_EVERY) {
       const part = missing.slice(i, i + WRITE_EVERY);
@@ -100,29 +104,55 @@ export async function embedNew(embedder: Embedder, texts: Searched[]) {
       const vectors = await embedAll(
         embedder,
         part.map(([, text]) => text)
-      );
+      ).catch((e: Error) => {
+        failed.push(e.message);
+        return null;
+      });
       db.transaction(() => {
-        for (const [j, [hash]] of part.entries()) {
-          insert.run(hash, bytesOf(vectors[j] ?? []));
+        for (const [j, [hash]] of vectors ? part.entries() : []) {
+          insert.run(hash, bytesOf(vectors?.[j] ?? []));
         }
       })();
     }
   } finally {
     db.close(true);
   }
+  if (failed.length > 0) {
+    throw new Error(`${failed.length} parts not embedded: ${failed[0]}`);
+  }
   return missing.length;
 }
 
-/** The ids of `items` nearest `vector` in meaning, best first (`nearest`); none without a vector or before any is embedded. */
+/** Drops the vectors of texts no longer searched (a passage that grew, a message past its window). */
+export function pruneVectors(embedder: Embedder, texts: Searched[]) {
+  if (!existsSync(VECTORS)) {
+    return;
+  }
+  const db = new Database(VECTORS);
+  db.run("pragma busy_timeout = 30000");
+  try {
+    db.query(
+      "delete from vectors where hash not in (select value from json_each(?))"
+    ).run(JSON.stringify(texts.map((t) => textHashOf(embedder.model, t.text))));
+  } finally {
+    db.close(true);
+  }
+}
+
+/**
+ * The ids of `items` nearest `vector` in meaning, best first (`nearest`); none without a vector or before any is embedded.
+ * `items` is read only when there is a vector.
+ * ponytail: hashes every item per search (~25k sha256, tens of ms); keep a hash column on the rows if that shows up.
+ */
 export function readNearest(
   vector: number[] | undefined,
-  items: { id: string; text: string }[]
+  items: () => { id: string; text: string }[]
 ) {
-  if (!(vector && existsSync(VECTORS)) || items.length === 0) {
+  if (!(vector && existsSync(VECTORS))) {
     return [];
   }
   const hashOf = new Map(
-    items.map((i) => [i.id, textHashOf(EMBEDDER_MODEL, i.text)])
+    items().map((i) => [i.id, textHashOf(EMBEDDER_MODEL, i.text)])
   );
   const db = openReadOnly(VECTORS);
   try {

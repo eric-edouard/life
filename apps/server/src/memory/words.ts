@@ -1,4 +1,4 @@
-import { clock, DAY, MIN } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import { fuse } from "../core/fusion";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
@@ -420,22 +420,26 @@ const passageTextOf = (p: SourceEvent[]) => p.map((e) => e.text).join("\n");
 /** A passage's id: its first message's. */
 const passageIdOf = (p: SourceEvent[]) => `${p[0]?.source}|${p[0]?.id}`;
 
-/** The texts the Chats and Mail sections rank by meaning, from their sources' search windows (`embedNew`). */
+/**
+ * The texts the Chats and Mail sections rank by meaning, from their sources' search windows (`embedNew`), and the
+ * sources that could not be read.
+ */
 export function readChatTexts(
   chatSources: Partial<Tables["SEARCHED"]> = tables().SEARCHED,
   mailSources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL
-): Searched[] {
-  const chats = readChats("searchDays", {}, chatSources).events;
-  const mail = readChats("searchDays", {}, mailSources).events;
-  return [
-    ...passagesOf(chats).map((p) => ({
+) {
+  const chats = readChats("searchDays", {}, chatSources);
+  const mail = readChats("searchDays", {}, mailSources);
+  const texts: Searched[] = [
+    ...passagesOf(chats.events).map((p) => ({
       at: p.at(-1)?.at ?? "",
       text: passageTextOf(p),
     })),
-    ...searchableMail(mail)
+    ...searchableMail(mail.events)
       .flat()
       .map((e) => ({ at: e.at, text: e.text })),
   ];
+  return { failed: [...chats.failed, ...mail.failed], texts };
 }
 
 /**
@@ -491,8 +495,23 @@ export async function chatHits(
   sources: Partial<Tables["SEARCHED"]> = tables().SEARCHED,
   vector?: number[]
 ) {
-  const { events, failed } = readChats("searchDays", range, sources);
-  const passages = new Map(passagesOf(events).map((p) => [passageIdOf(p), p]));
+  // Read a day wider, so a passage at the range's edge is cut as the watcher cut it (the text it embedded); a chat is
+  // rarely a day without a 30-minute silence.
+  const around = (at: string | undefined, by: number) =>
+    at && iso(Date.parse(at) + by);
+  const { events, failed } = readChats(
+    "searchDays",
+    { from: around(range.from, -DAY), to: around(range.to, DAY) },
+    sources
+  );
+  const isInside = (e: SourceEvent) =>
+    (!range.from || e.at >= iso(Date.parse(range.from))) &&
+    (!range.to || e.at < iso(Date.parse(range.to)));
+  const passages = new Map(
+    passagesOf(events)
+      .filter((p) => p.some(isInside))
+      .map((p) => [passageIdOf(p), p])
+  );
   const holds = holdsAll(words);
   const held = [...passages]
     .filter(([, p]) => holds(passageTextOf(p)))
@@ -500,8 +519,7 @@ export async function chatHits(
       (b.at(-1)?.at ?? "").localeCompare(a.at(-1)?.at ?? "")
     )
     .map(([id]) => id);
-  const near = readNearest(
-    vector,
+  const near = readNearest(vector, () =>
     [...passages].map(([id, p]) => ({ id, text: passageTextOf(p) }))
   );
   const best = new Set(
@@ -559,8 +577,7 @@ export async function mailHits(
   );
   const near = [
     ...new Set(
-      readNearest(
-        vector,
+      readNearest(vector, () =>
         [...messages].map(([id, [, e]]) => ({ id, text: e.text }))
       ).map((id) => {
         const [i, e] = messages.get(id) as readonly [string, SourceEvent];

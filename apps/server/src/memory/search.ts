@@ -123,7 +123,7 @@ const cut = (lines: string[], newest = false) =>
       ]
     : lines;
 
-/** An episode's text, people named as now: what the read path prints and both rankings read. */
+/** An episode's text, each person by their ref: what the read path prints and both rankings read. */
 const episodeTextNow = (m: Episode) =>
   episodeText(m, (ref) => named({ speaker: ref }));
 
@@ -259,7 +259,7 @@ export function matches(
     fuse(rankings)
       .slice(0, LIMIT + 1)
       .map(([id]) => id);
-  const texts = (sql: string, args: string[]) =>
+  const texts = (sql: string, args: string[]) => () =>
     db.query<{ id: string; text: string }, string[]>(sql).all(...args);
   const observations = rowsFor<Row>(
     db,
@@ -398,8 +398,7 @@ export async function search(words: string, o: Days = {}) {
   ]);
   const inside = all.filter(inDays(o));
   const ranked = fuse([
-    readNearest(
-      vector,
+    readNearest(vector, () =>
       inside.map((m) => ({ id: m.id, text: episodeTextNow(m) }))
     ),
     inside
@@ -1272,27 +1271,36 @@ export function buildIndex(
   return unique.size;
 }
 
-/** Every text `search` ranks by meaning, with when it happened: what the watcher embeds (`embedNew`). */
-export async function readSearchedTexts(): Promise<Searched[]> {
+/**
+ * Every text `search` ranks by meaning, with when it happened: what the watcher embeds (`embedNew`). Whole when the
+ * index and every source were read: only then may vectors of texts not among them go (`pruneVectors`).
+ */
+export async function readSearchedTexts(): Promise<{
+  isWhole: boolean;
+  texts: Searched[];
+}> {
   const episodes = await episodesWhere(() => true);
-  const indexed =
-    readIndex((db) => [
-      ...db
-        .query<Searched, []>(
-          `select o.date as at, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}`
-        )
-        .all(),
-      ...db
-        .query<Searched, []>(
-          `select u.date as at, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id`
-        )
-        .all(),
-    ]) ?? [];
-  return [
-    ...indexed,
-    ...episodes.map((m) => ({ at: daysOf(m)[0], text: episodeTextNow(m) })),
-    ...readChatTexts(),
-  ];
+  const indexed = readIndex((db) => [
+    ...db
+      .query<Searched, []>(
+        `select o.date as at, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}`
+      )
+      .all(),
+    ...db
+      .query<Searched, []>(
+        `select u.date as at, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id`
+      )
+      .all(),
+  ]);
+  const chats = readChatTexts();
+  return {
+    isWhole: indexed !== null && chats.failed.length === 0,
+    texts: [
+      ...(indexed ?? []),
+      ...episodes.map((m) => ({ at: daysOf(m)[0], text: episodeTextNow(m) })),
+      ...chats.texts,
+    ],
+  };
 }
 
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
