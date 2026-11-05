@@ -21,15 +21,8 @@ extension ServerClient {
                 public var usd: Double
             }
 
-            public struct Search: Sendable, Decodable, Equatable {
-                /// Embedding tokens: passages indexed and queries.
-                public var tokens: Int
-                public var usd: Double
-            }
-
             public var transcription: Transcription
             public var intelligence: Intelligence
-            public var search: Search
             public var totalUsd: Double
         }
 

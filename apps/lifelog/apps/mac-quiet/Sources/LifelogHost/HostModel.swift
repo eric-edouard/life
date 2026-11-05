@@ -163,7 +163,6 @@ final class HostModel {
 
     struct Keys {
         var elevenLabs = ""
-        var openAI = ""
         var cloudflare = ""
     }
 
@@ -365,7 +364,6 @@ final class HostModel {
         do {
             var updated = try Secrets.load(from: Secrets.file)
             updated.elevenLabsKey = keys.elevenLabs.isEmpty ? nil : keys.elevenLabs
-            updated.openAIKey = keys.openAI.isEmpty ? nil : keys.openAI
             updated.cloudflareToken = keys.cloudflare.isEmpty ? nil : keys.cloudflare
             updated = Host.minted(updated)
             try updated.save(to: Secrets.file)
@@ -417,6 +415,8 @@ final class HostModel {
                     arguments: [Child.identityScript.path],
                     environment: Host.identityEnvironment(home: Child.identityHome, secrets: secrets))
             }
+        case .embedder:
+            return .run(arguments: Host.embedderArguments(model: Child.embedderModel.path), environment: [:])
         }
     }
 

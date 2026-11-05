@@ -14,14 +14,13 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | Backups | A restic repository in iCloud Drive (`lifelog backup/restic`) | Encrypted by restic with a password minted once, kept in `secrets.json` |
 | Transcripts | ElevenLabs keeps a copy under its own retention policy | Their terms ([docs/providers.md](docs/providers.md)) |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
-| Passages and queries for search by meaning | OpenAI's embeddings API, if a key is set | No training on API data by default; abuse logs up to 30 days |
 
 ## Where secrets live
 
 - **The iPhone:** its device token in the Keychain, this device only (`AfterFirstUnlockThisDeviceOnly`); the server's
   address in the app's defaults.
 - **The Mac:** `~/Library/Application Support/lifelog-quiet/secrets.json` (mode 0600 in a 0700 folder) holds the
-  tokens Lifelog Host mints, the ElevenLabs and OpenAI keys, the tunnel token, the backup password and the helper's
+  tokens Lifelog Host mints, the ElevenLabs key, the tunnel token, the backup password and the helper's
   Claude sign-in; Codex's sign-in is in the helper's own Codex home beside it. `~/Library/Application Support/lifelog/server.env` (mode 0600; Host refuses to start the server
   if others can read it) holds keys Host doesn't manage, such as APNs and Resend.
 - **The server** stores only the sha256 of each token. Tokens never go on a command line: the tunnel token reaches

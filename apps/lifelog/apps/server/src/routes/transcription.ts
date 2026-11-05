@@ -59,12 +59,6 @@ const SpendPeriod = z
         .describe("Runs on a model with no known price: not in usd."),
       usd: z.number().describe("Estimated from tokens at list prices."),
     }),
-    search: z.object({
-      tokens: z.int(),
-      usd: z
-        .number()
-        .describe("Embeddings for search by meaning, at list prices."),
-    }),
     totalUsd: z.number(),
     transcription: z.object({
       hours: z

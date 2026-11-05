@@ -78,7 +78,9 @@ reverse it, change its entry here in the same commit.
   mixed audio.
 - **Summaries on the owner's subscription, through the Mac.** ChatGPT (Codex) or Claude Code runs every model call
   with no tools, settings or MCP servers; when the Mac is away or at its limit, work waits. There is no paid API
-  fallback. Search embeddings on OpenAI are the one paid API.
+  fallback.
+- **Search by meaning runs on the Mac (5 Nov 2026).** EmbeddingGemma-300M under llama.cpp, a Lifelog Host child,
+  replaces OpenAI's embeddings: better on the owner's languages, free and local. Life's memory uses the same embedder.
 - **The Mac helper is a sensor and a runner (October 22).** It reports raw facts (the processes with the microphone on,
   sleep) and runs the CLI it is told to, reporting the raw output; which apps count as dictation, the padding,
   merging and limits, and what a CLI's output means, are the server's (`dictation.ts`, `mac-llm.ts`). So a helper for

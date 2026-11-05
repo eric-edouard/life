@@ -1,9 +1,9 @@
 // The archive check (archive-health.ts): every break it counts, and when it alerts.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { EMBEDDER_DIMENSIONS } from "@life/server/src/core/embedder";
 import {
   conversations,
-  EMBEDDING_DIMENSIONS,
   events,
   people,
   searchPassages,
@@ -72,7 +72,7 @@ test("the archive check counts each break, and only a count that rose alerts", (
       capturedFrom: null,
       capturedTo: null,
       conversationId: randomUUID(),
-      embedding: Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0),
+      embedding: Array.from({ length: EMBEDDER_DIMENSIONS }, () => 0),
       firstTurn: 0,
       jobId: whole.jobId,
       languageCode: "fra",

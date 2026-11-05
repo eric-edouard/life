@@ -26,9 +26,6 @@ struct SettingsView: View {
                 if let url = URL(string: "https://elevenlabs.io/app/developers/api-keys") {
                     Link("Get one at elevenlabs.io: Developers, then API keys", destination: url).font(.caption)
                 }
-                SecureField("OpenAI API key (optional)", text: $keys.openAI)
-                Text("Search by meaning. Without it, search finds the exact words.")
-                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Recognize speakers by their voice", isOn: $settings.speakers)
                 Text(
                     "Names the voices you've named before, on this Mac; installs about 630 MB once. Off, voices stay unnamed."
@@ -110,8 +107,7 @@ struct SettingsView: View {
         .frame(minHeight: 560)
         .onAppear {
             keys = .init(
-                elevenLabs: host.secrets.elevenLabsKey ?? "", openAI: host.secrets.openAIKey ?? "",
-                cloudflare: host.secrets.cloudflareToken ?? "")
+                elevenLabs: host.secrets.elevenLabsKey ?? "", cloudflare: host.secrets.cloudflareToken ?? "")
             settings = host.settings
         }
     }

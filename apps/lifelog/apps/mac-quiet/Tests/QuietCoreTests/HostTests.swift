@@ -14,7 +14,9 @@ import Testing
     #expect(env["PUBLIC_BASE_URL"] == "https://mac.example.ts.net")
     #expect(env["DEVICE_TOKEN_HASH"] == Host.sha256Hex("phone-token"))
     #expect(env["ELEVENLABS_API_KEY"] == "el")
-    #expect(env["OPENAI_API_KEY"] == nil, "no key, no variable")
+    let embedder = Host.embedderArguments(model: "/m.gguf")
+    #expect(env["EMBEDDER_URL"] == "http://127.0.0.1:47615", "the embedder Host runs")
+    #expect(embedder.contains("127.0.0.1") && embedder.contains("47615") && embedder.contains("/m.gguf"))
     #expect(!env.values.contains { $0.contains("token") }, "no token in clear")
     // sha256("abc"), the standard test vector.
     #expect(Host.sha256Hex("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")

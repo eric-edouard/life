@@ -1,10 +1,9 @@
-// What was spent, per day in the owner's zone, from our own ledgers: transcription jobs,
-// intelligence runs and embeddings. Every figure is our estimate at list prices;
+// What was spent, per day in the owner's zone, from our own ledgers: transcription jobs
+// and intelligence runs. Every figure is our estimate at list prices;
 // ElevenLabs' own report is added beside it when it answers, never mixed in.
 
 import type { Db } from "@lifelog/db";
 import {
-  embeddingCalls,
   type IntelligenceProvider,
   intelligenceProviders,
   intelligenceRuns,
@@ -33,8 +32,6 @@ interface Period {
     unpricedRuns: number;
     usd: number;
   };
-  // Embeddings for search by meaning: indexing passages and queries.
-  search: { tokens: number; usd: number };
   totalUsd: number;
   transcription: {
     // Billable hours at the base rate (keyterms included).
@@ -51,7 +48,6 @@ const emptyPeriod = (): Period => ({
     unpricedRuns: 0,
     usd: 0,
   },
-  search: { tokens: 0, usd: 0 },
   totalUsd: 0,
   transcription: { hours: 0, usd: 0 },
 });
@@ -64,8 +60,6 @@ function add(into: Period, from: Period) {
   }
   into.intelligence.unpricedRuns += from.intelligence.unpricedRuns;
   into.intelligence.usd += from.intelligence.usd;
-  into.search.tokens += from.search.tokens;
-  into.search.usd += from.search.usd;
   into.totalUsd += from.totalUsd;
 }
 
@@ -82,8 +76,7 @@ function spendingByDay(
     at: Date;
     provider: keyof Period["intelligence"]["byProvider"];
     usd: number | null;
-  }[],
-  search: { at: Date; tokens: number; usd: number | null }[]
+  }[]
 ) {
   const byDay = new Map<string, Period>();
   const period = (at: Date) => {
@@ -101,14 +94,9 @@ function spendingByDay(
     p.intelligence.usd += row.usd ?? 0;
     p.intelligence.unpricedRuns += row.usd === null ? 1 : 0;
   }
-  for (const row of search) {
-    const p = period(row.at);
-    p.search.tokens += row.tokens;
-    p.search.usd += row.usd ?? 0;
-  }
   for (const p of byDay.values()) {
     p.transcription.usd = p.transcription.hours * SCRIBE_V2_USD_PER_HOUR;
-    p.totalUsd = p.transcription.usd + p.intelligence.usd + p.search.usd;
+    p.totalUsd = p.transcription.usd + p.intelligence.usd;
   }
   return byDay;
 }
@@ -147,22 +135,9 @@ export async function usageSummary(db: Db, config: Config, now = new Date()) {
       )
     )
     .all();
-  const search = db
-    .select({
-      at: embeddingCalls.createdAt,
-      tokens: embeddingCalls.tokens,
-      usd: embeddingCalls.costUsd,
-    })
-    .from(embeddingCalls)
-    .where(gte(embeddingCalls.createdAt, since))
-    .all();
   const elevenLabs = await workspaceSpeechToText(config, monthStart, now);
 
-  const byDay = spendingByDay(
-    [...transcription, ...quickRows],
-    intelligence,
-    search
-  );
+  const byDay = spendingByDay([...transcription, ...quickRows], intelligence);
   const days = Array.from({ length: DAYS }, (_, i) => {
     const date = minusDays(today, DAYS - 1 - i);
     return { date, ...(byDay.get(date) ?? emptyPeriod()) };

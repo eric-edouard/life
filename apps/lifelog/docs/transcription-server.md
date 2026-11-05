@@ -149,7 +149,7 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
 
 `GET /usage/summary` adds up what was spent, per day in the owner's zone, from our own ledgers at
 list prices: transcription (billable hours of every job that is not `failed`, keyterms counted at their extra price), titles and summaries (the
-token cost on each intelligence run) and search embeddings. Jobs marked `maybe_billed` count. Days and months are the owner's, in
+token cost on each intelligence run). Jobs marked `maybe_billed` count. Days and months are the owner's, in
 the time zone of the iPhone's latest heartbeat (UTC until one names it). Prices live in `apps/server/src/config.ts`.
 
 Beside it, ElevenLabs' own speech-to-text figure for the month, from its workspace analytics
