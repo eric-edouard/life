@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { asOf, GRADES, tally } from "./tally";
+import { asOf, GRADES, isGradeKept, tally } from "./tally";
 
 test("every grade of a true and of a false fact: held, contradicted, restated, missed; a fact the judge left out is ungraded; an outdated one is a true one held, counted apart", () => {
   const facts = GRADES.flatMap((g) => [
@@ -76,4 +76,26 @@ test("a fact with a day is judged against the claims said by then: a later chang
     ["2026-10-14", ["waiting"], ["c14"]],
     [undefined, ["has"], ["c14", "c15"]],
   ]);
+});
+
+test("a kept grade stands while its key holds and every claim it cites says the same", () => {
+  const k = {
+    cited: [
+      ["c1", "met Ana"],
+      ["c2", null],
+    ] as [string, string | null][],
+    grade: {
+      claims: ["c1", "c2"],
+      fact: "f",
+      grade: "stated" as const,
+      why: "",
+    },
+    key: "k",
+  };
+  const said = new Map([["c1", "met Ana"]]);
+  expect(isGradeKept(k, "k", said)).toBe(true);
+  expect(isGradeKept(k, "k2", said)).toBe(false);
+  expect(isGradeKept(k, "k", new Map([["c1", "met Ana at noon"]]))).toBe(false);
+  expect(isGradeKept(k, "k", new Map())).toBe(false);
+  expect(isGradeKept(k, "k", new Map([...said, ["c2", "back"]]))).toBe(false);
 });

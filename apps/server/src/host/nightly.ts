@@ -380,15 +380,16 @@ async function spent(rec: Metered, now: Quota | undefined) {
 }
 
 /**
- * Deletes what no one reads past an age: each run's model files (state/memory/runs) after 30 days, the event log's
+ * Deletes what no one reads past an age: each run's model files (`OUT/runs`) and each eval's judge calls (`OUT/evals`) after 30 days, the event log's
  * days after a year (its readers look back weeks; the backups keep 24 months).
  */
 export async function dropOld(now: Date) {
-  const runFiles = join(OUT, "runs");
-  for (const name of await filesIn(runFiles, "")) {
-    const at = statSync(join(runFiles, name), { throwIfNoEntry: false });
-    if (at && at.mtimeMs < now.getTime() - 30 * DAY) {
-      rmSync(join(runFiles, name), { force: true, recursive: true });
+  for (const dir of ["runs", "evals"].map((d) => join(OUT, d))) {
+    for (const name of await filesIn(dir, "")) {
+      const at = statSync(join(dir, name), { throwIfNoEntry: false });
+      if (at && at.mtimeMs < now.getTime() - 30 * DAY) {
+        rmSync(join(dir, name), { force: true, recursive: true });
+      }
     }
   }
   const yearAgo = `${iso(now.getTime() - 365 * DAY).slice(0, 10)}.jsonl`;

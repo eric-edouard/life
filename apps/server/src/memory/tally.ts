@@ -2,7 +2,7 @@
 // they come to.
 import { join } from "node:path";
 import { z } from "zod";
-import { askOnce, llmFor } from "../models/llm";
+import { askOnce, llmFor, llmSpec } from "../models/llm";
 
 /** What a judge may say of a fact against the claims. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;
@@ -18,6 +18,28 @@ const Grades = z.object({
   ),
 });
 export type Grade = z.infer<typeof Grades>["grades"][number];
+const JUDGE_PROMPT = "eval-judge.v2";
+/** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--ratings`, scripts/eval.ts). */
+export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
+
+/**
+ * A grade kept between `--ratings` runs: the key of what it was judged on (its fact, the claims on its units as of its
+ * day, the judge), and the claims it cited as they read then (null: gone).
+ */
+export interface KeptGrade {
+  cited: [string, string | null][];
+  grade: Grade;
+  key: string;
+}
+
+/** Whether a kept grade still stands: its key unchanged and every claim it cites saying the same (`said`: id → text). */
+export const isGradeKept = (
+  k: KeptGrade,
+  key: string,
+  said: Map<string, string>
+) =>
+  k.key === key &&
+  k.cited.every(([id, text]) => (said.get(id) ?? null) === text);
 
 /** A fact as the judge reads it, with the day it is judged as of when it has one. */
 interface JudgedFact {
@@ -64,7 +86,7 @@ export async function judge(
               facts: call.facts.map(({ fact, id }) => ({ fact, id })),
             },
             llm: llmFor("main", o.engine),
-            prompt: "eval-judge.v2",
+            prompt: JUDGE_PROMPT,
             run: o.run,
           })
         ).grades
