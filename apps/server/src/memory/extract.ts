@@ -346,7 +346,7 @@ export async function extract(evidence: Evidence) {
   const closed = closedConversations(conversations);
   const verdicts = readVerdicts();
   const people = await readPeople();
-  const { corrections, inferred, refOf, resolve } = people;
+  const { corrections, refOf, resolve } = people;
   // Who each unit is with as of now: the people the episodes step just inferred included.
   const inWindow = built
     .filter(
@@ -425,7 +425,7 @@ export async function extract(evidence: Evidence) {
 
   const levels = levelsWith(people);
   const close = personallyClose(levels);
-  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
+  const refs = refContext(people, close, contextPeopleBy(levels));
   // Refs are checked against the whole map, not only what a call was shown.
   const candidates = new Set(
     [refs.map.people, refs.map.projects].flatMap((l) => l.map((x) => x.ref))
@@ -460,7 +460,8 @@ export async function extract(evidence: Evidence) {
         // Not the episode's `what`: extraction reads the units; the episode only groups them (its prompt's meaning, v5).
         episodes: call.map(({ episode: m, sources: ss }) => ({
           id: m?.id ?? "none",
-          people: m?.people ?? [],
+          // Who they are today, as the map shows them.
+          people: (m?.people ?? []).map((p) => ({ ...p, ref: refOf(p.ref) })),
           place: m?.place ?? null,
           start: m?.start ?? null,
           title: m?.title ?? "units in no episode",
@@ -470,7 +471,7 @@ export async function extract(evidence: Evidence) {
               (l, n) =>
                 `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
-            people: unit.people,
+            people: unitNow(unit, refOf).people,
             source: unit.source,
             title: unit.title,
             triage: unit.marked

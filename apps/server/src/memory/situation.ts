@@ -74,10 +74,9 @@ export function shownLines(reply: unknown, shown: ReadonlySet<string>) {
 export async function situations() {
   const step = await begin("situation", "main", { prompt: SITUATION_PROMPT });
   const people = await readPeople();
-  const { inferred, truth } = people;
   const levels = levelsWith(people);
   const close = personallyClose(levels);
-  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
+  const refs = refContext(people, close, contextPeopleBy(levels));
   const since = daysBefore(step.today, DAYS);
   const recent = episodesNow(await readEpisodes(), people.corrections).filter(
     (m) => daysOf(m)[1] >= since

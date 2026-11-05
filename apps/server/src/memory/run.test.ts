@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
 import { involvedOf, phases, record, refContext } from "./run";
 import { runs } from "./run-log";
@@ -71,13 +72,16 @@ test("a call's context shows the people close now and the projects underway; the
   });
   const refs = refContext(
     {
-      areas: [],
-      chats: [],
-      me: { text: "me" },
-      people: [person("ann"), person("bob"), person("cy")],
-      projects: [project("app", "active"), project("old", "done")],
+      canon: (ref) => ref,
+      inferred: [],
+      truth: {
+        areas: [],
+        chats: [],
+        me: { text: "me" },
+        people: [person("ann"), person("bob"), person("cy")],
+        projects: [project("app", "active"), project("old", "done")],
+      },
     },
-    [],
     new Set(["person:bob"]),
     new Set(["person:ann"])
   );
@@ -97,5 +101,29 @@ test("a call's context shows the people close now and the projects underway; the
   ]);
   expect(involved.projects.map((p) => [p.ref, p.status])).toEqual([
     ["project:old", "done"],
+  ]);
+});
+
+test("the map shows each person once: an inferred id folded into another is left out", () => {
+  const guess = (id: string) =>
+    ({ confidence: 0.9, id, name: id, relation: "a guess" }) as InferredPerson;
+  const refs = refContext(
+    {
+      canon: (ref) => (ref === "person:inf_ann" ? "person:ann" : ref),
+      inferred: [guess("inf_ann"), guess("inf_dee")],
+      truth: {
+        areas: [],
+        chats: [],
+        me: { text: "me" },
+        people: [Person.parse({ id: "ann", name: "Ann" })],
+        projects: [],
+      },
+    },
+    new Set(),
+    new Set()
+  );
+  expect(refs.map.people.map((p) => p.ref)).toEqual([
+    "person:ann",
+    "person:inf_dee",
   ]);
 });

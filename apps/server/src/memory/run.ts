@@ -241,8 +241,16 @@ export function meContext(truth: Truth) {
  * others a call involves come in its input (`involvedOf`), so the context stays small as the map grows.
  */
 export function refContext(
-  truth: Truth,
-  inferred: InferredPerson[],
+  {
+    canon,
+    inferred,
+    truth,
+  }: {
+    /** Who a person ref is now (`readPeople`). */
+    canon: (ref: string) => string;
+    inferred: InferredPerson[];
+    truth: Truth;
+  },
   close: ReadonlySet<string>,
   shown: ReadonlySet<string>
 ) {
@@ -260,8 +268,13 @@ export function refContext(
         relation: p.relation,
         ...flag(`person:${p.id}`),
       })),
+      // One ref per person: an inferred id folded into another (`canon`) is that one.
       ...inferred
-        .filter((p) => p.confidence >= INFERRED_USE_AT)
+        .filter(
+          (p) =>
+            p.confidence >= INFERRED_USE_AT &&
+            canon(`person:${p.id}`) === `person:${p.id}`
+        )
         .map((p) => ({
           aliases: [] as string[],
           name: p.name,

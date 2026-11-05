@@ -454,8 +454,7 @@ export async function episodes(evidence: Evidence) {
   }
   const levels = levelsWith({ canon, corrections });
   const refs = refContext(
-    truth,
-    inferred,
+    { canon, inferred, truth },
     personallyClose(levels),
     contextPeopleBy(levels)
   );
@@ -518,7 +517,7 @@ export async function episodes(evidence: Evidence) {
             resolve,
             refs.map.projects
           ),
-          ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
+          ...earlier.flatMap((m) => m.people.map((p) => refOf(p.ref))),
           ...[...near.values()].flat(),
         ])
       );
@@ -542,7 +541,8 @@ export async function episodes(evidence: Evidence) {
               end,
               hidden,
               id,
-              people,
+              // Who they are today, as the units and the map show them.
+              people: people.map((p) => ({ ...p, ref: refOf(p.ref) })),
               place,
               start,
               title,
