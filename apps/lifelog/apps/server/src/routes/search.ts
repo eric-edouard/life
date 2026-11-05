@@ -47,7 +47,8 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       description:
         "Passages (about 30 to 60 s of turns) ranked by meaning and by the passages holding " +
         "every word typed, the two rankings fused, best first: a passage both find outranks " +
-        "one only one finds. Embedded on the Mac (docs/providers.md). Conversations are " +
+        "one only one finds; by words alone while the embedder is down. Embedded on the Mac " +
+        "(docs/providers.md). Conversations are " +
         "indexed in the background after each change.",
       method: "post",
       path: "/search",
@@ -59,7 +60,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       },
       responses: {
         200: json(z.object({ hits: z.array(SearchHit) }), "Best first"),
-        503: json(ApiError, "The embedder is not configured or is down"),
+        503: json(ApiError, "The embedder is not configured (EMBEDDER_URL)"),
       },
     }),
     async (c) => {
@@ -75,9 +76,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
         return c.json(
           {
             error: "search_unavailable" as const,
-            message: search
-              ? "the embedder is down"
-              : "EMBEDDER_URL is not set",
+            message: "EMBEDDER_URL is not set",
           },
           503
         );

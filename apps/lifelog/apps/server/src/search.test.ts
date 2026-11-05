@@ -360,7 +360,7 @@ test("people keeps the passages one of them speaks in", async () => {
   expect(hits.map((h) => h.conversationId)).toEqual([named.id]);
 });
 
-test("search needs the owner's token and an embedder that answers, not summaries", async () => {
+test("search needs the owner's token and an embedder, not summaries", async () => {
   const { app } = setup();
   setSwitches(env.db, { ai: false });
   expect(await find(app, { query: "anything" })).toEqual([]);
@@ -383,15 +383,22 @@ test("search needs the owner's token and an embedder that answers, not summaries
     method: "POST",
   });
   expect(res.status).toBe(503);
+});
 
-  const { app: down } = setup({
-    ...fakeEmbedder(),
-    embed: () => Promise.reject(new Error("connection refused")),
+test("with the embedder down, every word typed still finds a passage, in any order", async () => {
+  const fake = fakeEmbedder();
+  const { app, search } = setup({
+    ...fake,
+    embed: (texts, as) =>
+      as === "query"
+        ? Promise.reject(new Error("connection refused"))
+        : fake.embed(texts, as),
   });
-  const unanswered = await down.request("/search", {
-    body: JSON.stringify({ query: "anything" }),
-    headers: auth,
-    method: "POST",
-  });
-  expect(unanswered.status).toBe(503);
+  conversation(app, ["the ferry to the island departs early tomorrow"]);
+  conversation(app, ["the ferry was late"]);
+  await search.index();
+  const hits = await find(app, { query: "departs ferry" });
+  expect(hits.map((h) => h.text)).toEqual([
+    "the ferry to the island departs early tomorrow",
+  ]);
 });

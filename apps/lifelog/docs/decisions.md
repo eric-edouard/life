@@ -130,7 +130,8 @@ reverse it, change its entry here in the same commit.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the
-  server adds passages found by meaning, and an exact name always beats a paraphrase.
+  server adds passages found by meaning and by every word typed, the two rankings fused: a passage both find
+  outranks one only one finds.
 
 ## Readers and glances
 

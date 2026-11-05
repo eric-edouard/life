@@ -10,6 +10,7 @@ import { existsSync, lstatSync } from "node:fs";
 import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
+import { EMBEDDER_FILE } from "../../server/src/core/embedder";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -42,9 +43,9 @@ const TOOLS = {
     url: `https://github.com/openai/codex/releases/download/rust-v0.162.1/${codex}.tar.gz`,
   },
   embedder: {
-    amd64: "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
-    arm64: "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
-    url: "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf",
+    amd64: EMBEDDER_FILE.sha256,
+    arm64: EMBEDDER_FILE.sha256,
+    url: EMBEDDER_FILE.url,
   },
   llama: {
     amd64: "c8094268b6bf62f4998f0e45656fd9f5e2d4afb6b1cd0044d761db64be1dd47d",
@@ -145,14 +146,27 @@ await $`tar -xzf ${await download(TOOLS.codex)} -C ${helpers} ${codex}`;
 await rename(join(helpers, codex), join(helpers, "codex"));
 await $`tar -xzf ${await download(TOOLS.uv)} -C ${helpers} --strip-components 1 uv-${triple}/uv`;
 await $`chmod 755 ${join(helpers, "cloudflared")} ${join(helpers, "restic")} ${join(helpers, "codex")} ${join(helpers, "uv")}`;
-// llama.cpp's server and the libraries it loads from beside it (@loader_path); the model goes to Resources.
+// llama.cpp's server and the libraries it loads from beside it (@loader_path); the model and both licenses go to
+// Resources.
 const llama = join(helpers, "llama");
+const embedder = join(resources, "embedder");
 await mkdir(llama);
-await $`tar -xzf ${await download(TOOLS.llama)} -C ${llama} --strip-components 1 --include ${"*/llama-server"} --include ${"*.dylib"}`;
-await mkdir(join(resources, "embedder"));
-await cp(
-  await download(TOOLS.embedder),
-  join(resources, "embedder/model.gguf")
+await mkdir(embedder);
+const loaded = [
+  "llama-server",
+  "LICENSE",
+  "libllama-server-impl.dylib",
+  "libllama-common*",
+  "libmtmd*",
+  "libllama.*",
+  "libggml*",
+];
+await $`tar -xzf ${await download(TOOLS.llama)} -C ${llama} --strip-components 1 ${loaded.flatMap((f) => ["--include", `*/${f}`])}`;
+await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
+await cp(await download(TOOLS.embedder), join(embedder, "model.gguf"));
+await writeFile(
+  join(embedder, "NOTICE"),
+  "The model (EmbeddingGemma-300M) is Gemma, provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms.\n"
 );
 // Host installs speaker recognition from these (uv sync --frozen, app.py download) into Application Support.
 await mkdir(join(resources, "identity"));

@@ -5203,7 +5203,7 @@
     },
     "/search": {
       "post": {
-        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the passages holding every word typed, the two rankings fused, best first: a passage both find outranks one only one finds. Embedded on the Mac (docs/providers.md). Conversations are indexed in the background after each change.",
+        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the passages holding every word typed, the two rankings fused, best first: a passage both find outranks one only one finds; by words alone while the embedder is down. Embedded on the Mac (docs/providers.md). Conversations are indexed in the background after each change.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5235,7 +5235,7 @@
             }
           },
           "503": {
-            "description": "The embedder is not configured or is down",
+            "description": "The embedder is not configured (EMBEDDER_URL)",
             "content": {
               "application/json": {
                 "schema": {

@@ -130,7 +130,7 @@ async function indexConversation(
   if (missing.length > 0) {
     const vectors = await embed(
       embedder,
-      missing.map(([, text]) => text.slice(0, SEARCH.embedChars))
+      missing.map(([, text]) => text)
     );
     for (const [i, [hash]] of missing.entries()) {
       const vector = vectors[i];
@@ -261,8 +261,14 @@ function cosine(a: Float32Array, b: Float32Array) {
 
 // Two rankings, fused: the passages nearest in meaning (at least SEARCH.minSimilarity), and those holding every word
 // of 3 characters or more (the FTS5 trigram index, best match first; a query with no such word, the passages
-// containing it as typed). Only passages embedded by `model` are compared.
-function rank(db: Db, model: string, vector: number[], q: Query): Hit[] {
+// containing it as typed). Only passages embedded by `model` are compared; with no `vector` (the embedder down), the
+// words rank alone.
+function rank(
+  db: Db,
+  model: string,
+  vector: number[] | undefined,
+  q: Query
+): Hit[] {
   // A sweep that ran while the conversation was retired may have put its passages back.
   const conditions = [
     sql`not exists (select 1 from conversations r
@@ -281,26 +287,28 @@ function rank(db: Db, model: string, vector: number[], q: Query): Hit[] {
   const filters = sql.join(conditions, sql` and `);
   // ponytail: the meaning ranking scans every passage's embedding in JS (~20k × 768 floats per query);
   // a vector index (sqlite-vec) when the archive outgrows that.
-  const query = Float32Array.from(vector);
-  const nearest = db
-    .all<{ embedding: Uint8Array; id: string }>(
-      sql`select p.id, p.embedding from search_passages p where ${filters} and p.model = ${model}`
-    )
-    .map((r) => [r.id, cosine(query, float32(r.embedding))] as const)
-    .filter(([, similarity]) => similarity >= SEARCH.minSimilarity)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, SEARCH.candidates)
-    .map(([id]) => id);
+  const query = vector && Float32Array.from(vector);
+  const nearest = query
+    ? db
+        .all<{ embedding: Uint8Array; id: string }>(
+          sql`select p.id, p.embedding from search_passages p where ${filters} and p.model = ${model}`
+        )
+        .map((r) => [r.id, cosine(query, float32(r.embedding))] as const)
+        .filter(([, similarity]) => similarity >= SEARCH.minSimilarity)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, SEARCH.candidates)
+        .map(([id]) => id)
+    : [];
   const words = (q.text.match(WORDS) ?? []).filter((w) => [...w].length >= 3);
   const holding = (
     words.length > 0
       ? db.all<{ id: string }>(sql`select p.id from search_text
           join search_passages p on p.rowid = search_text.rowid
           where search_text match ${words.map((w) => `"${w.replaceAll('"', '""')}"`).join(" AND ")}
-            and ${filters} and p.model = ${model}
+            and ${filters}
           order by search_text.rank limit ${SEARCH.candidates}`)
       : db.all<{ id: string }>(sql`select p.id from search_passages p
-          where ${filters} and p.model = ${model}
+          where ${filters}
             and p.text like ${`%${q.text.replace(LIKE_SPECIAL, "\\$&")}%`} escape '\\'
           order by p.captured_from desc nulls last limit ${SEARCH.candidates}`)
   ).map((r) => r.id);
@@ -346,8 +354,8 @@ function rank(db: Db, model: string, vector: number[], q: Query): Hit[] {
 export interface Search {
   // Starts a sweep, or asks the running one to go again; never rejects.
   index: () => Promise<void>;
-  // Null while the embedder is down.
-  query: (q: Query) => Promise<Hit[] | null>;
+  // By words alone while the embedder is down.
+  query: (q: Query) => Promise<Hit[]>;
 }
 
 // Null without EMBEDDER_URL (Lifelog Host always sets it): the app then searches with its own keyword index only (the
@@ -376,7 +384,7 @@ export function searchFor(
         ([v]) => v,
         (error: unknown) => console.error("search query:", error)
       );
-      return vector ? rank(db, embedder.model, vector, q) : null;
+      return rank(db, embedder.model, vector || undefined, q);
     },
   };
 }

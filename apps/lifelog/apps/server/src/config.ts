@@ -132,8 +132,6 @@ export const NAMING = {
 export const SEARCH = {
   // Passages each ranking (meaning, words) hands to the fusion.
   candidates: 200,
-  // Characters of a passage that are embedded; keyword matching reads all of it.
-  embedChars: 6000,
   // Below this cosine a passage is too far in meaning to be a hit: it kept 39 of the bench's 40 right answers and
   // dropped half the queries that had none.
   minSimilarity: 0.25,

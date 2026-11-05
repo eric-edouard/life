@@ -9,6 +9,16 @@ import { digest } from "./hash";
 /** The model's id, kept on every stored vector: a vector of another model is never compared with this one's. */
 export const EMBEDDER_MODEL = "embeddinggemma-300m-q8";
 export const EMBEDDER_DIMENSIONS = 768;
+/** The model's file, pinned: Lifelog Host bundles it (apps/lifelog/scripts/host-app.ts). A new file is a new `EMBEDDER_MODEL`. */
+export const EMBEDDER_FILE = {
+  sha256: "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
+  url: "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf",
+};
+/**
+ * The longest text embedded, in characters: Host gives each of llama-server's slots 2048 tokens, and the densest text
+ * measured (digits, Chinese, Thai mixed with English) runs near a token a character. The rest of a text is not read.
+ */
+const EMBEDDED_CHARS = 1900;
 
 /** The model card's prompts: a query and a passage are embedded differently. */
 const PROMPTS = {
@@ -25,7 +35,10 @@ export interface Embedder {
 
 const Answer = z.object({
   data: z.array(
-    z.object({ embedding: z.array(z.number()), index: z.number() })
+    z.object({
+      embedding: z.array(z.number()).length(EMBEDDER_DIMENSIONS),
+      index: z.number(),
+    })
   ),
 });
 
@@ -40,7 +53,7 @@ export function embedderAt(url: string): Embedder {
     embed: async (texts, as) => {
       const res = await fetch(new URL("/v1/embeddings", url), {
         body: JSON.stringify({
-          input: texts.map((t) => PROMPTS[as] + t),
+          input: texts.map((t) => PROMPTS[as] + t.slice(0, EMBEDDED_CHARS)),
           model: EMBEDDER_MODEL,
         }),
         headers: { "content-type": "application/json" },

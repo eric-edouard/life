@@ -79,7 +79,7 @@ More in [docs/architecture.md](docs/architecture.md).
 - An [ElevenLabs](https://elevenlabs.io) API key (transcription is billed per hour of speech).
 - A ChatGPT subscription with the Codex CLI, or a Claude subscription with Claude Code, for summaries.
 - A way for the phone to reach the Mac: [Tailscale](https://tailscale.com) on both (free), or a domain on Cloudflare.
-- Optional: an OpenAI API key for search by meaning; the [identity service](apps/identity) for speaker recognition.
+- Optional: the [identity service](apps/identity) for speaker recognition. Search by meaning runs on the Mac, no key.
 - To build: Xcode 27, [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46+, [Bun](https://bun.sh) 1.4, Homebrew's
   `librsvg`, and an Apple developer team to sign the app.
 
@@ -101,8 +101,7 @@ Build it with `bun run host:app`:
 bun run host:app            # builds apps/lifelog/.build/host/Lifelog Host.app (ad hoc signed without LIFELOG_SIGN_IDENTITY)
 ```
 
-Move it to Applications and open it. Settings opens until lifelog is set up: paste your ElevenLabs key (and OpenAI's,
-if you want search by meaning), choose how your phone reaches the Mac, then **Start fresh** or **Import an export…**.
+Move it to Applications and open it. Settings opens until lifelog is set up: paste your ElevenLabs key, choose how your phone reaches the Mac, then **Start fresh** or **Import an export…**.
 Under **Summaries**, sign the Mac helper in to your subscription: ChatGPT in the browser (the app carries its own
 Codex), or Claude by pasting the token `claude setup-token` prints. Turn on the daily backup to iCloud Drive and
 keep its password somewhere safe.
