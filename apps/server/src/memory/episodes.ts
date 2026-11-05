@@ -532,13 +532,13 @@ export async function episodes(evidence: Evidence) {
     const earlier = earlierFor(day, lines, corrections).map((m) =>
       episodeNow(m, refOf)
     );
-    // What a reading of the day, `shown` the episodes it saw, leaves in its file (`dayFileOf`).
-    const fileOf = (shown: { id: string }[]) => ({
+    // What a reading of the day leaves in its file (`dayFileOf`) is decided against this.
+    const fileCtx = {
       corrections,
-      earlier: new Set(shown.map((m) => m.id)),
+      earlier: new Set(earlier.map((m) => m.id)),
       lines,
       units: new Set(units.map((b) => b.unit.id)),
-    });
+    };
     // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
     const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
     // biome-ignore lint/performance/noAwaitInLoops: a day reads the episodes the day before it wrote
@@ -630,35 +630,33 @@ export async function episodes(evidence: Evidence) {
         earlier
       );
       // The second look: the units kept but in no episode, with the day as this reading leaves it.
-      const file = dayFileOf(day, reading, fileOf(earlier));
+      const file = dayFileOf(day, reading, fileCtx);
       const leftovers = leftoversOf(
         fresh(reading.verdicts, units, verdicts, rereads),
         byId,
         file
       );
-      if (leftovers.size > 0) {
+      const secondLook = async () => {
         const now = earlierFor(
           day,
           [...lines.filter((m) => m.day !== day), ...file],
           corrections
         ).map((m) => episodeNow(m, refOf));
-        const second = parse(
-          await step.ask({
-            context,
-            dir: join(step.dir, day, "leftovers"),
-            input: {
-              ...input,
-              earlier: now.map(shownOf),
-              pass: "leftovers",
-              units: input.units.filter((u) => leftovers.has(u.id)),
-              unknown: [],
-            },
-            prompt: EPISODES_PROMPT,
-          }),
-          now
-        );
-        reading.episodes.push(...second.episodes);
-      }
+        const json = await step.ask({
+          context,
+          dir: join(step.dir, day, "leftovers"),
+          input: {
+            ...input,
+            earlier: now.map(shownOf),
+            pass: "leftovers",
+            units: input.units.filter((u) => leftovers.has(u.id)),
+            unknown: [],
+          },
+          prompt: EPISODES_PROMPT,
+        });
+        return parse(json, now).episodes;
+      };
+      const placed = leftovers.size > 0 ? await secondLook() : [];
       const who = checkPeople(reading.who, {
         areas,
         at: step.now.toISOString(),
@@ -669,12 +667,17 @@ export async function episodes(evidence: Evidence) {
         truth: new Set(truth.people.map((p) => `person:${p.id}`)),
         unknown,
       });
-      return { ...reading, sent: texts.size, who };
+      return {
+        ...reading,
+        episodes: [...reading.episodes, ...placed],
+        sent: texts.size,
+        who,
+      };
     });
     if (got) {
       // The episodes first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
-      const kept = dayFileOf(day, got, fileOf(earlier));
+      const kept = dayFileOf(day, got, fileCtx);
       await writeDay(day, kept);
       const judgedNow = fresh(got.verdicts, units, verdicts, rereads);
       await appendVerdicts(judgedNow);
