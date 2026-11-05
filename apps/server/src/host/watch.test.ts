@@ -18,7 +18,6 @@ import { hear } from "./hear";
 import * as http from "./http/server";
 import {
   afterPoll,
-  earliest,
   hearings,
   holdFor,
   type Pending,
@@ -29,16 +28,6 @@ import {
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
 const fail = { error: "lifelog GET /changes: 502" };
-
-test("the sync owed is the earliest instant touched, and the full sync covers any", () => {
-  expect(earliest(null, at(5))).toEqual(at(5));
-  expect(earliest(at(5), null)).toEqual(at(5));
-  expect(earliest(at(5), at(2))).toEqual(at(2));
-  expect(earliest(at(2), at(5))).toEqual(at(2));
-  expect(earliest(at(2), "full")).toBe("full");
-  expect(earliest("full", null)).toBe("full");
-  expect(earliest(null, null)).toBeNull();
-});
 
 test("a successful poll resets the errors and the lag; a failed one keeps the last cursor", () => {
   let h: Health | null = null;

@@ -58,7 +58,10 @@ export const newestIn = (dir: string, skip: string[] = []): number =>
           const p = join(dir, e.name);
           return Math.max(
             m,
-            e.isDirectory() ? newestIn(p, skip) : statSync(p).mtimeMs
+            e.isDirectory()
+              ? newestIn(p, skip)
+              : // Gone since the listing (an atomic write's rename): it no longer counts.
+                (statSync(p, { throwIfNoEntry: false })?.mtimeMs ?? 0)
           );
         }, 0)
     : 0;

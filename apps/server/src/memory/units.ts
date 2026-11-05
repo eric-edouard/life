@@ -910,10 +910,12 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
  * Makes the lifelog units in memory/units/ from `since` on the ones the store gives (what the watcher does after a page,
  * `since` where the page touched: `apply`); a chapter unit stays as stored while its conversation is live
  * (`frozenUnits`), and goes with it. A day's file is rewritten only when its lifelog units differ; other units in it
- * stay. Returns how many units were built, changed and removed, the units changed in place (`written`), and whether a
- * unit came, went, or was dropped or taken back by a code rule (`isLiveChanged`: the observations on it change too).
+ * stay. Returns how many units were built, changed and removed, the units written (`written`), and whether a unit went
+ * or a code rule dropped or took one back (`hasGoneOrBack`: the observations on it go or come back).
  * ponytail: `gather` (episodes) and this apply the `duplicate` rule within what they read, so a lifelog unit repeating
- * one from before may flip between the two writers; one writer settles it.
+ * one from before may flip between the two writers; one writer settles it. A unit id that comes back (a conversation
+ * regrouped onto a day it had left) counts as new: its old observations stay gone until the next full rebuild (the
+ * night's); compare ids against the index's observations if that day matters.
  */
 export async function syncLifelogUnits(store: Store, since: Date) {
   const { built, chapters, have } = await voiceUnits(
@@ -950,10 +952,9 @@ export async function syncLifelogUnits(store: Store, since: Date) {
   return {
     added: added.length,
     changed: changed.length,
-    isLiveChanged:
-      added.length + removed.length > 0 ||
-      changed.some((u) => dropOf.get(u.id) !== !!u.drop),
+    hasGoneOrBack:
+      removed.length > 0 || changed.some((u) => dropOf.get(u.id) !== !!u.drop),
     removed: removed.length,
-    written: changed,
+    written: [...added, ...changed],
   };
 }

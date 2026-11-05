@@ -1036,7 +1036,7 @@ create virtual table unit_search using fts5(id unindexed, title, summary, topics
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
 create index unit_topics_topic on unit_topics (topic);
-create table built (at text);`;
+create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`stateOf`). */
 function retirement(o: Observation, standing: Standing) {
@@ -1110,7 +1110,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
 /**
  * derived/memory/index.sqlite, rebuilt from scratch (`writeIndex`): observations (with the observation that replaced
  * each retired one, and its end date), full-text search over claims and quotes, links; the units (`indexUnits`), so
- * today's material is searchable before the nightly pass; and `built`, when its reads began (`isIndexStale`).
+ * today's material is searchable before the nightly pass; and `rebuilt`, when its reads began (`readStaleness`).
  */
 export function buildIndex(
   observations: Observation[],
@@ -1128,7 +1128,7 @@ export function buildIndex(
       )
       .values();
     db.run(tables.map(([t]) => `drop table "${t}";`).join("") + INDEX_SCHEMA);
-    db.run("insert into built values (?)", [builtAt.toISOString()]);
+    db.run("insert into rebuilt values (?)", [builtAt.toISOString()]);
     const row = insertInto(db, "observations", 17);
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "links", 2);
@@ -1177,8 +1177,9 @@ export async function reindex() {
 }
 
 /**
- * Rewrites the rows of `units` alone, units the watcher rewrote in place (`syncLifelogUnits`): their observations stand
- * as they did, so the full rebuild's rows hold. A unit that came, went or was dropped takes the full `reindex`.
+ * Rewrites the rows of `units` alone, units the watcher wrote (`syncLifelogUnits`): the observations on them stand as
+ * they did, so the full rebuild's rows hold. A unit that went, or that a code rule dropped or took back, takes the full
+ * `reindex`.
  */
 export async function reindexUnits(units: Unit[], path = INDEX) {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
@@ -1200,27 +1201,32 @@ export async function reindexUnits(units: Unit[], path = INDEX) {
 }
 
 /**
- * Whether what the full rebuild reads changed since its reads began (its `built` row): a file under memory/ or truth/
- * newer, units/ and episodes/ aside (the watcher rewrites units in place, `reindexUnits`; the index reads no episode).
- * So a correction is searchable within the minute. No index, or one from before the row: stale.
+ * What changed since the full rebuild's reads began (its `rebuilt` row), so a correction is searchable within the
+ * minute: `truth` (a file under truth/ newer: the lifelog units carry its names, so they are built again too), `index`
+ * (any other file under memory/ newer, units/ and episodes/ aside, which the watcher writes itself; or no index, or one
+ * from before the row), or null. A superset of what the rebuild reads: a list of its inputs would drift.
  */
-export function isIndexStale(path = INDEX) {
-  let built: string | undefined;
+export function readStaleness(path = INDEX): "truth" | "index" | null {
+  let rebuilt: string | undefined;
   try {
     const db = openReadOnly(path);
     try {
-      built = db.query<{ at: string }, []>("select at from built").get()?.at;
+      rebuilt = db
+        .query<{ at: string }, []>("select at from rebuilt")
+        .get()?.at;
     } finally {
       db.close();
     }
   } catch {
-    return true;
+    return "index";
   }
-  const newest = Math.max(
-    newestIn(MEMORY, ["units", "episodes"]),
-    newestIn(TRUTH)
-  );
-  return !built || newest > Date.parse(built);
+  const at = rebuilt ? Date.parse(rebuilt) : 0;
+  if (newestIn(TRUTH) > at) {
+    return "truth";
+  }
+  return !rebuilt || newestIn(MEMORY, ["units", "episodes"]) > at
+    ? "index"
+    : null;
 }
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */

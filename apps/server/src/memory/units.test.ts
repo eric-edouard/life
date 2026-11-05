@@ -744,7 +744,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
       await syncLifelogUnits(store, apply(store, on("2026-10-26")) as Date)
     ).toMatchObject({
       added: 1,
-      isLiveChanged: true,
+      hasGoneOrBack: true,
       removed: 1,
     });
     expect(await sourcesByDay()).toEqual({
@@ -871,7 +871,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
     expect(synced).toMatchObject({
       added: 0,
       changed: 1,
-      isLiveChanged: false,
+      hasGoneOrBack: false,
       removed: 0,
     });
     expect(synced.written.map((u) => u.key)).toEqual(["c2"]);
@@ -885,6 +885,16 @@ test("a sync reads from where the page touched: only those days' files are rewri
       changed: 0,
       removed: 0,
       written: [],
+    });
+    // A unit a code rule had dropped comes back: the observations on it come back with it.
+    const units = await readUnits();
+    await writeUnits(
+      ["2026-10-25"],
+      units.map((u) => (u.key === "c2" ? { ...u, drop: "duplicate" } : u))
+    );
+    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+      changed: 1,
+      hasGoneOrBack: true,
     });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
