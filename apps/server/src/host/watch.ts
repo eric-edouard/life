@@ -198,6 +198,8 @@ async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
   }
   const done = await locked(async () => {
     const built = due.from ? await syncLifelogUnits(store, due.from) : null;
+    // Written units no longer differ: if the index update throws, the retry owes the whole index.
+    owed.isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
     if (due.isIndexOwed || built?.hasGoneOrBack) {
       await reindex();
     } else if (built?.written.length) {
