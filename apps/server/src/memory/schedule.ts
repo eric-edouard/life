@@ -73,7 +73,7 @@ export async function spareQuota(engine?: Engine) {
   }
 }
 
-/** The hours of the midday runs (episodes, extract and pages of the day so far; no commit, no email). */
+/** The hours of the midday runs (episodes of the day so far; no commit, no email). */
 const MIDDAYS = [13, 19];
 
 /** True at the first tick after a midday hour that no run has used yet (`last`: when the last midday run started). */

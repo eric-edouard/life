@@ -55,13 +55,13 @@ export interface Night {
   from: string;
   /** Each unit holding one of his asks, read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
-  /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
+  /** Observations that show and whose source line was first cited since the last good night (`newSince`): hand runs' included. */
   observed: number;
   paged: Result<typeof pages>;
   /** His engine's quota as the night ended (`quotaLine`), when it has one. */
   quota?: string;
   repos: Result<typeof mapRepos>;
-  /** Observations retired since the last good night: midday runs' included. */
+  /** Observations retired since the last good night: hand runs' included. */
   retired: number;
   /** What the model calls of the last 24 h spent, a line per run and per sweep's step (`spent`, nightly.ts). */
   spent: string[];

@@ -24,8 +24,8 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
 | `capture.archive.{whatsapp,line,instagram,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
-| `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
-| `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
+| `extraction` | nightly and backfill weeks | derived/log, `memory.extract` |
+| `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no

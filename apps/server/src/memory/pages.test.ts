@@ -28,7 +28,7 @@ test("pages no target claims are deleted, the others stay", async () => {
   await rm(dir, { recursive: true });
 });
 
-test("what changed is counted against the last commit, so a midday rewrite shows in the night's report; a page new or gone too", async () => {
+test("what changed is counted against the last commit, so a hand run's rewrite shows in the night's report; a page new or gone too", async () => {
   const root = await mkdtemp(join(tmpdir(), "life-"));
   const dir = join(root, "memory", "pages");
   await mkdir(join(dir, "people"), { recursive: true });
@@ -73,7 +73,7 @@ test("what changed is counted against the last commit, so a midday rewrite shows
     "night",
   ]);
   expect(changedSinceCommit(root, dir)).toEqual([]);
-  // A midday rewrite, a page gone, a page new: all against the night before.
+  // A hand run's rewrite, a page gone, a page new: all against the night before.
   await Bun.write(
     file("hans"),
     page("Hans", ["Builds the roof.", "Paid the tiles."])

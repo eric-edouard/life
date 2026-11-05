@@ -23,7 +23,7 @@ With voice on, Life also gets:
    **Save**. The token goes to the Keychain, and Life restarts its services to read the new settings.
 
 Open the status window: the **Watcher** card says when Life last heard from lifelog. Conversations show up in answers
-after the next pass, at 13:00, 19:00 or overnight.
+after the next pass: their episodes at 13:00, 19:00 or overnight, their facts overnight.
 
 ## From a checkout
 

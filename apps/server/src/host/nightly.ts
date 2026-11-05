@@ -215,7 +215,7 @@ export async function midday(now = clock(), force = false) {
   }
   const code = await locked(() => {
     recordMidday();
-    return sweep("memory.midday", lastDays(now, 1), { facts: false })
+    return sweep("memory.midday", lastDays(now, 1), { extract: false })
       .then(async (failure) => {
         await askFactChecks();
         return failure ? 1 : 0;
@@ -241,7 +241,7 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const failure = await sweep("memory.backfill", week, { facts: true });
+    const failure = await sweep("memory.backfill", week, { extract: true });
     const next = afterWeek(b, week, !failure, day);
     recordBackfill(next);
     // Its last try failed: the backfill stops, so he hears it, as of a night's last failure.
@@ -262,11 +262,11 @@ async function backfilled(day: string) {
 }
 
 /**
- * One sweep without commit or email: the evidence of `window`, read once for episodes and, with `facts`, extract, then
+ * One sweep without commit or email: the evidence of `window`, read once for episodes and (when `extract`) facts, then
  * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
  * caller holds the lock.
  */
-async function sweep(name: string, window: Window, o: { facts: boolean }) {
+async function sweep(name: string, window: Window, o: { extract: boolean }) {
   const rec = await metered(name, { ...window });
   const phase = phases(rec);
   try {
@@ -274,7 +274,7 @@ async function sweep(name: string, window: Window, o: { facts: boolean }) {
     const evidence = await gather(window, await readPeople());
     const found = await phase.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
-    if (o.facts) {
+    if (o.extract) {
       const extracted = await phase.step("extract", () => extract(evidence));
       console.log(JSON.stringify(extracted));
     }
@@ -290,7 +290,7 @@ async function sweep(name: string, window: Window, o: { facts: boolean }) {
 }
 
 /**
- * Each unit holding one of his asks (its marks) that an extract run read since `since` (midday ones too), with the observations citing its
+ * Each unit holding one of his asks (its marks) that an extract run read since `since` (a backfill's or a hand run's too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
@@ -376,7 +376,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
   const rec = await metered("memory.nightly", { ...window, force });
-  // Lines first cited since the last good night (with no night state, the window) are new in this report, midday runs' too.
+  // Lines first cited since the last good night (with no night state, the window) are new in this report, a backfill's or a hand run's too.
   const last = readState();
   const since =
     last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();
