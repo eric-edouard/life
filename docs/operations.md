@@ -80,8 +80,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes, extract of its
-  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs (the next slot and the night read the day again).
+- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes, the index, his
+  fact checks topped up. Facts wait for the night, which reads each unit once its day is done. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
 - **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never

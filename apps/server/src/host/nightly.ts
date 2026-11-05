@@ -123,7 +123,7 @@ export async function archiveLine(since: string) {
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
  * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else the midday
- * pass (episodes, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
+ * pass (episodes) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
  */
@@ -203,8 +203,9 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 }
 
 /**
- * A midday run (about 13:00 and 19:00, same 30-minute tick): episodes and extract of today, so the day's speech is read
- * while it is fresh, then the index, then the pages that have new observations, then his fact checks topped up. No
+ * A midday run (about 13:00 and 19:00, same 30-minute tick): today's episodes, so the day's speech is read while it is
+ * fresh, then the index, then his fact checks topped up. Its facts wait for the night: a chat-day read for facts at
+ * midday is read again in full at night once its later messages land, so reading it once costs about half (5 Nov). No
  * commit, no email: the nightly commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
  */
@@ -212,12 +213,9 @@ export async function midday(now = clock(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
     return 0;
   }
-  // Pages follow the day: only a page with new observations is rewritten (a quiet one keeps its file).
   const code = await locked(() => {
     recordMidday();
-    return sweep("memory.midday", lastDays(now, 1), {
-      pages: () => pages({ rebuild: false }),
-    })
+    return sweep("memory.midday", lastDays(now, 1), { facts: false })
       .then(async (failure) => {
         await askFactChecks();
         return failure ? 1 : 0;
@@ -243,7 +241,7 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const failure = await sweep("memory.backfill", week);
+    const failure = await sweep("memory.backfill", week, { facts: true });
     const next = afterWeek(b, week, !failure, day);
     recordBackfill(next);
     // Its last try failed: the backfill stops, so he hears it, as of a night's last failure.
@@ -264,15 +262,11 @@ async function backfilled(day: string) {
 }
 
 /**
- * One sweep without commit or email: the evidence of `window`, read once for episodes and extract, then `pages` (the
- * midday's pages), then the index; recorded as `name`, every step's failure caught and logged, and returned (null when
- * it went through). The caller holds the lock.
+ * One sweep without commit or email: the evidence of `window`, read once for episodes and, with `facts`, extract, then
+ * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
+ * caller holds the lock.
  */
-async function sweep(
-  name: string,
-  window: Window,
-  o: { pages?: () => Promise<{ failed: number }> } = {}
-) {
+async function sweep(name: string, window: Window, o: { facts: boolean }) {
   const rec = await metered(name, { ...window });
   const phase = phases(rec);
   try {
@@ -280,10 +274,9 @@ async function sweep(
     const evidence = await gather(window, await readPeople());
     const found = await phase.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
-    const extracted = await phase.step("extract", () => extract(evidence));
-    console.log(JSON.stringify(extracted));
-    if (o.pages) {
-      await phase.step("pages", o.pages);
+    if (o.facts) {
+      const extracted = await phase.step("extract", () => extract(evidence));
+      console.log(JSON.stringify(extracted));
     }
     phase.at = "index";
     await reindex();
