@@ -29,6 +29,11 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 - Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/host/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
+- What stays bounded: the nightly deletes each run's model files (`LIFE_STATE_DIR/memory/runs`) after 30 days and the
+  event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
+  `~/Library/Logs/life-*.log` becomes `life-*.old.log` past 10 MB when its process starts; a bridge
+  logs to its own capped `logs/bridge.log`, only its errors to the bridges job's log. The backup hashes only files whose
+  size or mtime changed since the last staging (`stage`'s `previous`).
 
 ## Settings
 

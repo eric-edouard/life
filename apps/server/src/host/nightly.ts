@@ -1,11 +1,14 @@
-import { clock, DAY, HOUR } from "../core/clock";
+import { rmSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { clock, DAY, HOUR, iso } from "../core/clock";
+import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
-import { log, recentEvents } from "../core/log";
+import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
-import { newSince, readLedger } from "../memory/ledger";
+import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked, lockedSince } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
@@ -372,6 +375,26 @@ async function spent(rec: Metered, now: Quota | undefined) {
   });
 }
 
+/**
+ * Deletes what no one reads past an age: each run's model files (state/memory/runs) after 30 days, the event log's
+ * days after a year (its readers look back weeks; the backups keep 24 months).
+ */
+export async function dropOld(now: Date) {
+  const runFiles = join(OUT, "runs");
+  for (const name of await filesIn(runFiles, "")) {
+    const at = statSync(join(runFiles, name), { throwIfNoEntry: false });
+    if (at && at.mtimeMs < now.getTime() - 30 * DAY) {
+      rmSync(join(runFiles, name), { force: true, recursive: true });
+    }
+  }
+  const yearAgo = `${iso(now.getTime() - 365 * DAY).slice(0, 10)}.jsonl`;
+  for (const name of await logDays()) {
+    if (name < yearAgo) {
+      rmSync(join(LOG_DIR, name), { force: true });
+    }
+  }
+}
+
 async function runNight(days: number, now: Date, day: string, force: boolean) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
@@ -410,6 +433,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const archive = await archiveLine(since);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
+    await dropOld(now);
     const q = await quota();
     mail = successReport(day, rec.ms(), {
       acted: report,

@@ -116,6 +116,13 @@ export async function inventory(dir: string) {
   };
 }
 export type Manifest = Awaited<ReturnType<typeof stage>>;
+/** A staged file as the manifest lists it (restore checks `sha256`; `mtime` only spares the next staging a hash). */
+interface StagedFile {
+  mtime: number;
+  path: string;
+  sha256: string;
+  size: number;
+}
 
 const ENV_KEY = /^([A-Z0-9_]+)=/;
 /** What a new install is given by hand, named only: never their values. */
@@ -139,9 +146,15 @@ function leftOut() {
 /**
  * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
  * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
- * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held.
+ * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held. A file of the
+ * same path, size and mtime as in `previous` (the last staging's manifest) keeps its hash, as restic trusts the same:
+ * the folder clones keep mtimes, the stores' copies are new files and always hashed.
  */
-export async function stage(dir: string, archive = ARCHIVE) {
+export async function stage(
+  dir: string,
+  archive = ARCHIVE,
+  previous: StagedFile[] = []
+) {
   if (!isEmpty(dir)) {
     throw new Error(`${dir} is not empty`);
   }
@@ -188,14 +201,17 @@ export async function stage(dir: string, archive = ARCHIVE) {
       recursive: true,
     });
   }
-  const files: { path: string; sha256: string; size: number }[] = [];
+  const before = new Map(previous.map((f) => [f.path, f]));
+  const files: StagedFile[] = [];
   for (const path of filesUnder(dir)) {
-    files.push({
-      path,
-      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed: the media alone is gigabytes
-      sha256: await sha256Of(join(dir, path)),
-      size: statSync(join(dir, path)).size,
-    });
+    const { mtimeMs: mtime, size } = statSync(join(dir, path));
+    const was = before.get(path);
+    const sha256 =
+      was?.size === size && was.mtime === mtime
+        ? was.sha256
+        : // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed: the media alone is gigabytes
+          await sha256Of(join(dir, path));
+    files.push({ mtime, path, sha256, size });
   }
   const manifest = {
     counts: await inventory(dir),

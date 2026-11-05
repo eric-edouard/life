@@ -76,3 +76,21 @@ test("an export goes to any folder name, an apostrophe too; it is refused while 
     rmSync(LOCK, { force: true });
   }
 });
+
+test("a staged file of the last staging's size and mtime keeps its hash; a changed one is hashed again", async () => {
+  const archive = mkdtempSync(join(tmpdir(), "life-archive-"));
+  mkdirSync(join(archive, "media"));
+  writeFileSync(join(archive, "media", "same.jpg"), "jpeg");
+  writeFileSync(join(archive, "media", "edited.jpg"), "jpeg");
+  const base = mkdtempSync(join(tmpdir(), "life-export-"));
+  const first = await stage(join(base, "1"), archive);
+  writeFileSync(join(archive, "media", "edited.jpg"), "JPEG");
+  const marked = first.files.map((f) => ({ ...f, sha256: `last ${f.path}` }));
+  const second = await stage(join(base, "2"), archive, marked);
+  const hash = (path: string) =>
+    second.files.find((f) => f.path === path)?.sha256;
+  expect(hash("archive/media/same.jpg")).toBe("last archive/media/same.jpg");
+  expect(hash("archive/media/edited.jpg")).toBe(
+    await sha256Of(join(base, "2", "archive/media/edited.jpg"))
+  );
+});

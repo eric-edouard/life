@@ -148,12 +148,9 @@ export async function archiveFailing() {
 function copyAll(failing: Set<string>) {
   for (const { name, store } of keptStores()) {
     try {
-      const added = store.copy();
+      store.copy();
       if (failing.delete(name)) {
         log("run.end", { step: `archive.${name}` });
-      }
-      if (added > 0) {
-        console.log(`${clock().toISOString()} archived ${added} ${name}`);
       }
     } catch (error) {
       console.error(clock().toISOString(), name, error);
