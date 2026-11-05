@@ -56,7 +56,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("allmodels: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: {
     finish?: string;
@@ -64,6 +64,8 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     status: number;
     /** The hosts whose stream ends before it finishes (29 Oct 2026: refuseless on 16 Oct). */
     cut?: string[];
+    /** The hosts that put a stray word in their reply (5 Nov 2026: refuseless on 21 Oct). */
+    garbled?: string[];
     /** The connection stays open after [DONE]. */
     open?: boolean;
   } = { finish: "stop", provider: "Refuseless", status: 200 };
@@ -108,7 +110,12 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
           },
           {
             choices: [
-              { delta: { content: " true}" }, finish_reason: reply.finish },
+              {
+                delta: {
+                  content: reply.garbled?.includes(host) ? " 继续}" : " true}",
+                },
+                finish_reason: reply.finish,
+              },
             ],
             provider: reply.provider,
           },
@@ -180,7 +187,14 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
       "refuseless: allmodels: stopped (cut before it finished); hopper: allmodels: stopped (cut before it finished)"
     );
     hostsAsked();
-    reply = { ...reply, cut: [], provider: "Experiential Labs" };
+    // A finished reply that is not JSON goes to the next host too.
+    reply = { ...reply, cut: [], garbled: ["refuseless"] };
+    expect(await ask()).toEqual({ ok: true });
+    expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    reply = { ...reply, garbled: ["refuseless", "hopper"] };
+    await expect(ask()).rejects.toThrow("hopper: allmodels: not JSON");
+    hostsAsked();
+    reply = { ...reply, garbled: [], provider: "Experiential Labs" };
     await expect(ask()).rejects.toThrow("served by Experiential Labs");
     // Refused, yet spent: its tokens are in the log.
     expect(lastLine()).toContain("served by Experiential Labs");

@@ -151,7 +151,7 @@ late with harm), or spoken asks above about one a day for a month.
   call, key, whether it may run tools, and its quota.
 - allmodels (`ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017 abliterated on every tier, sent only to the hosts
   after `@`, one at a time in that order (`author/model@refuseless,hopper`), streamed: a host that errs, sends nothing
-  for 5 minutes or ends its stream before it finishes gives way to the next (allmodels' own fallback acts only before
+  for 5 minutes, ends its stream before it finishes or garbles its reply into something that is not JSON gives way to the next (allmodels' own fallback acts only before
   output begins, and on 29 Oct refuseless opened a day's reply and then died), and a reply from any other host is refused. Both hosts take images (the files step sends them) and say they keep
   nothing; allmodels ignores `zdr`, so the host list is the guarantee.
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
