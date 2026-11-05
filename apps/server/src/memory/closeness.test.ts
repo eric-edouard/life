@@ -24,6 +24,7 @@ import {
   voiceDays,
 } from "./closeness";
 import { pagePath } from "./ledger";
+import { foldsOf } from "./who";
 
 const msg = (
   chat: string,
@@ -117,7 +118,7 @@ test("a level keeps a page when close or once close, never a service's; his word
     // Folded into Ann: only Ann's own judgment counts.
     ["person:ann2", row("person:ann2", { at: "2026-10-21T00:00:00.000Z" })],
   ]);
-  const levels = levelsNow(rows, [
+  const corrections = [
     {
       at: "2026-10-20T00:00:00.000Z",
       kind: "closeness",
@@ -130,7 +131,11 @@ test("a level keeps a page when close or once close, never a service's; his word
       kind: "same-person",
       to: "person:ann",
     } as never,
-  ]);
+  ] as Correction[];
+  const levels = levelsNow(rows, {
+    canon: foldsOf([], [], corrections).canon,
+    corrections,
+  });
   expect(levels.get("person:joe")).toMatchObject({
     personal: "acquaintance",
     why: "your word",
@@ -303,7 +308,13 @@ test("a written page stays until its person is judged: no closeness ledger delet
   await mkdir(dirname(path), { recursive: true });
   await Bun.write(path, "# New\n");
   try {
-    expect(await pagedNow({ people: [] })).toContain("person:inf_new");
+    expect(
+      await pagedNow({
+        canon: (r) => r,
+        corrections: [],
+        truth: { people: [] } as never,
+      })
+    ).toContain("person:inf_new");
   } finally {
     await rm(path);
   }

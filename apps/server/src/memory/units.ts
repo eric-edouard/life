@@ -67,7 +67,7 @@ export interface Message {
   transaction?: boolean;
 }
 
-/** Who a name, handle or address is (`resolver`, who.ts: the one resolver), or null. */
+/** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null. */
 export type Resolve = (surface: string) => string | null;
 
 export interface Built {

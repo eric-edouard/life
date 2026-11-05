@@ -60,7 +60,7 @@ import {
   unitId,
   writeUnits,
 } from "./units";
-import { resolver, unitNow } from "./who";
+import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";
 import {
   cutAt,
@@ -330,10 +330,14 @@ test("a turn of one of his asks moves its unit's hash and its refs are kept; a t
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
-  const resolve = resolver([
-    ...people,
-    { ...people[1], aliases: [], id: "other", name: "Pops" } as Person,
-  ]);
+  const { resolve } = foldsOf(
+    [
+      ...people,
+      { ...people[1], aliases: [], id: "other", name: "Pops" } as Person,
+    ],
+    [],
+    []
+  );
   expect(resolve("Jean (Me)")).toBe("person:me");
   expect(resolve("Jean Senior")).toBe("person:dad");
   expect(resolve("Pops")).toBeNull();
@@ -979,7 +983,7 @@ test("who wrote a message, for every kind: him, an agent's own line, whom the re
 });
 
 test("a reader sees a unit's stored senders as whom they resolve to today, a mail's unknown senders left out", () => {
-  const resolve = resolver(people);
+  const { resolve } = foldsOf(people, [], []);
   const refOf = (r: string) =>
     r.startsWith("unknown:") ? (resolve(r.slice(8)) ?? r) : r;
   const [chat] = messageUnits(

@@ -31,7 +31,7 @@ import {
   verdictOf,
 } from "./ledger";
 import { linkOf } from "./observe";
-import { checkPeople, unknownIn } from "./people";
+import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, involvedOf, refContext } from "./run";
@@ -61,7 +61,7 @@ import { voiceText } from "./words";
 // and names are (memory/people-inferred.jsonl).
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
-export const EPISODES_PROMPT = "memory-episodes.v6";
+export const EPISODES_PROMPT = "memory-episodes.v7";
 // ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
 // into halves with the episodes of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;
@@ -444,7 +444,7 @@ export async function episodes(evidence: Evidence) {
     );
   }
   let verdicts = readVerdicts();
-  const { corrections, inferred, refOf, resolve } = await readPeople();
+  const { canon, corrections, inferred, refOf, resolve } = await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -452,7 +452,7 @@ export async function episodes(evidence: Evidence) {
       hints.set(repo, [r.area]);
     }
   }
-  const levels = levelsWith(corrections);
+  const levels = levelsWith({ canon, corrections });
   const refs = refContext(
     truth,
     inferred,
@@ -461,6 +461,7 @@ export async function episodes(evidence: Evidence) {
   );
   const onMap = refs.map.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
+  const answered = answeredBy(resolve, inferred);
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
@@ -496,10 +497,10 @@ export async function episodes(evidence: Evidence) {
       const stays = lifelogMissing()
         ? []
         : ((await staysOf({ at: day })) ?? []);
-      // Known: on the map, inferred confidently, or answered earlier in this run (one person, one id).
+      // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
       const unknown = unknownIn(
         spoken,
-        (s) => resolve(s) !== null || named.some((p) => p.surfaces.includes(s))
+        (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
       );
       // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
       const near = new Map(
@@ -597,6 +598,7 @@ export async function episodes(evidence: Evidence) {
         projects,
         read: (b) => head(b.text),
         taken,
+        truth: new Set(truth.people.map((p) => `person:${p.id}`)),
         unknown,
       });
       return { ...reading, sent: texts.size, who };

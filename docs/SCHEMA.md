@@ -64,7 +64,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` since Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` from Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units, `memory-episodes.v7` since 5 Nov 2026, which links an unknown handle or name to the person on the map it is) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -84,7 +84,7 @@ ID cards, invoices, plans.
 ## episodes/YYYY-MM-DD.jsonl
 
 What happened in the owner's life: one line per episode (a trip, a dinner, a flight, a coffee), written by
-`bun life memory episodes` (prompt `memory-episodes.v6`) from one day of units read together across every channel, in
+`bun life memory episodes` (prompt `memory-episodes.v7`) from one day of units read together across every channel, in
 time order, with where his phone stayed and the episodes of the day before that may continue into it (the same call
 writes the day's verdicts). A plan is never an episode: it is a fact with its `when`. A day read again sends only its
 new units in full; its episodes as they stand are the state, and the reply gives the new or changed ones and those
@@ -162,11 +162,14 @@ could not place is no longer asked about (the episodes call asks about the day's
 ## people-inferred.jsonl
 
 Who Life thinks an unknown handle or name is, written by `bun life memory episodes` (the same call that reads the day;
-before 18 Oct by an infer step of its own), append-only: `{schemaVersion: 1, id, surfaces, name, relation, area, project, confidence, evidence: [{unit,
+before 18 Oct by an infer step of its own), append-only: `{schemaVersion: 1, id, surfaces, name, person?, relation, area, project, confidence, evidence: [{unit,
 quote}], madeBy, at}`. `id` is `inf_` and a slug (truth ids never start with `inf_`), `surfaces` the handles (a phone,
 a WhatsApp or Matrix id) or names it goes by, `name` a name or, when the messages give none, a description ("the
 plumber changing the shop sink"), `relation` how it relates to the owner, `evidence` quotes checked to be in the messages
-the model read (a unit of that day). Every handle and name of a day that does not resolve yet is asked about, with the
+the model read (a unit of that day), `person` (from `memory-episodes.v7`) the person in `truth/` it is, when the call
+judged it is them, null when it judged no one there is (absent on older guesses, which are asked once more when their
+surface comes back). Every id a surface was given reads as what the surface reads as now: his `this-is`, `truth/`, else
+its latest confident guess, the person it links to before the guess itself; never one his `not-this-person` rules out (`foldsOf`). Every handle and name of a day that does not resolve yet is asked about, with the
 units it appears in, each time that day is read; an unsure answer is asked again with the next day's evidence. Model-owned: the resolver uses it automatically,
 below `truth/` and the owner's corrections, from confidence 0.5; the latest record for a surface wins. It never
 writes `truth/`.

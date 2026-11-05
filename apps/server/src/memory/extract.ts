@@ -423,7 +423,7 @@ export async function extract(evidence: Evidence) {
   );
   const lanes = lanesOf(calls);
 
-  const levels = levelsWith(corrections);
+  const levels = levelsWith(people);
   const close = personallyClose(levels);
   const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
   // Refs are checked against the whole map, not only what a call was shown.

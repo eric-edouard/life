@@ -23,6 +23,7 @@ const Said = z.object({
     .default([]),
   key: z.string(),
   name: z.string().min(1).max(80),
+  person: z.string().nullable().default(null),
   project: z.string().nullable().default(null),
   relation: z.string().min(1).max(160),
 });
@@ -38,8 +39,8 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
 /**
  * Who the episodes call says the day's unknown handles and names are, checked: a surface we asked about (`unknown`: the
  * units it appears in; the first answer for it), at least one quote found in the text of one of those units, an area
- * from the list and a project we know, else none. A person is recorded however unsure the model is; how far to trust
- * it is the `confidence` (the resolver uses it from INFERRED_USE_AT).
+ * from the list and a project we know, else none; `person` only when it is someone in truth/. A person is recorded
+ * however unsure the model is; how far to trust it is the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
  */
 export function checkPeople(
   said: unknown[],
@@ -51,6 +52,8 @@ export function checkPeople(
     /** The text of a unit as the model read it. */
     read: (b: Built) => string;
     taken: Set<string>;
+    /** The refs of the people in truth/. */
+    truth: Set<string>;
     unknown: Map<string, Built[]>;
   }
 ) {
@@ -78,6 +81,9 @@ export function checkPeople(
         id: inferredId(r.data.name, r.data.key, ctx.taken),
         madeBy: ctx.madeBy,
         name: r.data.name,
+        // Only someone in truth/: a link never leads to another guess.
+        person:
+          r.data.person && ctx.truth.has(r.data.person) ? r.data.person : null,
         project:
           r.data.project && ctx.projects.has(r.data.project)
             ? r.data.project
@@ -89,6 +95,27 @@ export function checkPeople(
     }
   }
   return records;
+}
+
+/**
+ * Whether a surface has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
+ * inferred guess the call judged against the map (`person` null or a ref). A guess made before the call could link
+ * (`person` absent) is asked once more.
+ */
+export function answeredBy(
+  resolve: (s: string) => string | null,
+  inferred: InferredPerson[]
+) {
+  const judged = new Set(
+    inferred.flatMap((p) => (p.person === undefined ? [] : p.surfaces))
+  );
+  return (s: string) => {
+    const ref = resolve(s);
+    return (
+      ref !== null &&
+      (!ref.startsWith(`person:${INFERRED_PREFIX}`) || judged.has(s))
+    );
+  };
 }
 
 /**
