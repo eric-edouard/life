@@ -324,7 +324,7 @@ export interface Standing {
  */
 export async function readStanding(
   corrections: Correction[],
-  read?: Pick<Origin, "id" | "madeBy" | "unit">[] | Promise<Observation[]>
+  read?: Promise<Observation[]>
 ): Promise<Standing> {
   const [live, observations] = await Promise.all([
     readLiveUnits(),

@@ -418,7 +418,7 @@ const unitIdsOf = (events: SourceEvent[]) =>
   );
 
 /**
- * The Chats section of `search`:the chat messages and note versions holding all the words, from the last 90 days at
+ * The Chats section of `search`: the chat messages and note versions holding all the words, from the last 90 days at
  * most for a chat and of any age for a note (inside `range`): `withContext`'s.
  */
 export async function chatHits(

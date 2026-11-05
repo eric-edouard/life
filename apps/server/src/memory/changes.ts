@@ -80,7 +80,7 @@ export const parseCursor = (s: string | undefined): Cursor =>
   decode(s, z.record(z.string(), z.int().min(0)), {});
 
 /** A feed source: its count of lines (cheap: `readLineCount`) and its lines, read only when the cursor is behind it. */
-export interface Source {
+interface Source {
   count: number;
   lines: () => string[];
   name: string;

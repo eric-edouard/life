@@ -489,7 +489,9 @@ test("a unit by id is read from its day (the index says which), or from every da
     );
     const origins = await readOrigins();
     expect(origins.get("2026-10.jsonl")?.map((o) => o.n)).toEqual([0, 2]);
-    expect(await readStanding([])).toEqual(await readStanding([], facts));
+    expect(await readStanding([])).toEqual(
+      await readStanding([], Promise.resolve(facts))
+    );
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(OBSERVATIONS, { force: true, recursive: true });
