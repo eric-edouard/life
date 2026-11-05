@@ -97,8 +97,10 @@ export async function embedNew(embedder: Embedder, texts: Searched[]) {
   db.run(SCHEMA);
   const insert = db.prepare("insert or ignore into vectors values (?, ?)");
   const failed: string[] = [];
+  let inARow = 0;
   try {
-    for (let i = 0; i < missing.length; i += WRITE_EVERY) {
+    // Two refused parts in a row: the embedder is down, the next run tries again.
+    for (let i = 0; i < missing.length && inARow < 2; i += WRITE_EVERY) {
       const part = missing.slice(i, i + WRITE_EVERY);
       // biome-ignore lint/performance/noAwaitInLoops: each part is written before the next is embedded
       const vectors = await embedAll(
@@ -108,6 +110,7 @@ export async function embedNew(embedder: Embedder, texts: Searched[]) {
         failed.push(e.message);
         return null;
       });
+      inARow = vectors ? 0 : inARow + 1;
       db.transaction(() => {
         for (const [j, [hash]] of vectors ? part.entries() : []) {
           insert.run(hash, bytesOf(vectors?.[j] ?? []));

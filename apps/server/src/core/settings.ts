@@ -13,7 +13,6 @@ import { HOME } from "./platform";
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 const NON_WORD = /\W+/g;
-/** The hosts of this machine: an embedder elsewhere would take his words off the Mac. */
 /** A wake word as heard, compared: lower case, one space between words. */
 export const asHeard = (w: string) =>
   w.toLowerCase().replace(NON_WORD, " ").trim();
