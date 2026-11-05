@@ -65,7 +65,7 @@ import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 // lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
 // its word budget. Code checks every citation. Nothing is sent.
 
-const PAGES_PROMPT = "memory-pages.v5";
+const PAGES_PROMPT = "memory-pages.v6";
 /** Characters of observations per call; a new page over a busy area gets its newest ones. */
 const BUDGET = 90_000;
 const HOLD_MAX = 1500;

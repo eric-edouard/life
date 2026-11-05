@@ -68,7 +68,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/` and `episodes/<day>.jsonl`, and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/` (rebuilt whole) and a rename's backfill (next).
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
@@ -120,7 +120,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
   same text. Which claims are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
   he is asked about, only by `doubtful`.
-- **He is the center, not one more person:** his page is a projection like every page; his goals are only in
+- **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
   episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is

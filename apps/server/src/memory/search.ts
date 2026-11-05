@@ -63,6 +63,7 @@ import {
   TRUTH,
   type Truth,
 } from "./read-truth";
+import { situated, situationBlock } from "./situation";
 import { kindOf, listening } from "./sources";
 import { episodeText } from "./statements";
 import {
@@ -324,13 +325,15 @@ export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
   // lifelog's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
-  const [voice, chats, mail, found] = await Promise.all([
+  const [voice, chats, mail, found, situations] = await Promise.all([
     voiceHits(words, range),
     chatHits(words, range),
     mailHits(words, range),
     episodesWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
+    situationsNamed(words),
   ]);
   return withIndex((db) => [
+    ...situations,
     ...(found.length > 0
       ? ["Episodes (what happened):", ...cut(found.map(episodeLine), true), ""]
       : []),
@@ -482,7 +485,9 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const close = await closenessLine(ref);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
-  const episodes = await episodesWhere((m) =>
+  const all = await episodesWhere(() => true);
+  const live = new Set(all.map((m) => m.id));
+  const episodes = all.filter((m) =>
     m.people.some((p) => refOf(p.ref) === ref)
   );
   return withStore((store) =>
@@ -535,6 +540,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
           : [
               ...birthday,
               ...close,
+              ...situationBlock(ref, live, "Situation"),
+              ...section(
+                "Open with them (to-dos, promises, waiting on):",
+                openWith(db, ref)
+              ),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
@@ -556,6 +566,38 @@ const recordedTitle = (heard: { name: string }[]) =>
 
 /** How many things of a person's timeline an answer shows, its last day taken whole. */
 const PAGE_ITEMS = 24;
+const SPACES = /\s+/;
+
+/** What is open between him and `ref`: the standing to-dos, promises and waiting-ons linked to them. */
+const openWith = (db: Database, ref: string) =>
+  latest(
+    db,
+    "join links l on l.observation = o.id where l.entity = ? and o.type in ('to_do', 'promise', 'waiting_on_someone')",
+    ref,
+    -1
+  ).map(line);
+
+/** The situations of the people `words` name (him aside): read before the hits, so they are read knowing where things stand. */
+async function situationsNamed(words: string) {
+  const { names, truth } = await readPeople();
+  const said = ` ${normalize(words).split(SPACES).join(" ")} `;
+  const aliases = (ref: string) =>
+    truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
+  const refs = (await situated()).filter(
+    (ref) =>
+      ref !== OWNER &&
+      [names.get(ref), ...aliases(ref)].some(
+        (n) => n && said.includes(` ${normalize(n)} `)
+      )
+  );
+  if (refs.length === 0) {
+    return [];
+  }
+  const live = new Set((await episodesWhere(() => true)).map((m) => m.id));
+  return refs.flatMap((ref) =>
+    situationBlock(ref, live, `Situation with ${names.get(ref)}`)
+  );
+}
 
 const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);
 const section = (title: string, lines: string[]) =>
