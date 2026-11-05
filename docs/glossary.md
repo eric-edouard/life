@@ -85,7 +85,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
 | map | Everyone and every project a model reply may name: the people of `truth/` and those Life inferred, and his projects (`refContext`'s `map`). A call's context shows only part of it. | |
-| involved | The map entries a model call involves that its context leaves out, given in its input (`involvedOf`). | |
+| involved | The map entries a model call involves that its context leaves out, given in its input (`involvedOf`). Everyone not close now (once close, not yet judged, inferred) and every project not underway reaches a model only this way. | |
 
 ## Running
 

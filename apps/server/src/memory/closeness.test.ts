@@ -150,10 +150,11 @@ test("a level keeps a page when close or once close, never a service's; his word
     "person:ann",
     "person:old",
   ]);
-  // Shown to every memory call: close now, personally or at work. Not once close, not a service, not one he lowered.
+  // Shown to every memory call: the owner, and those close now, personally or at work. Not once close, not a service, not one he lowered.
   expect([...contextPeopleBy(levels)].sort()).toEqual([
     "person:ann",
     "person:bob",
+    "person:me",
   ]);
 });
 

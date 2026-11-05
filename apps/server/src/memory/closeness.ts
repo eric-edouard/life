@@ -279,15 +279,16 @@ const PAGED = new Set<Level>(["inner", "regular", "faded"]);
 const NOW = new Set<Level>(["inner", "regular"]);
 
 /**
- * The people every memory call's context shows (`refContext`): those close to him now, personally or at work, not a
+ * The people every memory call's context shows (`refContext`): the owner and those close to him now, personally or at work, not a
  * service. Everyone else on the map comes in a call's input when it involves them (`involvedOf`).
  */
 export const contextPeopleBy = (levels: ReturnType<typeof levelsNow>) =>
-  new Set(
-    [...levels].flatMap(([ref, l]) =>
+  new Set([
+    OWNER,
+    ...[...levels].flatMap(([ref, l]) =>
       !l.service && (NOW.has(l.personal) || NOW.has(l.work)) ? [ref] : []
-    )
-  );
+    ),
+  ]);
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
