@@ -130,10 +130,11 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
 /**
  * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
  * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
- * and it thinks even at none.
+ * and it thinks even at none. Episodes and extract think at low: on the truth days it held as many true facts, matched
+ * more episodes and spent 16% fewer tokens than high (bench of 5 Nov 2026, his OK).
  */
 const ALLMODELS_EFFORT: Record<Tier, string> = {
-  deep: "high",
+  deep: "low",
   fast: "low",
   main: "high",
 };

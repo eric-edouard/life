@@ -417,7 +417,7 @@ test("each provider's model and effort by tier", () => {
     );
   }
   expect(llmFor("deep", "allmodels")).toEqual({
-    effort: "high",
+    effort: "low",
     engine: "allmodels",
     model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper",
   });
