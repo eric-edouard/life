@@ -507,14 +507,13 @@ export async function pages(opts: PagesOptions) {
     readUnits(),
     readVerdicts(),
   ]);
-  const { inferred, truth } = people;
   const current = await observationsNow(people);
   const {
     close,
     levels,
     targets: all,
   } = await targets(current.observations, people);
-  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
+  const refs = refContext(people, close, contextPeopleBy(levels));
   const { only } = opts;
   const chosen = only
     ? all.filter(

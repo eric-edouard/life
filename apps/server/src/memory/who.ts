@@ -4,6 +4,7 @@ import {
   type InferredPerson,
   type Observation,
   type Unresolved,
+  unfoldedOf,
 } from "../records/observation";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
@@ -319,6 +320,12 @@ export const unitNow = <U extends Unit>(
     .filter((p) => !(p.startsWith(UNKNOWN) && kindOf(u.source) === "mail")),
 });
 
+/** An episode as the models see its people today: each mapped by `refOf` (an episode keeps the refs it was read with). */
+export const episodeNow = <E extends { people: { ref: string }[] }>(
+  m: E,
+  refOf: (ref: string) => string
+): E => ({ ...m, people: m.people.map((p) => ({ ...p, ref: refOf(p.ref) })) });
+
 /** An observation as readers get it (`aboutNow`). */
 export type Shown = ReturnType<typeof aboutNow>[number];
 
@@ -449,9 +456,10 @@ function nameable({
   return [
     ...truth.people,
     ...new Map(
-      inferred
-        .filter((p) => canon(`person:${p.id}`) === `person:${p.id}`)
-        .map((p) => [p.id, { ...p, aliases: p.surfaces }])
+      unfoldedOf(inferred, canon).map((p) => [
+        p.id,
+        { ...p, aliases: p.surfaces },
+      ])
     ).values(),
   ];
 }

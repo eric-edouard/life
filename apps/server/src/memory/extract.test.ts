@@ -13,6 +13,7 @@ import {
 import { episodesNow } from "./ledger";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
+import { episodeNow } from "./who";
 
 const conversation = (id: string, closed: boolean): LifelogConversation => ({
   closed,
@@ -329,4 +330,29 @@ test("earlier facts also hold the episode's own units at any age, in their own s
   expect(
     priorFor(group, shown, new Set([U1]), "now", new Set(), 2).map((x) => x.id)
   ).toEqual(["recent-0", "recent-1", "plan", "his-plan"]);
+});
+
+test("an episode read with a person folded since (`episodeNow`) offers that person's earlier facts", () => {
+  const fact = {
+    o: {
+      at: "2026-10-14T10:00:00.000Z",
+      date: "2026-10-14",
+      entities: ["person:ann"],
+      id: "ann-fact",
+      madeBy: { ...madeBy, unitHash: "h" },
+      unit: U4,
+    } as Observation,
+  };
+  const stored = episode({ people: [{ ref: "person:inf_ann", role: "with" }] });
+  const fold = (ref: string) => (ref === "person:inf_ann" ? "person:ann" : ref);
+  const prior = (m: Episode) =>
+    priorFor(
+      { episode: m, units: [built(U1)] },
+      [fact],
+      new Set([U1]),
+      "now",
+      new Set()
+    ).map((x) => x.id);
+  expect(prior(stored)).toEqual([]);
+  expect(prior(episodeNow(stored, fold))).toEqual(["ann-fact"]);
 });

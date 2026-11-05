@@ -15,7 +15,11 @@ import {
   quota,
   type Tier,
 } from "../models/llm";
-import { INFERRED_USE_AT, type InferredPerson } from "../records/observation";
+import {
+  INFERRED_USE_AT,
+  type InferredPerson,
+  unfoldedOf,
+} from "../records/observation";
 import { isUnderway } from "../records/truth";
 import { OUT, runId } from "./ledger";
 import type { Truth } from "./read-truth";
@@ -241,8 +245,16 @@ export function meContext(truth: Truth) {
  * others a call involves come in its input (`involvedOf`), so the context stays small as the map grows.
  */
 export function refContext(
-  truth: Truth,
-  inferred: InferredPerson[],
+  {
+    canon,
+    inferred,
+    truth,
+  }: {
+    /** Who a person ref is now (`readPeople`). */
+    canon: (ref: string) => string;
+    inferred: InferredPerson[];
+    truth: Truth;
+  },
   close: ReadonlySet<string>,
   shown: ReadonlySet<string>
 ) {
@@ -260,7 +272,8 @@ export function refContext(
         relation: p.relation,
         ...flag(`person:${p.id}`),
       })),
-      ...inferred
+      // One ref per person: an inferred id folded into another is that one.
+      ...unfoldedOf(inferred, canon)
         .filter((p) => p.confidence >= INFERRED_USE_AT)
         .map((p) => ({
           aliases: [] as string[],

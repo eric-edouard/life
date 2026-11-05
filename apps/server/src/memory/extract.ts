@@ -42,7 +42,14 @@ import {
   UNKNOWN,
   within,
 } from "./units";
-import { namedIn, observationsNow, readPeople, unitNow, who } from "./who";
+import {
+  episodeNow,
+  namedIn,
+  observationsNow,
+  readPeople,
+  unitNow,
+  who,
+} from "./who";
 import { chatLines, spokenLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
@@ -346,7 +353,7 @@ export async function extract(evidence: Evidence) {
   const closed = closedConversations(conversations);
   const verdicts = readVerdicts();
   const people = await readPeople();
-  const { corrections, inferred, refOf, resolve } = people;
+  const { corrections, refOf, resolve } = people;
   // Who each unit is with as of now: the people the episodes step just inferred included.
   const inWindow = built
     .filter(
@@ -382,8 +389,8 @@ export async function extract(evidence: Evidence) {
     pending.map((p) => p.b),
     inWindow,
     verdicts,
-    // An episode the owner said is wrong groups nothing.
-    episodesNow(written, corrections)
+    // An episode the owner said is wrong groups nothing; its people are who they are today.
+    episodesNow(written, corrections).map((m) => episodeNow(m, refOf))
   );
 
   const read = groups.flatMap((g) => g.units);
@@ -425,7 +432,7 @@ export async function extract(evidence: Evidence) {
 
   const levels = levelsWith(people);
   const close = personallyClose(levels);
-  const refs = refContext(truth, inferred, close, contextPeopleBy(levels));
+  const refs = refContext(people, close, contextPeopleBy(levels));
   // Refs are checked against the whole map, not only what a call was shown.
   const candidates = new Set(
     [refs.map.people, refs.map.projects].flatMap((l) => l.map((x) => x.ref))
