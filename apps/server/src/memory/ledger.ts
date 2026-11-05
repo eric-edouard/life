@@ -69,22 +69,17 @@ export const writtenPeople = async () =>
   (await filesIn(join(PAGES, "people"), ".md")).map(
     (f) => `person:${f.slice(0, -3)}`
   );
-/** Every `.jsonl` file of a folder, by name. */
-const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
-  (await filesIn(dir)).flatMap((n) => rowsOf(join(dir, n), schema));
+/** Every `.jsonl` file of a folder, by name, from the one named `from` on. */
+const readFolder = async <T>(dir: string, schema: z.ZodType<T>, from = "") =>
+  (await filesIn(dir))
+    .filter((n) => n >= from)
+    .flatMap((n) => rowsOf(join(dir, n), schema));
 
-/** Every unit in memory/units/, oldest day first. */
-export const readUnits = () => readFolder(UNITS, Unit);
+/** Every unit in memory/units/ (of `day` and every day after it), oldest day first. */
+export const readUnits = (day = "") => readFolder(UNITS, Unit, day);
 /** The units of these days only. */
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
-/** The units of `day` and every day after it, oldest day first. */
-export const readUnitsFrom = async (day: string) =>
-  readUnitsOf(
-    (await filesIn(UNITS))
-      .map((n) => n.slice(0, -".jsonl".length))
-      .filter((d) => d >= day)
-  );
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 

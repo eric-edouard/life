@@ -34,6 +34,7 @@ import {
   openLinked,
 } from "../todo-list/items";
 import { levelsWith } from "./closeness";
+import { span } from "./episode-span";
 import {
   daysOf,
   episodesNow,
@@ -55,7 +56,6 @@ import {
 } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
-import { span } from "./past-events";
 import { stayOf, staysOf, where } from "./places";
 import {
   goalProjects,

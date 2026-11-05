@@ -136,3 +136,25 @@ test("a big episode keeps its event beside the smaller ones inside it (the night
     "Chat",
   ]);
 });
+
+test("a sync of recent days drafts only episodes ending after its start and leaves a live episode's event outside it", () => {
+  const old = episode({
+    day: "2026-10-18",
+    end: "2026-10-18 21:00",
+    id: "ep_000000000002",
+    start: "2026-10-18 20:00",
+  });
+  const since = Date.parse("2026-10-19T00:00:00Z");
+  expect(
+    drafts([episode(), old], known, now, since).map((d) => d.episode)
+  ).toEqual(["ep_000000000001"]);
+  const { stale } = plan(
+    [],
+    new Map([
+      ["ep_000000000002", [{ hash: "a", id: "e2" }]],
+      ["ep_gone", [{ hash: "a", id: "e9" }]],
+    ]),
+    new Set(["ep_000000000002"])
+  );
+  expect(stale.map((e) => e.id)).toEqual(["e9"]);
+});

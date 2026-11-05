@@ -7,8 +7,8 @@
 // `gps`. Stays are lifelog's (read live, like the Past calendar).
 
 import { MIN } from "@life/server/src/core/clock";
+import { edgeTime, span } from "@life/server/src/memory/episode-span";
 import { episodesNow, readEpisodes } from "@life/server/src/memory/ledger";
-import { edgeTime, span } from "@life/server/src/memory/past-events";
 import { stayOf } from "@life/server/src/memory/places";
 import { dayRange, daysBefore } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";

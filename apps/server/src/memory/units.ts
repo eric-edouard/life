@@ -24,7 +24,7 @@ import {
   keptConversations,
   readFiles,
   readInferredRepos,
-  readUnitsFrom,
+  readUnits,
   readUnitsOf,
   UNITS,
 } from "./ledger";
@@ -892,7 +892,7 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
   const from = [since.toISOString(), ...conversations.map((c) => c.startedAt)]
     .map(localDate)
     .sort()[0] as string;
-  const have = (await readUnitsFrom(from)).filter(
+  const have = (await readUnits(from)).filter(
     (u) =>
       kindOf(u.source) === "voice" &&
       (read.has(u.key) || u.end >= since.toISOString())

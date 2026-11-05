@@ -165,8 +165,8 @@ export async function nightly(days: number, force = false) {
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
       : await daytime(turn, now, day);
-  // The Past calendar follows the episodes each tick (past-calendar.ts); a failure only logs, the next tick tries again.
-  await syncPast(now).then(
+  // The Past calendar follows the episodes each tick, the recent ones, and the whole of it after the night (past-calendar.ts); a failure only logs, the next tick tries again.
+  await syncPast(turn === "night", now).then(
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
   );

@@ -4,12 +4,13 @@ import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { conversationsBetween, visits, withStore } from "../sources/lifelog";
-import { episodesNow, readBy, readEpisodes, readUnits } from "./ledger";
+import { endOf, span } from "./episode-span";
+import { episodesNow, readBy, readEpisodes, readUnitsOf } from "./ledger";
 import { stayOf, where } from "./places";
+import { readIndex } from "./search";
 import { episodeText } from "./statements";
-import { clip, daysBefore, time } from "./units";
-import { observationsNow, readPeople } from "./who";
-import { dayStart } from "./zones";
+import { clip, time } from "./units";
+import { readPeople } from "./who";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every episode, as an event with what happened, who,
 // where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
@@ -43,42 +44,20 @@ interface Known {
   units: Map<string, Unit>;
 }
 
-const nextDay = (day: string) => daysBefore(day, -1);
-const instant = (local: string) => {
-  const [day = "", hm] = local.split(" ");
-  return dayStart(day, undefined, hm).toISOString();
-};
-/** An event's edge as an instant: a day's start in his zone then, or the instant itself. */
-export const edgeTime = (allDay: boolean, edge: string) =>
-  (allDay ? dayStart(edge) : new Date(edge)).getTime();
-
-/** When an episode was: its timed start to its end (an hour when the sources don't say), else whole days. */
-export function span(m: Pick<Episode, "day" | "end" | "start">) {
-  const start = m.start ?? m.day;
-  if (!start.includes(" ")) {
-    const last = (m.end ?? start).slice(0, 10);
-    return {
-      allDay: true,
-      from: start,
-      to: nextDay(last > start ? last : start),
-    };
-  }
-  const from = instant(start);
-  const end = m.end?.includes(" ") ? instant(m.end) : "";
-  // ponytail: an hour when no end is known.
-  const to = end > from ? end : new Date(Date.parse(from) + HOUR).toISOString();
-  return { allDay: false, from, to };
-}
-
 /**
- * The events the calendar should hold: every episode ended (`SETTLE` ago) by `now`. They may overlap (his decision,
- * 2 Nov): a big episode holds the smaller ones that happened inside it.
+ * The events the calendar should hold: every episode ended (`SETTLE` ago) by `now`, after `since` (ms). They may
+ * overlap (his decision, 2 Nov): a big episode holds the smaller ones that happened inside it.
  */
-export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
+export function drafts(
+  episodes: Episode[],
+  k: Known,
+  now: Date,
+  since = 0
+): Draft[] {
   const byEpisode = readBy(episodes);
   return episodes
+    .filter((m) => endOf(m) > since && endOf(m) + SETTLE <= now.getTime())
     .map((m) => ({ m, ...span(m) }))
-    .filter(({ allDay, to }) => edgeTime(allDay, to) + SETTLE <= now.getTime())
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
@@ -120,8 +99,16 @@ export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
 
 export type Held = Map<string, { hash?: string; id: string }[]>;
 
-/** What a sync does: the events to delete (of an episode gone or changed, and any second copy) and the drafts to write. */
-export function plan(want: Draft[], held: Held) {
+/**
+ * What a sync does: the events to delete (of an episode gone or changed, and any second copy) and the drafts to write.
+ * A held event of a `live` episode not wanted (outside the sync's window, or not ended yet) stays.
+ */
+export function plan(
+  want: Draft[],
+  held: Held,
+  live = new Set(want.map((d) => d.episode))
+) {
+  const drafted = new Set(want.map((d) => d.episode));
   const keep = new Set(
     want.flatMap((d) => {
       const [e, ...more] = held.get(d.episode) ?? [];
@@ -131,7 +118,9 @@ export function plan(want: Draft[], held: Held) {
   return {
     fresh: want.filter((d) => !keep.has(d.episode)),
     stale: [...held].flatMap(([episode, events]) =>
-      keep.has(episode) ? [] : events.map((e) => ({ episode, id: e.id }))
+      keep.has(episode) || (live.has(episode) && !drafted.has(episode))
+        ? []
+        : events.map((e) => ({ episode, id: e.id }))
     ),
   };
 }
@@ -169,28 +158,45 @@ async function located(
   };
 }
 
-/** The drafts of every episode as memory holds it now. */
-export async function wanted(now: Date) {
-  const people = await readPeople();
-  const [{ observations }, units, episodes] = await Promise.all([
-    observationsNow(people),
-    readUnits(),
-    readEpisodes(),
-  ]);
-  return drafts(
-    episodesNow(episodes, people.corrections),
-    {
-      nameOf: people.nameOf,
-      noted: new Map(
-        [...Map.groupBy(observations, (o) => o.unit)].map(([u, os]) => [
-          u,
-          os.map((o) => o.text),
-        ])
-      ),
-      units: new Map(units.map((u) => [u.id, u])),
-    },
-    now
+/**
+ * The drafts of the episodes ending after `since` (all without it) as memory holds them now, and every episode's id;
+ * null before the index exists (what Life noted is read there, in its order: that of `observationsNow`).
+ */
+export async function wanted(now: Date, since?: Date) {
+  const [people, lines] = await Promise.all([readPeople(), readEpisodes()]);
+  const episodes = episodesNow(lines, people.corrections);
+  const after = since?.getTime() ?? 0;
+  const shown = new Set(
+    episodes.filter((m) => endOf(m) > after).map((m) => m.id)
   );
+  // An episode line's units are of its day (episodes.ts reads a day's units).
+  const units = readUnitsOf([
+    ...new Set(lines.filter((l) => shown.has(l.id)).map((l) => l.day)),
+  ]);
+  const noted = readIndex((db) =>
+    db
+      .query<{ text: string; unit: string }, [string]>(
+        "select unit, text from observations where unit in (select value from json_each(?)) order by rowid"
+      )
+      .all(JSON.stringify(units.map((u) => u.id)))
+  );
+  if (!noted) {
+    return null;
+  }
+  const k: Known = {
+    nameOf: people.nameOf,
+    noted: new Map(
+      [...Map.groupBy(noted, (o) => o.unit)].map(([u, os]) => [
+        u,
+        os.map((o) => o.text),
+      ])
+    ),
+    units: new Map(units.map((u) => [u.id, u])),
+  };
+  return {
+    drafts: drafts(episodes, k, now, after),
+    live: new Set(episodes.map((m) => m.id)),
+  };
 }
 
 /** Each draft with the description and location it is written with, one at a time (stays are read as it comes). */
