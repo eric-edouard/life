@@ -460,10 +460,10 @@ const STALL_MS = 5 * MIN;
 /**
  * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort: the model goes only to
  * the hosts after `@`, one at a time in that order, each streamed, all within MODEL_TIMEOUT_MS. A host that fails in a
- * way another host may not (it stalls, cuts its stream, or answers 429, 5xx or not at all) gives way to the next:
- * allmodels' own fallback acts only before output begins, and a host can die after (29 Oct 2026: refuseless opened 16
- * Oct's reply, then sent nothing for the hour). Any other failure, like a reply from another host, is final. The
- * tokens and refusals of every host tried are kept; the last reply is kept in the call's folder.
+ * way another host may not (it stalls, cuts its stream, sends something that is not JSON, or answers 429, 5xx or not
+ * at all) gives way to the next: allmodels' own fallback acts only before output begins, and a host can die after (29
+ * Oct 2026: refuseless opened 16 Oct's reply, then sent nothing for the hour). Any other failure, like a reply from
+ * another host, is final. The tokens and refusals of every host tried are kept, and each host's reply in the call's folder.
  */
 async function askAllModels(call: Call): Promise<Answer> {
   const key = process.env[ALLMODELS_KEY];
@@ -509,9 +509,14 @@ async function askAllModels(call: Call): Promise<Answer> {
     try {
       // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
       const reply = await askHost(host, body, key, deadline);
-      await Bun.write(join(call.dir, "allmodels.json"), JSON.stringify(reply));
+      await Bun.write(
+        join(call.dir, `allmodels-${host}.json`),
+        JSON.stringify(reply)
+      );
       answer = answerOf(hosts, reply);
-      isForAnother = reply.finish === undefined;
+      const garbled = answer.refusal ? undefined : notJson(answer.text);
+      answer.refusal ??= garbled;
+      isForAnother = reply.finish === undefined || garbled !== undefined;
     } catch (e) {
       answer = { refusal: (e as Error).message, text: "" };
       isForAnother = (e as { isForAnother?: boolean }).isForAnother === true;
@@ -620,6 +625,15 @@ async function askHost(
     return reply;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Why a finished reply is not the JSON every call asks for, or undefined when it is. */
+function notJson(text: string) {
+  try {
+    extractJson(text);
+  } catch (e) {
+    return `allmodels: not JSON (${(e as Error).message})`;
   }
 }
 
