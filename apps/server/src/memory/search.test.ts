@@ -5,12 +5,14 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DAY, MIN } from "../core/clock";
+import { writeJson } from "../core/files";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { MEMORY, readIndex, UNITS } from "./ledger";
+import { EPISODES, MEMORY, readIndex, situationPath, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
-import { TRUTH } from "./read-truth";
+import { OWNER, TRUTH } from "./read-truth";
+import { madeBy } from "./record-fixtures";
 import {
   areaFor,
   birthdaysNear,
@@ -26,6 +28,7 @@ import {
   reindexUnits,
   matches as searchMatches,
   shownEpisode,
+  situationsNamed,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -585,4 +588,50 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("house", truth).project?.id).toBe("house");
   expect(areaFor("the house", truth).id).toBe("construction");
   expect(areaFor("constr", truth).id).toBeUndefined();
+});
+
+test("a search naming no one opens with his own situation", async () => {
+  const ep = "ep_00000000000a";
+  const file = join(EPISODES, "2026-11-04.jsonl");
+  mkdirSync(EPISODES, { recursive: true });
+  writeFileSync(
+    file,
+    `${JSON.stringify({
+      copies: [],
+      day: "2026-11-04",
+      end: null,
+      id: ep,
+      importance: 2,
+      madeBy,
+      people: [],
+      place: null,
+      schemaVersion: 1,
+      start: null,
+      title: "House call",
+      units: ["unit_00000000000a"],
+      what: "w",
+      within: null,
+    })}\n`
+  );
+  writeJson(situationPath(OWNER), {
+    built: "2026-11-05T00:00:00.000Z",
+    inputs: "0123456789abcdef",
+    lines: [
+      { cites: [ep], text: "He argues with his father about the house." },
+    ],
+    madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+    page: OWNER,
+    schemaVersion: 1,
+  });
+  try {
+    expect(
+      (await situationsNamed("what bothers me lately")).slice(0, 2)
+    ).toEqual([
+      "His situation (where things stand, read each night from the last 30 days):",
+      `- He argues with his father about the house. [${ep}]`,
+    ]);
+  } finally {
+    rmSync(situationPath(OWNER), { force: true });
+    rmSync(file, { force: true });
+  }
 });

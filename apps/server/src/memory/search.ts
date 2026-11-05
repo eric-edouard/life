@@ -564,26 +564,28 @@ const recordedTitle = (heard: { name: string }[]) =>
 const PAGE_ITEMS = 24;
 const SPACES = /\s+/;
 
-/** The situations of the people `words` name (him aside): read before the hits, so they are read knowing where things stand. */
-async function situationsNamed(words: string) {
+/**
+ * The situations of the people `words` name (him aside), else his own: read before the hits, so they are read knowing
+ * where things stand.
+ */
+export async function situationsNamed(words: string) {
   const { names, nameOf, truth } = await readPeople();
   const said = ` ${normalize(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
     truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
-  const refs = (await situated()).filter(
+  const mentioned = (await situated()).filter(
     (ref) =>
       ref !== OWNER &&
       [names.get(ref), ...aliases(ref)].some(
         (n) => n && said.includes(` ${normalize(n)} `)
       )
   );
-  if (refs.length === 0) {
-    return [];
-  }
   const live = new Set((await episodesWhere(() => true)).map((m) => m.id));
-  return refs.flatMap((ref) =>
-    situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
-  );
+  return mentioned.length > 0
+    ? mentioned.flatMap((ref) =>
+        situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
+      )
+    : situationBlock(OWNER, live, "His situation");
 }
 
 const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);
