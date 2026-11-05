@@ -156,7 +156,7 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
 
 /** The ids an answer cites: observations, episodes, units, ledger entries (`entry_`: reminders, tasks) and conversations (UUIDs). */
 const IDS =
-  /\b(?:obs|mom|unit|entry)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
+  /\b(?:obs|ep|unit|entry)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
 /** The arguments with every string clipped to 200 chars. */
 const cut = (args: unknown) =>

@@ -153,7 +153,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     return Promise.resolve(0);
   },
   /**
-   * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each episode as
+   * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each instant as
    * the time since the one before it (apps/server/src/host/asks.ts `timings`).
    */
   asks() {
@@ -162,12 +162,12 @@ const commands: Record<string, () => number | Promise<number>> = {
       options: { from: { type: "string" }, to: { type: "string" } },
     });
     const { from, to } = dayRange(values.from, values.to);
-    for (const { id, via, episodes, quote } of timings(from, to)) {
-      const [[, spoke] = [], ...rest] = episodes;
+    for (const { id, via, instants, quote } of timings(from, to)) {
+      const [[, spoke] = [], ...rest] = instants;
       let prev = spoke ?? "";
-      const hops = rest.flatMap(([episode, at]) => {
+      const hops = rest.flatMap(([what, at]) => {
         const hop = at
-          ? [`${episode} +${duration(Date.parse(at) - Date.parse(prev))}`]
+          ? [`${what} +${duration(Date.parse(at) - Date.parse(prev))}`]
           : [];
         prev = at ?? prev;
         return hop;

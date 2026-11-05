@@ -16,7 +16,7 @@ test("every fact and episode the README cites is in the demo scripts/demo.ts wri
     )
     .join("");
   const readme = readFileSync(join(import.meta.dir, "../README.md"), "utf8");
-  const cited = [...readme.matchAll(/\b(?:obs|mom)_[0-9a-f]{12}\b/g)].map(
+  const cited = [...readme.matchAll(/\b(?:obs|ep)_[0-9a-f]{12}\b/g)].map(
     (m) => m[0]
   );
   expect(cited.length).toBeGreaterThan(0);

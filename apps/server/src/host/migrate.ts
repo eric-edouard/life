@@ -37,6 +37,7 @@ const CITING = [
   "memory/statements.jsonl",
   "memory/corrections.jsonl",
   "memory/ledger.jsonl",
+  "memory/decisions.jsonl",
 ];
 
 /** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */

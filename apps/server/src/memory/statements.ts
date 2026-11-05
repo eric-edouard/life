@@ -42,7 +42,7 @@ export function episodeText(m: Episode, name: (ref: string) => string) {
   return `${m.title}${time && `, ${time}`}${m.place ? `, at ${m.place}` : ""}${roles}.`;
 }
 
-/** Where an episode is rated: the one person with a page it was with (as who.ts says today), else `events`. */
+/** Where an episode is rated: the one person with a page it was with (as who.ts says today), else `episodes`. */
 export function episodeGroup(
   m: Episode,
   paged: ReadonlySet<string>,

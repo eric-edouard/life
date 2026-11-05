@@ -206,7 +206,7 @@ move or the prompt changes. The latest record per person wins (a person folded i
 
 His decisions: Life's fact checks and what he answered (`records/decision.ts`). Append-only, one line per step
 (`{at, decision, step, data, agent?, run?, schemaVersion}`); a decision now is the fold of its lines (`decisionsNow`,
-`memory/decisions.ts`), never rewritten. Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
+`memory/decisions.ts`), never rewritten (but by a rename's migration, in place). Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
 Oct 2026): at each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; then `done` or `expired`. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or null to clear), recorded as
 its rating at once (a note alone as Partly); an expired one is rated `skip`. One synchronous read-and-append per write
 (`writeDecision`), so his tap and Life closing the same decision can't both land: once closed, his answer is refused.
