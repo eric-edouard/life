@@ -85,14 +85,14 @@ export function timings(from = "", to = "9999", tasks = tasksOf()) {
   return tasks
     .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)
     .map(({ ask: a }) => ({
-      id: a.id,
       // In order (an array: the formatter sorts object keys).
-      moments: [
+      episodes: [
         ["spoke", a.instruction.at],
         ["ended", a.timing?.ended ?? null],
         ["arrived", a.timing?.arrived ?? null],
         ["recorded", a.at],
       ] as [string, string | null][],
+      id: a.id,
       quote: a.instruction.quote,
       via: a.via,
     }));

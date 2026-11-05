@@ -3,8 +3,8 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { Episode } from "../records/episode";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
-import { Moment } from "../records/moment";
 import {
   Correction,
   Extracted,
@@ -45,7 +45,7 @@ export const pagePath = (ref: string) =>
   ref.startsWith("person:")
     ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
     : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
-export const MOMENTS = join(MEMORY, "moments");
+export const EPISODES = join(MEMORY, "episodes");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
 export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
@@ -81,20 +81,20 @@ export const readUnitsOf = (dates: string[]) =>
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 
-/** Every moment line in memory/moments/, oldest day first. */
-export const readMoments = () => readFolder(MOMENTS, Moment);
+/** Every episode line in memory/episodes/, oldest day first. */
+export const readEpisodes = () => readFolder(EPISODES, Episode);
 
-/** The first and last day a moment covers: its start (else the day that read it) to its end (else its start). */
-export const daysOf = (m: Moment) =>
+/** The first and last day an episode covers: its start (else the day that read it) to its end (else its start). */
+export const daysOf = (m: Episode) =>
   [
     (m.start ?? m.day).slice(0, 10),
     (m.end ?? m.start ?? m.day).slice(0, 10),
   ] as const;
 
-/** Each moment as it stands: its line from the latest day that read it, with the units (and copies) of every day's line, in day order; never one the owner said is wrong or unimportant (a moment is on no page: any such correction hides it). */
-export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
+/** Each episode as it stands: its line from the latest day that read it, with the units (and copies) of every day's line, in day order; never one the owner said is wrong or unimportant (an episode is on no page: any such correction hides it). */
+export const episodesNow = (lines: Episode[], corrections: Correction[]) =>
   [...Map.groupBy(lines, (m) => m.id).values()].flatMap((ls) => {
-    const m = ls.at(-1) as Moment;
+    const m = ls.at(-1) as Episode;
     const all = (k: "copies" | "units") => [
       ...new Set(ls.flatMap((l) => l[k])),
     ];
@@ -104,12 +104,12 @@ export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
   });
 
 /**
- * Each unit's moment, the one its facts sit under: of the moments holding it, the one reaching furthest forward (its
+ * Each unit's episode, the one its facts sit under: of the episodes holding it, the one reaching furthest forward (its
  * latest day), then the smallest (a dinner, not the trip around it), so a question is read with its answer.
  */
-export const readBy = (moments: Moment[]) =>
+export const readBy = (episodes: Episode[]) =>
   new Map(
-    moments
+    episodes
       .toSorted(
         (a, b) => a.day.localeCompare(b.day) || b.units.length - a.units.length
       )
@@ -256,11 +256,11 @@ export async function readStanding(
 }
 
 /**
- * When the owner last said each unit was read wrong: a `reread` of it, or a `wrong` on a moment of `moments` it stands
- * on (its day is read again, with his note, `earlierFor`). Moments and extraction read it again if they read it before.
+ * When the owner last said each unit was read wrong: a `reread` of it, or a `wrong` on an episode of `episodes` it stands
+ * on (its day is read again, with his note, `earlierFor`). Episodes and extraction read it again if they read it before.
  */
-export const rereadAt = (corrections: Correction[], moments: Moment[]) => {
-  const unitsOf = Map.groupBy(moments, (m) => m.id);
+export const rereadAt = (corrections: Correction[], episodes: Episode[]) => {
+  const unitsOf = Map.groupBy(episodes, (m) => m.id);
   return new Map(
     [
       ...latestBy(
@@ -282,7 +282,7 @@ export const rereadAt = (corrections: Correction[], moments: Moment[]) => {
   );
 };
 
-/** Whether the owner said `unit` was read wrong after a reading of it at `at` (`rereadAt`): moments and extraction alike. */
+/** Whether the owner said `unit` was read wrong after a reading of it at `at` (`rereadAt`): episodes and extraction alike. */
 export const isRereadSince = (
   rereads: Map<string, string>,
   unit: string,
@@ -387,9 +387,9 @@ export function ratedFacts() {
             date: s.date,
             fact: s.text,
             id: s.ref,
-            // A moment has no closed state.
+            // An episode has no closed state.
             outdated:
-              ANSWERS[answer].correction === "outdated" && s.kind !== "moment",
+              ANSWERS[answer].correction === "outdated" && s.kind !== "episode",
             true: fact,
             units: s.units,
           },

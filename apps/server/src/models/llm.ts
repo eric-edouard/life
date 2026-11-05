@@ -37,7 +37,7 @@ export function extractJson(text: string): unknown {
 }
 
 /**
- * What a step needs (each step names its tier in `begin`): files, repos, closeness and imports fast, pages main, moments
+ * What a step needs (each step names its tier in `begin`): files, repos, closeness and imports fast, pages main, episodes
  * and extract deep (~/Life/docs/evals/events-2026-10-18.md).
  */
 export type Tier = "fast" | "main" | "deep";
@@ -451,7 +451,7 @@ export async function quota(engine?: Engine) {
 
 const ALLMODELS_URL = "https://api.allmodels.io/oai/chat/completions";
 const ALLMODELS_KEY = "ALLMODELS_API_KEY";
-/** Room for a day's moments and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
+/** Room for a day's episodes and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
 const ALLMODELS_MAX_TOKENS = 131_072;
 /** A host that sends no chunk for this long has died mid-reply (allmodels' keepalives are not chunks). */
 const STALL_MS = 5 * MIN;

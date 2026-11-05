@@ -61,18 +61,18 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
-| moment | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Id `mom_…`. | |
-| what | A moment's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
-| within | The moment holding another (a dinner within a trip). | |
-| stay | One place his phone stayed, from lifelog's location history (`staysOf`); a moment's stay is the one covering most of it (`stayOf`), derived, never stored. | |
+| episode | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Called moment before Nov 2026. Id `ep_…`. | |
+| what | An episode's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
+| within | The episode holding another (a dinner within a trip). | |
+| stay | One place his phone stayed, from lifelog's location history (`staysOf`); an episode's stay is the one covering most of it (`stayOf`), derived, never stored. | |
 | truth set | Days he checked by hand (`docs/evals/truth-*.json` in his data: facts, timeline), what the bench grades against (`TruthSet`, `scripts/timeline.ts`). Not `truth/`, which only he writes. | |
 | unkept | A unit Life read before that its latest verdict no longer keeps: its facts are replaced by none (`unkept` in extracted.jsonl). Not a dropped unit, which a code rule leaves out. | |
 | kept both | A fact the memory both states and contradicts: a contradiction stored, counted apart from wrong by the eval and the bench. | |
 | judge case | A fact with the claims a judge saw and the grade the owner settled for it (`docs/evals/judge-cases-*.json`): how a judge is measured before use. | |
-| observation | One small dated reading of a moment, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
+| observation | One small dated reading of an episode, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
 | type | What an observation is: `to_do`, `promise`, `waiting_on_someone`, `choice`, `about_a_person`, `preference`, `idea`, `news`, `nothing` (SCHEMA.md, "Words used below"). | |
 | modality | How an observation holds: `fact`, `plan`, `reported`, `conditional`. | |
-| importance | How much something matters to the owner: a unit's or an observation's 0–3, a moment's 1–3 (SCHEMA.md). | |
+| importance | How much something matters to the owner: a unit's or an observation's 0–3, an episode's 1–3 (SCHEMA.md). | |
 | page | A person's or an area's page, written from their observations. | |
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
@@ -89,7 +89,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| Past calendar | The calendar Life writes every moment to, one event each (the `past` setting). Life's output, never a source. | |
+| Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |
@@ -99,7 +99,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
 | web app | Life's pages for him (`apps/web`, served at `/`), each behind his sign-in; not the Mac app (Life.app). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory` and `change_todo_item` write; `read_agent_asks` is an agent's own feed of asks; `search` and `fetch` keep ChatGPT's names. | |
-| record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
+| record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `episode.ts`, `ledger-entry.ts`…). | |
 
 ## Folders
 

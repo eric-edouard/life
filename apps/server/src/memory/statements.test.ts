@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import {
   type Claim,
   doubtful,
   doubtsOf,
-  momentGroup,
-  momentText,
+  episodeGroup,
+  episodeText,
 } from "./statements";
 
 const claim = (ref: string, over: Partial<Claim> = {}): Claim => ({
@@ -66,7 +66,7 @@ test("the fact checks he sees first: the most important, then the most doubtful,
   expect(doubtful(claims, new Set(), 2)).toHaveLength(2);
 });
 
-test("a moment is said as its title, time (a same-day end as a time only), place and the people it was with", () => {
+test("an episode is said as its title, time (a same-day end as a time only), place and the people it was with", () => {
   const m = {
     end: `${YEAR}-09-07 22:30`,
     people: [
@@ -77,14 +77,14 @@ test("a moment is said as its title, time (a same-day end as a time only), place
     place: "Chez Paul",
     start: `${YEAR}-09-07 20:00`,
     title: "Dinner",
-  } as Moment;
+  } as Episode;
   const names = new Map([["person:zoe", "Zoé"]]);
   const name = (ref: string) => names.get(ref) ?? ref.split(":")[1] ?? ref;
-  expect(momentText(m, name)).toBe(
+  expect(episodeText(m, name)).toBe(
     "Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé, Bob; told dad."
   );
   expect(
-    momentText(
+    episodeText(
       {
         ...m,
         end: `${YEAR}-09-08`,
@@ -96,15 +96,15 @@ test("a moment is said as its title, time (a same-day end as a time only), place
   ).toBe("Dinner, 7 Sep 20:00–8 Sep.");
 });
 
-test("a moment is rated with the one person with a page it was with, as who.ts says today; else under events", () => {
+test("an episode is rated with the one person with a page it was with, as who.ts says today; else under events", () => {
   const m = (people: [string, string][]) =>
     ({
       people: people.map(([ref, role]) => ({ ref, role })),
-    }) as Moment;
+    }) as Episode;
   const paged = new Set(["person:zoe", "person:dad"]);
   const refOf = (r: string) => (r === "unknown:Zoé" ? "person:zoe" : r);
   expect(
-    momentGroup(
+    episodeGroup(
       m([
         ["unknown:Zoé", "with"],
         ["person:dad", "told"],
@@ -114,7 +114,7 @@ test("a moment is rated with the one person with a page it was with, as who.ts s
     )
   ).toBe("person:zoe");
   expect(
-    momentGroup(
+    episodeGroup(
       m([
         ["person:zoe", "with"],
         ["person:dad", "with"],
@@ -122,6 +122,8 @@ test("a moment is rated with the one person with a page it was with, as who.ts s
       paged,
       refOf
     )
-  ).toBe("events");
-  expect(momentGroup(m([["person:bob", "with"]]), paged, refOf)).toBe("events");
+  ).toBe("episodes");
+  expect(episodeGroup(m([["person:bob", "with"]]), paged, refOf)).toBe(
+    "episodes"
+  );
 });

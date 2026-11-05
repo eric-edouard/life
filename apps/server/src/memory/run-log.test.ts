@@ -27,8 +27,8 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   const now = "2026-10-15T12:00:00.000Z";
   const events = [
     ev("run.start", "memory.nightly", night, { days: 7, run: id(night) }),
-    ev("run.start", "memory.moments", triage, { days: 7, run: id(triage) }),
-    ev("run.end", "memory.moments", "2026-10-15T00:32:00.000Z", {
+    ev("run.start", "memory.episodes", triage, { days: 7, run: id(triage) }),
+    ev("run.end", "memory.episodes", "2026-10-15T00:32:00.000Z", {
       failed: 0,
       run: id(triage),
       units: 9,
@@ -56,20 +56,20 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   const steps = new Set([
     "memory.nightly",
     "memory.midday",
-    "memory.moments",
+    "memory.episodes",
     "memory.extract",
     "memory.pages",
   ]);
   const list = assembleRuns(events, steps, new Date(now));
   const by = (step: string) => list.find((r) => r.step === step);
   expect(by("memory.nightly")).toMatchObject({
-    children: [`memory.moments/${id(triage)}`],
+    children: [`memory.episodes/${id(triage)}`],
     errors: [{ error: "offline", step: "memory.nightly.actions" }],
     outcome: "ok",
     // What the night's report listed, for an audit (docs/operations.md, "Regression cases").
     result: { listed: ["obs_000000000001"] },
   });
-  expect(by("memory.moments")).toMatchObject({
+  expect(by("memory.episodes")).toMatchObject({
     outcome: "ok",
     result: { units: 9 },
     sweep: `memory.nightly/${id(night)}`,
@@ -94,10 +94,10 @@ test("an interrupted sweep ends where the next one starts: it never claims later
     [
       ev("run.start", "memory.nightly", first, { run: id(first) }),
       ev("run.start", "memory.nightly", second, { run: id(second) }),
-      ev("run.start", "memory.moments", later, { run: id(later) }),
+      ev("run.start", "memory.episodes", later, { run: id(later) }),
       ev("run.error", "memory.nightly.actions", later, { error: "offline" }),
     ],
-    new Set(["memory.nightly", "memory.moments"]),
+    new Set(["memory.nightly", "memory.episodes"]),
     null
   );
   const sweep = (at: string) =>
@@ -107,7 +107,7 @@ test("an interrupted sweep ends where the next one starts: it never claims later
     errors: [],
     outcome: "unfinished",
   });
-  expect(sweep(second)?.children).toEqual([`memory.moments/${id(later)}`]);
+  expect(sweep(second)?.children).toEqual([`memory.episodes/${id(later)}`]);
   expect(sweep(second)?.errors).toHaveLength(1);
 });
 
@@ -122,17 +122,17 @@ test("runs page back through the log days, newest first, none lost or repeated, 
       const at = `${day}T${h}:00:00.000Z`;
       starts.push(at);
       text +=
-        line("memory.moments", at) + line("memory.moments", at, "run.end");
+        line("memory.episodes", at) + line("memory.episodes", at, "run.end");
     }
     writeFileSync(join(dir, `${day}.jsonl`), text);
   }
   // A run that started late on the 14th and ended after midnight UTC.
   const late = "2026-10-14T23:59:00.000Z";
   starts.push(late);
-  appendFileSync(join(dir, "2026-10-14.jsonl"), line("memory.moments", late));
+  appendFileSync(join(dir, "2026-10-14.jsonl"), line("memory.episodes", late));
   writeFileSync(
     join(dir, "2026-10-15.jsonl"),
-    line("memory.moments", late, "run.end")
+    line("memory.episodes", late, "run.end")
   );
   const seen: string[] = [];
   let cursor: string | null | undefined;
@@ -143,7 +143,7 @@ test("runs page back through the log days, newest first, none lost or repeated, 
     if (page === 1) {
       appendFileSync(
         join(dir, "2026-10-15.jsonl"),
-        line("memory.moments", "2026-10-15T08:00:00.000Z")
+        line("memory.episodes", "2026-10-15T08:00:00.000Z")
       );
     }
     ({ cursor } = r);
@@ -170,11 +170,11 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   });
   const events = [
     ev("run.start", "memory.nightly", night, { quota: q(40), run: id(night) }),
-    ev("run.start", "memory.moments", step, { run: id(step) }),
+    ev("run.start", "memory.episodes", step, { run: id(step) }),
     call(id(step), 1000),
     call(id(step), 3000),
     call("other", 5),
-    ev("run.end", "memory.moments", "2026-10-15T00:40:00.000Z", {
+    ev("run.end", "memory.episodes", "2026-10-15T00:40:00.000Z", {
       failed: 0,
       run: id(step),
     }),
@@ -187,12 +187,12 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const list = assembleRuns(
     // model.run lines name no step.
     events as Parameters<typeof assembleRuns>[0],
-    new Set(["memory.nightly", "memory.moments"]),
+    new Set(["memory.nightly", "memory.episodes"]),
     null
   );
   const by = (s: string) => list.find((r) => r.step === s);
   const spent = { cached: 2000, input: 4000, output: 20 };
-  expect(by("memory.moments")?.use).toEqual({ quota: null, tokens: spent });
+  expect(by("memory.episodes")?.use).toEqual({ quota: null, tokens: spent });
   const use = by("memory.nightly")?.use;
   expect(use).toEqual({
     quota: { after: q(43), before: q(40) },
@@ -211,7 +211,7 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
     useText({ quota: { after: reset, before: q(90) }, tokens: tokens(0) })
   ).toBe("the quota reset during it, 0k tokens (0k cached)");
   // A step, or a run on an engine with no quota (allmodels): its tokens alone, no "quota not read".
-  expect(useText(by("memory.moments")?.use ?? null)).toBe(
+  expect(useText(by("memory.episodes")?.use ?? null)).toBe(
     "4k tokens (2k cached)"
   );
 });
@@ -266,7 +266,7 @@ test("spend lines: every run of the window that called a model, oldest first, a 
         sweep: "memory.nightly/n",
         use: t(2000),
       }),
-      runOf("memory.moments/s1", "2026-10-28T01:10:00.000Z", {
+      runOf("memory.episodes/s1", "2026-10-28T01:10:00.000Z", {
         sweep: "memory.nightly/n",
       }),
       runOf("memory.nightly/n", "2026-10-28T01:00:00.000Z", { use: t(3000) }),
@@ -278,7 +278,7 @@ test("spend lines: every run of the window that called a model, oldest first, a 
   );
   expect(lines).toEqual([
     "Model use, this night: 3k tokens (0k cached)",
-    "  moments: 1k tokens (0k cached)",
+    "  episodes: 1k tokens (0k cached)",
     "  pages: 2k tokens (0k cached)",
     expect.stringMatching(IMPORT_LINE),
   ]);

@@ -23,7 +23,7 @@ export const EntityRef = z
   .string()
   .regex(/^(person|project|area):(?:inf_)?[a-z0-9-]+$/);
 
-export const MomentId = z.string().regex(/^mom_[0-9a-f]{12}$/);
+export const EpisodeId = z.string().regex(/^ep_[0-9a-f]{12}$/);
 
 export const PersonRef = z.string().regex(/^person:(?:inf_)?[a-z0-9-]+$/);
 

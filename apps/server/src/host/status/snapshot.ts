@@ -175,8 +175,8 @@ async function memoryCounts() {
     .stdout.toString()
     .trim()
     .split("\n");
-  const [moments, observations, people, areas, portrait] = await Promise.all([
-    filesIn(join(OWNER_DATA_DIR, "memory", "moments")),
+  const [episodes, observations, people, areas, portrait] = await Promise.all([
+    filesIn(join(OWNER_DATA_DIR, "memory", "episodes")),
     filesIn(OBSERVATIONS),
     filesIn(join(PAGES, "people"), ".md"),
     filesIn(join(PAGES, "areas"), ".md"),
@@ -185,7 +185,7 @@ async function memoryCounts() {
   return {
     commitAt: at ? new Date(at).toISOString() : null,
     corrections: linesOf(CORRECTIONS).length,
-    moments: moments.length,
+    episodes: episodes.length,
     observations: observations.reduce(
       (n, m) => n + linesOf(join(OBSERVATIONS, m)).length,
       0
@@ -945,7 +945,7 @@ function memoryCards(r: Reads): Card[] {
       facts: [
         { label: "Observations", value: String(mem.observations) },
         { label: "People and area pages", value: String(mem.pages) },
-        { label: "Days of moments", value: String(mem.moments) },
+        { label: "Days of episodes", value: String(mem.episodes) },
         { label: "Corrections", value: String(mem.corrections) },
         {
           label: "Not yet reflected",

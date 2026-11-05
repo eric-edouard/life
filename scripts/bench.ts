@@ -1,9 +1,9 @@
-// `bun bench [--models opus --models …] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (moments, then extract)
+// `bun bench [--models opus --models …] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (episodes, then extract)
 // on the hand-checked days (the truth set, ~/Life/docs/evals/truth-*.json), against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
 // keep one judge across benches when his engine changes) then grades its claims against the days' hand-checked facts
-// and his rated statements (scripts/eval.ts), and its moments against their timelines (scripts/timeline.ts, by code).
+// and his rated statements (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
 // It prints the table and writes nothing of his.
 
 import { cpSync } from "node:fs";
@@ -19,10 +19,10 @@ import {
   OWNER_DATA_DIR,
 } from "@life/server/src/core/paths";
 import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
+import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
 import { ratedFacts } from "@life/server/src/memory/ledger";
 import { locked } from "@life/server/src/memory/memory-lock";
-import { moments } from "@life/server/src/memory/moments";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { claimsNow } from "@life/server/src/memory/statements";
 import type { tally } from "@life/server/src/memory/tally";
@@ -89,7 +89,7 @@ function summed<T>(all: T[]): T {
   });
 }
 
-/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): moments then extract over each truth file's window (the files are passed in: the copy has no docs), its claims to claims.jsonl. */
+/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): episodes then extract over each truth file's window (the files are passed in: the copy has no docs), its claims to claims.jsonl. */
 async function readDays(files: string[]) {
   const windows = await Promise.all(files.map(readTruth));
   const done = await locked(async () => {
@@ -103,7 +103,7 @@ async function readDays(files: string[]) {
       if (days.failed.length > 0) {
         throw new Error(`could not read ${days.failed.join(", ")}`);
       }
-      const m = await moments(days);
+      const m = await episodes(days);
       const e = await extract(days);
       read.calls += m.calls + e.calls;
       read.failed += m.failed + e.failed;
@@ -369,7 +369,7 @@ export function factTable(
   return [
     `# Bench ${about.days.join(", ")} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: moments then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; rated: his ${about.rated} rated statements of those days as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the moments against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
+    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; rated: his ${about.rated} rated statements of those days as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
     "",
     `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | rated statements | claims | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|---|---|",

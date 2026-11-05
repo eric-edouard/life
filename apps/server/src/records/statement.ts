@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { SourceName } from "../core/names";
-import { EntityRef, isoDate, isoDateTime, MomentId, UnitId } from "./fields";
+import { EntityRef, EpisodeId, isoDate, isoDateTime, UnitId } from "./fields";
 import { ObservationId } from "./observation";
 
 // The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
@@ -10,9 +10,9 @@ export const Statement = z
   .object({
     at: isoDateTime,
     date: isoDate,
-    group: z.union([EntityRef, z.literal("events")]),
-    kind: z.enum(["fact", "plan", "reported", "moment"]),
-    ref: z.union([ObservationId, MomentId]),
+    group: z.union([EntityRef, z.literal("episodes")]),
+    kind: z.enum(["fact", "plan", "reported", "episode"]),
+    ref: z.union([ObservationId, EpisodeId]),
     schemaVersion: z.literal(1),
     source: SourceName.nullable(),
     text: z.string().min(1),
@@ -29,7 +29,7 @@ export const Rating = z
     at: isoDateTime,
     /** His why, in his words (from 29 Oct 2026). */
     note: z.string().min(1).optional(),
-    ref: z.union([ObservationId, MomentId]),
+    ref: z.union([ObservationId, EpisodeId]),
     schemaVersion: z.literal(1),
   })
   .strict();

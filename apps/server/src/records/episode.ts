@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { isoDate, MadeBy, MomentId, UnitId } from "./fields";
+import { EpisodeId, isoDate, MadeBy, UnitId } from "./fields";
 
-// Memory's moments (memory/moments/, docs/SCHEMA.md).
+// Memory's episodes (memory/episodes/, docs/SCHEMA.md).
 
 /** `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, local. */
 export const LocalTime = z
@@ -9,19 +9,19 @@ export const LocalTime = z
   .regex(/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/);
 
 /**
- * memory/moments/<day>.jsonl: one thing that happened in the owner's life (a trip, a dinner, a flight), found by the
- * moments step from one day of units across every channel and where his phone stayed. A day's file is rewritten when that day is read again;
- * a moment seen again on a later day keeps its id there; the latest day's line is the moment's current state, and its
- * units are those of all its lines (`momentsNow`).
+ * memory/episodes/<day>.jsonl: one thing that happened in the owner's life (a trip, a dinner, a flight), found by the
+ * episodes step from one day of units across every channel and where his phone stayed. A day's file is rewritten when that day is read again;
+ * an episode seen again on a later day keeps its id there; the latest day's line is the episode's current state, and its
+ * units are those of all its lines (`episodesNow`).
  */
-export const Moment = z
+export const Episode = z
   .object({
-    /** The units of the day that are copies of another unit of the moment (two recordings of one stretch of talk). */
+    /** The units of the day that are copies of another unit of the episode (two recordings of one stretch of talk). */
     copies: z.array(UnitId),
     /** The day whose units this line was read from. */
     day: isoDate,
     end: LocalTime.nullable(),
-    id: MomentId,
+    id: EpisodeId,
     importance: z.int().min(1).max(3),
     madeBy: MadeBy,
     people: z.array(
@@ -39,9 +39,9 @@ export const Moment = z
     units: z.array(UnitId).min(1),
     /** What happened and what came of it, in one to three sentences. */
     what: z.string().max(600),
-    /** The moment holding it (a dinner within a trip), or null. */
-    within: MomentId.nullable(),
+    /** The episode holding it (a dinner within a trip), or null. */
+    within: EpisodeId.nullable(),
   })
   .strict();
 
-export type Moment = z.infer<typeof Moment>;
+export type Episode = z.infer<typeof Episode>;

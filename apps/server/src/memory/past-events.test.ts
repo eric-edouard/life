@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import { type Draft, drafts, plan } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 
-const moment = (over: Partial<Moment> = {}): Moment => ({
+const episode = (over: Partial<Episode> = {}): Episode => ({
   copies: [],
   day: "2026-10-20",
   end: "2026-10-20 21:30",
-  id: "mom_000000000001",
+  id: "ep_000000000001",
   importance: 1,
   madeBy,
   people: [
@@ -31,27 +31,27 @@ const known = {
 };
 const now = new Date("2026-10-21T12:00:00Z");
 
-test("moments that ended 2 h ago go on the calendar, timed in his zone then, what happened first; a fact sits under its unit's moment only", () => {
+test("episodes that ended 2 h ago go on the calendar, timed in his zone then, what happened first; a fact sits under its unit's episode only", () => {
   const [d, trip, ...rest] = drafts(
     [
-      moment(),
+      episode(),
       // The trip holding the dinner: the dinner's fact is the dinner's (`readBy`).
-      moment({
+      episode({
         end: "2026-10-20 23:00",
-        id: "mom_000000000002",
+        id: "ep_000000000002",
         place: "Lille",
         start: "2026-10-20 08:00",
         title: "Trip to Lille",
         units: ["unit_000000000001", "unit_000000000002"],
       }),
-      moment({
-        id: "mom_000000000003",
+      episode({
+        id: "ep_000000000003",
         start: "2026-10-22 09:00",
         units: ["unit_000000000003"],
       }),
-      moment({
+      episode({
         end: "2026-10-21 12:30",
-        id: "mom_000000000004",
+        id: "ep_000000000004",
         start: "2026-10-21 12:00",
         units: ["unit_000000000004"],
       }),
@@ -65,8 +65,8 @@ test("moments that ended 2 h ago go on the calendar, timed in his zone then, wha
   // Africa/Lagos (UTC+1) from 19 Oct in the test zones.
   expect(d).toMatchObject({
     allDay: false,
+    episode: "ep_000000000001",
     from: "2026-10-20T19:00:00.000Z",
-    moment: "mom_000000000001",
     to: "2026-10-20T20:30:00.000Z",
   });
   expect(d?.text).toStartWith("They eat out.");
@@ -77,7 +77,7 @@ test("moments that ended 2 h ago go on the calendar, timed in his zone then, wha
 
 test("no time is a whole day, no end an hour, and the hash follows what is shown", () => {
   const [day] = drafts(
-    [moment({ end: null, start: "2026-10-19" })],
+    [episode({ end: null, start: "2026-10-19" })],
     known,
     now
   );
@@ -86,20 +86,20 @@ test("no time is a whole day, no end an hour, and the hash follows what is shown
     from: "2026-10-19",
     to: "2026-10-20",
   });
-  const [open] = drafts([moment({ end: null })], known, now);
+  const [open] = drafts([episode({ end: null })], known, now);
   expect(open?.to).toBe("2026-10-20T20:00:00.000Z");
-  const [a] = drafts([moment()], known, now);
+  const [a] = drafts([episode()], known, now);
   const [b] = drafts(
-    [moment({ title: "Dinner with Bastien and Kofi" })],
+    [episode({ title: "Dinner with Bastien and Kofi" })],
     known,
     now
   );
-  expect(a?.hash).toBe(drafts([moment()], known, now)[0]?.hash as string);
+  expect(a?.hash).toBe(drafts([episode()], known, now)[0]?.hash as string);
   expect(a?.hash).not.toBe(b?.hash);
 });
 
 test("a sync keeps what shows as it is, rewrites what changed or doubled, deletes what is gone", () => {
-  const draft = (id: string, hash: string) => ({ hash, moment: id }) as Draft;
+  const draft = (id: string, hash: string) => ({ episode: id, hash }) as Draft;
   const { fresh, stale } = plan(
     [draft("m1", "a"), draft("m2", "a"), draft("m3", "new")],
     new Map([
@@ -115,19 +115,19 @@ test("a sync keeps what shows as it is, rewrites what changed or doubled, delete
       ["m9", [{ hash: "a", id: "e9" }]],
     ])
   );
-  expect(fresh.map((d) => d.moment)).toEqual(["m2", "m3"]);
+  expect(fresh.map((d) => d.episode)).toEqual(["m2", "m3"]);
   expect(stale.map((e) => e.id)).toEqual(["e2", "e2b", "e3", "e9"]);
 });
 
-test("a big moment keeps its event beside the smaller ones inside it (the night out dropped for a chat, 1 Nov)", () => {
-  const night = moment({
+test("a big episode keeps its event beside the smaller ones inside it (the night out dropped for a chat, 1 Nov)", () => {
+  const night = episode({
     end: "2026-10-20 23:30",
     start: "2026-10-20 20:00",
     title: "Night out",
   });
-  const chat = moment({
+  const chat = episode({
     end: "2026-10-20 21:07",
-    id: "mom_000000000002",
+    id: "ep_000000000002",
     start: "2026-10-20 21:00",
     title: "Chat",
   });

@@ -122,7 +122,7 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
   ).toContain("(no turn job-9:0@2026-10-14T10:00:00.000Z");
 });
 
-test("a conversation-day read for its moments: its title, then who said what and when, an ask marked; a chapter unit keeps its text", async () => {
+test("a conversation-day read for its episodes: its title, then who said what and when, an ask marked; a chapter unit keeps its text", async () => {
   const [day] = lifelogUnits(readConversations(open(), new Date(0)), new Set());
   const store = open();
   const [b, chapter] = await voiceText(

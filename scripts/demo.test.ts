@@ -3,12 +3,12 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("every fact and moment the README cites is in the demo scripts/demo.ts writes", () => {
+test("every fact and episode the README cites is in the demo scripts/demo.ts writes", () => {
   const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
   const run = Bun.spawnSync(["bun", join(import.meta.dir, "demo.ts"), out]);
   expect(run.exitCode).toBe(0);
   const memory = join(out, "data/memory");
-  const written = ["observations", "moments"]
+  const written = ["observations", "episodes"]
     .flatMap((dir) =>
       readdirSync(join(memory, dir)).map((f) =>
         readFileSync(join(memory, dir, f), "utf8")

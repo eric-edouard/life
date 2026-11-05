@@ -272,7 +272,7 @@ export async function readPeople() {
   ]);
   const canon = merged(corrections);
   const resolve = resolver(truth.people, inferred, corrections);
-  /** Who a moment's person ref is as of today. */
+  /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
       ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
@@ -288,12 +288,12 @@ export async function readPeople() {
     canon,
     corrections,
     inferred,
-    /** A moment's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
+    /** An episode's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
     nameOf: (ref: string) =>
       names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
     /** A readable name for each person (inferred ones too), project and area ref. */
     names,
-    /** Who a moment's person ref is as of today: a name since resolved, a person since folded into another. */
+    /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
     refOf,
     resolve,
     truth,

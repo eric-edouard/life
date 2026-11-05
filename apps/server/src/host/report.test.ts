@@ -94,6 +94,14 @@ const night = (facts: number) =>
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     code: [],
+    episodes: {
+      agreement: { agreement: 0.75, labeled: 40 },
+      episodes: 6,
+      model: "codex/m/high",
+      people: [{ name: "Pim", relation: "the plumber" }],
+      read: 2,
+      units: 9,
+    },
     extracted: { added: 2, model: "codex/m/high", read: 3, retired: 1 },
     facts: Array.from({ length: facts }, (_, i) => ({
       id: `obs_${i}`,
@@ -109,14 +117,6 @@ const night = (facts: number) =>
     },
     from: "2026-10-12",
     marked: [],
-    moments: {
-      agreement: { agreement: 0.75, labeled: 40 },
-      model: "codex/m/high",
-      moments: 6,
-      people: [{ name: "Pim", relation: "the plumber" }],
-      read: 2,
-      units: 9,
-    },
     paged: {
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
       corrections: 0,
@@ -147,7 +147,7 @@ test("the success email includes every fact, counts pages and lists models once"
   }
   expect(text).not.toMatch(MORE);
   expect(text).toContain("codex/m/high, codex/m/medium");
-  expect(text).toContain("6 moments on 2 days");
+  expect(text).toContain("6 episodes on 2 days");
   expect(text).toContain("observations retired: 1");
   expect(text).toContain("Pages no longer kept (git has them): inf_glazier");
   expect(text).toContain("3m 41s");
@@ -174,7 +174,7 @@ test("every report section includes all rows beyond the former 15-row cap", () =
   const n = night(0);
   n.acted.actions = [];
   n.paged.changes = [];
-  n.moments.people = [];
+  n.episodes.people = [];
   for (let i = 0; i < 20; i += 1) {
     n.acted.problems.push(`problem ${i}`);
     n.acted.actions.push(action({ after: { title: `action ${i}` } }));
@@ -184,7 +184,7 @@ test("every report section includes all rows beyond the former 15-row cap", () =
       newProject: `project ${i}`,
       repo: `new repo ${i}`,
     });
-    n.moments.people.push({ name: `person ${i}`, relation: `relation ${i}` });
+    n.episodes.people.push({ name: `person ${i}`, relation: `relation ${i}` });
     n.paged.changes.push({ added: i, moved: 1, page: `page ${i}`, removed: 0 });
   }
   const { text, html } = successReport("2026-10-15", 1000, n);
@@ -254,7 +254,7 @@ test("the HTML email escapes everything that comes from data", () => {
     page: "<b>Pg</b>",
     text: `<script>alert("x")</script> & co`,
   };
-  n.moments.people[0] = { name: "A&B", relation: "<i>x</i>" };
+  n.episodes.people[0] = { name: "A&B", relation: "<i>x</i>" };
   const { html } = successReport("2026-10-15", 1000, n);
   expect(html).not.toContain("<script>");
   expect(html).not.toContain("<b>Pg</b>");

@@ -52,7 +52,7 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
     madeBy: {
       engine: "codex" as const,
       model: "m",
-      prompt: "memory-moments.v3",
+      prompt: "memory-episodes.v3",
       run: "r",
     },
     projects: new Set(["bakery"]),

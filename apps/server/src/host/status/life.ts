@@ -76,8 +76,8 @@ export async function lifeStatus(now = clock()) {
     },
     capture: {
       archive: copiedByStore(),
-      // The key keeps its name for the status reads' contract: the verdicts are the moments step's since 18 Oct.
-      lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
+      // The key keeps its name for the status reads' contract: the verdicts are the episodes step's since 18 Oct.
+      lastTriage: lastOf(list, "memory.episodes").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
     },
     consolidation: lastOf(list, "memory.pages"),

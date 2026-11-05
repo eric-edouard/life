@@ -38,7 +38,7 @@ import { dayStart, localDate, wall } from "./zones";
 // id is stable (same conversation or chat and day -> same id); its hash changes when its content does, so a verdict is
 // reused only while the content is unchanged.
 
-/** How much of a unit's text the moments model reads (`head`). */
+/** How much of a unit's text the episodes model reads (`head`). */
 const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
@@ -202,7 +202,7 @@ const agentReports = () => [
   ...settings().reports,
 ];
 
-/** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
+/** A unit's text as the episodes model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>
   text.length <= TEXT_MAX
     ? text
@@ -327,7 +327,7 @@ export const daysBefore = (today: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** A line's local day and time, `YYYY-MM-DD HH:MM`, as the moments and extract prompts show it. */
+/** A line's local day and time, `YYYY-MM-DD HH:MM`, as the episodes and extract prompts show it. */
 export const localTime = (iso: string) => `${localDate(iso)} ${time(iso)}`;
 
 export const time = (iso: string) => wall(iso).hms.slice(0, 5);
@@ -385,7 +385,7 @@ export const lineOf = (
 /**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
  * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
- * moments step, names them as `speakerOf` does now.
+ * episodes step, names them as `speakerOf` does now.
  */
 function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
@@ -767,7 +767,7 @@ export function lastDays(now: Date, days: number): Window {
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
- * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
+ * files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
  * their importance at 1).
  */
 export async function gather(
@@ -883,7 +883,7 @@ export async function writeUnits(
  * Makes the lifelog units in memory/units/ the ones the store gives (what the watcher does after a page); a chapter unit
  * stays as stored while its conversation is live (`frozenUnits`), and goes with it. A day's file is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
  * changed and removed.
- * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all lifelog
+ * ponytail: `gather` (episodes) applies the `duplicate` rule to the window's units of every source, this to all lifelog
  * units, so a lifelog unit repeating one from before the window may flip between the two writers; one writer settles it.
  */
 export async function syncLifelogUnits(store: Store) {

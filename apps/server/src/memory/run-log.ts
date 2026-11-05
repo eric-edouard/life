@@ -23,7 +23,7 @@ export const SWEEPS = new Set([
 export const STEPS = [
   "memory.repos",
   "memory.files",
-  "memory.moments",
+  "memory.episodes",
   "memory.extract",
   "memory.closeness",
   "memory.pages",
@@ -322,7 +322,7 @@ export async function latestRuns(days: number, lock: Date | null) {
 export interface RunsQuery {
   cursor?: string;
   limit?: number;
-  /** Steps to list (memory.moments, memory.intent…); default: the sweeps and the pipeline's steps. */
+  /** Steps to list (memory.episodes, memory.intent…); default: the sweeps and the pipeline's steps. */
   steps?: string[];
 }
 

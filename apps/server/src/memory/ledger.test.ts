@@ -291,14 +291,14 @@ test("a claim he rated false or partly is hidden as wrong, with his why, until a
       rate("obs_b", null),
       rate("obs_c", "false"),
       rate("obs_c", "true"),
-      rate("mom_d", "skip"),
-      rate("mom_e", "false"),
+      rate("ep_d", "skip"),
+      rate("ep_e", "false"),
       rate("obs_f", "partly", "it was Tuesday, not Monday"),
     ])
   );
   expect(
     wrong.flatMap((c) => (c.kind === "wrong" ? c.observations : []))
-  ).toEqual(["obs_a", "mom_e", "obs_f"]);
+  ).toEqual(["obs_a", "ep_e", "obs_f"]);
   expect(wrong.map((c) => c.note)).toEqual([
     "rated false",
     "rated false",
@@ -378,7 +378,7 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
   const shown = (ref: string) => ({
     at: "2026-10-29T21:00:00Z",
     date: "2026-10-28",
-    group: "events" as const,
+    group: "episodes" as const,
     kind: "fact" as const,
     ref,
     schemaVersion: 1 as const,

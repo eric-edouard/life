@@ -2,10 +2,10 @@ import { z } from "zod";
 import { SourceName } from "../core/names";
 import {
   EntityRef,
+  EpisodeId,
   isoDate,
   isoDateTime,
   MadeBy,
-  MomentId,
   PersonRef,
   slug,
   UnitId,
@@ -116,7 +116,7 @@ export type Unresolved = z.infer<typeof Unresolved>;
 
 /**
  * memory/supersessions.jsonl: an observation a newer one replaces, written by code (the ledger itself is never edited):
- * by extraction, when later lines of a moment show it is no longer true, or (before memory-extract.v3) while
+ * by extraction, when later lines of an episode show it is no longer true, or (before memory-extract.v3) while
  * consolidating a `page`. The older one holds until `validTo`.
  */
 export const Supersession = z
@@ -163,8 +163,8 @@ export const Correction = z
       .object({
         ...Correcting,
         kind: z.enum(["wrong", "not-important"]),
-        // Observations (obs_…) and, from 18 Oct, moments (mom_…).
-        observations: z.array(z.union([ObservationId, MomentId])).min(1),
+        // Observations (obs_…) and, from 18 Oct, episodes (ep_…).
+        observations: z.array(z.union([ObservationId, EpisodeId])).min(1),
         page: EntityRef.optional(),
       })
       .strict(),

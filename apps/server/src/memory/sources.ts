@@ -210,7 +210,7 @@ export const keptStores = (on = settings().sources) =>
 
 /**
  * The sources he turned on that can be read now. One that can't (`missing`: not set up, or its access gone) is left out,
- * its units and its days' moments kept, shown as "can't read",
+ * its units and its days' episodes kept, shown as "can't read",
  * so it never fails a night (`gather` logs why); one that can be read and then throws still does (`safely`).
  */
 export const readySources = (all = enabledSources()) =>

@@ -186,7 +186,7 @@ expectation.
 
 - **< 25% coverage** → main thread was **blocked** (I/O, lock, sync XPC,
   `Task.sleep`, waiting on an actor-isolated call). The `hot_symbols` you
-  do see are the moments main *was* executing — look there for the code
+  do see are the episodes main *was* executing — look there for the code
   that *initiates* the blocking work, not the work itself. Common fix:
   move to a background executor / `nonisolated` / `Task.detached`.
 - **≥ 75% coverage** → main was **CPU-bound** the whole time. `hot_symbols`

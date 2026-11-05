@@ -11,7 +11,7 @@ await execOk(["bun", "x", "vite", "build"], { cwd: WEB, timeout: 120_000 });
 const long =
   "The Lynx recap has been cut for two days because Railway dropped the session, and the shop's sales stopped reaching the report the same evening.";
 const decision = (id: string, question: string) => ({
-  context: `${"Life is unsure: it was heard once, from a moment far from any chat about it.\n\n".repeat(6)}From a voice note, 30 Oct.`,
+  context: `${"Life is unsure: it was heard once, from an episode far from any chat about it.\n\n".repeat(6)}From a voice note, 30 Oct.`,
   createdAt: "2026-10-30T08:00:00.000Z",
   deadline: "2026-11-06T08:00:00.000Z",
   id,

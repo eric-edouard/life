@@ -69,7 +69,7 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
   const all = [
     "repos",
     "gather",
-    "moments",
+    "episodes",
     "extract",
     "pages",
     "index",
@@ -86,7 +86,7 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
     [
       "repos",
       "gather",
-      "moments",
+      "episodes",
       "extract",
       "pages",
       "index",
@@ -99,10 +99,10 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
   expect(
     state(stationsOf({ lastOk: ok, latest: failed }, false, false)).slice(-2)
   ).toEqual(["commit:todo", "email:todo"]);
-  const running = run(["repos", "gather", "moments"], "running");
+  const running = run(["repos", "gather", "episodes"], "running");
   expect(
     state(stationsOf({ lastOk: ok, latest: running }, true, null)).slice(1, 4)
-  ).toEqual(["gather:done", "moments:now", "extract:todo"]);
+  ).toEqual(["gather:done", "episodes:now", "extract:todo"]);
 });
 
 test(

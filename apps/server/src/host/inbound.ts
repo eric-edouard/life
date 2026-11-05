@@ -127,7 +127,7 @@ export function inbound(s: Snapshot, ledger: LedgerEntry[], at: string) {
       (d) =>
         d.id === itemId(it) || (it.link !== undefined && linkOf(d) === it.link)
     );
-    // Left alone: one Life wrote to moments ago (reads lag writes, and a write may land during the read), one on a
+    // Left alone: one Life wrote to episodes ago (reads lag writes, and a write may land during the read), one on a
     // shared list (never read), one removed and then purged.
     const alone =
       Date.parse(at) - Date.parse(it.wrote ?? "") < LAG_MS ||

@@ -46,7 +46,7 @@ export function factCheckAsk(
         ? `Life is unsure: ${doubts.map((d) => WHY[d]).join("; ")}.`
         : "",
       quote ? `"${quote}"` : "",
-      `From ${s.source ?? "a moment"}, ${plain(s.date)}.`,
+      `From ${s.source ?? "an episode"}, ${plain(s.date)}.`,
     ]
       .filter(Boolean)
       .join("\n\n")

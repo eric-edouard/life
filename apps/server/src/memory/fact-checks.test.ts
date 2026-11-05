@@ -10,7 +10,7 @@ const NOW = Date.parse("2026-10-30T10:00:00.000Z");
 const statement = (ref: string, text = `Zoé runs the bakery ${ref}.`) => ({
   at: "2026-10-29T10:00:00.000Z",
   date: "2026-10-28",
-  group: "events" as const,
+  group: "episodes" as const,
   kind: "fact" as const,
   ref,
   schemaVersion: 1 as const,

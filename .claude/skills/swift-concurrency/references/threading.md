@@ -127,7 +127,7 @@ You're describing the nature of work, not assigning threads. Swift optimizes exe
 
 ### What is a suspension point?
 
-Moment where task **may** pause to allow other work. Marked by `await`.
+Episode where task **may** pause to allow other work. Marked by `await`.
 
 ```swift
 let data = await fetchData() // Potential suspension

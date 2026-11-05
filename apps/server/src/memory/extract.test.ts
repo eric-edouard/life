@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
@@ -10,7 +10,7 @@ import {
   packed,
   priorFor,
 } from "./extract";
-import { momentsNow } from "./ledger";
+import { episodesNow } from "./ledger";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
 
@@ -40,11 +40,11 @@ const U1 = "unit_000000000001";
 const U2 = "unit_000000000002";
 const U3 = "unit_000000000003";
 const U4 = "unit_000000000004";
-const moment = (over: Partial<Moment> = {}): Moment => ({
+const episode = (over: Partial<Episode> = {}): Episode => ({
   copies: [],
   day: "2026-10-15",
   end: null,
-  id: "mom_000000000001",
+  id: "ep_000000000001",
   importance: 2,
   madeBy,
   people: [{ ref: "person:bastien", role: "with" }],
@@ -58,7 +58,7 @@ const moment = (over: Partial<Moment> = {}): Moment => ({
   ...over,
 });
 
-test("extraction reads each unit once and no copy ever; pending units in no moment go last", () => {
+test("extraction reads each unit once and no copy ever; pending units in no episode go last", () => {
   const all = [U1, U2, U3, U4].map((id) => built(id));
   const [b1, b2, b3, b4] = all as [Built, Built, Built, Built];
   const verdicts = ledger([
@@ -68,10 +68,10 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
     verdict(b4.unit, { importance: 0 }),
   ]);
   const lines = [
-    moment({ start: "2026-10-15 18:00", units: [U1, U2, U4] }),
-    moment({
+    episode({ start: "2026-10-15 18:00", units: [U1, U2, U4] }),
+    episode({
       copies: [U3],
-      id: "mom_000000000002",
+      id: "ep_000000000002",
       start: "2026-10-15 19:00",
       units: [U1, U3],
     }),
@@ -81,25 +81,25 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
     [b1, b3, b5],
     [...all, b5],
     ledger([...verdicts.values(), verdict(b5.unit)]),
-    momentsNow(lines, [])
+    episodesNow(lines, [])
   );
-  // A moment's commits are never read in full, whatever their importance.
+  // An episode's commits are never read in full, whatever their importance.
   const commits = built("unit_000000000006", { source: "git" });
   expect(
     groupsOf(
       [b1],
       [b1, commits],
       ledger([verdict(b1.unit), verdict(commits.unit, { importance: 1 })]),
-      momentsNow([moment({ units: [U1, "unit_000000000006"] })], [])
+      episodesNow([episode({ units: [U1, "unit_000000000006"] })], [])
     ).groups.map((g) => g.units.map((b) => b.unit.id))
   ).toEqual([[U1]]);
   // U3 is a copy: never read, even though pending; returned apart, to be marked read with nothing in it.
   expect(copies.map((b) => b.unit.id)).toEqual([U3]);
   expect(
-    groups.map((g) => [g.moment?.id ?? null, g.units.map((b) => b.unit.id)])
+    groups.map((g) => [g.episode?.id ?? null, g.units.map((b) => b.unit.id)])
   ).toEqual([
-    // Both moments reach 15 Oct: the smaller keeps U1, and the other holds nothing pending.
-    ["mom_000000000002", [U1]],
+    // Both episodes reach 15 Oct: the smaller keeps U1, and the other holds nothing pending.
+    ["ep_000000000002", [U1]],
     [null, ["unit_000000000005"]],
   ]);
   const sized = (n: number) => ({
@@ -115,9 +115,9 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
   ).toEqual([1, 2]);
 });
 
-test("the calls of one moment share a lane, in order, even when a call joins two moments' lanes", () => {
+test("the calls of one episode share a lane, in order, even when a call joins two episodes' lanes", () => {
   const of = (id: string | null) => ({
-    moment: id ? moment({ id: `mom_00000000000${id}` }) : null,
+    episode: id ? episode({ id: `ep_00000000000${id}` }) : null,
   });
   const a1 = [of("a")];
   const b1 = [of("b")];
@@ -141,12 +141,12 @@ test("a group over the budget is cut between its days, never within one", () => 
   }));
   const ids = (g: { units: Built[] }) => g.units.map((b) => b.unit.id);
   expect(
-    byDays({ moment: moment(), sources, units: days }, 100).map(ids)
+    byDays({ episode: episode(), sources, units: days }, 100).map(ids)
   ).toEqual([ids({ units: days.slice(0, 2) }), ids({ units: days.slice(2) })]);
-  expect(byDays({ moment: null, sources, units: days }, 1000)).toHaveLength(1);
+  expect(byDays({ episode: null, sources, units: days }, 1000)).toHaveLength(1);
 });
 
-test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oct reply (production's mom_fe3f0ff093bb), not with the bigger trip, the drive back or the same-day call", () => {
+test("an episode is read whole across its days: the 16 Oct ask goes with the 17 Oct reply (production's ep_fe3f0ff093bb), not with the bigger trip, the drive back or the same-day call", () => {
   const ask = built("unit_e0b92ec800e1", { date: "2026-10-16" });
   const chapter = built("unit_4eecb6d5777c", { date: "2026-10-16" });
   const reply = built("unit_0fdaf120134a", { date: "2026-10-17" });
@@ -159,29 +159,29 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
   );
   const all = [ask, chapter, reply, drive, ...trip, ...back];
   const ids = (bs: Built[]) => bs.map((b) => b.unit.id);
-  const pickup = "mom_fe3f0ff093bb";
+  const pickup = "ep_fe3f0ff093bb";
   const lines = [
-    moment({
+    episode({
       day: "2026-10-16",
       id: pickup,
       units: ids([ask, chapter]),
     }),
-    moment({
+    episode({
       day: "2026-10-17",
       id: pickup,
       title: "Pickup",
       units: ids([reply, drive]),
     }),
-    moment({ day: "2026-10-16", id: "mom_383deb827705", units: ids([ask]) }),
-    moment({
+    episode({ day: "2026-10-16", id: "ep_383deb827705", units: ids([ask]) }),
+    episode({
       day: "2026-10-17",
-      id: "mom_5de28e122d75",
+      id: "ep_5de28e122d75",
       units: ids([reply, ...back]),
     }),
     ...["12", "16", "17"].map((d) =>
-      moment({
+      episode({
         day: `2026-10-${d}`,
-        id: "mom_248b49671504",
+        id: "ep_248b49671504",
         units: ids([
           ...(d === "16" ? [ask] : []),
           ...trip.filter((b) => b.unit.date.endsWith(d)),
@@ -194,14 +194,14 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
       pending,
       all,
       ledger(all.map((b) => verdict(b.unit))),
-      momentsNow(lines, [])
+      episodesNow(lines, [])
     ).groups;
   // Only the reply is new: the ask, read on 16 Oct, is read again with it.
   const groups = read([reply]);
   expect(
     groups.map((g) => [
-      g.moment?.id,
-      g.moment?.title,
+      g.episode?.id,
+      g.episode?.title,
       g.units.map((b) => b.unit.id),
     ])
   ).toEqual([
@@ -211,13 +211,13 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
       [ask.unit.id, chapter.unit.id, reply.unit.id, drive.unit.id],
     ],
   ]);
-  // A long moment is read from the day before its first pending unit: the trip's 12 Oct units wait.
+  // A long episode is read from the day before its first pending unit: the trip's 12 Oct units wait.
   expect(read([trip[4] as Built]).map((g) => ids(g.units))).toEqual([
     ids(trip.slice(2)),
   ]);
 });
 
-test("earlier facts for a moment: its people's from two weeks before, Jean's own from its day and the day before, a fact retired from its own units again", () => {
+test("earlier facts for an episode: its people's from two weeks before, Jean's own from its day and the day before, a fact retired from its own units again", () => {
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
@@ -228,7 +228,7 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
       ...over,
     }) as Observation;
   const group = {
-    moment: moment(),
+    episode: episode(),
     units: [built(U1, { date: "2026-10-14" }), built(U2)],
   };
   const shown = [
@@ -285,7 +285,7 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
   ).not.toContain("bond");
 });
 
-test("earlier facts also hold the moment's own units at any age, in their own slot; another moment's older facts stay out", () => {
+test("earlier facts also hold the episode's own units at any age, in their own slot; another episode's older facts stay out", () => {
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
@@ -297,11 +297,11 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
       ...over,
     }) as Observation;
   const group = {
-    moment: moment({ units: [U1, U4] }),
+    episode: episode({ units: [U1, U4] }),
     units: [built(U1, { date: "2026-10-15" })],
   };
   const shown = [
-    // From the moment's own earlier unit, 20 days back: any type, his own too.
+    // From the episode's own earlier unit, 20 days back: any type, his own too.
     { o: o("plan", { date: "2026-09-25", type: "to_do", unit: U4 }) },
     {
       o: o("his-plan", {
@@ -310,7 +310,7 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
         unit: U4,
       }),
     },
-    // From another moment, older than two weeks: none, an open loop neither.
+    // From another episode, older than two weeks: none, an open loop neither.
     { o: o("owed", { date: "2026-09-25", type: "waiting_on_someone" }) },
     { o: o("decided", { date: "2026-09-25" }) },
     { o: o("too-old", { date: "2026-08-10", type: "promise" }) },

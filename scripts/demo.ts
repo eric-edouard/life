@@ -5,7 +5,7 @@ import { join, relative, resolve } from "node:path";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
-import { MOMENTS_PROMPT } from "@life/server/src/memory/moments";
+import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
 import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
@@ -85,9 +85,9 @@ people:
 type Fact = [string, string, string, string, string[], string?];
 interface Demo {
   at: string;
+  episode?: { place: string | null; title: string; with: string };
   facts: Fact[];
   key: string;
-  moment?: { place: string | null; title: string; with: string };
   ref: string;
   source: "lifelog" | "mail" | "whatsapp";
   title: string;
@@ -120,6 +120,11 @@ const DEMO: Demo[] = [
   },
   {
     at: "2026-10-15 18:40",
+    episode: {
+      place: null,
+      title: "Paid the October rent to Jean Dupont",
+      with: "jean-dupont",
+    },
     facts: [
       [
         "news",
@@ -137,17 +142,17 @@ const DEMO: Demo[] = [
       ],
     ],
     key: "351910000001@s.whatsapp.net",
-    moment: {
-      place: null,
-      title: "Paid the October rent to Jean Dupont",
-      with: "jean-dupont",
-    },
     ref: "whatsapp:351910000001@s.whatsapp.net/B7",
     source: "whatsapp",
     title: "Jean Dupont",
   },
   {
     at: "2026-10-17 10:05",
+    episode: {
+      place: "the flat, Rua das Flores",
+      title: "Hans fixed the kitchen sink at the flat",
+      with: "hans",
+    },
     facts: [
       [
         "news",
@@ -158,17 +163,13 @@ const DEMO: Demo[] = [
       ],
     ],
     key: "conv-demo-1",
-    moment: {
-      place: "the flat, Rua das Flores",
-      title: "Hans fixed the kitchen sink at the flat",
-      with: "hans",
-    },
     ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
     source: "lifelog",
     title: "Kitchen sink repair with the plumber",
   },
   {
     at: "2026-10-20 21:30",
+    episode: { place: "Luna", title: "Ana's birthday dinner", with: "ana" },
     facts: [
       [
         "promise",
@@ -180,7 +181,6 @@ const DEMO: Demo[] = [
       ],
     ],
     key: "351910000002@s.whatsapp.net",
-    moment: { place: "Luna", title: "Ana's birthday dinner", with: "ana" },
     ref: "whatsapp:351910000002@s.whatsapp.net/C3",
     source: "whatsapp",
     title: "Ana",
@@ -260,18 +260,18 @@ for (const d of DEMO) {
       unitHash: u.hash,
     },
   ]);
-  // A plan is a fact with its date, never a moment.
-  if (d.moment && !d.facts.some((f) => f[5])) {
-    const { place, title } = d.moment;
-    write(join(data, `memory/moments/${day}.jsonl`), [
+  // A plan is a fact with its date, never an episode.
+  if (d.episode && !d.facts.some((f) => f[5])) {
+    const { place, title } = d.episode;
+    write(join(data, `memory/episodes/${day}.jsonl`), [
       {
         copies: [],
         day,
         end: null,
-        id: `mom_${hex(day + title, 12)}`,
+        id: `ep_${hex(day + title, 12)}`,
         importance: 1,
-        madeBy: { ...madeBy, prompt: MOMENTS_PROMPT },
-        people: [{ ref: `person:${d.moment.with}`, role: "with" }],
+        madeBy: { ...madeBy, prompt: EPISODES_PROMPT },
+        people: [{ ref: `person:${d.episode.with}`, role: "with" }],
         place,
         schemaVersion: 1,
         start: d.at,

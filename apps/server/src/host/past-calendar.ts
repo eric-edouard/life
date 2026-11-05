@@ -16,7 +16,7 @@ import { daysBefore } from "../memory/units";
 
 // The Past calendar's writes: what `memory/past-events.ts` says it should hold, brought into the `past` setting's calendar,
 // a Google one through `gog` (with its account) or an Apple one through the app's EventKit tool. Life's events are
-// found by their private properties (moment id, hash); nothing else is read back. Each nightly tick runs it after
+// found by their private properties (episode id, hash); nothing else is read back. Each nightly tick runs it after
 // its turn.
 
 const PastEvents = (stdout: string) =>
@@ -28,19 +28,19 @@ const PastEvents = (stdout: string) =>
     nextPageToken?: string;
   };
 
-/** One of Life's events in a calendar: its moment, the hash it was written with, its id there. */
-const Row = z.object({ hash: z.string(), id: z.string(), moment: z.string() });
+/** One of Life's events in a calendar: its episode, the hash it was written with, its id there. */
+const Row = z.object({ episode: z.string(), hash: z.string(), id: z.string() });
 type Row = z.infer<typeof Row>;
-/** Life's events by moment, whichever calendar holds them. */
+/** Life's events by episode, whichever calendar holds them. */
 export const heldOf = (rows: Row[]): Held =>
   new Map(
-    [...Map.groupBy(rows, (r) => r.moment)].map(([moment, rs]) => [
-      moment,
+    [...Map.groupBy(rows, (r) => r.episode)].map(([episode, rs]) => [
+      episode,
       rs.map(({ hash, id }) => ({ hash, id })),
     ])
   );
 
-/** The Past calendar through `gog`: what it holds of Life's (events with a moment id, by moment), and its writes. */
+/** The Past calendar through `gog`: what it holds of Life's (events with an episode id, by episode), and its writes. */
 function pastCalendar(calendar: string, account: string) {
   // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
   const run = (args: string[]) =>
@@ -70,11 +70,12 @@ function pastCalendar(calendar: string, account: string) {
         );
         for (const e of r.events ?? []) {
           const p = e.extendedProperties?.private;
-          if (p?.lifeMoment) {
+          // Every event Life writes has a hash; one with no episode (an older Life's) is never wanted, so it goes.
+          if (p?.lifeHash !== undefined) {
             rows.push({
-              hash: p.lifeHash ?? "",
+              episode: p.lifeEpisode ?? "",
+              hash: p.lifeHash,
               id: e.id,
-              moment: p.lifeMoment,
             });
           }
         }
@@ -82,9 +83,9 @@ function pastCalendar(calendar: string, account: string) {
       } while (page);
       return heldOf(rows);
     },
-    async remove(moment: string, id: string) {
+    async remove(episode: string, id: string) {
       await run(["delete", calendar, id, "--force"]);
-      log("calendar.write", { event: id, moment, op: "delete" });
+      log("calendar.write", { episode, event: id, op: "delete" });
     },
     async write(d: Draft, description: string, location: string | null) {
       const out = await run([
@@ -98,18 +99,18 @@ function pastCalendar(calendar: string, account: string) {
         ...(location ? [`--location=${redact(location)}`] : []),
         "--transparency=free",
         "--send-updates=none",
-        `--private-prop=lifeMoment=${d.moment}`,
+        `--private-prop=lifeEpisode=${d.episode}`,
         `--private-prop=lifeHash=${d.hash}`,
       ]);
       const { id } = (JSON.parse(out) as { event: { id: string } }).event;
-      log("calendar.write", { event: id, moment: d.moment, op: "create" });
+      log("calendar.write", { episode: d.episode, event: id, op: "create" });
     },
   };
 }
 
 /**
  * The Past calendar through the app's EventKit tool (`LIFE_EVENTKIT`): his Apple calendar, Life's events found by the
- * moment and hash in their URL.
+ * episode and hash in their URL.
  */
 function appleCalendar(calendar: string, tool: string) {
   const run = (args: string[]) =>
@@ -120,9 +121,9 @@ function appleCalendar(calendar: string, tool: string) {
         z.array(Row).parse(JSON.parse(await run(["held", `--until=${until}`])))
       );
     },
-    async remove(moment: string, id: string) {
+    async remove(episode: string, id: string) {
       await run(["delete", id]);
-      log("calendar.write", { event: id, moment, op: "delete" });
+      log("calendar.write", { episode, event: id, op: "delete" });
     },
     async write(d: Draft, description: string, location: string | null) {
       const out = await run([
@@ -133,16 +134,16 @@ function appleCalendar(calendar: string, tool: string) {
         ...(d.allDay ? ["--all-day"] : []),
         `--description=${description}`,
         ...(location ? [`--location=${redact(location)}`] : []),
-        `--moment=${d.moment}`,
+        `--episode=${d.episode}`,
         `--hash=${d.hash}`,
       ]);
       const { id } = JSON.parse(out) as { id: string };
-      log("calendar.write", { event: id, moment: d.moment, op: "create" });
+      log("calendar.write", { episode: d.episode, event: id, op: "create" });
     },
   };
 }
 
-/** Brings the calendar in line with the moments; null when it is not set up. */
+/** Brings the calendar in line with the episodes; null when it is not set up. */
 export async function syncPast(now = clock()) {
   const { past } = settings();
   if (!(past && isOn("past"))) {
@@ -159,7 +160,7 @@ export async function syncPast(now = clock()) {
   );
   for (const e of stale) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
-    await cal.remove(e.moment, e.id);
+    await cal.remove(e.episode, e.id);
   }
   for await (const { d, description, location } of described(fresh)) {
     await cal.write(d, description, location);

@@ -1,35 +1,35 @@
 import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
 import { redact } from "../core/redact";
-import type { Moment } from "../records/moment";
+import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { conversationsBetween, visits, withStore } from "../sources/lifelog";
-import { momentsNow, readBy, readMoments, readUnits } from "./ledger";
+import { episodesNow, readBy, readEpisodes, readUnits } from "./ledger";
 import { stayOf, where } from "./places";
-import { momentText } from "./statements";
+import { episodeText } from "./statements";
 import { clip, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart } from "./zones";
 
-// The Past calendar (his request, 21 Oct): what it should hold. Every moment, as an event with what happened, who,
+// The Past calendar (his request, 21 Oct): what it should hold. Every episode, as an event with what happened, who,
 // where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
-// one-way projection of the moments: each event carries its moment's id and a hash of what it shows,
-// a moment that changed is written again, one gone (hidden, or read again as something else) is deleted.
+// one-way projection of the episodes: each event carries its episode's id and a hash of what it shows,
+// an episode that changed is written again, one gone (hidden, or read again as something else) is deleted.
 // `host/past-calendar.ts` writes it.
 
-// ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
-// is written, and are not in its hash. Hash them (a read per moment each tick) if late stays turn out to matter.
+// ponytail: an episode goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
+// is written, and are not in its hash. Hash them (a read per episode each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;
-// Google takes 8,192 characters; a busy moment's units would pass it.
+// Google takes 8,192 characters; a busy episode's units would pass it.
 const DESCRIPTION_MAX = 7500;
 
-/** One moment as an event, before the IO-bound part (stays and conversations, added only when it is written). */
+/** One episode as an event, before the IO-bound part (stays and conversations, added only when it is written). */
 export interface Draft {
   allDay: boolean;
+  episode: string;
   /** RFC3339 instants, or YYYY-MM-DD days (end exclusive) when `allDay`. */
   from: string;
   hash: string;
-  moment: string;
   place: string | null;
   summary: string;
   text: string;
@@ -38,7 +38,7 @@ export interface Draft {
 
 interface Known {
   nameOf: (ref: string) => string;
-  /** What Life noted, by unit: the observations that show (under the unit's moment, `readBy`). */
+  /** What Life noted, by unit: the observations that show (under the unit's episode, `readBy`). */
   noted: Map<string, string[]>;
   units: Map<string, Unit>;
 }
@@ -52,8 +52,8 @@ const instant = (local: string) => {
 export const edgeTime = (allDay: boolean, edge: string) =>
   (allDay ? dayStart(edge) : new Date(edge)).getTime();
 
-/** When a moment was: its timed start to its end (an hour when the sources don't say), else whole days. */
-export function span(m: Pick<Moment, "day" | "end" | "start">) {
+/** When an episode was: its timed start to its end (an hour when the sources don't say), else whole days. */
+export function span(m: Pick<Episode, "day" | "end" | "start">) {
   const start = m.start ?? m.day;
   if (!start.includes(" ")) {
     const last = (m.end ?? start).slice(0, 10);
@@ -71,12 +71,12 @@ export function span(m: Pick<Moment, "day" | "end" | "start">) {
 }
 
 /**
- * The events the calendar should hold: every moment ended (`SETTLE` ago) by `now`. They may overlap (his decision,
- * 2 Nov): a big moment holds the smaller ones that happened inside it.
+ * The events the calendar should hold: every episode ended (`SETTLE` ago) by `now`. They may overlap (his decision,
+ * 2 Nov): a big episode holds the smaller ones that happened inside it.
  */
-export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
-  const byMoment = readBy(moments);
-  return moments
+export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
+  const byEpisode = readBy(episodes);
+  return episodes
     .map((m) => ({ m, ...span(m) }))
     .filter(({ allDay, to }) => edgeTime(allDay, to) + SETTLE <= now.getTime())
     .map(({ m, ...when }) => {
@@ -84,14 +84,14 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
       const noted = [
         ...new Set(
           m.units.flatMap((id) =>
-            byMoment.get(id) === m ? (k.noted.get(id) ?? []) : []
+            byEpisode.get(id) === m ? (k.noted.get(id) ?? []) : []
           )
         ),
       ];
       const text = [
         m.what,
         "",
-        momentText(m, k.nameOf),
+        episodeText(m, k.nameOf),
         ...(noted.length > 0
           ? ["", "What Life noted:", ...noted.map((t) => `- ${t}`)]
           : []),
@@ -106,7 +106,7 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
       ].join("\n");
       const draft = {
         ...when,
-        moment: m.id,
+        episode: m.id,
         place: m.place,
         summary:
           m.place && !m.title.toLowerCase().includes(m.place.toLowerCase())
@@ -120,23 +120,23 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
 
 export type Held = Map<string, { hash?: string; id: string }[]>;
 
-/** What a sync does: the events to delete (of a moment gone or changed, and any second copy) and the drafts to write. */
+/** What a sync does: the events to delete (of an episode gone or changed, and any second copy) and the drafts to write. */
 export function plan(want: Draft[], held: Held) {
   const keep = new Set(
     want.flatMap((d) => {
-      const [e, ...more] = held.get(d.moment) ?? [];
-      return e?.hash === d.hash && more.length === 0 ? [d.moment] : [];
+      const [e, ...more] = held.get(d.episode) ?? [];
+      return e?.hash === d.hash && more.length === 0 ? [d.episode] : [];
     })
   );
   return {
-    fresh: want.filter((d) => !keep.has(d.moment)),
-    stale: [...held].flatMap(([moment, events]) =>
-      keep.has(moment) ? [] : events.map((e) => ({ id: e.id, moment }))
+    fresh: want.filter((d) => !keep.has(d.episode)),
+    stale: [...held].flatMap(([episode, events]) =>
+      keep.has(episode) ? [] : events.map((e) => ({ episode, id: e.id }))
     ),
   };
 }
 
-/** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the moment's place. */
+/** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the episode's place. */
 async function located(
   d: Draft,
   talks: { id: string; start_at: string; title: string }[]
@@ -169,16 +169,16 @@ async function located(
   };
 }
 
-/** The drafts of every moment as memory holds it now. */
+/** The drafts of every episode as memory holds it now. */
 export async function wanted(now: Date) {
   const people = await readPeople();
-  const [{ observations }, units, moments] = await Promise.all([
+  const [{ observations }, units, episodes] = await Promise.all([
     observationsNow(people),
     readUnits(),
-    readMoments(),
+    readEpisodes(),
   ]);
   return drafts(
-    momentsNow(moments, people.corrections),
+    episodesNow(episodes, people.corrections),
     {
       nameOf: people.nameOf,
       noted: new Map(
@@ -204,12 +204,12 @@ export async function* described(fresh: Draft[]) {
   for (const [i, d] of fresh.entries()) {
     const { lines, location } = d.allDay
       ? { lines: [], location: d.place }
-      : // biome-ignore lint/performance/noAwaitInLoops: one moment at a time
+      : // biome-ignore lint/performance/noAwaitInLoops: one episode at a time
         await located(d, talks[i] ?? []);
     const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
     yield {
       d,
-      description: `${body}\n\nMoment ${d.moment}, written by Life.`,
+      description: `${body}\n\nEpisode ${d.episode}, written by Life.`,
       location,
     };
   }

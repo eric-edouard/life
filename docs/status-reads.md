@@ -23,7 +23,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 |---|---|---|
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
 | `capture.archive.{whatsapp,line,instagram,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
-| `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
+| `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
@@ -49,7 +49,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it is
 null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
-`memory.backfill` and the steps `memory.repos|files|moments|extract|closeness|pages` (`memory.triage` and `memory.infer`
+`memory.backfill` and the steps `memory.repos|files|episodes|extract|closeness|pages` (`memory.triage` and `memory.infer`
 until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
@@ -140,7 +140,7 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 
 ## What is not covered
 
-- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments,
+- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now episodes,
   extract, infer, pages) are complete from 14 Oct. derived/log is never rotated.
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
   `run.error` when one starts, `run.end` when it ends), not in `read_life_status`.

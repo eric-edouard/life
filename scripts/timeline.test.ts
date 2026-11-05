@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
 import { madeBy } from "@life/server/src/memory/record-fixtures";
-import type { Moment } from "@life/server/src/records/moment";
+import type { Episode } from "@life/server/src/records/episode";
 import { timelineScore } from "./timeline";
 
-const moment = (over: Partial<Moment>): Moment => ({
+const episode = (over: Partial<Episode>): Episode => ({
   copies: [],
   day: "2026-10-20",
   end: null,
-  id: "mom_000000000001",
+  id: "ep_000000000001",
   importance: 1,
   madeBy,
   people: [],
   place: null,
   schemaVersion: 1,
   start: null,
-  title: "A moment",
+  title: "An episode",
   units: ["unit_000000000001"],
   what: "",
   within: null,
@@ -52,8 +52,8 @@ const truth = {
   to: "2026-10-20",
 };
 
-test("truth and Life moments sharing a unit while overlapping match one to one; the rest are merged, missed, extra or duplicates", () => {
-  const dinner = moment({
+test("truth and Life episodes sharing a unit while overlapping match one to one; the rest are merged, missed, extra or duplicates", () => {
+  const dinner = episode({
     end: "2026-10-20 21:40",
     start: "2026-10-20 19:30",
   });
@@ -62,19 +62,19 @@ test("truth and Life moments sharing a unit while overlapping match one to one; 
     [
       dinner,
       // The same dinner again, shorter: a duplicate.
-      moment({
+      episode({
         end: "2026-10-20 20:30",
-        id: "mom_000000000002",
+        id: "ep_000000000002",
         start: "2026-10-20 20:10",
       }),
       // Money moved: shares nothing.
-      moment({
-        id: "mom_000000000003",
+      episode({
+        id: "ep_000000000003",
         start: "2026-10-20 12:00",
         units: ["unit_000000000009"],
       }),
       // Another day: out of the window.
-      moment({ day: "2026-10-22", id: "mom_000000000004" }),
+      episode({ day: "2026-10-22", id: "ep_000000000004" }),
     ],
     [
       // Where the dinner was, ~100 m off, and home before it.
@@ -106,9 +106,9 @@ test("truth and Life moments sharing a unit while overlapping match one to one; 
     truth: 3,
   });
   const [found, toast] = s.rows;
-  expect(found?.moment?.id).toBe(dinner.id);
+  expect(found?.episode?.id).toBe(dinner.id);
   expect(found?.startOff).toBe(30);
   // The toast is inside the dinner: read as one with it.
   expect(toast?.into?.id).toBe(dinner.id);
-  expect(s.extra.map((m) => m.id)).toEqual(["mom_000000000003"]);
+  expect(s.extra.map((m) => m.id)).toEqual(["ep_000000000003"]);
 });

@@ -209,7 +209,7 @@ export async function hear(
       a.timing
     );
   }
-  // Each ask's span, held ones too, is a mark: its unit carries it, read again at importance 3 (units.ts, moments.ts).
+  // Each ask's span, held ones too, is a mark: its unit carries it, read again at importance 3 (units.ts, episodes.ts).
   const marked = writeMarks(
     store,
     conversation,
