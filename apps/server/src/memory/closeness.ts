@@ -13,10 +13,10 @@ import { isDirect, kindOf } from "./sources";
 import { daysBefore, safely, tables } from "./units";
 import { type People, readPeople } from "./who";
 
+import { localDate } from "./zones";
+
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
 type Folds = Pick<People, "canon" | "corrections">;
-
-import { localDate } from "./zones";
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
 // with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his

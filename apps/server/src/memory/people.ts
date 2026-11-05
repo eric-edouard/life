@@ -40,7 +40,7 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
  * Who the episodes call says the day's unknown handles and names are, checked: a surface we asked about (`unknown`: the
  * units it appears in; the first answer for it), at least one quote found in the text of one of those units, an area
  * from the list and a project we know, else none; `person` only when it is someone in truth/. A person is recorded
- * however unsure the model is; how far to trust it is the `confidence` (the resolver uses it from INFERRED_USE_AT).
+ * however unsure the model is; how far to trust it is the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
  */
 export function checkPeople(
   said: unknown[],
