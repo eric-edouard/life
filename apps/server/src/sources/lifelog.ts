@@ -206,6 +206,7 @@ export function openStore(dir = WATCH) {
   create table if not exists marks (
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
+  create index if not exists turns_start on turns (start_at);
   drop table if exists jobs;`);
   // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
   // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every

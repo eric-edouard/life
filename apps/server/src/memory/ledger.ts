@@ -296,11 +296,10 @@ export const isRereadSince = (
 export const hides = (c: Correction) =>
   c.kind === "wrong" || c.kind === "not-important" ? c : null;
 
+type Hider = NonNullable<ReturnType<typeof hides>>;
+
 // ponytail: keyed by the list itself, so a list must not change after it is read (none does).
-const hidersOf = new WeakMap<
-  Correction[],
-  Map<string, NonNullable<ReturnType<typeof hides>>[]>
->();
+const hidersOf = new WeakMap<Correction[], Map<string, readonly Hider[]>>();
 
 /** The owner's corrections hiding `id`, in his order: everywhere (no page), or on a page. Indexed once per list. */
 export const hiding = (corrections: Correction[], id: string) => {
