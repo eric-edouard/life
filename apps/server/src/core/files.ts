@@ -42,7 +42,9 @@ const reads = new Map<string, Read>();
  * a new result (`start(last)` copies the last one, then its new rows are added), so a result already returned never
  * changes: callers only read it. One fold per path.
  */
-// ponytail: the fold stays in memory and grows with its file (verdicts most): keep less state in an only-growing file if that bites.
+// ponytail: the fold stays in memory and grows with its file (verdicts most), and a change reads and hashes the whole
+// file again (no reparse): keep less state in an only-growing file if that bites. An unchanged inode, size and mtime is
+// trusted: a same-size rewrite within one mtime tick (APFS: nanoseconds) would be missed; only code that appends writes these files.
 export function readAppended<T, F>(
   path: string,
   schema: z.ZodType<T>,
