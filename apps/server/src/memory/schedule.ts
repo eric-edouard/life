@@ -17,7 +17,7 @@ export interface NightState {
   attempts: number;
   date: string;
   lastAt: string;
-  /** When the last successful night ended: what the next report counts from (midday runs in between included). */
+  /** When the last successful night ended: what the next report counts from (the episodes of midday runs in between included). */
   okAt?: string;
   status: "ok" | "failed";
 }

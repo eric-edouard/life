@@ -91,7 +91,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
   `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
-  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
+  oldest first, as a sweep with facts (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
   the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
   subscription. Three failures of a week stop it, and the third emails him. Record the owner's zones
   for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
