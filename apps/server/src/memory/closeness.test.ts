@@ -189,7 +189,7 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
   ]);
 });
 
-test("voice days are the days someone spoke in a live recording, by lifelog's own speakers", () => {
+test("voice days are the days someone spoke in a live recording since the window's start, by lifelog's own speakers", () => {
   const store = lifelogStore();
   apply(
     store,
@@ -198,10 +198,15 @@ test("voice days are the days someone spoke in a live recording, by lifelog's ow
       turns: [
         turnFixture(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie"),
         turnFixture(1, "2026-10-14T10:02:00.000Z", null, null),
+        turnFixture(2, "2023-10-14T10:03:00.000Z", "p1", "Anne-Sophie"),
       ],
     })
   );
-  const days = voiceDays(store, (s) => (s === "p1" ? "person:anne" : null));
+  const days = voiceDays(
+    store,
+    (s) => (s === "p1" ? "person:anne" : null),
+    new Date("2024-01-01T00:00:00Z")
+  );
   expect([...days.keys()]).toEqual(["person:anne"]);
   expect([...(days.get("person:anne")?.values() ?? [])]).toEqual([
     { chat: { got: 0, sent: 0 }, mail: { got: 0, sent: 0 }, voice: true },

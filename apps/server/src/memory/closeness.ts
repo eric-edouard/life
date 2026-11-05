@@ -107,13 +107,14 @@ export function chatDays(
   return days;
 }
 
-/** The days each person spoke in his recordings (`speakerTurns`: live conversations, lifelog's own speakers). */
+/** The days each person spoke in his recordings since `since` (`speakerTurns`: live conversations, lifelog's own speakers). */
 export function voiceDays(
   store: Store,
   resolve: (s: string) => string | null,
+  since: Date,
   days: Days = new Map()
 ) {
-  for (const t of speakerTurns(store)) {
+  for (const t of speakerTurns(store, since)) {
     const who = resolve(t.id) ?? (t.name ? resolve(t.name) : null);
     if (who && who !== OWNER) {
       dayOf(days, who, localDate(t.at)).voice = true;
@@ -360,7 +361,7 @@ export async function closeness() {
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
-  await withStore((store) => voiceDays(store, resolve, days));
+  await withStore((store) => voiceDays(store, resolve, since, days));
   const relation = new Map<string, string>([
     ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),

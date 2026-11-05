@@ -595,15 +595,15 @@ export function speakers(store: Store) {
     .all();
 }
 
-/** Every turn someone other than the owner spoke in a live conversation, by lifelog's own speaker (never a model's): who and when. */
-export function speakerTurns(store: Store) {
+/** Every turn someone other than the owner spoke in a live conversation since `since`, by lifelog's own speaker (never a model's): who and when. */
+export function speakerTurns(store: Store, since: Date) {
   return store.db
-    .query<{ at: string; id: string; name: string | null }, []>(
+    .query<{ at: string; id: string; name: string | null }, [string]>(
       `select t.person_id as id, t.person_name as name, t.start_at as at from turns t
         join conversations c on c.id = t.conversation_id
-        where ${LIVE} and t.person_id is not null and t.is_owner = 0`
+        where ${LIVE} and t.person_id is not null and t.is_owner = 0 and t.start_at >= ?`
     )
-    .all();
+    .all(since.toISOString());
 }
 
 /** The live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */

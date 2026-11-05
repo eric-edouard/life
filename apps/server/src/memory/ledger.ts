@@ -296,12 +296,26 @@ export const isRereadSince = (
 export const hides = (c: Correction) =>
   c.kind === "wrong" || c.kind === "not-important" ? c : null;
 
-/** The owner's corrections hiding `id`: everywhere (no page), or on a page. */
-export const hiding = (corrections: Correction[], id: string) =>
-  corrections.flatMap((c) => {
-    const h = hides(c);
-    return h?.observations.includes(id) ? [h] : [];
-  });
+// ponytail: keyed by the list itself, so a list must not change after it is read (none does).
+const hidersOf = new WeakMap<
+  Correction[],
+  Map<string, NonNullable<ReturnType<typeof hides>>[]>
+>();
+
+/** The owner's corrections hiding `id`, in his order: everywhere (no page), or on a page. Indexed once per list. */
+export const hiding = (corrections: Correction[], id: string) => {
+  let index = hidersOf.get(corrections);
+  if (!index) {
+    index = new Map();
+    for (const h of corrections.flatMap((c) => hides(c) ?? [])) {
+      for (const o of new Set(h.observations)) {
+        index.set(o, [...(index.get(o) ?? []), h]);
+      }
+    }
+    hidersOf.set(corrections, index);
+  }
+  return index.get(id) ?? [];
+};
 
 /**
  * Where an observation stands: the one rule the index, the pages and the status reads go by. First match wins: `hidden`
