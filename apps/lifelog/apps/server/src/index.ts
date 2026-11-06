@@ -9,6 +9,7 @@ import { refreshOwnerTimeZone } from "./diagnostics";
 import { runCommand } from "./export";
 import { regroupDirty } from "./grouping";
 import { askForUploads, TICK_MS } from "./latency";
+import { searchFor } from "./search";
 import { services } from "./services";
 import { loadSwitches } from "./switches";
 
@@ -32,7 +33,10 @@ db.update(intelligenceRuns)
   .set({ error: "cut off by a restart", state: "waiting" })
   .where(eq(intelligenceRuns.state, "running"))
   .run();
-const s = services(config, db, { audio: audioStore(config) });
+const s = services(config, db, {
+  audio: audioStore(config),
+  search: searchFor(db),
+});
 const {
   excerpts,
   health,

@@ -30,6 +30,7 @@ import {
   fakeAnswer,
   fakeModel,
   mapJob,
+  NO_WAIT,
   OWNER_TOKEN,
   rollNow,
   seedTranscript,
@@ -68,7 +69,11 @@ const turns = (n: number, text = "Some words about the plan."): Turn[] =>
 // The app's rolls, which `settled` waits for.
 let rolling: Rolling | null = null;
 function appWith(model: Provider) {
-  rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  rolling = rollingChapters(env.db, {
+    mac: model,
+    retries: NO_WAIT,
+    windowChars: 100_000,
+  });
   return createApp(
     services(testConfig("http://localhost:1"), env.db, {
       intelligence: model,

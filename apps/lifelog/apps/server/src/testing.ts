@@ -164,6 +164,9 @@ export function fakeModel(respond: (call: ModelCall) => unknown = fakeAnswer) {
   return provider;
 }
 
+// Retries that ask again at once, so a test of an unusable answer never waits the backoff.
+export const NO_WAIT = { count: 2, delayMs: 0 };
+
 // One roll of a conversation on `model`, every chapter closing, retries without waiting: its run
 // once settled, or null when there was nothing to roll.
 export async function rollNow(
@@ -174,7 +177,7 @@ export async function rollNow(
 ) {
   const started = requestRoll(db, model, conversationId, {
     open,
-    retries: { count: 2, delayMs: 0 },
+    retries: NO_WAIT,
     windowChars,
   });
   if (started === "busy") {
