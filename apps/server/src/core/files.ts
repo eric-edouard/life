@@ -7,7 +7,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { z } from "zod";
 /**
@@ -165,3 +165,11 @@ export const filesIn = async (dir: string, ext = ".jsonl") =>
   (await readdir(dir).catch(() => [] as string[]))
     .filter((n) => n.endsWith(ext))
     .sort();
+/** Removes the `.json` files of `dir` whose path is not in `keep` (a rebuilt-whole folder: git keeps them); how many. */
+export async function removeAllBut(dir: string, keep: ReadonlySet<string>) {
+  const gone = (await filesIn(dir, ".json"))
+    .map((f) => join(dir, f))
+    .filter((path) => !keep.has(path));
+  await Promise.all(gone.map((path) => rm(path)));
+  return gone.length;
+}

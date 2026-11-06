@@ -15,6 +15,7 @@ import {
   chatDays,
   closenessTally,
   contextPeopleBy,
+  directChats,
   dueFor,
   levelsNow,
   pagedBy,
@@ -318,4 +319,35 @@ test("a written page stays until its person is judged: no closeness ledger delet
   } finally {
     await rm(path);
   }
+});
+
+test("a person's 1:1 chats on two apps are theirs together; a group, a mailing list and a chat with no one else are no one's", () => {
+  const resolve = (s: string) =>
+    ({ "+1": "person:ann", "ann@x.com": "person:ann" })[s] ?? null;
+  const mail: SourceEvent = {
+    ...msg("t1", "2026-10-02T10:00:00.000Z", false, "ann@x.com"),
+    source: "mail",
+  };
+  const chats = directChats(
+    [
+      msg("+1", "2026-10-01T10:00:00.000Z", false),
+      msg("+1", "2026-10-01T11:00:00.000Z", true),
+      mail,
+      {
+        ...msg("list", "2026-10-01T10:00:00.000Z", false, "ann@x.com"),
+        bulk: true,
+        source: "mail",
+      },
+      msg("120@g.us", "2026-10-01T10:00:00.000Z", false, "+1"),
+      msg("120@g.us", "2026-10-01T10:05:00.000Z", false, "+2"),
+      msg("+9", "2026-10-01T10:00:00.000Z", true),
+    ],
+    resolve
+  );
+  expect([...chats.keys()]).toEqual(["person:ann"]);
+  expect(chats.get("person:ann")?.map((e) => e.id)).toEqual([
+    "+1:2026-10-01T10:00:00.000Z",
+    "+1:2026-10-01T11:00:00.000Z",
+    "t1:2026-10-02T10:00:00.000Z",
+  ]);
 });
