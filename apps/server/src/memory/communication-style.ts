@@ -73,7 +73,7 @@ export function styleLines(
 ) {
   const list = (reply as { lines?: unknown } | null)?.lines;
   const shown = chat.map((m) => m.text);
-  const sources = new Set([...chat, ...mail].map((m) => m.source));
+  const sources = new Set<string>([...chat, ...mail].map((m) => m.source));
   return (Array.isArray(list) ? list : []).flatMap((raw) => {
     const l = CommunicationStyleLine.safeParse(raw);
     if (!l.success) {

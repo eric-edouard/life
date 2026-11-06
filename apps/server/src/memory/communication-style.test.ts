@@ -35,12 +35,12 @@ test("an example stays only as his own words in a chat message he was shown; a b
     chat: [
       {
         at: "2026-10-01 10:00",
-        source: "whatsapp",
+        source: "whatsapp" as const,
         text: "Ok ça marche, à demain !! 😘",
       },
     ],
     mail: [],
-  } as const;
+  };
   const reply = {
     lines: [
       {
