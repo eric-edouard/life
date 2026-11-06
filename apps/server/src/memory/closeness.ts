@@ -13,7 +13,7 @@ import { isDirect, kindOf } from "./sources";
 import { daysBefore, safely, tables } from "./units";
 import { type People, readPeople } from "./who";
 
-import { localDate } from "./zones";
+import { dayNow, localDate } from "./zones";
 
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
 type Folds = Pick<People, "canon" | "corrections">;
@@ -79,24 +79,35 @@ function chatPerson(
 }
 
 /**
- * The 1:1 chats' and mail threads' days by person: one where one other sender wrote, and not a group by its id (its
- * source's `group`: a WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list (a group is not a measure of
- * closeness); its person who the sender or the chat's name resolves to.
+ * The messages of each person's 1:1 chats and mail threads, by person ref: a chat where one other sender wrote, and not
+ * a group by its id (its source's `group`: a WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list; its person who
+ * the sender or the chat's name resolves to. Oldest first, as `events` are.
  */
-export function chatDays(
+export function directChats(
   events: SourceEvent[],
-  resolve: (s: string) => string | null,
-  days: Days = new Map()
+  resolve: (s: string) => string | null
 ) {
+  const byPerson = new Map<string, SourceEvent[]>();
   const one = events.filter((e) => !e.bulk);
   for (const list of Map.groupBy(
     one,
     (e) => `${e.source}|${e.chat}`
   ).values()) {
     const who = chatPerson(list, resolve);
-    if (!who || who === OWNER) {
-      continue;
+    if (who && who !== OWNER) {
+      byPerson.set(who, [...(byPerson.get(who) ?? []), ...list]);
     }
+  }
+  return byPerson;
+}
+
+/** The 1:1 chats' and mail threads' days by person (`directChats`): a group is not a measure of closeness. */
+export function chatDays(
+  events: SourceEvent[],
+  resolve: (s: string) => string | null,
+  days: Days = new Map()
+) {
+  for (const [who, list] of directChats(events, resolve)) {
     for (const e of list) {
       const d = dayOf(days, who, localDate(e.at))[
         kindOf(e.source) === "mail" ? "mail" : "chat"
@@ -354,15 +365,11 @@ export async function waitingOf(
 }
 
 /**
- * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
- * the fast model about those whose counts moved since their last judgment (or never judged, or under an older prompt).
+ * His chats and mail with people over the last YEARS years (`WITH_PEOPLE`), read once a night for closeness and
+ * communication styles; `failed`, the sources that could not be read. Nothing older is ever read.
  */
-export async function closeness() {
-  const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
-  const people = await readPeople();
-  const { inferred, names, resolve, truth } = people;
-  const today = localDate(step.now.toISOString());
-  const since = new Date(`${daysBefore(today, YEARS * 365)}T00:00:00Z`);
+export async function readWithPeople() {
+  const since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
   const failed: string[] = [];
   const events = (
     await Promise.all(
@@ -371,6 +378,19 @@ export async function closeness() {
       )
     )
   ).flat();
+  return { events, failed, since };
+}
+export type WithPeople = Awaited<ReturnType<typeof readWithPeople>>;
+
+/**
+ * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
+ * the fast model about those whose counts moved since their last judgment (or never judged, or under an older prompt).
+ */
+export async function closeness({ events, failed, since }: WithPeople) {
+  const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
+  const people = await readPeople();
+  const { inferred, names, resolve, truth } = people;
+  const today = localDate(step.now.toISOString());
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);

@@ -303,6 +303,15 @@ rests on), `inputs` (a hash of the prompt version, the page and the last 30 days
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 is no longer close. A reader drops a line whose episode is no longer live. His correction is a line on the page.
 
+## communication-styles/<id>.json
+
+How the owner writes, in general (`me`, his messages to everyone) or to one person with a page (`pagedNow`, their 1:1
+chats and mail threads, `directChats`), written by `communication-style.ts`: `page` (`person:<id>`), `lines` (each
+`kind`: null across channels, `chat` or `mail`; `source` when one app differs; `text`; `examples`, his words found in
+a chat message he sent), `inputs` (a hash of the prompt version and his newest 120 chat messages and 30 mails), `built`,
+`madeBy`, `schemaVersion`. Rewritten whole when its inputs changed and it is a week old; removed when the person has
+no page or no message from him in the last 3 years. Nothing is written or removed on a night a source can't be read.
+
 ## ledger.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in

@@ -34,6 +34,10 @@ import {
   openLinked,
 } from "../todo-list/items";
 import { levelsWith } from "./closeness";
+import {
+  communicationStyleBlock,
+  readCommunicationStyle,
+} from "./communication-style";
 import { span } from "./episode-span";
 import {
   daysOf,
@@ -631,6 +635,10 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...birthday,
               ...close,
               ...situationBlock("Situation", readSituationNow(ref, live)),
+              ...communicationStyleBlock(
+                "Communication style",
+                readCommunicationStyle(ref)
+              ),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
