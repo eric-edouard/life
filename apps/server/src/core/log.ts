@@ -21,6 +21,7 @@ type LogKind =
   | "lifelog.write"
   | "mcp.call"
   | "model.run"
+  | "offline"
   | "quota.read"
   | "run.start"
   | "run.end"

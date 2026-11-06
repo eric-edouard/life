@@ -11,7 +11,7 @@ import { localTime } from "../memory/units";
 import { type Manifest, stage } from "./export";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by
-// the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
+// the nightly's tick (`afterNightDue`). Without the setting there is no backup, and the report says it is off.
 const STAGING = join(MACHINE_DIR, "backup-staging");
 const STATUS = join(LIFE_STATE_DIR, "backup.json");
 

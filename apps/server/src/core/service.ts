@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { HOME } from "./platform";
-import { exec, execOk } from "./proc";
+import { exec, execOk, untilAnswers } from "./proc";
 
 // A program the Mac keeps running on its own, outside Life.app, as one launchd job (the bridges and their homeserver
 // together, `host/bridges.ts`): started at login, started again 10 s after it stops, its output in
@@ -32,6 +32,13 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
 </dict></plist>
 `
   );
-  await exec(["launchctl", "bootout", `${domain()}/${label}`]);
+  const target = `${domain()}/${label}`;
+  await exec(["launchctl", "bootout", target]);
+  // bootout returns before the job is gone, and a bootstrap then fails (6 Nov 2026: every bridge down): wait for it.
+  await untilAnswers(
+    async () =>
+      (await exec(["launchctl", "print", target])).code !== 0 || undefined,
+    `${label} stopping`
+  );
   await execOk(["launchctl", "bootstrap", domain(), plist]);
 }

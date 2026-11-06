@@ -17,6 +17,7 @@ import {
   type CookieStep,
   cookieValues,
   HOMESERVER_URL,
+  hasStates,
   isBridgeAdded,
   type LoginStep,
   linkBridge,
@@ -24,7 +25,7 @@ import {
   OWNER,
   pastedValues,
   readBlock,
-  readWhoami,
+  readLogins,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
@@ -74,6 +75,27 @@ async function restartBridges() {
   await untilAnswers(
     () => fetch(`${HOMESERVER_URL}/_matrix/client/versions`).then(() => true),
     "the homeserver"
+  );
+}
+
+/**
+ * The daily heal, when the homeserver is set up: the one job restarted, then each added bridge answering with its
+ * logins' states (`hasStates`). A restart makes each bridge check its login
+ * anew, so one that hung while saying CONNECTED (LINE, 5 Nov 2026) is running again or shows why not on the status
+ * snapshot.
+ */
+export async function healBridges() {
+  if (WINDOWS || !existsSync(HOMESERVER_YAML)) {
+    return;
+  }
+  await restartBridges();
+  await Promise.all(
+    NETWORKS.filter(isAdded).map((n) =>
+      untilAnswers(
+        async () => hasStates(await readLogins(n.name)) || undefined,
+        `the ${n.label} bridge`
+      )
+    )
   );
 }
 
@@ -280,7 +302,7 @@ async function add(n: Network) {
     await writeConfig(n, bin, dir);
   }
   await restartBridges();
-  await untilAnswers(() => readWhoami(n.name), `the ${n.label} bridge`);
+  await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
   console.log(`${n.label} bridge running.`);
   if (!(await readBlock(n.name))) {
     console.log(`${n.label} is linked already.`);

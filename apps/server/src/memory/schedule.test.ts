@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
 import { LOCK, locked } from "./memory-lock";
 import {
+  afterNightDue,
   afterWeek,
   backfillWeek,
-  backupDue,
   decide,
   isOutOfTries,
+  type JobState,
   middayDue,
-  type NightState,
   nextMidday,
   nextNight,
   quotaLine,
@@ -17,7 +17,7 @@ import {
 import { localTime } from "./units";
 
 const day = "2026-10-15";
-const st = (status: "ok" | "failed", attempts = 1, date = day): NightState => ({
+const st = (status: "ok" | "failed", attempts = 1, date = day): JobState => ({
   attempts,
   date,
   lastAt: "",
@@ -34,16 +34,16 @@ test("the guard runs only after 02:00, once a day, three tries at most", () => {
 });
 
 test("the backup is due once the night is done for the day or from 06:00, once a day, three tries at most", () => {
-  expect(backupDue(1, day, undefined, undefined)).toBe(false);
-  expect(backupDue(3, day, undefined, undefined)).toBe(false); // the night has not run
-  expect(backupDue(3, day, st("failed", 1), undefined)).toBe(false); // the night retries first
-  expect(backupDue(6, day, undefined, undefined)).toBe(true); // the night never finished: back up anyway
-  expect(backupDue(3, day, st("ok"), undefined)).toBe(true);
-  expect(backupDue(3, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
-  expect(backupDue(3, day, st("ok"), st("ok"))).toBe(false);
-  expect(backupDue(4, day, st("ok"), st("failed", 2))).toBe(true);
-  expect(backupDue(4, day, st("ok"), st("failed", 3))).toBe(false);
-  expect(backupDue(3, day, st("ok"), st("ok", 0, "2026-10-14"))).toBe(true);
+  expect(afterNightDue(1, day, undefined, undefined)).toBe(false);
+  expect(afterNightDue(3, day, undefined, undefined)).toBe(false); // the night has not run
+  expect(afterNightDue(3, day, st("failed", 1), undefined)).toBe(false); // the night retries first
+  expect(afterNightDue(6, day, undefined, undefined)).toBe(true); // the night never finished: back up anyway
+  expect(afterNightDue(3, day, st("ok"), undefined)).toBe(true);
+  expect(afterNightDue(3, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
+  expect(afterNightDue(3, day, st("ok"), st("ok"))).toBe(false);
+  expect(afterNightDue(4, day, st("ok"), st("failed", 2))).toBe(true);
+  expect(afterNightDue(4, day, st("ok"), st("failed", 3))).toBe(false);
+  expect(afterNightDue(3, day, st("ok"), st("ok", 0, "2026-10-14"))).toBe(true);
 });
 
 test("a midday run is due at the first tick after 13:00 and after 19:00, once each", () => {

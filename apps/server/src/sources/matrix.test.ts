@@ -5,6 +5,7 @@ import {
   BRIDGES,
   blockOf,
   cookieValues,
+  hasStates,
   linkBridge,
   pastedValues,
   readBlock,
@@ -145,4 +146,11 @@ test("a request copied as cURL over several lines, with $'…' quoting, still gi
   expect(p.cookies.get("it's")).toBe("ok");
   expect(p.headers.get("x-li-track")).toBe('{"clientVersion":"1.2"}');
   expect(p.headers.get("accept")).toBe("application/json");
+});
+
+test("a bridge just started has logins with no state yet: not settled until each reports one", () => {
+  expect(hasStates([{ state: { state_event: "CONNECTED" } }, {}])).toBe(false);
+  expect(hasStates([{ state: { state_event: "" } }])).toBe(false);
+  expect(hasStates([{ state: { state_event: "BAD_CREDENTIALS" } }])).toBe(true);
+  expect(hasStates([])).toBe(true); // not linked is settled: blockOf says so
 });
