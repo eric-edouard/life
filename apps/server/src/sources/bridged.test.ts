@@ -4,7 +4,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SourceName } from "../core/names";
-import { copyBridged, localpartOf, NETWORKS, readBridged } from "./bridged";
+import {
+  copierOf,
+  copyBeeper,
+  copyBridged,
+  localpartOf,
+  NETWORKS,
+  openBridged,
+  readBridged,
+} from "./bridged";
 import { BRIDGES } from "./matrix";
 
 const BOT = "@linebot:life.local";
@@ -173,4 +181,62 @@ test("every bridged network is a stored source name", () => {
   for (const { name } of NETWORKS) {
     expect(SourceName.options).toContain(name);
   }
+});
+
+/** A made-up Beeper Desktop store: one LINE chat with Ana, `messages` as [id, ms, text, deleted]. */
+function beeperStore(messages: [number, number, string, number][]) {
+  const dir = mkdtempSync(join(tmpdir(), "beeper-"));
+  const db = new Database(join(dir, "index.db"));
+  db.run("create table threads (threadID text, accountID text, thread text)");
+  db.run(
+    "create table participants (room_id text, id text, full_name text, is_self integer)"
+  );
+  db.run(`create table mx_room_messages (id integer, eventID text, roomID text, senderContactID text,
+    isSentByMe integer, timestamp integer, type text, message text, isDeleted integer)`);
+  db.run(`insert into threads values ('!b1:beeper.local', 'line.u0', '{}')`);
+  db.run(
+    `insert into participants values ('!b1:beeper.local', '@ana:beeper.local', 'Ana', 0)`
+  );
+  for (const [id, ms, text, deleted] of messages) {
+    db.run(
+      "insert into mx_room_messages values (?, ?, '!b1:beeper.local', '@ana:beeper.local', 0, ?, 'TEXT', ?, ?)",
+      [id, `$e${id}`, ms, JSON.stringify({ text }), deleted]
+    );
+  }
+  db.close();
+  return dir;
+}
+
+test("LINE without its bridge is copied from Beeper: only after the bridge's newest message, every version kept", () => {
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  const db = openBridged("line", archive);
+  // The bridge copied one message at 10:00; Beeper also holds an earlier one, from the bridge's time.
+  db.run(`insert into messages (id, eventId, chat, fromMe, at, type, text, deleted, seenAt)
+    values (1, '$x', '!r1', 0, '2026-11-05T10:00:00.000Z', 'm.text', 'from the bridge', 0, '2026-11-05T10:00:01.000Z')`);
+  db.close();
+  const at = (hh: number) => Date.parse(`2026-11-05T${hh}:00:00.000Z`);
+  const beeper = beeperStore([
+    [1, at(9), "Beeper's copy of the bridge's time", 0],
+    [2, at(11), "the heater is in", 0],
+  ]);
+  expect(copierOf("telegram", beeper)).toBeUndefined();
+  expect(copyBeeper("line", archive, beeper)).toBe(1);
+  expect(copyBeeper("line", archive, beeper)).toBe(0);
+  // Ana edits, then deletes it: each a version.
+  const store = new Database(join(beeper, "index.db"));
+  store.run(
+    `update mx_room_messages set message = '{"text":"the heater is in now"}' where id = 2`
+  );
+  expect(copyBeeper("line", archive, beeper)).toBe(1);
+  store.run(
+    "update mx_room_messages set message = '{}', isDeleted = 1 where id = 2"
+  );
+  store.close();
+  expect(copyBeeper("line", archive, beeper)).toBe(1);
+
+  const read = readBridged(NETWORKS[0], new Date(0), archive);
+  expect(read.map((e) => [e.text, e.chatName, e.deleted ?? false])).toEqual([
+    ["from the bridge", undefined, false],
+    ["the heater is in now", "Ana", true],
+  ]);
 });

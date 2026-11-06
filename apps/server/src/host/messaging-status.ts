@@ -1,6 +1,6 @@
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { enabledSources, SOURCES } from "../memory/sources";
-import { NETWORKS, type Network } from "../sources/bridged";
+import { copierOf, NETWORKS, type Network } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
 import { isBridgeAdded, readBlock } from "../sources/matrix";
 
@@ -68,7 +68,11 @@ const ago = (at: string) => {
 };
 
 async function bridgePart(n: Network): Promise<Part> {
-  if (!isBridgeAdded(n.name)) {
+  const copier = copierOf(n.name);
+  if (copier === "beeper") {
+    return { kind: "bridge", ok: true, text: "read from Beeper" };
+  }
+  if (!copier) {
     return {
       kind: "bridge",
       ok: false,

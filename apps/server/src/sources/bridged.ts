@@ -1,7 +1,8 @@
-import { existsSync } from "node:fs";
+import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { log } from "../core/log";
+import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
@@ -15,7 +16,7 @@ import {
   readArchived,
 } from "./archived";
 import { type Descriptor, sourceFile } from "./contract";
-import { BRIDGES, configOf, OWNER, userOn } from "./matrix";
+import { BRIDGES, configOf, isBridgeAdded, OWNER, userOn } from "./matrix";
 
 // A network bridged on his local homeserver (LINE, Instagram: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
@@ -26,7 +27,8 @@ const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
 /**
  * A network's archive: the Matrix-shaped versions table, how far the homeserver's events were copied (`copied`), and
  * when Life's own copy of it began (`cutover`, once): what the bridge backfilled from before it is never read, the
- * history there is the earlier copy's (imported 30 Oct 2026).
+ * history there is the earlier copy's (imported 30 Oct 2026). One copier at a time (`copierOf`): the bridge, or Beeper
+ * from the newest message the bridge copied on (`copyBeeper`), so each time is read from one of them.
  */
 export const openBridged = (name: string, dir: string) =>
   openArchive(
@@ -500,7 +502,178 @@ export function readBridged(
   return notices.size ? withCalls(events, notices) : events;
 }
 
-/** A bridged network as a source: its archive's copy, its reading and newest. */
+/** Beeper Desktop's folder: its store (`index.db`) and its cached media, both only read. */
+export const BEEPER = join(APP_DATA, "BeeperTexts");
+
+/** Beeper's chats of a network: its account ids are `local-<network>_<id>` (a bridge on the Mac), `<network>.<id>` or `<network>`. */
+function beeperChats(network: string, beeper: string) {
+  const path = join(beeper, "index.db");
+  if (!existsSync(path)) {
+    return [];
+  }
+  const account = new RegExp(`^(local-${network}(_|$)|${network}(\\.|$))`);
+  const db = openReadOnly(path);
+  try {
+    return db
+      .query<{ account: string; chat: string }, []>(
+        "select threadID as chat, accountID as account from threads"
+      )
+      .all()
+      .filter((t) => account.test(t.account))
+      .map((t) => t.chat);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Who copies a network into its archive: its bridge, when one is added on this Mac; else Beeper Desktop, when it holds
+ * an account of the network (LINE allows one such session: he keeps LINE in Beeper, 6 Nov 2026); else no one.
+ */
+export function copierOf(network: string, beeper = BEEPER) {
+  if (isBridgeAdded(network)) {
+    return "bridge" as const;
+  }
+  return beeperChats(network, beeper).length > 0
+    ? ("beeper" as const)
+    : undefined;
+}
+
+// Beeper caches mxc://<host>/<id> at media/<host>/<id>, localmxc://<bridge>/<id> at media/localhost<bridge>/<id>.
+const BEEPER_MXC = /^(local)?mxc:\/\/([^?]+)/;
+
+interface Attachment {
+  fileName?: string;
+  id: string;
+  isVoiceNote?: boolean;
+  mimeType?: string;
+  srcURL?: string;
+}
+
+/** An attachment Beeper cached, cloned into the archive's media once: its path there, if Beeper has fetched it. */
+function keepMedia(
+  a: Attachment,
+  network: string,
+  dir: string,
+  beeper: string
+) {
+  const m = (a.srcURL ?? a.id).match(BEEPER_MXC);
+  if (!m) {
+    return;
+  }
+  const rel = `${m[1] ? "localhost" : ""}${m[2]}`;
+  const from = join(beeper, "media", rel);
+  const to = join(dir, "media", network, rel);
+  if (!existsSync(from)) {
+    return;
+  }
+  if (!existsSync(to)) {
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to, constants.COPYFILE_FICLONE);
+  }
+  return to;
+}
+
+// A network's messages in Beeper's store, but reactions and hidden events. A DM has no title: it is named by the
+// other people in it. `files` is the attachments' JSON.
+const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat,
+    coalesce(json_extract(t.thread, '$.title'),
+      (select group_concat(q.full_name, ', ') from participants q where q.room_id = t.threadID and not coalesce(q.is_self, 0))) as chatName,
+    m.senderContactID as sender, p.full_name as senderName, m.isSentByMe as fromMe, m.timestamp as ts, m.type,
+    coalesce(json_extract(m.message, '$.text'), '') as text, m.isDeleted as deleted,
+    nullif(json_extract(m.message, '$.attachments'), '[]') as files
+  from mx_room_messages m
+  join threads t on t.threadID = m.roomID
+  left join participants p on p.room_id = m.roomID and p.id = m.senderContactID
+ where m.type not in ('HIDDEN', 'REACTION') and m.roomID in (select value from json_each(?)) and m.timestamp > ?`;
+
+/**
+ * Copies a network's new and changed messages from Beeper Desktop's store into the network's archive, as the 30 Oct
+ * import wrote Beeper's history there: each version kept (Beeper blanks a deleted message), its cached files cloned.
+ * Only what comes after the bridge's copy (the newest message in a chat Beeper doesn't hold) and after the cutover
+ * (`openBridged`), so no time is copied twice. Beeper's whole table each pass: it backfills old chats at any time.
+ * Returns how many versions were new.
+ */
+export function copyBeeper(
+  network: string,
+  dir = ARCHIVE,
+  beeper = BEEPER,
+  now = clock().getTime()
+): number {
+  const chats = beeperChats(network, beeper);
+  if (chats.length === 0) {
+    return 0;
+  }
+  const archive = openBridged(network, dir);
+  const store = openReadOnly(join(beeper, "index.db"));
+  try {
+    const held = JSON.stringify(chats);
+    const after = archive
+      .query<{ at: string | null }, [string]>(
+        `select max(at) as at from (select min(at) as at from cutover
+           union all select max(at) from messages where chat not in (select value from json_each(?)))`
+      )
+      .get(held)?.at;
+    const rows = store
+      .query<
+        Row & {
+          eventId: string;
+          files: string | null;
+          senderName: string | null;
+          ts: number;
+          type: string;
+        },
+        [string, number]
+      >(BEEPER_SQL)
+      .all(held, after ? Date.parse(after) : 0);
+    const seenAt = new Date(now).toISOString();
+    return (
+      insertAll(
+        archive,
+        "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
+        rows.flatMap((r) =>
+          r.files
+            ? [
+                [
+                  r.chat,
+                  r.eventId,
+                  JSON.stringify(
+                    (JSON.parse(r.files) as Attachment[]).map((a) => ({
+                      fileName: a.fileName,
+                      id: a.id,
+                      mimeType: a.isVoiceNote ? "audio/mp4" : a.mimeType,
+                      path: keepMedia(a, network, dir, beeper),
+                    }))
+                  ),
+                ],
+              ]
+            : []
+        )
+      ) +
+      insertAll(
+        archive,
+        `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        rows.map((r) => [
+          ...[r.id, r.eventId, r.chat, r.chatName, r.sender, r.senderName],
+          ...[
+            r.fromMe,
+            new Date(r.ts).toISOString(),
+            r.type,
+            r.text,
+            r.deleted,
+            seenAt,
+          ],
+        ])
+      )
+    );
+  } finally {
+    store.close();
+    archive.close();
+  }
+}
+
+/** A bridged network as a source: its archive's copy (by `copierOf`), its reading and newest. */
 export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
   return {
@@ -516,6 +689,15 @@ export const bridgedSource = (network: Network): Descriptor => {
     read: (since) => readBridged(network, since),
     searchDays: 90,
     silentAfter: 72 * HOUR,
-    store: { copies: "messages", copy: () => copyBridged(name), deleted: {} },
+    store: {
+      // Beeper's store gets new messages only while Beeper runs; the bridges' one job keeps a bridge running.
+      get app() {
+        return copierOf(name) === "beeper" ? "Beeper Desktop" : undefined;
+      },
+      copies: "messages",
+      copy: () =>
+        copierOf(name) === "bridge" ? copyBridged(name) : copyBeeper(name),
+      deleted: {},
+    },
   };
 };

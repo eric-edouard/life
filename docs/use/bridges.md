@@ -14,7 +14,8 @@ Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
 bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
 bun life bridge add <network>           # line, instagram or linkedin: builds it, then links it
 bun life bridge link <network> [flow]   # links it again (another way to log in: its flow id, listed when linking)
-bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays
+bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays. With no bridge, a
+                                        # network Beeper Desktop holds is copied from Beeper (turn its source back on)
 ```
 
 `add` sets up the Matrix server the first time (it needs `uv` and `go`), builds the bridge at its newest release, and
