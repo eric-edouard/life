@@ -14,7 +14,7 @@ import { desc, eq } from "drizzle-orm";
 import type { Nudge } from "./apns";
 import { touchedSince } from "./change-log";
 import { singleFlight } from "./config";
-import { requestRoll } from "./intelligence";
+import { type Retries, requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
 import { dueConversations, fingerprint, type Run, splitsOf } from "./summaries";
 import { PROMPT_VERSION, Result } from "./summary-calls";
@@ -33,7 +33,12 @@ async function rollWindows(
   db: Db,
   mac: Provider,
   id: string,
-  options: { fromScratch: boolean; open: boolean; windowChars: number },
+  options: {
+    fromScratch: boolean;
+    open: boolean;
+    retries?: Retries;
+    windowChars: number;
+  },
   settled: (run: Run) => Promise<void>
 ) {
   for (let first = true; ; first = false) {
@@ -69,8 +74,15 @@ export function rollingChapters(
   {
     mac,
     nudge = () => Promise.resolve(),
+    retries,
     windowChars = WINDOW_CHARS,
-  }: { mac: Provider | null; nudge?: Nudge; windowChars?: number }
+  }: {
+    mac: Provider | null;
+    nudge?: Nudge;
+    // Tests ask again without waiting; the server waits `requestRoll`'s backoff.
+    retries?: Retries;
+    windowChars?: number;
+  }
 ) {
   // Conversations the owner's Generate asked for, rolled from the first turn on their next round.
   const asked = new Set<string>();
@@ -93,7 +105,7 @@ export function rollingChapters(
       db,
       mac,
       id,
-      { fromScratch: generate, open, windowChars },
+      { fromScratch: generate, open, retries, windowChars },
       async (run) => {
         if (run.state === "valid") {
           // The phone collects it now.
