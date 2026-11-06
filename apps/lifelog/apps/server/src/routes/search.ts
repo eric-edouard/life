@@ -60,7 +60,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       },
       responses: {
         200: json(z.object({ hits: z.array(SearchHit) }), "Best first"),
-        503: json(ApiError, "The embedder is not configured (EMBEDDER_URL)"),
+        503: json(ApiError, "Search is off on this server"),
       },
     }),
     async (c) => {
@@ -76,7 +76,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
         return c.json(
           {
             error: "search_unavailable" as const,
-            message: "EMBEDDER_URL is not set",
+            message: "search is off on this server",
           },
           503
         );

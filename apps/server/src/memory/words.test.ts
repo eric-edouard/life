@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { DAY, MIN } from "../core/clock";
+import { EMBEDDER_MODEL } from "../core/embedder";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { readImessage } from "../sources/imessage";
@@ -29,12 +30,15 @@ import {
   MARKED,
   time,
 } from "./units";
+import { embedNew } from "./vectors";
 import {
   chatHits,
   chatsOf,
   fetchOf,
   focus,
   mailHits,
+  passagesOf,
+  readChatTexts,
   transcripts,
   voiceLines,
   voiceText,
@@ -222,7 +226,7 @@ test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked
   expect(broken).toContain("(could not read: imessage)");
 });
 
-test("search's chats: all words, no accents or case, across the three apps, one message of context", async () => {
+test("search's chats: all words, no accents or case, across the three apps, each hit shown as its passage", async () => {
   const wa = whatsappFixture();
   const lines = [
     "a2",
@@ -248,12 +252,10 @@ test("search's chats: all words, no accents or case, across the three apps, one 
   expect(found).toContain("(imessage, chat +33611111111)");
   expect(found).toContain("the glazier can fix the vitre");
   expect(found).toContain("la vitre sera prête mardi");
-  // Case and accents ignored; one message before and one after, no more.
-  for (const near of ["a3", "b1"]) {
+  // Case and accents ignored; the messages close in time around it are its passage.
+  for (const near of ["a2", "a3", "b1", "b2"]) {
     expect(found).toContain(`: ${near}`);
   }
-  expect(found).not.toContain(": a2");
-  expect(found).not.toContain(": b2");
   // Every word must be there.
   expect((await chatHits("vitre 120", {}, sources)).join("\n")).not.toContain(
     "glazier"
@@ -303,7 +305,7 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
       { mail: (since) => events.filter((e) => e.at >= since.toISOString()) }
     );
   const found = await hits("vitre");
-  expect(found[0]).toBe("(2 older matches not shown: narrow with `from`/`to`)");
+  expect(found[0]).toBe("(2 more matches not shown: narrow with `from`/`to`)");
   const ends = [
     ' me: "Subject 9" thanks, vitre ok',
     '"Subject 8" vitre 8',
@@ -340,26 +342,91 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
   ).toEqual(["(could not read: mail)", "(nothing found)"]);
 });
 
-test("search's chats: past 20 matches the newest are shown and the cut is said, with where to read on", async () => {
+test("a chat's passages cut at 30 minutes of silence, 12 messages or 700 characters; a note's version is one alone", () => {
+  const at = (min: number) =>
+    new Date(Date.UTC(2026, 9, 14) + min * MIN).toISOString();
+  const e = (i: number, min: number, text = `m${i}`, source = "whatsapp") =>
+    ({
+      at: at(min),
+      chat: "c",
+      fromMe: false,
+      id: `e${i}`,
+      sender: "x",
+      source,
+      text,
+    }) as SourceEvent;
+  const sizes = (events: SourceEvent[]) =>
+    passagesOf(events).map((p) => p.length);
+  // 13 messages a minute apart, then one after 31 minutes.
+  expect(
+    sizes([...Array.from({ length: 13 }, (_, i) => e(i, i)), e(13, 43)])
+  ).toEqual([12, 1, 1]);
+  expect(
+    sizes([e(0, 0, "a".repeat(400)), e(1, 1, "b".repeat(400)), e(2, 2)])
+  ).toEqual([1, 2]);
+  expect(sizes([e(0, 0, "n1", "notes"), e(1, 1, "n2", "notes")])).toEqual([
+    1, 1,
+  ]);
+});
+
+test("search's chats: past the best 10 passages the cut is said; a passage found by meaning alone is shown", async () => {
   const wa = whatsappFixture();
   for (let i = 0; i < 25; i += 1) {
-    // The newest cut match (4) is in the chat of the oldest shown one (5): shown around it, so not cut.
-    wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, `vitre ${i}`, 10_000 - i * 60);
+    // 40 minutes apart: each message its own passage.
+    wa.add(
+      i + 1,
+      `C${i}`,
+      0,
+      i === 3 ? "the window broke" : `vitre ${i}`,
+      100_000 - i * 2400
+    );
   }
   copyWhatsapp(wa.source, wa.dir, wa.now);
-  const out = (
-    await chatHits(
-      "vitre",
-      {},
-      {
-        whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
-      }
-    )
+  const sources = {
+    whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
+  };
+  const out = (await chatHits("vitre", {}, sources)).join("\n");
+  expect(out).toContain("(14 more matches not shown: narrow with `from`/`to`)");
+  expect(out).toContain(": vitre 24");
+  expect(out).not.toContain(": vitre 14\n");
+  // By meaning: a made-up embedder that puts the broken window near the query.
+  const embedder = {
+    embed: async (texts: string[]) =>
+      texts.map((t) => (t.includes("window") ? [1, 0] : [0, 1])),
+    model: EMBEDDER_MODEL,
+  };
+  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  const near = (await chatHits("glass", {}, sources, [1, 0])).join("\n");
+  expect(near).toContain(": the window broke");
+  expect(near).not.toContain("vitre");
+});
+
+test("a passage across a range's edge is found by meaning as the watcher embedded it", async () => {
+  const at = (min: number) =>
+    new Date(Date.now() - DAY + min * MIN).toISOString();
+  const e = (i: number, min: number, text: string) => ({
+    at: at(min),
+    chat: "!edge",
+    chatName: "Edge",
+    fromMe: false,
+    id: `edge${i}`,
+    sender: "x",
+    source: "line" as const,
+    text,
+  });
+  const sources = {
+    line: () => [e(0, 0, "the pane cracked"), e(1, 2, "shards on the floor")],
+  };
+  const embedder = {
+    embed: async (texts: string[]) =>
+      texts.map((t) => (t.includes("cracked") ? [1, 0] : [0, 1])),
+    model: EMBEDDER_MODEL,
+  };
+  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  const found = (
+    await chatHits("glass", { from: at(1) }, sources, [1, 0])
   ).join("\n");
-  expect(out).toContain("(4 older matches not shown: narrow with `from`/`to`)");
-  expect(out).toContain(": vitre 4");
-  expect(out).toContain("vitre 24");
-  expect(out).not.toContain(": vitre 2\n");
+  expect(found).toContain(": shards on the floor");
 });
 
 test("a long hit, a voice passage or a note, keeps its lines holding a word, cut to its max; a short one stays whole", () => {

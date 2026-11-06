@@ -265,9 +265,12 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `search <words> [--from d --to d]`: opens with the situations of the close people it names, else his own (when no
   day bounds it); then episodes, observations (each says who spoke when not the
   owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
-  (the best 20, each with a conversation id and a turn), chat messages (the last 90 days, or from `--from`), note
-  versions and messages to AI assistants (any age), then mail (the last 90 days, no newsletters nor Life's own, the
-  newest 5 thread-days holding all the words: `searchableMail`). `--from`/`--to` bound every section.
+  (the best 20, each with a conversation id and a turn), chat passages (the best 10, `passagesOf`: the last 90 days,
+  or from `--from`), note versions and messages to AI assistants (any age), then mail (the last 90 days, no
+  newsletters nor Life's own, the best 5 thread-days: `searchableMail`). `--from`/`--to` bound every section. Each
+  section ranks by meaning and by words (holding them all), fused (`fuse`); by words alone, said in its first line,
+  when Life reads no voice source (the embedder is Lifelog Host's, `EMBEDDER_URL`) or the embedder is down. The watcher embeds what is new every 10 minutes
+  (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete: it embeds it all again).
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
   its conversation as it is now, 5 turns before it.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the

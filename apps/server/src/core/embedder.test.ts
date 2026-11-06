@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
-import { EMBEDDER_DIMENSIONS, embedderAt } from "./embedder";
+import { join } from "node:path";
+import { EMBEDDER_DIMENSIONS, EMBEDDER_URL, embedderAt } from "./embedder";
 
 // A stand-in for llama-server's /v1/embeddings: records each input, answers vectors of `dimensions`.
 const inputs: string[] = [];
@@ -34,4 +35,14 @@ test("a vector of another length is refused", async () => {
     embedderAt(server.url.href).embed(["hello"], "query")
   ).rejects.toThrow();
   dimensions = EMBEDDER_DIMENSIONS;
+});
+
+test("the embedder's address is the port Lifelog Host runs it on", async () => {
+  const host = await Bun.file(
+    join(
+      import.meta.dir,
+      "../../../lifelog/apps/mac-quiet/Sources/QuietCore/Host.swift"
+    )
+  ).text();
+  expect(host).toContain(`embedderPort = ${new URL(EMBEDDER_URL).port}`);
 });

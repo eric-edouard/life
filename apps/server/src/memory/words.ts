@@ -1,4 +1,5 @@
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
+import { fuse } from "../core/fusion";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
@@ -47,6 +48,7 @@ import {
   UNKNOWN,
   unitTitle,
 } from "./units";
+import { readNearest, type Searched } from "./vectors";
 import { meant, type People, readPeople } from "./who";
 import { localDate } from "./zones";
 
@@ -62,10 +64,8 @@ export const asData = (lines: string[]) => [HEADER, "", ...lines].join("\n");
 const PAGE = 200;
 /** A fetch by turn ref opens this many turns before it: what led up to his words. */
 const LEAD = 5;
-const QUERY_HITS = 20;
 /** A message longer than this (a note's whole text) shows in `search` as its lines holding a word, cut to it. */
 const HIT_MAX = 1000;
-const QUERY_CONTEXT = 1;
 /** A mail in `search` shows its lines holding a word, cut to this. */
 const MAIL_MAX = 200;
 /** Mail is the longest per hit: its section stops at this, `fetch <unit>` reads a thread whole. */
@@ -378,29 +378,68 @@ export function focus(text: string, query: string, max: number) {
   return clip(held.join("\n") || text, max);
 }
 
+/** A passage's cuts: a silence longer than this, this many messages, this many characters. */
+const PASSAGE_GAP = 30 * MIN;
+const PASSAGE_MESSAGES = 12;
+const PASSAGE_CHARS = 700;
+/** The Chats section's passages: the best this many. */
+const PASSAGE_HITS = 10;
+
 /**
- * The newest `QUERY_HITS` messages whose text holds every word of `query` (case and accents ignored), each with
- * `QUERY_CONTEXT` messages of its chat before and after, and how many older matches were left out. `events` are oldest
- * first.
+ * `events` (oldest first) as passages, what search reads as one text: a chat's consecutive messages, cut at a silence of
+ * 30 minutes, 12 messages or 700 characters. A longer message, and a note's version, is a passage alone.
  */
-function withContext(events: SourceEvent[], query: string) {
-  const holds = holdsAll(query);
-  const byChat = chatGroups(events);
-  const hits = events.filter((e) => holds(e.text));
-  const keep = new Set(
-    hits.slice(-QUERY_HITS).flatMap((hit) => {
-      const list = byChat.get(`${hit.source}|${hit.chat}`) ?? [];
-      const i = list.indexOf(hit);
-      return list.slice(Math.max(0, i - QUERY_CONTEXT), i + QUERY_CONTEXT + 1);
-    })
-  );
-  return {
-    // A match shown around a newer one is not cut.
-    cut: hits.filter((h) => !keep.has(h)).length,
-    events: events
-      .filter((e) => keep.has(e))
-      .map((e) => ({ ...e, text: focus(e.text, query, HIT_MAX) })),
-  };
+export function passagesOf(events: SourceEvent[]) {
+  const passages: SourceEvent[][] = [];
+  for (const list of chatGroups(events).values()) {
+    let open: SourceEvent[] = [];
+    let chars = 0;
+    for (const e of list) {
+      const last = open.at(-1);
+      const joins =
+        last &&
+        kindOf(e.source) === "chat" &&
+        open.length < PASSAGE_MESSAGES &&
+        chars + e.text.length <= PASSAGE_CHARS &&
+        Date.parse(e.at) - Date.parse(last.at) <= PASSAGE_GAP;
+      if (joins) {
+        open.push(e);
+        chars += e.text.length;
+      } else {
+        open = [e];
+        chars = e.text.length;
+        passages.push(open);
+      }
+    }
+  }
+  return passages;
+}
+
+/** A passage's text, as both rankings read it. */
+const passageTextOf = (p: SourceEvent[]) => p.map((e) => e.text).join("\n");
+/** A passage's id: its first message's. */
+const passageIdOf = (p: SourceEvent[]) => `${p[0]?.source}|${p[0]?.id}`;
+
+/**
+ * The texts the Chats and Mail sections rank by meaning, from their sources' search windows (`embedNew`), and the
+ * sources that could not be read.
+ */
+export function readChatTexts(
+  chatSources: Partial<Tables["SEARCHED"]> = tables().SEARCHED,
+  mailSources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL
+) {
+  const chats = readChats("searchDays", {}, chatSources);
+  const mail = readChats("searchDays", {}, mailSources);
+  const texts: Searched[] = [
+    ...passagesOf(chats.events).map((p) => ({
+      at: p.at(-1)?.at ?? "",
+      text: passageTextOf(p),
+    })),
+    ...searchableMail(mail.events)
+      .flat()
+      .map((e) => ({ at: e.at, text: e.text })),
+  ];
+  return { failed: [...chats.failed, ...mail.failed], texts };
 }
 
 /**
@@ -446,22 +485,59 @@ const unitIdsOf = (events: SourceEvent[]) =>
   );
 
 /**
- * The Chats section of `search`: the chat messages and note versions holding all the words, from the last 90 days at
- * most for a chat and of any age for a note (inside `range`): `withContext`'s.
+ * The Chats section of `search`: the best `PASSAGE_HITS` passages (`passagesOf`) by meaning (`vector`) and by words
+ * (holding them all, newest first), fused (`fuse`), from the last 90 days at most for a chat and of any age for a note
+ * (inside `range`).
  */
 export async function chatHits(
   words: string,
   range: { from?: string; to?: string } = {},
-  sources: Partial<Tables["SEARCHED"]> = tables().SEARCHED
+  sources: Partial<Tables["SEARCHED"]> = tables().SEARCHED,
+  vector?: number[]
 ) {
-  const { events, failed } = readChats("searchDays", range, sources);
-  const { cut, events: found } = withContext(events, words);
+  // Read a day wider, so a passage at the range's edge is cut as the watcher cut it (the text it embedded); a chat is
+  // rarely a day without a 30-minute silence.
+  const around = (at: string | undefined, by: number) =>
+    at && iso(Date.parse(at) + by);
+  const { events, failed } = readChats(
+    "searchDays",
+    { from: around(range.from, -DAY), to: around(range.to, DAY) },
+    sources
+  );
+  const isInside = (e: SourceEvent) =>
+    (!range.from || e.at >= iso(Date.parse(range.from))) &&
+    (!range.to || e.at < iso(Date.parse(range.to)));
+  const passages = new Map(
+    passagesOf(events)
+      .filter((p) => p.some(isInside))
+      .map((p) => [passageIdOf(p), p])
+  );
+  const holds = holdsAll(words);
+  const held = [...passages]
+    .filter(([, p]) => holds(passageTextOf(p)))
+    .toSorted(([, a], [, b]) =>
+      (b.at(-1)?.at ?? "").localeCompare(a.at(-1)?.at ?? "")
+    )
+    .map(([id]) => id);
+  const near = readNearest(vector, () =>
+    [...passages].map(([id, p]) => ({ id, text: passageTextOf(p) }))
+  );
+  const best = new Set(
+    fuse([near, held])
+      .slice(0, PASSAGE_HITS)
+      .map(([id]) => id)
+  );
+  const found = [...best]
+    .flatMap((id) => passages.get(id) ?? [])
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map((e) => ({ ...e, text: focus(e.text, words, HIT_MAX) }));
+  const cut = held.filter((id) => !best.has(id)).length;
   const units = found.some((e) => kindOf(e.source) !== "chat")
     ? unitIdsOf(found)
     : undefined;
   return [
     ...unread(failed),
-    ...(cut > 0 ? [older(cut)] : []),
+    ...(cut > 0 ? [notShown(cut)] : []),
     ...(found.length > 0
       ? chatLinesOf(found, await readPeople(), units)
       : ["(nothing found)"]),
@@ -470,28 +546,60 @@ export async function chatHits(
 
 /**
  * The Mail section of `search`: one line per thread-day (neither Life's own mail nor a newsletter, `searchableMail`),
- * the newest `MAIL_HITS` holding all the words, each its newest message holding them: its unit to `fetch`, when, who
- * sent it, its subject and its lines holding a word.
+ * the best `MAIL_HITS` by meaning (`vector`, its nearest message) and by words (newest first), fused, each shown by its
+ * newest message holding the words, else its nearest: its unit to `fetch`, when, who sent it, its subject and its
+ * lines holding a word.
  */
 export async function mailHits(
   words: string,
   range: { from?: string; to?: string } = {},
-  sources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL
+  sources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL,
+  vector?: number[]
 ) {
   const { events, failed } = readChats("searchDays", range, sources);
   const holds = holdsAll(words);
-  const mail = searchableMail(events)
-    .flatMap((list) => list.findLast((e) => holds(e.text)) ?? [])
-    .sort((a, b) => b.at.localeCompare(a.at));
-  if (mail.length === 0) {
+  const threads = searchableMail(events);
+  const shown = new Map<string, SourceEvent>();
+  const held = threads
+    .flatMap((list, i) => {
+      const e = list.findLast((m) => holds(m.text));
+      return e ? [[String(i), e] as const] : [];
+    })
+    .toSorted(([, a], [, b]) => b.at.localeCompare(a.at))
+    .map(([i, e]) => {
+      shown.set(i, e);
+      return i;
+    });
+  const messages = new Map(
+    threads.flatMap((list, i) =>
+      list.map((e) => [`${e.source}|${e.id}`, [String(i), e] as const])
+    )
+  );
+  const near = [
+    ...new Set(
+      readNearest(vector, () =>
+        [...messages].map(([id, [, e]]) => ({ id, text: e.text }))
+      ).map((id) => {
+        const [i, e] = messages.get(id) as readonly [string, SourceEvent];
+        shown.set(i, shown.get(i) ?? e);
+        return i;
+      })
+    ),
+  ];
+  const top = fuse([near, held])
+    .slice(0, MAIL_HITS)
+    .map(([i]) => i);
+  if (top.length === 0) {
     return [...unread(failed), "(nothing found)"];
   }
+  const cut = held.filter((i) => !top.includes(i)).length;
   const people = await readPeople();
+  const mail = top.map((i) => shown.get(i) as SourceEvent);
   const ids = unitIdsOf(mail);
   return [
     ...unread(failed),
-    ...(mail.length > MAIL_HITS ? [older(mail.length - MAIL_HITS)] : []),
-    ...mail.slice(0, MAIL_HITS).map((e) => {
+    ...(cut > 0 ? [notShown(cut)] : []),
+    ...mail.map((e) => {
       const unit = dayUnitId(e);
       // The text is the subject, then the body: a mail with no subject is its body alone.
       const body = e.chatName
@@ -563,9 +671,9 @@ export async function chatsOf(
   ]);
 }
 
-/** How many older matches a section left out, and how to read them. */
-const older = (n: number) =>
-  `(${n} older matches not shown: narrow with \`from\`/\`to\`)`;
+/** How many matches of the words a section left out, and how to read them. */
+const notShown = (n: number) =>
+  `(${n} more matches not shown: narrow with \`from\`/\`to\`)`;
 
 /** The sources that could not be read, said in one line; nothing when none. */
 const unread = (names: string[]) =>

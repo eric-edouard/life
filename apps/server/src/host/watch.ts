@@ -7,9 +7,15 @@ import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
-import { readStaleness, reindex, reindexUnits } from "../memory/search";
+import {
+  readSearchedTexts,
+  readStaleness,
+  reindex,
+  reindexUnits,
+} from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
+import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
@@ -25,7 +31,7 @@ import { inbound } from "./inbound";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
-// down never stops it (1 Nov: 20 h without one).
+// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded.
 
 let ticking = false;
 /**
@@ -49,6 +55,27 @@ async function tick() {
     }
   } finally {
     ticking = false;
+  }
+}
+
+let embedding = false;
+/** How often the texts search ranks by meaning are embedded: what is new waits at most this for search by meaning. */
+const EMBED_EVERY = 10 * MIN;
+/** On its own timer, one at a time, beside the loop: the texts search ranks by meaning with no vector yet (`embedNew`). */
+async function embedSearched() {
+  const embedder = embedderNow();
+  if (embedding || !embedder) {
+    return;
+  }
+  embedding = true;
+  try {
+    const { isWhole, texts } = await readSearchedTexts();
+    if (isWhole) {
+      pruneVectors(embedder, texts);
+    }
+    await embedNew(embedder, texts);
+  } finally {
+    embedding = false;
   }
 }
 
@@ -238,11 +265,17 @@ export async function watch(): Promise<number> {
   }
   sayActions();
   minute();
-  const timer = setInterval(minute, MIN);
+  embedEvery();
+  const timers = [
+    setInterval(minute, MIN),
+    setInterval(embedEvery, EMBED_EVERY),
+  ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));
   } finally {
-    clearInterval(timer);
+    for (const t of timers) {
+      clearInterval(t);
+    }
   }
 }
 
@@ -337,6 +370,12 @@ async function quiet(running: string) {
 function minute() {
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "todo.tick" })
+  );
+}
+
+function embedEvery() {
+  embedSearched().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.embed" })
   );
 }
 

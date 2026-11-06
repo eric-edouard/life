@@ -51,6 +51,7 @@
     "apps/lifelog/packages/db": {
       "name": "@lifelog/db",
       "dependencies": {
+        "@life/server": "workspace:*",
         "drizzle-orm": "catalog:",
       },
       "devDependencies": {

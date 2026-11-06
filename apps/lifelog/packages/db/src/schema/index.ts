@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { bytesOf, vectorOf } from "@life/server/src/core/embedder";
 import { isNull, type SQLWrapper, sql } from "drizzle-orm";
 import {
   customType,
@@ -23,15 +24,11 @@ const uuid = (name: string) => text(name);
 const newId = () => randomUUID();
 const now = () => new Date();
 
-// An embedding as little-endian float32 bytes: scored in JS (search.ts), never by the database.
-export const float32 = (bytes: Uint8Array) =>
-  new Float32Array(
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-  );
+// A vector as Life's core stores it: scored in JS (search.ts), never by the database.
 const vector = customType<{ data: number[]; driverData: Uint8Array }>({
   dataType: () => "blob",
-  fromDriver: (bytes) => Array.from(float32(bytes)),
-  toDriver: (values) => new Uint8Array(new Float32Array(values).buffer),
+  fromDriver: (bytes) => Array.from(vectorOf(bytes)),
+  toDriver: bytesOf,
 });
 
 // Pendant pages: [[first, last], …] inclusive, sorted, touching ones joined. Admission never buys a

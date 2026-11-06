@@ -24,7 +24,8 @@ Life works beside lifelog, a companion project that captures voice. Each has one
   read. The chapter units already stored stay as they are, so the voice history is not read through the models again.
 - Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
 - Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
-  not leave the Mac, nor their text go to a third party for embeddings.
+  not leave the Mac, nor their text go to a third party for embeddings. Life embeds its own texts with the embedder
+  Lifelog Host runs, on loopback (`memory/vectors.ts`): the one call to lifelog's side outside its REST contract.
 
 ## The pipeline
 
@@ -67,6 +68,7 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
+- **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
 

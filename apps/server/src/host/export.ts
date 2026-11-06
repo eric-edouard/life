@@ -17,7 +17,7 @@ import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
-import { INDEX } from "../memory/ledger";
+import { INDEX, VECTORS } from "../memory/ledger";
 import { LOCK, locked } from "../memory/memory-lock";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -35,10 +35,10 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index), the watcher's store (copied whole on its own), and the
+ * In Life's state but never exported: rebuilt (the index, the vectors), the watcher's store (copied whole on its own), and the
  * secrets.
  */
-const KEPT_OUT = [WATCH, INDEX, ...Object.values(SECRETS)].map((p) =>
+const KEPT_OUT = [WATCH, INDEX, VECTORS, ...Object.values(SECRETS)].map((p) =>
   pathIn(LIFE_STATE_DIR, p)
 );
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];

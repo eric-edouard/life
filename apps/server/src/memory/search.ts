@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import { clock, DAY } from "../core/clock";
+import { CANDIDATES } from "../core/embedder";
 import { newestIn } from "../core/files";
+import { fuse } from "../core/fusion";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
@@ -77,6 +79,7 @@ import {
   slugOf,
   time,
 } from "./units";
+import { embedQuery, readNearest, type Searched } from "./vectors";
 import {
   meant,
   who as named,
@@ -94,6 +97,7 @@ import {
   holdsAll,
   MAIL_HITS,
   mailHits,
+  readChatTexts,
   repliesOwed,
 } from "./words";
 import { dayNow, dayStart, localDate, when } from "./zones";
@@ -119,9 +123,13 @@ const cut = (lines: string[], newest = false) =>
       ]
     : lines;
 
+/** An episode's text, each person by their ref: what the read path prints and both rankings read. */
+const episodeTextNow = (m: Episode) =>
+  episodeText(m, (ref) => named({ speaker: ref }));
+
 /** An episode as the read path prints it: its id (to correct it), `episodeText`, and units to `fetch`. */
 export const episodeLine = (m: Episode) =>
-  `- ${m.id} ${episodeText(m, (ref) => named({ speaker: ref }))}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
+  `- ${m.id} ${episodeTextNow(m)}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
 
 /** The episodes as they stand now that `keep` keeps, by when they happen. */
 // ponytail: every episode line is read (≈25 MB at 10 years): `person` and `day` need them all (a person's history,
@@ -210,38 +218,94 @@ const daysMeet = (r: Days, first: string, last = first) =>
 /** An episode that has a day inside `r`. */
 const inDays = (r: Days) => (m: Episode) => daysMeet(r, ...daysOf(m));
 
-export function matches(db: Database, q: string, range: Days = {}) {
+/** An observation's and a unit's text, as both rankings read them (`unit_search` holds a unit's). */
+const OBSERVATION_TEXT = "o.text || char(10) || o.quote";
+const UNIT_TEXT =
+  "coalesce(s.title, '') || char(10) || coalesce(s.summary, '') || char(10) || coalesce(s.topics, '')";
+
+/** Rows of `sql` (taking the ids as JSON) for `ids`, in their order. */
+function rowsFor<R extends { id: string }>(
+  db: Database,
+  sql: string,
+  ids: string[]
+) {
+  const byId = new Map(
+    db
+      .query<R, [string]>(sql)
+      .all(JSON.stringify(ids))
+      .map((r) => [r.id, r])
+  );
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+/** The observations and units best for `q` by meaning (`vector`) and by words (holding them all), fused (`fuse`). */
+export function matches(
+  db: Database,
+  q: string,
+  range: Days = {},
+  vector?: number[]
+) {
   const o = between("o.date", range);
   const u = between("u.date", range);
-  const sql = `select ${COLUMNS} from search s join observations o on o.id = s.id
-    where search match ? and ${CURRENT}${o.sql} order by rank limit ${LIMIT + 1}`;
-  const unitSql = `select u.id, u.date, u.source, u.title, u.topics from unit_search s join units u on u.id = s.id
-    where unit_search match ?${u.sql} order by rank limit ${LIMIT + 1}`;
-  const found = (query: string) => ({
-    observations: db
-      .query<Row, string[]>(sql)
-      .all(query, ...o.args)
-      .map(line),
-    units: db
-      .query<UnitRow, string[]>(unitSql)
-      .all(query, ...u.args)
-      .map(unitLine),
-  });
-  for (const mode of ["AND", "OR"] as const) {
-    const query = ftsQuery(q, mode);
-    const { observations, units } = query
-      ? found(query)
-      : { observations: [], units: [] };
-    if (observations.length + units.length > 0) {
-      return [
-        ...cut(observations),
-        ...(units.length > 0
-          ? ["", "Units (titles, summaries, topics):", ...cut(units)]
-          : []),
-      ];
-    }
+  const query = ftsQuery(q, "AND");
+  const held = (sql: string, args: string[]) =>
+    query
+      ? db
+          .query<{ id: string }, string[]>(sql)
+          .all(query, ...args)
+          .map((r) => r.id)
+      : [];
+  const best = (rankings: string[][]) =>
+    fuse(rankings)
+      .slice(0, LIMIT + 1)
+      .map(([id]) => id);
+  const texts = (sql: string, args: string[]) => () =>
+    db.query<{ id: string; text: string }, string[]>(sql).all(...args);
+  const observations = rowsFor<Row>(
+    db,
+    `select ${COLUMNS} from observations o where o.id in (select value from json_each(?))`,
+    best([
+      readNearest(
+        vector,
+        texts(
+          `select o.id, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}${o.sql}`,
+          o.args
+        )
+      ),
+      held(
+        `select o.id from search s join observations o on o.id = s.id
+          where search match ? and ${CURRENT}${o.sql} order by rank limit ${CANDIDATES}`,
+        o.args
+      ),
+    ])
+  ).map(line);
+  const units = rowsFor<UnitRow>(
+    db,
+    "select id, date, source, title, topics from units where id in (select value from json_each(?))",
+    best([
+      readNearest(
+        vector,
+        texts(
+          `select s.id, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id where 1${u.sql}`,
+          u.args
+        )
+      ),
+      held(
+        `select u.id from unit_search s join units u on u.id = s.id
+          where unit_search match ?${u.sql} order by rank limit ${CANDIDATES}`,
+        u.args
+      ),
+    ])
+  ).map(unitLine);
+  if (observations.length + units.length === 0) {
+    return ["(nothing found)"];
   }
-  return ["(nothing found)"];
+  return [
+    ...cut(observations),
+    ...(units.length > 0
+      ? ["", "Units (titles, summaries, topics):", ...cut(units)]
+      : []),
+  ];
 }
 
 /** The observations `clause` finds worth a page line, newest first: `limit` of them (-1: all). */
@@ -320,40 +384,58 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
   }
 }
 
-/** `from`/`to` (local days, both included) bound every section. */
+/** `from`/`to` (local days, both included) bound every section. Each ranks by meaning and by words, fused (`fuse`). */
 export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
+  const { note, vector } = await embedQuery(words);
   // lifelog's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
   const [voice, chats, mail, all] = await Promise.all([
     voiceHits(words, range),
-    chatHits(words, range),
-    mailHits(words, range),
+    chatHits(words, range, undefined, vector),
+    mailHits(words, range, undefined, vector),
     episodesWhere(() => true),
   ]);
-  const found = all.filter(
-    (m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)
-  );
+  const inside = all.filter(inDays(o));
+  const ranked = fuse([
+    readNearest(vector, () =>
+      inside.map((m) => ({ id: m.id, text: episodeTextNow(m) }))
+    ),
+    inside
+      .filter((m) => holds(episodeTextNow(m)))
+      .toReversed()
+      .map((m) => m.id),
+  ]).map(([id]) => id);
+  const top = new Set(ranked.slice(0, LIMIT));
+  const found = inside.filter((m) => top.has(m.id));
   const situations = await situationsNamed(
     words,
     new Set(all.map((m) => m.id)),
     !(o.from || o.to)
   );
   return withIndex((db) => [
+    ...(note ? [note, ""] : []),
     ...situations,
     ...(found.length > 0
-      ? ["Episodes (what happened):", ...cut(found.map(episodeLine), true), ""]
+      ? [
+          "Episodes (what happened):",
+          ...found.map(episodeLine),
+          ...(ranked.length > LIMIT
+            ? [`(the best ${LIMIT}: narrow with \`from\` and \`to\`)`]
+            : []),
+          "",
+        ]
       : []),
     ...(found.length > 0 ? ["Observations and units:"] : []),
-    ...matches(db, words, o),
+    ...matches(db, words, o, vector),
     "",
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
     "",
-    "Chats and notes (messages and note versions holding all the words, with the ones around them; each heading says where to read more):",
+    "Chats and notes (the best passages: a chat's messages close in time, or a note's version; each heading says where to read more):",
     ...chats,
     "",
-    `Mail (no newsletters: the newest ${MAIL_HITS} holding all the words; each its unit, \`fetch <unit>\` for the thread):`,
+    `Mail (no newsletters: the best ${MAIL_HITS} thread-days; each its unit, \`fetch <unit>\` for the thread):`,
     ...mail,
   ]);
 }
@@ -1187,6 +1269,38 @@ export function buildIndex(
     indexUnits(db, units);
   });
   return unique.size;
+}
+
+/**
+ * Every text `search` ranks by meaning, with when it happened: what the watcher embeds (`embedNew`). Whole when the
+ * index and every source were read: only then may vectors of texts not among them go (`pruneVectors`).
+ */
+export async function readSearchedTexts(): Promise<{
+  isWhole: boolean;
+  texts: Searched[];
+}> {
+  const episodes = await episodesWhere(() => true);
+  const indexed = readIndex((db) => [
+    ...db
+      .query<Searched, []>(
+        `select o.date as at, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}`
+      )
+      .all(),
+    ...db
+      .query<Searched, []>(
+        `select u.date as at, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id`
+      )
+      .all(),
+  ]);
+  const chats = readChatTexts();
+  return {
+    isWhole: indexed !== null && chats.failed.length === 0,
+    texts: [
+      ...(indexed ?? []),
+      ...episodes.map((m) => ({ at: daysOf(m)[0], text: episodeTextNow(m) })),
+      ...chats.texts,
+    ],
+  };
 }
 
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */

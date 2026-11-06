@@ -79,10 +79,7 @@ function fakeEmbedder(fixed: Record<string, number[]> = {}) {
 }
 
 function setup(embedder = fakeEmbedder()) {
-  const search = searchFor(env.db, testConfig("http://localhost:1"), embedder);
-  if (!search) {
-    throw new Error("no search");
-  }
+  const search = searchFor(env.db, embedder);
   const app = createApp(
     services(testConfig("http://localhost:1"), env.db, {
       intelligence: null,
