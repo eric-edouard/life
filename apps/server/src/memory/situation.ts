@@ -33,32 +33,28 @@ const readSituation = (ref: string) => {
   return p.success ? p.data : null;
 };
 
-/**
- * A situation as a reader shows it, under `title`: only the lines whose every cited episode is still live
- * (`episodesNow`); nothing when none is left.
- */
-export function situationBlock(
-  ref: string,
-  live: ReadonlySet<string>,
-  title: string
-) {
-  const lines = (readSituation(ref)?.lines ?? []).filter((l) =>
+/** A situation's lines a reader may show: those whose every cited episode is still live (`episodesNow`). */
+export const readSituationNow = (ref: string, live: ReadonlySet<string>) =>
+  (readSituation(ref)?.lines ?? []).filter((l) =>
     l.cites.every((id) => live.has(id))
   );
-  return lines.length > 0
+
+/** Situation lines as a reader shows them, under `title`; nothing when there is none. */
+export const situationBlock = (title: string, lines: SituationLine[]) =>
+  lines.length > 0
     ? [
         `${title} (where things stand, read each night from the last ${DAYS} days):`,
         ...lines.map((l) => `- ${l.text} [${l.cites.join(", ")}]`),
         "",
       ]
     : [];
-}
 
-/** Who has a situation: him and the people close to him, by their ref. */
+/** Who has a situation: him and the people close to him, by their ref, sorted (a folder listing has no order). */
 export const situated = async () =>
   (await readdir(SITUATIONS).catch(() => [] as string[]))
     .filter((f) => f.endsWith(".json"))
-    .map((f) => `person:${f.slice(0, -".json".length)}`);
+    .map((f) => `person:${f.slice(0, -".json".length)}`)
+    .toSorted();
 
 /** The reply's lines that cite only episodes the call was shown. */
 export function shownLines(reply: unknown, shown: ReadonlySet<string>) {

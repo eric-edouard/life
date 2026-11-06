@@ -10,6 +10,7 @@ export const SituationLine = z
     text: z.string().min(1).max(400),
   })
   .strict();
+export type SituationLine = z.infer<typeof SituationLine>;
 
 /**
  * memory/situations/<id>.json: where things stand now with the owner (`me`) or someone close to him, read nightly from

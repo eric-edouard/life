@@ -65,7 +65,7 @@ import {
   TRUTH,
   type Truth,
 } from "./read-truth";
-import { situated, situationBlock } from "./situation";
+import { readSituationNow, situated, situationBlock } from "./situation";
 import { kindOf, listening } from "./sources";
 import { episodeText } from "./statements";
 import {
@@ -408,9 +408,10 @@ export async function search(words: string, o: Days = {}) {
   ]).map(([id]) => id);
   const top = new Set(ranked.slice(0, LIMIT));
   const found = inside.filter((m) => top.has(m.id));
-  const situations = await situationsNamed(
+  const situations = await readSituationsOf(
     words,
     new Set(all.map((m) => m.id)),
+    new Set(found.map((m) => m.id)),
     !(o.from || o.to)
   );
   return withIndex((db) => [
@@ -629,7 +630,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
           : [
               ...birthday,
               ...close,
-              ...situationBlock(ref, live, "Situation"),
+              ...situationBlock("Situation", readSituationNow(ref, live)),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
@@ -654,31 +655,46 @@ const PAGE_ITEMS = 24;
 const SPACES = /\s+/;
 
 /**
- * The situations of the people `words` name (him aside), else his own when the search is about now (`isNow`: no days
- * bound it): read before the hits, so they are read knowing where things stand. `live`: the episodes there are.
+ * The situations a search opens with, so its hits are read knowing where things stand: whole, those of the people
+ * `words` name (him aside), else his own when the search is about now (`isNow`: no days bound it); then, from every
+ * other situation, the lines citing an episode the search shows (`shown`). `live`: the episodes there are.
  */
-export async function situationsNamed(
+export async function readSituationsOf(
   words: string,
   live: ReadonlySet<string>,
+  shown: ReadonlySet<string>,
   isNow: boolean
 ) {
   const { names, nameOf, truth } = await readPeople();
   const said = ` ${normalize(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
     truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
-  const mentioned = (await situated()).filter(
+  const refs = await situated();
+  const mentioned = refs.filter(
     (ref) =>
       ref !== OWNER &&
       [names.get(ref), ...aliases(ref)].some(
         (n) => n && said.includes(` ${normalize(n)} `)
       )
   );
-  if (mentioned.length > 0) {
-    return mentioned.flatMap((ref) =>
-      situationBlock(ref, live, `Situation with ${nameOf(ref)}`)
-    );
-  }
-  return isNow ? situationBlock(OWNER, live, "His situation") : [];
+  const whole = mentioned.length > 0 || !isNow ? mentioned : [OWNER];
+  const title = (ref: string) =>
+    ref === OWNER ? "His situation" : `Situation with ${nameOf(ref)}`;
+  return [
+    ...whole.flatMap((ref) =>
+      situationBlock(title(ref), readSituationNow(ref, live))
+    ),
+    ...refs
+      .filter((ref) => !whole.includes(ref))
+      .flatMap((ref) =>
+        situationBlock(
+          `${title(ref)}, on the episodes below`,
+          readSituationNow(ref, live).filter((l) =>
+            l.cites.some((id) => shown.has(id))
+          )
+        )
+      ),
+  ];
 }
 
 const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);
