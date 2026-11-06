@@ -438,8 +438,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Who is close decides who has a page: judged before the pages and the report's homes.
     const withPeople = await readWithPeople();
     await phase.step("closeness", () => closeness(withPeople));
-    phase.at = "details";
-    await tagDetails();
+    await phase.step("details", () => tagDetails());
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
       window.from,

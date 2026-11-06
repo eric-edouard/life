@@ -19,13 +19,14 @@ export const SWEEPS = new Set([
   "memory.midday",
   "memory.backfill",
 ]);
-/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
+/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness and tags details). */
 export const STEPS = [
   "memory.repos",
   "memory.files",
   "memory.episodes",
   "memory.extract",
   "memory.closeness",
+  "memory.details",
   "memory.pages",
 ];
 /** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval. */

@@ -74,8 +74,8 @@ import { SURE_AT } from "./observe";
 import {
   bodyOf,
   generated,
-  homeOf,
   parsePage,
+  placed,
   renderLine,
 } from "./page-format";
 import { stayOf, staysOf, where } from "./places";
@@ -1210,7 +1210,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
   }
 }
 
-/** Where each observation lives (`homeOf`) and the detail it states (`detailOf`), as the index files it. */
+/** The page each observation is a line of (`placed`) and the detail it states (`detailOf`), as the index files it. */
 interface Filed {
   detail: (o: Observation) => Detail | null;
   home: (o: Observation) => string | null;
@@ -1366,7 +1366,9 @@ export async function reindex() {
   const paged = await pagedNow(people);
   const tags = readDetailTags();
   const homes = new Map(
-    observations.map((o) => [o.id, homeOf(o, people.truth, paged)])
+    [...placed(observations, people.truth, paged).homes].flatMap(
+      ([home, lines]) => lines.map(({ o }) => [o.id, home] as const)
+    )
   );
   const n = buildIndex(observations, INDEX, standing, units, at, {
     detail: (o) => detailOf(o, tags),

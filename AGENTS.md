@@ -173,7 +173,7 @@ Before adding a helper, use the one that exists:
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
-| A person's details (birthday, home, work, family, diet, gifts, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, then tagged facts; read by `readDetailsOf` (`search.ts`). A fact's detail is decided only by the details step (`detail-tags.ts`), never by extraction |
+| A person's details (birthday, home, work, family, diet, gifts, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, then tagged facts; read by `readDetailsOf` (`search.ts`). A fact's detail is decided only by the details step (`detail-tags.ts`), never by extraction; its `memory/detail-tags.jsonl` is model-owned and append-only, the latest tag per observation wins; a fact shows as a detail only on its page (`placed`) |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
