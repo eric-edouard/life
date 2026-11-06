@@ -24,7 +24,7 @@ import { type VoiceUpkeep, voiceUpkeep } from "./people";
 import { macProvider, type Provider } from "./providers";
 import { type Restic, resticFor } from "./restic";
 import { type Rolling, rollingChapters } from "./rolling";
-import { type Search, searchFor } from "./search";
+import type { Search } from "./search";
 import { switches } from "./switches";
 
 export function services(
@@ -48,7 +48,8 @@ export function services(
     morning = morningPush(db, apns, config.APNS_TOPIC, queue),
     // Summaries, chapter by chapter as conversations go on, on the Mac.
     rolling = rollingChapters(db, { mac: intelligence, nudge }),
-    search = searchFor(db),
+    // At Lifelog Host's embedder, which index.ts passes; none for tests, so none calls it.
+    search = null,
     voices = voiceUpkeep(db),
     // Cuts a job's clean turns from its bucket audio and embeds them (rebuild P3). Summaries
     // name speakers when read, so recognition starts nothing.

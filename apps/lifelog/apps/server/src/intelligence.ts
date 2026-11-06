@@ -72,6 +72,7 @@ const NOTHING_CLOSED = "nothing closed yet";
 // ponytail: fixed; 5 s and 15 s ride out a provider hiccup, and a model that answers badly
 // three times is left invalid for the owner's Generate.
 const RETRIES = { count: 2, delayMs: 5000 };
+export type Retries = typeof RETRIES;
 
 function frozen(provider: Provider) {
   return provider.snapshot?.() ?? provider;
@@ -127,7 +128,7 @@ async function execute(
     steps,
   }: {
     coverage: Coverage;
-    retries: typeof RETRIES;
+    retries: Retries;
     // The run's calls (`rolled`).
     steps: (ask: Ask) => Promise<Outcome>;
   }
@@ -611,7 +612,7 @@ export function requestRoll(
   }: {
     fromScratch?: boolean;
     open: boolean;
-    retries?: typeof RETRIES;
+    retries?: Retries;
     windowChars: number;
   }
 ): { work: Promise<{ more: boolean; run: Run }> } | "busy" | null {
