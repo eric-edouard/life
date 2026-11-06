@@ -22,9 +22,9 @@ import {
 } from "../memory/run";
 import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
 import {
+  afterNightDue,
   afterWeek,
   backfillWeek,
-  backupDue,
   isOutOfTries,
   middayDue,
   quotaLine,
@@ -55,12 +55,13 @@ import {
   noteZone,
   readZoneHere,
 } from "../memory/zones";
-import { hasQuota, type Quota, quota } from "../models/llm";
+import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
+import { healBridges } from "./bridges";
 import { syncPast } from "./past-calendar";
 import {
   failureReport,
@@ -129,7 +130,7 @@ export async function archiveLine(since: string) {
  * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else the midday
  * pass (episodes) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
- * (`backupDue`: the night is done, on this tick or before).
+ * (`afterNightDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
   // Another install's watcher runs on this Mac (the move to the app, or a copy's own state): only that install's ticks
@@ -137,6 +138,12 @@ export async function nightly(days: number, force = false) {
   const live = holder("watch");
   if (!force && isOtherLife(live)) {
     console.log(`another Life runs here (${live?.note}): no tick`);
+    return 0;
+  }
+  // Offline (travelling, a VPN down) nothing can work: the tick runs nothing, so it spends no try and alerts nothing.
+  if (!(force || (await isOnline()))) {
+    log("offline");
+    console.log("offline: no tick");
     return 0;
   }
   const now = clock();
@@ -175,6 +182,21 @@ export async function nightly(days: number, force = false) {
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
   );
+  // The bridges' daily restart, before the source alert judges them (`healBridges`); a failure only logs.
+  if (
+    !force &&
+    afterNightDue(now.getHours(), day, readState(), readState("bridges"))
+  ) {
+    let healed = false;
+    try {
+      await healBridges();
+      healed = true;
+    } catch (e) {
+      log("run.error", { error: String(e), step: "bridges" });
+    } finally {
+      recordState(day, healed, "bridges");
+    }
+  }
   // Every source in red on the status snapshot, the one judge of a source's health: an email when a source's problem
   // is new that day. After the turn, so no run waits on it; a failure only logs.
   try {
@@ -189,7 +211,7 @@ export async function nightly(days: number, force = false) {
     log("run.error", { error: String(e), step: "sources" });
   }
   const { backup: was, night: state } = states();
-  if (force || !backupDue(now.getHours(), day, state, was)) {
+  if (force || !afterNightDue(now.getHours(), day, state, was)) {
     return code;
   }
   // Recorded even when it throws, so a day never tries more than 3 times.
@@ -201,6 +223,10 @@ export async function nightly(days: number, force = false) {
   }
   return Math.max(code, backedUp);
 }
+
+/** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
+const isOfflineFailure = async (failure: unknown) =>
+  Boolean(failure) && !(await isOnline());
 
 /** A tick's work when it is not the night's. */
 function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
@@ -250,6 +276,9 @@ async function backfilled(day: string) {
       return 0;
     }
     const failure = await sweep("memory.backfill", week, { extract: true });
+    if (await isOfflineFailure(failure)) {
+      return 1;
+    }
     const next = afterWeek(b, week, !failure, day);
     recordBackfill(next);
     // Its last try failed: the backfill stops, so he hears it, as of a night's last failure.
@@ -467,6 +496,10 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       failure.failedAt,
       failure.error
     );
+  }
+  if (await isOfflineFailure(failure)) {
+    await rec.end({ ...failure, offline: true });
+    return 1;
   }
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });

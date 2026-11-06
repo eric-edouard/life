@@ -92,7 +92,12 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
   with one new message is new as a whole (ponytail: per message would need a record of what was read).
-- **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
+- **Backup:** once the night is done, or from 06:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
+- **Bridges:** restarted once a day by the same rule (`healBridges`, its tries in `LIFE_STATE_DIR/memory/bridges.json`),
+  before the source alert: a restart heals a hung bridge and makes each check its login anew, so a dead session shows
+  red and the alert emails it.
+- **Offline** (his model provider unreachable, `isOnline`: travelling, a VPN down): a tick runs nothing and logs
+  `offline`; a run that fails while offline spends no try and sends no mail.
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
   `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,

@@ -78,6 +78,31 @@ async function restartBridges() {
 }
 
 /**
+ * The daily heal, when the homeserver is set up: the one job restarted, then each added bridge answering with its
+ * logins' states (just started, a login has none yet, which reads as down). A restart makes each bridge check its login
+ * anew, so one that hung while saying CONNECTED (LINE, 5 Nov 2026) is running again or shows why not on the status
+ * snapshot.
+ */
+export async function healBridges() {
+  if (!existsSync(HOMESERVER_YAML)) {
+    return;
+  }
+  await restartBridges();
+  await Promise.all(
+    NETWORKS.filter(isAdded).map((n) =>
+      untilAnswers(async () => {
+        const { logins = [] } = await readWhoami(n.name);
+        return (
+          logins.every(
+            (l: { state?: { state_event?: string } }) => l.state?.state_event
+          ) || undefined
+        );
+      }, `the ${n.label} bridge`)
+    )
+  );
+}
+
+/**
  * The homeserver, set up once and safe to run again after a half-done try: Synapse in its own venv, local only, kept
  * running; his account and its token (`SECRETS.matrix`, with its password, so a token can be had again).
  */

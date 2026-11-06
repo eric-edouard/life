@@ -680,6 +680,8 @@ const codexQuota = async () =>
 interface Provider {
   ask: (call: Call) => Promise<Answer>;
   effort?: Record<Tier, string>;
+  /** Where its calls go: `isOnline` asks it. */
+  host: string;
   key?: string;
   models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
@@ -688,17 +690,32 @@ const PROVIDERS: Record<Engine, Provider> = {
   allmodels: {
     ask: askAllModels,
     effort: ALLMODELS_EFFORT,
+    host: new URL(ALLMODELS_URL).host,
     key: ALLMODELS_KEY,
     models: ALLMODELS_MODELS,
   },
-  claude: { ask: askClaude, models: CLAUDE_MODELS },
+  claude: { ask: askClaude, host: "api.anthropic.com", models: CLAUDE_MODELS },
   codex: {
     ask: askCodex,
     effort: CODEX_EFFORT,
+    host: "chatgpt.com",
     models: SOL,
     quota: codexQuota,
   },
 };
+
+/**
+ * Whether Life is online: his main engine's provider answers at all (any HTTP status) within 5 s. Offline (travelling,
+ * a VPN down) nothing Life schedules can work. The request carries no key and no text.
+ */
+export const isOnline = () =>
+  fetch(`https://${PROVIDERS[llmFor("main").engine].host}`, {
+    method: "HEAD",
+    signal: AbortSignal.timeout(5000),
+  }).then(
+    () => true,
+    () => false
+  );
 
 /** The key each API engine takes, by engine: the app asks for it by this name. */
 export const engineKeys = () =>

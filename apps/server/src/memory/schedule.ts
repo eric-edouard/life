@@ -13,7 +13,8 @@ const FIRST_HOUR = 2;
 export const MAX_ATTEMPTS = 3;
 /** Whether `used` failed tries leave none: the night's and a backfill week's one rule. */
 export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
-export interface NightState {
+/** A scheduled job's day: its tries and how the last went (`nightly`, `backup`, `bridges`). */
+export interface JobState {
   attempts: number;
   date: string;
   lastAt: string;
@@ -26,7 +27,7 @@ export interface NightState {
 export function decide(
   hour: number,
   day: string,
-  state: NightState | undefined
+  state: JobState | undefined
 ): "run" | "skip" {
   if (hour < FIRST_HOUR) {
     return "skip";
@@ -37,16 +38,16 @@ export function decide(
   return state.status === "ok" || isOutOfTries(state.attempts) ? "skip" : "run";
 }
 
-/** The backup's turn on a tick: once the night is done for the day (ok or out of tries) or from 06:00 (a night stuck or
- * never recorded must not cost the day's backup), then `decide`'s rule on its own state. */
-export const backupDue = (
+/** A daily job's turn (the backup, the bridges' restart): once the night is done for the day (ok or out of tries) or
+ * from 06:00 (a night stuck or never recorded must not cost the day's job), then `decide`'s rule on the job's own state. */
+export const afterNightDue = (
   hour: number,
   day: string,
-  night: NightState | undefined,
-  backup: NightState | undefined
+  night: JobState | undefined,
+  job: JobState | undefined
 ) =>
   (decide(hour, day, night) === "skip" || hour >= 6) &&
-  decide(hour, day, backup) === "run";
+  decide(hour, day, job) === "run";
 
 /**
  * Above this share of his Codex plan, the runs that can wait do (middays, backfill weeks, evals), so the night keeps
@@ -102,11 +103,7 @@ const at = (from: Date, plusDays: number, hour: number) => {
 };
 
 /** When the next nightly may start, and why then (`decide`'s rules, read forward). */
-export function nextNight(
-  now: Date,
-  day: string,
-  state: NightState | undefined
-) {
+export function nextNight(now: Date, day: string, state: JobState | undefined) {
   if (now.getHours() < FIRST_HOUR) {
     return windowAt(at(now, 0, FIRST_HOUR), "waits for 02:00");
   }
@@ -181,7 +178,7 @@ const WEEKS_A_DAY = 4;
 export function backfillWeek(
   b: Backfill | undefined,
   day: string,
-  night: NightState | undefined
+  night: JobState | undefined
 ): Window | null {
   if (
     !b ||
@@ -213,16 +210,16 @@ export function afterWeek(
 /**
  * What a 30-minute tick runs: the night when it is due; else nothing over the quota's reserve (`reserved`); else the
  * midday run when its slot is open; else a backfill week when one is due (`backfillWeek`), unless the day's backup
- * still is (it runs after the tick's work, and goes first). The backup itself is `backupDue`'s, after any of these.
+ * still is (it runs after the tick's work, and goes first). The backup itself is `afterNightDue`'s, after any of these.
  */
 export function turnOf(
   now: Date,
   day: string,
   s: {
     backfill?: Backfill;
-    backup?: NightState;
+    backup?: JobState;
     midday?: string;
-    night?: NightState;
+    night?: JobState;
     quota?: Quota;
   }
 ): "night" | "midday" | "backfill" | "none" {
@@ -236,18 +233,18 @@ export function turnOf(
   if (middayDue(now, s.midday)) {
     return "midday";
   }
-  return !backupDue(hour, day, s.night, s.backup) &&
+  return !afterNightDue(hour, day, s.night, s.backup) &&
     backfillWeek(s.backfill, day, s.night)
     ? "backfill"
     : "none";
 }
 
-/** A scheduled job's state (`nightly`, `backup`). */
-type Job = "nightly" | "backup";
+/** A scheduled job's state (`nightly`, `backup`, `bridges`). */
+type Job = "nightly" | "backup" | "bridges";
 const stateFile = (job: Job) => join(OUT, `${job}.json`);
 const MIDDAY = join(OUT, "midday.json");
 export const readState = (job: Job = "nightly") =>
-  readJson<NightState>(stateFile(job));
+  readJson<JobState>(stateFile(job));
 export const readMidday = () => readJson<string>(MIDDAY);
 
 /** Marks a midday slot as used, failed or not: a failed run waits for the next slot, the nightly reports. */
@@ -259,7 +256,7 @@ export function recordMidday() {
 export function recordState(day: string, ok: boolean, job: Job = "nightly") {
   const prev = readState(job);
   const attempts = prev?.date === day ? prev.attempts : 0;
-  const state: NightState = {
+  const state: JobState = {
     attempts: ok ? attempts : attempts + 1,
     date: day,
     lastAt: clock().toISOString(),

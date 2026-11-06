@@ -101,6 +101,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | run | One step's run inside a sweep, logged with its counts. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |
 | tick | The watcher's minute. Only that. | |
+| online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
