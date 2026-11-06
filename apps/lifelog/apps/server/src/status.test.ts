@@ -71,7 +71,6 @@ test("status gives the Pendant, the phone, the Mac, the chain's steps and the da
     })
     .run();
   storeServerError(env.db, new Error("boom"), {
-    appBuild: "dev",
     method: "GET",
     route: "/x",
   });

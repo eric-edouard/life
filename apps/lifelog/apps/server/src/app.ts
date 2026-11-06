@@ -4,7 +4,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { bearerAuth } from "hono/bearer-auth";
 import { except } from "hono/combine";
 import { HTTPException } from "hono/http-exception";
-import { type Config, logged, sha256Hex } from "./config";
+import { type Config, sha256Hex } from "./config";
 import { storeServerError } from "./diagnostics";
 import { backupRoutes } from "./routes/backup";
 import { conversationRoutes } from "./routes/conversations";
@@ -78,13 +78,10 @@ export function createApp(s: Services) {
       return new Response(null, { status: 499 });
     }
     console.error(`${c.req.method} ${c.req.path}:`, error);
-    logged("server error not stored", () =>
-      storeServerError(db, error, {
-        appBuild: config.BUILD_SHA?.slice(0, 7) ?? "dev",
-        method: c.req.method,
-        route: c.req.routePath,
-      })
-    );
+    storeServerError(db, error, {
+      method: c.req.method,
+      route: c.req.routePath,
+    });
     return c.json(
       {
         error: "internal_error" as const,

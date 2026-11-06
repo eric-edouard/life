@@ -167,10 +167,14 @@ reads the rest of its settings. How the report and the alerts go out:
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
-- The alerts: a failed action; a run holding the lock over 3 h (once per incident); every
-  source in red on the status snapshot (`sourcesReport`: unreadable, its access gone, its archive store or bridge
-  failing, a send it can't make, lifelog not polled), checked on each nightly tick: an email when a source's problem is new
-  that day, listing every source in red, from the first tick that sees it (no grace: a source that can't be read holds its days back). A
-  quiet source (amber) and an import never run (idle) don't mail.
+- The alerts: a failed action; a run holding the lock over 3 h (once per incident, from the watcher's minute: a hung
+  night blocks the ticks); every card in red on the status snapshot (`redCards`, `redReport`: a source unreadable, its
+  access gone, its archive store or bridge failing, lifelog not polled, the phone silent 12 h, the archive or the watcher
+  stopped, truth/ refused, the actions backend unreachable), checked on each nightly tick: an email when a card's problem
+  is new that day, listing every card in red, from the first tick that sees it (no grace: a source that can't be read
+  holds its days back). Not a run's card (a night mails itself once out of tries) nor the Mac's (it repeats the
+  archive's and the watcher's); amber and idle cards don't mail.
+- A crash of any `bun life` command (thrown, or a promise nobody awaited) is a `run.error` line of step `crash`; the
+  daily triage reads them.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - Life sends nothing into a chat.

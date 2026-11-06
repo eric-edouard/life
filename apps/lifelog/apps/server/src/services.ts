@@ -10,6 +10,7 @@ import {
   type ConversationStates,
   conversationStates,
 } from "./conversation-state";
+import { reportError } from "./diagnostics";
 import { type ExcerptSampler, excerptSampler } from "./excerpts";
 import { type JobWorker, jobWorker } from "./jobs";
 import { type MacSocket, macSocket } from "./mac-socket";
@@ -92,7 +93,7 @@ export function services(
   // and its state moves. The 5-minute sweeps catch what a crash cut off.
   worker.onCompleted(async (job) => {
     const log = (what: string) => (error: unknown) =>
-      console.error(`${what} ${job.id}: ${String(error)}`);
+      reportError(db, what, error);
     rolling.drain().catch(log("rolling"));
     excerpts.job(job.id).catch(log("excerpts"));
     await nudge("transcript", { job: job.id });

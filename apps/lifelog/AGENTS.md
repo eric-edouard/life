@@ -84,6 +84,8 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   same commit.
 - Several agent sessions work in this repo at once and share the live phone, Mac and archive.
 - Never run the app on a copy of the phone's data with a production token: it would send that copy's edits.
+- A server failure nobody awaits goes through `reportError` (`diagnostics.ts`), a server error the daily triage reads;
+  `console.error` alone only where it is already stored or mailed (a run's error, restic, the store itself).
 
 ## Boundaries
 

@@ -25,7 +25,7 @@ import { entryLine } from "../todo-list/items";
 import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, the lock, a source it can't read).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, the lock, a card in red).
 
 type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
   ReturnType<T>
@@ -252,7 +252,7 @@ function alert(
   return compose(subject, { date, label, weekday, ...rest });
 }
 
-/** The nightly's alert: a run has held the lock over 3 hours, so no night or midday can start. */
+/** The watcher's alert (`mailStuckLock`): a run has held the lock over 3 hours, so no night or midday can start. */
 export const lockReport = (since: string) =>
   alert(since, "Life nightly", {
     failure: {
@@ -282,27 +282,23 @@ export const actFailedReport = (a: LedgerEntry) =>
     verdict: "FAILED",
   });
 
-/**
- * The alert for the sources Life can't read now: each source card the status snapshot shows red (unreadable, its
- * access gone, its store or bridge failing, a send it can't make, lifelog not polled), whatever the cause.
- */
-export const sourcesReport = (
+/** The alert for the cards in red (`redCards`): what is broken, each in its card's words. */
+export const redReport = (
   at: string,
   red: { headline: string; name: string; word: string }[]
 ) =>
-  alert(at, "Life sources", {
+  alert(at, "Life health", {
     failure: {
       error: red.map((c) => `${c.name}: ${c.headline}`).join("; "),
-      step: "reading its sources",
+      step: "its status",
     },
     notes: [
-      "Days holding a source Life can't read wait for it: no episodes or facts for them until it reads again.",
-      "While the archive can't copy a store, messages deleted and note versions replaced meanwhile are lost.",
-      "Details: the app's Sources cards, derived/log",
+      "A source Life can't read holds its days back: no episodes or facts for them until it reads again.",
+      "Details: the app's status cards, derived/log",
     ],
-    preheader: `Life can't read ${red.map((c) => c.name).join(", ")}.`,
+    preheader: `Broken now: ${red.map((c) => c.name).join(", ")}.`,
     stats: red.map((c) => ({ label: c.name, value: c.word })),
-    subject: `can't read ${red.map((c) => c.name).join(", ")}`,
+    subject: red.map((c) => `${c.name} ${c.word}`).join(", "),
     verdict: "FAILING",
   });
 export type Mail = ReturnType<typeof compose> & {
