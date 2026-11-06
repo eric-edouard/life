@@ -1,3 +1,4 @@
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock, HOUR } from "../core/clock";
@@ -185,6 +186,27 @@ function archivedVersion(
   };
 }
 
+/** Adds message versions and their files to a network's archive (a version already there is skipped): how many were new. */
+function insertVersions(
+  archive: Database,
+  files: SQLQueryBindings[][],
+  messages: SQLQueryBindings[][]
+) {
+  return (
+    insertAll(
+      archive,
+      "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
+      files
+    ) +
+    insertAll(
+      archive,
+      `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      messages
+    )
+  );
+}
+
 /**
  * Copies the bridge's new message events from the homeserver into the archive, by its event number (`copied`): a
  * message is its own version, an edit a new version of the original, the redaction of a message a deleted version of
@@ -273,18 +295,7 @@ export function copyBridged(
     const last = events.at(-1)?.stream;
     // One transaction: the versions and how far they were copied land together.
     const added = archive.transaction(() => {
-      const n =
-        insertAll(
-          archive,
-          "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
-          files
-        ) +
-        insertAll(
-          archive,
-          `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          rows
-        );
+      const n = insertVersions(archive, files, rows);
       if (last) {
         archive.run("delete from copied");
         archive.run("insert into copied values (?)", [last]);
@@ -503,7 +514,7 @@ export function readBridged(
 }
 
 /** Beeper Desktop's folder: its store (`index.db`) and its cached media, both only read. */
-export const BEEPER = join(APP_DATA, "BeeperTexts");
+const BEEPER = join(APP_DATA, "BeeperTexts");
 
 /** Beeper's chats of a network: its account ids are `local-<network>_<id>` (a bridge on the Mac), `<network>.<id>` or `<network>`. */
 function beeperChats(network: string, beeper: string) {
@@ -590,7 +601,7 @@ const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat,
 /**
  * Copies a network's new and changed messages from Beeper Desktop's store into the network's archive, as the 30 Oct
  * import wrote Beeper's history there: each version kept (Beeper blanks a deleted message), its cached files cloned.
- * Only what comes after the bridge's copy (the newest message in a chat Beeper doesn't hold) and after the cutover
+ * Only what comes after the bridge's copy (the newest message in one of the homeserver's rooms) and after the cutover
  * (`openBridged`), so no time is copied twice. Beeper's whole table each pass: it backfills old chats at any time.
  * Returns how many versions were new.
  */
@@ -598,7 +609,8 @@ export function copyBeeper(
   network: string,
   dir = ARCHIVE,
   beeper = BEEPER,
-  now = clock().getTime()
+  now = clock().getTime(),
+  synapse = SYNAPSE
 ): number {
   const chats = beeperChats(network, beeper);
   if (chats.length === 0) {
@@ -607,13 +619,14 @@ export function copyBeeper(
   const archive = openBridged(network, dir);
   const store = openReadOnly(join(beeper, "index.db"));
   try {
-    const held = JSON.stringify(chats);
     const after = archive
       .query<{ at: string | null }, [string]>(
         `select max(at) as at from (select min(at) as at from cutover
-           union all select max(at) from messages where chat not in (select value from json_each(?)))`
+           union all select max(at) from messages where chat in (select value from json_each(?)))`
       )
-      .get(held)?.at;
+      .get(JSON.stringify(bridgeRooms(synapse)))?.at;
+    // ponytail: every Beeper message after the boundary, every pass (1,100 LINE rows, Nov 2026), as the old Beeper copy
+    // did; a window of the last days (an unsend is possible for 24 h) if it grows slow, at the cost of a late backfill.
     const rows = store
       .query<
         Row & {
@@ -625,51 +638,59 @@ export function copyBeeper(
         },
         [string, number]
       >(BEEPER_SQL)
-      .all(held, after ? Date.parse(after) : 0);
+      .all(JSON.stringify(chats), after ? Date.parse(after) : 0);
     const seenAt = new Date(now).toISOString();
-    return (
-      insertAll(
-        archive,
-        "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
-        rows.flatMap((r) =>
-          r.files
-            ? [
-                [
-                  r.chat,
-                  r.eventId,
-                  JSON.stringify(
-                    (JSON.parse(r.files) as Attachment[]).map((a) => ({
-                      fileName: a.fileName,
-                      id: a.id,
-                      mimeType: a.isVoiceNote ? "audio/mp4" : a.mimeType,
-                      path: keepMedia(a, network, dir, beeper),
-                    }))
-                  ),
-                ],
-              ]
-            : []
-        )
-      ) +
-      insertAll(
-        archive,
-        `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        rows.map((r) => [
-          ...[r.id, r.eventId, r.chat, r.chatName, r.sender, r.senderName],
-          ...[
-            r.fromMe,
-            new Date(r.ts).toISOString(),
-            r.type,
-            r.text,
-            r.deleted,
-            seenAt,
-          ],
-        ])
-      )
+    return insertVersions(
+      archive,
+      rows.flatMap((r) =>
+        r.files
+          ? [
+              [
+                r.chat,
+                r.eventId,
+                JSON.stringify(
+                  (JSON.parse(r.files) as Attachment[]).map((a) => ({
+                    fileName: a.fileName,
+                    id: a.id,
+                    mimeType: a.isVoiceNote ? "audio/mp4" : a.mimeType,
+                    path: keepMedia(a, network, dir, beeper),
+                  }))
+                ),
+              ],
+            ]
+          : []
+      ),
+      rows.map((r) => [
+        ...[r.id, r.eventId, r.chat, r.chatName, r.sender, r.senderName],
+        ...[
+          r.fromMe,
+          new Date(r.ts).toISOString(),
+          r.type,
+          r.text,
+          r.deleted,
+          seenAt,
+        ],
+      ])
     );
   } finally {
     store.close();
     archive.close();
+  }
+}
+
+/** The homeserver's rooms: the chats a bridge copied (the homeserver is never made again, so the set only grows). */
+function bridgeRooms(synapse: string) {
+  if (!existsSync(synapse)) {
+    return [];
+  }
+  const hs = openReadOnly(synapse);
+  try {
+    return hs
+      .query<{ room: string }, []>("select room_id as room from rooms")
+      .all()
+      .map((r) => r.room);
+  } finally {
+    hs.close();
   }
 }
 

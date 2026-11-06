@@ -25,7 +25,7 @@ export interface Newest {
  * column that names a copied file.
  */
 export interface AppStore {
-  /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). */
+  /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). Read each time: a bridged network's is Beeper Desktop while Beeper copies it. */
   app?: string;
   copies: string;
   /** Copies what is new into the archive (its count, for tests: Life reads none). */
