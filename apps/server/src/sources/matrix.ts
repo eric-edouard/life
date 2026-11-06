@@ -77,11 +77,13 @@ const PASSING = [
   "TRANSIENT_DISCONNECT",
 ];
 
+/** One of his logins on a bridge, with the state it last reported (none yet just after a start). */
+interface Login {
+  state?: { message?: string; state_event?: string };
+}
+
 /** Why a bridge with these logins isn't working: never linked, or a login in a state it won't leave by itself. */
-export function blockOf(
-  bridge: string,
-  logins: { state?: { message?: string; state_event?: string } }[]
-) {
+export function blockOf(bridge: string, logins: Login[]) {
   if (logins.length === 0) {
     return `${bridge} bridge not linked: bun life bridge link ${bridge}`;
   }
@@ -93,9 +95,10 @@ export function blockOf(
     : undefined;
 }
 
-/** The bridge's own answer about him (its logins); throws when it isn't answering. 3 s: the status snapshot waits for it. */
-export const readWhoami = (bridge: string) =>
-  provision(bridge, "whoami", { signal: AbortSignal.timeout(3000) });
+/** His logins, as the bridge itself says; throws when it isn't answering. 3 s: the status snapshot waits for it. */
+export const readLogins = async (bridge: string) =>
+  ((await provision(bridge, "whoami", { signal: AbortSignal.timeout(3000) }))
+    .logins ?? []) as Login[];
 
 /**
  * Why the bridge isn't working now, as the bridge itself says (its logins and their state): not running, never linked,
@@ -103,8 +106,7 @@ export const readWhoami = (bridge: string) =>
  */
 export async function readBlock(bridge: string) {
   try {
-    const who = await readWhoami(bridge);
-    return blockOf(bridge, (who.logins ?? []) as Parameters<typeof blockOf>[1]);
+    return blockOf(bridge, await readLogins(bridge));
   } catch (e) {
     return `${bridge} bridge not answering: ${(e as Error).message}`;
   }

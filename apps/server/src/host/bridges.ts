@@ -24,7 +24,7 @@ import {
   OWNER,
   pastedValues,
   readBlock,
-  readWhoami,
+  readLogins,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
@@ -90,14 +90,12 @@ export async function healBridges() {
   await restartBridges();
   await Promise.all(
     NETWORKS.filter(isAdded).map((n) =>
-      untilAnswers(async () => {
-        const { logins = [] } = await readWhoami(n.name);
-        return (
-          logins.every(
-            (l: { state?: { state_event?: string } }) => l.state?.state_event
-          ) || undefined
-        );
-      }, `the ${n.label} bridge`)
+      untilAnswers(
+        async () =>
+          (await readLogins(n.name)).every((l) => l.state?.state_event) ||
+          undefined,
+        `the ${n.label} bridge`
+      )
     )
   );
 }
@@ -305,7 +303,7 @@ async function add(n: Network) {
     await writeConfig(n, bin, dir);
   }
   await restartBridges();
-  await untilAnswers(() => readWhoami(n.name), `the ${n.label} bridge`);
+  await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
   console.log(`${n.label} bridge running.`);
   if (!(await readBlock(n.name))) {
     console.log(`${n.label} is linked already.`);
