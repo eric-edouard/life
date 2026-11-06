@@ -9,7 +9,7 @@ import { openReadOnly } from "../core/sqlite";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 
-// Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges
+// Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges (or Beeper)
 // hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
 // The only copy of what an app wiped is one taken while it existed. The apps' stores are opened read-only; only the
 // archive is written (one SQLite file per source). Each source copies its own store (`store` in its descriptor); one
