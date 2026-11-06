@@ -12,6 +12,8 @@ import {
   perSection,
   renderPage,
 } from "@life/server/src/memory/page-format";
+import { ownerHold } from "@life/server/src/memory/pages";
+import { readMe } from "@life/server/src/memory/read-truth";
 import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 
 // A made-up Life for the README and docs/examples.md: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
@@ -26,12 +28,6 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 //       read \`person me\` first. Today is Thursday 22 October 2026. Cite observation and episode ids. Answer concisely." \
 //     "Has my past week been aligned with my goals? What should I change next week?"
 // (The landlord transcript ran on 22 Oct with an earlier, shorter prompt.)
-//
-// The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/snapshot.ts), run with the same
-// LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the status snapshot as JSON; the cards about the Mac's own services were deleted from it
-// (/me and the whole Mac row), and Life.app's StatusWindow was drawn from
-// what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
-// Contacts readable and the archive copying, but none of its data.
 
 const out = resolve(process.argv[2] ?? "");
 const inside = (root: string) => !relative(root, out).startsWith("..");
@@ -75,13 +71,14 @@ write(join(data, "memory/zones.jsonl"), [
 ]);
 const me =
   "Sam, Life's made-up demo owner.\n\n## Goals\n1. Ship Tidepool's first beta by the end of November.\n2. Run three times a week.\n3. See friends at least once a week.\n4. Keep the flat in order.";
-writeFileSync(join(data, "truth/me.md"), `# Me\n\n${me}\n`);
+const meFile = `# Me\n\n${me}\n`;
+writeFileSync(join(data, "truth/me.md"), meFile);
 // His page as the first night writes it (pages.ts), holding truth/me.md: `person me` shows his goals from it.
 mkdirSync(join(data, "memory/pages/people"), { recursive: true });
 writeFileSync(
   join(data, "memory/pages/people/me.md"),
   renderPage({
-    hold: `${me.replace(/^/gm, "> ").replace(/> $/gm, ">")}\n\n_From truth/me.md: yours. Life never edits it._`,
+    hold: ownerHold(readMe(meFile)),
     layout: layoutOf("person:me"),
     meta: {
       built: "2026-10-22T02:40:00.000Z",

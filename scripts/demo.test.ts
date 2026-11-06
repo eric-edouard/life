@@ -15,7 +15,11 @@ test("every fact and episode the README and the examples cite is in the demo scr
       )
     )
     .join("");
-  const readme = ["../README.md", "../docs/examples.md"]
+  const readme = [
+    "../README.md",
+    "../docs/examples.md",
+    "../assets/readme/diagrams.html",
+  ]
     .map((f) => readFileSync(join(import.meta.dir, f), "utf8"))
     .join("");
   const cited = [...readme.matchAll(/\b(?:obs|ep)_[0-9a-f]{12}\b/g)].map(

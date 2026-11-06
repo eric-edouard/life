@@ -106,7 +106,7 @@ function personHold(p: Person) {
   return `${quote(`**${p.name}** · ${facts.join(" · ")}`)}\n\n_From truth/people.yaml: yours. Life never edits it._`;
 }
 
-function ownerHold(me: Truth["me"]) {
+export function ownerHold(me: Truth["me"]) {
   return `${quote(me.text.split("\n").slice(1).join("\n"))}\n\n_From truth/me.md: yours. Life never edits it._`;
 }
 

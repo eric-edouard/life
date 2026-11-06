@@ -7,7 +7,7 @@
 A memory of your whole life, kept on your own Mac. Ask Claude or ChatGPT about anything you said, wrote, promised or
 did, and get an answer that cites where it comes from.
 
-<sub>Early: built for one person, run from source on an Apple-silicon Mac that stays on.</sub>
+<sub>Early: one user so far, run from source on an Apple-silicon Mac that stays on.</sub>
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-181818.svg)](LICENSE)
 ![macOS 14+ on Apple silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-181818.svg)
@@ -54,24 +54,15 @@ A real run, trimmed, on a made-up person: Claude Code with Life's read commands 
 goals are the ones that person wrote in `truth/me.md`. In your assistant, each `obs_…` (a fact) and `ep_…` (an episode)
 id opens what it cites and the message it came from.
 
-More to ask, each answered the same way:
-
-- What did I promise my landlord last week? Did I keep it?
-- Where was I on the evening of the 14th, and who was I with?
-- How are things with Ana right now?
-- Draft my reply to Ana, the way I usually write to her.
-- What did the message Leo deleted on WhatsApp say?
-- Where did my hours go this week: which apps, which projects?
-- What's coming up in the next ten days that I shouldn't forget?
-
-Full transcripts and more questions: [examples](docs/examples.md).
+Also: "What did I promise my landlord last week?", "How are things with Ana right now?", "What did the message Leo
+deleted on WhatsApp say?" More, with full transcripts: [examples](docs/examples.md).
 
 ## It also works when you don't ask
 
 - Each morning you get the night's report: what's new, what's due, what you promised and to whom.
 - When Life isn't sure about a fact, it asks you on its decisions page, one question at a time, whenever you like.
-- Name an agent of yours (say, Orbit) and say "hey Orbit, book the dentist" near your recorder: Life hears it, and
-  Orbit picks it up and gets on with it.
+- Say "hey Orbit, book the dentist" near your recorder, Orbit being an agent of yours: Life hears it, and Orbit
+  picks it up and gets on with it. [Set up your agent](docs/use/agent.md).
 - If a source stops reading (WhatsApp signed out, a bridge down), you get one email that day saying which.
 
 ## 1. Capture
@@ -88,11 +79,11 @@ Life reads what's already on your Mac, read-only, plus a few things it keeps on 
 | Apple Notes | Every version of every note, checklists included | Nothing |
 | Contacts | Names for phone numbers and addresses | Nothing |
 | Screen Time | Which apps and websites took your time, on the Mac and the iPhone | Screen Time on |
-| Code | Your commits, by repository and day | Your repositories on the Mac |
+| Code | Your commits, by repository and day | Your repositories in one folder. [Settings](docs/use/settings.md) |
 | Past assistant chats | Your claude.ai and ChatGPT history | An export file. [Settings](docs/use/settings.md) |
 
-Messages, WhatsApp chats and notes change or vanish, so Life keeps its own copy: every 5 seconds an archive saves
-each new message and each version of a note. A message deleted later, or a note you rewrote, stays readable. That
+WhatsApp, the bridged networks, Apple Notes and Screen Time change or forget, so Life keeps its own copy: every 5
+seconds an archive saves each new message, each version of a note and each Screen Time record. A message deleted later, or a note you rewrote, stays readable. That
 archive lives in your Mac's Application Support folder and in your backup, nowhere else.
 
 What each source reads, exactly: [sources](docs/sources.md).
@@ -101,7 +92,7 @@ What each source reads, exactly: [sources](docs/sources.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
-  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become conversations, one per day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, communication styles and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
+  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, communication styles and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
 </picture>
 
 A model reads your life the way you'd tell it: a day at a time, every channel together. The voice note, the WhatsApp
@@ -110,7 +101,8 @@ thread and the mail about the same dinner end up in one place. It writes down:
 - Episodes: what you did, when, where and with whom, and what came of it. They also go to your Past calendar.
 - Facts: promises, plans, news, things someone told you, each with its exact quote. Life checks every quote against
   its source, word for word, so a fact can't cite something nobody said.
-- Pages: one for each person who matters to you and each project, every line citing its facts. Close people get a
+- Pages: one for each person who matters to you and each area of your life (a project, your health), every line
+  citing its facts. Close people get a
   section that doesn't age: your agreements, your history, the turning points.
 - Situations: where things stand now, for you and for each person close to you, rebuilt each night from the last 30
   days. This is what answers "how are things with Ana?".
@@ -123,8 +115,8 @@ thread and the mail about the same dinner end up in one place. It writes down:
   <img src="assets/readme/person-light.png" alt="A made-up person in Life: Ana's situation (close friend, beta tester, a birthday dinner on Saturday) and how you write to her, each line with its source id.">
 </picture>
 
-Who gets a page is decided from what the sources show (two-way chats, time spent together, how recent), never from
-what a model guessed. You correct anything by saying so to your assistant; your word is kept and wins over the
+Who gets a page is judged from what code counts in the sources (two-way chats, time spent together, how recent),
+never from what a model wrote about someone. You correct anything by saying so to your assistant; your word is kept and wins over the
 memory.
 
 Nothing is ready to ask on day one. Tonight, after 2:00, Life reads your last 7 days; then every night, plus the day
@@ -135,7 +127,7 @@ How the pipeline is built, and why: [architecture](docs/architecture.md). Every 
 
 ## 3. Act
 
-Life answers through its connector, a private MCP server on your Mac that Claude (claude.ai, the apps, Claude Code)
+Life answers through its connector, an MCP server on your Mac, behind its own sign-in, that Claude (claude.ai, the apps, Claude Code)
 and ChatGPT add as a custom connector. It reads your memory: a person, a day, a search, your open to-dos, your chats.
 It changes only two things, and only when you ask: a correction to the memory, and an item on your to-do list.
 [Connect your assistant](docs/use/connect.md).
@@ -149,8 +141,6 @@ It changes only two things, and only when you ask: a correction to the memory, a
   asked for what.
 - The Past calendar is a Google or Apple calendar Life fills with every episode, so your week looks back at you
   where you already look ahead.
-- Your agents are assistants of your own, each woken by a word you say ("hey Orbit"). Life hears the request, keeps
-  it, and the agent picks it up. [Set up your agent](docs/use/agent.md).
 
 Life itself sends nothing into a chat, ever. Its only mail and notifications are to you.
 
@@ -158,12 +148,12 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/stack-dark.png">
-  <img src="assets/readme/stack-light.png" alt="Where Life runs. On you: the recorder and lifelog on the iPhone. On your Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and your memory. Outside, by your choice: the model, your assistant over Tailscale, Scribe for rare languages, the encrypted backup and Life's mail to you.">
+  <img src="assets/readme/stack-light.png" alt="Where Life runs. On you: the recorder and lifelog on the iPhone. On your Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and your memory. Outside, only what you turn on: the model, your assistant over Tailscale, Google for the Past calendar or Tasks, Scribe for rare languages, the encrypted backup and Life's mail to you.">
 </picture>
 
 | Part | What it is |
 |---|---|
-| Reading | One model for every step: your Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an [allmodels.io](https://allmodels.io) key. Outputs are cached by input and prompt, so a night re-reads only what changed. |
+| Reading | Your Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an [allmodels.io](https://allmodels.io) key, each in three tiers: fast, main and deep. Outputs are cached by input and prompt, so a night re-reads only what changed. |
 | Search by meaning | [EmbeddingGemma 300M](https://huggingface.co/google/embeddinggemma-300m), run by llama.cpp on your Mac, for your voice and your memory alike. No text leaves the Mac to be embedded. |
 | Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
 | Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
@@ -171,7 +161,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; the pages in React; lifelog's iPhone and Watch apps in Swift 6. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
-| Network | Tailscale, so your assistant reaches the Mac and nothing else does. |
+| Network | Tailscale: Claude Code reaches the Mac on your tailnet; claude.ai and ChatGPT through Tailscale Funnel, a public address with only Life's sign-in in front. |
 | Backup and mail | restic, encrypted, wherever you point it; Resend for the report, or a notification. |
 
 The code: [architecture](docs/architecture.md#the-code), and lifelog's own [architecture](apps/lifelog/docs/architecture.md).
@@ -202,12 +192,11 @@ and pages that changed. The status window shows the tokens used this week. On a 
 ## Where your data goes
 
 Your memory is plain text in a git repository on your Mac, with no remote, and Life never pushes it. What does leave
-the Mac (the text sent to your model, what your assistant reads, the backup and Life's mail to you) is listed in
-[SECURITY.md](SECURITY.md#what-leaves-the-mac).
+the Mac is listed in [SECURITY.md](SECURITY.md#what-leaves-the-mac).
 
 ## Status and limitations
 
-Life was built for one person and has one user so far. Its author uses it every day. Backups, email and the backfill
+Its author uses Life every day. Backups, email and the backfill
 have no screen in the app yet, only [settings](docs/use/settings.md).
 
 The app is not signed with a Developer ID or notarized. An ad hoc build loses its Keychain items and its Full Disk
