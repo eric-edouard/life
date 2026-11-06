@@ -356,7 +356,7 @@ if (!command) {
 const crashed = (e: unknown) => {
   console.error(e);
   log("run.error", {
-    command: process.argv.slice(2, 4).join(" "),
+    command: process.argv[2],
     error: String(e),
     step: "crash",
   });

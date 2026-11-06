@@ -22,6 +22,7 @@ import { searchIndex, searchPassages } from "@lifelog/db/schema";
 import { eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { touchedSince } from "./change-log";
 import { SEARCH, singleFlight } from "./config";
+import { reportError } from "./diagnostics";
 import { type LoadedTurn, loadTurns } from "./transcript";
 
 // ---- Passages -----------------------------------------------------------------
@@ -350,11 +351,11 @@ export function searchFor(
   });
   return {
     index: () =>
-      sweep().catch((error: unknown) => console.error("search index:", error)),
+      sweep().catch((error: unknown) => reportError(db, "search index", error)),
     query: async (q) => {
       const vector = await embedder.embed([q.text], "query").then(
         ([v]) => v,
-        (error: unknown) => console.error("search query:", error)
+        (error: unknown) => reportError(db, "search query", error)
       );
       return rank(db, embedder.model, vector || undefined, q);
     },

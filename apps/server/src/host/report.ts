@@ -282,10 +282,6 @@ export const actFailedReport = (a: LedgerEntry) =>
     verdict: "FAILED",
   });
 
-/**
- * The alert for the sources Life can't read now: each source card the status snapshot shows red (unreadable, its
- * access gone, its store or bridge failing, a send it can't make, lifelog not polled), whatever the cause.
- */
 /** The alert for the cards in red (`redCards`): what is broken, each in its card's words. */
 export const redReport = (
   at: string,

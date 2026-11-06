@@ -14,6 +14,7 @@ import { desc, eq } from "drizzle-orm";
 import type { Nudge } from "./apns";
 import { touchedSince } from "./change-log";
 import { singleFlight } from "./config";
+import { reportError } from "./diagnostics";
 import { type Retries, requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
 import { dueConversations, fingerprint, type Run, splitsOf } from "./summaries";
@@ -122,9 +123,7 @@ export function rollingChapters(
 
   // At most one roll per conversation: a request while one runs makes it roll once more after.
   const roll = singleFlight((id: string) =>
-    once(id).catch((error: unknown) =>
-      console.error(`rolling ${id}: ${String(error)}`)
-    )
+    once(id).catch((error: unknown) => reportError(db, "rolling", error))
   );
 
   const able = () => mac !== null && mac.ready?.() !== false;
@@ -168,9 +167,7 @@ export function rollingChapters(
     }
   });
   const drain = (): Promise<void> =>
-    draining().catch((error: unknown) =>
-      console.error(`rolling: ${String(error)}`)
-    );
+    draining().catch((error: unknown) => reportError(db, "rolling", error));
 
   return {
     drain,

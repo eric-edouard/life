@@ -166,7 +166,7 @@ async function execute(
       return { attempt, made };
     };
     const reply = await provider.call(call, (late) =>
-      logged(db, `late answer for run ${runId}`, () => keep(late))
+      logged(db, "late answer", () => keep(late))
     );
     const { attempt, made } = keep(reply);
     raw.push(made);
@@ -260,12 +260,8 @@ async function execute(
     throw new Error(`intelligence run ${runId} vanished`);
   }
   if (run.state === "valid") {
-    logged(db, `chapters of ${run.conversationId}`, () =>
-      writeChapters(db, run.conversationId)
-    );
-    logged(db, `splits of ${run.conversationId}`, () =>
-      splitAtBoundaries(db, run)
-    );
+    logged(db, "chapters", () => writeChapters(db, run.conversationId));
+    logged(db, "splits", () => splitAtBoundaries(db, run));
   }
   record(db, "intelligence.run", {
     calls: raw.length,

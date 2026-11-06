@@ -1,3 +1,7 @@
+// Remote crash, error and health reporting: MetricKit diagnostics and daily metrics from the
+// phone, every error the owner saw in the app, the server's own failures, and small capture-health
+// heartbeats. States, counts, call stacks and shortened error messages only: never audio,
+// transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
 import { z } from "@hono/zod-openapi";
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import type { Db } from "@lifelog/db";
@@ -8,7 +12,12 @@ import {
   heartbeats,
 } from "@lifelog/db/schema";
 import { and, asc, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
-import { DEFAULT_TIME_ZONE, setOwnerTimeZone, uuidOf } from "./config";
+import {
+  DEFAULT_TIME_ZONE,
+  serverBuild,
+  setOwnerTimeZone,
+  uuidOf,
+} from "./config";
 
 const RETENTION_DAYS = 90;
 // Request bodies past these are refused before parsing. A crash with every thread's stack is
@@ -416,7 +425,7 @@ export function storeServerError(
     begin: now,
     binaries: [],
     build: {
-      appBuild: process.env.BUILD_SHA?.slice(0, 7) ?? "dev",
+      appBuild: serverBuild(),
       appVersion: "server",
       device: "server",
       os: `bun ${Bun.version}`,

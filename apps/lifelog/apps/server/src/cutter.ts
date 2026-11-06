@@ -32,6 +32,7 @@ import {
 } from "./audio-store";
 import { logChange } from "./change-log";
 import { billableSeconds, sha256Hex } from "./config";
+import { reportError } from "./diagnostics";
 import { record } from "./events";
 import { captureRange } from "./turns";
 import { blockKeyterms } from "./vocabulary";
@@ -263,7 +264,7 @@ async function close(
     },
     own.map((f) => f.id)
   );
-  await Promise.all(own.map((f) => dropAudio(audio, f)));
+  await Promise.all(own.map((f) => dropAudio(db, audio, f)));
   record(db, "block.closed", { fragments: own.length, job: job.id });
 }
 
@@ -294,12 +295,10 @@ async function readable(db: Db, audio: AudioStore, block: Fragment[]) {
   return parts;
 }
 
-const dropAudio = (audio: AudioStore, fragment: Fragment) =>
+const dropAudio = (db: Db, audio: AudioStore, fragment: Fragment) =>
   audio
     .delete(fragment.objectKey ?? "")
-    .catch((error: unknown) =>
-      console.error(`fragment ${fragment.id}: ${String(error)}`)
-    );
+    .catch((error: unknown) => reportError(db, "fragment delete", error));
 
 // Audio bought already, or from before the quiet ranges: it leaves the bucket unread, and its pages
 // stay held.
@@ -316,7 +315,7 @@ async function cover(db: Db, audio: AudioStore, fragment: Fragment) {
     .returning({ id: speechFragments.id })
     .get();
   if (row) {
-    await dropAudio(audio, fragment);
+    await dropAudio(db, audio, fragment);
     record(db, "fragment.covered", { fragment: fragment.id });
   }
 }
@@ -618,9 +617,7 @@ export async function withdrawRows(
   if (gone?.key) {
     await audio
       .delete(gone.key)
-      .catch((error: unknown) =>
-        console.error(`withdrawn ${gone.ids[0]}: ${String(error)}`)
-      );
+      .catch((error: unknown) => reportError(db, "withdrawn delete", error));
   }
   return gone !== undefined;
 }

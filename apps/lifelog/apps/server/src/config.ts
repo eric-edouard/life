@@ -22,6 +22,13 @@ export const setOwnerTimeZone = (zone: string | null | undefined) => {
   ownerZone = zone && isTimeZone(zone) ? zone : DEFAULT_TIME_ZONE;
 };
 
+// The build server errors name (`storeServerError`): BUILD_SHA's commit, set at start (index.ts).
+let build = "dev";
+export const serverBuild = () => build;
+export const setServerBuild = (sha: string | undefined) => {
+  build = sha?.slice(0, 7) ?? "dev";
+};
+
 // The owner's local date ("2026-10-11") and hour at `at`.
 export function ownerClock(at: Date) {
   const zone = ownerTimeZone();
@@ -158,6 +165,7 @@ const Env = z.object({
   AUDIO_DIR: z.string().min(1).optional(),
   // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in
   // server error reports.
+  BUILD_SHA: z.string().optional(),
   // A reader's tokens (docs/voice-source.md), minted by `bun run mint-token read|corrections`:
   // `read` opens the contract's reads, `corrections` those and the owner's corrections.
   CORRECTIONS_TOKEN_HASH: TokenHash.optional(),

@@ -217,7 +217,7 @@ function complete(
       regroupAfterCommit(db, [job.sourceId]);
     }
     onCompleted(job).catch((error: unknown) =>
-      console.error(`after ${job.id}: ${String(error)}`)
+      reportError(db, "after a transcript", error)
     );
   }
   return outcome;
@@ -380,7 +380,7 @@ async function reconcile(db: Db, config: Config, onCompleted: OnCompleted) {
   const outcomes = await Promise.all(
     pending.map((job) =>
       settle(db, config, job, onCompleted).catch((error: unknown) => {
-        console.error(`reconcile ${job.id}: ${String(error)}`);
+        reportError(db, "reconcile", error);
         return null;
       })
     )

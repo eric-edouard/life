@@ -74,8 +74,6 @@ import {
 } from "./report";
 import { redCards, snapshot } from "./status/snapshot";
 
-/** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
-
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();

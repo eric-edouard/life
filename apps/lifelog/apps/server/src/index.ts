@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { audioStore } from "./audio-store";
 import { snapshotArchive } from "./backup";
-import { loadConfig } from "./config";
+import { loadConfig, setServerBuild } from "./config";
 import { logged, refreshOwnerTimeZone, reportError } from "./diagnostics";
 import { runCommand } from "./export";
 import { regroupDirty } from "./grouping";
@@ -20,6 +20,7 @@ if (command === "export" || command === "import") {
 }
 
 const config = loadConfig(process.env);
+setServerBuild(config.BUILD_SHA);
 // Kept referenced until exit: the lock lasts as long as its connection.
 const archiveLock = holdArchive(config.DATABASE_PATH);
 process.on("exit", () => archiveLock.close());
