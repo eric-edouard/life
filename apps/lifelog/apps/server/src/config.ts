@@ -158,7 +158,6 @@ const Env = z.object({
   AUDIO_DIR: z.string().min(1).optional(),
   // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in
   // server error reports.
-  BUILD_SHA: z.string().optional(),
   // A reader's tokens (docs/voice-source.md), minted by `bun run mint-token read|corrections`:
   // `read` opens the contract's reads, `corrections` those and the owner's corrections.
   CORRECTIONS_TOKEN_HASH: TokenHash.optional(),
@@ -221,16 +220,6 @@ export const uuidOf = (text: string) => {
   const h = sha256Hex(text);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-
-// Runs `work` and logs, never throws, what it throws: a background step whose failure is only
-// reported. (Async work does the same with `.catch`.)
-export function logged(what: string, work: () => void) {
-  try {
-    work();
-  } catch (error: unknown) {
-    console.error(`${what}: ${String(error)}`);
-  }
-}
 
 // One run per key at a time: a call while one runs makes it go round once more after it, and waits
 // for that. `idle` resolves once none runs. ponytail: in memory, one replica, like every loop here.

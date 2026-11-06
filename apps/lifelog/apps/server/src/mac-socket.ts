@@ -38,7 +38,7 @@ import { type MacEngine, macEngines } from "@lifelog/db/schema";
 import type { Server, ServerWebSocket } from "bun";
 import { z } from "zod";
 import { logChange } from "./change-log";
-import { logged } from "./config";
+import { logged } from "./diagnostics";
 import {
   type DictatedRange,
   dictatingSince,
@@ -344,7 +344,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       reason,
     });
     // The feed's `mac.llm` changed: wake its long polls.
-    logged("mac change", () =>
+    logged(db, "mac change", () =>
       db.transaction((tx) => logChange(tx, "mac", "mac"))
     );
   };
@@ -383,7 +383,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     tick = setTimeout(
       () => {
         tick = null;
-        logged("mac settle", () => {
+        logged(db, "mac settle", () => {
           const known = current ? new Date() : (macRow(db)?.heardAt ?? null);
           if (known) {
             stored(settleMac(db, known));
@@ -444,7 +444,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
   // the helper drops that event; MAC_BEHIND: its next welcome renumbers it; 1011: it tries again).
   const refuse = (ws: Socket, why: string, code: number) => {
     ws.data.failed = true;
-    logged("mac block not stored", () =>
+    logged(db, "mac block not stored", () =>
       record(db, "mac.stuck", {
         since: blockMac(db, { lost: code === MAC_INVALID }).toISOString(),
         why,
@@ -589,7 +589,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         current = null;
         // Calls sent stay: the Mac answers them on its next socket, or their timers fail them.
         gone("the Mac's socket closed", { sent: false });
-        logged("mac watch not stored", () => {
+        logged(db, "mac watch not stored", () => {
           storeMacHeard(db, ws.data.heardAt);
           // A dictation waiting for a neighbour goes now: a shutdown never holds the watermark.
           stored(settleMac(db, ws.data.heardAt, { closed: true }));
@@ -621,7 +621,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         ws.data.engines = message.engines;
         ws.data.heardAt = new Date();
         // A hello means the Mac is awake: it opens a socket only then.
-        logged("mac watch not stored", () =>
+        logged(db, "mac watch not stored", () =>
           stored(storeMacHeard(db, ws.data.heardAt, { awake: true }))
         );
         schedule();

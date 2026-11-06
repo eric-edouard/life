@@ -152,6 +152,7 @@ export const LifelogStatus = z.object({
     .object({
       batteryPercent: z.number().nullish(),
       connection: z.string().nullish(),
+      knownAt: z.string().nullish(),
       recording: z.string().nullish(),
       recordingKnownAt: z.string().nullish(),
     })

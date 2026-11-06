@@ -1,6 +1,6 @@
 import { rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { clock, DAY, HOUR, iso } from "../core/clock";
+import { clock, DAY, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
@@ -10,7 +10,7 @@ import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
 import { newSince, OUT, readLedger } from "../memory/ledger";
-import { locked, lockedSince } from "../memory/memory-lock";
+import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { codeOn, mapRepos } from "../memory/repos";
@@ -66,17 +66,15 @@ import { healBridges } from "./bridges";
 import { syncPast } from "./past-calendar";
 import {
   failureReport,
-  lockReport,
   type Mail,
+  redReport,
   reportKey,
   sendReport,
-  sourcesReport,
   successReport,
 } from "./report";
-import { redSources, snapshot } from "./status/snapshot";
+import { redCards, snapshot } from "./status/snapshot";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
-const STUCK_MS = 3 * HOUR;
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
@@ -148,13 +146,6 @@ export async function nightly(days: number, force = false) {
     return 0;
   }
   const now = clock();
-  const held = lockedSince();
-  if (held && now.getTime() - held.getTime() > STUCK_MS) {
-    await sendReport(
-      `lock/${held.toISOString()}`,
-      lockReport(held.toISOString())
-    );
-  }
   // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's
   // zone is read before the lock: a network read never holds memory.
   const here = await readZoneHere();
@@ -196,18 +187,18 @@ export async function nightly(days: number, force = false) {
     );
     recordState(day, healed, "bridges");
   }
-  // Every source in red on the status snapshot, the one judge of a source's health: an email when a source's problem
-  // is new that day. After the turn, so no run waits on it; a failure only logs.
+  // Every card in red on the status snapshot, the one judge of Life's health: an email when a card's problem is new
+  // that day. After the turn, so no run waits on it; a failure only logs.
   try {
-    const red = redSources((await snapshot()).cards);
+    const red = redCards((await snapshot()).cards);
     if (red.length > 0) {
       await sendReport(
-        red.map((c) => `source/${c.id}/${c.word}/${dayNow(clock())}`),
-        sourcesReport(clock().toISOString(), red)
+        red.map((c) => `alert/${c.id}/${c.word}/${dayNow(clock())}`),
+        redReport(clock().toISOString(), red)
       );
     }
   } catch (e) {
-    log("run.error", { error: String(e), step: "sources" });
+    log("run.error", { error: String(e), step: "alert" });
   }
   const { backup: was, night: state } = states();
   if (force || !afterNightDue(now.getHours(), day, state, was)) {

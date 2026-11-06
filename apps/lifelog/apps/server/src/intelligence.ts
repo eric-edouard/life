@@ -22,7 +22,8 @@ import {
 } from "@lifelog/db/schema";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { logChange, turnRef } from "./change-log";
-import { logged, sha256Hex } from "./config";
+import { sha256Hex } from "./config";
+import { logged } from "./diagnostics";
 import { record } from "./events";
 import { aiSplitId, groupSource, markDirty } from "./grouping";
 import { MAC_SLOTS } from "./mac-socket";
@@ -165,7 +166,7 @@ async function execute(
       return { attempt, made };
     };
     const reply = await provider.call(call, (late) =>
-      logged(`late answer for run ${runId}`, () => keep(late))
+      logged(db, `late answer for run ${runId}`, () => keep(late))
     );
     const { attempt, made } = keep(reply);
     raw.push(made);
@@ -259,10 +260,12 @@ async function execute(
     throw new Error(`intelligence run ${runId} vanished`);
   }
   if (run.state === "valid") {
-    logged(`chapters of ${run.conversationId}`, () =>
+    logged(db, `chapters of ${run.conversationId}`, () =>
       writeChapters(db, run.conversationId)
     );
-    logged(`splits of ${run.conversationId}`, () => splitAtBoundaries(db, run));
+    logged(db, `splits of ${run.conversationId}`, () =>
+      splitAtBoundaries(db, run)
+    );
   }
   record(db, "intelligence.run", {
     calls: raw.length,

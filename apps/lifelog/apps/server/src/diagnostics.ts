@@ -1,8 +1,3 @@
-// Remote crash, error and health reporting: MetricKit diagnostics and daily metrics from the
-// phone, every error the owner saw in the app, the server's own 500s, and small capture-health
-// heartbeats. States, counts, call stacks and shortened error messages only: never audio,
-// transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
-import { randomUUID } from "node:crypto";
 import { z } from "@hono/zod-openapi";
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import type { Db } from "@lifelog/db";
@@ -13,7 +8,7 @@ import {
   heartbeats,
 } from "@lifelog/db/schema";
 import { and, asc, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
-import { DEFAULT_TIME_ZONE, setOwnerTimeZone } from "./config";
+import { DEFAULT_TIME_ZONE, setOwnerTimeZone, uuidOf } from "./config";
 
 const RETENTION_DAYS = 90;
 // Request bodies past these are refused before parsing. A crash with every thread's stack is
@@ -356,7 +351,7 @@ function prune(db: Db, now = new Date()) {
 }
 
 // Returns whether it was stored; a retried upload with the same id changes nothing, except an
-// app error, whose repeats within the hour come again with a higher count and replace it.
+// app or server error, whose repeats within the hour come again with a higher count and replace it.
 export function storeDiagnostic(db: Db, d: DiagnosticUpload) {
   const signature = signatureOf(d);
   const insert = db.insert(diagnostics).values({
@@ -368,7 +363,7 @@ export function storeDiagnostic(db: Db, d: DiagnosticUpload) {
     signature,
   });
   const stored = (
-    d.kind === "app_error"
+    d.kind === "app_error" || d.kind === "server_error"
       ? insert.onConflictDoUpdate({
           set: { body: d, signature },
           target: diagnostics.id,
@@ -393,43 +388,79 @@ export const serverErrorMessage = (e: Error) =>
     .join(": ")
     .slice(0, MESSAGE_CHARS);
 
-// A 500 the server answered, kept like an app error so one reading covers both. Only the
-// stack's frames: its first line repeats the message in full.
+// A failure of the server's, kept like an app error so one reading covers both: a route's 500
+// (app.ts) or a background step's (`reportError`). Only the stack's frames: its first line repeats
+// the message in full. Repeats of one signature within the hour are one row with a count. Never
+// throws: a store that fails (a full disk) only logs.
 export function storeServerError(
   db: Db,
   error: unknown,
-  request: { appBuild: string; method: string; route: string }
+  where: { method: string; route: string }
 ) {
   const e = error instanceof Error ? error : new Error(String(error));
   const now = new Date().toISOString();
-  storeDiagnostic(db, {
+  const failure = {
+    count: 1,
+    httpStatus: 500,
+    message: serverErrorMessage(e),
+    method: where.method,
+    route: where.route,
+    stack: e.stack
+      ?.split("\n")
+      .filter((line) => line.trimStart().startsWith("at "))
+      .join("\n")
+      .slice(0, 8000),
+    type: e.name,
+  };
+  const d: DiagnosticUpload = {
     begin: now,
     binaries: [],
     build: {
-      appBuild: request.appBuild,
+      appBuild: process.env.BUILD_SHA?.slice(0, 7) ?? "dev",
       appVersion: "server",
       device: "server",
       os: `bun ${Bun.version}`,
     },
     callStacks: [],
     end: now,
-    error: {
-      count: 1,
-      httpStatus: 500,
-      message: serverErrorMessage(e),
-      method: request.method,
-      route: request.route,
-      stack: e.stack
-        ?.split("\n")
-        .filter((line) => line.trimStart().startsWith("at "))
-        .join("\n")
-        .slice(0, 8000),
-      type: e.name,
-    },
-    id: randomUUID(),
+    error: failure,
+    id: "",
     kind: "server_error",
     truncated: false,
-  });
+  };
+  const id = uuidOf(`${signatureOf(d)} ${now.slice(0, 13)}`);
+  try {
+    const before = db
+      .select({ body: diagnostics.body })
+      .from(diagnostics)
+      .where(eq(diagnostics.id, id))
+      .get()?.body as DiagnosticUpload | undefined;
+    storeDiagnostic(db, {
+      ...d,
+      begin: before?.begin ?? now,
+      error: { ...failure, count: (before?.error?.count ?? 0) + 1 },
+      id,
+    });
+  } catch (stored: unknown) {
+    console.error(`server error not stored: ${String(stored)}`);
+  }
+}
+
+// A background step's failure nobody awaits: logged, and kept as a server error (route `what`)
+// that the daily triage reads.
+export function reportError(db: Db, what: string, error: unknown) {
+  console.error(`${what}: ${String(error)}`);
+  storeServerError(db, error, { method: "background", route: what });
+}
+
+// Runs `work` and reports, never throws, what it throws (`reportError`). Async work does the
+// same with `.catch`.
+export function logged(db: Db, what: string, work: () => void) {
+  try {
+    work();
+  } catch (error: unknown) {
+    reportError(db, what, error);
+  }
 }
 
 export function storeHeartbeat(db: Db, h: z.infer<typeof HeartbeatUpload>) {

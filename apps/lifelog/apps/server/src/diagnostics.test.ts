@@ -9,6 +9,7 @@ import {
   latestHeartbeat,
   ownerZoneAt,
   problemLines,
+  reportError,
   serverErrorMessage,
   signatureOf,
   topFrames,
@@ -346,4 +347,22 @@ test("a route that throws is answered 500 and kept as a server error", async () 
   expect(JSON.stringify(stored)).not.toContain("secret");
   expect(JSON.stringify(stored)).not.toContain("never");
   expect(stored.signature).toBe("server_error | POST /boom/:id | Error | 500");
+});
+
+test("a background step that keeps failing is one server error a day's triage reads, with its count, never a row per try", () => {
+  const before = console.error;
+  console.error = () => undefined;
+  try {
+    for (const _ of [1, 2, 3]) {
+      reportError(env.db, "reconcile loop", new Error("bucket unreachable"));
+    }
+  } finally {
+    console.error = before;
+  }
+  const rows = env.db.select().from(diagnostics).all();
+  expect(rows).toHaveLength(1);
+  const body = rows[0]?.body as DiagnosticUpload;
+  expect(body.kind).toBe("server_error");
+  expect(body.error?.route).toBe("reconcile loop");
+  expect(body.error?.count).toBe(3);
 });

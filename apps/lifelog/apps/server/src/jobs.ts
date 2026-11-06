@@ -32,7 +32,7 @@ import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { billableSeconds, type Config, singleFlight } from "./config";
 import { cut, touchesQuiet, withdrawRows } from "./cutter";
-import { ownerZoneAt } from "./diagnostics";
+import { ownerZoneAt, reportError } from "./diagnostics";
 import {
   credits,
   failureReason,
@@ -762,7 +762,7 @@ export function jobWorker(
         wake.unref();
       }
     } catch (error) {
-      console.error(`cutter: ${String(error)}`);
+      reportError(db, "cutter", error);
     }
   }
 
@@ -777,18 +777,14 @@ export function jobWorker(
       await Promise.all([
         ...quiet.map((id) => withdraw(db, audio, id)),
         ...claimed.map((job) =>
-          send(job).catch((error: unknown) =>
-            console.error(`send ${job.id}: ${String(error)}`)
-          )
+          send(job).catch((error: unknown) => reportError(db, "send", error))
         ),
       ]);
     }
   });
   // `work` for a caller that doesn't wait; a failure is logged.
   const poke = () => {
-    work().catch((error: unknown) =>
-      console.error(`job worker: ${String(error)}`)
-    );
+    work().catch((error: unknown) => reportError(db, "job worker", error));
   };
 
   // Reads the plan's credits; the owner gets an email when they fall under 20 % and when they
