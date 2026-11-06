@@ -617,7 +617,7 @@ test("a search opens with his situation when it names no one, then others' lines
       `His situation ${header}`,
       `- He argues with his father about the house. [${ep}]`,
       "",
-      `Situation with test-ana, on the episodes below ${header}`,
+      `Situation with Test Ana, on the episodes below ${header}`,
       `- Ana helps with the house. [${ep}]`,
       "",
     ]);
@@ -625,8 +625,20 @@ test("a search opens with his situation when it names no one, then others' lines
     await expect(
       readSituationsOf("what bothers me lately", live, new Set([other]), false)
     ).resolves.toEqual([
-      `Situation with test-ana, on the episodes below ${header}`,
+      `Situation with Test Ana, on the episodes below ${header}`,
       `- Ana moved flats. [${other}]`,
+      "",
+    ]);
+    // A person named shows whole; his own then shows only where it cites what was found.
+    await expect(
+      readSituationsOf("how is test ana", live, new Set([ep]), true)
+    ).resolves.toEqual([
+      `Situation with Test Ana ${header}`,
+      `- Ana helps with the house. [${ep}]`,
+      `- Ana moved flats. [${other}]`,
+      "",
+      `His situation, on the episodes below ${header}`,
+      `- He argues with his father about the house. [${ep}]`,
       "",
     ]);
   } finally {

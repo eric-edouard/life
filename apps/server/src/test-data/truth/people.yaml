@@ -4,3 +4,5 @@ people:
   - id: me
     name: Test Owner
     handles: { email: [owner@example.com] }
+  - id: test-ana
+    name: Test Ana
