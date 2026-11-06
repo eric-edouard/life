@@ -66,7 +66,8 @@ flowchart LR
 - **Situations** (`situation.ts`): where things stand now with him and each person close to him, read nightly by one
   call from the page and the last 30 days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
-  and git keeps every version. A reader shows a line only while its episodes are live, the situation first.
+  and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
+  from the situations it doesn't show whole, the lines citing an episode it found.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
 - **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
 

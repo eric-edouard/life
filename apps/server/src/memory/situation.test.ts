@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { writeJson } from "../core/files";
 import { situationPath } from "./ledger";
-import { shownLines, situationBlock } from "./situation";
+import { readSituationNow, shownLines, situationBlock } from "./situation";
 
 const REF = "person:test-ana";
 const A = "ep_aaaaaaaaaaaa";
@@ -37,10 +37,14 @@ test("a reader shows only lines whose episodes are still live", () => {
     page: REF,
     schemaVersion: 1,
   });
-  expect(situationBlock(REF, new Set([A]), "Situation")).toEqual([
+  expect(
+    situationBlock("Situation", readSituationNow(REF, new Set([A])))
+  ).toEqual([
     "Situation (where things stand, read each night from the last 30 days):",
     `- Ana stays at his flat since 20 Mar. [${A}]`,
     "",
   ]);
-  expect(situationBlock(REF, new Set(), "Situation")).toEqual([]);
+  expect(situationBlock("Situation", readSituationNow(REF, new Set()))).toEqual(
+    []
+  );
 });

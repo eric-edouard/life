@@ -23,11 +23,11 @@ import {
   dueOf,
   episodeLine,
   nextBirthday,
+  readSituationsOf,
   readStaleness,
   reindexUnits,
   matches as searchMatches,
   shownEpisode,
-  situationsNamed,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -589,31 +589,60 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("constr", truth).id).toBeUndefined();
 });
 
-test("a search naming no one opens with his own situation, unless days bound it", async () => {
-  const ep = "ep_00000000000a";
-  writeJson(situationPath(OWNER), {
-    built: "2026-11-05T00:00:00.000Z",
-    inputs: "0123456789abcdef",
-    lines: [
-      { cites: [ep], text: "He argues with his father about the house." },
-    ],
-    madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
-    page: OWNER,
-    schemaVersion: 1,
-  });
+test("a search opens with his situation when it names no one, then others' lines on the episodes it shows", async () => {
+  const [ep, other] = ["ep_00000000000a", "ep_00000000000b"];
+  const ANA = "person:test-ana";
+  const write = (page: string, lines: { cites: string[]; text: string }[]) =>
+    writeJson(situationPath(page), {
+      built: "2026-11-05T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      lines,
+      madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+      page,
+      schemaVersion: 1,
+    });
+  write(OWNER, [
+    { cites: [ep], text: "He argues with his father about the house." },
+  ]);
+  write(ANA, [
+    { cites: [ep], text: "Ana helps with the house." },
+    { cites: [other], text: "Ana moved flats." },
+  ]);
+  const live = new Set([ep, other]);
+  const header = "(where things stand, read each night from the last 30 days):";
   try {
     await expect(
-      situationsNamed("what bothers me lately", new Set([ep]), true)
+      readSituationsOf("what bothers me lately", live, new Set([ep]), true)
     ).resolves.toEqual([
-      "His situation (where things stand, read each night from the last 30 days):",
+      `His situation ${header}`,
+      `- He argues with his father about the house. [${ep}]`,
+      "",
+      `Situation with Test Ana, on the episodes below ${header}`,
+      `- Ana helps with the house. [${ep}]`,
+      "",
+    ]);
+    // A search into given days is not about now: his own shows only where it cites what was found, like anyone's.
+    await expect(
+      readSituationsOf("what bothers me lately", live, new Set([other]), false)
+    ).resolves.toEqual([
+      `Situation with Test Ana, on the episodes below ${header}`,
+      `- Ana moved flats. [${other}]`,
+      "",
+    ]);
+    // A person named shows whole; his own then shows only where it cites what was found.
+    await expect(
+      readSituationsOf("how is test ana", live, new Set([ep]), true)
+    ).resolves.toEqual([
+      `Situation with Test Ana ${header}`,
+      `- Ana helps with the house. [${ep}]`,
+      `- Ana moved flats. [${other}]`,
+      "",
+      `His situation, on the episodes below ${header}`,
       `- He argues with his father about the house. [${ep}]`,
       "",
     ]);
-    // A search into given days is not about now: no situation of his.
-    await expect(
-      situationsNamed("what bothers me lately", new Set([ep]), false)
-    ).resolves.toEqual([]);
   } finally {
     rmSync(situationPath(OWNER), { force: true });
+    rmSync(situationPath(ANA), { force: true });
   }
 });
