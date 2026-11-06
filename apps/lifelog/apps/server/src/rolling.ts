@@ -33,12 +33,7 @@ async function rollWindows(
   db: Db,
   mac: Provider,
   id: string,
-  options: {
-    fromScratch: boolean;
-    open: boolean;
-    retries?: Retries;
-    windowChars: number;
-  },
+  options: Parameters<typeof requestRoll>[3],
   settled: (run: Run) => Promise<void>
 ) {
   for (let first = true; ; first = false) {
