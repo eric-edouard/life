@@ -37,7 +37,7 @@ export function extractJson(text: string): unknown {
 }
 
 /**
- * What a step needs (each step names its tier in `begin`): files, repos, closeness and imports fast, pages main, episodes
+ * What a step needs (each step names its tier in `begin`): files, repos, closeness, details and imports fast, pages main, episodes
  * and extract deep (~/Life/docs/evals/events-2026-10-18.md).
  */
 export type Tier = "fast" | "main" | "deep";

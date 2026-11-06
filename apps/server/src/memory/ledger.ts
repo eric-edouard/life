@@ -73,6 +73,7 @@ export const DECISIONS = join(MEMORY, "decisions.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
+export const DETAIL_TAGS = join(MEMORY, "detail-tags.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
 export const IMPORTED = join(MEMORY, "imported.jsonl");
 export const LEDGER = join(MEMORY, "ledger.jsonl");

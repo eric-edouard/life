@@ -205,6 +205,14 @@ counts, the prompt's rule). `counts` is what it judged, rounded, so a person is 
 move or the prompt changes. The latest record per person wins (a person folded into another: the kept one's); the owner's
 `closeness` correction wins over it. No model output feeds the counts. Model-owned: who has a page follows it at once.
 
+## detail-tags.jsonl
+
+Which kind of detail a fact states (`DETAILS`, `records/observation.ts`), written by the nightly's `details` step (the
+fast-tier model, `memory/detail-tags.ts`), append-only: `{schemaVersion: 1, observation, detail, madeBy, at}`. It reads
+each shown, non-conditional fact naming a person by its text alone, newest first, once per prompt version. `detail`
+null: judged, not a detail; no line: not judged yet. The latest line per observation wins. A tagged fact shows on its
+home page (`homeOf`) under its kind while it is current; it goes as any fact goes. Model-owned.
+
 ## decisions.jsonl
 
 His decisions: Life's fact checks and what he answered (`records/decision.ts`). Append-only, one line per step
@@ -445,7 +453,8 @@ name their agent (agents-2026-10-31)" hold both sides.
 ## The search index (not in memory/)
 
 `derived/memory/index.sqlite` is rebuilt from `observations/` and `units/` by `bun life memory index` (and by the nightly run, once, at the end):
-table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones), full-text table
+table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones, its `home` page and the
+`detail` it states), full-text table
 `search` (claim and quote, accent-insensitive) and table `links` (observation, entity); and the units: table `units`,
 full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).

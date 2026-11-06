@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { clock, DAY } from "../core/clock";
+import { clock } from "../core/clock";
 import { CANDIDATES } from "../core/embedder";
 import { newestIn } from "../core/files";
 import { fuse } from "../core/fusion";
@@ -10,13 +10,14 @@ import { openReadOnly } from "../core/sqlite";
 import type { Episode } from "../records/episode";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import {
+  type Detail,
   INFERRED_USE_AT,
   Level,
   type Observation,
 } from "../records/observation";
-import type { Person } from "../records/truth";
 import type { Unit, Verdict } from "../records/unit";
 import { KEEP_AT } from "../records/unit";
+import { type Contact, readContactRecords } from "../sources/contacts";
 import {
   conversationsWith,
   lifelogMissing,
@@ -33,11 +34,21 @@ import {
   openItems,
   openLinked,
 } from "../todo-list/items";
-import { levelsWith } from "./closeness";
+import { levelsWith, pagedNow } from "./closeness";
 import {
   communicationStyleBlock,
   readCommunicationStyle,
 } from "./communication-style";
+import {
+  BIRTHDAY_DAYS,
+  birthdayIn,
+  birthdaysNear,
+  type DetailFact,
+  detailOf,
+  detailsBlock,
+  detailsOf,
+  readDetailTags,
+} from "./details";
 import { span } from "./episode-span";
 import {
   daysOf,
@@ -60,7 +71,13 @@ import {
   writtenPeople,
 } from "./ledger";
 import { SURE_AT } from "./observe";
-import { bodyOf, generated, parsePage, renderLine } from "./page-format";
+import {
+  bodyOf,
+  generated,
+  homeOf,
+  parsePage,
+  renderLine,
+} from "./page-format";
 import { stayOf, staysOf, where } from "./places";
 import {
   goalProjects,
@@ -80,6 +97,7 @@ import {
   newestDays,
   normalize,
   normalizeTopics,
+  PERSON,
   slugOf,
   time,
 } from "./units";
@@ -104,7 +122,7 @@ import {
   readChatTexts,
   repliesOwed,
 } from "./words";
-import { dayNow, dayStart, localDate, when } from "./zones";
+import { dayNow, dayStart, localDate } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (apps/server/src/host/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
@@ -573,9 +591,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const ref = `person:${id}`;
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
-  const birthday = mapped?.birthday
-    ? [`Birthday: ${birthdayText(nextBirthday(mapped.birthday, dayNow()))}`, ""]
-    : [];
+  const details = detailsBlock(readDetailsOf(folks)(ref), dayNow());
   const close = closenessLine(ref, folks);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
@@ -632,7 +648,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
         ...(before
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
-              ...birthday,
+              ...details,
               ...close,
               ...situationBlock("Situation", readSituationNow(ref, live)),
               ...communicationStyleBlock(
@@ -822,8 +838,9 @@ export function dayLines({
 
 export async function day(date: string) {
   const people = await readPeople();
-  const { truth } = people;
-  const born = birthdaysNear(truth.people, date);
+  const born = (await readBirthdaysNear(people, date)).map(
+    (b) => `- ${b.name} (\`person ${b.id}\`): ${b.text}`
+  );
   const actions = readLedger().filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
@@ -872,53 +889,6 @@ export async function day(date: string) {
     });
   });
 }
-
-/** How far ahead `read_day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */
-const BIRTHDAY_DAYS = 7;
-
-/**
- * A birthday (`--MM-DD`, or `YYYY-MM-DD`) seen from `today`: its next date, the days left, and the age then when the
- * year is known.
- */
-export function nextBirthday(birthday: string, today: string) {
-  const [year = 0, month = 1, dom = 1] = birthday
-    .replace("--", "0-")
-    .split("-")
-    .map(Number);
-  const from = Date.parse(`${today}T00:00:00Z`);
-  const on = (y: number) => Date.UTC(y, month - 1, dom);
-  // ponytail: a 29 Feb birthday falls on 1 Mar in other years (Date.UTC rolls over).
-  let at = on(Number(today.slice(0, 4)));
-  if (at < from) {
-    at = on(Number(today.slice(0, 4)) + 1);
-  }
-  const next = new Date(at).toISOString().slice(0, 10);
-  return {
-    age: year ? Number(next.slice(0, 4)) - year : null,
-    day: next,
-    left: Math.round((at - from) / DAY),
-  };
-}
-
-/** A `nextBirthday` as "12 Nov (in 3 days, turns 33)". */
-export const birthdayText = (b: ReturnType<typeof nextBirthday>) =>
-  `${when(b.day).date} (${b.left === 0 ? "today" : `in ${b.left} day${b.left === 1 ? "" : "s"}`}${b.age ? `, turns ${b.age}` : ""})`;
-
-/**
- * The birthdays from `date` to `BIRTHDAY_DAYS` later of everyone on his map with one: he wrote each, so each person
- * matters to him. Soonest first.
- */
-export const birthdaysNear = (
-  people: Pick<Person, "birthday" | "id" | "name">[],
-  date: string
-) =>
-  people
-    .flatMap((p) =>
-      p.birthday ? [{ b: nextBirthday(p.birthday, date), p }] : []
-    )
-    .filter(({ b }) => b.left <= BIRTHDAY_DAYS)
-    .toSorted((x, y) => x.b.left - y.b.left)
-    .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
  * What `read_day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
@@ -1158,7 +1128,8 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, importance integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text);
+  superseded_by text, home text, detail text);
+create index observations_home on observations (home);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
@@ -1239,6 +1210,13 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
   }
 }
 
+/** Where each observation lives (`homeOf`) and the detail it states (`detailOf`), as the index files it. */
+interface Filed {
+  detail: (o: Observation) => Detail | null;
+  home: (o: Observation) => string | null;
+}
+const NOT_FILED: Filed = { detail: () => null, home: () => null };
+
 /**
  * derived/memory/index.sqlite, rebuilt from scratch (`writeIndex`): observations (with the observation that replaced
  * each retired one, and its end date), full-text search over claims and quotes, links; the units (`indexUnits`), so
@@ -1249,7 +1227,8 @@ export function buildIndex(
   path: string,
   standing: Standing,
   units: IndexedUnit[] = [],
-  builtAt = clock()
+  builtAt = clock(),
+  filed: Filed = NOT_FILED
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -1261,7 +1240,7 @@ export function buildIndex(
       .values();
     db.run(tables.map(([t]) => `drop table "${t}";`).join("") + INDEX_SCHEMA);
     db.run("insert into rebuilt values (?)", [builtAt.toISOString()]);
-    const row = insertInto(db, "observations", 17);
+    const row = insertInto(db, "observations", 19);
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "links", 2);
     for (const o of unique.values()) {
@@ -1283,7 +1262,9 @@ export function buildIndex(
         o.validFrom,
         retired?.validTo ?? o.validTo,
         o.when,
-        retired?.by ?? null
+        retired?.by ?? null,
+        filed.home(o),
+        filed.detail(o)
       );
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
@@ -1327,13 +1308,70 @@ export async function readSearchedTexts(): Promise<{
   };
 }
 
+/** Every person's details now (`detailsOf`): truth/, his Contacts (whose by `resolve`) and the tagged facts on their page. */
+export function readDetailsOf(
+  people: Pick<People, "resolve" | "truth">,
+  records: Contact[] = readContactRecords()
+) {
+  const contacts = new Map<string, Contact[]>();
+  for (const c of records) {
+    const ref = c.handles.map(people.resolve).find(Boolean);
+    if (ref) {
+      contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
+    }
+  }
+  const facts = Map.groupBy(
+    readIndex((db) =>
+      db
+        .query<DetailFact & { home: string }, []>(
+          `select o.id, o.text, o.date, o."when", o.detail, o.home from observations o
+           where o.detail is not null and o.home is not null and ${CURRENT}`
+        )
+        .all()
+    ) ?? [],
+    (f) => f.home
+  );
+  const mapped = new Map(people.truth.people.map((p) => [`person:${p.id}`, p]));
+  return (ref: string) =>
+    detailsOf({
+      contacts: contacts.get(ref) ?? [],
+      facts: facts.get(ref) ?? [],
+      person: mapped.get(ref),
+    });
+}
+
+/** The birthdays of the coming week (`birthdaysNear`) of everyone on his map or with a page. */
+export async function readBirthdaysNear(people: People, date: string) {
+  const detailsFor = readDetailsOf(people);
+  const refs = new Set([
+    ...people.truth.people.map((p) => `person:${p.id}`),
+    ...(await pagedNow(people)),
+  ]);
+  return birthdaysNear(
+    [...refs].map((ref) => ({
+      birthday: birthdayIn(detailsFor(ref)),
+      id: ref.replace(PERSON, ""),
+      name: people.nameOf(ref),
+    })),
+    date
+  );
+}
+
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const at = clock();
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = indexedOf(await readUnits(), people, verdicts);
   const { observations, standing } = await observationsNow(people);
-  const n = buildIndex(observations, INDEX, standing, units, at);
+  const paged = await pagedNow(people);
+  const tags = readDetailTags();
+  const homes = new Map(
+    observations.map((o) => [o.id, homeOf(o, people.truth, paged)])
+  );
+  const n = buildIndex(observations, INDEX, standing, units, at, {
+    detail: (o) => detailOf(o, tags),
+    home: (o) => homes.get(o.id) ?? null,
+  });
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
