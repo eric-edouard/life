@@ -178,9 +178,6 @@ const Env = z.object({
   // each send waits for its transcript in the answer, for a host the internet can't reach. A
   // restart during that wait leaves the send maybe billed and its block untranscribed.
   ELEVENLABS_WEBHOOK_SECRET: z.string().min(1).optional(),
-  // Search by meaning's embedder (Life's core/embedder.ts), which Lifelog Host runs on loopback; without it only the
-  // app's keyword search works.
-  EMBEDDER_URL: z.url().optional(),
   // The speaker embedding service (apps/identity), with the same IDENTITY_SECRET as that service.
   // Recognition is unavailable without it.
   IDENTITY_SECRET: z.string().min(16).optional(),

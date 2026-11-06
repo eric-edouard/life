@@ -1,23 +1,14 @@
 import { expect, test } from "bun:test";
-import { EMBEDDER_MODEL } from "../core/embedder";
-import { setSettings } from "../core/settings";
+import { EMBEDDER_MODEL, embedderAt } from "../core/embedder";
 import { embedNew, embedQuery, readNearest } from "./vectors";
 
-test("with no embedder set, or one down, search says it ranks by words alone; only a loopback one is taken", async () => {
-  expect(await embedQuery("vitre")).toEqual({
-    note: "(by words only: no embedder set)",
+test("with no embedder, or one down, search says it ranks by words alone", async () => {
+  expect(await embedQuery("vitre", null)).toEqual({
+    note: "(by words only: no voice source, so no embedder)",
   });
-  expect(() =>
-    setSettings({ embedder: { url: "https://example.com" } })
-  ).toThrow();
-  setSettings({ embedder: { url: "http://127.0.0.1:1" } });
-  try {
-    expect((await embedQuery("vitre")).note).toStartWith(
-      "(by words only: the embedder is down"
-    );
-  } finally {
-    setSettings({ embedder: null });
-  }
+  expect(
+    (await embedQuery("vitre", embedderAt("http://127.0.0.1:1"))).note
+  ).toStartWith("(by words only: the embedder is down");
 });
 
 test("a part the embedder refuses is skipped and said; the older texts are still embedded", async () => {

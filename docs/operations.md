@@ -269,7 +269,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   or from `--from`), note versions and messages to AI assistants (any age), then mail (the last 90 days, no
   newsletters nor Life's own, the best 5 thread-days: `searchableMail`). `--from`/`--to` bound every section. Each
   section ranks by meaning and by words (holding them all), fused (`fuse`); by words alone, said in its first line,
-  when the `embedder` setting is off or the embedder is down. The watcher embeds what is new every 10 minutes
+  when Life reads no voice source (the embedder is Lifelog Host's, `EMBEDDER_URL`) or the embedder is down. The watcher embeds what is new every 10 minutes
   (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete: it embeds it all again).
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
   its conversation as it is now, 5 turns before it.

@@ -47,15 +47,14 @@ const vectorsOf = (json: unknown) =>
     .data.sort((a, b) => a.index - b.index)
     .map((d) => d.embedding);
 
-const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
-/** Whether `url` is on this Mac: the only embedder texts are sent to. */
-export const isLoopback = (url: string) => LOOPBACK.has(new URL(url).hostname);
+/**
+ * Where Lifelog Host runs the embedder, on this Mac only (its `Host.embedderPort`, `embedder.test.ts` checks): the one
+ * address lifelog's search and Life's memory both embed at, so no text leaves the Mac.
+ */
+export const EMBEDDER_URL = "http://127.0.0.1:47615";
 
-/** The embedder at `url` (llama.cpp's OpenAI-shaped `/v1/embeddings`), on loopback only; it throws when the embedder is down. */
+/** The embedder at `url` (llama.cpp's OpenAI-shaped `/v1/embeddings`; `EMBEDDER_URL` but in tests); it throws when the embedder is down. */
 export function embedderAt(url: string): Embedder {
-  if (!isLoopback(url)) {
-    throw new Error(`the embedder must run on this Mac, not at ${url}`);
-  }
   return {
     embed: async (texts, as) => {
       const res = await fetch(new URL("/v1/embeddings", url), {

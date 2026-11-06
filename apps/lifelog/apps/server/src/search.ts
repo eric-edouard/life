@@ -8,6 +8,7 @@
 // - Nothing leaves the Mac: the embedder listens on loopback.
 import {
   CANDIDATES,
+  EMBEDDER_URL,
   type Embedder,
   embedAll,
   embedderAt,
@@ -20,7 +21,7 @@ import type { Db } from "@lifelog/db";
 import { searchIndex, searchPassages } from "@lifelog/db/schema";
 import { eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { touchedSince } from "./change-log";
-import { type Config, SEARCH, singleFlight } from "./config";
+import { SEARCH, singleFlight } from "./config";
 import { type LoadedTurn, loadTurns } from "./transcript";
 
 // ---- Passages -----------------------------------------------------------------
@@ -336,18 +337,11 @@ export interface Search {
   query: (q: Query) => Promise<Hit[]>;
 }
 
-// Null without EMBEDDER_URL (Lifelog Host always sets it): the app then searches with its own keyword index only (the
-// routes answer search_unavailable).
+// At the embedder Lifelog Host runs (`EMBEDDER_URL`, Life's core/embedder.ts).
 export function searchFor(
   db: Db,
-  config: Config,
-  embedder: Embedder | null = config.EMBEDDER_URL
-    ? embedderAt(config.EMBEDDER_URL)
-    : null
-): Search | null {
-  if (!embedder) {
-    return null;
-  }
+  embedder: Embedder = embedderAt(EMBEDDER_URL)
+): Search {
   // The change log read through; null until the first sweep.
   let cursor: number | null = null;
   // A sweep runs again when asked during one.

@@ -48,7 +48,7 @@ export function services(
     morning = morningPush(db, apns, config.APNS_TOPIC, queue),
     // Summaries, chapter by chapter as conversations go on, on the Mac.
     rolling = rollingChapters(db, { mac: intelligence, nudge }),
-    search = searchFor(db, config),
+    search = searchFor(db),
     voices = voiceUpkeep(db),
     // Cuts a job's clean turns from its bucket audio and embeds them (rebuild P3). Summaries
     // name speakers when read, so recognition starts nothing.

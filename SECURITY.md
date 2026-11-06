@@ -11,8 +11,8 @@ agents that act for him. This page says what it protects and what it does not.
   keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone and old note
   versions.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
-  (the `embedder` setting takes no other address); their vectors are derived (`derived/memory/vectors.sqlite`), kept
-  out of exports.
+  (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
+  (`derived/memory/vectors.sqlite`), kept out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
   named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup.
 

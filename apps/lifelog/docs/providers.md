@@ -122,8 +122,9 @@ is downloaded at run time and nothing it embeds leaves the Mac. Chosen on 5 Nov 
 (`search_passages`), rebuilt from the transcript. A passage of another model is re-embedded, never compared.
 
 **Ranking.** The 200 nearest passages above a similarity floor (0.25) and the passages holding every word of the
-query (an FTS5 trigram table) are merged by reciprocal rank fusion (`core/fusion.ts`). Without the embedder
-(`EMBEDDER_URL`), `POST /search` answers 503 and the app searches by keyword only.
+query (an FTS5 trigram table) are merged by reciprocal rank fusion (`core/fusion.ts`). The embedder is
+Lifelog Host's, at `EMBEDDER_URL` (`core/embedder.ts`), the one address lifelog and Life embed at; while it is down
+the passages holding every word rank alone.
 
 ## Vocabulary: hints to ElevenLabs
 

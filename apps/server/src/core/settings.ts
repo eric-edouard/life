@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { isLoopback } from "./embedder";
 import { Engine, SourceName } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
@@ -61,13 +60,6 @@ export const Settings = z
       .optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     devices: z.record(z.string().min(1), z.string().min(1)).optional(),
-    /** The embedder for search by meaning (Lifelog Host's, `core/embedder.ts`), on this Mac only: nothing leaves it. */
-    embedder: z
-      .object({
-        url: z.url().refine(isLoopback, "loopback only"),
-      })
-      .strict()
-      .optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */

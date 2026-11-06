@@ -5235,7 +5235,7 @@
             }
           },
           "503": {
-            "description": "The embedder is not configured (EMBEDDER_URL)",
+            "description": "Search is off on this server",
             "content": {
               "application/json": {
                 "schema": {

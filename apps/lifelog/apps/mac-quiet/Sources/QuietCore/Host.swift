@@ -9,7 +9,7 @@ public enum Host {
     public static let loopback = "http://127.0.0.1:\(port)"
     /// Speaker recognition's (apps/identity), on loopback beside it.
     public static let identityPort = 47614
-    /// Search by meaning's embedder (llama.cpp's server, Life's core/embedder.ts), on loopback too.
+    /// Search by meaning's embedder (llama.cpp's server), on loopback too: Life's core/embedder.ts `EMBEDDER_URL`.
     public static let embedderPort = 47615
 
     /// The embedder's arguments: `model` (a GGUF) served for embeddings only, on loopback. Four slots of 2048 tokens,
@@ -100,7 +100,6 @@ public enum Host {
             "MAC_TOKEN_HASH": secrets.macToken.map(sha256Hex),
             "CORRECTIONS_TOKEN_HASH": secrets.readerToken.map(sha256Hex),
             "ELEVENLABS_API_KEY": secrets.elevenLabsKey,
-            "EMBEDDER_URL": "http://127.0.0.1:\(embedderPort)",
             "RESTIC_BINARY": restic?.binary.path,
             "RESTIC_REPOSITORY": restic?.repository.path,
             "RESTIC_PASSWORD": restic == nil ? nil : secrets.resticPassword,

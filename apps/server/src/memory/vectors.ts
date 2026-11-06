@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import {
   bytesOf,
   EMBEDDER_MODEL,
+  EMBEDDER_URL,
   type Embedder,
   embedAll,
   embedderAt,
@@ -11,9 +12,9 @@ import {
   textHashOf,
   vectorOf,
 } from "../core/embedder";
-import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import { VECTORS } from "./ledger";
+import { listening } from "./sources";
 
 // Search by meaning's vectors (derived/memory/vectors.sqlite): one per text, kept under its hash (`textHashOf`), so a
 // text is embedded once whatever holds it and whatever rebuilds the index. Derived and safe to delete: the watcher
@@ -25,19 +26,17 @@ export interface Searched {
   text: string;
 }
 
-/** The embedder he set (`embedder`), or null: search then ranks by words alone. */
-export const embedderNow = (): Embedder | null => {
-  const url = settings().embedder?.url;
-  return url ? embedderAt(url) : null;
-};
+/** The embedder, Lifelog Host's: none when Life reads no voice source (no Host), and search ranks by words alone. */
+export const embedderNow = (): Embedder | null =>
+  listening() ? embedderAt(EMBEDDER_URL) : null;
 
 /** The query's vector, or the one line that says why the search ranks by words alone. */
 export async function embedQuery(
-  words: string
+  words: string,
+  embedder = embedderNow()
 ): Promise<{ note?: string; vector?: number[] }> {
-  const embedder = embedderNow();
   if (!embedder) {
-    return { note: "(by words only: no embedder set)" };
+    return { note: "(by words only: no voice source, so no embedder)" };
   }
   try {
     const [vector] = await embedder.embed([words], "query");
