@@ -35,8 +35,8 @@ app's supervisor. Don't design a step that waits on him: an uncertain inference 
 `memory/people-inferred.jsonl`), used at once and corrected later. His input arrives in conversation only (the one
 exception: Life's fact checks, which he answers on `/decisions` when he likes, never waited on).
 
-The rules below are for when he uses Life. Building it, never patch his data to make a reading right (a `correct` line,
-a `truth/` edit): a wrong fact is a bug in the step that read it; fix the step and let Life read again.
+The rules below are for when he uses Life. In a session changing Life's code or prompts, a wrong or missing fact is a bug
+in the step that produced it: fix that step with its regression case, never a `correct` line, even when he confirms it.
 
 - When he states or corrects a fact, record it before moving on: `bun life memory correct '<json>'` (kinds in
   `docs/SCHEMA.md`). When it's about who someone is, offer to add it to `truth/` and do it on his yes.
