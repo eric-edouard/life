@@ -39,6 +39,7 @@ import {
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { logChange, logPlacedIn } from "./change-log";
 import { uuidOf } from "./config";
+import { reportError } from "./diagnostics";
 import { record } from "./events";
 import { distanceM } from "./places";
 
@@ -534,7 +535,7 @@ export function regroupAfterCommit(db: Db, sourceIds: string[]) {
     try {
       groupSource(db, id);
     } catch (error) {
-      console.error(`grouping ${id}: ${String(error)}`);
+      reportError(db, "grouping", error);
       record(db, "grouping.failed", { source: id });
     }
   }

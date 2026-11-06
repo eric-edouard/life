@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
+import { lifelogServer } from "../../sources/store-fixtures";
 import {
   quietestAt,
-  redSources,
+  redCards,
   snapshot,
   stationsOf,
   toneOf,
@@ -136,7 +137,7 @@ test(
   "a source Life can't read is red and says why, so the tick mails it; an import never run is idle, so it doesn't",
   async () => {
     const red = new Map(
-      redSources((await snapshot()).cards).map((c) => [c.id, c])
+      redCards((await snapshot()).cards).map((c) => [c.id, c])
     );
     // The made-up data has no WhatsApp archive and no repos folder; claude.ai is imported or not, by the tests before.
     expect(red.get("whatsapp")?.headline).toBe("WhatsApp not archived yet");
@@ -176,6 +177,29 @@ test(
       });
     } finally {
       setSettings({ mail });
+    }
+  },
+  MIN
+);
+
+test(
+  "a phone silent 12 h is red, so the tick mails it: its app or its way to lifelog is down, not him quiet",
+  async () => {
+    const knownAt = new Date(Date.now() - 13 * HOUR).toISOString();
+    const server = lifelogServer({
+      "/status": () => ({ pendant: { knownAt, recording: "recording" } }),
+    });
+    // Past the snapshot's cache of lifelog's status, which earlier tests filled.
+    const later = performance.now() + DAY;
+    const timer = spyOn(performance, "now").mockReturnValue(later);
+    try {
+      const red = redCards((await snapshot()).cards);
+      expect(red.find((c) => c.id === "pendant")?.word).toBe(
+        "phone not reporting"
+      );
+    } finally {
+      timer.mockRestore();
+      server.close();
     }
   },
   MIN

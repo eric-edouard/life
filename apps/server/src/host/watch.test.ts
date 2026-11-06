@@ -1,9 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { MIN } from "../core/clock";
+import { HOUR, MIN } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as proc from "../core/proc";
 import { LEDGER, tasksOf } from "../memory/ledger";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as memoryLock from "../memory/memory-lock";
 import { apply } from "../sources/lifelog";
 import {
   turnFixture as fed,
@@ -11,20 +13,23 @@ import {
   lifelogStore,
   pageFixture,
 } from "../sources/store-fixtures";
-// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import type { Health } from "./health";
 import { hear } from "./hear";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as http from "./http/server";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as report from "./report";
 import {
   afterPoll,
   hearings,
   holdFor,
+  mailStuckLock,
   type Pending,
   resumed,
   watch,
 } from "./watch";
 
+const LOCK_KEY = /^lock\//;
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
 const fail = { error: "lifelog GET /changes: 502" };
@@ -187,5 +192,29 @@ test("lifelog down, the to-do minute still runs (1 Nov: 20 h of failed polls ran
       s.mockRestore();
     }
     server.close();
+  }
+});
+
+test("a run holding the lock over 3 h is mailed by the watcher, never while offline (a hung night blocks every tick)", async () => {
+  const held = spyOn(memoryLock, "lockedSince").mockReturnValue(
+    new Date(Date.now() - 4 * HOUR)
+  );
+  const sent = spyOn(report, "sendReport").mockResolvedValue(null);
+  const offline = spyOn(globalThis, "fetch").mockRejectedValue(
+    new Error("offline")
+  );
+  try {
+    await mailStuckLock();
+    expect(sent).not.toHaveBeenCalled();
+    offline.mockResolvedValue(new Response(null));
+    await mailStuckLock();
+    expect(sent).toHaveBeenCalledWith(
+      expect.stringMatching(LOCK_KEY),
+      expect.anything()
+    );
+  } finally {
+    for (const s of [held, sent, offline]) {
+      s.mockRestore();
+    }
   }
 });

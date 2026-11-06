@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
 import {
@@ -351,4 +352,20 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-process.exit(await command());
+/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr. */
+const crashed = (e: unknown) => {
+  console.error(e);
+  log("run.error", {
+    command: process.argv[2],
+    error: String(e),
+    step: "crash",
+  });
+  process.exit(1);
+};
+process.on("uncaughtException", crashed);
+process.on("unhandledRejection", crashed);
+try {
+  process.exit(await command());
+} catch (e) {
+  crashed(e);
+}

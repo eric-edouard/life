@@ -166,7 +166,8 @@ retried with backoff; in Low Power Mode only crash reports and event heartbeats 
   the app marks with `mxSignpost` on its `work` log, such as each Pendant page's status update).
 - Errors the app showed (`app_error`): where it was caught, the error's type and code, the HTTP
   status for a server error, a count per hour, the call stack, and the message cut to 300
-  characters. The server's own 500s land in the same table (`server_error`), without request bodies.
+  characters. The server's own failures land in the same table (`server_error`, a count per hour), without request
+  bodies: a route's 500, a background step's (`reportError`, route = the step) and a crash.
   A network that gave no answer (offline, a timeout, a dropped connection) is not one: the connection status shows it.
 - Heartbeat, at most every 6 h while the app runs, and at once when the Pendant connects or disconnects, when its
   recording changes (on, off, unknown), on a storage incident or a failed write, so `GET /status` shows the Pendant

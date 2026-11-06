@@ -35,6 +35,7 @@ import {
 import type { AudioStore } from "./audio-store";
 import { sha256Hex, singleFlight } from "./config";
 import { storeFragment } from "./cutter";
+import { reportError } from "./diagnostics";
 import { record } from "./events";
 import { regroupAfterCommit } from "./grouping";
 import { fragmentAudio, type PacketsOf } from "./page-audio";
@@ -473,7 +474,7 @@ export function pageProcessor(
     // A pass for `sourceId`, or every page source; a failure is logged.
     poke(sourceId?: string) {
       (sourceId === undefined ? run() : pass(sourceId)).catch(
-        (error: unknown) => console.error(`page processing: ${String(error)}`)
+        (error: unknown) => reportError(db, "page processing", error)
       );
     },
     run,

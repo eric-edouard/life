@@ -395,8 +395,12 @@ const pendantFacts = (
     value: typeof p?.batteryPercent === "number" ? `${p.batteryPercent}%` : "?",
   },
   { label: "Connection", value: p?.connection ?? "?" },
+  { at: p?.knownAt, label: "Phone last reported" },
   { at: spokeAt, label: "Newest speech heard" },
 ];
+
+/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to lifelog is down. */
+const PHONE_SILENT_MS = 12 * HOUR;
 
 /** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor): Card {
@@ -404,8 +408,18 @@ function pendantCard(r: Reads, d: Descriptor): Card {
   const recording = pendant?.recording === "recording";
   const spokeAt = r.turn.ok ? (r.turn.value ?? null) : null;
   const quiet = pendantQuiet(r, d, spokeAt);
+  const isPhoneSilent =
+    !!pendant?.knownAt && r.t - Date.parse(pendant.knownAt) > PHONE_SILENT_MS;
   return {
     ...firstOf(
+      [
+        isPhoneSilent,
+        {
+          ask: ASK("that the phone has not reported to lifelog for 12 hours"),
+          tone: "bad",
+          word: "phone not reporting",
+        },
+      ],
       [recording && quiet.tone === "warn", { tone: "warn", word: "silent" }],
       [recording, { tone: "ok", word: "recording" }],
       [true, quiet]
@@ -1176,9 +1190,14 @@ const RANK: Record<Tone, number> = {
   warn: 2,
 };
 
-/** The sources in red, Life can't read them now: the source alert mails them (`sourcesReport`), a quiet one (amber) not. */
-export const redSources = (cards: Card[]) =>
-  cards.filter((c) => c.group === "sources" && c.tone === "bad");
+/**
+ * The cards in red, something of Life's broken now: the alert mails them (`redReport`); amber and idle don't. A run's
+ * (pipeline) counts its own tries and mails once out of them; the Mac's repeats the archive's and the watcher's.
+ */
+export const redCards = (cards: Card[]) =>
+  cards.filter(
+    (c) => c.tone === "bad" && c.group !== "pipeline" && c.group !== "mac"
+  );
 
 /** Everything in the status snapshot now. */
 export async function snapshot(now = clock()) {

@@ -48,6 +48,7 @@ import {
 } from "drizzle-orm";
 import { logChange } from "./change-log";
 import { ownerClock, RECOGNITION } from "./config";
+import { reportError } from "./diagnostics";
 import { type Fields, record, recordedOn } from "./events";
 import {
   centroid,
@@ -991,7 +992,7 @@ export function voiceUpkeep(db: Db) {
         record(db, "voices.upkeep", fields);
       }
     } catch (error: unknown) {
-      console.error(`voice upkeep: ${String(error)}`);
+      reportError(db, "voice upkeep", error);
     }
   };
   return {

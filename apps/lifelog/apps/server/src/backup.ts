@@ -14,6 +14,7 @@ import { backupFiles, transcriptionJobs } from "@lifelog/db/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AudioStore, audioKey, storeAudio } from "./audio-store";
 import { sha256Hex } from "./config";
+import { reportError } from "./diagnostics";
 import type { Job } from "./jobs";
 
 export const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
@@ -158,9 +159,7 @@ export async function keepRaw(
     dropped.map((key) =>
       audio
         .delete(key)
-        .catch((error: unknown) =>
-          console.error(`snapshot ${key} not deleted: ${String(error)}`)
-        )
+        .catch((error: unknown) => reportError(db, "snapshot delete", error))
     )
   );
   return true;

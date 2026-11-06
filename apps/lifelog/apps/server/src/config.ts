@@ -22,6 +22,13 @@ export const setOwnerTimeZone = (zone: string | null | undefined) => {
   ownerZone = zone && isTimeZone(zone) ? zone : DEFAULT_TIME_ZONE;
 };
 
+// The build server errors name (`storeServerError`): BUILD_SHA's commit, set at start (index.ts).
+let build = "dev";
+export const serverBuild = () => build;
+export const setServerBuild = (sha: string | undefined) => {
+  build = sha?.slice(0, 7) ?? "dev";
+};
+
 // The owner's local date ("2026-10-11") and hour at `at`.
 export function ownerClock(at: Date) {
   const zone = ownerTimeZone();
@@ -221,16 +228,6 @@ export const uuidOf = (text: string) => {
   const h = sha256Hex(text);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-
-// Runs `work` and logs, never throws, what it throws: a background step whose failure is only
-// reported. (Async work does the same with `.catch`.)
-export function logged(what: string, work: () => void) {
-  try {
-    work();
-  } catch (error: unknown) {
-    console.error(`${what}: ${String(error)}`);
-  }
-}
 
 // One run per key at a time: a call while one runs makes it go round once more after it, and waits
 // for that. `idle` resolves once none runs. ponytail: in memory, one replica, like every loop here.

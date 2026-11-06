@@ -1,4 +1,4 @@
-import { clock, DAY, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
@@ -6,7 +6,7 @@ import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { LEDGER, readLedger } from "../memory/ledger";
-import { isLocked, locked } from "../memory/memory-lock";
+import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import {
   readSearchedTexts,
   readStaleness,
@@ -16,6 +16,7 @@ import {
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
 import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";
+import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
@@ -23,6 +24,7 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
+import { lockReport, sendReport } from "./report";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
@@ -261,7 +263,7 @@ export async function watch(): Promise<number> {
     serve();
   } catch (e) {
     // The watcher matters more than its server: it keeps polling and says why the server is off.
-    console.error("Life's server is off:", (e as Error).message);
+    log("run.error", { error: String(e), step: "watch.serve" });
   }
   sayActions();
   minute();
@@ -371,6 +373,25 @@ function minute() {
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "todo.tick" })
   );
+  mailStuckLock().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.lock" })
+  );
+}
+
+const STUCK_MS = 3 * HOUR;
+/** A run holding the lock over 3 hours, mailed from here: a hung night blocks every tick that could tell. Online only. */
+export async function mailStuckLock() {
+  const held = lockedSince();
+  if (
+    held &&
+    clock().getTime() - held.getTime() > STUCK_MS &&
+    (await isOnline())
+  ) {
+    await sendReport(
+      `lock/${held.toISOString()}`,
+      lockReport(held.toISOString())
+    );
+  }
 }
 
 function embedEvery() {
