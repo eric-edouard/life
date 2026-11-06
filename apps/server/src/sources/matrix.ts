@@ -95,6 +95,10 @@ export function blockOf(bridge: string, logins: Login[]) {
     : undefined;
 }
 
+/** Whether each login has reported a state: just after a start one has none yet, which `blockOf` would read as down. */
+export const hasStates = (logins: Login[]) =>
+  logins.every((l) => l.state?.state_event);
+
 /** His logins, as the bridge itself says; throws when it isn't answering. 3 s: the status snapshot waits for it. */
 export const readLogins = async (bridge: string) =>
   ((await provision(bridge, "whoami", { signal: AbortSignal.timeout(3000) }))

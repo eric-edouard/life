@@ -69,6 +69,20 @@ test("while another install's watcher runs on this Mac, a tick does nothing", as
   }
 });
 
+test("offline (his model provider unreachable), a tick runs nothing", async () => {
+  const offline = spyOn(globalThis, "fetch").mockRejectedValue(
+    new TypeError("fetch failed")
+  );
+  const said = spyOn(console, "log");
+  try {
+    expect(await nightly(7)).toBe(0);
+    expect(said.mock.calls.flat().join(" ")).toContain("offline: no tick");
+  } finally {
+    said.mockRestore();
+    offline.mockRestore();
+  }
+});
+
 test("the night drops run and eval folders past 30 days and log days past a year, nothing newer", async () => {
   const now = new Date("2026-11-05T03:00:00Z");
   const run = (name: string, age: number, folder = "runs") => {

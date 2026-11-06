@@ -141,7 +141,7 @@ export async function nightly(days: number, force = false) {
     console.log(`another Life runs here (${live?.note}): no tick`);
     return 0;
   }
-  // Offline (travelling, a VPN down) nothing can work: the tick runs nothing, so it spends no try and alerts nothing.
+  // Offline (`isOnline`): the tick runs nothing, so it spends no try and alerts nothing.
   if (!(force || (await isOnline()))) {
     log("offline");
     console.log("offline: no tick");
@@ -164,6 +164,7 @@ export async function nightly(days: number, force = false) {
   const states = () => ({
     backfill: readBackfill(),
     backup: readState("backup"),
+    bridges: readState("bridges"),
     midday: readMidday(),
     night: readState(),
   });
@@ -183,20 +184,17 @@ export async function nightly(days: number, force = false) {
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
   );
-  // The bridges' daily restart, before the source alert judges them (`healBridges`); a failure only logs.
-  if (
-    !force &&
-    afterNightDue(now.getHours(), day, readState(), readState("bridges"))
-  ) {
-    let healed = false;
-    try {
-      await healBridges();
-      healed = true;
-    } catch (e) {
-      log("run.error", { error: String(e), step: "bridges" });
-    } finally {
-      recordState(day, healed, "bridges");
-    }
+  // The bridges' daily restart (`healBridges`), before the source alert judges them; a failure only logs.
+  const { bridges, night } = states();
+  if (!force && afterNightDue(now.getHours(), day, night, bridges)) {
+    const healed = await healBridges().then(
+      () => true,
+      (e) => {
+        log("run.error", { error: String(e), step: "bridges" });
+        return false;
+      }
+    );
+    recordState(day, healed, "bridges");
   }
   // Every source in red on the status snapshot, the one judge of a source's health: an email when a source's problem
   // is new that day. After the turn, so no run waits on it; a failure only logs.
