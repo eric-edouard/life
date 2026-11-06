@@ -81,7 +81,7 @@ function chatPerson(
 /**
  * The messages of each person's 1:1 chats and mail threads, by person ref: a chat where one other sender wrote, and not
  * a group by its id (its source's `group`: a WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list; its person who
- * the sender or the chat's name resolves to. Oldest first, as `events` are.
+ * the sender or the chat's name resolves to.
  */
 export function directChats(
   events: SourceEvent[],
@@ -95,7 +95,10 @@ export function directChats(
   ).values()) {
     const who = chatPerson(list, resolve);
     if (who && who !== OWNER) {
-      byPerson.set(who, [...(byPerson.get(who) ?? []), ...list]);
+      byPerson
+        .set(who, byPerson.get(who) ?? [])
+        .get(who)
+        ?.push(...list);
     }
   }
   return byPerson;

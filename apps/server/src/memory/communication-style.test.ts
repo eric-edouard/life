@@ -30,8 +30,17 @@ test("a sample is his newest 120 chat messages and 30 mails, oldest first", () =
   expect(mail[0]?.text).toBe("m10");
 });
 
-test("an example stays only as his own words in a chat message he was shown; a bad line goes", () => {
-  const chat = [{ text: "Ok ça marche, à demain !! 😘" }];
+test("an example stays only as his own words in a chat message he was shown; a bad line goes, an app he never wrote in too", () => {
+  const sample = {
+    chat: [
+      {
+        at: "2026-10-01 10:00",
+        source: "whatsapp",
+        text: "Ok ça marche, à demain !! 😘",
+      },
+    ],
+    mail: [],
+  } as const;
   const reply = {
     lines: [
       {
@@ -41,17 +50,24 @@ test("an example stays only as his own words in a chat message he was shown; a b
         text: "Short, warm, no capitals.",
       },
       { examples: [], kind: "fax", text: "Not a kind." },
+      {
+        examples: [],
+        kind: "chat",
+        source: "line",
+        text: "No LINE in the sample.",
+      },
     ],
   };
-  expect(styleLines(reply, chat)).toEqual([
+  expect(styleLines(reply, sample)).toEqual([
     {
       examples: ["Ok ça marche"],
       kind: "chat",
       source: "whatsapp",
       text: "Short, warm, no capitals.",
     },
+    { examples: [], kind: "chat", text: "No LINE in the sample." },
   ]);
-  expect(styleLines("not json", chat)).toEqual([]);
+  expect(styleLines("not json", sample)).toEqual([]);
 });
 
 test("a style is rebuilt when there is none, or a week old with new messages", () => {

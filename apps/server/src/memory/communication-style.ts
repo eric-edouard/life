@@ -65,11 +65,15 @@ export function sampleOf(sent: SourceEvent[]) {
 
 /**
  * The reply's lines, each example kept only as his own words in a chat message he was shown (`locate`): a mail's text
- * holds quoted history, never an example.
+ * holds quoted history, never an example. A `source` he wrote nothing in is dropped.
  */
-export function styleLines(reply: unknown, chat: { text: string }[]) {
+export function styleLines(
+  reply: unknown,
+  { chat, mail }: ReturnType<typeof sampleOf>
+) {
   const list = (reply as { lines?: unknown } | null)?.lines;
   const shown = chat.map((m) => m.text);
+  const sources = new Set([...chat, ...mail].map((m) => m.source));
   return (Array.isArray(list) ? list : []).flatMap((raw) => {
     const l = CommunicationStyleLine.safeParse(raw);
     if (!l.success) {
@@ -79,7 +83,14 @@ export function styleLines(reply: unknown, chat: { text: string }[]) {
       const found = locate(x, shown);
       return found ? [found.verbatim] : [];
     });
-    return [{ ...l.data, examples }];
+    const { source, ...line } = l.data;
+    return [
+      {
+        ...line,
+        examples,
+        ...(source && sources.has(source) ? { source } : {}),
+      },
+    ];
   });
 }
 
@@ -134,7 +145,7 @@ export async function communicationStyles({ events, failed }: WithPeople) {
           input,
           prompt: COMMUNICATION_STYLE_PROMPT,
         });
-        const lines = styleLines(reply, t.sample.chat);
+        const lines = styleLines(reply, t.sample);
         // A reply with no line is a failed call: the last style stays, the next run retries.
         if (lines.length === 0) {
           throw new Error("no style line");
