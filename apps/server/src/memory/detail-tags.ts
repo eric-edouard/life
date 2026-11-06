@@ -8,6 +8,7 @@ import {
   type Observation,
   ObservationId,
 } from "../records/observation";
+import { KEEP_AT } from "../records/unit";
 import { readDetailTags } from "./details";
 import { DETAIL_TAGS } from "./ledger";
 import { begin, checkedEntries, chunks, inBatches } from "./run";
@@ -22,7 +23,7 @@ const DETAILS_PROMPT = "memory-details.v1";
 const PER_CALL = 100;
 
 /**
- * The facts to tag: shown, naming a person, never conditional, with no tag by the current prompt; newest first, so a
+ * The facts to tag: those that can be page lines (as `placed`: kept, never conditional), naming a person, with no tag by the current prompt; newest first, so a
  * night that stops early has tagged what is fresh.
  */
 export const untagged = (
@@ -33,6 +34,7 @@ export const untagged = (
   observations
     .filter(
       (o) =>
+        o.importance >= KEEP_AT &&
         o.modality !== "conditional" &&
         [o.about, ...o.entities].some((e) => e && PERSON.test(e)) &&
         tags.get(o.id)?.madeBy.prompt !== prompt
