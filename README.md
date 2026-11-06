@@ -7,6 +7,8 @@
 A memory of your whole life, kept on your own Mac. Ask Claude or ChatGPT about anything you said, wrote, promised or
 did, and get an answer that cites where it comes from.
 
+<sub>Early: built for one person, run from source on an Apple-silicon Mac that stays on.</sub>
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-181818.svg)](LICENSE)
 ![macOS 14+ on Apple silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-181818.svg)
 ![Local first](https://img.shields.io/badge/memory-on%20your%20Mac-181818.svg)
@@ -36,39 +38,40 @@ Mac. Your assistant reads that memory through Life's connector and answers from 
 >
 > | Goal | Status | Evidence |
 > |---|---|---|
-> | Ship Tidepool beta by end of Nov | Ahead of schedule | Worked on the tide chart 16 Oct (ep_3416e407e9e6). Fixed the crash and sent the beta to Ana, Leo and Mia 19 Oct (ep_563817b2b66f, obs_6b8d2521db63) |
-> | Run 3×/week | 2 of 3 | Runs on 15 Oct (ep_b2eb56438b20) and 21 Oct (ep_04ec93af44ac). You skipped Sunday's run after coding until 2am, and wrote "skipped the run *again*" (obs_4b2bd9112c2a) |
-> | See friends weekly | No record | Only WhatsApp chats with Ana. Life doesn't log time together it didn't record |
-> | Keep the flat in order | Done | Rent sent 15 Oct, a day before you promised (obs_7938971d6db7, obs_58f120ffa801). Plumber fixed the sink 17 Oct (obs_a5b48d28a3c9) |
+> | Ship Tidepool beta by end of Nov | Ahead | Beta sent to Ana, Leo and Mia on 19 Oct (ep_563817b2b66f) |
+> | Run 3×/week | 2 of 3 | Ran 15 and 21 Oct; skipped Sunday after coding until 2am, "*again*" (obs_4b2bd9112c2a) |
+> | See friends weekly | No record | Only WhatsApp chats with Ana |
+> | Keep the flat in order | Done | Rent sent a day early (obs_58f120ffa801); sink fixed 17 Oct (obs_a5b48d28a3c9) |
 >
 > **The main pattern:** coding late at night is pushing out your runs. The Tidepool progress is real, but a 2am night
 > is what cost you a run.
 >
 > **For next week:** stop coding by midnight, especially before a run day. Ana's birthday dinner on Saturday counts
-> for friends; you said you'd bring the cake (obs_6d8ac0e8764c). And Claire Dupont is supposed to send the 2027 lease
-> by 31 Oct (obs_63f9c7b97304): chase it if it hasn't come.
+> for friends; you said you'd bring the cake (obs_6d8ac0e8764c).
 
 A real run, trimmed, on a made-up person: Claude Code with Life's read commands as its only tool, on the demo memory
-[`scripts/demo.ts`](scripts/demo.ts) writes. The goals are the ones written in that person's `me.md`. Each `obs_…` and
-`ep_…` id opens the fact or the episode, and the message it came from.
+[`scripts/demo.ts`](scripts/demo.ts) writes; Claude.ai and ChatGPT get the same reads through Life's connector. The
+goals are the ones that person wrote in `truth/me.md`. In your assistant, each `obs_…` (a fact) and `ep_…` (an episode)
+id opens what it cites and the message it came from.
 
 More to ask, each answered the same way:
 
 - What did I promise my landlord last week? Did I keep it?
 - Where was I on the evening of the 14th, and who was I with?
 - How are things with Ana right now?
-- Draft my reply to Hans, the way I usually write to him.
+- Draft my reply to Ana, the way I usually write to her.
 - What did the message Leo deleted on WhatsApp say?
 - Where did my hours go this week: which apps, which projects?
 - What's coming up in the next ten days that I shouldn't forget?
 
 Full transcripts and more questions: [examples](docs/examples.md).
 
-### It also works when you don't ask
+## It also works when you don't ask
 
 - Each morning you get the night's report: what's new, what's due, what you promised and to whom.
 - When Life isn't sure about a fact, it asks you on its decisions page, one question at a time, whenever you like.
-- Say "hey Orbit, book the dentist" near your recorder: Life hears it, and your agent picks it up and gets on with it.
+- Name an agent of yours (say, Orbit) and say "hey Orbit, book the dentist" near your recorder: Life hears it, and
+  Orbit picks it up and gets on with it.
 - If a source stops reading (WhatsApp signed out, a bridge down), you get one email that day saying which.
 
 ## 1. Capture
@@ -98,7 +101,7 @@ What each source reads, exactly: [sources](docs/sources.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
-  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become units, a chat-day each; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, communication styles and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
+  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become conversations, one per day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, communication styles and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
 </picture>
 
 A model reads your life the way you'd tell it: a day at a time, every channel together. The voice note, the WhatsApp
@@ -139,7 +142,7 @@ It changes only two things, and only when you ask: a correction to the memory, a
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/calendar-dark.png">
-  <img src="assets/readme/calendar-light.png" alt="The Past calendar for a made-up week: a run, a dentist visit, lunch with Ana, an evening on Tidepool, the plumber fixing the sink, each episode as an event.">
+  <img src="assets/readme/calendar-light.png" alt="The Past calendar for the made-up week of 15 to 21 October: two morning runs, paying the rent, evenings on Tidepool, the plumber fixing the sink, each episode as an event.">
 </picture>
 
 - Your to-do list is Apple Reminders or Google Tasks. Life adds, ticks and moves items when you ask, and remembers who
@@ -162,7 +165,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 |---|---|
 | Reading | One model for every step: your Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an [allmodels.io](https://allmodels.io) key. Outputs are cached by input and prompt, so a night re-reads only what changed. |
 | Search by meaning | [EmbeddingGemma 300M](https://huggingface.co/google/embeddinggemma-300m), run by llama.cpp on your Mac, for your voice and your memory alike. No text leaves the Mac to be embedded. |
-| Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe takes the languages these miss, or all of it if you prefer. |
+| Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
 | Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; the pages in React; lifelog's iPhone and Watch apps in Swift 6. |
@@ -191,13 +194,6 @@ open dist/Life.app
 Life's settings open on first launch. Enter your name and press **Start Life**. Pick the model under **Thinking**,
 turn on the sources you want, and press **Open Full Disk Access** to allow Life there. Turn on **Open Life at login**
 so it starts with the Mac.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/status-dark.png">
-  <img src="assets/readme/status-light.png" alt="Life's status window: sources, capture, pipeline, memory and outputs, each as a card with its state.">
-</picture>
-
-<sub>The status window in Life.app, on made-up demo data before its first night.</sub>
 
 The cost is your model usage, nothing else: each night makes about one call per day it reads, then more for the facts
 and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips the
