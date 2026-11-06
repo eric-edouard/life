@@ -6,24 +6,28 @@ import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
+import {
+  layoutOf,
+  type PageLine,
+  perSection,
+  renderPage,
+} from "@life/server/src/memory/page-format";
+import { ownerHold } from "@life/server/src/memory/pages";
+import { readMe } from "@life/server/src/memory/read-truth";
 import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 
-// A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
-// apps/server/src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
-// It reads no source: its settings turn every source off. `demo.test.ts` checks the README's ids against it.
+// A made-up Life for the README and docs/examples.md: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
+// apps/server/src/test-data, plus a week of invented memory: a landlord, a plumber, a friend, runs, a side project and the owner's goals) and builds its search index.
+// It reads no source: its settings turn every source off. `demo.test.ts` checks the ids both cite against it.
 //
-// The README's transcript is Claude Code with Life's read commands on that copy as its only tool:
+// Their transcripts are Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
 //     --allowedTools "Bash(env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state bun <repo>/apps/server/src/host/cli.ts memory:*)" \
 //     --append-system-prompt "Read the user's memory only with: env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state \
-//       bun <repo>/apps/server/src/host/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
-//     "What did I promise my landlord last week? Did I keep it?"
-//
-// The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/snapshot.ts), run with the same
-// LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the status snapshot as JSON; the cards about the Mac's own services were deleted from it
-// (/me and the whole Mac row), and Life.app's StatusWindow was drawn from
-// what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
-// Contacts readable and the archive copying, but none of its data.
+//       bun <repo>/apps/server/src/host/cli.ts memory search|person|day …, one command per call. For a broad question about the user, \
+//       read \`person me\` first. Today is Thursday 22 October 2026. Cite observation and episode ids. Answer concisely." \
+//     "Has my past week been aligned with my goals? What should I change next week?"
+// (The landlord transcript ran on 22 Oct with an earlier, shorter prompt.)
 
 const out = resolve(process.argv[2] ?? "");
 const inside = (root: string) => !relative(root, out).startsWith("..");
@@ -60,14 +64,34 @@ const hex = (s: string, n: number) =>
 
 writeFileSync(
   join(state, "settings.json"),
-  JSON.stringify({ agent: { name: "Orbit", wake: ["orbit"] }, sources: [] })
+  JSON.stringify({ agents: { Orbit: { wake: ["orbit"] } }, sources: [] })
 );
 write(join(data, "memory/zones.jsonl"), [
   { from: "2019-01-01T00:00:00.000Z", schemaVersion: 1, tz: "Europe/Lisbon" },
 ]);
+const me =
+  "Sam, Life's made-up demo owner.\n\n## Goals\n1. Ship Tidepool's first beta by the end of November.\n2. Run three times a week.\n3. See friends at least once a week.\n4. Keep the flat in order.";
+const meFile = `# Me\n\n${me}\n`;
+writeFileSync(join(data, "truth/me.md"), meFile);
+// His page as the first night writes it (pages.ts), holding truth/me.md: `person me` shows his goals from it.
+mkdirSync(join(data, "memory/pages/people"), { recursive: true });
 writeFileSync(
-  join(data, "truth/me.md"),
-  "# Me\n\nSam, Life's made-up demo owner.\n\n## Goals\n1. Keep the flat in order.\n"
+  join(data, "memory/pages/people/me.md"),
+  renderPage({
+    hold: ownerHold(readMe(meFile)),
+    layout: layoutOf("person:me"),
+    meta: {
+      built: "2026-10-22T02:40:00.000Z",
+      madeBy,
+      name: "Sam Doe",
+      page: "person:me",
+      schemaVersion: 1,
+      seen: madeBy.run,
+    },
+    owner: [],
+    sections: perSection<PageLine>(),
+    title: "Sam Doe",
+  })
 );
 writeFileSync(
   join(data, "truth/people.yaml"),
@@ -85,11 +109,16 @@ people:
 type Fact = [string, string, string, string, string[], string?];
 interface Demo {
   at: string;
-  episode?: { place: string | null; title: string; with: string };
+  episode?: {
+    end?: string;
+    place: string | null;
+    title: string;
+    with?: string;
+  };
   facts: Fact[];
   key: string;
   ref: string;
-  source: "lifelog" | "mail" | "whatsapp";
+  source: "git" | "lifelog" | "mail" | "whatsapp";
   title: string;
 }
 const DEMO: Demo[] = [
@@ -168,6 +197,69 @@ const DEMO: Demo[] = [
     title: "Kitchen sink repair with the plumber",
   },
   {
+    at: "2026-10-15 07:30",
+    episode: {
+      end: "2026-10-15 08:15",
+      place: "Ribeira das Naus",
+      title: "Morning run along the river",
+    },
+    facts: [],
+    key: "conv-demo-run-1",
+    ref: "job-demo-2:0@2026-10-15T06:30:00.000Z",
+    source: "lifelog",
+    title: "Morning run",
+  },
+  {
+    at: "2026-10-16 20:10",
+    episode: {
+      end: "2026-10-16 23:40",
+      place: "home",
+      title: "Worked on Tidepool: the tide chart",
+    },
+    facts: [],
+    key: "tidepool",
+    ref: "git:tidepool/2026-10-16",
+    source: "git",
+    title: "tidepool",
+  },
+  {
+    at: "2026-10-18 09:20",
+    facts: [
+      [
+        "news",
+        "Sam told Ana he skipped his Sunday run because he went to bed at 2.",
+        "Skipped the run again, I was up coding until 2",
+        "me",
+        ["ana"],
+      ],
+    ],
+    key: "351910000002@s.whatsapp.net",
+    ref: "whatsapp:351910000002@s.whatsapp.net/C1",
+    source: "whatsapp",
+    title: "Ana",
+  },
+  {
+    at: "2026-10-19 22:05",
+    episode: {
+      end: "2026-10-20 01:30",
+      place: "home",
+      title: "Fixed Tidepool's crash and sent the beta to three friends",
+    },
+    facts: [
+      [
+        "news",
+        "Sam sent the first Tidepool beta to three friends on 19 October, after fixing the tide chart crash.",
+        "Beta's out to Ana, Leo and Mia, the chart doesn't crash anymore",
+        "me",
+        ["ana"],
+      ],
+    ],
+    key: "351910000002@s.whatsapp.net",
+    ref: "whatsapp:351910000002@s.whatsapp.net/C2",
+    source: "whatsapp",
+    title: "Ana",
+  },
+  {
     at: "2026-10-20 21:30",
     episode: { place: "Luna", title: "Ana's birthday dinner", with: "ana" },
     facts: [
@@ -184,6 +276,19 @@ const DEMO: Demo[] = [
     ref: "whatsapp:351910000002@s.whatsapp.net/C3",
     source: "whatsapp",
     title: "Ana",
+  },
+  {
+    at: "2026-10-21 07:40",
+    episode: {
+      end: "2026-10-21 08:20",
+      place: "Ribeira das Naus",
+      title: "Morning run along the river",
+    },
+    facts: [],
+    key: "conv-demo-run-2",
+    ref: "job-demo-3:0@2026-10-21T06:40:00.000Z",
+    source: "lifelog",
+    title: "Morning run",
   },
   {
     at: "2026-10-21 11:02",
@@ -262,16 +367,18 @@ for (const d of DEMO) {
   ]);
   // A plan is a fact with its date, never an episode.
   if (d.episode && !d.facts.some((f) => f[5])) {
-    const { place, title } = d.episode;
+    const { end, place, title } = d.episode;
     write(join(data, `memory/episodes/${day}.jsonl`), [
       {
         copies: [],
         day,
-        end: null,
+        end: end ?? null,
         id: `ep_${hex(day + title, 12)}`,
         importance: 1,
         madeBy: { ...madeBy, prompt: EPISODES_PROMPT },
-        people: [{ ref: `person:${d.episode.with}`, role: "with" }],
+        people: d.episode.with
+          ? [{ ref: `person:${d.episode.with}`, role: "with" }]
+          : [],
         place,
         schemaVersion: 1,
         start: d.at,
