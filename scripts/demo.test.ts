@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("every fact and episode the README cites is in the demo scripts/demo.ts writes", () => {
+test("every fact and episode the README and the examples cite is in the demo scripts/demo.ts writes", () => {
   const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
   const run = Bun.spawnSync(["bun", join(import.meta.dir, "demo.ts"), out]);
   expect(run.exitCode).toBe(0);
@@ -15,7 +15,9 @@ test("every fact and episode the README cites is in the demo scripts/demo.ts wri
       )
     )
     .join("");
-  const readme = readFileSync(join(import.meta.dir, "../README.md"), "utf8");
+  const readme = ["../README.md", "../docs/examples.md"]
+    .map((f) => readFileSync(join(import.meta.dir, f), "utf8"))
+    .join("");
   const cited = [...readme.matchAll(/\b(?:obs|ep)_[0-9a-f]{12}\b/g)].map(
     (m) => m[0]
   );
