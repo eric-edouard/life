@@ -95,10 +95,12 @@ export function directChats(
   ).values()) {
     const who = chatPerson(list, resolve);
     if (who && who !== OWNER) {
-      byPerson
-        .set(who, byPerson.get(who) ?? [])
-        .get(who)
-        ?.push(...list);
+      const theirs = byPerson.get(who) ?? [];
+      byPerson.set(who, theirs);
+      // One by one: a spread of a chat of 100k messages would overflow the call's arguments.
+      for (const e of list) {
+        theirs.push(e);
+      }
     }
   }
   return byPerson;
