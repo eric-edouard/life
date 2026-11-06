@@ -134,7 +134,7 @@ It changes only two things, and only when you ask: a correction to the memory, a
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/calendar-dark.png">
-  <img src="assets/readme/calendar-light.png" alt="The Past calendar for the made-up week of 15 to 21 October: two morning runs, paying the rent, evenings on Tidepool, the plumber fixing the sink, each episode as an event.">
+  <img src="assets/readme/calendar-light.png" alt="An illustration of the Past calendar, a made-up week: two morning runs, paying the rent, evenings on Tidepool, the plumber fixing the sink, each episode as an event.">
 </picture>
 
 - Your to-do list is Apple Reminders or Google Tasks. Life adds, ticks and moves items when you ask, and remembers who
@@ -148,7 +148,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/stack-dark.png">
-  <img src="assets/readme/stack-light.png" alt="Where Life runs. On you: the recorder and lifelog on the iPhone. On your Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and your memory. Outside, only what you turn on: the model, your assistant over Tailscale, Google for the Past calendar or Tasks, Scribe for rare languages, the encrypted backup and Life's mail to you.">
+  <img src="assets/readme/stack-light.png" alt="Where Life runs. On you: the recorder and lifelog on the iPhone. On your Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and your memory. Outside the Mac: the model, your assistant over Tailscale, Google for the Past calendar or Tasks, Scribe for rare languages, the encrypted backup and Life's mail to you.">
 </picture>
 
 | Part | What it is |
