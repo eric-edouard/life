@@ -281,7 +281,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
   day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
   facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.
-- `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
+- `person [name] [--before d]`: the whole page, when it was built, their details (`memory/details.ts`), what Life holds by source and
   month, then every observation and episode linked to them, newest first, paging back with `--before`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.

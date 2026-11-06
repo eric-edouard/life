@@ -8,6 +8,7 @@ import {
 } from "../records/observation";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
+import { contactKeyOf } from "../sources/contacts";
 import {
   readCorrections,
   readInferred,
@@ -60,9 +61,24 @@ function nameIndex(people: Person[]) {
   return index;
 }
 
-/** Index of every handle in the map to the person who owns it. */
+/**
+ * Index of every handle in the map to the person who owns it: as written, and a phone or an email by its Contacts key
+ * too (`contactKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets.
+ */
 const handleIndex = (people: Person[]): Map<string, string> =>
-  new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
+  new Map(
+    people.flatMap((p) =>
+      handlesOf(p).flatMap((h) => {
+        const key = contactKeyOf(h);
+        return key && key !== h
+          ? [
+              [h, p.id],
+              [key, p.id],
+            ]
+          : [[h, p.id]];
+      })
+    )
+  );
 
 /**
  * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
@@ -92,7 +108,11 @@ function readingOf(
   const guessed = guessesOf(inferred);
   return (surface: string): string | null => {
     const ks = keysOf(surface);
-    const truth = handles.get(ks[0] ?? "") ?? handles.get(ks[1] ?? "");
+    const key = contactKeyOf(surface);
+    const truth =
+      handles.get(ks[0] ?? "") ??
+      handles.get(ks[1] ?? "") ??
+      (key ? handles.get(key) : undefined);
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
     const named = names.get(normalize(surface.trim().replace(PAREN, "")));
     const guesses = ks.map((k) => guessed.get(k));

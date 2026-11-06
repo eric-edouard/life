@@ -1,11 +1,13 @@
+import type { Database } from "bun:sqlite";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 
-// His Contacts: the Mac's AddressBook databases, opened read-only, never written. They name the people behind the
-// phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a number.
+// His Contacts: the Mac's AddressBook databases, opened read-only, never written. Each record is read whole: its name
+// names the phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a
+// number; the rest (birthday, work, addresses, family, profiles) are a person's details (`memory/details.ts`).
 
 const DIR = join(APP_DATA, "AddressBook");
 const FILE = "AddressBook-v22.abcddb";
@@ -14,6 +16,13 @@ const FILE = "AddressBook-v22.abcddb";
  * this written both ways (a Thai landline) is missed, and reads as its number.
  */
 const PHONE_DIGITS = 9;
+/** Core Data's dates count seconds from 2001-01-01 UTC. */
+const EPOCH_2001 = Date.UTC(2001, 0, 1);
+/** A year Contacts stores for a birthday given without one (1604, or none). */
+const YEAR_KNOWN_FROM = 1800;
+/** A label Contacts names itself ("_$!<Home>!$_"); one he typed is plain. */
+const BUILT_IN_LABEL = /^_\$!<(.*)>!\$_$/;
+const NEWLINES = /\n/g;
 
 /** A handle as Contacts and a source both write it: an email lower-cased, a phone by its last digits. */
 export const handleKey = (h: string) =>
@@ -21,11 +30,56 @@ export const handleKey = (h: string) =>
     ? h.trim().toLowerCase()
     : h.replace(/\D/g, "").slice(-PHONE_DIGITS);
 
-interface Row {
+/** A handle's key when it can name someone: an email, or a phone with enough digits; else undefined. */
+export const contactKeyOf = (h: string) => {
+  const key = handleKey(h);
+  return key.includes("@") || key.length >= PHONE_DIGITS ? key : undefined;
+};
+
+/** One Contacts record, whole. */
+export interface Contact {
+  /** Postal addresses, one line each, with their label ("12 rue Neuve, 44000 Nantes, France (Home)"). */
+  addresses: string[];
+  /** `YYYY-MM-DD`, or `--MM-DD` when Contacts has no year. */
+  birthday: string | null;
+  /** Its phone numbers and emails, as written. */
+  handles: string[];
+  /** The person's name, else the company's. */
+  name: string | null;
+  /** Social profiles ("Facebook: claire.d") and web addresses. */
+  profiles: string[];
+  /** Named relations ("Mother: Anne"). */
+  related: string[];
+  /** Job title, department and company of a person; null for a company's own record. */
+  work: string | null;
+}
+
+interface RecordRow {
+  birthday: number | null;
   company: string | null;
+  department: string | null;
   first: string | null;
-  handle: string | null;
+  id: number;
   last: string | null;
+  title: string | null;
+  year: number | null;
+}
+
+/** "_$!<Home>!$_" (a label Contacts names) as "Home"; a label he typed as typed. */
+const labelOf = (l: string | null) => l?.replace(BUILT_IN_LABEL, "$1") || null;
+
+const joined = (parts: (string | null | undefined)[], sep = ", ") =>
+  parts.filter(Boolean).join(sep) || null;
+
+/** A birthday as Contacts stores it (seconds from 2001, at noon UTC, and the year apart) in Life's form. */
+export function birthdayOf(seconds: number | null, year: number | null) {
+  if (seconds === null) {
+    return null;
+  }
+  const day = new Date(EPOCH_2001 + seconds * 1000).toISOString().slice(5, 10);
+  return year && year >= YEAR_KNOWN_FROM
+    ? `${String(year).padStart(4, "0")}-${day}`
+    : `--${day}`;
 }
 
 /** The AddressBook databases under `dir`: the Mac's own and each account's. */
@@ -39,37 +93,97 @@ function databases(dir: string) {
   ].filter(existsSync);
 }
 
-/** The names one database gives, by handle key, into `names` (the first name a handle has wins). */
-function readInto(file: string, names: Map<string, string>) {
+/** `sql`'s rows (`owner`, `line`) as each record's lines. */
+const linesBy = (db: Database, sql: string) =>
+  Map.groupBy(
+    db
+      .query<{ line: string | null; owner: number }, []>(sql)
+      .all()
+      .filter((r) => r.line),
+    (r) => r.owner
+  );
+
+/** The records of one database that have a phone or an email. */
+function readFrom(file: string): Contact[] {
   const db = openReadOnly(file);
   try {
-    const rows = db
-      .query<Row, []>(
-        `select r.ZFIRSTNAME as first, r.ZLASTNAME as last, r.ZORGANIZATION as company, h.handle from (
-           select ZOWNER as owner, ZFULLNUMBER as handle from ZABCDPHONENUMBER
-           union all select ZOWNER, ZADDRESS from ZABCDEMAILADDRESS) h
-         join ZABCDRECORD r on r.Z_PK = h.owner`
+    const handles = linesBy(
+      db,
+      `select ZOWNER as owner, ZFULLNUMBER as line from ZABCDPHONENUMBER
+       union all select ZOWNER, ZADDRESS from ZABCDEMAILADDRESS`
+    );
+    const addresses = db
+      .query<
+        {
+          city: string | null;
+          country: string | null;
+          label: string | null;
+          owner: number;
+          street: string | null;
+          zip: string | null;
+        },
+        []
+      >(
+        "select ZOWNER as owner, ZSTREET as street, ZZIPCODE as zip, ZCITY as city, ZCOUNTRYNAME as country, ZLABEL as label from ZABCDPOSTALADDRESS"
       )
       .all();
-    for (const r of rows) {
-      const name = [r.first, r.last].filter(Boolean).join(" ") || r.company;
-      const key = r.handle ? handleKey(r.handle) : "";
-      const usable = key.includes("@") || key.length >= PHONE_DIGITS;
-      if (name && usable && !names.has(key)) {
-        names.set(key, name);
+    const placed = Map.groupBy(addresses, (a) => a.owner);
+    const related = db
+      .query<{ label: string | null; name: string | null; owner: number }, []>(
+        "select ZOWNER as owner, ZNAME as name, ZLABEL as label from ZABCDRELATEDNAME"
+      )
+      .all();
+    const kin = Map.groupBy(related, (r) => r.owner);
+    const profiles = linesBy(
+      db,
+      `select ZOWNER as owner, coalesce(nullif(ZSERVICENAME, '') || ': ', '') || coalesce(ZUSERNAME, ZURLSTRING) as line
+         from ZABCDSOCIALPROFILE
+       union all select ZOWNER, ZURL from ZABCDURLADDRESS`
+    );
+    const records = db
+      .query<RecordRow, []>(
+        `select Z_PK as id, ZFIRSTNAME as first, ZLASTNAME as last, ZORGANIZATION as company, ZJOBTITLE as title,
+                ZDEPARTMENT as department, ZBIRTHDAY as birthday, ZBIRTHDAYYEAR as year from ZABCDRECORD`
+      )
+      .all();
+    return records.flatMap((r) => {
+      const own = (handles.get(r.id) ?? []).map((h) => h.line as string);
+      if (own.length === 0) {
+        return [];
       }
-    }
+      const person = joined([r.first, r.last], " ");
+      return [
+        {
+          addresses: (placed.get(r.id) ?? []).flatMap((a) => {
+            const line = joined([
+              a.street?.replace(NEWLINES, ", "),
+              joined([a.zip, a.city], " "),
+              a.country,
+            ]);
+            const label = labelOf(a.label);
+            return line ? [label ? `${line} (${label})` : line] : [];
+          }),
+          birthday: birthdayOf(r.birthday, r.year),
+          handles: own,
+          name: person ?? r.company,
+          profiles: (profiles.get(r.id) ?? []).map((p) => p.line as string),
+          related: (kin.get(r.id) ?? []).flatMap((k) =>
+            k.name ? [joined([labelOf(k.label), k.name], ": ") as string] : []
+          ),
+          work: person ? joined([r.title, r.department, r.company]) : null,
+        },
+      ];
+    });
   } finally {
     db.close();
   }
 }
 
 /**
- * Handle key -> the name his Contacts give it, from every AddressBook database under `dir`. One that can't be read
- * is logged and skipped: Contacts only name what a source already holds, which reads as before (a number).
+ * Every record with a phone or an email, from every AddressBook database under `dir`. One that can't be read is
+ * logged and skipped: Contacts only add to what a source already holds, which reads as before (a number).
  */
-export function readContacts(dir = DIR) {
-  const names = new Map<string, string>();
+export function readContactRecords(dir = DIR): Contact[] {
   const failed = (e: unknown) =>
     log("source.read", { error: String(e), ok: false, source: "contacts" });
   let files: string[] = [];
@@ -78,12 +192,28 @@ export function readContacts(dir = DIR) {
   } catch (e) {
     failed(e);
   }
-  for (const file of files) {
+  return files.flatMap((file) => {
     try {
-      readInto(file, names);
+      return readFrom(file);
     } catch (e) {
       failed(e);
+      return [];
+    }
+  });
+}
+
+/** Handle key -> the name his Contacts give it (the first name a handle has wins). */
+export function namesOf(contacts: Contact[]) {
+  const names = new Map<string, string>();
+  for (const c of contacts) {
+    for (const key of c.handles.map(contactKeyOf)) {
+      if (c.name && key && !names.has(key)) {
+        names.set(key, c.name);
+      }
     }
   }
   return names;
 }
+
+/** Handle key -> the name his Contacts give it, read now. */
+export const readContacts = (dir = DIR) => namesOf(readContactRecords(dir));

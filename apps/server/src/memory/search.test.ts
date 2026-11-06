@@ -9,20 +9,18 @@ import { writeJson } from "../core/files";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
+import { birthdaysNear, birthdayText, nextBirthday } from "./details";
 import { MEMORY, readIndex, situationPath, UNITS } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
 import { OWNER, TRUTH } from "./read-truth";
 import {
   areaFor,
-  birthdaysNear,
-  birthdayText,
   buildIndex,
   candidateLines,
   coverageLines,
   dayLines,
   dueOf,
   episodeLine,
-  nextBirthday,
   readSituationsOf,
   readStaleness,
   reindexUnits,
@@ -546,13 +544,13 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
         { birthday: "2000-10-28", id: "ana", name: "Ana" },
         { birthday: "--10-21", id: "jean", name: "Jean" },
         { birthday: "--10-29", id: "late", name: "Late" },
-        { id: "none", name: "None" },
+        { birthday: null, id: "none", name: "None" },
       ],
       "2026-10-21"
     )
   ).toEqual([
-    "- Jean (`person jean`): 21 Oct (today)",
-    "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
+    { id: "jean", name: "Jean", text: "21 Oct (today)" },
+    { id: "ana", name: "Ana", text: "28 Oct (in 7 days, turns 26)" },
   ]);
   // 29 Feb falls on 1 Mar in other years.
   expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
@@ -565,7 +563,7 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
       [{ birthday: "--01-02", id: "jan", name: "Jan" }],
       "2026-12-28"
     )
-  ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
+  ).toEqual([{ id: "jan", name: "Jan", text: "2 Jan (in 5 days)" }]);
   // First in `read_day`, before what is due.
   expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
     "Birthdays (this day and the next 7):",

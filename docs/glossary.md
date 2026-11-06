@@ -16,6 +16,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
+| detail | A practical fact about someone as a named field (birthday, where they live, work, family, diet, gifts, how to reach them, handles), shown on their page: from his map, his Contacts and the facts the details step tags (`memory/details.ts`). Never stored apart from where the fact lives. | |
 
 ## The agent's work
 

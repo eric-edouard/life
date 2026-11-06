@@ -6,6 +6,7 @@ import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-style";
+import { tagDetails } from "../memory/detail-tags";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
@@ -37,7 +38,7 @@ import {
   recordState,
   turnOf,
 } from "../memory/schedule";
-import { reindex } from "../memory/search";
+import { readBirthdaysNear, reindex } from "../memory/search";
 import { situations } from "../memory/situation";
 import { keptStores } from "../memory/sources";
 import {
@@ -437,6 +438,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Who is close decides who has a page: judged before the pages and the report's homes.
     const withPeople = await readWithPeople();
     await phase.step("closeness", () => closeness(withPeople));
+    await phase.step("details", () => tagDetails());
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
       window.from,
@@ -464,6 +466,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       acted: report,
       archive,
       backup: backupLine(now),
+      birthdays: (await readBirthdaysNear(await readPeople(), dayNow())).map(
+        (b) => ({ name: b.name, relation: b.text })
+      ),
       code: commits,
       episodes: found,
       extracted,

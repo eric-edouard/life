@@ -93,6 +93,7 @@ const night = (facts: number) =>
     acted: { actions: [], problems: [] },
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
+    birthdays: [],
     code: [],
     episodes: {
       agreement: { agreement: 0.75, labeled: 40 },
@@ -225,6 +226,15 @@ test("the Actions section lists problems first, then each action with his words;
   expect(text).toContain(" · add: “Buy checked baggage” in Travel ←");
   expect(html).toContain("write that down in the to-dos");
   expect(html).toContain("FAILED: boom");
+});
+
+test("the Birthdays section comes first, each name with when; none when no birthday is near", () => {
+  const n = night(1);
+  expect(successReport("2026-10-15", 1000, n).text).not.toContain("Birthdays");
+  n.birthdays = [{ name: "Ana", relation: "17 Oct (in 2 days, turns 30)" }];
+  const { text } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain("Birthdays (1)\n- Ana: 17 Oct (in 2 days, turns 30)");
+  expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("What it found"));
 });
 
 test("the Code section lists yesterday's rows and this night's new repos", () => {

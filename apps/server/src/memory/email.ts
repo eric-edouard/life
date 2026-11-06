@@ -40,7 +40,7 @@ export interface Digest {
   models?: string;
   notes: string[];
   preheader: string;
-  /** In order: Actions, Code yesterday, What it found, New people, What changed. */
+  /** In order: Birthdays, Actions, Code yesterday, What it found, New people, What changed. */
   sections?: Section[];
   stats: { label: string; value: string }[];
   verdict: string;

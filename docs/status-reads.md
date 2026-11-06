@@ -49,7 +49,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it is
 null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
-`memory.backfill` and the steps `memory.repos|files|episodes|extract|closeness|pages` (`memory.triage` and `memory.infer`
+`memory.backfill` and the steps `memory.repos|files|episodes|extract|closeness|details|pages` (`memory.triage` and `memory.infer`
 until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,

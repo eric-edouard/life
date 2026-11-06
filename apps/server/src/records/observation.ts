@@ -334,3 +334,45 @@ export const Closeness = z
   .strict();
 
 export type Closeness = z.infer<typeof Closeness>;
+
+/**
+ * A kind of practical fact about someone, a person's details (`memory/details.ts`), in the order their page shows
+ * them, each with its label. Handles are not one: they come from truth/ and his Contacts, never from a fact.
+ */
+export const DETAILS = [
+  ["birthday", "Birthday"],
+  ["home", "Lives in"],
+  ["origin", "From"],
+  ["languages", "Languages"],
+  ["work", "Work"],
+  ["family", "Family"],
+  ["diet", "Diet"],
+  ["likes", "Likes"],
+  ["gift-idea", "Gift ideas"],
+  ["gift-given", "Gifts given"],
+  ["lent", "Lent or owed"],
+  ["how-to-reach", "How to reach"],
+  ["avoid", "Avoid"],
+] as const;
+
+export const Detail = z.enum(
+  DETAILS.map(([kind]) => kind) as [Detail, ...Detail[]]
+);
+
+export type Detail = (typeof DETAILS)[number][0];
+
+/**
+ * memory/detail-tags.jsonl: which kind of detail an observation states, written by the details step (the fast model),
+ * append-only; the latest line per observation holds. `detail` null: judged, and not a detail (no line: never judged).
+ */
+export const DetailTag = z
+  .object({
+    at: isoDateTime,
+    detail: Detail.nullable(),
+    madeBy: MadeBy,
+    observation: ObservationId,
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+
+export type DetailTag = z.infer<typeof DetailTag>;
