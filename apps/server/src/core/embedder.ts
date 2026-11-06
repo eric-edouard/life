@@ -15,10 +15,18 @@ export const EMBEDDER_FILE = {
   url: "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf",
 };
 /**
- * The longest text embedded, in characters: Host gives each of llama-server's slots 2048 tokens, and the densest text
- * measured (digits, Chinese, Thai mixed with English) runs near a token a character. The rest of a text is not read.
+ * The longest input embedded, in UTF-8 bytes, prompt included: an input must fit Host's `--ubatch-size 2048`
+ * (`embedder.test.ts` checks), and Gemma's tokenizer never makes more tokens than bytes (it falls back to bytes),
+ * whatever the script. A cut by characters let some texts run past it, and the embedder refused their whole batch.
  */
-const EMBEDDED_CHARS = 1900;
+const EMBEDDED_BYTES = 2040;
+
+/** `input` cut to `EMBEDDED_BYTES`, never inside a character (`encodeInto` writes whole ones); the rest is not read. */
+const inputOf = (input: string) =>
+  input.slice(
+    0,
+    new TextEncoder().encodeInto(input, new Uint8Array(EMBEDDED_BYTES)).read
+  );
 
 /** The model card's prompts: a query and a passage are embedded differently. */
 const PROMPTS = {
@@ -59,7 +67,7 @@ export function embedderAt(url: string): Embedder {
     embed: async (texts, as) => {
       const res = await fetch(new URL("/v1/embeddings", url), {
         body: JSON.stringify({
-          input: texts.map((t) => PROMPTS[as] + t.slice(0, EMBEDDED_CHARS)),
+          input: texts.map((t) => inputOf(PROMPTS[as] + t)),
           model: EMBEDDER_MODEL,
         }),
         headers: { "content-type": "application/json" },
