@@ -15,9 +15,9 @@ export const EMBEDDER_FILE = {
   url: "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf",
 };
 /**
- * The longest input embedded, in UTF-8 bytes, prompt included: Host gives each of llama-server's slots 2048 tokens, and
- * Gemma's tokenizer never makes more tokens than bytes (it falls back to bytes), whatever the script or emoji. A cut by
- * characters did not hold: some texts ran past 2048 tokens, and the embedder refused their whole batch.
+ * The longest input embedded, in UTF-8 bytes, prompt included: an input must fit Host's `--ubatch-size 2048`
+ * (`embedder.test.ts` checks), and Gemma's tokenizer never makes more tokens than bytes (it falls back to bytes),
+ * whatever the script. A cut by characters let some texts run past it, and the embedder refused their whole batch.
  */
 const EMBEDDED_BYTES = 2040;
 

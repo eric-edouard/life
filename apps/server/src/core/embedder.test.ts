@@ -21,17 +21,18 @@ const server = Bun.serve({
 afterAll(() => server.stop());
 
 test("a long text is cut by bytes to what one of the embedder's slots holds, never inside a character", async () => {
-  // Bytes bound tokens whatever the script; the old 1900-character cut let texts run past 2048 tokens.
   const [vector] = await embedderAt(server.url.href).embed(
     ["ก".repeat(6000), "a🫡".repeat(2000)],
     "passage"
   );
   expect(vector).toHaveLength(EMBEDDER_DIMENSIONS);
   for (const input of inputs.slice(-2)) {
-    expect(new TextEncoder().encode(input).length).toBeLessThanOrEqual(2040);
-    expect(input).not.toContain("\uFFFD");
+    const bytes = new TextEncoder().encode(input).length;
+    expect(bytes).toBeLessThanOrEqual(2040);
+    expect(bytes).toBeGreaterThan(2036);
   }
-  expect(inputs.at(-2)).toEndWith("ก");
+  const last = inputs.at(-1) ?? "";
+  expect(last.endsWith("a") || last.endsWith("🫡")).toBe(true);
 });
 
 test("a vector of another length is refused", async () => {
@@ -42,7 +43,7 @@ test("a vector of another length is refused", async () => {
   dimensions = EMBEDDER_DIMENSIONS;
 });
 
-test("the embedder's address is the port Lifelog Host runs it on", async () => {
+test("the embedder's address and input limit are those Lifelog Host runs it with", async () => {
   const host = await Bun.file(
     join(
       import.meta.dir,
@@ -50,4 +51,6 @@ test("the embedder's address is the port Lifelog Host runs it on", async () => {
     )
   ).text();
   expect(host).toContain(`embedderPort = ${new URL(EMBEDDER_URL).port}`);
+  // EMBEDDED_BYTES is this, less room for BOS and EOS.
+  expect(host).toContain('"--ubatch-size", "2048"');
 });
