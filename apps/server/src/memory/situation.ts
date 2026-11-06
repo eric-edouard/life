@@ -1,6 +1,5 @@
-import { readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { readJson } from "../core/files";
+import { readdir } from "node:fs/promises";
+import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
@@ -139,15 +138,13 @@ export async function situations() {
       { page: t.ref }
     )
   );
-  // A situation whose person is no longer close or has no recent episode goes; git keeps it.
-  const keep = new Set(targets.map((t) => situationPath(t.ref)));
-  const files = await readdir(SITUATIONS).catch(() => [] as string[]);
-  const gone = files
-    .map((f) => join(SITUATIONS, f))
-    .filter((path) => !keep.has(path));
-  await Promise.all(gone.map((path) => rm(path)));
+  // A situation whose person is no longer close or has no recent episode goes.
+  const gone = await removeAllBut(
+    SITUATIONS,
+    new Set(targets.map((t) => situationPath(t.ref)))
+  );
   return step.end({
-    gone: gone.length,
+    gone,
     situations: targets.length,
     written,
   });

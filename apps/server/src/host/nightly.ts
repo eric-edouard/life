@@ -4,7 +4,8 @@ import { clock, DAY, HOUR, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
-import { closeness, pagedNow } from "../memory/closeness";
+import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
+import { communicationStyles } from "../memory/communication-style";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
@@ -447,7 +448,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
-    await phase.step("closeness", () => closeness());
+    const withPeople = await readWithPeople();
+    await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
       window.from,
@@ -457,6 +459,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     phase.at = "situations";
     await situations();
+    phase.at = "communication styles";
+    await communicationStyles(withPeople);
     phase.at = "fact checks";
     await askFactChecks();
     phase.at = "index";

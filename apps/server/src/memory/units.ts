@@ -719,8 +719,9 @@ export function tablesOf(sources: Descriptor[]) {
       (s) => s.kind === "mail" && s.searchDays !== undefined
     ),
     /**
-     * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. The closeness counts
-     * read it over years (closeness.ts), the one memory step reading sources outside `gather`: it counts days, never units.
+     * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. Read over years once a
+     * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its days and
+     * communication styles sample his messages, never units.
      */
     WITH_PEOPLE: readers(
       (s) => s.kind === "chat" || s.kind === "mail",

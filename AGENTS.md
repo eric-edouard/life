@@ -71,7 +71,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/` (rebuilt whole) and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/` and `communication-styles/` (rebuilt whole) and a rename's backfill (next).
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
@@ -173,6 +173,7 @@ Before adding a helper, use the one that exists:
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
+| Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
