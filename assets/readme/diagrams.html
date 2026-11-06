@@ -1,0 +1,651 @@
+<!doctype html>
+<!-- The README's pictures, on Life's own tokens. `bun scripts/readme-images.ts` shoots each figure, light and dark. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <link href="../brand/tokens.css" rel="stylesheet">
+    <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+    body {
+      padding: 24px;
+      font: 15px / 1.45 var(--sans);
+      color: var(--text);
+      background: var(--ground);
+    }
+    figure {
+      width: 880px;
+      padding: 32px;
+      margin-bottom: 48px;
+      background: var(--ground);
+    }
+    h2 {
+      font: 600 22px / 1.2 var(--serif);
+      color: var(--ink);
+    }
+    h3 {
+      font: 600 17px / 1.2 var(--serif);
+      color: var(--ink);
+    }
+    .label {
+      font: 500 11px / 1 var(--sans);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .mono {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .card {
+      padding: 20px;
+      background: var(--card);
+      border-radius: var(--panel-radius);
+    }
+    .row {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+    }
+    .arrow,
+    .down {
+      font-size: 22px;
+      color: var(--muted);
+    }
+    .arrow {
+      display: flex;
+      flex: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+    }
+    .down {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      height: 28px;
+      padding-right: 84px;
+    }
+    ul {
+      list-style: none;
+    }
+    li {
+      padding: 5px 0;
+      border-top: 1px solid var(--rule);
+    }
+    li:first-child {
+      border-top: 0;
+    }
+    li b {
+      font-weight: 500;
+      color: var(--ink);
+    }
+    li span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .sub {
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* layers */
+    #layers .card {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #layers .head {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* pipeline */
+    #pipeline .step {
+      flex: 1;
+    }
+    #pipeline .step h3 {
+      margin: 6px 0 6px;
+      font-size: 16px;
+    }
+    #pipeline .step p {
+      font-size: 13px;
+      color: var(--text);
+    }
+    #pipeline .outs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    #pipeline .outs h3 {
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    #pipeline .outs p {
+      font-size: 13px;
+    }
+    .clock {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .clock div {
+      padding-top: 8px;
+      border-top: 1.5px solid var(--ink);
+    }
+    .clock b {
+      display: block;
+      font: 500 13px var(--mono);
+      color: var(--ink);
+    }
+    .clock span {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    /* calendar */
+    #calendar .grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: 44px repeat(7, 1fr);
+    }
+    #calendar .day {
+      padding-bottom: 10px;
+      text-align: center;
+    }
+    #calendar .day b {
+      display: block;
+      font: 600 20px var(--serif);
+      color: var(--ink);
+    }
+    #calendar .col {
+      position: relative;
+      height: 504px;
+      border-left: 1px solid var(--rule);
+    }
+    #calendar .hours {
+      position: relative;
+      height: 504px;
+    }
+    #calendar .hours span {
+      position: absolute;
+      right: 8px;
+      font: 11px var(--mono);
+      color: var(--muted);
+      transform: translateY(-50%);
+    }
+    #calendar .ev {
+      position: absolute;
+      right: 4px;
+      left: 4px;
+      z-index: 1;
+      padding: 6px 7px;
+      overflow: hidden;
+      font-size: 12.5px;
+      line-height: 1.25;
+      color: var(--card);
+      background: var(--ink);
+      border-radius: 8px;
+    }
+    #calendar .ev small {
+      display: block;
+      margin-top: 2px;
+      font-size: 11.5px;
+      opacity: 0.75;
+    }
+    #calendar .ev.soft {
+      color: var(--ink);
+      background: var(--card);
+      box-shadow: inset 0 0 0 1.5px var(--ink);
+    }
+    #calendar .lines {
+      position: absolute;
+      inset: 0 0 0 44px;
+      z-index: 0;
+    }
+    #calendar .ev.one {
+      padding: 4px 7px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #calendar .lines i {
+      position: absolute;
+      right: 0;
+      left: 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    /* stack */
+    #stack .zones {
+      display: grid;
+      grid-template-columns: 1fr 2.4fr 1.2fr;
+      gap: 12px;
+    }
+    #stack .zone {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px;
+      background: var(--card);
+      border-radius: var(--panel-radius);
+    }
+    #stack .box {
+      padding: 12px;
+      background: var(--ground);
+      border-radius: var(--control-radius);
+    }
+    #stack .box h3 {
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    #stack .box p {
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    #stack .box .mono {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+    }
+    #stack .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* person */
+    #person .lines li {
+      padding: 8px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+    #person .lines li .mono {
+      margin-left: 6px;
+    }
+    #person .who {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    </style>
+  </head>
+  <body>
+    <!-- Capture, memory, act -->
+    <figure id="layers">
+      <div class="row">
+        <div class="card">
+          <div class="head">
+            <span class="label">1 · Capture</span>
+            <h2>Everything you say and write</h2>
+          </div>
+          <ul>
+            <li>
+              <b>Voice</b><br><span>a wearable recorder, through lifelog</span>
+            </li>
+            <li>
+              <b>Messages</b><br>
+              <span
+                >WhatsApp · iMessage · LINE · Instagram · LinkedIn ·
+                Telegram</span
+              >
+            </li>
+            <li><b>Mail</b><br><span>every account in Apple Mail</span></li>
+            <li><b>Notes</b><br><span>Apple Notes, every version</span></li>
+            <li><b>Where you were</b><br><span>the phone's places</span></li>
+            <li><b>Screen Time</b><br><span>where your hours went</span></li>
+            <li>
+              <b>Code · past AI chats</b><br>
+              <span>commits, claude.ai and ChatGPT history</span>
+            </li>
+          </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card">
+          <div class="head">
+            <span class="label">2 · Memory</span>
+            <h2>Read every night, cited</h2>
+          </div>
+          <ul>
+            <li>
+              <b>Episodes</b><br><span>what you did, where, with whom</span>
+            </li>
+            <li>
+              <b>Facts</b><br>
+              <span>promises, plans, news, each with its quote</span>
+            </li>
+            <li>
+              <b>Pages</b><br>
+              <span>one per person who matters, one per area</span>
+            </li>
+            <li>
+              <b>Situations</b><br>
+              <span>where things stand now, with each</span>
+            </li>
+            <li>
+              <b>Communication styles</b><br><span>how you write, to whom</span>
+            </li>
+            <li><b>Search</b><br><span>by words and by meaning</span></li>
+          </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card">
+          <div class="head">
+            <span class="label">3 · Act</span>
+            <h2>Ask, and it answers</h2>
+          </div>
+          <ul>
+            <li>
+              <b>Claude · ChatGPT</b><br><span>through Life's connector</span>
+            </li>
+            <li>
+              <b>Your agents</b><br>
+              <span>woken by a word you say out loud</span>
+            </li>
+            <li>
+              <b>Your to-do list</b><br>
+              <span>Apple Reminders or Google Tasks</span>
+            </li>
+            <li>
+              <b>The Past calendar</b><br>
+              <span>every episode, as an event</span>
+            </li>
+            <li>
+              <b>The nightly report</b><br><span>what's new, what's due</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </figure>
+
+    <!-- The memory pipeline -->
+    <figure id="pipeline">
+      <div class="row">
+        <div class="card step">
+          <span class="label">Sources</span>
+          <h3>Raw events</h3>
+          <p>
+            Messages, mail, notes, voice turns, commits. Stable ids, so a second
+            read adds nothing.
+          </p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card step">
+          <span class="label">Each thread's day</span>
+          <h3>One per day</h3>
+          <p>
+            A chat, a mail thread or a recorded talk, on one day. One-time codes
+            and newsletters go before any model reads them.
+          </p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card step">
+          <span class="label">Episodes</span>
+          <h3>Your day</h3>
+          <p>
+            One model call reads the whole day across every channel, with where
+            your phone was.
+          </p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card step">
+          <span class="label">Facts</span>
+          <h3>Checked quotes</h3>
+          <p>
+            Read episode by episode. Every quote is checked against its source,
+            word for word.
+          </p>
+        </div>
+      </div>
+      <div class="down">↓</div>
+      <div class="outs">
+        <div class="card" style="padding:16px">
+          <h3>Pages</h3>
+          <p>People and areas of your life, every line cited.</p>
+        </div>
+        <div class="card" style="padding:16px">
+          <h3>Situations</h3>
+          <p>Where things stand now, from the last 30 days.</p>
+        </div>
+        <div class="card" style="padding:16px">
+          <h3>Styles</h3>
+          <p>How you write, per person and per channel.</p>
+        </div>
+        <div class="card" style="padding:16px">
+          <h3>Search</h3>
+          <p>An index by words, vectors by meaning, on the Mac.</p>
+        </div>
+      </div>
+      <span class="label" style="display:block;margin-top:28px"
+        >When it runs</span
+      >
+      <div class="clock">
+        <div>
+          <b>every 5 s</b
+          ><span>the archive keeps deleted messages and old note versions</span>
+        </div>
+        <div><b>every 10 min</b><span>new texts get their vectors</span></div>
+        <div><b>13:00 · 19:00</b><span>the day so far is read</span></div>
+        <div>
+          <b>after 2:00</b
+          ><span>the nightly: last 7 days, pages, situations, report</span>
+        </div>
+      </div>
+    </figure>
+
+    <!-- The Past calendar, a made-up week -->
+    <figure id="calendar">
+      <div
+        style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px"
+      >
+        <h2>The Past calendar</h2>
+        <span class="label">an illustration · a made-up week</span>
+      </div>
+      <div class="grid">
+        <div></div>
+        <div class="day"><span class="label">Thu</span><b>15</b></div>
+        <div class="day"><span class="label">Fri</span><b>16</b></div>
+        <div class="day"><span class="label">Sat</span><b>17</b></div>
+        <div class="day"><span class="label">Sun</span><b>18</b></div>
+        <div class="day"><span class="label">Mon</span><b>19</b></div>
+        <div class="day"><span class="label">Tue</span><b>20</b></div>
+        <div class="day"><span class="label">Wed</span><b>21</b></div>
+      </div>
+      <!-- 07:00 to 00:00: 17 h over 504 px, 29.65 px an hour; top = (h - 7) * 29.65 -->
+      <div class="grid" style="position:relative">
+        <div class="hours">
+          <span style="top:0">07</span><span style="top:89px">10</span
+          ><span style="top:178px">13</span><span style="top:267px">16</span
+          ><span style="top:356px">19</span><span style="top:445px">22</span>
+        </div>
+        <div class="col">
+          <div class="ev soft one" style="top:15px;height:26px">
+            Morning run
+          </div>
+          <div class="ev soft one" style="top:346px;height:26px">
+            Paid the rent
+          </div>
+        </div>
+        <div class="col">
+          <div class="ev" style="top:59px;height:62px">
+            Design review<small>Tidepool · call</small>
+          </div>
+          <div class="ev soft" style="top:390px;height:104px">
+            Tidepool: the tide chart<small>home · 20:10–23:40</small>
+          </div>
+        </div>
+        <div class="col">
+          <div class="ev" style="top:91px;height:58px">
+            Hans fixed the sink<small>the flat</small>
+          </div>
+          <div class="ev soft" style="top:208px;height:56px">
+            Market<small>Campo de Ourique</small>
+          </div>
+          <div class="ev soft" style="top:455px;height:49px">
+            Tidepool, late<small>until 2:00</small>
+          </div>
+        </div>
+        <div class="col">
+          <div class="ev soft" style="top:208px;height:74px">
+            Reading<small>Jardim da Estrela</small>
+          </div>
+        </div>
+        <div class="col">
+          <div class="ev soft" style="top:448px;height:56px">
+            Tidepool beta out<small>until 1:30</small>
+          </div>
+        </div>
+        <div class="col">
+          <div class="ev soft one" style="top:74px;height:26px">Dentist</div>
+        </div>
+        <div class="col">
+          <div class="ev soft one" style="top:19px;height:26px">
+            Morning run
+          </div>
+        </div>
+        <div class="lines">
+          <i style="top:89px"></i><i style="top:178px"></i
+          ><i style="top:267px"></i><i style="top:356px"></i
+          ><i style="top:445px"></i>
+        </div>
+      </div>
+      <p class="sub" style="margin-top:14px">
+        Life writes every episode it finds to a calendar of its own: filled with
+        someone, outlined alone.
+      </p>
+    </figure>
+
+    <!-- Where it runs -->
+    <figure id="stack">
+      <div class="zones">
+        <div class="zone">
+          <span class="label">On you</span>
+          <div class="box">
+            <h3>Recorder</h3>
+            <p>Limitless Pendant or Omi, over Bluetooth</p>
+          </div>
+          <div class="box">
+            <h3>lifelog on iPhone</h3>
+            <p>
+              Keeps every page before the recorder deletes it; uploads speech,
+              places, time zone
+            </p>
+            <span class="mono">Swift 6 · SwiftUI · Watch</span>
+          </div>
+        </div>
+        <div class="zone">
+          <span class="label">Your Mac, always on</span>
+          <div class="two">
+            <div class="box">
+              <h3>Life.app</h3>
+              <p>Watcher, archive, nightly, connector, pages</p>
+              <span class="mono">Bun · Hono · MCP · React</span>
+            </div>
+            <div class="box">
+              <h3>Lifelog Host</h3>
+              <p>lifelog's server and its models, in the menu bar</p>
+              <span class="mono">Bun · Hono · Drizzle</span>
+            </div>
+            <div class="box">
+              <h3>Speech</h3>
+              <p>
+                Nemotron 3 speaker turns · VoxLingua107 language · Parakeet
+                Ultra words · ECAPA voices
+              </p>
+              <span class="mono">Python · local</span>
+            </div>
+            <div class="box">
+              <h3>Meaning</h3>
+              <p>
+                EmbeddingGemma 300M for search by meaning, voice and memory
+                alike
+              </p>
+              <span class="mono">llama.cpp · loopback</span>
+            </div>
+            <div class="box">
+              <h3>Bridges</h3>
+              <p>
+                LINE, Instagram, LinkedIn, Telegram into a local Matrix server
+              </p>
+              <span class="mono">Synapse · mautrix</span>
+            </div>
+            <div class="box">
+              <h3>Your memory</h3>
+              <p>
+                Plain text in a git repo with no remote; SQLite for the archive
+                and search
+              </p>
+              <span class="mono">git · SQLite</span>
+            </div>
+          </div>
+        </div>
+        <div class="zone">
+          <span class="label">Outside the Mac</span>
+          <div class="box">
+            <h3>The model</h3>
+            <p>Your Claude or ChatGPT subscription, or allmodels.io</p>
+          </div>
+          <div class="box">
+            <h3>Your assistant</h3>
+            <p>
+              Claude or ChatGPT, over Tailscale or Funnel, behind Life's sign-in
+            </p>
+          </div>
+          <div class="box">
+            <h3>Google</h3>
+            <p>The Past calendar or Google Tasks, if you pick them</p>
+          </div>
+          <div class="box">
+            <h3>Scribe</h3>
+            <p>Only for languages the local models miss</p>
+          </div>
+          <div class="box">
+            <h3>Backup · mail</h3>
+            <p>restic, encrypted · Resend, to you</p>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- A person: situation and style, made up -->
+    <figure id="person">
+      <div class="card" style="padding:24px">
+        <div class="who">
+          <h2>Ana</h2>
+          <span class="label">close friend · made up</span>
+        </div>
+        <span class="label">Situation · where things stand</span>
+        <ul class="lines" style="margin:8px 0 18px">
+          <li>
+            Close and in touch most days on WhatsApp; she is one of Tidepool's
+            three beta testers. <span class="mono">ep_563817b2b66f</span>
+          </li>
+          <li>
+            Her birthday dinner is Saturday at Luna, and you said you'd bring
+            the cake. <span class="mono">obs_6d8ac0e8764c</span>
+          </li>
+          <li>
+            She knows your runs keep slipping to late nights.
+            <span class="mono">obs_4b2bd9112c2a</span>
+          </li>
+        </ul>
+        <span class="label">Communication style · how you write to her</span>
+        <ul class="lines" style="margin-top:8px">
+          <li>
+            Short, no greeting; the joke first, the plan after.
+            <span class="mono">"Leave the cake to me"</span>
+          </li>
+          <li>Voice notes when it's long; mail never.</li>
+        </ul>
+      </div>
+    </figure>
+  </body>
+</html>
