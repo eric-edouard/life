@@ -117,6 +117,10 @@ test("a SEGB file gives its kept records only, in order", () => {
     )
   ).toEqual([a.toString("hex"), c.toString("hex")]);
   expect(() => parseSegb(Buffer.from("nope"))).toThrow();
+  // Its count raised before its last entry is written.
+  const torn = segb([{ data: a }, { data: b }]);
+  torn.fill(0, torn.length - 32, torn.length - 16);
+  expect(() => parseSegb(torn)).toThrow("still being written");
 });
 
 test("each device's records are copied once; one synced late with an older time still lands", () => {
