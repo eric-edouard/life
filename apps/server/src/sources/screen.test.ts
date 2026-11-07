@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toAppleS } from "./imessage";
@@ -38,8 +38,8 @@ const message = (fields: Record<number, Value>) =>
       return Buffer.concat([Buffer.from(varint(Number(n) * 8 + 1)), d]);
     })
   );
-/** A SEGB v2 file of `records`, each kept (state 1) unless `pruned` (state 3, blanked). */
-function segb(records: { data: Buffer; pruned?: boolean }[]) {
+/** A SEGB v2 file of `records`, each kept (state 1) unless `pruned` (state 3, blanked), `size` bytes long when given. */
+function segb(records: { data: Buffer; pruned?: boolean }[], size?: number) {
   const body: Buffer[] = [];
   const table: Buffer[] = [];
   let at = 0;
@@ -58,7 +58,13 @@ function segb(records: { data: Buffer; pruned?: boolean }[]) {
   const head = Buffer.alloc(32);
   head.write("SEGB", 0, "latin1");
   head.writeUInt32LE(records.length, 4);
-  return Buffer.concat([head, ...body, ...table]);
+  const used = 32 + at + 16 * records.length;
+  return Buffer.concat([
+    head,
+    ...body,
+    Buffer.alloc(size ? size - used : 0),
+    ...table,
+  ]);
 }
 
 const MAC = "MAC-1";
@@ -213,4 +219,22 @@ test("a file that fails stops no other, and is copied once it reads", () => {
     ])
   );
   expect(copyScreen(root, archive)).toBe(2);
+});
+
+test("a record written into a file of the same size and time is still copied", () => {
+  const path = `App.InFocus/remote/${PHONE}/1`;
+  const first = { data: phoneApp(0, "com.example.chat", true) };
+  const { archive, root, write } = biomeFixture({
+    [path]: segb([first], 1024),
+  });
+  const full = join(root, "streams/restricted", path);
+  const then = new Date(T0);
+  utimesSync(full, then, then);
+  expect(copyScreen(root, archive)).toBe(1);
+  write(
+    path,
+    segb([first, { data: phoneApp(10, "com.example.chat", false) }], 1024)
+  );
+  utimesSync(full, then, then);
+  expect(copyScreen(root, archive)).toBe(1);
 });

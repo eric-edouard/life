@@ -1,5 +1,12 @@
 import type { SQLQueryBindings } from "bun:sqlite";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+} from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
@@ -168,8 +175,21 @@ const openScreen = (dir: string) =>
       unique (device, stream, at, bundle, domain, starting))`
   );
 
-// A file is parsed again only when its size or time moves, once copied; per process, so a restart reads each once more.
-const seen = new Map<string, string>();
+// A file is parsed again only when its record count moves, once copied; per process, so a restart reads each once more.
+// Not its size or time: Biome writes records into a file made at full size, leaving both unchanged.
+const seen = new Map<string, number>();
+
+/** How many records a SEGB file holds, from its header alone. */
+function countOf(path: string) {
+  const head = Buffer.alloc(8);
+  const fd = openSync(path, "r");
+  try {
+    readSync(fd, head, 0, 8, 0);
+  } finally {
+    closeSync(fd);
+  }
+  return head.readUInt32LE(4);
+}
 
 /**
  * Every new kept record of every Biome file into the archive. A record already there is skipped by its key, so one an
@@ -186,8 +206,7 @@ export function copyScreen(biome = BIOME, dir = ARCHIVE) {
   }
   const changed = FEEDS.flatMap((feed) =>
     filesOf(biome, feed, mac).flatMap((f) => {
-      const s = statSync(f.path);
-      const mark = `${s.size}:${s.mtimeMs}`;
+      const mark = countOf(f.path);
       return seen.get(f.path) === mark ? [] : [{ ...f, mark }];
     })
   );
