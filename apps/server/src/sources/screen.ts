@@ -187,7 +187,7 @@ const openScreen = (dir: string) =>
 const seen = new Map<string, number>();
 
 /** A file's record count from its header alone; undefined when it can't be read, so its full read reports why. */
-function headCountOf(path: string) {
+function readHeadCount(path: string) {
   const head = Buffer.alloc(8);
   try {
     const fd = openSync(path, "r");
@@ -216,7 +216,10 @@ export function copyScreen(biome = BIOME, dir = ARCHIVE) {
     throw new Error("Biome names no device of this Mac's own");
   }
   const changed = FEEDS.flatMap((feed) => filesOf(biome, feed, mac)).filter(
-    (f) => seen.get(f.path) !== headCountOf(f.path)
+    (f) => {
+      const count = readHeadCount(f.path);
+      return count === undefined || seen.get(f.path) !== count;
+    }
   );
   if (changed.length === 0) {
     return 0;
