@@ -1,5 +1,12 @@
 import type { SQLQueryBindings } from "bun:sqlite";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+} from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
@@ -25,10 +32,13 @@ const BIOME = join(HOME, "Library/Biome");
 /** An app's time (`app`) or a website's (`web`). */
 type Stream = "app" | "web";
 
+/** How many records a SEGB file says it holds: its header's second word. */
+const countOf = (b: Buffer) => b.readUInt32LE(4);
+
 /**
  * The kept records of a SEGB v2 file (Biome's segment format): a 32-byte header, then records 4-byte aligned (an 8-byte
  * header, then protobuf), and at the end a table of 16-byte entries, the first record's last: where a record ends
- * (counted after the header), its state (1 kept; pruned ones are blanked) and its time.
+ * (counted after the header), its state (1 kept; pruned ones are blanked; 0 not yet written) and its time.
  */
 export function parseSegb(bytes: Uint8Array) {
   const b = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -37,10 +47,14 @@ export function parseSegb(bytes: Uint8Array) {
   }
   const records: Uint8Array[] = [];
   let start = 0;
-  for (let i = 0; i < b.readUInt32LE(4); i += 1) {
+  for (let i = 0; i < countOf(b); i += 1) {
     const entry = b.length - 16 * (i + 1);
     const end = b.readUInt32LE(entry);
-    if (b.readUInt32LE(entry + 4) === 1) {
+    const state = b.readUInt32LE(entry + 4);
+    if (state === 0) {
+      throw new Error("a record is still being written");
+    }
+    if (state === 1) {
       records.push(b.subarray(32 + start + 8, 32 + end));
     }
     start = Math.ceil(end / 4) * 4;
@@ -168,8 +182,25 @@ const openScreen = (dir: string) =>
       unique (device, stream, at, bundle, domain, starting))`
   );
 
-// A file is parsed again only when its size or time moves, once copied; per process, so a restart reads each once more.
-const seen = new Map<string, string>();
+// A file is parsed again only when its record count moves, once copied; per process, so a restart reads each once more.
+// Not its size or time: Biome writes records into a file made at full size, leaving both unchanged.
+const seen = new Map<string, number>();
+
+/** A file's record count from its header alone; undefined when it can't be read, so its full read reports why. */
+function readHeadCount(path: string) {
+  const head = Buffer.alloc(8);
+  try {
+    const fd = openSync(path, "r");
+    try {
+      readSync(fd, head, 0, 8, 0);
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return;
+  }
+  return countOf(head);
+}
 
 /**
  * Every new kept record of every Biome file into the archive. A record already there is skipped by its key, so one an
@@ -184,12 +215,11 @@ export function copyScreen(biome = BIOME, dir = ARCHIVE) {
   if (!mac) {
     throw new Error("Biome names no device of this Mac's own");
   }
-  const changed = FEEDS.flatMap((feed) =>
-    filesOf(biome, feed, mac).flatMap((f) => {
-      const s = statSync(f.path);
-      const mark = `${s.size}:${s.mtimeMs}`;
-      return seen.get(f.path) === mark ? [] : [{ ...f, mark }];
-    })
+  const changed = FEEDS.flatMap((feed) => filesOf(biome, feed, mac)).filter(
+    (f) => {
+      const count = readHeadCount(f.path);
+      return count === undefined || seen.get(f.path) !== count;
+    }
   );
   if (changed.length === 0) {
     return 0;
@@ -201,9 +231,8 @@ export function copyScreen(biome = BIOME, dir = ARCHIVE) {
   try {
     for (const f of changed) {
       try {
-        const rows: SQLQueryBindings[][] = parseSegb(
-          readFileSync(f.path)
-        ).flatMap((r) =>
+        const bytes = readFileSync(f.path);
+        const rows: SQLQueryBindings[][] = parseSegb(bytes).flatMap((r) =>
           f.feed
             .record(fieldsOf(r))
             .map((x) => [
@@ -222,7 +251,7 @@ export function copyScreen(biome = BIOME, dir = ARCHIVE) {
           "insert or ignore into events values (?, ?, ?, ?, ?, ?, ?, ?)",
           rows
         );
-        seen.set(f.path, f.mark);
+        seen.set(f.path, countOf(bytes));
       } catch (e) {
         failed.push(`${f.path}: ${(e as Error).message}`);
       }
