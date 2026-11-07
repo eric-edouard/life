@@ -30,12 +30,23 @@ const ana = {
   projects: [],
 } as Person;
 
-test("details: his map, then Contacts, then facts newest first; one birthday, the first that gives a date; handles last", () => {
+test("details: his map, then Contacts, then facts newest first; one birthday (the first dated), home and work (the newest fact); each handle once; handles last", () => {
   const lines = detailsOf({
     contacts: [
       contact({
-        addresses: ["12 rue Neuve, 44000 Nantes (Home)"],
+        // Her newer move outdates her Contacts address; a work address is not a home.
+        addresses: [
+          "12 rue Neuve, 44000 Nantes (Home)",
+          "1 quai Ouest, Lyon (Work)",
+        ],
         birthday: "1990-04-01",
+        // Her phone as his map has it, written two other ways, and one email in two cases: each shows once.
+        handles: [
+          "+33 6 11 11 11 11",
+          "06 11 11 11 11",
+          "Ana@Example.com",
+          "ana@example.com",
+        ],
         profiles: ["Facebook: ana.t"],
         work: "Designer, Acme",
       }),
@@ -67,7 +78,6 @@ test("details: his map, then Contacts, then facts newest first; one birthday, th
   });
   expect(lines.map((l) => [l.kind, l.from])).toEqual([
     ["birthday", "truth"],
-    ["home", "contacts"],
     ["home", "obs_000000000001"],
     ["work", "contacts"],
     ["diet", "obs_000000000002"],
@@ -77,12 +87,11 @@ test("details: his map, then Contacts, then facts newest first; one birthday, th
   expect(detailsBlock(lines, "2026-03-10")).toEqual([
     "Details:",
     "- Birthday: 12 Mar (in 2 days) (his map)",
-    "- Lives in: 12 rue Neuve, 44000 Nantes (Home) (Contacts)",
     "- Lives in: Ana moved to Lyon. (obs_000000000001)",
     "- Work: Designer, Acme (Contacts)",
     "- Diet: Ana is vegetarian. (obs_000000000002)",
     "- Handles: +33611111111 (his map)",
-    "- Handles: +33 6 11 11 11 11, Facebook: ana.t (Contacts)",
+    "- Handles: Ana@Example.com, Facebook: ana.t (Contacts)",
     "",
   ]);
   // No map birthday: Contacts' wins; none there either: the fact's day, its words kept.
@@ -192,7 +201,7 @@ test("details from Contacts: a record is the person one of its handles resolves 
 });
 
 test("details step: tags facts naming a person, not conditional, not tagged by this prompt; newest first", () => {
-  const tagged = { madeBy: { prompt: "memory-details.v1" } } as DetailTag;
+  const tagged = { madeBy: { prompt: "memory-details.v2" } } as DetailTag;
   const older = { madeBy: { prompt: "memory-details.v0" } } as DetailTag;
   const list = [
     fact("obs_000000000001", { at: "2026-10-01T00:00:00.000Z" }),

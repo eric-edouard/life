@@ -7,7 +7,7 @@ import {
   type Observation,
 } from "../records/observation";
 import type { Person } from "../records/truth";
-import type { Contact } from "../sources/contacts";
+import { type Contact, contactKeyOf } from "../sources/contacts";
 import { DETAIL_TAGS } from "./ledger";
 import { handlesOf } from "./read-truth";
 import { when } from "./zones";
@@ -34,6 +34,11 @@ export const detailOf = (
   tags: ReadonlyMap<string, DetailTag>
 ) => (o.modality === "conditional" ? null : (tags.get(o.id)?.detail ?? null));
 
+/** The kinds someone has one of at a time. */
+const ONE_EACH = new Set<DetailLine["kind"]>(["birthday", "home", "work"]);
+/** Contacts' own label for a work address. */
+const WORK_ADDRESS = "(Work)";
+
 /** A tagged fact on someone's page, as the index holds it. */
 export interface DetailFact {
   date: string;
@@ -55,7 +60,10 @@ export interface DetailLine {
 
 /**
  * Someone's details, in page order (`DETAILS`, then handles), each kind from truth/, then his Contacts, then the facts
- * (newest first). A birthday holds once: the first by that order; every other kind lists all it has.
+ * (newest first). Someone has one birthday, home and work (`ONE_EACH`): the birthday is the first line by that order
+ * that gives a date, a home or work the newest current fact (it outdates any address book), else the first line;
+ * every other kind lists all it has. A Contacts address labelled Work is not a home. A handle shows once, however it is
+ * written.
  */
 export function detailsOf({
   contacts,
@@ -71,6 +79,9 @@ export function detailsOf({
     text: string | undefined,
     born?: string
   ) => (text ? [{ born, from: "truth", kind, text }] : []);
+  const keyOf = (h: string) => contactKeyOf(h) ?? h;
+  const mapped = person ? handlesOf(person) : [];
+  const seen = new Set(mapped.map(keyOf));
   const listed = (kind: Detail | "handles", texts: (string | null)[]) =>
     texts.flatMap((text) => (text ? [{ from: "contacts", kind, text }] : []));
   const lines: DetailLine[] = [
@@ -89,7 +100,9 @@ export function detailsOf({
     ),
     ...listed(
       "home",
-      contacts.flatMap((c) => c.addresses)
+      contacts
+        .flatMap((c) => c.addresses)
+        .filter((a) => !a.endsWith(WORK_ADDRESS))
     ),
     ...listed(
       "work",
@@ -110,17 +123,22 @@ export function detailsOf({
         kind: f.detail,
         text: f.text,
       })),
-    ...truth("handles", person ? handlesOf(person).join(", ") : undefined),
+    ...truth("handles", mapped.join(", ")),
     ...listed("handles", [
-      [...new Set(contacts.flatMap((c) => [...c.handles, ...c.profiles]))].join(
-        ", "
-      ),
+      contacts
+        .flatMap((c) => [...c.handles, ...c.profiles])
+        .filter((h) => !seen.has(keyOf(h)) && Boolean(seen.add(keyOf(h))))
+        .join(", "),
     ]),
   ];
   const order = [...DETAILS.map(([kind]) => kind), "handles"];
-  const birthday = lines.find((l) => l.born);
+  const best = (l: DetailLine) =>
+    l.kind === "birthday" ? !!l.born : isFact(l);
+  const chosen = (kind: DetailLine["kind"]) =>
+    lines.find((l) => l.kind === kind && best(l)) ??
+    lines.find((l) => l.kind === kind);
   return lines
-    .filter((l) => !l.born || l === birthday)
+    .filter((l) => !ONE_EACH.has(l.kind) || l === chosen(l.kind))
     .toSorted((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 }
 

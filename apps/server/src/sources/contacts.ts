@@ -23,6 +23,10 @@ const YEAR_KNOWN_FROM = 1800;
 /** A label Contacts names itself ("_$!<Home>!$_"); one he typed is plain. */
 const BUILT_IN_LABEL = /^_\$!<(.*)>!\$_$/;
 const NEWLINES = /\n/g;
+/** The invisible direction marks a phone app wraps a number in ("\u202d+33 6…\u202c"). */
+const DIRECTION_MARKS = /[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+/** A link to a site's front page alone ("Facebook: http://www.facebook.com/"): a profile with no one in it. */
+const SITE_ONLY = /: https?:\/\/[^/]+\/?$/;
 
 /** A handle as Contacts and a source both write it: an email lower-cased, a phone by its last digits. */
 export const handleKey = (h: string) =>
@@ -147,7 +151,9 @@ function readFrom(file: string): Contact[] {
       )
       .all();
     return records.flatMap((r) => {
-      const own = (handles.get(r.id) ?? []).map((h) => h.line as string);
+      const own = (handles.get(r.id) ?? []).map((h) =>
+        (h.line as string).replace(DIRECTION_MARKS, "").trim()
+      );
       if (own.length === 0) {
         return [];
       }
@@ -166,7 +172,9 @@ function readFrom(file: string): Contact[] {
           birthday: birthdayOf(r.birthday, r.year),
           handles: own,
           name: person ?? r.company,
-          profiles: (profiles.get(r.id) ?? []).map((p) => p.line as string),
+          profiles: (profiles.get(r.id) ?? []).flatMap((p) =>
+            SITE_ONLY.test(p.line as string) ? [] : [p.line as string]
+          ),
           related: (kin.get(r.id) ?? []).flatMap((k) =>
             k.name ? [joined([labelOf(k.label), k.name], ": ") as string] : []
           ),

@@ -112,7 +112,8 @@ A question like "what is my arc with this friend?" needs more than recent logist
   never stored as a summary; only the present is (the situation).
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
 - **Details** (a person's practical facts as fields) are a facet, never a store: his map, then his Contacts, then the
-  facts the details step tagged, in that order (`detailsOf`, the one place for it and for a birthday).
+  facts the details step tagged, in that order (`detailsOf`, the one place for it and for a birthday). Someone has one
+  birthday, home and work: a home or work is the newest current fact first, since an address book goes stale.
 - **What a model call is shown:** its context (the same for every call of a run, so it is cached) holds the people close
   to him now, personally or at work, and the projects underway (`refContext`, `contextPeopleBy`). Everyone else on the
   map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
