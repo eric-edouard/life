@@ -34,8 +34,10 @@ export const detailOf = (
   tags: ReadonlyMap<string, DetailTag>
 ) => (o.modality === "conditional" ? null : (tags.get(o.id)?.detail ?? null));
 
-/** The kinds someone has one of at a time: where they live, their work. */
-const ONE_EACH = new Set<string>(["home", "work"]);
+/** The kinds someone has one of at a time. */
+const ONE_EACH = new Set<DetailLine["kind"]>(["birthday", "home", "work"]);
+/** Contacts' own label for a work address. */
+const WORK_ADDRESS = "(Work)";
 
 /** A tagged fact on someone's page, as the index holds it. */
 export interface DetailFact {
@@ -58,8 +60,10 @@ export interface DetailLine {
 
 /**
  * Someone's details, in page order (`DETAILS`, then handles), each kind from truth/, then his Contacts, then the facts
- * (newest first). A birthday holds once: the first by that order that gives a date (else the first); where someone lives and works, the
- * first by that order; every other kind lists all it has. A handle shows once, however it is written.
+ * (newest first). Someone has one birthday, home and work (`ONE_EACH`): the birthday is the first line by that order
+ * that gives a date, a home or work the newest current fact (it outdates any address book), else the first line;
+ * every other kind lists all it has. A Contacts address labelled Work is not a home. A handle shows once, however it is
+ * written.
  */
 export function detailsOf({
   contacts,
@@ -96,7 +100,9 @@ export function detailsOf({
     ),
     ...listed(
       "home",
-      contacts.flatMap((c) => c.addresses)
+      contacts
+        .flatMap((c) => c.addresses)
+        .filter((a) => !a.endsWith(WORK_ADDRESS))
     ),
     ...listed(
       "work",
@@ -126,14 +132,13 @@ export function detailsOf({
     ]),
   ];
   const order = [...DETAILS.map(([kind]) => kind), "handles"];
-  const birthday = lines.find((l) => l.born);
-  const first = (kind: string) => lines.find((l) => l.kind === kind);
+  const best = (l: DetailLine) =>
+    l.kind === "birthday" ? !!l.born : isFact(l);
+  const chosen = (kind: DetailLine["kind"]) =>
+    lines.find((l) => l.kind === kind && best(l)) ??
+    lines.find((l) => l.kind === kind);
   return lines
-    .filter((l) =>
-      l.kind === "birthday"
-        ? l === (birthday ?? first("birthday"))
-        : !ONE_EACH.has(l.kind) || l === first(l.kind)
-    )
+    .filter((l) => !ONE_EACH.has(l.kind) || l === chosen(l.kind))
     .toSorted((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 }
 

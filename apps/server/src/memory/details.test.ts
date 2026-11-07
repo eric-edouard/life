@@ -30,11 +30,15 @@ const ana = {
   projects: [],
 } as Person;
 
-test("details: his map, then Contacts, then facts newest first; one birthday, home and work; each handle once; handles last", () => {
+test("details: his map, then Contacts, then facts newest first; one birthday (the first dated), home and work (the newest fact); each handle once; handles last", () => {
   const lines = detailsOf({
     contacts: [
       contact({
-        addresses: ["12 rue Neuve, 44000 Nantes (Home)"],
+        // Her newer move outdates her Contacts address; a work address is not a home.
+        addresses: [
+          "12 rue Neuve, 44000 Nantes (Home)",
+          "1 quai Ouest, Lyon (Work)",
+        ],
         birthday: "1990-04-01",
         // Her phone as his map has it, written two other ways, and one email in two cases: each shows once.
         handles: [
@@ -74,7 +78,7 @@ test("details: his map, then Contacts, then facts newest first; one birthday, ho
   });
   expect(lines.map((l) => [l.kind, l.from])).toEqual([
     ["birthday", "truth"],
-    ["home", "contacts"],
+    ["home", "obs_000000000001"],
     ["work", "contacts"],
     ["diet", "obs_000000000002"],
     ["handles", "truth"],
@@ -83,7 +87,7 @@ test("details: his map, then Contacts, then facts newest first; one birthday, ho
   expect(detailsBlock(lines, "2026-03-10")).toEqual([
     "Details:",
     "- Birthday: 12 Mar (in 2 days) (his map)",
-    "- Lives in: 12 rue Neuve, 44000 Nantes (Home) (Contacts)",
+    "- Lives in: Ana moved to Lyon. (obs_000000000001)",
     "- Work: Designer, Acme (Contacts)",
     "- Diet: Ana is vegetarian. (obs_000000000002)",
     "- Handles: +33611111111 (his map)",
