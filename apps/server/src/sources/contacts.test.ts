@@ -106,7 +106,8 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
         birthday: [388_800, 1990],
         company: "Acme",
         first: "Claire",
-        handles: ["+33 6 11 11 11 11", "claire@example.com"],
+        // A phone app's invisible direction marks around the number.
+        handles: ["\u202d+33 6 11 11 11 11\u202c", "claire@example.com"],
         title: "Designer",
       },
       { first: "Nobody", handles: [] },
@@ -120,6 +121,10 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
       );
       db.run(
         "insert into ZABCDSOCIALPROFILE values (1, 'Facebook', 'claire.d', null)"
+      );
+      // A profile with no one in it: the service's front page.
+      db.run(
+        "insert into ZABCDSOCIALPROFILE values (1, 'Facebook', null, 'http://www.facebook.com/')"
       );
       db.run(
         "insert into ZABCDURLADDRESS values (1, 'https://claire.example')"

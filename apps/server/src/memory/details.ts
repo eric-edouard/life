@@ -7,7 +7,7 @@ import {
   type Observation,
 } from "../records/observation";
 import type { Person } from "../records/truth";
-import type { Contact } from "../sources/contacts";
+import { type Contact, contactKeyOf } from "../sources/contacts";
 import { DETAIL_TAGS } from "./ledger";
 import { handlesOf } from "./read-truth";
 import { when } from "./zones";
@@ -34,6 +34,9 @@ export const detailOf = (
   tags: ReadonlyMap<string, DetailTag>
 ) => (o.modality === "conditional" ? null : (tags.get(o.id)?.detail ?? null));
 
+/** The kinds someone has one of at a time: where they live, their work. */
+const ONE_EACH = new Set<string>(["home", "work"]);
+
 /** A tagged fact on someone's page, as the index holds it. */
 export interface DetailFact {
   date: string;
@@ -55,7 +58,8 @@ export interface DetailLine {
 
 /**
  * Someone's details, in page order (`DETAILS`, then handles), each kind from truth/, then his Contacts, then the facts
- * (newest first). A birthday holds once: the first by that order; every other kind lists all it has.
+ * (newest first). A birthday holds once: the first by that order that gives a date (else the first); where someone lives and works, the
+ * first by that order; every other kind lists all it has. A handle shows once, however it is written.
  */
 export function detailsOf({
   contacts,
@@ -71,6 +75,9 @@ export function detailsOf({
     text: string | undefined,
     born?: string
   ) => (text ? [{ born, from: "truth", kind, text }] : []);
+  const keyOf = (h: string) => contactKeyOf(h) ?? h;
+  const mapped = person ? handlesOf(person) : [];
+  const seen = new Set(mapped.map(keyOf));
   const listed = (kind: Detail | "handles", texts: (string | null)[]) =>
     texts.flatMap((text) => (text ? [{ from: "contacts", kind, text }] : []));
   const lines: DetailLine[] = [
@@ -110,17 +117,23 @@ export function detailsOf({
         kind: f.detail,
         text: f.text,
       })),
-    ...truth("handles", person ? handlesOf(person).join(", ") : undefined),
+    ...truth("handles", mapped.join(", ")),
     ...listed("handles", [
-      [...new Set(contacts.flatMap((c) => [...c.handles, ...c.profiles]))].join(
-        ", "
-      ),
+      contacts
+        .flatMap((c) => [...c.handles, ...c.profiles])
+        .filter((h) => !seen.has(keyOf(h)) && Boolean(seen.add(keyOf(h))))
+        .join(", "),
     ]),
   ];
   const order = [...DETAILS.map(([kind]) => kind), "handles"];
   const birthday = lines.find((l) => l.born);
+  const first = (kind: string) => lines.find((l) => l.kind === kind);
   return lines
-    .filter((l) => !l.born || l === birthday)
+    .filter((l) =>
+      l.kind === "birthday"
+        ? l === (birthday ?? first("birthday"))
+        : !ONE_EACH.has(l.kind) || l === first(l.kind)
+    )
     .toSorted((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 }
 

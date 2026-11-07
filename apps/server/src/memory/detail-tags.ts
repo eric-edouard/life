@@ -19,7 +19,7 @@ import { observationsNow, readPeople } from "./who";
 // design), and says which kind of detail it states, if any (`detail-tags.jsonl`). The only place a fact's detail is
 // decided; which page it lands on is its home (`homeOf`), as for every fact.
 
-const DETAILS_PROMPT = "memory-details.v1";
+const DETAILS_PROMPT = "memory-details.v2";
 const PER_CALL = 100;
 
 /**
