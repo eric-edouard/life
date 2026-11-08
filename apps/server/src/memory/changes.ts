@@ -113,7 +113,8 @@ export function feedPage<R, T>(
   limit: number,
   item: (source: string, row: R, n: number) => T | null
 ) {
-  const next: Cursor = {};
+  // A source not read this time (missing, or left out by a filter) keeps its place.
+  const next: Cursor = { ...cursor };
   const items: T[] = [];
   let remaining = 0;
   for (const s of sources) {

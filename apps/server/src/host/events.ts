@@ -1,7 +1,13 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { log } from "../core/log";
-import { feedPage, PAGE, parseCursor, type Source } from "../memory/changes";
+import {
+  feedPage,
+  MAX_PAGE,
+  PAGE,
+  parseCursor,
+  type Source,
+} from "../memory/changes";
 import { directChats } from "../memory/closeness";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
@@ -109,18 +115,15 @@ export function eventTypes() {
 export const PollParams = z.object({
   arguments: z.record(z.string(), z.unknown()).default({}),
   cursor: z.string().nullable().default(null),
-  maxEvents: z.int().min(1).max(500).optional(),
+  maxEvents: z.int().min(1).max(MAX_PAGE).optional(),
   name: z.string(),
 });
 
-/** The most rows of one source a poll reads (a bridge's backfill pages through: `hasMore`). */
-const ROWS = 500;
-
 /**
- * One source's new messages from row `from` (at most `ROWS`), as `read` makes them: a row it skips (a newsletter, a
+ * One source's new messages from row `from` (at most a full page, `MAX_PAGE`: a bridge's backfill pages through, `hasMore`), as `read` makes them: a row it skips (a newsletter, a
  * draft) is no message. With no `from`, none: the cursor starts at the source's end, now.
  */
-function newMessagesOf(s: Messaging, from: number | undefined) {
+function readNewMessages(s: Messaging, from: number | undefined) {
   const { end, rows } = s.incoming(from);
   // No cursor yet, or Mail rebuilt its index (renumbered): start at its end, and say so on a rebuild.
   if (from === undefined || from > end) {
@@ -132,7 +135,7 @@ function newMessagesOf(s: Messaging, from: number | undefined) {
       truncated: from !== undefined,
     };
   }
-  const kept = rows.slice(0, ROWS);
+  const kept = rows.slice(0, MAX_PAGE);
   const since = kept.reduce((t, r) => (r.at < t ? r.at : t), kept[0]?.at ?? "");
   // ponytail: `read` has no upper bound, so a cursor far behind (an agent's first, a long backlog) reads from its oldest
   // kept row to now on each page; give `read` an `until` if an agent ever pages through months.
@@ -182,7 +185,7 @@ export async function pollEvents(
     .flatMap((s) => {
       const at = cursor[s.name];
       try {
-        const r = newMessagesOf(s, at);
+        const r = readNewMessages(s, at);
         truncated ||= r.truncated;
         isCut ||= r.isCut;
         return [
@@ -210,7 +213,7 @@ export async function pollEvents(
       : people.refOf(speakerOf("chat", e, people.resolve));
   const page = feedPage(
     feeds,
-    Object.fromEntries(feeds.map((f) => [f.name, f.from])),
+    { ...cursor, ...Object.fromEntries(feeds.map((f) => [f.name, f.from])) },
     p.maxEvents ?? PAGE,
     (_s, e) => {
       const person = personOf(e);

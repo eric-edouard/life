@@ -214,3 +214,16 @@ test("a poll reads at most 500 rows of a source: a backfill pages through", asyn
   const second = await at({}, first.cursor, sources, 500);
   expect([second.events.length, second.hasMore]).toEqual([1, false]);
 });
+
+test("a source missing from a poll keeps its place: what it wrote meanwhile comes once it is back", async () => {
+  const { cursor, lists, sources } = await stores();
+  lists.whatsapp.push(message("whatsapp"));
+  const without = await at(
+    {},
+    cursor,
+    sources.filter((s) => s.name !== "whatsapp")
+  );
+  expect(
+    (await at({}, without.cursor, sources)).events.map((e) => e.eventId)
+  ).toEqual([lists.whatsapp[1]?.id ?? ""]);
+});

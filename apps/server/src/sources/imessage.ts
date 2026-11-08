@@ -101,7 +101,7 @@ export function readImessage(
           (a) => sourceFile({ ...a, path: a.path?.replace(TILDE, HOME) })
         ),
         fromMe: r.fromMe === 1,
-        id: `imessage:${r.guid}`,
+        id: messageIdOf(r.guid),
         sender: r.fromMe === 1 ? "me" : (r.sender ?? "unknown"),
         source: "imessage" as const,
         text: r.text ?? textFromAttributedBody(r.attributedBody),
@@ -111,6 +111,9 @@ export function readImessage(
     db.close();
   }
 }
+
+/** A message's id, as `read` and `incoming` both give it. */
+const messageIdOf = (guid: string) => `imessage:${guid}`;
 
 /** The messages Messages first stored from row `from` on (`incoming`): an edit changes its row in place. */
 export function incomingImessage(
@@ -134,7 +137,7 @@ export function incomingImessage(
       .all(from ?? null)
       .map((r) => ({
         at: fromAppleNs(r.date).toISOString(),
-        id: `imessage:${r.guid}`,
+        id: messageIdOf(r.guid),
         row: r.row,
       }));
     return { end, rows };

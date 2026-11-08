@@ -586,16 +586,21 @@ interface Thread {
 const isMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   !t.messages.some((m) => m.fromMe || agentReports().includes(m.sender));
-/** Life's nightly report and alerts: reading them back would turn its own output into facts. */
-const isLifeSender = (m: { sender: string }) => m.sender === LIFE_MAIL.from;
-/** A message Life wrote: in its own chat, or mail from its sender. */
+/**
+ * Life's own mail, its nightly report and alerts, by sender and subject: reading it back would turn its own output into
+ * facts. An agent's report, sent from the same address, is not.
+ */
+const isLifeMail = (sender: string, subject: string) =>
+  sender === LIFE_MAIL.from && subject.startsWith(LIFE_MAIL.subject);
+/** A message Life wrote: in its own chat, or its own mail. */
 export const isLifeOutput = (
-  m: Pick<SourceEvent, "chat" | "sender" | "source">
-) => m.chat === lifeChat() || (kindOf(m.source) === "mail" && isLifeSender(m));
+  m: Pick<SourceEvent, "chat" | "chatName" | "sender" | "source">
+) =>
+  m.chat === lifeChat() ||
+  (kindOf(m.source) === "mail" && isLifeMail(m.sender, m.chatName ?? ""));
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
-  t.unit.title.startsWith(LIFE_MAIL.subject) &&
-  t.messages.every(isLifeSender);
+  t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
 /** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered. */
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */

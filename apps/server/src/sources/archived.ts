@@ -98,7 +98,7 @@ export function readArchived<R extends Row>(
           chatName: r.chatName?.replace(MARKS, "").trim() || undefined,
           ...(r.deleted ? { deleted: true } : {}),
           fromMe: r.fromMe === 1,
-          id: `${source}:${r.chat}/${r.id}`,
+          id: messageIdOf(source, r.chat, r.id),
           sender: r.fromMe ? "me" : sender(r.sender ?? ""),
           source,
           text: r.text,
@@ -110,6 +110,13 @@ export function readArchived<R extends Row>(
     db.close();
   }
 }
+
+/** A message's id, as `readArchived` and `incomingArchived` both give it. */
+const messageIdOf = (
+  source: SourceEvent["source"],
+  chat: string,
+  id: number | string
+) => `${source}:${chat}/${id}`;
 
 /**
  * The messages `<archive>/<source>.sqlite` first wrote from row `from` on (`incoming`): the first row of each message,
@@ -141,7 +148,7 @@ export function incomingArchived(
       .all(from ?? null)
       .map((r) => ({
         at: r.at,
-        id: `${source}:${r.chat}/${r.id}`,
+        id: messageIdOf(source, r.chat, r.id),
         row: r.row,
       }));
     return { end, rows };
