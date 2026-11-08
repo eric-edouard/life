@@ -865,7 +865,7 @@ function speakerTarget(a: Fix) {
   throw new Error("speaker needs: to or newName");
 }
 
-/** The writes Life forwards to lifelog: the owner's explicit corrections (and `notifyPhone`'s notices). Each names the fields it needs and the request it makes. */
+/** The corrections Life forwards to lifelog, the owner's explicit ones (its one other write is `notifyPhone`). Each names the fields it needs and the request it makes. */
 const FORWARDS: Record<
   string,
   { needs: (keyof Fix)[]; request: (a: Fix) => [string, string, unknown] }
@@ -922,8 +922,11 @@ export async function forward(kind: string, a: Fix) {
   return after;
 }
 
-/** A visible push to his phone through lifelog (`POST /notifications`), logged like a correction. Never throws: a failure is its log line. */
+/** A visible push to his phone through lifelog (`POST /notifications`), logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. */
 export async function notifyPhone(title: string, body: string) {
+  if (lifelogMissing()) {
+    return;
+  }
   const path = "/notifications";
   log("lifelog.write", { body: { title }, path, phase: "before" });
   try {
