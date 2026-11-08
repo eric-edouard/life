@@ -7,7 +7,6 @@ import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { isOn } from "../core/outputs";
 import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
-import { communicationStyles } from "../memory/communication-styles";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
@@ -17,6 +16,7 @@ import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
+import { personas } from "../memory/personas";
 import { codeOn, mapRepos } from "../memory/repos";
 import {
   commitMemory,
@@ -455,8 +455,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     if (isOn("appointments")) {
       await appointments();
     }
-    phase.at = "communication styles";
-    await communicationStyles(withPeople);
+    phase.at = "personas";
+    await personas(withPeople);
     phase.at = "fact checks";
     await topUpFactChecks();
     phase.at = "index";
