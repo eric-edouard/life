@@ -15,7 +15,7 @@ import {
 } from "./index-rows";
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
 import { parsePage, slugOf } from "./page-format";
-import { personaBlock, readPersonaLines } from "./personas";
+import { personaBlock, readPersona } from "./personas";
 import { openWithOf, reminderItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
@@ -226,7 +226,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
                 today: dayNow(),
               }),
               ...situationBlock("Situation", readSituationNow(ref, live)),
-              ...personaBlock(readPersonaLines(ref), dayNow()),
+              ...personaBlock(readPersona(ref), dayNow()),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),

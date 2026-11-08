@@ -88,8 +88,15 @@ A message an assistant wrote for him ("ici Claude", signed by an agent) is not h
 Around 12 to 18 lines: at least 2 `pattern` lines when the days show any, `wants`, `offers` and `balance` lines
 when the days show them, and 1 to 3 `writes` lines per writer.
 
+## Gist
+
+`gist`: 2 or 3 plain sentences, at most about 80 words, an agent reads first: what they are like, the main thing that
+keeps happening between them and him (his part named), and what works with them. Drawn from your lines, never a new
+claim; who they are to him is the page's, leave it out. For `person:me`: what he is like, what repeats across his
+bonds, and what works with him.
+
 ## Output
 
 Reply with one JSON object and nothing else:
 
-{"lines":[{"facet":"pattern","text":"…","quotes":["…","…"]},{"facet":"writes","writer":"owner","kind":null,"text":"…","quotes":["…"]}]}
+{"gist":"…","lines":[{"facet":"pattern","text":"…","quotes":["…","…"]},{"facet":"writes","writer":"owner","kind":null,"text":"…","quotes":["…"]}]}

@@ -183,23 +183,29 @@ test("a persona is rebuilt when there is none, or a week old with new messages",
 test("a reader shows the readings with their support, and the writing lines under Communication style", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
-    [
-      { facet: "reacts", quotes: [q], text: "Goes quiet when pressed." },
-      {
-        facet: "writes",
-        kind: "chat",
-        quotes: [q],
-        source: "whatsapp",
-        text: "Short.",
-        writer: "them",
-      },
-    ],
+    {
+      gist: "Steady, slow to answer; give one clear ask.",
+      lines: [
+        { facet: "reacts", quotes: [q], text: "Goes quiet when pressed." },
+        {
+          facet: "writes",
+          kind: "chat",
+          quotes: [q],
+          source: "whatsapp",
+          text: "Short.",
+          writer: "them",
+        },
+      ],
+    },
     "2026-11-08"
   );
   expect(block[1]).toBe(
+    "- in short: Steady, slow to answer; give one clear ask."
+  );
+  expect(block[2]).toBe(
     '- reacts (thin): Goes quiet when pressed. E.g. "haha ok" (2026-11-01)'
   );
-  expect(block[4]).toBe(
+  expect(block[5]).toBe(
     '- they write, chat (whatsapp): Short. E.g. "haha ok" (2026-11-01)'
   );
   expect(
@@ -214,7 +220,7 @@ test("a reader shows the readings with their support, and the writing lines unde
       },
     ]).map((l) => l.facet)
   ).toEqual(["pattern"]);
-  expect(personaBlock([], "2026-11-08")).toEqual([]);
+  expect(personaBlock(null, "2026-11-08")).toEqual([]);
 });
 
 test("his recordings with someone: the voice units they spoke in, a chapter weighed by its summary", () => {

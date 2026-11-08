@@ -14,7 +14,7 @@ import {
   SITUATIONS,
   situationPath,
 } from "./ledger";
-import { readingsOf, readPersonaLines, supportOf } from "./personas";
+import { readingsOf, readPersona, supportOf } from "./personas";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, refContext } from "./run";
 import { readPeople } from "./who";
@@ -103,7 +103,7 @@ export async function situations() {
             text: (await page.exists()) ? await page.text() : "",
           },
           // To tell what repeats from what is new.
-          persona: readingsOf(readPersonaLines(t.ref)).map((l) => ({
+          persona: readingsOf(readPersona(t.ref)?.lines ?? []).map((l) => ({
             facet: l.facet,
             support: supportOf(l.quotes, step.today),
             text: l.text,
