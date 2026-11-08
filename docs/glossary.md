@@ -80,7 +80,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | observation | One small dated reading of an episode, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
 | type | What an observation is: `to_do`, `promise`, `waiting_on_someone`, `choice`, `about_a_person`, `preference`, `idea`, `news`, `nothing` (SCHEMA.md, "Words used below"). | |
 | modality | How an observation holds: `fact`, `plan`, `reported`, `conditional`. | |
-| importance | How much something matters to the owner: a unit's or an observation's 0–3, an episode's 1–3 (SCHEMA.md). | |
+| importance | How much something matters to the owner: a unit's or an observation's 0–3, an episode's 1–3 (SCHEMA.md) Its thresholds, by name only (`records/unit.ts`): `SEARCHABLE_AT` (1, a searchable line), `KEEP_AT` (2, kept and shown), `TOP_AT` (3, what must not be missed). | |
 | page | A person's or an area's page, written from their observations. | |
 | situation | Where things stand now with him or someone close (how he is, together or not, how they get along), read nightly from the last 30 days' episodes and the page; not a page section, not a fact (`memory/situations/`). | |
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. A project is underway while active or waiting (`isUnderway`); parked or done, it is not. | |

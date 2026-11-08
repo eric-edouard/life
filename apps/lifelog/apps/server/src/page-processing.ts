@@ -11,6 +11,7 @@
 // This is the one writer of a page source's heard-through and sent-through; the iPhone's timeline
 // writes its own sources' (routes/timeline.ts).
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   hasRawPages,
@@ -107,7 +108,7 @@ export function pageProcessor(
   worker: { poke: () => void },
   {
     batchPages = 3000,
-    now = () => Date.now(),
+    now = () => clock().getTime(),
     // The Mac's watermark: nothing after it is labeled (mac-socket.ts `vouchedThrough`).
     vouched = () => Number.POSITIVE_INFINITY,
   }: {

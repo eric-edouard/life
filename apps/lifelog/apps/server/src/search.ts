@@ -6,6 +6,7 @@
 //   speaker rows or people's names, by the change log) is rebuilt. A passage whose text is
 //   unchanged keeps its embedding, so a rebuild only embeds what changed.
 // - Nothing leaves the Mac: the embedder listens on loopback.
+import { clock } from "@life/server/src/core/clock";
 import {
   CANDIDATES,
   EMBEDDER_URL,
@@ -149,7 +150,7 @@ async function indexConversation(
         )
         .run();
     }
-    const indexed = { indexedAt: new Date(), model: embedder.model, seq };
+    const indexed = { indexedAt: clock(), model: embedder.model, seq };
     tx.insert(searchIndex)
       .values({ ...indexed, conversationId })
       .onConflictDoUpdate({ set: indexed, target: searchIndex.conversationId })

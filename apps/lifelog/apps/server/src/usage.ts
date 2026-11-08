@@ -2,6 +2,7 @@
 // and intelligence runs. Every figure is our estimate at list prices;
 // ElevenLabs' own report is added beside it when it answers, never mixed in.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type IntelligenceProvider,
@@ -101,7 +102,7 @@ function spendingByDay(
   return byDay;
 }
 
-export async function usageSummary(db: Db, config: Config, now = new Date()) {
+export async function usageSummary(db: Db, config: Config, now = clock()) {
   const since = new Date(now.getTime() - LOOKBACK_MS);
   const today = ownerClock(now).date;
   const monthStart = zonedInstant(

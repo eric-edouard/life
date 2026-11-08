@@ -1,7 +1,9 @@
 // Pushes to the phone through APNs: silent pushes when processing has news, and alerts (the people
 // digest). Token auth: an ES256 JWT signed with the .p8 key, over HTTP/2.
+
 import { createPrivateKey, type KeyObject, sign } from "node:crypto";
 import { connect } from "node:http2";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { alertPushToken } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
@@ -98,7 +100,7 @@ export function apnsFor(
   let issuedAt = 0;
   let token = "";
   return (request) => {
-    const now = Math.floor(Date.now() / 1000);
+    const now = Math.floor(clock().getTime() / 1000);
     if (now - issuedAt >= TOKEN_RENEW_S) {
       issuedAt = now;
       token = providerToken(key, APNS_KEY_ID, APNS_TEAM_ID, now);
@@ -144,7 +146,7 @@ export async function sendPush(
   fields: Fields = {}
 ) {
   let about: Fields = { kind, ...fields };
-  const started = Date.now();
+  const started = performance.now();
   try {
     const pushToken = push && latestPushToken(db);
     if (!(push && pushToken)) {
@@ -169,7 +171,7 @@ export async function sendPush(
     record(db, "apns.sent", {
       ...about,
       apnsId: response.apnsId ?? null,
-      ms: Date.now() - started,
+      ms: Math.round(performance.now() - started),
       reason,
       status: response.status,
     });

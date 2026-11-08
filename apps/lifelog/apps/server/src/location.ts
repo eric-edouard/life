@@ -3,6 +3,7 @@
 // (`GET /where`, `GET /visits`). A place is named by the phone's name of a fix taken there (Apple's,
 // places.ts); otherwise coordinates stand alone.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
@@ -307,7 +308,7 @@ function pointsBetween(db: Db, from: number, to: number) {
     )
     .orderBy(asc(locationHistory.observedAt))
     .all();
-  return toPoints(rows, Date.now());
+  return toPoints(rows, clock().getTime());
 }
 
 // The circles a place stands for: the fixes the phone named so, the name matched in part and in
@@ -394,7 +395,7 @@ export function visitsTo(
     return null;
   }
   const from = range.from?.getTime() ?? 0;
-  const to = range.to?.getTime() ?? Date.now();
+  const to = range.to?.getTime() ?? clock().getTime();
   const points = pointsBetween(db, from, to + MAX_GAP_MS);
   const found = (
     circles ? visitsIn(points, circles) : stays(points).filter(isStay)

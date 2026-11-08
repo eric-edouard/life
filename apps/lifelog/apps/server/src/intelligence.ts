@@ -10,6 +10,7 @@
 // - A valid run's high-confidence boundaries become AI splits at once, the medium ones are offered
 //   as "Split here?" (`splitsOf`, summaries.ts).
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type Coverage,
@@ -714,7 +715,7 @@ function splitAtBoundaries(db: Db, run: Run) {
       .values(
         ats.map(({ at }) => ({
           at: new Date(at),
-          editedAt: new Date(),
+          editedAt: clock(),
           id: aiSplitId(at),
           kind: "split" as const,
           source: "ai" as const,

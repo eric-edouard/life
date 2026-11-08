@@ -12,6 +12,7 @@
 // recording changed; the first pass after a start does all. Rows that change are written and
 // logged.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type ConversationState,
@@ -216,7 +217,7 @@ export function conversationStates(db: Db, inputs: Inputs) {
   }
 
   // A pass is synchronous: nothing else runs while it does.
-  return { refresh: (now = new Date()) => pass(now) };
+  return { refresh: (now = clock()) => pass(now) };
 }
 
 export type ConversationStates = ReturnType<typeof conversationStates>;

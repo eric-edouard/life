@@ -48,6 +48,9 @@ export const KEEP_AT = 2;
 /** The importance from which a unit is worth a searchable line, and is read with its episode. */
 export const SEARCHABLE_AT = 1;
 
+/** The top importance: what must not be missed (an open item, a reminder the grant may make, a new fact the nightly email lists). */
+export const TOP_AT = 3;
+
 /**
  * memory/verdicts.jsonl: the episodes model's judgement of one unit's content (`unit` + `hash`), append-only. The latest
  * line for a (unit, hash) wins; a unit a code rule dropped (`Unit.drop`) has none that counts.

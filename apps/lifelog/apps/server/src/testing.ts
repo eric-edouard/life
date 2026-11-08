@@ -1,9 +1,11 @@
 // Test support: a disposable SQLite file per test file and a local fake of the ElevenLabs HTTP API.
 // Never used by the server itself.
+
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import { connect, type Db, migrateDb } from "@lifelog/db";
 import {
   conversations,
@@ -60,7 +62,7 @@ export function seedTranscript(
   db: Db,
   turns: Turn[],
   words: Word[] = [],
-  storedAt = new Date(Date.now() - 3_600_000)
+  storedAt = new Date(clock().getTime() - 3_600_000)
 ) {
   const job = db
     .insert(transcriptionJobs)
@@ -87,7 +89,7 @@ export function storeTranscript(
   jobId: string,
   turns: Turn[],
   words: Word[] = [],
-  storedAt = new Date()
+  storedAt = clock()
 ) {
   db.insert(transcripts)
     .values({
@@ -387,7 +389,10 @@ export const testConfig = (
     ...overrides,
   });
 
-export function signature(body: string, t = Math.floor(Date.now() / 1000)) {
+export function signature(
+  body: string,
+  t = Math.floor(clock().getTime() / 1000)
+) {
   const v0 = createHmac("sha256", WEBHOOK_SECRET)
     .update(`${t}.${body}`)
     .digest("hex");

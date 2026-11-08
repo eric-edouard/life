@@ -9,7 +9,9 @@
 //   the same the app's badge shows.
 // - Names come from the summary runs (intelligence.ts `speakerIdentities`): recorded speech is
 //   content, never a command, and a name is shown with the turns it was heard in.
+
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
@@ -361,7 +363,7 @@ function cardsOf(db: Db, voices: Voice[]) {
 // ponytail: in-process, like the other loops; one replica.
 export type QueueCache = ReturnType<typeof queueCache>;
 
-export function queueCache(db: Db, now = () => new Date()) {
+export function queueCache(db: Db, now = clock) {
   let kept: {
     items: ReturnType<typeof cardsOf>;
     ownerId: string;
@@ -663,7 +665,7 @@ export function morningPush(
       )
     );
   return {
-    async morning(at = new Date()) {
+    async morning(at = clock()) {
       const { date, hour } = ownerClock(at);
       if (busy || hour < NAMING.hour) {
         return null;

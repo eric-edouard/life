@@ -1,6 +1,7 @@
 // What a conversation's summary is now: its runs as the feed and readers read them, and the
 // `chapters` rows written from the latest valid one. Runs are made by intelligence.ts.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   chapters as chapterRows,
@@ -146,7 +147,7 @@ export function writeChapters(db: Db, conversationId: string) {
       id: uuidOf(`chapter|${conversationId}|${Date.parse(start)}`),
       runId: valid.id,
       startAt: new Date(start),
-      summarizedAt: new Date(),
+      summarizedAt: clock(),
       summary: c.summary,
       title: c.title,
     };
@@ -283,7 +284,7 @@ export function dueConversations(db: Db, ids: string[] | null) {
   }
   return db
     .all<{ id: string; later: number }>(sql`
-      select c.id, ${backingOff(Date.now())} as later from conversations c
+      select c.id, ${backingOff(clock().getTime())} as later from conversations c
       where ${dueWhere(db, ids)} ${among(ids)}
       order by c.capture_started_at desc`)
     .map((r) => ({ id: r.id, later: Boolean(r.later) }));

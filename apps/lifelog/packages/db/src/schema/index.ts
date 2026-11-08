@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import { bytesOf, vectorOf } from "@life/server/src/core/embedder";
 import { isNull, type SQLWrapper, sql } from "drizzle-orm";
 import {
@@ -22,7 +23,7 @@ const json = <T = unknown>(name: string) =>
   text(name, { mode: "json" }).$type<T>();
 const uuid = (name: string) => text(name);
 const newId = () => randomUUID();
-const now = () => new Date();
+const now = clock;
 
 // A vector as Life's core stores it: scored in JS (search.ts), never by the database.
 const vector = customType<{ data: number[]; driverData: Uint8Array }>({

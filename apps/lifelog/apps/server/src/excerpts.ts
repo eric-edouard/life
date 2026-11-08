@@ -9,6 +9,7 @@
 // (sent again by the phone, `PUT /jobs/{id}/audio`): it may hold dictation from before the Mac kept
 // quiet ranges.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type ParsedTranscript,
@@ -118,7 +119,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
       // The same bytes fail every time: the job is left as it is.
       return result.error === "invalid_audio" ? done(jobId) : null;
     }
-    lastOkAt = new Date().toISOString();
+    lastOkAt = clock().toISOString();
     lastError = null;
     const samples = wanted.flatMap(({ index, speaker, turn }, i) => {
       const e = result.embeddings[i];
@@ -220,7 +221,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
             isNotNull(transcriptionJobs.objectKey),
             gt(
               transcripts.createdAt,
-              new Date(Date.now() - RECOGNITION.keepDays * 86_400_000)
+              new Date(clock().getTime() - RECOGNITION.keepDays * 86_400_000)
             )
           )
         )

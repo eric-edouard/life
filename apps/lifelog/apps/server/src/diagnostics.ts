@@ -2,7 +2,9 @@
 // phone, every error the owner saw in the app, the server's own failures, and small capture-health
 // heartbeats. States, counts, call stacks and shortened error messages only: never audio,
 // transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
+
 import { z } from "@hono/zod-openapi";
+import { clock } from "@life/server/src/core/clock";
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import type { Db } from "@lifelog/db";
 import {
@@ -353,7 +355,7 @@ export function signatureOf(d: DiagnosticUpload): string {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Drops what is older than the retention. Run after every upload: cheap at this volume.
-function prune(db: Db, now = new Date()) {
+function prune(db: Db, now = clock()) {
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * DAY_MS);
   db.delete(diagnostics).where(lt(diagnostics.receivedAt, cutoff)).run();
   db.delete(heartbeats).where(lt(heartbeats.receivedAt, cutoff)).run();
@@ -407,7 +409,7 @@ export function storeServerError(
   where: { method: string; route: string }
 ) {
   const e = error instanceof Error ? error : new Error(String(error));
-  const now = new Date().toISOString();
+  const now = clock().toISOString();
   const failure = {
     count: 1,
     httpStatus: 500,

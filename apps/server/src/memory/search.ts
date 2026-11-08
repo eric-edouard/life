@@ -16,7 +16,7 @@ import {
   type Observation,
 } from "../records/observation";
 import type { Unit, Verdict } from "../records/unit";
-import { KEEP_AT } from "../records/unit";
+import { KEEP_AT, SEARCHABLE_AT, TOP_AT } from "../records/unit";
 import { type Contact, readContactRecords } from "../sources/contacts";
 import {
   conversationsWith,
@@ -809,7 +809,10 @@ export function dayLines({
   units?: UnitRow[];
   whereUnknown?: boolean;
 }) {
-  const noise = units.filter((u) => u.importance === 0).length;
+  // Worth nothing: a verdict below SEARCHABLE_AT (a unit with none yet is listed).
+  const isNoise = (u: UnitRow) =>
+    typeof u.importance === "number" && u.importance < SEARCHABLE_AT;
+  const noise = units.filter(isNoise).length;
   return [
     ...(born.length > 0
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
@@ -844,7 +847,7 @@ export function dayLines({
       ? ["Payments (his accounts and wallet, in time order):", ...paidLines, ""]
       : []),
     `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
-    ...units.filter((u) => u.importance !== 0).map(unitLine),
+    ...units.filter((u) => !isNoise(u)).map(unitLine),
     ...(actions.length > 0
       ? [
           "",
@@ -1054,7 +1057,7 @@ function openCandidatesOf(db: Database, narrow: string, ...params: string[]) {
       `select ${COLUMNS}, o.at,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
          (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
-       from observations o where o.importance = 3 and ${CURRENT}
+       from observations o where o.importance = ${TOP_AT} and ${CURRENT}
        and (o.type in ('promise', 'waiting_on_someone') or (o.type = 'to_do' and o.speaker = ?))
        and ${narrow} order by o.at, o.id`
     )

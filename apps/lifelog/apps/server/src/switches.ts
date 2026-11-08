@@ -5,6 +5,7 @@
 // follow no switch (search.ts). `transcriber` picks who transcribes the next blocks: Scribe whole, or the
 // speech service with Scribe for the turns it routes (jobs.ts).
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type MacEngine,
@@ -73,7 +74,7 @@ export function setSwitches(
     tx.insert(processingSwitches)
       .values({ id: 1, ...after })
       .onConflictDoUpdate({
-        set: { ...after, updatedAt: new Date() },
+        set: { ...after, updatedAt: clock() },
         target: processingSwitches.id,
       })
       .run();

@@ -12,6 +12,8 @@ const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG_TASKS = /"gog",\s*"tasks"/;
 const MONEY = /\["money",/;
+const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
+const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
   (f) => !f.endsWith(".test.ts")
@@ -94,4 +96,29 @@ test("only the payments backend imports money, and only money.ts runs the money 
     "apps/server/src/payments/backend.ts",
   ]);
   expect(running(MONEY)).toEqual(["apps/server/src/payments/money.ts"]);
+});
+
+const lifelogTexts = repoFiles(LIFE_CODE_DIR, ["apps/lifelog"], [".ts"])
+  .filter((f) => !f.endsWith(".test.ts"))
+  .map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")] as const);
+/** The `file:line`s of server code (and lifelog's, with `lifelog`) matching `pattern`, outside the files in `except`. */
+const linesMatching = (pattern: RegExp, except: string[], lifelog = false) =>
+  [...texts, ...(lifelog ? lifelogTexts : [])].flatMap(([f, text]) =>
+    except.includes(f)
+      ? []
+      : text
+          .split("\n")
+          .flatMap((l, i) => (pattern.test(l) ? [`${f}:${i + 1}`] : []))
+  );
+
+// 8 Nov 2026: three bare 3s decided "what must not be missed" apart. A threshold is named once, in records/unit.ts.
+test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCHABLE_AT, TOP_AT", () => {
+  expect(linesMatching(BARE_IMPORTANCE, [])).toEqual([]);
+});
+
+// AGENTS.md, "One way": now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
+test("now is read only through clock()", () => {
+  expect(
+    linesMatching(DIRECT_CLOCK, ["apps/server/src/core/clock.ts"], true)
+  ).toEqual([]);
 });

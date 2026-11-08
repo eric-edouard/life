@@ -1,3 +1,4 @@
+import { clock } from "@life/server/src/core/clock";
 import { connect, holdArchive, migrateDb } from "@lifelog/db";
 import { intelligenceRuns } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
@@ -94,8 +95,8 @@ setInterval(() => {
   // Once a day: the restic snapshot when it is set up (restic.ts), else the archive copied to the
   // bucket (or AUDIO_DIR) beside the phone's snapshots; tried at most hourly, so a failing
   // bucket costs one copy an hour, never two at once.
-  if (Date.now() >= snapshotAfter) {
-    snapshotAfter = Date.now() + 3_600_000;
+  if (clock().getTime() >= snapshotAfter) {
+    snapshotAfter = clock().getTime() + 3_600_000;
     (s.restic ? s.restic.daily() : snapshotArchive(db, s.audio)).catch(
       (error: unknown) => reportError(db, "archive snapshot", error)
     );

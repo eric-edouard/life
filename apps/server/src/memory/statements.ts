@@ -3,6 +3,7 @@ import { appendJsonl } from "../core/files";
 import type { Episode } from "../records/episode";
 import { INFERRED_PREFIX, type Observation } from "../records/observation";
 import { Statement } from "../records/statement";
+import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import {
   episodesNow,
@@ -92,7 +93,7 @@ export const doubtful = (
     .filter(
       (c): c is Claim & { group: Draft["group"] } =>
         c.group !== null &&
-        c.importance > 1 &&
+        c.importance >= KEEP_AT &&
         c.doubts.length > 0 &&
         !stated.has(c.ref)
     )

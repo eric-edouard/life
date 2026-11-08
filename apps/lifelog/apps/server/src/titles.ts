@@ -2,13 +2,14 @@
 // was made and the latest one wins. A phone edit made offline keeps its own time; a time in the
 // future is clamped to now. An edit without a time is stamped now.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { conversations } from "@lifelog/db/schema";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { logChange } from "./change-log";
 
 // When an edit counts as made: its own time, never later than now.
-const editTime = (editedAt: string | null | undefined, now = new Date()) =>
+const editTime = (editedAt: string | null | undefined, now = clock()) =>
   editedAt ? new Date(Math.min(Date.parse(editedAt), now.getTime())) : now;
 
 // The owner's title, set (or cleared, with null) unless a later edit is already stored. Two

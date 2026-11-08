@@ -5,8 +5,10 @@
 // without it. The latest snapshot is a `backup_files` row (kind `restic`); the last error is kept in
 // memory. The password goes to restic in its environment, never to a log; `GET /status` (readers
 // see it) shows neither it nor the repository.
+
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { backupFiles } from "@lifelog/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -116,7 +118,7 @@ export function resticFor(db: Db, config: Config) {
 
   return {
     // Today's snapshot, unless it is taken, three tries failed today, or one runs. True once taken.
-    async daily(now = new Date()) {
+    async daily(now = clock()) {
       const date = localDate(now);
       const taken = db
         .select({ key: backupFiles.key })

@@ -8,7 +8,12 @@ import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
 import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
+import {
+  KEEP_AT,
+  MemoryType,
+  RecordingKind,
+  SEARCHABLE_AT,
+} from "../records/unit";
 import { isActivity } from "../sources/contract";
 import { lifelogMissing } from "../sources/lifelog";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
@@ -208,7 +213,7 @@ export const episodeId = (key: string[]) =>
 export function importanceOf(u: Unit, importance: number) {
   const kind = kindOf(u.source);
   if (isActivity(kind)) {
-    return Math.min(importance, 1);
+    return Math.min(importance, SEARCHABLE_AT);
   }
   return u.marked || kind === "agent"
     ? Math.max(importance, KEEP_AT)

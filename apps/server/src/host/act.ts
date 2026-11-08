@@ -8,6 +8,7 @@ import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
 import { type Instruction, LedgerEntry, stands } from "../records/ledger-entry";
 import type { Observation } from "../records/observation";
+import { TOP_AT } from "../records/unit";
 import { ownerSpoke, withStore } from "../sources/lifelog";
 import {
   backend,
@@ -191,7 +192,7 @@ export function grantRefusal(g: {
   if (g.state !== "active") {
     return `the observation is ${g.state}, not current`;
   }
-  if (g.o.importance !== 3 || !["to_do", "promise"].includes(g.o.type)) {
+  if (g.o.importance !== TOP_AT || !["to_do", "promise"].includes(g.o.type)) {
     return "only his importance-3 to-dos and promises";
   }
   if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
