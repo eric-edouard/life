@@ -5,7 +5,8 @@ import type { SourceEvent } from "../records/source";
 // every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
 // stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
-// The view: what `read_day` lists as due (apps/server/src/memory/search.ts gathers the candidates, each with its line). Copies merge,
+// The views: what `read_day` lists as due, and what a person's page lists as open with them (apps/server/src/memory/search.ts
+// gathers the candidates, each with its line). Copies merge,
 // timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
 
 /** One candidate open item, with the line `read_day` shows for it. */
@@ -36,6 +37,9 @@ export const AGAIN_DAYS = 3;
 /** How many days late a dated item is still listed, labelled, so a missed daily review is caught up. */
 export const OVERDUE_DAYS = 7;
 
+/** Owed to him (he can only chase it); every other open item is his to do, a promise included (decision 11b). */
+export const isOwedToHim = (c: Candidate) => c.kind === "waiting_on_someone";
+
 const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
@@ -54,7 +58,7 @@ function timely(c: Candidate, date: string, today: string, shown: string[]) {
     return (late === 1 || late === AGAIN_DAYS) && date <= today;
   }
   const late = daysFrom(when, date);
-  if (c.kind === "waiting_on_someone") {
+  if (isOwedToHim(c)) {
     return late === 0;
   }
   // Shown in Due: on a day from the one before its day (its ids elsewhere in `read_day` don't count).
@@ -74,9 +78,6 @@ const KIND = {
   to_do: 1,
   waiting_on_someone: 2,
 };
-
-/** Owed to him (he can only chase it); every other open item is his to do, a promise included (decision 11b). */
-export const isOwedToHim = (c: Candidate) => c.kind === "waiting_on_someone";
 
 /**
  * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves

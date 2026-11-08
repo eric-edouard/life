@@ -602,10 +602,12 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const episodes = all.filter((m) =>
     m.people.some((p) => refOf(p.ref) === ref)
   );
-  // What may be open with them besides the observations, read before the index opens (nothing awaits while it is).
-  const more = before
-    ? []
-    : [...reminderItems(), ...(await repliesOwed(clock()))];
+  // What may be open with them besides the observations (someone Life knows, first page only), read before the index
+  // opens (nothing awaits while it is).
+  const more =
+    before || !known
+      ? []
+      : [...reminderItems(), ...(await repliesOwed(clock()))];
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor map: the lifelog speakers it is part of.
