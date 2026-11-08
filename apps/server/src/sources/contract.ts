@@ -32,6 +32,13 @@ export interface AppStore {
   copy: () => void;
   deleted?: { media?: string };
 }
+/** A message as its store first wrote it (`incoming`): its row there, its id as `read` gives it and its time. */
+export interface NewRow {
+  at: string;
+  id: string;
+  row: number;
+}
+
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
   chatDays?: number;
@@ -39,6 +46,12 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /**
+   * For a chat or mail source with an ordered store: the messages its store first wrote from row `from` on, oldest
+   * row first, and one past its last row (`events.ts`). An edit, a delete or a second copy of a message is not a new
+   * message. Without it, the source has no events.
+   */
+  incoming?: (from: number) => { end: number; rows: NewRow[] };
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */

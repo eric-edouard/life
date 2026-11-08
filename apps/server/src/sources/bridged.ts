@@ -8,6 +8,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
+  incomingArchived,
   insertAll,
   LATEST_VERSIONS,
   matrixArchive,
@@ -699,6 +700,7 @@ export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
   return {
     chatDays: 7,
+    incoming: (from) => incomingArchived(name, "eventId", from),
     kind: "chat",
     label,
     name,

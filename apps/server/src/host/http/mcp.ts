@@ -25,6 +25,7 @@ import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { Asked, actAsked, actGranted, Granted } from "../act";
 import { asksFor } from "../asks";
+import { EVENTS, eventTypes, PollParams, pollEvents } from "../events";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
@@ -425,6 +426,29 @@ export function buildServer() {
     z.object(page),
     async ({ cursor, limit }, caller) =>
       asksFor(agentOnly(caller), cursor, limit)
+  );
+  // MCP's Events extension (`events.ts`), by poll: what an agent can wait for, and what happened past its cursor.
+  server.server.registerCapabilities({ extensions: { [EVENTS]: {} } });
+  server.server.setRequestHandler(
+    "events/list",
+    { params: z.object({}).loose() },
+    eventTypes
+  );
+  server.server.setRequestHandler(
+    "events/poll",
+    { params: PollParams.loose() },
+    async (params, ctx) => {
+      const started = performance.now();
+      const result = await pollEvents(params);
+      log("mcp.call", {
+        ...who(ctx.http?.authInfo),
+        args: cut(params),
+        ids: result.events.map((e) => e.eventId),
+        ms: Math.round(performance.now() - started),
+        tool: "events/poll",
+      });
+      return result;
+    }
   );
   return server;
 }

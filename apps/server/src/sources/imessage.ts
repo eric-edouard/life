@@ -3,7 +3,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest } from "./contract";
+import type { Newest, NewRow } from "./contract";
 import { sourceFile } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
@@ -107,6 +107,34 @@ export function readImessage(
         text: r.text ?? textFromAttributedBody(r.attributedBody),
       };
     });
+  } finally {
+    db.close();
+  }
+}
+
+/** The messages Messages first stored from row `from` on (`incoming`): an edit changes its row in place. */
+export function incomingImessage(
+  from: number,
+  path = DB
+): { end: number; rows: NewRow[] } {
+  const db = openReadOnly(path);
+  try {
+    const end = db
+      .query<{ end: number }, []>(
+        "select coalesce(max(ROWID), 0) + 1 as end from message"
+      )
+      .get()?.end as number;
+    const rows = db
+      .query<{ date: number | bigint; guid: string; row: number }, [number]>(
+        "select ROWID as row, guid, date from message where ROWID >= ? and item_type = 0 order by ROWID"
+      )
+      .all(from)
+      .map((r) => ({
+        at: fromAppleNs(r.date).toISOString(),
+        id: `imessage:${r.guid}`,
+        row: r.row,
+      }));
+    return { end, rows };
   } finally {
     db.close();
   }

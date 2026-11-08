@@ -73,61 +73,79 @@ export function decode<T>(
 
 // --- the change feed -----------------------------------------------------------------------------------------------
 
-/** Lines read per source. Each source is append-only, so a line's position never changes. */
+/** Each source's position: one past the last line (or row) the cursor covers. A line's position never changes. */
 type Cursor = Record<string, number>;
 /** A feed's cursor as a client sends it back (`encode`d); none starts at the beginning. */
 export const parseCursor = (s: string | undefined): Cursor =>
   decode(s, z.record(z.string(), z.int().min(0)), {});
 
-/** A feed source: its count of lines (cheap: `readLineCount`) and its lines, read only when the cursor is behind it. */
-interface Source {
-  count: number;
-  lines: () => string[];
+/**
+ * A feed source: one past its last position (cheap: `readLineCount`, a store's last row) and its items from a position,
+ * each at its own (a file's line numbers, a store's sparse rows), read only when the cursor is behind it.
+ */
+export interface Source<R> {
+  end: number;
   name: string;
+  rows: (from: number) => [number, R][];
 }
-/** An append-only file as a feed source. */
-export const fileSource = (path: string, name: string): Source => ({
-  count: readLineCount(path),
-  lines: () => linesOf(path),
+/** A list as a feed source, each item at its index. */
+export const listSource = <R>(name: string, list: R[]): Source<R> => ({
+  end: list.length,
   name,
+  rows: (from) => list.slice(from).map((r, i) => [from + i, r]),
+});
+/** An append-only file as a feed source. */
+export const fileSource = (path: string, name: string): Source<string> => ({
+  end: readLineCount(path),
+  name,
+  rows: (from) => listSource(name, linesOf(path)).rows(from),
 });
 
 /**
- * One page of a feed: the items `item` makes of the lines past `cursor`, source by source in the given order, at most
- * `limit`. The new cursor covers exactly the lines scanned, so the next page starts where this one stopped and lines
- * appended anywhere meanwhile are picked up, none twice. `remaining` counts the items past the new cursor.
+ * One page of a feed: the items `item` makes of the rows past `cursor`, source by source in the given order, at most
+ * `limit`. The new cursor covers exactly the rows scanned (a source read to its end, its end), so the next page starts
+ * where this one stopped and rows written anywhere meanwhile are picked up, none twice. `remaining` counts the items past
+ * the new cursor.
  */
-export function feedPage<T>(
-  sources: Source[],
+export function feedPage<R, T>(
+  sources: Source<R>[],
   cursor: Cursor,
   limit: number,
-  item: (source: string, line: string, n: number) => T | null
+  item: (source: string, row: R, n: number) => T | null
 ) {
   const next: Cursor = {};
   const items: T[] = [];
   let remaining = 0;
   for (const s of sources) {
-    const from = cursor[s.name] ?? 0;
-    if (s.count < from) {
-      throw new Error(
-        `cursor is past the end of ${s.name}: start again without a cursor`
-      );
-    }
-    next[s.name] = from;
-    const lines = s.count > from ? s.lines() : [];
-    for (let n = from; n < lines.length; n += 1) {
-      const it = item(s.name, lines[n] as string, n);
-      if (items.length < limit) {
+    const from = startOf(s, cursor);
+    let taken = from;
+    let full = false;
+    for (const [n, row] of s.end > from ? s.rows(from) : []) {
+      const it = item(s.name, row, n);
+      full ||= items.length >= limit;
+      if (full) {
+        remaining += it ? 1 : 0;
+      } else {
         if (it) {
           items.push(it);
         }
-        next[s.name] = n + 1;
-      } else if (it) {
-        remaining += 1;
+        taken = n + 1;
       }
     }
+    next[s.name] = full ? taken : Math.max(taken, s.end);
   }
   return { cursor: encode(next), items, remaining };
+}
+
+/** Where a source's page starts: its place in the cursor, never past its end. */
+function startOf(s: Source<unknown>, cursor: Cursor) {
+  const from = cursor[s.name] ?? 0;
+  if (s.end < from) {
+    throw new Error(
+      `cursor is past the end of ${s.name}: start again without a cursor`
+    );
+  }
+  return from;
 }
 
 const PEOPLE_PATH = /^memory\/pages\/people\//;
@@ -464,14 +482,14 @@ const monthName = (file: string) =>
 export async function changeFeed(f: ChangeFilter = {}) {
   const months = await filesIn(OBSERVATIONS);
   const pageLines = pageCommits();
-  const sources: Source[] = [
+  const sources: Source<string>[] = [
     fileSource(CORRECTIONS, "corrections"),
     fileSource(SUPERSESSIONS, "supersessions"),
     fileSource(INFERRED, "inferred"),
     fileSource(LEDGER, "ledger"),
     fileSource(RATINGS, "ratings"),
     ...months.map((m) => fileSource(join(OBSERVATIONS, m), monthName(m))),
-    { count: pageLines.length, lines: () => pageLines, name: "pages" },
+    listSource("pages", pageLines),
   ];
   const ctx = await readContext();
   const page = feedPage(
