@@ -425,7 +425,7 @@ async function writeDay(day: string, list: Episode[]) {
 }
 
 /** The new units one reading of a day sends: in time order, as many as fit one call (`chars`), at least one. */
-export function partOf(units: Built[], chars: number) {
+export function dayPartOf(units: Built[], chars: number) {
   const sorted = units.toSorted((a, b) =>
     a.unit.start.localeCompare(b.unit.start)
   );
@@ -508,7 +508,7 @@ export async function episodes(evidence: Evidence) {
       const got = await step.attempt(async () => {
         // The new conversations with their words: fetched only now, for the day being read; as many as fit, at least one.
         heard ??= await voiceText(units.filter(isNew), resolve, truth);
-        const spoken = partOf(heard.filter(isNew), callCharsOf(step.llm));
+        const spoken = dayPartOf(heard.filter(isNew), callCharsOf(step.llm));
         const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
         const shown = units.filter((b) => !isNew(b) || texts.has(b.unit.id));
         // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.

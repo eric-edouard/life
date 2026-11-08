@@ -6,11 +6,11 @@ import {
   agreement,
   chatAreas,
   dayFileOf,
+  dayPartOf,
   EPISODES_PROMPT,
   earlierFor,
   fresh,
   parseDay,
-  partOf,
   unread,
 } from "./episodes";
 import { daysOf, episodesNow, isRereadSince, rereadAt } from "./ledger";
@@ -471,8 +471,8 @@ test("a day too long for one call is read in parts: its new units in time order,
   const early = at(U2, "08", "x".repeat(60));
   const noon = at(U3, "12", "x".repeat(30));
   const ids = (list: Built[]) => list.map((b) => b.unit.id);
-  expect(ids(partOf([late, early, noon], 1000))).toEqual([U2, U3, U1]);
-  expect(ids(partOf([late, early, noon], 100))).toEqual([U2, U3]);
+  expect(ids(dayPartOf([late, early, noon], 1000))).toEqual([U2, U3, U1]);
+  expect(ids(dayPartOf([late, early, noon], 100))).toEqual([U2, U3]);
   // One unit over the call goes alone, whole: the provider refuses it, never Life.
-  expect(ids(partOf([late, early], 10))).toEqual([U2]);
+  expect(ids(dayPartOf([late, early], 10))).toEqual([U2]);
 });
