@@ -73,6 +73,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "told",
     "radio",
   ]);
+  expect(Object.keys(t.OWN_WRITING)).toEqual(["notes", "claude", "chatgpt"]);
   // A source with no search window is not searched (git); mail is searched in its own section.
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",

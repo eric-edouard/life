@@ -70,6 +70,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | episode | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Called moment before Nov 2026. Id `ep_…`. | |
+| part | The new units of a day that fit one call, in time order (`partOf`); a day too long for one call is read in parts, each seeing the episodes the one before wrote. | |
 | what | An episode's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
 | within | The episode holding another (a dinner within a trip). | |
 | stay | One place his phone stayed, from lifelog's location history (`staysOf`); an episode's stay is the one covering most of it (`stayOf`), derived, never stored. | |

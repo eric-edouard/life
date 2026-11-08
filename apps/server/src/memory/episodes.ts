@@ -495,6 +495,8 @@ export async function episodes(evidence: Evidence) {
     }
     // A day is read whole, in one call when it fits (every day, on his engine); one too long for a call is read in
     // parts, in time order: each part its next new units, those judged as stubs, the rest left for the next part.
+    // The new conversations' words, fetched once for the day: each part takes the ones still new.
+    let heard: Built[] | undefined;
     while (unread(units, verdicts, rereads)) {
       // Who they are today, as the units and the map show them.
       const earlier = earlierFor(day, lines, corrections).map((m) =>
@@ -505,10 +507,8 @@ export async function episodes(evidence: Evidence) {
       // biome-ignore lint/performance/noAwaitInLoops: a day, and a part of one, reads the episodes the one before it wrote
       const got = await step.attempt(async () => {
         // The new conversations with their words: fetched only now, for the day being read; as many as fit, at least one.
-        const spoken = partOf(
-          await voiceText(units.filter(isNew), resolve, truth),
-          callCharsOf(step.llm)
-        );
+        heard ??= await voiceText(units.filter(isNew), resolve, truth);
+        const spoken = partOf(heard.filter(isNew), callCharsOf(step.llm));
         const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
         const shown = units.filter((b) => !isNew(b) || texts.has(b.unit.id));
         // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
@@ -607,7 +607,7 @@ export async function episodes(evidence: Evidence) {
           madeBy,
           people: new Set(refs.map.people.map((p) => p.ref)),
           resolve,
-          units: new Map(units.map((b) => [b.unit.id, b.unit])),
+          units: new Map(shown.map((b) => [b.unit.id, b.unit])),
         });
         const who = checkPeople(reading.who, {
           areas,
