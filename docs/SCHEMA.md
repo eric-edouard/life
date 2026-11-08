@@ -316,8 +316,9 @@ himself across everyone (`me`), written by `personas.ts` from 3 years of their 1
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
 line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
-messages and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
-and it is a week old; removed when the person has no page or no message from him in the last 3 years. Nothing is
+days, recordings and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
+and it is a week old; removed when the person has no page or nothing passed between them in the last 3 years (no 1:1 or group
+chat-day, no recording). Nothing is
 written or removed on a night a source can't be read.
 
 ## communication-styles/<id>.json

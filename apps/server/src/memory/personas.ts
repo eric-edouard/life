@@ -11,7 +11,7 @@ import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
 import { locate } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
-import { kindOf } from "./sources";
+import { isDirect, kindOf } from "./sources";
 import {
   clip,
   dayUnitId,
@@ -319,27 +319,26 @@ async function spokenOf(
   recordings: Recording[],
   refs: Set<string>,
   people: People,
-  budget: number
+  named: (ref: string) => string
 ) {
   const live = recordings.flatMap((r) => (isFrozen(r.unit) ? [] : [r.unit]));
   const spoken = await spokenLines(live, people.resolve, people.truth);
   let used = 0;
-  const days = live.flatMap((u): ShownDay[] => {
-    const messages = (spoken.get(u.id) ?? []).flatMap((l) =>
-      l.speaker === OWNER || refs.has(l.speaker)
-        ? [
-            {
-              at: l.at,
-              deleted: false,
-              fromMe: l.speaker === OWNER,
-              text: l.text.slice(0, MESSAGE_MAX),
-              who: l.speaker === OWNER ? "him" : people.nameOf(l.speaker),
-            },
-          ]
-        : []
-    );
+  // Newest first, as the sample keeps them: a low guess of their length cuts the oldest.
+  const days = live.toReversed().flatMap((u): ShownDay[] => {
+    const messages = betweenOf(
+      spoken.get(u.id) ?? [],
+      refs,
+      (l) => l.speaker
+    ).map((l) => ({
+      at: l.at,
+      deleted: false,
+      fromMe: l.speaker === OWNER,
+      text: l.text.slice(0, MESSAGE_MAX),
+      who: named(l.speaker),
+    }));
     const size = sizeOf(messages);
-    if (messages.length === 0 || used + size > budget) {
+    if (messages.length === 0 || used + size > BUDGET) {
       return [];
     }
     used += size;
@@ -362,7 +361,38 @@ async function spokenOf(
       ? [{ day: r.day, summary: r.unit.summary, title: r.unit.title }]
       : []
   );
-  return { days, recorded };
+  return { days: days.toReversed(), recorded };
+}
+
+/** What passed between him and `refs` in one group chat-day or recording: his and their lines, when they said anything. */
+export const betweenOf = <T>(
+  list: T[],
+  refs: Set<string>,
+  speaker: (x: T) => string
+) =>
+  list.some((x) => refs.has(speaker(x)))
+    ? list.filter((x) => speaker(x) === OWNER || refs.has(speaker(x)))
+    : [];
+
+/** His group chat-days: a chat its source calls a group (`isDirect`), never a 1:1 whose person is not known yet. */
+export function groupDaysOf(
+  events: SourceEvent[],
+  said: Map<SourceEvent, string>
+) {
+  const chats = Map.groupBy(
+    events.filter((e) => kindOf(e.source) === "chat"),
+    (e) => `${e.source}|${e.chat}`
+  ).values();
+  const groups = [...chats].flatMap((list) => {
+    const [first] = list;
+    const others = new Set(
+      list.flatMap((e) => (e.fromMe ? [] : [said.get(e)]))
+    );
+    return first && !isDirect(first.source, first.chat, others.size)
+      ? list
+      : [];
+  });
+  return [...Map.groupBy(groups, dayUnitId).values()];
 }
 
 const ReplyLine = z.object({
@@ -447,26 +477,16 @@ export async function personas({ events, failed, since }: WithPeople) {
   const paged = await pagedNow(people);
   const kept = events.filter((e) => !(isLifeOutput(e) || e.bulk));
   const direct = directChats(kept, people.resolve);
-  const inDirect = new Set([...direct.values()].flat());
-  const speaker = (e: SourceEvent) =>
-    speakerOf(kindOf(e.source), e, people.resolve);
-  const said = new Map(kept.map((e) => [e, speaker(e)]));
-  const whoOf = (e: SourceEvent) =>
-    e.fromMe ? "him" : people.nameOf(said.get(e) ?? speaker(e));
-  // Group chat-days (a chat no one person's): each goes to the persona of whoever wrote in it, with only his and
-  // their messages.
-  const groupDays = [
-    ...Map.groupBy(
-      kept.filter((e) => kindOf(e.source) === "chat" && !inDirect.has(e)),
-      dayUnitId
-    ).values(),
-  ];
+  const said = new Map(
+    kept.map((e) => [e, speakerOf(kindOf(e.source), e, people.resolve)])
+  );
+  const named = (ref: string) => (ref === OWNER ? "him" : people.nameOf(ref));
+  const whoOf = (e: SourceEvent) => named(said.get(e) ?? OWNER);
+  const groupDays = groupDaysOf(kept, said);
   const groupsWith = (refs: Set<string>) =>
     shownDaysOf(
       groupDays.flatMap((list) =>
-        list.some((e) => refs.has(said.get(e) ?? ""))
-          ? list.filter((e) => e.fromMe || refs.has(said.get(e) ?? ""))
-          : []
+        betweenOf(list, refs, (e) => said.get(e) ?? "")
       ),
       "group",
       whoOf,
@@ -512,10 +532,14 @@ export async function personas({ events, failed, since }: WithPeople) {
         if (!isDue(readPersona(t.ref), inputs, step.now)) {
           return;
         }
-        const spoken = await spokenOf(heard, t.refs, people, BUDGET);
+        const spoken = await spokenOf(heard, t.refs, people, named);
         const all = [...days, ...spoken.days].toSorted((a, b) =>
           a.day.localeCompare(b.day)
         );
+        // Nothing left to read (a recording whose turns were all someone else's): no call, nothing written.
+        if (all.length === 0 && spoken.recorded.length === 0) {
+          return;
+        }
         const input = {
           counts,
           days: all.map(dayInput),

@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import {
+  betweenOf,
+  groupDaysOf,
   isDue,
   pairCountsOf,
   personaBlock,
@@ -245,4 +247,33 @@ test("his recordings with someone: the voice units they spoke in, a chapter weig
     ["a", 600],
     ["c", 33],
   ]);
+});
+
+test("a group chat-day goes to whoever wrote in it, with only his and their lines; a 1:1 is never a group", () => {
+  const g = (minute: number, sender: string, fromMe = false) =>
+    msg("2026-10-05", minute, fromMe, `m${minute}`, {
+      chat: "family@g.us",
+      sender,
+    });
+  const group = [g(0, "+2"), g(1, "+3"), g(2, "me", true)];
+  const oneToOne = [
+    msg("2026-10-05", 0, false, "hi", {
+      chat: "+9@s.whatsapp.net",
+      sender: "+9",
+    }),
+  ];
+  const said = new Map(
+    [...group, ...oneToOne].map((e) => [
+      e,
+      e.fromMe ? "person:me" : `person:${e.sender.slice(1)}`,
+    ])
+  );
+  const days = groupDaysOf([...group, ...oneToOne], said);
+  expect(days.map((d) => d.map((e) => e.text))).toEqual([["m0", "m1", "m2"]]);
+  const of = (refs: string[]) =>
+    betweenOf(days[0] ?? [], new Set(refs), (e) => said.get(e) ?? "").map(
+      (e) => e.text
+    );
+  expect(of(["person:2"])).toEqual(["m0", "m2"]);
+  expect(of(["person:7"])).toEqual([]);
 });
