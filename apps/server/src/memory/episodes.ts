@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
@@ -41,22 +42,19 @@ import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, involvedOf, refContext } from "./run";
 import { kindOf } from "./sources";
+import { areaLookup, areaOf, normalizeTopics } from "./tags";
 import {
-  areaLookup,
-  areaOf,
   type Built,
-  daysBefore,
   type Evidence,
   head,
   isFrozen,
-  localTime,
-  normalizeTopics,
   type Resolve,
   UNKNOWN,
   writeUnits,
 } from "./units";
 import { episodeNow, namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
+import { localTime } from "./zones";
 
 // `bun life memory episodes`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads the day (`EPISODES_PROMPT`): those units in full, the ones

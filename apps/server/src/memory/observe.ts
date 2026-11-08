@@ -6,7 +6,8 @@ import type { Unit } from "../records/unit";
 import { MemoryType } from "../records/unit";
 import { othersIn } from "./read-truth";
 import { kindOf } from "./sources";
-import { areaOf, normalize, UNKNOWN } from "./units";
+import { areaOf } from "./tags";
+import { normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of extraction (docs/architecture.md, "The pipeline"): what the extractor may return, the quote check, entity

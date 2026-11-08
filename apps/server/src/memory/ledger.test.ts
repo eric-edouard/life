@@ -12,6 +12,7 @@ import type {
   Supersession,
 } from "../records/observation";
 import { type Rating, Statement } from "../records/statement";
+import { buildIndex } from "./index-writer";
 import {
   hiding,
   INDEX,
@@ -23,6 +24,7 @@ import {
   outdatedBy,
   ratedCorrections,
   ratedFacts,
+  readIndex,
   readOrigins,
   readRatings,
   readStanding,
@@ -37,7 +39,6 @@ import {
 } from "./ledger";
 import { knownOn } from "./page-format";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
-import { buildIndex } from "./search";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
   ({ id, madeBy: { run, unitHash }, unit }) as Observation;
@@ -497,4 +498,10 @@ test("a unit by id is read from its day (the index says which), or from every da
     rmSync(OBSERVATIONS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
   }
+});
+
+test("readIndex takes no async read: the index closes when the read returns", () => {
+  // @ts-expect-error a promise would settle after the index is closed (`bun run check` types this file)
+  const refused = () => readIndex(async () => 1);
+  expect(refused).toBeFunction();
 });

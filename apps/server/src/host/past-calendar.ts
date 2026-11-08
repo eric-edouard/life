@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clock, DAY, iso } from "../core/clock";
+import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { execOk } from "../core/proc";
@@ -7,7 +7,7 @@ import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
 import { described, wanted } from "../memory/past-events";
-import { daysBefore } from "../memory/units";
+import { dayNow } from "../memory/zones";
 import { googleCalendar } from "./google-calendar";
 
 // The Past calendar's writes: what `memory/past-events.ts` says it should hold, brought into the `past` setting's calendar,
@@ -142,7 +142,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
     want.drafts,
     await cal.held(
       since ? iso(since.getTime() - DAY) : "2000-01-01T00:00:00Z",
-      daysBefore(now.toISOString().slice(0, 10), -2)
+      daysBefore(dayNow(now), -2)
     ),
     (of) => want.live.has(of)
   );

@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DAY, HOUR, MIN } from "../core/clock";
+import { DAY, daysBefore, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { readSettings, setSettings } from "../core/settings";
@@ -42,18 +42,15 @@ import { IMPORTED, keptConversations, readUnits, UNITS, ZONES } from "./ledger";
 import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
+import { normalizeTopics } from "./tags";
 import {
   applyRules,
-  dayRange,
-  daysBefore,
   gather,
   isFrozen,
-  lastDays,
   lifeChat,
   lifelogUnits,
   MARKED,
   messageUnits,
-  normalizeTopics,
   oneToOne,
   speakerOf,
   syncLifelogUnits,
@@ -64,8 +61,10 @@ import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";
 import {
   cutAt,
+  dayRange,
   dayStart,
   firstZoneDay,
+  lastDays,
   localDate,
   noteZone,
   readZoneHere,

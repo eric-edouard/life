@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { readAppended, readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
@@ -16,7 +17,6 @@ import {
   stateOf,
 } from "./ledger";
 import { begin, checkedEntries } from "./run";
-import { daysBefore } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 

@@ -13,11 +13,12 @@ import {
 import { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
+import { buildIndex } from "./index-writer";
 import { isCurrent, latestExtractions } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
 import { ledger, unit, verdict } from "./record-fixtures";
-import { buildIndex } from "./search";
-import { areaLookup, type Built } from "./units";
+import { areaLookup } from "./tags";
+import type { Built } from "./units";
 import { aboutNow, chatHandles, foldsOf, namedIn, renamed } from "./who";
 
 const people = [

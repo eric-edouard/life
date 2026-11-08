@@ -1,9 +1,8 @@
-import { HOUR } from "../core/clock";
+import { daysBefore, HOUR } from "../core/clock";
 import type { Episode } from "../records/episode";
-import { daysBefore } from "./units";
 import { dayStart } from "./zones";
 
-// When an episode was, as an event: the Past calendar's (past-events.ts) and the day's read (search.ts).
+// When an episode was, as an event: the Past calendar's (past-events.ts) and the day's read (read-day.ts).
 
 const instant = (local: string, zone?: string) => {
   const [day = "", hm] = local.split(" ");

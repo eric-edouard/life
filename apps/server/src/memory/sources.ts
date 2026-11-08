@@ -1,8 +1,10 @@
 import { closeSync, existsSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
+import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
+import type { SourceEvent } from "../records/source";
 import { archiveDb, incomingArchived } from "../sources/archived";
 import {
   FORMATS,
@@ -33,10 +35,12 @@ import {
   readWhatsapp,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent } from "./agent-source";
+import { readFiles } from "./ledger";
+import { showFiles } from "./message-files";
 import { newestTold, readTold } from "./told";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
-// (`tablesOf`, units.ts).
+// (`tablesOf`, below).
 
 /** `why`, unless this process can open `path` (macOS refuses it without Full Disk Access). */
 function unreadable(path: string, why: string) {
@@ -243,3 +247,76 @@ export const isDirect = (name: SourceName, chat: string, others: number) => {
   const { group } = sourceOf(name);
   return group ? !group(chat) : others <= 1;
 };
+
+/** A source whose events show their files as lines, as the ledger has them now. */
+const withFiles =
+  (read: (since: Date) => SourceEvent[]) =>
+  (since: Date): SourceEvent[] =>
+    showFiles(read(since), readFiles());
+
+/**
+ * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
+ * a source's name to its reader (its events showing their files), in cut order.
+ */
+export function tablesOf(sources: Descriptor[]) {
+  const messages = sources.flatMap((s) =>
+    s.kind === "repo" || s.kind === "voice" ? [] : [s]
+  );
+  const readers = (
+    keep: (s: (typeof messages)[number]) => boolean,
+    show = withFiles
+  ) =>
+    Object.fromEntries(
+      messages.filter(keep).map((s) => [s.name, show(s.read)])
+    );
+  return {
+    /** The chat apps, where people speak for themselves (not mail, nor his notes). */
+    CHATS: readers((s) => s.kind === "chat"),
+    /** What `search` reads chat messages and notes from: the sources it has a window for. */
+    SEARCHED: readers((s) => s.kind !== "mail" && s.searchDays !== undefined),
+    /** The mail `search` reads, in a section of its own. */
+    SEARCHED_MAIL: readers(
+      (s) => s.kind === "mail" && s.searchDays !== undefined
+    ),
+    /**
+     * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. Read over years once a
+     * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its days and
+     * communication styles sample his messages, never units.
+     */
+    WITH_PEOPLE: readers(
+      (s) => s.kind === "chat" || s.kind === "mail",
+      (read) => read
+    ),
+  };
+}
+/** The tables of the sources that can be read now, worked out on each call (settings and permissions change). */
+export const tables = () => tablesOf(readySources());
+export type Tables = ReturnType<typeof tablesOf>;
+
+/**
+ * Reads one source. A broken one is logged and named in `failed`, and gives no rows: the caller must not
+ * mistake that for a quiet day (a unit file rebuilt without that source's units would lose them).
+ */
+export async function safely<T>(
+  source: string,
+  read: () => T[] | Promise<T[]>,
+  failed: string[]
+): Promise<T[]> {
+  const started = performance.now();
+  const ms = () => Math.round(performance.now() - started);
+  try {
+    // ponytail: no timeout, every reader is synchronous (a timer could not fire); a hung source holds the run.
+    const rows = await read();
+    log("source.read", { count: rows.length, ms: ms(), ok: true, source });
+    return rows;
+  } catch (e) {
+    log("source.read", {
+      error: (e as Error).message,
+      ms: ms(),
+      ok: false,
+      source,
+    });
+    failed.push(source);
+    return [];
+  }
+}

@@ -1,11 +1,12 @@
 import { statSync } from "node:fs";
-import { clock, DAY } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { log } from "../core/log";
 import { systemZone } from "../core/platform";
+import type { Episode } from "../records/episode";
 import { Zone } from "../records/unit";
 import { readPhoneZone } from "../sources/lifelog";
-import { ZONES } from "./ledger";
+import { daysOf, ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, where he was from each `from` on (`readZoneHere`), and the
 // wall clock there. Local days and times come from here, never from the zone of the process reading them, so a day read again
@@ -88,8 +89,7 @@ export function cutAt(now: Date, was: string, tz: string) {
     return now;
   }
   const [ahead, day] = a.day > b.day ? [was, a.day] : [tz, b.day];
-  const next = new Date(Date.parse(`${day}T12:00:00Z`) + DAY);
-  return dayStart(next.toISOString().slice(0, 10), ahead);
+  return dayStart(daysBefore(day, -1), ahead);
 }
 
 /**
@@ -141,4 +141,56 @@ export function when(day: string) {
       weekday: "long",
     }).format(d),
   };
+}
+
+const DAY_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+/** A local day, `YYYY-MM-DD`, not an instant. */
+export const isDay = (s: string) => DAY_SHAPE.test(s);
+/** A range of days or instants, either end open. */
+export interface DayRange {
+  from?: string;
+  to?: string;
+}
+
+/** Days `first` to `last` reach inside `r`. */
+const daysMeet = (r: DayRange, first: string, last = first) =>
+  (!r.from || last >= r.from.slice(0, 10)) &&
+  (!r.to || first <= r.to.slice(0, 10));
+/** An episode that has a day inside `r`. */
+export const inDays = (r: DayRange) => (m: Episode) =>
+  daysMeet(r, ...daysOf(m));
+
+/**
+ * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
+ * `from` may be missing; `to` never passes now.
+ */
+export function dayRange(from?: string, to?: string) {
+  const edge = (d: string | undefined, plus: number) => {
+    if (!d) {
+      return;
+    }
+    return isDay(d)
+      ? dayStart(daysBefore(d, -plus)).toISOString()
+      : new Date(d).toISOString();
+  };
+  const now = clock().toISOString();
+  const end = edge(to, 1);
+  return { from: edge(from, 0), to: end && end < now ? end : now };
+}
+
+/** A line's local day and time, `YYYY-MM-DD HH:MM`, as the episodes and extract prompts show it. */
+export const localTime = (iso: string) => `${localDate(iso)} ${time(iso)}`;
+
+export const time = (iso: string) => wall(iso).hms.slice(0, 5);
+
+/** Local days, both included: what a sweep reads. */
+export interface Window {
+  from: string;
+  to: string;
+}
+
+/** The last `days` local days, today included. */
+export function lastDays(now: Date, days: number): Window {
+  const to = localDate(now.toISOString());
+  return { from: daysBefore(to, days - 1), to };
 }

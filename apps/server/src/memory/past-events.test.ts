@@ -3,10 +3,10 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
+import { buildIndex } from "./index-writer";
 import { EPISODES, INDEX, readBy, UNITS } from "./ledger";
 import { drafts, wanted } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
-import { buildIndex } from "./search";
 
 const episode = (over: Partial<Episode> = {}): Episode => ({
   copies: [],

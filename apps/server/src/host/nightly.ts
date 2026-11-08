@@ -1,6 +1,6 @@
 import { rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { clock, DAY, iso } from "../core/clock";
+import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
@@ -8,9 +8,11 @@ import { isOn } from "../core/outputs";
 import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-style";
+import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
+import { reindex } from "../memory/index-writer";
 import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
@@ -39,24 +41,19 @@ import {
   recordState,
   turnOf,
 } from "../memory/schedule";
-import { readBirthdaysNear, reindex } from "../memory/search";
 import { situations } from "../memory/situation";
 import { keptStores } from "../memory/sources";
-import {
-  type Built,
-  daysBefore,
-  gather,
-  lastDays,
-  localTime,
-  type Window,
-} from "../memory/units";
+import { type Built, gather } from "../memory/units";
 import { observationsNow, readPeople } from "../memory/who";
 import {
   dayNow,
   dayStart,
+  lastDays,
   localDate,
+  localTime,
   noteZone,
   readZoneHere,
+  type Window,
 } from "../memory/zones";
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";

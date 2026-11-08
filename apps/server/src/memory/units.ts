@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, daysBefore, MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { redact } from "../core/redact";
@@ -35,9 +35,10 @@ import {
   isDirect,
   kindOf,
   readySources,
+  safely,
   sourceOf,
 } from "./sources";
-import { dayStart, localDate, wall } from "./zones";
+import { dayStart, lastDays, localDate, time, type Window } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
 // (and lifelog's chapters, as stored before conversation-days: `isFrozen`). Built by code, nothing judged yet. A unit's
@@ -90,27 +91,6 @@ export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-/** A local day, `YYYY-MM-DD`, not an instant. */
-export const isDay = (s: string) => DAY.test(s);
-/**
- * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
- * `from` may be missing; `to` never passes now.
- */
-export function dayRange(from?: string, to?: string) {
-  const edge = (d: string | undefined, plus: number) => {
-    if (!d) {
-      return;
-    }
-    return isDay(d)
-      ? dayStart(daysBefore(d, -plus)).toISOString()
-      : new Date(d).toISOString();
-  };
-  const now = clock().toISOString();
-  const end = edge(to, 1);
-  return { from: edge(from, 0), to: end && end < now ? end : now };
-}
-
 /** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
 export const normalize = (s: string) =>
   s
@@ -127,80 +107,6 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
   s.length <= max
     ? s
     : `${s.slice(0, s.lastIndexOf(" ", max - 1) > 0 ? s.lastIndexOf(" ", max - 1) : max - 1)}…`;
-
-/** The first items of `list` whose sizes add up to `budget` at most. */
-export function within<T>(list: T[], budget: number, size: (x: T) => number) {
-  let used = 0;
-  return list.filter((x) => {
-    used += size(x);
-    return used <= budget;
-  });
-}
-
-/**
- * A page of a list ordered newest first, by whole keys (a day, an instant): the newest items before `before` up to
- * `limit`, then the rest of the last key taken, so a key is never cut between two pages. `next`: the key to page back
- * from, when something older is left.
- */
-export function newestDays<T>(
-  items: T[],
-  keyOf: (x: T) => string,
-  limit: number,
-  before?: string
-) {
-  const left = before ? items.filter((x) => keyOf(x) < before) : items;
-  const edge = left[limit - 1];
-  const taken = edge
-    ? left.filter((x) => keyOf(x) >= keyOf(edge))
-    : left.slice();
-  const last = taken.at(-1);
-  return {
-    next: last && taken.length < left.length ? keyOf(last) : undefined,
-    taken,
-  };
-}
-
-const SPACES = / +/g;
-/** A name as a slug, how page files are named: "Money & admin" -> "money-admin". */
-export const slugOf = (name: string) => normalize(name).replace(SPACES, "-");
-
-const TOPICS_MAX = 3;
-const SINGULAR_KEEPS = /(?:ss|us|is|ics|news)$/;
-const SINGULAR_ES = /(?:xes|ches|shes)$/;
-
-/** "Constructions" -> "construction": a tag's last word singular where that is trivial. */
-function singular(w: string) {
-  if (w.length < 4 || SINGULAR_KEEPS.test(w)) {
-    return w;
-  }
-  if (SINGULAR_ES.test(w)) {
-    return w.slice(0, -2);
-  }
-  if (w.endsWith("ies")) {
-    return `${w.slice(0, -3)}y`;
-  }
-  return w.endsWith("s") ? w.slice(0, -1) : w;
-}
-
-/** The model's topic tags as stored: at most three, lower case, dashed, singular, no repeats. */
-export function normalizeTopics(raw: string[] | null | undefined) {
-  const tags = (raw ?? []).flatMap((t) => {
-    const words = normalize(t).split(" ").filter(Boolean);
-    const last = words.pop();
-    return last ? [[...words, singular(last)].join("-")] : [];
-  });
-  return [...new Set(tags)].slice(0, TOPICS_MAX);
-}
-
-/** Every area id and name, normalized, to its id: the model may answer with either. */
-export const areaLookup = (areas: { id: string; name: string }[]) =>
-  new Map(
-    areas.flatMap((a) => [a.id, a.name].map((k) => [normalize(k), a.id]))
-  );
-
-/** The area id for what the model said (id or name, any case), or null when it names none. */
-export const areaOf = (said: string | null, lookup: Map<string, string>) =>
-  (said && lookup.get(normalize(said))) || null;
 
 /** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
 const agentReports = () => [
@@ -324,18 +230,6 @@ export function oneToOne(b: Built) {
     ? b.unit.title
     : undefined;
 }
-
-/** The day `days` before `today` (both `YYYY-MM-DD`). */
-export const daysBefore = (today: string, days: number) => {
-  const d = new Date(`${today}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-};
-
-/** A line's local day and time, `YYYY-MM-DD HH:MM`, as the episodes and extract prompts show it. */
-export const localTime = (iso: string) => `${localDate(iso)} ${time(iso)}`;
-
-export const time = (iso: string) => wall(iso).hms.slice(0, 5);
 
 /** Events cut into one list per unit: source, chat (or thread, note, repo) and local day. */
 const byDay = (events: SourceEvent[]) => [
@@ -712,79 +606,6 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
   return built;
 }
 
-/**
- * Reads one source. A broken one is logged and named in `failed`, and gives no rows: the caller must not
- * mistake that for a quiet day (a unit file rebuilt without that source's units would lose them).
- */
-export async function safely<T>(
-  source: string,
-  read: () => T[] | Promise<T[]>,
-  failed: string[]
-): Promise<T[]> {
-  const started = performance.now();
-  const ms = () => Math.round(performance.now() - started);
-  try {
-    // ponytail: no timeout, every reader is synchronous (a timer could not fire); a hung source holds the run.
-    const rows = await read();
-    log("source.read", { count: rows.length, ms: ms(), ok: true, source });
-    return rows;
-  } catch (e) {
-    log("source.read", {
-      error: (e as Error).message,
-      ms: ms(),
-      ok: false,
-      source,
-    });
-    failed.push(source);
-    return [];
-  }
-}
-
-/** A source whose events show their files as lines, as the ledger has them now. */
-const withFiles =
-  (read: (since: Date) => SourceEvent[]) =>
-  (since: Date): SourceEvent[] =>
-    showFiles(read(since), readFiles());
-
-/**
- * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
- * a source's name to its reader (its events showing their files), in cut order.
- */
-export function tablesOf(sources: Descriptor[]) {
-  const messages = sources.flatMap((s) =>
-    s.kind === "repo" || s.kind === "voice" ? [] : [s]
-  );
-  const readers = (
-    keep: (s: (typeof messages)[number]) => boolean,
-    show = withFiles
-  ) =>
-    Object.fromEntries(
-      messages.filter(keep).map((s) => [s.name, show(s.read)])
-    );
-  return {
-    /** The chat apps, where people speak for themselves (not mail, nor his notes). */
-    CHATS: readers((s) => s.kind === "chat"),
-    /** What `search` reads chat messages and notes from: the sources it has a window for. */
-    SEARCHED: readers((s) => s.kind !== "mail" && s.searchDays !== undefined),
-    /** The mail `search` reads, in a section of its own. */
-    SEARCHED_MAIL: readers(
-      (s) => s.kind === "mail" && s.searchDays !== undefined
-    ),
-    /**
-     * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. Read over years once a
-     * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its days and
-     * communication styles sample his messages, never units.
-     */
-    WITH_PEOPLE: readers(
-      (s) => s.kind === "chat" || s.kind === "mail",
-      (read) => read
-    ),
-  };
-}
-/** The tables of the sources that can be read now, worked out on each call (settings and permissions change). */
-export const tables = () => tablesOf(readySources());
-export type Tables = ReturnType<typeof tablesOf>;
-
 type Read = Exclude<Descriptor, { kind: "voice" }>;
 /** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
 const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
@@ -829,18 +650,6 @@ export const lifelogNames = (truth: Truth) =>
  * (`describeFiles`) only on messages of these days: an older one stays a tag.
  */
 export const DAYS = 7;
-
-/** Local days, both included: what a sweep reads. */
-export interface Window {
-  from: string;
-  to: string;
-}
-
-/** The last `days` local days, today included. */
-export function lastDays(now: Date, days: number): Window {
-  const to = localDate(now.toISOString());
-  return { from: daysBefore(to, days - 1), to };
-}
 
 /**
  * The evidence of a window of local days: every source (lifelog,

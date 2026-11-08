@@ -1,7 +1,14 @@
 import { DAY } from "../core/clock";
 import type { Person } from "../records/truth";
-import { type Contact, contactKeyOf } from "../sources/contacts";
+import {
+  type Contact,
+  contactKeyOf,
+  readContactRecords,
+} from "../sources/contacts";
+import { pagedNow } from "./closeness";
 import { handlesOf } from "./read-truth";
+import { PERSON } from "./units";
+import type { People } from "./who";
 import { when } from "./zones";
 
 // A person's details: what his map and his Contacts already hold about someone as fields (docs/glossary.md, "detail").
@@ -155,4 +162,41 @@ export function detailsBlock(lines: DetailLine[], today: string) {
     }),
     "",
   ];
+}
+
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `resolve`). */
+export function readDetailsOf(
+  people: Pick<People, "resolve" | "truth">,
+  records: Contact[] = readContactRecords()
+) {
+  const contacts = new Map<string, Contact[]>();
+  for (const c of records) {
+    const ref = c.handles.map(people.resolve).find(Boolean);
+    if (ref) {
+      contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
+    }
+  }
+  const mapped = new Map(people.truth.people.map((p) => [`person:${p.id}`, p]));
+  return (ref: string) =>
+    detailsOf({
+      contacts: contacts.get(ref) ?? [],
+      person: mapped.get(ref),
+    });
+}
+
+/** The birthdays of the coming week (`birthdaysNear`) of everyone on his map or with a page. */
+export async function readBirthdaysNear(people: People, date: string) {
+  const detailsFor = readDetailsOf(people);
+  const refs = new Set([
+    ...people.truth.people.map((p) => `person:${p.id}`),
+    ...(await pagedNow(people)),
+  ]);
+  return birthdaysNear(
+    [...refs].map((ref) => ({
+      birthday: birthdayIn(detailsFor(ref)),
+      id: ref.replace(PERSON, ""),
+      name: people.nameOf(ref),
+    })),
+    date
+  );
 }

@@ -6,28 +6,25 @@ import { closeness, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-style";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
+import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
 import { placesOf } from "../memory/places";
+import { area, topicsOf } from "../memory/read-area-page";
+import { day } from "../memory/read-day";
+import { person } from "../memory/read-person-page";
+import { unresolved } from "../memory/read-unresolved";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
 import { readBackfill, recordBackfill } from "../memory/schedule";
-import {
-  area,
-  day,
-  person,
-  reindex,
-  search,
-  topicsOf,
-  unresolved,
-} from "../memory/search";
+import { search } from "../memory/search";
 import { situations } from "../memory/situation";
 import { drawDoubtful } from "../memory/statements";
-import { DAYS, gather, isDay, lastDays } from "../memory/units";
+import { DAYS, gather } from "../memory/units";
 import { readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
-import { firstZoneDay } from "../memory/zones";
+import { firstZoneDay, isDay, lastDays } from "../memory/zones";
 import { Rating } from "../records/statement";
 import { midday, nightly } from "./nightly";
 import { lifeStatus } from "./status/life";

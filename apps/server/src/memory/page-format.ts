@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
 import { MadeBy } from "../records/fields";
 import { type Observation, PageSection } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { type Standing, shows, stateOf } from "./ledger";
 import { OWNER, othersIn, type Truth } from "./read-truth";
-import { daysBefore } from "./units";
+import { normalize } from "./units";
 
 // The pure parts of pages (docs/architecture.md, "The pipeline"): a page's file format, where each observation lives, the owner's
 // edits found in a page, the consolidation reply checked and merged into the previous page, and the rules code
@@ -622,3 +623,7 @@ export function oftenLine(counts: Map<string, number>, top = 8) {
 
 /** A page file as a reader sees it: everything but its frontmatter. */
 export const bodyOf = (text: string) => text.replace(FRONT, "").trim();
+
+const SPACES = / +/g;
+/** A name as a slug, how page files are named: "Money & admin" -> "money-admin". */
+export const slugOf = (name: string) => normalize(name).replace(SPACES, "-");

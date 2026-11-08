@@ -7,7 +7,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { MACHINE_DIR } from "../core/platform";
 import { exec } from "../core/proc";
 import { expand, settings } from "../core/settings";
-import { localTime } from "../memory/units";
+import { localTime } from "../memory/zones";
 import { type Manifest, stage } from "./export";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by

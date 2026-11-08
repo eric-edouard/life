@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { within } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { stamp } from "../models/llm";
@@ -52,11 +54,11 @@ import {
   renderPage,
   type Sections,
   settle,
+  slugOf,
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
-import { daysBefore, slugOf, within } from "./units";
 import {
   observationsNow,
   type People,

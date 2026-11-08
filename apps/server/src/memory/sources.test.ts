@@ -11,8 +11,13 @@ import { DB } from "../sources/imessage";
 import { NOTES } from "../sources/notes";
 import { WHATSAPP } from "../sources/whatsapp";
 import { chatDays } from "./closeness";
-import { enabledSources, readySources, SOURCES, sourceOf } from "./sources";
-import { tablesOf } from "./units";
+import {
+  enabledSources,
+  readySources,
+  SOURCES,
+  sourceOf,
+  tablesOf,
+} from "./sources";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);

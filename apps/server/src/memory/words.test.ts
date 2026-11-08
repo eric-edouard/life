@@ -22,20 +22,14 @@ import { LIFE_MAIL } from "./email";
 import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
-import {
-  type Built,
-  lifeChat,
-  lifelogUnits,
-  localTime,
-  MARKED,
-  time,
-} from "./units";
+import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
 import { embedNew } from "./vectors";
 import {
   chatHits,
   chatsOf,
   fetchOf,
   focus,
+  holdsAll,
   mailHits,
   passagesOf,
   readChatTexts,
@@ -43,6 +37,7 @@ import {
   voiceLines,
   voiceText,
 } from "./words";
+import { localTime, time } from "./zones";
 
 const words = ["Allo", "Salut", "", "Fin"];
 const server = lifelogServer({
@@ -608,4 +603,11 @@ test("chats: `from` is read as far back as asked, a cut names the call that read
     (await chatsOf({ before: first.match(NEXT)?.[1], chat, from }, twin)) ?? "";
   expect(rest).toContain("message 98");
   expect(rest).not.toContain("message 99");
+});
+
+test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
+  const holds = holdsAll("Château pondres");
+  expect(holds("Dinner at the chateau de Pondres")).toBe(true);
+  expect(holds("Dinner at the château")).toBe(false);
+  expect(holdsAll("??")("anything")).toBe(false);
 });

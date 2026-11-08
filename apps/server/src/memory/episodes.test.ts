@@ -15,7 +15,8 @@ import {
 import { daysOf, episodesNow, isRereadSince, rereadAt } from "./ledger";
 import type { Truth } from "./read-truth";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
-import { areaLookup, type Built } from "./units";
+import { areaLookup } from "./tags";
+import type { Built } from "./units";
 
 const built = (id: string, over: Parameters<typeof unit>[0] = {}): Built => ({
   messages: [],
