@@ -28,13 +28,8 @@ import { claimsNow } from "@life/server/src/memory/statements";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
-import {
-  add,
-  llmFor,
-  llmSpec,
-  NONE,
-  type Tokens,
-} from "@life/server/src/models/llm";
+import { llmFor, llmSpec } from "@life/server/src/models/llm";
+import { add, NONE, type Tokens } from "@life/server/src/models/model-call";
 import { newestTurn } from "@life/server/src/sources/lifelog";
 import { TruthSet, type timelineScore } from "./timeline";
 

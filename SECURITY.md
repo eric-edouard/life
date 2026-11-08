@@ -20,7 +20,7 @@ agents that act for him. This page says what it protects and what it does not.
 
 Model calls that read his data run with no tools and no instruction files, and return JSON checked by schemas, with
 every quote checked against its source. The text goes to the provider the owner chose (his subscriptions, or
-allmodels.io with his key, through the hosts he chose).
+OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data).
 
 ## Agents
 

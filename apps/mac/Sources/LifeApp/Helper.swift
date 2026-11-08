@@ -61,8 +61,8 @@ enum Helper {
 /// The helper's `app` answer.
 struct Info: Decodable {
   let started: Bool
-  /// The key each API engine takes, by engine (`PROVIDERS` in llm.ts): the subscription engines take none.
-  let engineKeys: [String: String]
+  /// The keys each engine takes, by engine (`PROVIDERS` in llm.ts): the subscription engines take none.
+  let engineKeys: [String: [String]]
   let lastReport: String?
   let sources: [Source]
   /// The to-do list backend chosen ("reminders", "google"), nil while the to-do list is off.

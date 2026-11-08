@@ -84,7 +84,7 @@ struct SettingsView: View {
   @State private var name = ""
   @State private var email = ""
   @State private var engine = "claude"
-  @State private var key = ""
+  @State private var keys: [String: String] = [:]
   @State private var agentName = ""
   @State private var wake = ""
   /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`).
@@ -101,7 +101,7 @@ struct SettingsView: View {
 
   private var started: Bool { supervisor.info?.started == true }
   private var sources: [Source] { supervisor.info?.sources ?? [] }
-  private var keyName: String? { supervisor.info?.engineKeys[engine] }
+  private var keyNames: [String] { supervisor.info?.engineKeys[engine] ?? [] }
 
   var body: some View {
     Form {
@@ -124,11 +124,12 @@ struct SettingsView: View {
             Text("Claude (your subscription)").tag("claude")
             Text("ChatGPT (your subscription, Codex)").tag("codex")
             Text("allmodels.io API key").tag("allmodels")
+            Text("OpenRouter API key, allmodels.io when it fails").tag("openrouter")
           }
           // Each key under its own name: a switch shows the new engine's, never carries the old one over.
-          .onChange(of: engine) { _, _ in key = keyName.flatMap(Keychain.read) ?? "" }
-          if keyName != nil {
-            SecureField("API key", text: $key)
+          .onChange(of: engine) { _, _ in readKeys() }
+          ForEach(keyNames, id: \.self) { name in
+            SecureField(name, text: Binding(get: { keys[name] ?? "" }, set: { keys[name] = $0 }))
           }
         }
         Section("Sources") {
@@ -234,7 +235,11 @@ struct SettingsView: View {
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
-    key = keyName.flatMap(Keychain.read) ?? ""
+    readKeys()
+  }
+
+  private func readKeys() {
+    keys = Dictionary(uniqueKeysWithValues: keyNames.map { ($0, Keychain.read($0) ?? "") })
   }
 
   private func start() async {
@@ -251,8 +256,8 @@ struct SettingsView: View {
   }
 
   private func save() async {
-    if let keyName {
-      Keychain.write(keyName, key)
+    for name in keyNames {
+      Keychain.write(name, keys[name] ?? "")
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)
     var parts: [String: Any] = ["engine": engine]
