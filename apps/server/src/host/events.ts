@@ -134,6 +134,8 @@ function newMessagesOf(s: Messaging, from: number | undefined) {
   }
   const kept = rows.slice(0, ROWS);
   const since = kept.reduce((t, r) => (r.at < t ? r.at : t), kept[0]?.at ?? "");
+  // ponytail: `read` has no upper bound, so a cursor far behind (an agent's first, a long backlog) reads from its oldest
+  // kept row to now on each page; give `read` an `until` if an agent ever pages through months.
   const byId = new Map(
     (since ? s.read(new Date(since)) : []).map((e) => [e.id, e])
   );
