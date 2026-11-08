@@ -11,6 +11,7 @@ const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG_TASKS = /"gog",\s*"tasks"/;
+const MONEY = /\["money",/;
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
   (f) => !f.endsWith(".test.ts")
@@ -85,4 +86,12 @@ test("only act writes his to-do list: it alone imports the backend, only the bac
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
+});
+
+// Life reads his payments only through money's `tx` contract, behind `payments()`.
+test("only the payments backend imports money, and only money.ts runs the money CLI", () => {
+  expect(importers(["money"], "money")).toEqual([
+    "apps/server/src/payments/backend.ts",
+  ]);
+  expect(running(MONEY)).toEqual(["apps/server/src/payments/money.ts"]);
 });

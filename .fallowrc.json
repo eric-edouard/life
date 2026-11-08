@@ -42,6 +42,10 @@
         "patterns": ["apps/server/src/todo-list/**"]
       },
       {
+        "name": "payments",
+        "patterns": ["apps/server/src/payments/**"]
+      },
+      {
         "name": "memory",
         "patterns": ["apps/server/src/memory/**"]
       },
@@ -76,12 +80,31 @@
         "allow": ["core", "records"]
       },
       {
+        "from": "payments",
+        "allow": ["core"]
+      },
+      {
         "from": "memory",
-        "allow": ["core", "models", "sources", "todo-list", "records"]
+        "allow": [
+          "core",
+          "models",
+          "sources",
+          "todo-list",
+          "payments",
+          "records"
+        ]
       },
       {
         "from": "host",
-        "allow": ["core", "models", "sources", "todo-list", "memory", "records"]
+        "allow": [
+          "core",
+          "models",
+          "sources",
+          "todo-list",
+          "payments",
+          "memory",
+          "records"
+        ]
       },
       {
         "from": "web",
