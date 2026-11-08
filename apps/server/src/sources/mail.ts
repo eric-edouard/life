@@ -431,7 +431,7 @@ const idOf = (r: Pick<Row, "globalId" | "header">) =>
  * starts again at its end (`events.ts`).
  */
 export function incomingMail(
-  from: number,
+  from: number | undefined,
   root = mailRoot()
 ): { end: number; rows: NewRow[] } {
   const db = openIndex(root);
@@ -449,7 +449,7 @@ export function incomingMail(
           received: number;
           row: number;
         },
-        [number]
+        [number | null]
       >(
         `select m.ROWID as row, m.date_received as received, m.global_message_id as globalId,
                 g.message_id_header as header
@@ -459,7 +459,7 @@ export function incomingMail(
               where x.global_message_id = m.global_message_id and x.ROWID < m.ROWID)
           order by m.ROWID`
       )
-      .all(from)
+      .all(from ?? null)
       .map((r) => ({
         at: new Date(r.received * 1000).toISOString(),
         id: idOf(r),

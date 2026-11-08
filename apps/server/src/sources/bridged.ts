@@ -700,7 +700,7 @@ export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
   return {
     chatDays: 7,
-    incoming: (from) => incomingArchived(name, "eventId", from),
+    incoming: (from?: number) => incomingArchived(name, "eventId", from),
     kind: "chat",
     label,
     name,

@@ -13,7 +13,7 @@ import { locate } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
 import { kindOf } from "./sources";
-import { lifeChat, localTime } from "./units";
+import { isLifeOutput, localTime } from "./units";
 import { readPeople } from "./who";
 
 // `bun life memory communication-styles`: how the owner writes (docs/architecture.md, "The pipeline"), in general and
@@ -115,7 +115,7 @@ export async function communicationStyles({ events, failed }: WithPeople) {
   const people = await readPeople();
   const paged = await pagedNow(people);
   const sentIn = (list: SourceEvent[]) =>
-    list.filter((e) => e.fromMe && !e.bulk && e.chat !== lifeChat());
+    list.filter((e) => e.fromMe && !e.bulk && !isLifeOutput(e));
   const direct = directChats(events, people.resolve);
   const targets = [...paged].flatMap((ref) => {
     const sample = sampleOf(

@@ -114,7 +114,7 @@ export function readImessage(
 
 /** The messages Messages first stored from row `from` on (`incoming`): an edit changes its row in place. */
 export function incomingImessage(
-  from: number,
+  from: number | undefined,
   path = DB
 ): { end: number; rows: NewRow[] } {
   const db = openReadOnly(path);
@@ -125,10 +125,13 @@ export function incomingImessage(
       )
       .get()?.end as number;
     const rows = db
-      .query<{ date: number | bigint; guid: string; row: number }, [number]>(
+      .query<
+        { date: number | bigint; guid: string; row: number },
+        [number | null]
+      >(
         "select ROWID as row, guid, date from message where ROWID >= ? and item_type = 0 order by ROWID"
       )
-      .all(from)
+      .all(from ?? null)
       .map((r) => ({
         at: fromAppleNs(r.date).toISOString(),
         id: `imessage:${r.guid}`,

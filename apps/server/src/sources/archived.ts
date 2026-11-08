@@ -118,7 +118,7 @@ export function readArchived<R extends Row>(
 export function incomingArchived(
   source: SourceEvent["source"],
   key: "eventId" | "id",
-  from: number,
+  from: number | undefined,
   archive = ARCHIVE
 ): { end: number; rows: NewRow[] } {
   const db = openReadOnly(archiveDb(source, archive));
@@ -131,14 +131,14 @@ export function incomingArchived(
     const rows = db
       .query<
         { at: string; chat: string; id: number | string; row: number },
-        [number]
+        [number | null]
       >(
         `select m.rowid as row, m.chat, m.id, m.at from messages m
           where m.rowid >= ? and m.rowid = (select min(x.rowid) from messages x
             where x.chat is m.chat and x.${key} = m.${key})
           order by m.rowid`
       )
-      .all(from)
+      .all(from ?? null)
       .map((r) => ({
         at: r.at,
         id: `${source}:${r.chat}/${r.id}`,

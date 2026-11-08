@@ -1,5 +1,6 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { log } from "../core/log";
 import { feedPage, PAGE, parseCursor, type Source } from "../memory/changes";
 import { directChats } from "../memory/closeness";
 import { readySources } from "../memory/sources";
@@ -32,6 +33,15 @@ const messaging = () =>
       (s.kind === "chat" || s.kind === "mail") && Boolean(s.incoming)
   );
 
+/** Whether a client's `text_matches` compiles. */
+const isPattern = (source: string) => {
+  try {
+    return Boolean(new RegExp(source));
+  } catch {
+    return false;
+  }
+};
+
 const argumentsOf = (channels: string[]) =>
   z
     .object({
@@ -59,6 +69,8 @@ const argumentsOf = (channels: string[]) =>
         ),
       text_matches: z
         .string()
+        .max(200)
+        .refine(isPattern, "not a regular expression")
         .optional()
         .describe("A regular expression its text must match, any case"),
     })
@@ -101,23 +113,36 @@ export const PollParams = z.object({
   name: z.string(),
 });
 
+/** The most rows of one source a poll reads (a bridge's backfill pages through: `hasMore`). */
+const ROWS = 500;
+
 /**
- * One source's rows past `from`, resolved to its messages (read once, from the earliest new one's time, so a row is
- * what `read` makes of it: a newsletter or a draft it skips is no message). None at first: the cursor starts at now.
+ * One source's new messages from row `from` (at most `ROWS`), as `read` makes them: a row it skips (a newsletter, a
+ * draft) is no message. With no `from`, none: the cursor starts at the source's end, now.
  */
-function rowsOf(s: Messaging, from: number | undefined) {
-  const { end, rows } = s.incoming(from ?? Number.MAX_SAFE_INTEGER);
-  // Mail rebuilt its index (renumbered): start again at now, and say so.
+function newMessagesOf(s: Messaging, from: number | undefined) {
+  const { end, rows } = s.incoming(from);
+  // No cursor yet, or Mail rebuilt its index (renumbered): start at its end, and say so on a rebuild.
   if (from === undefined || from > end) {
-    return { end, from: end, rows: [], truncated: from !== undefined };
+    return {
+      end,
+      from: end,
+      isCut: false,
+      messages: [],
+      truncated: from !== undefined,
+    };
   }
-  const since = rows.reduce((t, r) => (r.at < t ? r.at : t), rows[0]?.at ?? "");
-  const read = since ? s.read(new Date(since)) : [];
-  const byId = new Map(read.map((e) => [e.id, e]));
+  const kept = rows.slice(0, ROWS);
+  const since = kept.reduce((t, r) => (r.at < t ? r.at : t), kept[0]?.at ?? "");
+  const byId = new Map(
+    (since ? s.read(new Date(since)) : []).map((e) => [e.id, e])
+  );
+  const isCut = rows.length > kept.length;
   return {
-    end,
+    end: isCut ? (kept.at(-1)?.row ?? from) + 1 : end,
     from,
-    rows: rows.flatMap((r) => {
+    isCut,
+    messages: kept.flatMap((r) => {
       const e = byId.get(r.id);
       return e && !isLifeOutput(e) ? [[r.row, e] as [number, SourceEvent]] : [];
     }),
@@ -149,29 +174,37 @@ export async function pollEvents(
   const text = a.text_matches ? new RegExp(a.text_matches, "i") : undefined;
   const cursor = parseCursor(p.cursor ?? undefined);
   let truncated = false;
+  let isCut = false;
   const feeds: (Source<SourceEvent> & { from: number })[] = sources
     .filter((s) => !a.channels || a.channels.includes(s.name))
     .flatMap((s) => {
+      const at = cursor[s.name];
       try {
-        const r = rowsOf(s, cursor[s.name]);
+        const r = newMessagesOf(s, at);
         truncated ||= r.truncated;
-        return [{ end: r.end, from: r.from, name: s.name, rows: () => r.rows }];
-      } catch {
-        const at = cursor[s.name];
+        isCut ||= r.isCut;
+        return [
+          { end: r.end, from: r.from, name: s.name, rows: () => r.messages },
+        ];
+      } catch (error) {
+        log("source.read", {
+          error: String(error),
+          ok: false,
+          source: s.name,
+          what: "events",
+        });
         return at === undefined
           ? []
           : [{ end: at, from: at, name: s.name, rows: () => [] }];
       }
     });
-  const read = feeds.flatMap((f) => f.rows(0).map(([, e]) => e));
-  const theirs = new Map(
-    [...directChats(read, people.resolve)].flatMap(([who, list]) =>
-      list.map((e) => [e.id, people.refOf(who)] as const)
-    )
-  );
+  // His own message's person: its chat's, when the chat is 1:1 by its id or name alone (never by who else wrote in
+  // this poll), so the same message always matches the same way.
   const personOf = (e: SourceEvent) =>
     e.fromMe
-      ? (theirs.get(e.id) ?? null)
+      ? (([who]) => (who ? people.refOf(who) : null))([
+          ...directChats([e], people.resolve).keys(),
+        ])
       : people.refOf(speakerOf("chat", e, people.resolve));
   const page = feedPage(
     feeds,
@@ -204,7 +237,7 @@ export async function pollEvents(
   return {
     cursor: page.cursor,
     events: page.items,
-    hasMore: page.remaining > 0,
+    hasMore: page.remaining > 0 || isCut,
     nextPollMs: NEXT_POLL_MS,
     resultType: "complete",
     truncated,

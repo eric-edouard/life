@@ -47,11 +47,11 @@ export type Descriptor = {
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
   /**
-   * For a chat or mail source with an ordered store: the messages its store first wrote from row `from` on, oldest
-   * row first, and one past its last row (`events.ts`). An edit, a delete or a second copy of a message is not a new
+   * For a chat or mail source with an ordered store: the messages its store first wrote from row `from` on (none
+   * without one), oldest row first, and one past its last row (`events.ts`). An edit, a delete or a second copy of a message is not a new
    * message. Without it, the source has no events.
    */
-  incoming?: (from: number) => { end: number; rows: NewRow[] };
+  incoming?: (from?: number) => { end: number; rows: NewRow[] };
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */

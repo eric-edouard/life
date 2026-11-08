@@ -161,3 +161,56 @@ test("an app not on, an unknown person or an unknown event is refused", async ()
     pollEvents({ arguments: {}, cursor, name: "ask.received" }, sources)
   ).rejects.toMatchObject({ code: -32_023 });
 });
+
+test("his own message in a group: no person, however many others wrote in the same poll", async () => {
+  const { cursor, lists, sources } = await stores();
+  const group = { chat: "!room:team", chatName: "Team" };
+  lists.telegram.push(
+    message("telegram", { ...group, fromMe: true, sender: "me" })
+  );
+  lists.telegram.push(message("telegram", group));
+  const page = await at({ from_me: true }, cursor, sources);
+  expect(page.events.map((e) => e.data.person)).toEqual([null]);
+});
+
+test("a bad or overlong `text_matches` is the client's error", async () => {
+  const { cursor, sources } = await stores();
+  await Promise.all(
+    ["(", "a".repeat(201)].map((pattern) =>
+      expect(
+        at({ text_matches: pattern }, cursor, sources)
+      ).rejects.toMatchObject({ code: -32_602 })
+    )
+  );
+});
+
+test("a source that fails keeps its place; its messages come once it reads again", async () => {
+  const { cursor, lists, sources } = await stores();
+  lists.whatsapp.push(message("whatsapp"));
+  const failing = sources.map((s) =>
+    s.name === "whatsapp"
+      ? {
+          ...s,
+          incoming: () => {
+            throw new Error("store locked");
+          },
+        }
+      : s
+  );
+  const page = await at({}, cursor, failing);
+  expect(page.events).toEqual([]);
+  expect(
+    (await at({}, page.cursor, sources)).events.map((e) => e.eventId)
+  ).toEqual([lists.whatsapp[1]?.id ?? ""]);
+});
+
+test("a poll reads at most 500 rows of a source: a backfill pages through", async () => {
+  const { cursor, lists, sources } = await stores();
+  for (let i = 0; i < 501; i += 1) {
+    lists.whatsapp.push(message("whatsapp"));
+  }
+  const first = await at({}, cursor, sources, 500);
+  expect([first.events.length, first.hasMore]).toEqual([500, true]);
+  const second = await at({}, first.cursor, sources, 500);
+  expect([second.events.length, second.hasMore]).toEqual([1, false]);
+});

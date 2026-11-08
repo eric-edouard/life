@@ -78,7 +78,7 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     group: isWhatsappGroup,
     handleOf: phoneOf,
-    incoming: (from) => incomingArchived("whatsapp", "id", from),
+    incoming: (from?: number) => incomingArchived("whatsapp", "id", from),
     kind: "chat",
     label: "WhatsApp",
     macOnly: true,
