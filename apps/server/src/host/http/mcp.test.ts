@@ -159,7 +159,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item` writes but is not destructive", async () => {
+test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, `change_todo_item` writes but is not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -175,6 +175,7 @@ test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, 
     "read_day",
     "read_life_status",
     "read_memory_changes",
+    "read_new_events",
     "read_observation",
     "read_open_todo_items",
     "read_person_page",
@@ -229,6 +230,26 @@ test("the status reads: refused without the owner's token, JSON with it", async 
     cursor: "nope",
   });
   expect(bad.json.result).toMatchObject({ isError: true });
+});
+
+test("Events: `events/poll` and `read_new_events` are one poll; an unknown event is refused", async () => {
+  const bearer = await token();
+  const poll = (await rpc(bearer, "events/poll", { name: "message.received" }))
+    .json.result;
+  expect(poll).toMatchObject({ events: [], hasMore: false });
+  const tool = await rpc(bearer, "tools/call", {
+    arguments: { cursor: poll.cursor, event: "message.received" },
+    name: "read_new_events",
+  });
+  expect(JSON.parse(tool.json.result.content[0].text)).toMatchObject({
+    cursor: poll.cursor,
+    events: [],
+  });
+  const unknown = await rpc(bearer, "tools/call", {
+    arguments: { event: "ask.received" },
+    name: "read_new_events",
+  });
+  expect(unknown.json.result).toMatchObject({ isError: true });
 });
 
 test("a call logs who asked, the arguments, and what surfaced without its text", async () => {

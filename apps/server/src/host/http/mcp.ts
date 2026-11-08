@@ -443,6 +443,23 @@ export function buildServer() {
     async ({ cursor, limit }, caller) =>
       asksFor(agentOnly(caller), cursor, limit)
   );
+  // The same poll as a tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT): one door each.
+  tool(
+    server,
+    "read_new_events",
+    "What happened past your cursor that you wait for (JSON), as MCP's `events/poll`: no cursor starts at now. `event`: `message.received`, a message in a chat app or mail, who wrote it, where and when, never its text (`fetch` it). Its `arguments`, each optional: `person` (a name, handle or person id: who wrote it; on his own, the 1:1 chat's person), `channels` (apps), `chat` (a chat key), `from_me` (his own instead of others'), `text_matches` (a regular expression, any case). Poll again from the returned `cursor` while `hasMore`, else after `nextPollMs`.",
+    z.object({
+      arguments: z.record(z.string(), z.unknown()).optional(),
+      cursor: z
+        .string()
+        .optional()
+        .describe("The `cursor` of the previous call"),
+      event: z.string().describe("`message.received`"),
+      limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
+    }),
+    ({ arguments: args = {}, cursor = null, event, limit }) =>
+      pollEvents({ arguments: args, cursor, maxEvents: limit, name: event })
+  );
   // MCP's Events extension (`events.ts`), by poll: what an agent can wait for, and what happened past its cursor.
   server.server.registerCapabilities({ extensions: { [EVENTS]: {} } });
   server.server.setRequestHandler(
