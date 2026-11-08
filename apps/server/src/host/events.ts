@@ -120,8 +120,9 @@ export const PollParams = z.object({
 });
 
 /**
- * One source's new messages from row `from` (at most a full page, `MAX_PAGE`: a bridge's backfill pages through, `hasMore`), as `read` makes them: a row it skips (a newsletter, a
- * draft) is no message. With no `from`, none: the cursor starts at the source's end, now.
+ * One source's new messages from row `from`, at most a page (`MAX_PAGE`: a bridge's backfill pages through, `hasMore`),
+ * as `read` makes them: a row it skips (a newsletter, a draft) is no message. With no `from`, none: the cursor starts at
+ * the source's end, now.
  */
 function readNewMessages(s: Messaging, from: number | undefined) {
   const { end, rows } = s.incoming(from);

@@ -105,7 +105,7 @@ export const fileSource = (path: string, name: string): Source<string> => ({
  * One page of a feed: the items `item` makes of the rows past `cursor`, source by source in the given order, at most
  * `limit`. The new cursor covers exactly the rows scanned (a source read to its end, its end), so the next page starts
  * where this one stopped and rows written anywhere meanwhile are picked up, none twice. `remaining` counts the items past
- * the new cursor.
+ * the new cursor. A source not given keeps its place.
  */
 export function feedPage<R, T>(
   sources: Source<R>[],
@@ -113,7 +113,6 @@ export function feedPage<R, T>(
   limit: number,
   item: (source: string, row: R, n: number) => T | null
 ) {
-  // A source not read this time (missing, or left out by a filter) keeps its place.
   const next: Cursor = { ...cursor };
   const items: T[] = [];
   let remaining = 0;
