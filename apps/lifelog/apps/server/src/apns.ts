@@ -187,6 +187,34 @@ function reasonOf(body: string) {
   }
 }
 
+// A visible push: what the owner reads, and any of the app's own fields beside `aps` (the
+// morning digest's `peopleDigest`, which the phone routes on). Priority 10, never held.
+export const alertOf = (
+  bundleId: string,
+  title: string,
+  body: string,
+  extra: Record<string, unknown> = {}
+): Omit<PushRequest, "path"> => ({
+  body: JSON.stringify({
+    aps: { alert: { body, title }, sound: "default" },
+    ...extra,
+  }),
+  headers: {
+    "apns-priority": "10",
+    "apns-push-type": "alert",
+    "apns-topic": bundleId,
+  },
+});
+
+// A notice another app of the owner's asks for (Life: each voice ask it heard): a visible push,
+// recorded as kind `notice`. Never throws.
+export const phoneNotice =
+  (db: Db, push: Pusher | null, bundleId: string) =>
+  (title: string, body: string) =>
+    sendPush(db, push, "notice", alertOf(bundleId, title, body));
+
+export type Notice = ReturnType<typeof phoneNotice>;
+
 // A silent push telling the phone a transcript or a summary is ready, so it collects it now
 // instead of at its next poll, or that it holds audio to send (`upload`, latency.ts askForUploads).
 // Background pushes go at priority 5: iOS may hold or drop them, and the phone still polls while it
@@ -201,26 +229,23 @@ export function phoneNudger(db: Db, push: Pusher | null, bundleId: string) {
       db,
       push,
       "processing",
-      {
-        body: JSON.stringify(
-          ready === "open"
-            ? {
-                aps: {
-                  alert: {
-                    body: `Your Pendant has ${Math.round(Number(fields.behindSeconds) / 60)} minutes waiting to sync.`,
-                    title: "Open lifelog",
-                  },
-                  sound: "default",
-                },
-              }
-            : { aps: { "content-available": 1 }, lifelog: "processing" }
-        ),
-        headers: {
-          "apns-priority": ready === "open" ? "10" : "5",
-          "apns-push-type": ready === "open" ? "alert" : "background",
-          "apns-topic": bundleId,
-        },
-      },
+      ready === "open"
+        ? alertOf(
+            bundleId,
+            "Open lifelog",
+            `Your Pendant has ${Math.round(Number(fields.behindSeconds) / 60)} minutes waiting to sync.`
+          )
+        : {
+            body: JSON.stringify({
+              aps: { "content-available": 1 },
+              lifelog: "processing",
+            }),
+            headers: {
+              "apns-priority": "5",
+              "apns-push-type": "background",
+              "apns-topic": bundleId,
+            },
+          },
       { ready, ...fields }
     );
 }

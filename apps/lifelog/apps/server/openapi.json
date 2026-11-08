@@ -3433,6 +3433,52 @@
         }
       }
     },
+    "/notifications": {
+      "post": {
+        "description": "A visible push to the phone that another app of the owner's asks for (Life: each voice ask it heard, so a missing one tells him at once it was not). Sent once, recorded as an `apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": ["body", "title"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sent, or recorded as skipped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "description": "How capture and processing are doing, for the owner's own sessions: the archive's invariants, the Pendant and phone as last reported, the Mac helper, the backups, ElevenLabs' credits and latency, where audio and summaries are (`pipeline`), and the last day's problems and chain steps. It scans the last day: call it on demand, poll `/status/live`. Spending is not here.",
