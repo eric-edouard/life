@@ -14,9 +14,10 @@ import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
 import { recordCorrection } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
 import { runs } from "../../memory/run-log";
-import { area, day, person, search } from "../../memory/search";
+import { area, day, paymentsOf, person, search } from "../../memory/search";
 import { clip } from "../../memory/units";
 import { chatsOf, fetchOf } from "../../memory/words";
+import { payments } from "../../payments/backend";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
@@ -393,6 +394,21 @@ export function buildServer() {
     correct,
     WRITES
   );
+  // Payments, only while they are on (`payments()`): off, the connector offers no such tool.
+  if (payments()) {
+    tool(
+      server,
+      "read_payments",
+      "His payments (bank and wallet, as his money app counts them) from `from` to `to`, each placed in his day: when, how much, to whom, its category, where he was and the episode it happened in (a bank that gives only the day: no time, place or episode). Then what each episode cost him, and, per person, the whole of what was paid in the episodes they were in. `who` or `episode` narrows it. To know what an unrecognised payment was, read where he was and the episode.",
+      z.object({
+        episode: z.string().optional().describe("An ep_ id"),
+        from: Day.describe("Earliest day"),
+        to: Day.optional().describe("Last day, included (default: `from`)"),
+        who: z.string().optional().describe("A name, alias or handle"),
+      }),
+      (a) => paymentsOf(a)
+    );
+  }
   // The to-do list's tools, only while it is on (`isOn("todo_list")`): off, the connector offers none. Their names say
   // what they do whatever the backend (a rename forces a costly reconnect: renames ship in one batch).
   if (isOn("todo_list")) {

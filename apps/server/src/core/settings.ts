@@ -73,6 +73,14 @@ export const Settings = z
       .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
+    /**
+     * Where his payments come from (`apps/server/src/payments/`): his `money` CLI. On, `read_day` and `read_payments`
+     * place each payment in his day; off (the default), Life shows none.
+     */
+    payments: z
+      .object({ backend: z.literal("money") })
+      .strict()
+      .optional(),
     /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */

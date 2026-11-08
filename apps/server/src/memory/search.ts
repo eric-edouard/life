@@ -7,6 +7,7 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { openReadOnly } from "../core/sqlite";
+import { payments } from "../payments/backend";
 import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import {
@@ -21,6 +22,7 @@ import { type Contact, readContactRecords } from "../sources/contacts";
 import {
   conversationsWith,
   lifelogMissing,
+  type Stay,
   searchVoice,
   speakers,
   turnPlace,
@@ -80,6 +82,14 @@ import {
   placed,
   renderLine,
 } from "./page-format";
+import {
+  byTime,
+  euros,
+  type Placed,
+  paid,
+  paymentLine,
+  place,
+} from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import {
   goalProjects,
@@ -772,6 +782,8 @@ const linkedCount = (db: Database, id: string) =>
 export interface DayEpisode {
   episode: Episode;
   facts: string[];
+  /** What was paid during it, in EUR, when payments are on and any was. */
+  paid?: number;
   stay?: string;
 }
 
@@ -794,6 +806,7 @@ export function dayLines({
   due = [],
   facts = [],
   episodes = [],
+  payments: paidLines = [],
   units = [],
   whereUnknown = false,
 }: {
@@ -802,6 +815,7 @@ export function dayLines({
   due?: string[];
   facts?: string[];
   episodes?: DayEpisode[];
+  payments?: string[];
   units?: UnitRow[];
   whereUnknown?: boolean;
 }) {
@@ -820,9 +834,10 @@ export function dayLines({
     ...(episodes.length > 0
       ? [
           "Episodes (what he did, in time order):",
-          ...episodes.flatMap(({ facts: of, episode, stay }) => [
+          ...episodes.flatMap(({ facts: of, episode, paid: spent, stay }) => [
             episodeLine(episode),
             ...(stay ? [`    Where he was: ${stay}`] : []),
+            ...(spent ? [`    Paid: ${euros(spent)}`] : []),
             ...(episode.what ? [`    ${episode.what}`] : []),
             ...of.map((f) => `    ${f}`),
           ]),
@@ -834,6 +849,9 @@ export function dayLines({
       : []),
     ...(facts.length > 0
       ? ["Key observations in no episode:", ...facts, ""]
+      : []),
+    ...(paidLines.length > 0
+      ? ["Payments (his accounts and wallet, in time order):", ...paidLines, ""]
       : []),
     `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
     ...units.filter((u) => u.importance !== 0).map(unitLine),
@@ -867,6 +885,7 @@ export async function day(date: string) {
     ? []
     : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, people);
+  const ofDays = await placedOn(date, date, all, stays ?? []);
   return withIndex((db) => {
     const facts = db
       .query<Row & { unit: string }, [string]>(
@@ -886,13 +905,18 @@ export async function day(date: string) {
         const stay = s.allDay
           ? undefined
           : stays && stayOf(s.from, s.to, stays);
+        const its = ofDays.list.filter((p) => p.episode === episode);
         return {
           episode,
           facts: factsOf(episode),
+          ...(its.length > 0 ? { paid: paid(its) } : {}),
           stay: stay ? where(stay) : undefined,
         };
       }),
       facts: factsOf(undefined),
+      payments: ofDays.error
+        ? [`- Payments unknown: ${ofDays.error}`]
+        : ofDays.list.toSorted(byTime).map(paymentLine),
       units: db
         .query<UnitRow, [string]>(
           "select id, date, source, title, topics, importance from units where date = ? order by source, title"
@@ -901,6 +925,105 @@ export async function day(date: string) {
       whereUnknown: episodes.length > 0 && stays === null,
     });
   });
+}
+
+/**
+ * The payments of his days `from` to `to`, placed (`place`): none while payments are off, and the backend's error
+ * instead of failing the read. A payment's day is his, so a day either side of the bank's days is read.
+ */
+async function placedOn(
+  from: string,
+  to: string,
+  episodes: Episode[],
+  stays: Stay[]
+): Promise<{ error?: string; list: Placed[] }> {
+  const backend = payments();
+  if (!backend) {
+    return { list: [] };
+  }
+  try {
+    const all = await backend.between(daysBefore(from, 1), daysBefore(to, -1));
+    return {
+      list: place(all, episodes, stays).filter(
+        (p) => p.day >= from && p.day <= to
+      ),
+    };
+  } catch (e) {
+    return { error: (e as Error).message, list: [] };
+  }
+}
+
+/** His stays on each day `from` to `to` (none without lifelog, or when it cannot be read). */
+async function staysOn(from: string, to: string) {
+  if (lifelogMissing()) {
+    return [];
+  }
+  const days: string[] = [];
+  for (let d = from; d <= to; d = daysBefore(d, -1)) {
+    days.push(d);
+  }
+  // One lifelog read per day: its `visits` stops at 200 stays (lifelog `location.ts`), fewer than a month holds.
+  const each = await Promise.all(
+    days.map((d) => staysOf({ at: d }).catch(() => null))
+  );
+  return each.flatMap((s) => s ?? []);
+}
+
+/** `read_payments`: his payments placed in his days, what each episode cost him, and the people he was with then. */
+export async function paymentsOf(q: {
+  episode?: string;
+  from: string;
+  to?: string;
+  who?: string;
+}) {
+  const to = q.to ?? q.from;
+  const [episodes, stays, folks] = await Promise.all([
+    episodesWhere(() => true),
+    staysOn(q.from, to),
+    readPeople(),
+  ]);
+  const ofDays = await placedOn(q.from, to, episodes, stays);
+  if (ofDays.error) {
+    return `Payments unknown: ${ofDays.error}`;
+  }
+  const ref = q.who && meant(q.who, folks).known;
+  if (q.who && !ref) {
+    return `No one goes by ${q.who}.`;
+  }
+  const list = ofDays.list.filter(
+    (p) =>
+      (!q.episode || p.episode?.id === q.episode) &&
+      (!ref || p.episode?.people.some((x) => x.ref === `person:${ref}`))
+  );
+  const byEpisode = [
+    ...Map.groupBy(
+      list.filter((p) => p.episode),
+      (p) => p.episode as Episode
+    ),
+  ]
+    .map(([m, l]) => ({ m, n: l.length, paid: paid(l) }))
+    .sort((a, b) => b.paid - a.paid);
+  const byPerson = new Map<string, number>();
+  for (const { m, paid: spent } of byEpisode) {
+    for (const x of m.people.filter((y) => y.role === "with")) {
+      byPerson.set(x.ref, (byPerson.get(x.ref) ?? 0) + spent);
+    }
+  }
+  return asData([
+    `Payments ${q.from}${to === q.from ? "" : ` to ${to}`}: ${list.length}, ${euros(paid(list))} paid (EUR at today's rate; money decides what counts):`,
+    ...list.toSorted(byTime).map((p) => `${p.day} ${paymentLine(p).slice(2)}`),
+    "",
+    "Paid per episode (most first):",
+    ...byEpisode.map(
+      ({ m, paid: spent, n }) =>
+        `- ${m.id} ${m.title} (${m.day}): ${euros(spent)}, ${n} payment${n === 1 ? "" : "s"}`
+    ),
+    "",
+    "Paid in the episodes each person was in (the whole, not their share):",
+    ...[...byPerson]
+      .sort((a, b) => b[1] - a[1])
+      .map(([r, spent]) => `- ${named({ speaker: r })}: ${euros(spent)}`),
+  ]);
 }
 
 /**

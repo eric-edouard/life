@@ -32,8 +32,11 @@ export function span(m: Pick<Episode, "day" | "end" | "start">) {
 export const edgeTime = (allDay: boolean, edge: string) =>
   (allDay ? dayStart(edge) : new Date(edge)).getTime();
 
-/** When an episode's event ends, as an instant (ms). */
-export const endOf = (m: Episode) => {
-  const { allDay, to } = span(m);
-  return edgeTime(allDay, to);
+/** When an episode was, as instants (ms): `[from, to)`. */
+export const bounds = (m: Episode) => {
+  const { allDay, from, to } = span(m);
+  return [edgeTime(allDay, from), edgeTime(allDay, to)] as const;
 };
+
+/** When an episode's event ends, as an instant (ms). */
+export const endOf = (m: Episode) => bounds(m)[1];

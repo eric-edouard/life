@@ -134,7 +134,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Model calls go through the provider the owner chose**: his subscriptions or allmodels.io with his key (his decision
   of 28 Oct 2026); never another provider. The bench uses the same providers, on a copy of the data
   (`docs/operations.md`, "Model engines").
-- **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list ←
+- **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
 - **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
@@ -180,7 +180,7 @@ Before adding a helper, use the one that exists:
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
-| A capability's types | its `contract.ts` (`sources/`, `todo-list/`): implementations import it, its registry imports them, never back |
+| A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
@@ -197,6 +197,7 @@ Before adding a helper, use the one that exists:
 | A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Whether Life is online (worth a run or an alert) | `isOnline` (`models/llm.ts`): his model provider answers; an offline tick runs nothing |
 | Whether a source is healthy | its `missing()` then its `newest()` (the snapshot's source card), never a second check |
+| His payments | `payments()` (`apps/server/src/payments/backend.ts`): nothing else calls `money` |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
