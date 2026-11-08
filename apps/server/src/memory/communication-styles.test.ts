@@ -5,7 +5,7 @@ import {
   isDue,
   sampleOf,
   styleLines,
-} from "./communication-style";
+} from "./communication-styles";
 
 const sent = (i: number, source: "whatsapp" | "mail"): SourceEvent => ({
   at: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString(),

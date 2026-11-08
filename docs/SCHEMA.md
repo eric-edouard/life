@@ -302,7 +302,7 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 ## situations/<id>.json
 
-Where things stand now with the owner (`me`) or someone close to him (`personallyClose`), written by `situation.ts` each
+Where things stand now with the owner (`me`) or someone close to him (`personallyClose`), written by `situations.ts` each
 night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and `cites`, `ep_` ids of the episodes it
 rests on), `inputs` (a hash of the prompt version, the page and the last 30 days' episodes), `built`, `madeBy`,
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
@@ -311,7 +311,7 @@ is no longer close. A reader drops a line whose episode is no longer live. His c
 ## communication-styles/<id>.json
 
 How the owner writes, in general (`me`, his messages to everyone) or to one person with a page (`pagedNow`, their 1:1
-chats and mail threads, `directChats`), written by `communication-style.ts`: `page` (`person:<id>`), `lines` (each
+chats and mail threads, `directChats`), written by `communication-styles.ts`: `page` (`person:<id>`), `lines` (each
 `kind`: null across channels, `chat` or `mail`; `source` when one app differs; `text`; `examples`, his words found in
 a chat message he sent), `inputs` (a hash of the prompt version and his newest 120 chat messages and 30 mails), `built`,
 `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed and it is a week old; removed when the person has
@@ -462,6 +462,10 @@ before the observation type's rename" and "Memory: the observation type decision
 ask (`after.agent`), every decision it asked (the `asked` line's `agent`, fact checks aside) and every paired app's
 refresh record, each line in its place; "Memory: before the agent's name is stamped" and "Memory: asks and decisions
 name their agent (agents-2026-10-31)" hold both sides.
+`episodes-2026-11` (the same file, since removed): moments became episodes, only what happened: `memory/moments/`
+became `memory/episodes/`, a line not `happened` went, `why` became `what`, ids `mom_` became `ep_` wherever cited, a
+fact check's kind `moment` became `episode` and its group `events` `episodes`; "Memory: before moments become episodes" and "Memory: moments are
+episodes, what happened, with what came of it (episodes-2026-11)" hold both sides.
 
 ## The search index (not in memory/)
 

@@ -7,7 +7,7 @@ import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { isOn } from "../core/outputs";
 import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
-import { communicationStyles } from "../memory/communication-style";
+import { communicationStyles } from "../memory/communication-styles";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
@@ -41,7 +41,7 @@ import {
   recordState,
   turnOf,
 } from "../memory/schedule";
-import { situations } from "../memory/situation";
+import { situations } from "../memory/situations";
 import { keptStores } from "../memory/sources";
 import { type Built, gather } from "../memory/units";
 import { observationsNow, readPeople } from "../memory/who";
