@@ -2,7 +2,9 @@
 // invariants, the Pendant and phone as last reported, the Mac, the pipeline, the backup,
 // ElevenLabs, and the problems and chain steps of the last day; its cheap part alone for the Mac
 // host's poll (`GET /status/live`). Spending stays on the phone's route.
+
 import { z } from "@hono/zod-openapi";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
@@ -68,7 +70,7 @@ export function liveStatus(
 // the chain's steps and the problems reported.
 export function status(db: Db, parts: Parts) {
   const live = liveStatus(db, parts);
-  const day = new Date(Date.now() - DAY_MS);
+  const day = new Date(clock().getTime() - DAY_MS);
   const problems = db
     .select({
       kind: diagnostics.kind,
@@ -190,7 +192,7 @@ function transcriptionNow(db: Db): z.infer<typeof Pipeline>["transcription"] {
       total(state = 'submitted') as submitted,
       total(${waitsForCredits()}) as forCredits,
       min(case when state = 'submitted' then request_sent_at end) as oldestSent,
-      total(state = 'failed' and updated_at >= ${Date.now() - DAY_MS}) as failed,
+      total(state = 'failed' and updated_at >= ${clock().getTime() - DAY_MS}) as failed,
       max(completed_at) as lastTranscript,
       (select total(s.value ->> 1 - s.value ->> 0)
         from speech_fragments f, json_each(f.map, '$.segments') s

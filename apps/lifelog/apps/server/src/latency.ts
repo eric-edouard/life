@@ -1,6 +1,7 @@
 // How fast speech becomes words and summaries: measured over the last day (`GET /status`), and
 // pushed along while the Pendant records (`askForUploads`).
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   chapters,
@@ -89,7 +90,7 @@ export const TICK_MS = 5 * 60_000;
 // visible alert), once per episode: only on the tick that first finds it past the delay.
 // ponytail: a tick missed in that window (a deploy) skips that episode's alert. Before the
 // handover no source has a heard-through, and nothing is asked.
-export async function askForUploads(db: Db, nudge: Nudge, now = new Date()) {
+export async function askForUploads(db: Db, nudge: Nudge, now = clock()) {
   if (!pendantRecords(latestHeartbeat(db))) {
     return false;
   }

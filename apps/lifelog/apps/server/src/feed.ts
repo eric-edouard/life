@@ -4,6 +4,7 @@
 // - A row edited again is logged again, so it comes again under the same key with a newer seq.
 // - What no longer exists (a turn a map moved off, a person merged away) is in `removed`.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   changeLog,
@@ -61,12 +62,12 @@ export async function waitForChange(
   seconds: number,
   signal?: AbortSignal
 ) {
-  const until = Date.now() + seconds * 1000;
+  const until = clock().getTime() + seconds * 1000;
   for (;;) {
     if (latestSeq(db) > since) {
       return true;
     }
-    const left = until - Date.now();
+    const left = until - clock().getTime();
     if (left <= 0 || signal?.aborted) {
       return false;
     }

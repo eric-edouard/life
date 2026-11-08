@@ -4,6 +4,7 @@
 // The argument is days (default 14). `--json` prints one group per signature instead: ids (newest
 // first), kinds, count, builds, the app binary UUIDs (the dSYMs to symbolicate with) and first and
 // last seen. Symbolicate one with `bun run symbolicate <id>` from the repo root.
+import { clock } from "@life/server/src/core/clock";
 import { connect } from "@lifelog/db";
 import {
   appBinaryUUIDs,
@@ -23,7 +24,9 @@ const json = args.includes("--json");
 const days = Number(args.find((a) => a !== "--json") ?? 14);
 // Read-only: the file is the live archive.
 const db = connect(url, { readonly: true });
-const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
+const since = new Date(
+  clock().getTime() - days * 24 * 3600 * 1000
+).toISOString();
 const problems = listDiagnostics(db, { limit: 2000, since }).filter(
   (d) => d.kind !== "metrics"
 );

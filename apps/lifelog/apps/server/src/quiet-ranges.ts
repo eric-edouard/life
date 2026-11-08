@@ -2,7 +2,9 @@
 // dictation.ts) or the phone played a recording out loud (`POST /quiet-ranges`). Words inside one
 // are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
 // watermark is already among the ranges, or the Mac is asleep.
+
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
 import { and, eq, gt, lt } from "drizzle-orm";
@@ -113,7 +115,10 @@ function saveMac(
 ) {
   const row = macRow(tx);
   const heardAt = new Date(
-    Math.max(Math.min(heard.getTime(), Date.now()), row?.heardAt.getTime() ?? 0)
+    Math.max(
+      Math.min(heard.getTime(), clock().getTime()),
+      row?.heardAt.getTime() ?? 0
+    )
   );
   for (const r of ranges) {
     insertQuietRange(tx, {
@@ -168,7 +173,7 @@ export function applyMacEvent(
 export function blockMac(db: Db, { lost = false } = {}) {
   return db.transaction((tx) => {
     const row = macRow(tx);
-    const heardAt = row?.heardAt ?? new Date();
+    const heardAt = row?.heardAt ?? clock();
     const state = blocked(row?.state ?? idle, heardAt.getTime(), lost);
     saveMac(tx, { ranges: [], state }, heardAt);
     return new Date(state.blockedSince ?? heardAt.getTime());

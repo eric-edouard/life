@@ -33,6 +33,7 @@
 // are in mac_watch, so a restart falls back to them.
 
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { type MacEngine, macEngines } from "@lifelog/db/schema";
 import type { Server, ServerWebSocket } from "bun";
@@ -85,7 +86,7 @@ const MAC_SILENCE_MS = 2 * 3_600_000;
 // at its start, before the last frame heard (`macView`), and holds until it is a range.
 // The cutter closes no block ending after it (cutter.ts), and the job worker sends no job ending
 // after it (jobs.ts `claim`). Cases in apps/server/fixtures/mac-vouches.json.
-export function vouchedThrough(watch: MacView | null, now = new Date()) {
+export function vouchedThrough(watch: MacView | null, now = clock()) {
   const mark = watch ? new Date(watch.watchedThrough) : now;
   const free =
     !watch ||
@@ -207,7 +208,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
 
   const unableNow = (engine: MacEngine = switches().engine): Unable | null => {
     const hold = unable.get(engine);
-    return hold && hold.until > Date.now() ? hold.reason : null;
+    return hold && hold.until > clock().getTime() ? hold.reason : null;
   };
   // Said hello, awake as the stored rules say (a hello wakes it, only an applied sleep puts it to
   // sleep: a sleep sent again never does), and not held back by an auth or limit failure.
@@ -237,7 +238,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       fail(id, "no answer from the Mac");
       pump();
     }, timeoutMs);
-    pending.set(id, { ...queued, sentAt: Date.now(), timer });
+    pending.set(id, { ...queued, sentAt: performance.now(), timer });
     const message = { id, timeoutMs: MAC_KILL_MS, type: "llm", ...queued.call };
     // 0: Bun dropped it, the socket is closing.
     if (ws.send(JSON.stringify(message)) === 0) {
@@ -303,7 +304,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     pending.delete(message.id);
     clearTimeout(call.timer);
     pump();
-    const ms = Date.now() - call.sentAt;
+    const ms = Math.round(performance.now() - call.sentAt);
     const { engine, model } = call.call;
     const reply = macAnswer(engine, output);
     if (reply.ok) {
@@ -337,7 +338,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
   };
   // The Mac said an engine can't run (signed out, or at its limit): for UNABLE_MS.
   const markUnable = (engine: MacEngine, reason: Unable) => {
-    unable.set(engine, { reason, until: Date.now() + UNABLE_MS });
+    unable.set(engine, { reason, until: clock().getTime() + UNABLE_MS });
     record(db, "mac.llm_unable", {
       engine,
       minutes: UNABLE_MS / 60_000,
@@ -384,7 +385,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       () => {
         tick = null;
         logged(db, "mac settle", () => {
-          const known = current ? new Date() : (macRow(db)?.heardAt ?? null);
+          const known = current ? clock() : (macRow(db)?.heardAt ?? null);
           if (known) {
             stored(settleMac(db, known));
           }
@@ -394,7 +395,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
           schedule();
         }
       },
-      Math.max(0, due - Date.now())
+      Math.max(0, due - clock().getTime())
     );
     tick.unref();
   };
@@ -413,7 +414,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     const { data } = parsed;
     // In server time: a Mac clock running ahead puts no hold or range in the server's future.
     const sent = Date.parse(data.at);
-    const at = Math.min(sent, Date.now());
+    const at = Math.min(sent, clock().getTime());
     const fact: MacReport =
       data.type === "mic"
         ? { at, capturing: data.capturing, kind: "mic" }
@@ -503,7 +504,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
   };
   const heard = (ws: Socket) => {
     if (ws.data.engines && !ws.data.failed) {
-      ws.data.heardAt = new Date();
+      ws.data.heardAt = clock();
     }
   };
 
@@ -512,17 +513,14 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     // When the dictation under way began, while the open socket's rules still count it.
     dictatingSince: () => {
       const row = current ? macRow(db) : undefined;
-      const since = row ? dictatingSince(row.state, Date.now()) : null;
+      const since = row ? dictatingSince(row.state, clock().getTime()) : null;
       return since === null ? null : new Date(since).toISOString();
     },
     // The live view while a socket said hello, else null (the stored row stands).
     live(): MacView | null {
       const row = current ? macRow(db) : undefined;
       return current && row
-        ? macView(
-            { heardAt: current.data.heardAt, state: row.state },
-            new Date()
-          )
+        ? macView({ heardAt: current.data.heardAt, state: row.state }, clock())
         : null;
     },
     // One model call on the Mac, sent when a slot is free. Rejects with MacGone when it isn't
@@ -564,13 +562,13 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
           data: {
             engines: null,
             failed: false,
-            heardAt: new Date(),
+            heardAt: clock(),
           },
         }) ?? false
       );
     },
     // `vouchedThrough` on the live view, else the stored row.
-    vouchedThrough(now = new Date()) {
+    vouchedThrough(now = clock()) {
       const live = this.live();
       const row = live ? undefined : macRow(db);
       return vouchedThrough(live ?? (row ? macView(row) : null), now);
@@ -619,7 +617,7 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         const wasAble = able();
         current = ws;
         ws.data.engines = message.engines;
-        ws.data.heardAt = new Date();
+        ws.data.heardAt = clock();
         // A hello means the Mac is awake: it opens a socket only then.
         logged(db, "mac watch not stored", () =>
           stored(storeMacHeard(db, ws.data.heardAt, { awake: true }))

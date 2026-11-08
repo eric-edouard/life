@@ -5,10 +5,12 @@
 // quiet ranges removed (`blocks/`, `jobs/`) go to ElevenLabs, `apps/identity` or a model. The
 // server's own archive is copied beside them once a day (`archive/`): the file on its disk is
 // otherwise the only copy. With restic set up, restic.ts snapshots it instead.
+
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { backupFiles, transcriptionJobs } from "@lifelog/db/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -45,7 +47,7 @@ export const rawPack = (
 export const rawSnapshot = (
   sourceId: string,
   sha256: string,
-  now = new Date()
+  now = clock()
 ): RawFile => {
   const date = now.toISOString().slice(0, 10);
   return {
@@ -64,7 +66,7 @@ export const rawSnapshot = (
 export async function snapshotArchive(
   db: Db,
   audio: AudioStore,
-  now = new Date()
+  now = clock()
 ) {
   const date = now.toISOString().slice(0, 10);
   const kept = db

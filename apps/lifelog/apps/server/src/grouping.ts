@@ -5,6 +5,7 @@
 // after it; a conversation 5 minutes behind heard-through is closed. Cases:
 // apps/server/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
@@ -639,7 +640,7 @@ function regroup(
       .values(
         capSplits.map((at) => ({
           at: new Date(at),
-          editedAt: new Date(),
+          editedAt: clock(),
           id: aiSplitId(at),
           kind: "split" as const,
           source: "ai" as const,
@@ -680,7 +681,7 @@ function write(
   const gone = [...byId.values()].filter((c) => c.retiredAt === null);
   for (const old of gone) {
     tx.update(conversations)
-      .set({ retiredAt: new Date(), successorId: successor(old, grouped) })
+      .set({ retiredAt: clock(), successorId: successor(old, grouped) })
       .where(eq(conversations.id, old.id))
       .run();
     written.conversations.push(old.id);
@@ -781,7 +782,7 @@ function closeAndClassify(
       from live l)
     update conversations as c
     set kind = n.kind,
-      closed_at = case when n.closed then coalesce(c.closed_at, ${Date.now()}) end
+      closed_at = case when n.closed then coalesce(c.closed_at, ${clock().getTime()}) end
     from next n
     where c.id = n.id and (c.kind <> n.kind or (c.closed_at is not null) <> n.closed)
     returning id`);

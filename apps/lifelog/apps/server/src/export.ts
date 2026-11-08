@@ -2,6 +2,7 @@
 // host's Export… and Import…, and what the daily restic backup snapshots (restic.ts). The folder
 // holds `archive.sqlite`, the audio under `audio/` (AUDIO_DIR's files, keys as paths), and
 // `manifest.json`: each file's size and sha256, and each table's rows. Shaped like Life's.
+
 import { Database } from "bun:sqlite";
 import { constants } from "node:fs";
 import {
@@ -16,6 +17,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import { sha256Of } from "@life/server/src/core/hash";
 import { openReadOnly } from "@life/server/src/core/sqlite";
 import { connect, type Db, holdArchive, migrateDb } from "@lifelog/db";
@@ -125,7 +127,7 @@ export async function exportArchive(
     const manifest: Manifest = {
       app: "lifelog",
       counts: rowsIn(join(folder, ARCHIVE)),
-      createdAt: new Date().toISOString(),
+      createdAt: clock().toISOString(),
       files,
       format: FORMAT,
     };

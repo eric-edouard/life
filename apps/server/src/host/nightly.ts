@@ -61,6 +61,7 @@ import {
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
+import { TOP_AT } from "../records/unit";
 import { checks } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
@@ -366,7 +367,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   return {
     facts: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
-        ids.has(o.id) && o.importance === 3 && !standing.retired.has(o.id)
+        ids.has(o.id) && o.importance === TOP_AT && !standing.retired.has(o.id)
           ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
           : []
       )

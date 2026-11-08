@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import { bytesOf, vectorOf } from "@life/server/src/core/embedder";
 import { isNull, type SQLWrapper, sql } from "drizzle-orm";
 import {
@@ -22,7 +23,6 @@ const json = <T = unknown>(name: string) =>
   text(name, { mode: "json" }).$type<T>();
 const uuid = (name: string) => text(name);
 const newId = () => randomUUID();
-const now = () => new Date();
 
 // A vector as Life's core stores it: scored in JS (search.ts), never by the database.
 const vector = customType<{ data: number[]; driverData: Uint8Array }>({
@@ -138,18 +138,18 @@ export interface ParsedTranscript {
   words: Word[];
 }
 
-const createdAt = instant("created_at").notNull().$defaultFn(now);
+const createdAt = instant("created_at").notNull().$defaultFn(clock);
 
 const updatedAt = instant("updated_at")
   .notNull()
-  .$defaultFn(now)
-  .$onUpdate(now);
+  .$defaultFn(clock)
+  .$onUpdate(clock);
 
 // The ledger. Usage is computed from it (state <> 'failed'), by admittedAt.
 export const transcriptionJobs = sqliteTable(
   "transcription_jobs",
   {
-    admittedAt: instant("admitted_at").notNull().$defaultFn(now),
+    admittedAt: instant("admitted_at").notNull().$defaultFn(clock),
     // Sends that bought nothing and went again (the backoff, and which send a webhook answers).
     attempts: integer("attempts").notNull().default(0),
     audioSha256: text("audio_sha256").notNull(),
@@ -627,7 +627,7 @@ export const processingSwitches = sqliteTable("processing_switches", {
     .notNull()
     .default("scribe"),
   transcription: boolean("transcription").notNull(),
-  updatedAt: instant("updated_at").notNull().$defaultFn(now),
+  updatedAt: instant("updated_at").notNull().$defaultFn(clock),
 });
 
 // Intelligence run lifecycle.
@@ -782,7 +782,7 @@ export const diagnosticKinds = [
   "app_error",
   "server_error",
 ] as const;
-const receivedAt = instant("received_at").notNull().$defaultFn(now);
+const receivedAt = instant("received_at").notNull().$defaultFn(clock);
 
 // One MetricKit diagnostic, or one day of its metrics. The id is the phone's, so a retried
 // upload is stored once. `body` is the validated upload; `signature` groups repeats.
@@ -947,7 +947,7 @@ export const rawPages = sqliteTable(
     offset: integer("offset").notNull(),
     // The phone's store index: its flash life's band (`FlashLife`, 2^40 each) plus the device's.
     pageIndex: integer("page_index").notNull(),
-    receivedAt: instant("received_at").notNull().$defaultFn(now),
+    receivedAt: instant("received_at").notNull().$defaultFn(clock),
     sha256: text("sha256").notNull(),
     sourceId: text("source_id").notNull(),
     // The phone's placement in capture time; null for an Omi record, placed from its own stamp.
@@ -1082,7 +1082,7 @@ export const vocabulary = sqliteTable("vocabulary", {
 export const changeLog = sqliteTable(
   "change_log",
   {
-    at: instant("at").notNull().$defaultFn(now),
+    at: instant("at").notNull().$defaultFn(clock),
     kind: text("kind").notNull(),
     ref: text("ref").notNull(),
     seq: integer("seq").primaryKey({ autoIncrement: true }),

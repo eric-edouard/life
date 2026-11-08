@@ -1,5 +1,7 @@
 // Account limits observed by the Mac's CLIs, never inferred from lifelog's token ledger.
+
 import { z } from "@hono/zod-openapi";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { macEngines, subscriptionUsage } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
@@ -32,7 +34,7 @@ export function storeSubscriptionUsage(
 ) {
   const { engine, reading } = message;
   // Reject a future clock: it would otherwise prevent every later valid observation from replacing this one.
-  if (reading.observedAt > Date.now() / 1000 + 60) {
+  if (reading.observedAt > clock().getTime() / 1000 + 60) {
     return;
   }
   db.insert(subscriptionUsage)

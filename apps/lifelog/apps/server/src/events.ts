@@ -3,7 +3,9 @@
 // phone saw (POST /events). Each is one JSON line on stdout, for the server's log, and a row in
 // `events`, which outlives the log's rotation. Ids, states, counts, durations and status codes
 // only: never tokens, transcript text, audio or photos. Read them with `bun run events` (repo root).
+
 import { z } from "@hono/zod-openapi";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { eventSources, events } from "@lifelog/db/schema";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
@@ -23,7 +25,7 @@ export function record(
   db: Db,
   name: string,
   fields: Fields = {},
-  { at = new Date(), id, source = "server" }: Partial<EventMeta> = {}
+  { at = clock(), id, source = "server" }: Partial<EventMeta> = {}
 ) {
   console.log(
     JSON.stringify({ at: at.toISOString(), event: name, source, ...fields })
@@ -33,9 +35,10 @@ export function record(
       .values({ at, fields, id, name, source })
       .onConflictDoNothing()
       .run();
-    if (Date.now() - prunedAt > PRUNE_EVERY_MS) {
-      prunedAt = Date.now();
-      const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 3600 * 1000);
+    const now = clock().getTime();
+    if (now - prunedAt > PRUNE_EVERY_MS) {
+      prunedAt = now;
+      const cutoff = new Date(now - RETENTION_DAYS * 24 * 3600 * 1000);
       db.delete(events).where(lt(events.at, cutoff)).run();
     }
   } catch (error) {

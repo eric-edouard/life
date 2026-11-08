@@ -22,7 +22,9 @@
 //   learn names given later. `regroup` alone groups the unnamed voices, from scratch each night,
 //   and `expire` deletes voice data that is nobody's evidence after 30 days.
 // - Nothing here calls the transcription provider.
+
 import { randomUUID } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   speakerAssignments as assignments,
@@ -147,7 +149,7 @@ export const keepServerSamples = (
       evidenceForNew(tx, sample);
     }
     tx.update(transcripts)
-      .set({ excerptsAt: new Date() })
+      .set({ excerptsAt: clock() })
       .where(eq(transcripts.jobId, jobId))
       .run();
   });
@@ -957,7 +959,7 @@ export function regroup(db: Db) {
 // a speaker the owner marked as media at once, a retired job's after a day, everything else
 // after `keepDays`. Recognized labels stay as they were (recognizeJob keeps them).
 export function expire(db: Db) {
-  const days = (n: number) => Date.now() - n * 86_400_000;
+  const days = (n: number) => clock().getTime() - n * 86_400_000;
   const removed = db.all<{ id: string }>(sql`
     delete from ${voiceSamples} as s
     where not exists (select 1 from ${voiceProfiles} p where p.sample_id = s.id)
@@ -996,7 +998,7 @@ export function voiceUpkeep(db: Db) {
     }
   };
   return {
-    nightly(at = new Date()) {
+    nightly(at = clock()) {
       const { date, hour } = ownerClock(at);
       if (hour < UPKEEP_HOUR || date === lastNight) {
         return null;

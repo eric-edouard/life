@@ -178,7 +178,8 @@ Before adding a helper, use the one that exists:
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
-| Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
+| Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`, lifelog included; a duration is `performance.now()` |
+| An importance threshold | `SEARCHABLE_AT`, `KEEP_AT`, `TOP_AT` (`records/unit.ts`), never a bare number |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |

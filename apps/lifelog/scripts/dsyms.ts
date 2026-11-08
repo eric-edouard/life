@@ -1,10 +1,12 @@
 // The dSYM store: every build installed on the phone or the Watch keeps its dSYMs here, outside any
 // worktree, as <STORE>/<binary UUID>/<name>.dSYM beside a build.json (commit, date, UUIDs).
 // install-phone.ts fills it; symbolicate.ts reads it.
+
 import { existsSync } from "node:fs";
 import { cp, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname } from "node:path";
+import { clock } from "@life/server/src/core/clock";
 import { $, Glob } from "bun";
 
 const STORE = `${homedir()}/Library/Application Support/lifelog/dsyms`;
@@ -46,7 +48,7 @@ export async function archive(dir: string, pattern: string, commit: string) {
     throw new Error(`no dSYMs under ${dir}`);
   }
   const build = {
-    archivedAt: new Date().toISOString(),
+    archivedAt: clock().toISOString(),
     binaries: Object.fromEntries(
       [...found].map(([uuid, d]) => [uuid, basename(d.bundle)])
     ),

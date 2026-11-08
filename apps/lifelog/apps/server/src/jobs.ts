@@ -3,6 +3,7 @@
 // is in the bucket (audio-store.ts) before the job exists, and every send reads it from there, so a
 // retry never needs the phone. ElevenLabs keeps its own copy under its retention policy.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   transcriptionJobs as jobs,
@@ -101,7 +102,7 @@ const BUSY_RETRY_MINUTES = 1;
 const back = (db: Db, send: Send, error: string | null) =>
   onSend(db, send, {
     error,
-    nextAttemptAt: new Date(Date.now() + BUSY_RETRY_MINUTES * 60_000),
+    nextAttemptAt: new Date(clock().getTime() + BUSY_RETRY_MINUTES * 60_000),
     requestSentAt: null,
     state: "queued",
   });
@@ -131,7 +132,7 @@ function retry(db: Db, send: Send, error: string) {
   return onSend(db, send, {
     attempts,
     error,
-    nextAttemptAt: new Date(Date.now() + 2 ** send.attempts * 60_000),
+    nextAttemptAt: new Date(clock().getTime() + 2 ** send.attempts * 60_000),
     providerRequestId: null,
     providerTranscriptionId: null,
     requestSentAt: null,
@@ -183,7 +184,7 @@ function complete(
     const updated = tx
       .update(jobs)
       .set({
-        completedAt: new Date(),
+        completedAt: clock(),
         error: null,
         providerRequestId: sql`coalesce(${jobs.providerRequestId}, ${match.requestId ?? null})`,
         providerTranscriptionId: sql`coalesce(${jobs.providerTranscriptionId}, ${transcriptionId})`,
@@ -331,7 +332,7 @@ async function settle(
   job: Job,
   onCompleted: OnCompleted
 ) {
-  const age = Date.now() - (job.requestSentAt?.getTime() ?? 0);
+  const age = clock().getTime() - (job.requestSentAt?.getTime() ?? 0);
   if (job.transcriber === "speech") {
     return settleSpeech(db, job, age);
   }
@@ -489,7 +490,7 @@ export function jobWorker(
   audio: AudioStore,
   // Its vouched mark: the live socket's view first, else the stored row.
   mac: Pick<MacSocket, "vouchedThrough"> = macSocket(db),
-  now = () => Date.now()
+  now = () => clock().getTime()
 ) {
   let wake: ReturnType<typeof setTimeout> | undefined;
   let plan: Credits | null = null;
@@ -506,7 +507,7 @@ export function jobWorker(
   // (the phone's playback) still needs. The speech service takes one block at a time, so it gets one.
   const claim = () => {
     const vouched = mac.vouchedThrough();
-    const at = new Date();
+    const at = clock();
     const transcriber = transcriberNow(config);
     return db.transaction((tx) => {
       const atProvider = tx
@@ -583,11 +584,11 @@ export function jobWorker(
   }
 
   async function toScribe(job: Job, bytes: Uint8Array) {
-    const started = Date.now();
+    const started = performance.now();
     const outcome = await submit(config, job, new Blob([bytes.slice()]));
     record(db, `elevenlabs.${outcome.kind}`, {
       job: job.id,
-      ms: Date.now() - started,
+      ms: Math.round(performance.now() - started),
       ...("error" in outcome ? { error: outcome.error.slice(0, 120) } : {}),
       ...(outcome.kind === "accepted" ? { requestId: outcome.requestId } : {}),
     });
@@ -599,7 +600,7 @@ export function jobWorker(
   // whole, as a Scribe job. Routed by the zone the owner was in when it was recorded. The service busy: queued again. Down or failing: an attempt, and a block
   // it fails the last time goes to Scribe whole too, so a failure that repeats never loops.
   async function hear(job: Job, bytes: Uint8Array) {
-    const started = Date.now();
+    const started = performance.now();
     const said = await transcribeBlock(config, bytes);
     if (putBack(job, said)) {
       return;
@@ -612,7 +613,7 @@ export function jobWorker(
     record(db, "speech.heard", {
       bar: barOf(zone),
       job: job.id,
-      ms: Date.now() - started,
+      ms: Math.round(performance.now() - started),
       route: route.kind,
       routed: route.kind === "turns" ? route.routed.length : null,
       zone,

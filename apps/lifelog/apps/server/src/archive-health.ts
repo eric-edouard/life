@@ -8,6 +8,7 @@
 //   (paid work happens once), and speech fragments the same (`twice`).
 // A count that rose since the last check emails the owner, at most once per 12 hours.
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { events, holdsTurn } from "@lifelog/db/schema";
 import { desc, eq, type SQL, sql } from "drizzle-orm";
@@ -68,7 +69,7 @@ export const worse = (now: ArchiveHealth, before: Partial<ArchiveHealth>) =>
 export function healthWatch(db: Db, config: Config) {
   let checkedAt = 0;
   return {
-    async hourly(at = Date.now()) {
+    async hourly(at = clock().getTime()) {
       if (at - checkedAt < HOUR_MS) {
         return null;
       }

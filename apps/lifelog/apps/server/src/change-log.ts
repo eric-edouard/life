@@ -2,6 +2,7 @@
 // reader follows logs it here in the same transaction, so a reader of `seq` never skips a change.
 // The feed loads the current row of each (kind, ref) it finds (feed.ts).
 
+import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { changeLog, touchesJob } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
@@ -66,7 +67,7 @@ export function logPlacedIn(
   );
   tx.run(sql`
     insert into change_log (kind, ref, at)
-    select distinct 'turn', ${TURN_REF}, ${Date.now()} from turns t
+    select distinct 'turn', ${TURN_REF}, ${clock().getTime()} from turns t
     join json_each(${json}) r
       on t.start_at < r.value ->> 1 and t.end_at > r.value ->> 0`);
 }

@@ -1,6 +1,8 @@
 // ElevenLabs Scribe v2 over plain fetch. Facts in docs/research/elevenlabs.md.
 // No SDK on purpose: its automatic retries can resubmit a paid POST.
+
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { clock } from "@life/server/src/core/clock";
 import type {
   ParsedTranscript,
   TranscriptionSettings,
@@ -278,7 +280,7 @@ export function verifySignature(
   header: string | undefined,
   rawBody: string,
   secret: string,
-  nowSeconds = Date.now() / 1000
+  nowSeconds = clock().getTime() / 1000
 ): boolean {
   const fields = new Map(
     (header ?? "").split(",").map((part) => {
