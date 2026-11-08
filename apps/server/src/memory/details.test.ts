@@ -63,6 +63,13 @@ test("details: his map, then Contacts; one birthday (his map's first); a work ad
     )[1]
   ).toBe("- Birthday: 1 Apr (in 22 days, turns 36) (Contacts)");
   expect(detailsOf({ contacts: [] })).toEqual([]);
+  // The same card in two accounts: each line once.
+  const card = contact({ addresses: ["5 rue Haute, Lyon"], work: "Pilot" });
+  expect(detailsOf({ contacts: [card, card] }).map((l) => l.kind)).toEqual([
+    "home",
+    "work",
+    "handles",
+  ]);
 });
 
 test("details from Contacts: a record is the person one of its handles resolves to", () => {

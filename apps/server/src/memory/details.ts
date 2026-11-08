@@ -8,16 +8,16 @@ import { when } from "./zones";
 // Everything else known about them is a line of their page. This module is the one place that merges the two, and
 // decides a person's birthday.
 
-/** The kinds of detail, in the order a page shows them, with their labels. */
-const DETAILS = [
-  ["birthday", "Birthday"],
-  ["home", "Lives in"],
-  ["work", "Work"],
-  ["family", "Family"],
-  ["handles", "Handles"],
-] as const;
+/** The kinds of detail, with their labels on a page. */
+const LABELS = {
+  birthday: "Birthday",
+  family: "Family",
+  handles: "Handles",
+  home: "Lives in",
+  work: "Work",
+};
 
-type Detail = (typeof DETAILS)[number][0];
+type Detail = keyof typeof LABELS;
 
 /** Contacts' own label for a work address. */
 const WORK_ADDRESS = "(Work)";
@@ -30,8 +30,9 @@ export interface DetailLine {
 }
 
 /**
- * Someone's details, in page order, each kind from his map first, then his Contacts. One birthday: his map's, else the
- * first in Contacts. A Contacts address labelled Work is not a home. A handle shows once, however it is written.
+ * Someone's details, in page order (birthday, home, work, family, handles), each kind from his map first, then his
+ * Contacts. One birthday: his map's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
+ * two Contacts cards repeat shows once; a handle shows once, however it is written.
  */
 export function detailsOf({
   contacts,
@@ -81,7 +82,11 @@ export function detailsOf({
     ]),
   ];
   const born = lines.find((l) => l.kind === "birthday");
-  return lines.filter((l) => l.kind !== "birthday" || l === born);
+  return lines.filter(
+    (l, i) =>
+      (l.kind !== "birthday" || l === born) &&
+      lines.findIndex((m) => m.kind === l.kind && m.text === l.text) === i
+  );
 }
 
 /** Someone's birthday by their details. */
@@ -133,7 +138,6 @@ export const birthdaysNear = (
     .map(({ b, p }) => ({ id: p.id, name: p.name, text: birthdayText(b) }));
 
 const SOURCE_NAMES = { contacts: "Contacts", truth: "his map" };
-const LABELS = new Map<string, string>(DETAILS);
 
 /** Someone's details as their page shows them, one line each, with where each comes from; `today` dates a birthday. */
 export function detailsBlock(lines: DetailLine[], today: string) {
@@ -147,7 +151,7 @@ export function detailsBlock(lines: DetailLine[], today: string) {
         l.kind === "birthday"
           ? birthdayText(nextBirthday(l.text, today))
           : l.text;
-      return `- ${LABELS.get(l.kind)}: ${text} (${SOURCE_NAMES[l.from]})`;
+      return `- ${LABELS[l.kind]}: ${text} (${SOURCE_NAMES[l.from]})`;
     }),
     "",
   ];
