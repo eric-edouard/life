@@ -104,6 +104,11 @@ with). `read_day`'s Due and `act`'s duplicate check read it, never Reminders; a 
 it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
+A person's page (`read_person_page`) lists every open item with them, whatever its day (`openWithOf`, `search.ts`):
+the observations linked to them, the replies he owes them and the reminders made from those, ranked the same way
+(`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`). A reminder made by hand names no one, so it
+is not on any page.
+
 ### The standing grant
 
 The only other authority, off until the owner's words in a Claude session turn it on (`bun life grant on|off '<their

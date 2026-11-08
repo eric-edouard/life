@@ -75,27 +75,21 @@ const KIND = {
   waiting_on_someone: 2,
 };
 
+/** Owed to him (he can only chase it); every other open item is his to do, a promise included (decision 11b). */
+export const isOwedToHim = (c: Candidate) => c.kind === "waiting_on_someone";
+
 /**
- * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
- * serves (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older
- * first. Copies merge: a reminder into the observation it came from. `shown`: the days a daily review was already given each id (`read_day`'s answers).
+ * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves
+ * (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older first.
+ * Copies merge: a reminder into the observation it came from. Overdue: its day is before `date`.
  */
-export function openItems(
+export function rankedItems(
   candidates: Candidate[],
   {
     date,
     goals = [],
     levels = new Map(),
-    shown = new Map(),
-    today = date,
-  }: {
-    date: string;
-    goals?: string[][];
-    levels?: Map<string, number>;
-    shown?: Map<string, string[]>;
-    /** His day now: what the review reads ahead of it shows no undated item. */
-    today?: string;
-  }
+  }: { date: string; goals?: string[][]; levels?: Map<string, number> }
 ): OpenItem[] {
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const items = new Map<string, OpenItem>();
@@ -136,9 +130,29 @@ export function openItems(
     return i < 0 ? a.at.localeCompare(b.at) : (x[i] ?? 0) - (y[i] ?? 0);
   };
   return [...items.values()]
-    .filter((c) => timely(c, date, today, shown.get(c.id) ?? []))
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
+}
+
+/**
+ * The open items due on `date` (`timely`), ranked (`rankedItems`). `shown`: the days a daily review was already given
+ * each id (`read_day`'s answers).
+ */
+export function openItems(
+  candidates: Candidate[],
+  {
+    shown = new Map(),
+    today,
+    ...rank
+  }: Parameters<typeof rankedItems>[1] & {
+    shown?: Map<string, string[]>;
+    /** His day now: what the review reads ahead of it shows no undated item. */
+    today?: string;
+  }
+) {
+  return rankedItems(candidates, rank).filter((c) =>
+    timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+  );
 }
 
 /**
