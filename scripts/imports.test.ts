@@ -153,15 +153,17 @@ test("no calendar day is cut from a UTC instant", () => {
   ).toEqual([]);
 });
 
-test("a file over 800 lines never grows: its cap in CAPS only goes down", () => {
-  // Under 800, a file leaves CAPS and the biome.json override.
-  const over = Object.entries(CAPS).map(([path, cap]) => {
+test("a file over 800 lines never grows: its cap in CAPS is its length, lowered as it shrinks", () => {
+  // Its exact length (all lines), so a cap is never left above the file; under 800, it leaves CAPS and the biome.json override.
+  const over = Object.keys(CAPS).map((path) => {
     const lines = readFileSync(join(LIFE_CODE_DIR, path), "utf8")
       .trimEnd()
       .split(LINE_BREAK).length;
-    return [path, lines <= cap, lines > 800];
+    return [path, lines, lines > 800];
   });
-  expect(over).toEqual(Object.keys(CAPS).map((path) => [path, true, true]));
+  expect(over).toEqual(
+    Object.entries(CAPS).map(([path, cap]) => [path, cap, true])
+  );
   const biome = JSON.parse(
     readFileSync(join(LIFE_CODE_DIR, "biome.json"), "utf8")
   ) as { overrides: { includes: string[]; linter?: unknown }[] };
