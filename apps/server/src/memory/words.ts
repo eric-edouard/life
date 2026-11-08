@@ -31,7 +31,7 @@ import {
   dayRange,
   dayUnitId,
   isFrozen,
-  lifeChat,
+  isLifeOutput,
   lifelogNames,
   lineOf,
   localTime,
@@ -330,7 +330,10 @@ export async function fetchOf(
   ]);
 }
 
-/** What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names and handles. */
+/**
+ * What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names
+ * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
+ */
 function needlesOf(who: string, people: People) {
   const { canon, corrections, inferred, truth } = people;
   // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
@@ -470,7 +473,7 @@ function readChats(
     }
   });
   const events = read
-    .filter((e) => e.at < stop && e.chat !== lifeChat())
+    .filter((e) => e.at < stop && !isLifeOutput(e))
     .sort((a, b) => a.at.localeCompare(b.at));
   const starts = Object.keys(sources).map((name) => startOf(name).getTime());
   return { end, events, failed, start: new Date(Math.min(...starts)) };

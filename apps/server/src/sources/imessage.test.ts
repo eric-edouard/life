@@ -4,6 +4,7 @@ import { HOUR } from "../core/clock";
 import { handleKey } from "./contacts";
 import {
   fromAppleNs,
+  incomingImessage,
   readImessage,
   textFromAttributedBody,
   toAppleNs,
@@ -42,4 +43,14 @@ test("his Contacts name a 1:1 chat Messages knows only by its number (an empty n
   group.run("update chat set chat_identifier = 'chat611111111'");
   group.close();
   expect(readImessage(since, db, names)[0]?.chatName).toBeUndefined();
+});
+
+test("incoming: the messages Messages stored from a row on, with readImessage's ids", () => {
+  const db = imessageFixture("salut");
+  const fresh = incomingImessage(1, db);
+  expect(fresh.end).toBe(2);
+  expect(fresh.rows.map((r) => [r.row, r.id])).toEqual(
+    readImessage(new Date(0), db, new Map()).map((e) => [1, e.id])
+  );
+  expect(incomingImessage(fresh.end, db).rows).toEqual([]);
 });

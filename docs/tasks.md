@@ -167,13 +167,18 @@ observations citing it ("Asks remembered"). A mark never acts, asks or sends: th
 only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
 grant.
 
-- **Tools:** fifteen. Thirteen read-only: `read_agent_asks` (the paired agent's own asks, above); `read_open_todo_items`, read from Reminders; the status reads
+- **Tools:** sixteen. Fourteen read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads. And two
   writes: `correct_memory` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant). The two to-do tools exist only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
+- **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names
+  `message.received` with the arguments an agent filters on (`person`, `channels`, `chat`, `from_me`, `text_matches`),
+  `events/poll` returns what matched past the agent's cursor: who, where and when, never the text (`events.ts`). Any
+  paired app may poll. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
+  tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT).
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in

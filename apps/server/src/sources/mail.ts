@@ -4,7 +4,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest } from "./contract";
+import type { Newest, NewRow } from "./contract";
 import { sourceFile } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
@@ -421,6 +421,56 @@ interface Row {
   transaction: number;
 }
 
+/** A message's id, the same in every mailbox holding a copy: its Message-ID header, else Mail's global id. */
+const idOf = (r: Pick<Row, "globalId" | "header">) =>
+  `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
+
+/**
+ * The messages Mail first stored from row `from` on (`incoming`): a copy in another mailbox (Gmail's All Mail, a move)
+ * shares its global id and is not new. Mail can rebuild its index, renumbering every row: a cursor past its end then
+ * starts again at its end (`events.ts`).
+ */
+export function incomingMail(
+  from: number | undefined,
+  root = mailRoot()
+): { end: number; rows: NewRow[] } {
+  const db = openIndex(root);
+  try {
+    const end = db
+      .query<{ end: number }, []>(
+        "select coalesce(max(ROWID), 0) + 1 as end from messages"
+      )
+      .get()?.end as number;
+    const rows = db
+      .query<
+        {
+          globalId: number;
+          header: string | null;
+          received: number;
+          row: number;
+        },
+        [number | null]
+      >(
+        `select m.ROWID as row, m.date_received as received, m.global_message_id as globalId,
+                g.message_id_header as header
+           from messages m left join message_global_data g on g.ROWID = m.global_message_id
+          where m.ROWID >= ? and m.deleted = 0
+            and not exists (select 1 from messages x
+              where x.global_message_id = m.global_message_id and x.ROWID < m.ROWID)
+          order by m.ROWID`
+      )
+      .all(from ?? null)
+      .map((r) => ({
+        at: new Date(r.received * 1000).toISOString(),
+        id: idOf(r),
+        row: r.row,
+      }));
+    return { end, rows };
+  } finally {
+    db.close();
+  }
+}
+
 /** Messages received at or after `since`, oldest first, with where each is stored. */
 function messagesSince(since: Date, root = mailRoot()): Row[] {
   const db = openIndex(root);
@@ -480,8 +530,6 @@ export function readMail(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
   const rows = messagesSince(since, root);
-  const idOf = (r: Row) =>
-    `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
   // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
   const seen = new Set(
     rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)

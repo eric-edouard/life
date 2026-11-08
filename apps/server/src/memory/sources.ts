@@ -3,7 +3,7 @@ import { HOUR } from "../core/clock";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
-import { archiveDb } from "../sources/archived";
+import { archiveDb, incomingArchived } from "../sources/archived";
 import {
   FORMATS,
   importOf,
@@ -16,12 +16,13 @@ import { newestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
+  incomingImessage,
   isImessageGroup,
   newestImessage,
   readImessage,
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
-import { mailRoot, newestMail, readMail } from "../sources/mail";
+import { incomingMail, mailRoot, newestMail, readMail } from "../sources/mail";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
 import {
@@ -62,6 +63,7 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     group: isImessageGroup,
     handleOf,
+    incoming: incomingImessage,
     kind: "chat",
     label: "iMessage",
     macOnly: true,
@@ -76,6 +78,7 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     group: isWhatsappGroup,
     handleOf: phoneOf,
+    incoming: (from?: number) => incomingArchived("whatsapp", "id", from),
     kind: "chat",
     label: "WhatsApp",
     macOnly: true,
@@ -93,6 +96,7 @@ const LISTED: Descriptor[] = [
   },
   ...NETWORKS.map(bridgedSource),
   {
+    incoming: incomingMail,
     kind: "mail",
     label: "Mail",
     macOnly: true,
