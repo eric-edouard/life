@@ -164,10 +164,20 @@ export function checkedAppointments(
       id: h.id,
     }))
   );
+  // A new id is its facts' hash, hashed again while another appointment has it (a held one first read from them).
+  const used = new Set([...ctx.held.map((h) => h.id), ...ids.filter(Boolean)]);
+  const newId = (facts: readonly string[]) => {
+    let id = `apt_${digest("sha1", factsOf(facts), 12)}`;
+    while (used.has(id)) {
+      id = `apt_${digest("sha1", id, 12)}`;
+    }
+    used.add(id);
+    return id;
+  };
   const kept = entries.map(
     ({ facts, ...a }, i): Appointment => ({
       ...a,
-      id: ids[i] ?? `apt_${digest("sha1", factsOf(facts), 12)}`,
+      id: ids[i] ?? newId(facts),
       observations: facts,
     })
   );

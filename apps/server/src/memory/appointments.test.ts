@@ -152,6 +152,34 @@ test("code keeps the ids: a held one goes to the reading most like it, once; a r
   ).not.toThrow();
 });
 
+test("a new reading never takes an id another appointment has: a held one first read from its facts keeps it", () => {
+  const first = checkedAppointments(
+    { appointments: [reply({})] },
+    { ...ctx, held: [] }
+  ).appointments[0] as Appointment;
+  const grown = {
+    ...first,
+    observations: ["obs_000000000001", "obs_000000000002"],
+  };
+  const { appointments } = checkedAppointments(
+    {
+      appointments: [
+        reply({
+          facts: ["obs_000000000001", "obs_000000000002"],
+          title: "Trip",
+        }),
+        reply({ title: "Inside it" }),
+      ],
+    },
+    { ...ctx, held: [grown] }
+  );
+  expect(appointments.map((a) => [a.title, a.id === first.id])).toEqual([
+    ["Trip", true],
+    ["Inside it", false],
+  ]);
+  expect(new Set(appointments.map((a) => a.id)).size).toBe(2);
+});
+
 test("a held appointment whose fact a newer one replaced keeps its id on a reading of the newer", () => {
   expect(
     heldIdsOf(

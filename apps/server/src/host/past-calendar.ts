@@ -20,6 +20,14 @@ const Row = z.object({ episode: z.string(), hash: z.string(), id: z.string() });
 const rowsOf = (rows: z.infer<typeof Row>[]) =>
   rows.map(({ episode, ...r }) => ({ ...r, of: episode }));
 
+/** A Past event: never busy (it is the past). */
+const fields = (d: Draft, description: string, location: string | null) => ({
+  ...d,
+  busy: false,
+  description,
+  location,
+});
+
 /** The Past calendar through `gog`: what it holds of Life's (events with a hash, by episode), and its writes. */
 function pastCalendar(calendar: string, account: string) {
   const cal = googleCalendar(calendar, account);
@@ -50,18 +58,11 @@ function pastCalendar(calendar: string, account: string) {
       description: string,
       location: string | null
     ) {
-      await cal.update(
-        id,
-        { ...d, busy: false, description, location },
-        props(d)
-      );
+      await cal.update(id, fields(d, description, location), props(d));
       return id;
     },
     async write(d: Draft, description: string, location: string | null) {
-      return await cal.create(
-        { ...d, busy: false, description, location },
-        props(d)
-      );
+      return await cal.create(fields(d, description, location), props(d));
     },
   };
 }
