@@ -56,7 +56,7 @@ export const ROUTERS = {
 export type Router = keyof typeof ROUTERS;
 const isRouter = (r: string): r is Router => Object.hasOwn(ROUTERS, r);
 /** Room for a day's episodes and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
-const MAX_TOKENS = 131_072;
+export const MAX_TOKENS = 131_072;
 /** A host that sends no chunk for this long has died mid-reply (a router's keepalives are not chunks). */
 const STALL_MS = 5 * MIN;
 

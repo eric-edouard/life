@@ -4,7 +4,8 @@ import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { stamp } from "../models/llm";
+import { within as fitting } from "../core/lists";
+import { callCharsOf, stamp } from "../models/llm";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
 import { type Correction, InferredPerson } from "../records/observation";
@@ -46,7 +47,6 @@ import { areaLookup, areaOf, normalizeTopics } from "./tags";
 import {
   type Built,
   type Evidence,
-  head,
   isFrozen,
   type Resolve,
   UNKNOWN,
@@ -65,8 +65,6 @@ import { localTime } from "./zones";
 // Extraction then reads an episode's units together (extract.ts). Units are written here too (units.ts builds them).
 
 export const EPISODES_PROMPT = "memory-episodes.v7";
-// ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
-// into halves with the episodes of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;
 /** An episode of an earlier day is shown to the next days until the day after it ends. */
 const CARRY_DAYS = 1;
@@ -426,6 +424,15 @@ async function writeDay(day: string, list: Episode[]) {
   );
 }
 
+/** The new units one reading of a day sends: in time order, as many as fit one call (`chars`), at least one. */
+export function partOf(units: Built[], chars: number) {
+  const sorted = units.toSorted((a, b) =>
+    a.unit.start.localeCompare(b.unit.start)
+  );
+  const fit = fitting(sorted, chars, (b) => b.text.length);
+  return fit.length > 0 ? fit : sorted.slice(0, 1);
+}
+
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
 export async function episodes(evidence: Evidence) {
   const step = await begin("episodes", "deep", {
@@ -483,131 +490,139 @@ export async function episodes(evidence: Evidence) {
   // Oldest day first: a day sees what the days before it planned.
   for (const day of days) {
     const units = all.filter((b) => b.unit.date === day && !b.unit.drop);
-    if (held.has(day) || !unread(units, verdicts, rereads)) {
+    if (held.has(day)) {
       continue;
     }
-    // Who they are today, as the units and the map show them.
-    const earlier = earlierFor(day, lines, corrections).map((m) =>
-      episodeNow(m, refOf)
-    );
-    // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
-    const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
-    // biome-ignore lint/performance/noAwaitInLoops: a day reads the episodes the day before it wrote
-    const got = await step.attempt(async () => {
-      // The new conversations with their words: fetched only now, for the day being read.
-      const spoken = await voiceText(units.filter(isNew), resolve, truth);
-      const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
-      // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
-      const stays = lifelogMissing()
-        ? []
-        : ((await staysOf({ at: day })) ?? []);
-      // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
-      const unknown = unknownIn(
-        spoken,
-        (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
+    // A day is read whole, in one call when it fits (every day, on his engine); one too long for a call is read in
+    // parts, in time order: each part its next new units, those judged as stubs, the rest left for the next part.
+    while (unread(units, verdicts, rereads)) {
+      // Who they are today, as the units and the map show them.
+      const earlier = earlierFor(day, lines, corrections).map((m) =>
+        episodeNow(m, refOf)
       );
-      // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
-      const near = new Map(
-        [...unknown.keys()].map((k) => [
-          k,
-          nearNames(k, onMap).map((p) => p.ref),
-        ])
-      );
-      const involved = involvedOf(
-        refs,
-        new Set([
-          ...units.flatMap(({ unit }) => unitNow(unit, refOf).people),
-          ...namedIn(
-            [...texts.values(), ...units.map((b) => b.unit.title)],
-            resolve,
-            refs.map.projects
-          ),
-          ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
-          ...[...near.values()].flat(),
-        ])
-      );
-      const json = await step.ask({
-        context: { ...refs.context, topics: topTopics(verdicts.values()) },
-        dir: join(step.dir, day),
-        input: {
-          day,
-          earlier: earlier.map(
-            ({
-              end,
-              hidden,
-              id,
-              people,
-              place,
-              start,
-              title,
-              what,
-              within,
-            }) => ({
-              end,
-              hidden,
-              id,
-              people,
-              place,
-              start,
-              title,
-              what,
-              within,
-            })
-          ),
-          involved,
-          stays: stays
-            .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
-            .map((s) => ({
-              from: localTime(s.arrivedAt),
-              place: where(s),
-              to: s.leftAt && localTime(s.leftAt),
+      // New: not judged on its current content by this prompt (or reread since); the rest go as stubs.
+      const isNew = (b: Built) => !judged(b.unit, verdicts, rereads);
+      // biome-ignore lint/performance/noAwaitInLoops: a day, and a part of one, reads the episodes the one before it wrote
+      const got = await step.attempt(async () => {
+        // The new conversations with their words: fetched only now, for the day being read; as many as fit, at least one.
+        const spoken = partOf(
+          await voiceText(units.filter(isNew), resolve, truth),
+          callCharsOf(step.llm)
+        );
+        const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
+        const shown = units.filter((b) => !isNew(b) || texts.has(b.unit.id));
+        // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
+        const stays = lifelogMissing()
+          ? []
+          : ((await staysOf({ at: day })) ?? []);
+        // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
+        const unknown = unknownIn(
+          spoken,
+          (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
+        );
+        // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
+        const near = new Map(
+          [...unknown.keys()].map((k) => [
+            k,
+            nearNames(k, onMap).map((p) => p.ref),
+          ])
+        );
+        const involved = involvedOf(
+          refs,
+          new Set([
+            ...units.flatMap(({ unit }) => unitNow(unit, refOf).people),
+            ...namedIn(
+              [...texts.values(), ...units.map((b) => b.unit.title)],
+              resolve,
+              refs.map.projects
+            ),
+            ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
+            ...[...near.values()].flat(),
+          ])
+        );
+        const json = await step.ask({
+          context: { ...refs.context, topics: topTopics(verdicts.values()) },
+          dir: join(step.dir, day),
+          input: {
+            day,
+            earlier: earlier.map(
+              ({
+                end,
+                hidden,
+                id,
+                people,
+                place,
+                start,
+                title,
+                what,
+                within,
+              }) => ({
+                end,
+                hidden,
+                id,
+                people,
+                place,
+                start,
+                title,
+                what,
+                within,
+              })
+            ),
+            involved,
+            stays: stays
+              .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt))
+              .map((s) => ({
+                from: localTime(s.arrivedAt),
+                place: where(s),
+                to: s.leftAt && localTime(s.leftAt),
+              })),
+            units: shown.map(({ unit }) => {
+              const text = texts.get(unit.id);
+              return {
+                areaHint: hints.get(unit.key),
+                end: localTime(unit.end),
+                id: unit.id,
+                people: unitNow(unit, refOf).people,
+                source: unit.source,
+                start: localTime(unit.start),
+                title: unit.title,
+                ...(text === undefined
+                  ? { read: verdictOf(verdicts, unit)?.reason }
+                  : { text }),
+              };
+            }),
+            unknown: [...unknown].map(([key, seen]) => ({
+              key,
+              near: near.get(key) ?? [],
+              units: seen.map((b) => b.unit.id),
             })),
-          units: units.map(({ unit }) => {
-            const text = texts.get(unit.id);
-            return {
-              areaHint: hints.get(unit.key),
-              end: localTime(unit.end),
-              id: unit.id,
-              people: unitNow(unit, refOf).people,
-              source: unit.source,
-              start: localTime(unit.start),
-              title: unit.title,
-              ...(text === undefined
-                ? { read: verdictOf(verdicts, unit)?.reason }
-                : { text: head(text) }),
-            };
-          }),
-          unknown: [...unknown].map(([key, seen]) => ({
-            key,
-            near: near.get(key) ?? [],
-            units: seen.map((b) => b.unit.id),
-          })),
-        },
-        prompt: EPISODES_PROMPT,
+          },
+          prompt: EPISODES_PROMPT,
+        });
+        const reading = parseDay(json, {
+          areas,
+          day,
+          earlier: new Set(earlier.map((m) => m.id)),
+          hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
+          madeBy,
+          people: new Set(refs.map.people.map((p) => p.ref)),
+          resolve,
+          units: new Map(units.map((b) => [b.unit.id, b.unit])),
+        });
+        const who = checkPeople(reading.who, {
+          areas,
+          at: step.now.toISOString(),
+          madeBy,
+          projects,
+          taken,
+          truth: new Set(truth.people.map((p) => `person:${p.id}`)),
+          unknown,
+        });
+        return { ...reading, sent: texts.size, who };
       });
-      const reading = parseDay(json, {
-        areas,
-        day,
-        earlier: new Set(earlier.map((m) => m.id)),
-        hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
-        madeBy,
-        people: new Set(refs.map.people.map((p) => p.ref)),
-        resolve,
-        units: new Map(units.map((b) => [b.unit.id, b.unit])),
-      });
-      const who = checkPeople(reading.who, {
-        areas,
-        at: step.now.toISOString(),
-        madeBy,
-        projects,
-        read: (b) => head(b.text),
-        taken,
-        truth: new Set(truth.people.map((p) => `person:${p.id}`)),
-        unknown,
-      });
-      return { ...reading, sent: texts.size, who };
-    });
-    if (got) {
+      if (!got) {
+        break;
+      }
       // The episodes first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
       const kept = dayFileOf(day, got, {
@@ -630,6 +645,10 @@ export async function episodes(evidence: Evidence) {
       read += 1;
       found += got.episodes.length;
       invalid += got.invalid;
+      // A part that judged nothing new would come round again: the day waits for the next run.
+      if (judgedNow.length === 0) {
+        break;
+      }
     }
   }
   return step.end({

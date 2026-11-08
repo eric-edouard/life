@@ -45,8 +45,6 @@ import { dayStart, lastDays, localDate, time, type Window } from "./zones";
 // id is stable (same conversation or chat and day -> same id); its hash changes when its content does, so a verdict is
 // reused only while the content is unchanged.
 
-/** How much of a unit's text the episodes model reads (`head`). */
-const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
 export const PERSON = /^person:/;
@@ -79,7 +77,7 @@ export type Resolve = (surface: string) => string | null;
 
 export interface Built {
   messages: Message[];
-  /** The whole text (the model reads its `head`). Never stored in memory/: it may hold message text. */
+  /** The whole text, as the models read it. Never stored in memory/: it may hold message text. */
   text: string;
   unit: Unit;
 }
@@ -113,12 +111,6 @@ const agentReports = () => [
   ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
   ...settings().reports,
 ];
-
-/** A unit's text as the episodes model reads it: its start and its end, `TEXT_MAX` at most. */
-export const head = (text: string) =>
-  text.length <= TEXT_MAX
-    ? text
-    : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
 
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
 export const MARKED = "[He asked Life to keep what he says here.]";

@@ -10,6 +10,7 @@ import {
   earlierFor,
   fresh,
   parseDay,
+  partOf,
   unread,
 } from "./episodes";
 import { daysOf, episodesNow, isRereadSince, rereadAt } from "./ledger";
@@ -459,4 +460,19 @@ test("a chat's area hint is the area of the projects that list it, by network ch
   ]);
   expect(hints.get("1@g.us")).toEqual(["construction", "family-money"]);
   expect(hints.has("!b:matrix.local")).toBe(false);
+});
+
+test("a day too long for one call is read in parts: its new units in time order, as many as fit, at least one", () => {
+  const at = (id: string, hh: string, text: string) => ({
+    ...built(id, { start: `2026-10-15T${hh}:00:00.000Z` }),
+    text,
+  });
+  const late = at(U1, "18", "x".repeat(50));
+  const early = at(U2, "08", "x".repeat(60));
+  const noon = at(U3, "12", "x".repeat(30));
+  const ids = (list: Built[]) => list.map((b) => b.unit.id);
+  expect(ids(partOf([late, early, noon], 1000))).toEqual([U2, U3, U1]);
+  expect(ids(partOf([late, early, noon], 100))).toEqual([U2, U3]);
+  // One unit over the call goes alone, whole: the provider refuses it, never Life.
+  expect(ids(partOf([late, early], 10))).toEqual([U2]);
 });

@@ -11,7 +11,6 @@ import { sourceFile } from "./contract";
 
 const MAIL = join(HOME, "Library", "Mail");
 const ACCOUNTS_DB = join(HOME, "Library", "Accounts", "Accounts4.sqlite");
-const SNIPPET = 1500;
 // A whole word of the plain name: "Sent Mail", "Messages envoyés", never "Consent forms" or "À envoyer".
 const SENT = /\b(?:sent|envoyes?)\b/i;
 // Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
@@ -363,13 +362,30 @@ export function emlxPart(emlx: string, ref: string) {
   );
 }
 
-function snippetOf(message: Part) {
+/** Where a reply's quoted history starts: `On … wrote:`, `Le … a écrit :` (Gmail, Apple Mail), Outlook's `Original Message`. */
+const QUOTED = /^(?:On .+ wrote:|Le .+ a écrit ?:|-+ ?Original Message ?-+)$/im;
+
+/**
+ * A message's own words, whole: the history it quotes is left out (the thread's earlier messages are read as
+ * themselves), a forward kept. ponytail: a reply header wrapped over two lines keeps its quote.
+ */
+export function ownWordsOf(text: string) {
+  const at = text.search(QUOTED);
+  return (at < 0 ? text : text.slice(0, at))
+    .split("\n")
+    .filter((l) => !l.startsWith(">"))
+    .join("\n")
+    .trim();
+}
+
+function wordsOf(message: Part) {
   const text = textOf(message)?.text ?? "";
-  return text
-    .replace(/[ \t ]+/g, " ")
-    .replace(/\s*\n\s*/g, "\n")
-    .trim()
-    .slice(0, SNIPPET);
+  return ownWordsOf(
+    text
+      .replace(/[ \t ]+/g, " ")
+      .replace(/\s*\n\s*/g, "\n")
+      .trim()
+  );
 }
 
 /** The RFC 822 message inside an .emlx file: a byte-length line, the message, then a plist. */
@@ -510,15 +526,15 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
  * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
  * whole one, under another name), so `search` reads only new mail after its first call.
  * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
- * process. ponytail: keeps every message read (up to about 2 KB each) for the process's life: the nightly's three years
+ * process. ponytail: keeps every message read (whole: 110 MB of text over the nightly's three years, 9 Nov 2026) for the process's life: the nightly's three years
  * for closeness, and in the server every mail any search's `from` reached; prune it if memory matters.
  */
-const parsed = new Map<string, { files: SourceFile[]; snippet: string }>();
+const parsed = new Map<string, { files: SourceFile[]; words: string }>();
 function parse(path: string, id: string) {
   const message = splitPart(rfc822(readFileSync(path)));
   const read = {
     files: filesOf(message, path, id),
-    snippet: snippetOf(message),
+    words: wordsOf(message),
   };
   parsed.set(path, read);
   return read;
@@ -578,7 +594,7 @@ export function readMail(
         : {}),
       sender,
       source: "mail",
-      text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),
+      text: `${r.prefix ?? ""}${subject}\n${read?.words ?? ""}`.trim(),
     });
   }
   return events;

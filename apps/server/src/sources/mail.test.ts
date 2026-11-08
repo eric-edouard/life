@@ -8,6 +8,7 @@ import {
   incomingMail,
   mailAccounts,
   mailRoot,
+  ownWordsOf,
   readMail,
 } from "./mail";
 
@@ -288,4 +289,21 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
     1001, 1003, 1004, 1006, 1007, 1008,
   ]);
   expect(events.some((e) => e.id === fresh.rows[0]?.id)).toBe(true);
+});
+
+test("a mail is its own words, whole: the history a reply quotes is left out, a forward kept", () => {
+  const long = "word ".repeat(1000).trim();
+  expect(ownWordsOf(long)).toBe(long);
+  expect(
+    ownWordsOf(
+      "Yes, Tuesday works.\nOn Mon, 3 Nov 2026, Ana wrote:\nCan we meet?\n> earlier"
+    )
+  ).toBe("Yes, Tuesday works.");
+  expect(
+    ownWordsOf("Oui.\nLe lun. 3 nov. 2026, Ana a écrit :\nOn se voit ?")
+  ).toBe("Oui.");
+  expect(ownWordsOf("See below\n> quoted\nthanks")).toBe("See below\nthanks");
+  const forward =
+    "FYI\n---------- Forwarded message ---------\nFrom: Ana <ana@example.com>\nThe plan";
+  expect(ownWordsOf(forward)).toBe(forward);
 });

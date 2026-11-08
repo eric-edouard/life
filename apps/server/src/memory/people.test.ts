@@ -57,7 +57,6 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
       run: "r",
     },
     projects: new Set(["bakery"]),
-    read: (b: Built) => b.text,
     taken: new Set(["inf_plumber"]),
     truth: new Set(["person:claire"]),
     unknown: new Map([["+33600000001", [seen]]]),
