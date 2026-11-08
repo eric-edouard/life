@@ -1,9 +1,10 @@
+import { redact } from "../core/redact";
 import type { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
 import type { Stay } from "../sources/lifelog";
-import { edgeTime, span } from "./episode-span";
+import { bounds } from "./episode-span";
 import { stayOf, where } from "./places";
-import { time } from "./units";
+import { clip, time } from "./units";
 import { localDate } from "./zones";
 
 // Payments placed in his day, at read time (`read_day`, `read_payments`): each one's day in his zone, the episode it
@@ -18,12 +19,6 @@ export interface Placed {
 }
 
 const MINUTE = 60_000;
-
-/** An episode's time as instants (ms): a timed one's, else its whole days. */
-const bounds = (m: Episode) => {
-  const s = span(m);
-  return [edgeTime(s.allDay, s.from), edgeTime(s.allDay, s.to)] as const;
-};
 
 /**
  * Each payment placed among `episodes` and `stays`. Of the episodes holding its time, the shortest (a dinner, not the
@@ -54,21 +49,32 @@ export function place(
   });
 }
 
+const paidMs = (p: Placed) =>
+  p.payment.paidAt ? Date.parse(p.payment.paidAt) : Number.NEGATIVE_INFINITY;
+
+/** By day, then instant (a payment with only its day first). */
+export const byTime = (a: Placed, b: Placed) =>
+  a.day.localeCompare(b.day) || paidMs(a) - paidMs(b);
+
 /** What was paid, in EUR: his spending out less what came back; income and money not his left out. */
 export const paid = (list: Placed[]) =>
   list.reduce((n, p) => n - (p.payment.spending ? p.payment.eur : 0), 0);
 
-/** "€1,234": a sum of EUR, whole. */
-export const euros = (n: number) => `€${Math.round(n).toLocaleString("en")}`;
+/** "€1,234" or "-€5": a sum of EUR, whole. */
+export const euros = (n: number) => {
+  const r = Math.round(n);
+  return `${r < 0 ? "-" : ""}€${Math.abs(r).toLocaleString("en")}`;
+};
 
 /** "-358 THB": an amount as the bank gave it. */
 const amount = (p: Payment) =>
   `${p.amount.toLocaleString("en", { maximumFractionDigits: 2 })} ${p.currency}`;
 
 /** A payment as the read path prints it: when, how much, to whom, its category, where he was, its episode. */
+// The merchant is a third party's words: one line, clipped.
 export const paymentLine = ({ episode, payment: p, stay }: Placed) =>
   [
-    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${p.merchant}`,
+    `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${clip(redact(p.merchant.replace(/\s+/g, " ")), 80)}`,
     p.category ?? "no category yet",
     ...(p.spending ? [] : ["not spending"]),
     ...(stay ? [`at ${where(stay)}`] : []),

@@ -17,6 +17,7 @@ import { runs } from "../../memory/run-log";
 import { area, day, paymentsOf, person, search } from "../../memory/search";
 import { clip } from "../../memory/units";
 import { chatsOf, fetchOf } from "../../memory/words";
+import { payments } from "../../payments/backend";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
@@ -393,8 +394,8 @@ export function buildServer() {
     correct,
     WRITES
   );
-  // Payments, only while they are on (the `payments` setting): off, the connector offers no such tool.
-  if (settings().payments) {
+  // Payments, only while they are on (`payments()`): off, the connector offers no such tool.
+  if (payments()) {
     tool(
       server,
       "read_payments",

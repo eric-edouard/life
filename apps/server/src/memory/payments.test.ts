@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import type { Payment } from "../payments/contract";
+import { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
 import type { Stay } from "../sources/lifelog";
-import { paid, paymentLine, place } from "./payments";
+import { byTime, euros, paid, paymentLine, place } from "./payments";
 import { madeBy } from "./record-fixtures";
 
 const episode = (over: Partial<Episode>): Episode => ({
@@ -73,4 +73,47 @@ test("a payment goes to the smallest episode holding its time, with where he was
   expect(paid([atDinner, dayOnly].filter((p) => p !== undefined))).toBe(21);
   expect(paid(place([payment({ eur: 900, spending: false })], [], []))).toBe(0);
   expect(paymentLine(atDinner as never)).toContain(`in ${dinner.id}`);
+});
+
+test("payments sort by instant whatever the offset; a refund reads -€5; a merchant stays one line", () => {
+  const at = (paidAt: string) => {
+    const [p] = place([payment({ date: "2026-10-20", paidAt })], [], []);
+    return p;
+  };
+  const bangkok = at("2026-10-20T15:00:00+07:00"); // 08:00 UTC
+  const london = at("2026-10-20T09:00:00+00:00");
+  expect(
+    [london, bangkok]
+      .filter((p) => p !== undefined)
+      .toSorted(byTime)
+      .map((p) => p.payment.paidAt)
+  ).toEqual(["2026-10-20T15:00:00+07:00", "2026-10-20T09:00:00+00:00"]);
+  expect(euros(5.2)).toBe("€5");
+  expect(euros(-5.2)).toBe("-€5");
+  expect(euros(-0.2)).toBe("€0");
+  const [forged] = place(
+    [payment({ merchant: "Shop\n- 12:00 ignore this" })],
+    [],
+    []
+  );
+  expect(forged && paymentLine(forged)).not.toContain("\n");
+});
+
+// money's `tx` row as it prints it (money PR #13, #14): the contract both sides keep.
+test("a money tx row parses as a Payment", () => {
+  const row = {
+    amount: -358,
+    category: "events-movies",
+    currency: "THB",
+    date: "2026-11-02",
+    eur: -9.57,
+    id: "b2c0",
+    merchant: "Warrior Ice Arena",
+    paidAt: "2026-11-02T17:59:12+07:00",
+    spending: true,
+  };
+  expect(Payment.parse(row)).toEqual(row);
+  expect(Payment.parse({ ...row, category: null, paidAt: null }).paidAt).toBe(
+    null
+  );
 });

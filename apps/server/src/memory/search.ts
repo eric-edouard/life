@@ -82,7 +82,14 @@ import {
   placed,
   renderLine,
 } from "./page-format";
-import { euros, type Placed, paid, paymentLine, place } from "./payments";
+import {
+  byTime,
+  euros,
+  type Placed,
+  paid,
+  paymentLine,
+  place,
+} from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import {
   goalProjects,
@@ -920,12 +927,6 @@ export async function day(date: string) {
   });
 }
 
-/** By day, then time (a payment with only its day first). */
-const byTime = (a: Placed, b: Placed) =>
-  `${a.day} ${a.payment.paidAt ?? ""}`.localeCompare(
-    `${b.day} ${b.payment.paidAt ?? ""}`
-  );
-
 /**
  * The payments of his days `from` to `to`, placed (`place`): none while payments are off, and the backend's error
  * instead of failing the read. A payment's day is his, so a day either side of the bank's days is read.
@@ -961,7 +962,7 @@ async function staysOn(from: string, to: string) {
   for (let d = from; d <= to; d = daysBefore(d, -1)) {
     days.push(d);
   }
-  // ponytail: one lifelog read per day (its `visits` stops at 200 stays); a month is 31 quick local calls.
+  // One lifelog read per day: its `visits` stops at 200 stays (lifelog `location.ts`), fewer than a month holds.
   const each = await Promise.all(
     days.map((d) => staysOf({ at: d }).catch(() => null))
   );
@@ -975,9 +976,6 @@ export async function paymentsOf(q: {
   to?: string;
   who?: string;
 }) {
-  if (!payments()) {
-    return "Payments are off (settings: payments).";
-  }
   const to = q.to ?? q.from;
   const [episodes, stays, folks] = await Promise.all([
     episodesWhere(() => true),
