@@ -1,7 +1,9 @@
 # Told Life: one way for his words to reach memory, and no more pages
 
 **What it is:** what the owner tells Life on purpose ("hey Life, remember…", a message to himself, a chat with
-ChatGPT or Claude) is a **mark**: those lines are read at importance 3 and extraction writes every fact in them. It is
+ChatGPT or Claude) is a **mark**: a promise that it is kept, not a claim that it matters. A marked unit is always
+read in full and extraction writes every fact in it, each at the importance it really has (often 1: searchable, no
+more). It is
 not a new pipeline, store or page: marked units go through episodes → extraction → pages like any other.
 **What goes:** the decisions page and the whole web app it is the only page of. Fact checks move into chats.
 
@@ -13,8 +15,12 @@ decisions page; fold fact checks into the chat interview. Open for him: **D1**, 
 - [ ] `SourceEvent.marked: true` (`records/source.ts`): this message is his words to Life. Readers set it; nothing
       else decides it.
 - [ ] `chatDay` (`memory/units.ts`) gives the unit `marked` = the ids of its marked events, as lifelog's units already
-      carry turn refs. `importanceOf` (3), extraction's `(marked)` lines and the nightly's list then work unchanged.
-- [ ] `MARKED` text says what it now means ("He told Life to remember what follows"); the 20 stored marked voice units
+      carry turn refs. Extraction's `(marked)` lines and the nightly's list then work unchanged.
+- [ ] `importanceOf` (`episodes.ts:213`): a marked unit is at least `KEEP_AT` (always read, like an agent's report),
+      no longer forced to 3. Unit importance 3 is for what he must act on; a mark is not that (his word, 8 Nov).
+- [ ] Extraction's triage line for a marked unit (`extract.ts:484`): "his to remember: write every fact in them, each
+      at its own importance". Code text, no prompt version change.
+- [ ] `MARKED` text says what it now means ("He asked Life to keep what follows", no weight implied); the 20 stored marked voice units
       move hash and are read again (cheap, his 22–28 Oct "hey Life" asks).
 - [ ] `Unit.marked` comment, glossary `mark`: any source, not only lifelog.
 - [ ] Nightly section "Asks remembered" → "Told Life" (`report.ts`, `markedSince` unchanged).
