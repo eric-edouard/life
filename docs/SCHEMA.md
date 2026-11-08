@@ -320,6 +320,22 @@ a chat message he sent), `inputs` (a hash of the prompt version and his newest 1
 `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed and it is a week old; removed when the person has
 no page or no message from him in the last 3 years. Nothing is written or removed on a night a source can't be read.
 
+## appointments.json
+
+What he is due at, written by `appointments.ts` each night its inputs changed (the prompt version, the plans it reads
+and the appointments held): `appointments` (each `id` `apt_…`, `title`, `start` and `end` local `YYYY-MM-DD HH:MM`,
+or `YYYY-MM-DD` with `allDay` and the last day inclusive, `zone` (the place's, when not his then), `place`,
+`timeGuessed`, `observations` it rests on), `inputs`, `built`, `madeBy`, `schemaVersion`. Rewritten whole; an
+appointment keeps its id while the model continues it, else its id is its facts' hash. One the reply forgets stays
+while its facts hold and no new one cites them. A night whose reply holds none valid keeps the last.
+
+## appointment-events.jsonl
+
+The calendar sync's lines (`appointments-calendar.ts`), appended outside the lock, one tick at a time:
+`{schemaVersion: 1, at, appointment, event, observations, op}`, `op` `created` (its event's id in his calendar),
+`removed` (Life deleted it, its appointment gone) or `refused` (that event gone by his hand or an agent's). No
+appointment citing every fact of a refused one is written again.
+
 ## ledger.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in

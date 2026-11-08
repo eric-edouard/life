@@ -100,6 +100,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
+| appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |

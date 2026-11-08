@@ -33,6 +33,7 @@ const read = (name: string) => (e: LogLine) =>
 
 /** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
 const LOGS: Record<string, (e: LogLine) => boolean> = {
+  appointments: (e) => e.kind === "calendar.write" && "appointment" in e,
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
   archive: (e) => e.step?.startsWith("archive.") ?? false,
   backup: (e) => e.step === "backup",
@@ -42,7 +43,7 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   email: (e) => e.kind === "email.sent",
   engine: (e) => e.kind === "quota.read" || e.kind === "model.run",
   lifelog: (e) => e.step === "watch" || read("lifelog")(e),
-  past: (e) => e.kind === "calendar.write",
+  past: (e) => e.kind === "calendar.write" && "episode" in e,
   pendant: read("lifelog"),
   reminders: (e) => e.kind === "sync.pull",
   watcher: (e) => e.step === "watch",

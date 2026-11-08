@@ -4,6 +4,8 @@ import { clock, DAY, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
+import { isOn } from "../core/outputs";
+import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-style";
 import { tagDetails } from "../memory/detail-tags";
@@ -61,6 +63,7 @@ import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
+import { syncAppointments } from "./appointments-calendar";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
@@ -165,6 +168,12 @@ export async function nightly(days: number, force = false) {
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
       : await daytime(turn, now, day);
+  // The appointments first, with their own catch: the Past calendar's whole sync after the night must not spend
+  // Google's rate limit before them.
+  await syncAppointments(now).then(
+    (r) => r && console.log(JSON.stringify({ appointments: r })),
+    (e) => log("run.error", { error: String(e), step: "appointments" })
+  );
   // The Past calendar follows the episodes each tick, those ending in the last 3 days, and the whole of it after the
   // night (past-calendar.ts); a failure only logs, the next tick tries again.
   await syncPast(
@@ -448,6 +457,11 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     phase.at = "situations";
     await situations();
+    phase.at = "appointments";
+    // Only while his calendar takes them: nothing else reads the file.
+    if (isOn("appointments")) {
+      await appointments();
+    }
     phase.at = "communication styles";
     await communicationStyles(withPeople);
     phase.at = "fact checks";
