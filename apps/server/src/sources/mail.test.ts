@@ -3,7 +3,13 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { emlxPart, mailAccounts, mailRoot, readMail } from "./mail";
+import {
+  emlxPart,
+  incomingMail,
+  mailAccounts,
+  mailRoot,
+  readMail,
+} from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
@@ -275,4 +281,11 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   );
   expect(plain.length).toBeGreaterThan(0);
   expect(plain.filter((e) => e.transaction)).toEqual([]);
+  // What is new from a row on: a copy in another mailbox (All Mail) is the same message; ids are readMail's.
+  const fresh = incomingMail(1001, root);
+  expect(fresh.end).toBe(1010);
+  expect(fresh.rows.map((r) => r.row)).toEqual([
+    1001, 1003, 1004, 1006, 1007, 1008,
+  ]);
+  expect(events.some((e) => e.id === fresh.rows[0]?.id)).toBe(true);
 });

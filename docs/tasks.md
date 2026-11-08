@@ -126,9 +126,31 @@ takes authority away.
 
 A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
-properties `lifeEpisode` and `lifeHash`. A changed episode is written again, a gone one deleted; events without
+properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
 `lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeEpisode` are Life's output and must be dropped.
+
+## Appointments
+
+His request of 8 Nov 2026: what he is due at, from any channel, in his own calendar before his agents plan his day or
+week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active facts ahead (plans and
+bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
+a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
+says so. `syncAppointments`
+(`apps/server/src/host/appointments-calendar.ts`, the `appointments` setting: account and calendar) brings that
+calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
+`calendar-events.ts`), touching only events with `lifeOutput=appointments`:
+
+- Until confirmed an event is titled `(Life) …` and shown as free. An agent confirms one with him by setting the
+  private property `lifeConfirmed=yes` (`gog calendar update <cal> <id> --private-prop=lifeConfirmed=yes`); Life keeps
+  amending it, without the mark, as busy.
+- One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
+  its facts is written again. One Life deletes is recorded `removed`, so it may come back.
+- Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
+  while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
+  change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
+- Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
+- An event that ended is never touched.
 
 ## Marks
 
@@ -147,12 +169,17 @@ each once read, with the observations citing it ("Told Life").
 only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
 grant.
 
-- **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_open_todo_items`, read from Reminders; the status reads
+- **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told.jsonl`, `memory/told.ts`; offered only while the `told` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
+- **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names
+  `message.received` with the arguments an agent filters on (`person`, `channels`, `chat`, `from_me`, `text_matches`),
+  `events/poll` returns what matched past the agent's cursor: who, where and when, never the text (`events.ts`). Any
+  paired app may poll. A source has events when its descriptor has `incoming`. `read_new_events` is the same poll as a
+  tool, for a client that can't send `events/poll` (a Claude app's mod, ChatGPT).
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
@@ -166,7 +193,7 @@ grant.
 ## The only sends
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
-Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
+Life can turn on or off (Reminders, the Past calendar, the appointments, the connector, the backup) is an entry in `OUTPUTS`
 (`apps/server/src/core/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
 reads the rest of its settings. How the report and the alerts go out:
 

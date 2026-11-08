@@ -35,7 +35,8 @@ Mail he sent only to his own addresses, and every message of a chat with himself
 
 The calendar is not a source: the agent reads it. Nor are his payments: with the `payments` setting, `read_day` and
 `read_payments` read them from his money app (`money tx`, `apps/server/src/payments/`) and place each one in his day,
-at read time; no model reads them. (The Past calendar is Life's output, `docs/tasks.md`.)
+at read time; no model reads them. (The Past calendar and the appointments are Life's output, `docs/tasks.md`; of its
+own events Life reads back only whether one is confirmed or gone.)
 
 ## Not used yet
 

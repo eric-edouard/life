@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/` and `communication-styles/` (rebuilt whole) and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `communication-styles/` and `appointments.json` (rebuilt whole) and a rename's backfill (next).
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
@@ -84,7 +84,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   A new recipe for new units only, every stored id kept, is not a rename. A day's episode file is code's to rewrite on
   every reading, so a migration may drop episode lines there (no cursor counts them).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a rating), `told.jsonl` (what he told Life, one synchronous append: `recordTold`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, a rating), `told.jsonl` (what he told Life, one synchronous append: `recordTold`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
@@ -107,7 +107,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act` alone (`scripts/imports.test.ts` checks), on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
-  words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
+  words handed to the agent, never acted on by Life. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
+  2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
+  `(Life)`, free, until an agent confirms one with him; one he deletes is never written again). They are its reading,
+  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments").
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, and acts only through `change_todo_item`.** Never add a
@@ -197,7 +200,9 @@ Before adding a helper, use the one that exists:
 | His payments | `payments()` (`apps/server/src/payments/backend.ts`): nothing else calls `money` |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
+| What an agent can wait for | `events.ts` (MCP's Events extension, by poll): computed from each source's `incoming` when polled; Life stores nothing for it, the agent keeps its cursor |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
+| Life's own events in a calendar (the Past calendar, the appointments) | `googleCalendar` (`host/google-calendar.ts`), grouped by `heldOf` and brought in line by `reconcile` (`memory/calendar-events.ts`); each output finds only its own events |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, quota | its entry in `PROVIDERS` (`llm.ts`) |

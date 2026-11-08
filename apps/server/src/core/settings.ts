@@ -53,6 +53,11 @@ export const Settings = z
         }
       )
       .optional(),
+    /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */
+    appointments: z
+      .object({ account: z.string(), calendar: z.string() })
+      .strict()
+      .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
       .object({ password: z.string(), repository: z.string() })

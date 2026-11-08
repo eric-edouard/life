@@ -4,6 +4,11 @@ import { settings } from "./settings";
 // switch, read from settings here. Off, an output does nothing and says so (`off`); its own module does the work and
 // reads the rest of its settings.
 export const OUTPUTS = {
+  /** The appointments in his calendar, unconfirmed until an agent confirms them with him (`host/appointments-calendar.ts`). */
+  appointments: {
+    label: "Appointments",
+    on: () => Boolean(settings().appointments),
+  },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
   /** The connector and its OAuth issuer (`server.ts`). */

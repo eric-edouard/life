@@ -24,6 +24,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
 | onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a run (a step's run). | |
+| event | MCP's word (its Events extension, `events.ts`): what an agent waits for, `message.received` today, polled with the agent's own filter and cursor (`events/poll`). Computed when polled, never stored. Not `SourceEvent`, a source's record in code, nor a calendar's event (the Past calendar's, an appointment's: the calendar's own word, in `google-calendar.ts`, `calendar-events.ts`, `appointment-events.jsonl`). | |
 | mark | His words to Life, to keep: a promise that the unit is always read and every fact extracted, each at its own importance, not a claim that it matters (`marked` on the unit). Made by "hey Life" in a recording (Life's own wake, `LIFE_WAKE`; no ask), a message to himself, or `tell_life`. | |
 | told, `tell_life` | What he tells Life in a chat: the connector's tool appends his words verbatim to `memory/told.jsonl`, read back as the source `told` ("Told Life"). Refused for an agent's token. | |
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). A network with no bridge on the Mac is copied from Beeper Desktop when Beeper holds it (`copierOf`). Not the connector (the MCP server). | |
@@ -99,6 +100,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
+| appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |

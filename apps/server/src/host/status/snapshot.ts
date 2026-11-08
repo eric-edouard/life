@@ -913,29 +913,40 @@ function engineCard(r: Reads): Card {
   };
 }
 
+/** A calendar Life writes to: its events written in 2 days, told apart by what each shows (`by`, a log field). */
+function calendarCard(
+  r: Reads,
+  id: "appointments" | "past",
+  by: "appointment" | "episode"
+): Card {
+  const writes = r.writes.filter((e) => by in e);
+  const n = writes.length;
+  return {
+    facts: [
+      { at: writes.at(-1)?.at, label: "Last event written" },
+      { label: "Written in 2 days", value: String(n) },
+    ],
+    group: "pipeline",
+    headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
+    id,
+    name: OUTPUTS[id].label,
+    ...firstOf(
+      [!isOn(id), { tone: "idle", word: "off" }],
+      [n > 0, { tone: "ok", word: "syncing" }],
+      [true, { tone: "idle", word: "quiet" }]
+    ),
+  };
+}
+
 function pipelineCards(r: Reads): Card[] {
-  const n = r.writes.length;
   return [
     sweepCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
     sweepCard(r, "midday", "Midday", r.status.midday, r.status.midday.next),
     sweepCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
     engineCard(r),
-    {
-      facts: [
-        { at: r.writes.at(-1)?.at, label: "Last event written" },
-        { label: "Written in 2 days", value: String(n) },
-      ],
-      group: "pipeline",
-      headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
-      id: "past",
-      name: OUTPUTS.past.label,
-      ...firstOf(
-        [!isOn("past"), { tone: "idle", word: "off" }],
-        [n > 0, { tone: "ok", word: "syncing" }],
-        [true, { tone: "idle", word: "quiet" }]
-      ),
-    },
+    calendarCard(r, "past", "episode"),
+    calendarCard(r, "appointments", "appointment"),
   ];
 }
 
