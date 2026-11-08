@@ -8,7 +8,6 @@ import {
   COLUMNS,
   CURRENT,
   episodeLine,
-  inDays,
   line,
   type Row,
   type UnitRow,
@@ -20,7 +19,7 @@ import { byTime, euros, paid, paymentLine, placedOn } from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import { dueContext, dueOf } from "./read-open-items";
 import { readPeople } from "./who";
-import { localDate, time } from "./zones";
+import { inDays, localDate, time } from "./zones";
 
 // `bun life memory day <date>` and the connector's `read_day`: what happened that day (its episodes), what is due, its
 // units (recorded conversations among them), its key observations and what Life changed.

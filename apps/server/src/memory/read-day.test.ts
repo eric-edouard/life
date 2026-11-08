@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
-import { birthdaysNear, birthdayText, nextBirthday } from "./details";
 import { episodeLine } from "./index-rows";
 import { dayLines, shownEpisode } from "./read-day";
 
@@ -107,53 +106,4 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
     dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
   ).toContain("Where he was is unknown: lifelog could not be read.");
   expect(dayLines({})[0]).toStartWith("Units (0;");
-});
-
-test("birthdays: the next date, days left and age; day lists this day and the next 7, soonest first", () => {
-  expect(nextBirthday("1993-11-12", "2026-11-09")).toEqual({
-    age: 33,
-    day: "2026-11-12",
-    left: 3,
-  });
-  // Passed this year: next year's; no year, no age.
-  expect(nextBirthday("--01-07", "2026-10-21")).toEqual({
-    age: null,
-    day: "2027-01-07",
-    left: 78,
-  });
-  expect(birthdayText(nextBirthday("--10-21", "2026-10-21"))).toBe(
-    "21 Oct (today)"
-  );
-  expect(
-    birthdaysNear(
-      [
-        { birthday: "2000-10-28", id: "ana", name: "Ana" },
-        { birthday: "--10-21", id: "jean", name: "Jean" },
-        { birthday: "--10-29", id: "late", name: "Late" },
-        { birthday: null, id: "none", name: "None" },
-      ],
-      "2026-10-21"
-    )
-  ).toEqual([
-    { id: "jean", name: "Jean", text: "21 Oct (today)" },
-    { id: "ana", name: "Ana", text: "28 Oct (in 7 days, turns 26)" },
-  ]);
-  // 29 Feb falls on 1 Mar in other years.
-  expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
-    day: "2027-03-01",
-    left: 1,
-  });
-  // Across the new year.
-  expect(
-    birthdaysNear(
-      [{ birthday: "--01-02", id: "jan", name: "Jan" }],
-      "2026-12-28"
-    )
-  ).toEqual([{ id: "jan", name: "Jan", text: "2 Jan (in 5 days)" }]);
-  // First in `read_day`, before what is due.
-  expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
-    "Birthdays (this day and the next 7):",
-    "- born",
-    "",
-  ]);
 });

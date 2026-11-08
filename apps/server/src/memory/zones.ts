@@ -3,9 +3,10 @@ import { clock, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { log } from "../core/log";
 import { systemZone } from "../core/platform";
+import type { Episode } from "../records/episode";
 import { Zone } from "../records/unit";
 import { readPhoneZone } from "../sources/lifelog";
-import { ZONES } from "./ledger";
+import { daysOf, ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, where he was from each `from` on (`readZoneHere`), and the
 // wall clock there. Local days and times come from here, never from the zone of the process reading them, so a day read again
@@ -145,6 +146,20 @@ export function when(day: string) {
 const DAY_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
 /** A local day, `YYYY-MM-DD`, not an instant. */
 export const isDay = (s: string) => DAY_SHAPE.test(s);
+/** A range of days or instants, either end open. */
+export interface DayRange {
+  from?: string;
+  to?: string;
+}
+
+/** Days `first` to `last` reach inside `r`. */
+const daysMeet = (r: DayRange, first: string, last = first) =>
+  (!r.from || last >= r.from.slice(0, 10)) &&
+  (!r.to || first <= r.to.slice(0, 10));
+/** An episode that has a day inside `r`. */
+export const inDays = (r: DayRange) => (m: Episode) =>
+  daysMeet(r, ...daysOf(m));
+
 /**
  * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
  * `from` may be missing; `to` never passes now.

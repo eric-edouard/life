@@ -208,7 +208,7 @@ Before adding a helper, use the one that exists:
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
-| A file's size | 800 lines (Biome `noExcessiveLinesPerFile`); a larger file's cap in biome.json only goes down: split it by job |
+| A file's size | Biome caps at 800 lines; a file already larger is in `CAPS` (`scripts/imports.test.ts`), whose count only goes down: split it by job |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
 Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the

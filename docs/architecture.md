@@ -156,7 +156,7 @@ core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ← 
 
 | Folder | What it holds |
 |---|---|
-| `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
+| `core/` | Clock (with calendar-day arithmetic, `daysBefore`), list cuts (`lists.ts`), paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
 | `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `episode.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |

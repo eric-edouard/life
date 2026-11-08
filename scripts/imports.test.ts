@@ -15,6 +15,24 @@ const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
+const LINE_BREAK = /\r?\n/;
+// Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
+const CAPS: Record<string, number> = {
+  "apps/lifelog/apps/server/src/grouping.test.ts": 814,
+  "apps/lifelog/apps/server/src/grouping.ts": 957,
+  "apps/lifelog/apps/server/src/intelligence.test.ts": 1055,
+  "apps/lifelog/apps/server/src/jobs.test.ts": 1486,
+  "apps/lifelog/apps/server/src/jobs.ts": 930,
+  "apps/lifelog/apps/server/src/mac-llm.test.ts": 831,
+  "apps/lifelog/apps/server/src/naming-queue.test.ts": 836,
+  "apps/lifelog/apps/server/src/people.test.ts": 994,
+  "apps/lifelog/apps/server/src/people.ts": 1297,
+  "apps/lifelog/packages/db/src/schema/index.ts": 1091,
+  "apps/server/src/host/status/snapshot.ts": 1220,
+  "apps/server/src/memory/observe.test.ts": 848,
+  "apps/server/src/memory/units.test.ts": 1299,
+  "apps/server/src/sources/lifelog.ts": 938,
+};
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
   (f) => !f.endsWith(".test.ts")
@@ -133,4 +151,22 @@ test("no calendar day is cut from a UTC instant", () => {
       "apps/server/src/memory/details.ts",
     ])
   ).toEqual([]);
+});
+
+test("a file over 800 lines never grows: its cap in CAPS only goes down", () => {
+  // Under 800, a file leaves CAPS and the biome.json override.
+  const over = Object.entries(CAPS).map(([path, cap]) => {
+    const lines = readFileSync(join(LIFE_CODE_DIR, path), "utf8")
+      .trimEnd()
+      .split(LINE_BREAK).length;
+    return [path, lines <= cap, lines > 800];
+  });
+  expect(over).toEqual(Object.keys(CAPS).map((path) => [path, true, true]));
+  const biome = JSON.parse(
+    readFileSync(join(LIFE_CODE_DIR, "biome.json"), "utf8")
+  ) as { overrides: { includes: string[]; linter?: unknown }[] };
+  const off = biome.overrides.find((o) =>
+    JSON.stringify(o.linter).includes('"noExcessiveLinesPerFile":"off"')
+  );
+  expect(off?.includes).toEqual(Object.keys(CAPS).toSorted());
 });

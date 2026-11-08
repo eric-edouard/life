@@ -14,7 +14,6 @@ import { dueOf } from "./read-open-items";
 import { coverageLines } from "./read-person-page";
 import { OWNER } from "./read-truth";
 import { readSituationsOf, matches as searchMatches } from "./search";
-import { holdsAll } from "./words";
 
 test("search: an observation hit names the unit it comes from and who is in it", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-search-")), "i.sqlite");
@@ -100,13 +99,6 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(searchMatches(db, "beautify")[0]).toContain('lifelog "Plumbing call"');
   expect(db.query("select count(*) as n from units").get()).toEqual({ n: 1 });
   db.close();
-});
-
-test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
-  const holds = holdsAll("Château pondres");
-  expect(holds("Dinner at the chateau de Pondres")).toBe(true);
-  expect(holds("Dinner at the château")).toBe(false);
-  expect(holdsAll("??")("anything")).toBe(false);
 });
 
 test("a search opens with his situation when it names no one, then others' lines on the episodes it shows", async () => {

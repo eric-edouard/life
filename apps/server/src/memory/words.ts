@@ -45,7 +45,7 @@ import {
 } from "./units";
 import { readNearest, type Searched } from "./vectors";
 import { meant, type People, readPeople } from "./who";
-import { dayRange, localDate, localTime, time } from "./zones";
+import { type DayRange, dayRange, localDate, localTime, time } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
 // from lifelog when asked for and printed, never written to disk; chats are read from the archives (WhatsApp and
@@ -448,7 +448,7 @@ export function readChatTexts(
  */
 function readChats(
   window: "chatDays" | "searchDays",
-  range: { from?: string; to?: string },
+  range: DayRange,
   sources: Partial<Tables["SEARCHED"]>
 ) {
   const end = range.to ? new Date(range.to) : clock();
@@ -489,7 +489,7 @@ const unitIdsOf = (events: SourceEvent[]) =>
  */
 export async function chatHits(
   words: string,
-  range: { from?: string; to?: string } = {},
+  range: DayRange = {},
   sources: Partial<Tables["SEARCHED"]> = tables().SEARCHED,
   vector?: number[]
 ) {
@@ -550,7 +550,7 @@ export async function chatHits(
  */
 export async function mailHits(
   words: string,
-  range: { from?: string; to?: string } = {},
+  range: DayRange = {},
   sources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL,
   vector?: number[]
 ) {

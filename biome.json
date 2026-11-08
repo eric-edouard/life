@@ -24,211 +24,26 @@
       }
     },
     {
-      "includes": ["apps/lifelog/apps/server/src/grouping.test.ts"],
+      "includes": [
+        "apps/lifelog/apps/server/src/grouping.test.ts",
+        "apps/lifelog/apps/server/src/grouping.ts",
+        "apps/lifelog/apps/server/src/intelligence.test.ts",
+        "apps/lifelog/apps/server/src/jobs.test.ts",
+        "apps/lifelog/apps/server/src/jobs.ts",
+        "apps/lifelog/apps/server/src/mac-llm.test.ts",
+        "apps/lifelog/apps/server/src/naming-queue.test.ts",
+        "apps/lifelog/apps/server/src/people.test.ts",
+        "apps/lifelog/apps/server/src/people.ts",
+        "apps/lifelog/packages/db/src/schema/index.ts",
+        "apps/server/src/host/status/snapshot.ts",
+        "apps/server/src/memory/observe.test.ts",
+        "apps/server/src/memory/units.test.ts",
+        "apps/server/src/sources/lifelog.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 814
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/grouping.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 930
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/intelligence.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1055
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/jobs.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1486
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/jobs.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 930
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/mac-llm.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 831
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/naming-queue.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 836
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/people.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 994
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/apps/server/src/people.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1283
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/lifelog/packages/db/src/schema/index.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1086
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/server/src/host/status/snapshot.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1203
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/server/src/memory/observe.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 848
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/server/src/memory/units.test.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 1297
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "includes": ["apps/server/src/sources/lifelog.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noExcessiveLinesPerFile": {
-              "level": "error",
-              "options": {
-                "maxLines": 879
-              }
-            }
+            "noExcessiveLinesPerFile": "off"
           }
         }
       }

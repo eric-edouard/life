@@ -29,6 +29,7 @@ import {
   chatsOf,
   fetchOf,
   focus,
+  holdsAll,
   mailHits,
   passagesOf,
   readChatTexts,
@@ -602,4 +603,11 @@ test("chats: `from` is read as far back as asked, a cut names the call that read
     (await chatsOf({ before: first.match(NEXT)?.[1], chat, from }, twin)) ?? "";
   expect(rest).toContain("message 98");
   expect(rest).not.toContain("message 99");
+});
+
+test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
+  const holds = holdsAll("Château pondres");
+  expect(holds("Dinner at the chateau de Pondres")).toBe(true);
+  expect(holds("Dinner at the château")).toBe(false);
+  expect(holdsAll("??")("anything")).toBe(false);
 });

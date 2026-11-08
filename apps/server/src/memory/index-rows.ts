@@ -3,7 +3,7 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import { KEEP_AT } from "../records/unit";
-import { daysOf, readIndex } from "./ledger";
+import { readIndex } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
 import { OWNER } from "./read-truth";
@@ -75,19 +75,6 @@ export const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.conf
   (select title from units where id = o.unit) as title,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 export const CURRENT = "o.superseded_by is null";
-
-export interface DayRange {
-  from?: string;
-  to?: string;
-}
-
-/** Days `first` to `last` reach inside `r`. */
-const daysMeet = (r: DayRange, first: string, last = first) =>
-  (!r.from || last >= r.from.slice(0, 10)) &&
-  (!r.to || first <= r.to.slice(0, 10));
-/** An episode that has a day inside `r`. */
-export const inDays = (r: DayRange) => (m: Episode) =>
-  daysMeet(r, ...daysOf(m));
 
 /** An observation's and a unit's text, as both rankings read them (`unit_search` holds a unit's). */
 export const OBSERVATION_TEXT = "o.text || char(10) || o.quote";

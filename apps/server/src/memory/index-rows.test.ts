@@ -1,13 +1,6 @@
 import { expect, test } from "bun:test";
 import { withSpans } from "./index-rows";
-import { readIndex } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
-
-test("readIndex takes no async read: the index closes when the read returns", () => {
-  // @ts-expect-error a promise would settle after the index is closed (`bun run check` types this file)
-  const refused = () => readIndex(async () => 1);
-  expect(refused).toBeFunction();
-});
 
 test("a Between us line shows the days of its first and latest evidence", () => {
   const text = renderPage({

@@ -6,10 +6,8 @@ import { searchVoice, turnPlace, withStore } from "../sources/lifelog";
 import {
   COLUMNS,
   CURRENT,
-  type DayRange,
   episodeLine,
   episodeTextNow,
-  inDays,
   LIMIT,
   line,
   OBSERVATION_TEXT,
@@ -27,7 +25,7 @@ import { normalize } from "./units";
 import { embedQuery, readNearest } from "./vectors";
 import { readPeople } from "./who";
 import { chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./words";
-import { dayRange, localTime } from "./zones";
+import { type DayRange, dayRange, inDays, localTime } from "./zones";
 
 // `bun life memory search <words>` and the connector's `search`: episodes, observations and units matching the words
 // (from derived/memory/index.sqlite), the exact spoken words (lifelog's search), chats and mail, each ranked by meaning
@@ -145,7 +143,7 @@ export function matches(
 }
 
 /** The voice section of `search`: lifelog's best passages for the words, each with its place in its conversation. */
-async function voiceHits(words: string, range: { from?: string; to?: string }) {
+async function voiceHits(words: string, range: DayRange) {
   if (!listening()) {
     return ["(no voice source)"];
   }
