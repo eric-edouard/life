@@ -307,6 +307,9 @@ export function callLine({ at, phoneCall }: SourceEvent) {
   return `(${kind} ${time(at)}–${time(end)}, ${lengthOf(seconds)})`;
 }
 
+/** A message's text as every reader shows it: a phone call is its call line. */
+export const textOf = (e: SourceEvent) => (e.phoneCall ? callLine(e) : e.text);
+
 /**
  * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
  * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
@@ -341,7 +344,7 @@ export function chatPerson(
  */
 function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list
-    .map((e) => (e.phoneCall ? { ...e, text: callLine(e) } : e))
+    .map((e) => ({ ...e, text: textOf(e) }))
     .sort((a, b) => a.at.localeCompare(b.at));
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;

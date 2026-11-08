@@ -311,11 +311,11 @@ is no longer close. A reader drops a line whose episode is no longer live. His c
 ## personas/<id>.json
 
 What someone with a page (`pagedNow`) is like, wants and can give, and what keeps happening between them and the owner, or the owner
-himself across everyone (`me`), written by `personas.ts` from their 1:1 chats and mail threads (`directChats`, 3
-years): `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
+himself across everyone (`me`), written by `personas.ts` from 3 years of their 1:1 chats and mail threads
+(`directChats`), the group chat-days they wrote in and his recorded conversations where they spoke: `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
-differs; `text`; `quotes`, each `at` and `text`, words found in a chat message the call was shown, a `writes` line's in
-that writer's own, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
+differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
+line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
 messages and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
 and it is a week old; removed when the person has no page or no message from him in the last 3 years. Nothing is
 written or removed on a night a source can't be read.
