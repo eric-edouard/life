@@ -464,7 +464,7 @@ refresh record, each line in its place; "Memory: before the agent's name is stam
 name their agent (agents-2026-10-31)" hold both sides.
 `episodes-2026-11` (the same file, since removed): moments became episodes, only what happened: `memory/moments/`
 became `memory/episodes/`, a line not `happened` went, `why` became `what`, ids `mom_` became `ep_` wherever cited, a
-fact check's kind `moment` became `episode`; "Memory: before moments become episodes" and "Memory: moments are
+fact check's kind `moment` became `episode` and its group `events` `episodes`; "Memory: before moments become episodes" and "Memory: moments are
 episodes, what happened, with what came of it (episodes-2026-11)" hold both sides.
 
 ## The search index (not in memory/)
