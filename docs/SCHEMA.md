@@ -310,9 +310,9 @@ is no longer close. A reader drops a line whose episode is no longer live. His c
 
 ## personas/<id>.json
 
-What someone with a page (`pagedNow`) is like and what keeps happening between them and the owner, or the owner
+What someone with a page (`pagedNow`) is like, wants and can give, and what keeps happening between them and the owner, or the owner
 himself across everyone (`me`), written by `personas.ts` from their 1:1 chats and mail threads (`directChats`, 3
-years): `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `exchange`, `reacts`, `pattern`, `approach`, or
+years): `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message the call was shown, a `writes` line's in
 that writer's own, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the

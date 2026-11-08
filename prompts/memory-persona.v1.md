@@ -53,8 +53,8 @@ Each line has `facet`, `text` and `quotes`:
 - `wants`: what they want from life, and what they want and expect from him, in the six resources.
 - `offers`: what they can give, in general (their skills, means, network, time, care) and to him, and what they have
   actually given him, in the six resources.
-- `exchange`: what goes between them and him each way, in which resources, whether it evens out or runs one way, and
-  his side of it.
+- `balance`: whether what goes between them and him evens out or runs one way, in which resources, and his side of
+  it; not a list of the wants and offers again.
 - `reacts`: how they react under pressure, in conflict, to good news, to his silence; what sets them off and what
   calms them.
 - `pattern`: what keeps happening between them and him, both sides, his part named. The most useful lines: give them
@@ -76,8 +76,8 @@ Every line:
 
 A message an assistant wrote for him ("ici Claude", signed by an agent) is not his: leave it out of his lines.
 
-Around 12 to 18 lines: at least 2 `pattern` lines when the days show any, 1 or 2 each of `wants`, `offers` and
-`exchange`, and 1 to 3 `writes` lines per writer.
+Around 12 to 18 lines: at least 2 `pattern` lines when the days show any, `wants`, `offers` and `balance` lines
+when the days show them, and 1 to 3 `writes` lines per writer.
 
 ## Output
 
