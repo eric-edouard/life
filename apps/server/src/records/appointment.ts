@@ -49,7 +49,9 @@ export const AppointmentEvent = z
   .object({
     appointment: AppointmentId,
     at: isoDateTime,
-    /** Its id in his calendar. */
+    /** The calendar it was in (the `appointments` setting's then). */
+    calendar: z.string().min(1),
+    /** Its id in that calendar. */
     event: z.string().min(1),
     observations: z.array(ObservationId).min(1),
     op: z.enum(["created", "removed", "refused"]),

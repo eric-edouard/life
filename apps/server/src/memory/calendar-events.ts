@@ -16,23 +16,30 @@ export interface Draft {
   to: string;
 }
 
-/** Life's events in a calendar, by what they show: each one's id there and the hash it was written with. */
-export type Held = Map<string, { hash?: string; id: string }[]>;
+/**
+ * Life's events in a calendar, by what they show: each one's id there, the hash it was written with and, when the
+ * calendar says, whether it is all-day.
+ */
+export type Held = Map<
+  string,
+  { allDay?: boolean; hash?: string; id: string }[]
+>;
 
 /** Life's events listed from a calendar, grouped by what they show. */
 export const heldOf = (
-  rows: { hash?: string; id: string; of: string }[]
+  rows: { allDay?: boolean; hash?: string; id: string; of: string }[]
 ): Held =>
   new Map(
     [...Map.groupBy(rows, (r) => r.of)].map(([of, rs]) => [
       of,
-      rs.map(({ hash, id }) => ({ hash, id })),
+      rs.map(({ of: _, ...e }) => e),
     ])
   );
 
 /**
  * What a sync does: create each draft with no event, update in place the one whose hash changed, remove any second
- * copy and the events of what is no longer drafted, except those `isKept` says stay (outside the sync's window).
+ * copy and the events of what is no longer drafted, except those `isKept` says stay (outside the sync's window). An
+ * event turning all-day or timed is removed and created again: Google cannot change it in place.
  */
 export function reconcile<D extends Draft>(
   want: D[],
@@ -46,6 +53,9 @@ export function reconcile<D extends Draft>(
   for (const d of want) {
     const [e, ...more] = held.get(d.of) ?? [];
     if (!e) {
+      create.push(d);
+    } else if (e.allDay !== undefined && e.allDay !== d.allDay) {
+      remove.push({ id: e.id, of: d.of });
       create.push(d);
     } else if (e.hash !== d.hash) {
       update.push({ d, id: e.id });

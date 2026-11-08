@@ -15,9 +15,9 @@ The user message is one JSON object:
 - `here`: the IANA time zone he is in now, or null.
 - `facts`: each has `id`, `said` (the day it was said, which "tomorrow" or "Wednesday" counts from), `when` (the day
   it is for, or null) and `text`. Every fact holds now: Life already dropped the ones a later fact replaced.
-- `held`: the appointments Life holds now, each with `id`, `title`, `start`, `end` and `facts` (the ids it was read
-  from). Use them to keep an appointment's id, never as evidence: every field you give comes from `facts`.
-  Give each one again with its `continues` when you change it; one you leave out stays while its facts hold.
+- `held`: the appointments Life holds now, each with `title`, `start`, `end` and `facts` (the ids it was read from).
+  Use them to keep an appointment the same, never as evidence: every field you give comes from `facts`. Give one
+  again to change it; one you leave out stays as it is while its facts hold.
 
 ## What is an appointment
 
@@ -43,9 +43,8 @@ A trip and something inside it are two appointments: "Lisbon, 3–6 May" and "Di
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"appointments":[{"continues":"apt_…","title":"Dentist check-up","start":"2027-05-11 16:00","end":"2027-05-11 17:00","allDay":false,"place":"Rua Augusta dental clinic","zone":null,"facts":["obs_…"],"timeGuessed":false}]}
+{"appointments":[{"title":"Dentist check-up","start":"2027-05-11 16:00","end":"2027-05-11 17:00","allDay":false,"place":"Rua Augusta dental clinic","zone":null,"facts":["obs_…"],"timeGuessed":false}]}
 
-- `continues`: the `id` of the held appointment this one is, or null for a new one.
 - `title`: short, what it is, in English, with whom when it matters ("Dinner with Ana's friends").
 - `place`: where, as the facts name it, or null.
 - `facts`: the ids of the facts it was read from, copied exactly, at least one.

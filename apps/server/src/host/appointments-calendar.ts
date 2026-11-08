@@ -29,7 +29,7 @@ const AHEAD = 400 * DAY;
 export function appointmentDraft(
   a: Appointment,
   isConfirmed: boolean
-): Draft & { isConfirmed: boolean } {
+): Draft & { isConfirmed: boolean; observations: string[] } {
   const when = span(
     { day: a.start.slice(0, 10), end: a.end, start: a.start },
     a.zone ?? undefined
@@ -44,6 +44,7 @@ export function appointmentDraft(
   const draft = {
     ...when,
     isConfirmed,
+    observations: a.observations,
     of: a.id,
     place: a.place,
     summary: isConfirmed ? a.title : `(Life) ${a.title}`,
@@ -53,61 +54,63 @@ export function appointmentDraft(
 }
 
 const fieldsOf = (d: ReturnType<typeof appointmentDraft>) => ({
-  allDay: d.allDay,
+  ...d,
   busy: d.isConfirmed,
   description: d.text,
-  from: d.from,
   location: d.place,
   // A reminder on screen only: a mail would come back into memory as a message.
   reminders: ["popup:30m"],
-  summary: d.summary,
-  to: d.to,
 });
 
-const line = (
+/** Appends one line to `appointment-events.jsonl`. */
+const appendEvent = (
   op: AppointmentEvent["op"],
-  a: Pick<Appointment, "id" | "observations">,
-  event: string,
+  e: Pick<
+    AppointmentEvent,
+    "appointment" | "calendar" | "event" | "observations"
+  >,
   now: Date
-) =>
-  AppointmentEvent.parse({
-    appointment: a.id,
-    at: now.toISOString(),
-    event,
-    observations: a.observations,
-    op,
-    schemaVersion: 1,
-  });
+) => {
+  appendJsonl(APPOINTMENT_EVENTS, AppointmentEvent, [
+    AppointmentEvent.parse({
+      ...e,
+      at: now.toISOString(),
+      op,
+      schemaVersion: 1,
+    }),
+  ]);
+  log("calendar.write", { appointment: e.appointment, event: e.event, op });
+};
 
 /**
- * The appointments to draft now: each one not refused whose event is listed, or was never written, or Life removed.
- * One Life wrote and no longer lists is looked up by its id: gone is a refusal (recorded); still there (outside the
- * listing) or a failed lookup leaves it for the next tick.
+ * The appointments to draft now in `calendar`: each one not refused whose event is listed, or was never written there
+ * (another calendar's event is not his no), or Life removed. One Life wrote there and no longer lists is looked up by
+ * its id: gone is a refusal (recorded); still there (outside the listing) or a failed lookup leaves it for the next
+ * tick.
  */
 export async function drafted(
   list: Appointment[],
   held: ReadonlyMap<string, unknown>,
   cal: Pick<GoogleCalendar, "exists">,
+  calendar: string,
   now: Date
 ) {
   const { byAppointment } = readAppointmentEvents();
   const kept: Appointment[] = [];
   for (const a of list) {
     const last = byAppointment.get(a.id);
-    if (held.has(a.id) || !last || last.op === "removed") {
+    if (
+      held.has(a.id) ||
+      !last ||
+      last.op === "removed" ||
+      last.calendar !== calendar
+    ) {
       kept.push(a);
     } else if (last.op === "created") {
       // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
       const isThere = await cal.exists(last.event).catch(() => true);
       if (!isThere) {
-        appendJsonl(APPOINTMENT_EVENTS, AppointmentEvent, [
-          line("refused", a, last.event, now),
-        ]);
-        log("calendar.write", {
-          appointment: a.id,
-          event: last.event,
-          op: "refused",
-        });
+        appendEvent("refused", last, now);
       }
     }
   }
@@ -130,6 +133,7 @@ export async function syncAppointments(now = clock()) {
   );
   const held = heldOf(
     listed.map((e) => ({
+      allDay: e.allDay,
       hash: e.props.lifeHash,
       id: e.id,
       of: e.props.lifeAppointment ?? "",
@@ -140,8 +144,13 @@ export async function syncAppointments(now = clock()) {
       e.props.lifeConfirmed === "yes" ? [e.props.lifeAppointment ?? ""] : []
     )
   );
-  const list = await drafted(file.appointments, held, cal, now);
-  const byId = new Map(list.map((a) => [a.id, a]));
+  const list = await drafted(
+    file.appointments,
+    held,
+    cal,
+    appointments.calendar,
+    now
+  );
   const { create, remove, update } = reconcile(
     list.map((a) => appointmentDraft(a, confirmed.has(a.id))),
     held
@@ -153,20 +162,13 @@ export async function syncAppointments(now = clock()) {
     ...(d.isConfirmed ? { lifeConfirmed: "yes" } : {}),
   });
   for (const e of remove) {
-    // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
-    await cal.remove(e.id);
+    // Recorded first: a crash before the delete leaves an event the next tick removes again, never a false refusal.
     const last = readAppointmentEvents().byAppointment.get(e.of);
     if (last?.event === e.id) {
-      appendJsonl(APPOINTMENT_EVENTS, AppointmentEvent, [
-        line(
-          "removed",
-          { id: e.of, observations: last.observations },
-          e.id,
-          now
-        ),
-      ]);
+      appendEvent("removed", last, now);
     }
-    log("calendar.write", { appointment: e.of, event: e.id, op: "delete" });
+    // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
+    await cal.remove(e.id);
   }
   for (const { d, id } of update) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
@@ -176,10 +178,16 @@ export async function syncAppointments(now = clock()) {
   for (const d of create) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
     const event = await cal.create(fieldsOf(d), props(d));
-    appendJsonl(APPOINTMENT_EVENTS, AppointmentEvent, [
-      line("created", byId.get(d.of) as Appointment, event, now),
-    ]);
-    log("calendar.write", { appointment: d.of, event, op: "create" });
+    appendEvent(
+      "created",
+      {
+        appointment: d.of,
+        calendar: appointments.calendar,
+        event,
+        observations: d.observations,
+      },
+      now
+    );
   }
   return {
     appointments: list.length,

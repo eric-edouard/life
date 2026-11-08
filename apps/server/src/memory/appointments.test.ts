@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { Appointment } from "../records/appointment";
+import { type Appointment, Appointments } from "../records/appointment";
 import type { Observation } from "../records/observation";
-import { checkedAppointments, factsAheadOf } from "./appointments";
+import { checkedAppointments, factsAheadOf, heldIdsOf } from "./appointments";
 import type { Standing } from "./ledger";
 
 const UNIT = "unit_000000000001";
@@ -66,12 +66,13 @@ const ctx = {
     },
   ] as Appointment[],
   refused: [["obs_00000000000f"]],
+  replacedBy: (f: string) =>
+    f === "obs_00000000000c" ? "obs_00000000000d" : undefined,
   shown: new Set(["obs_000000000001", "obs_000000000002", "obs_00000000000f"]),
   today: "2026-11-08",
 };
 const reply = (over: Record<string, unknown>) => ({
   allDay: false,
-  continues: null,
   end: "2026-11-11 17:00",
   facts: ["obs_000000000001"],
   place: "The clinic",
@@ -85,10 +86,9 @@ test("a reply keeps only appointments on facts it was shown, with a held id or a
   const { appointments, invalid } = checkedAppointments(
     {
       appointments: [
-        reply({ continues: "apt_000000000001" }),
+        reply({}),
         reply({
           allDay: true,
-          continues: "apt_00000000000e",
           end: "2026-11-19",
           facts: ["obs_000000000002"],
           start: "2026-11-17",
@@ -122,18 +122,54 @@ test("a reply keeps only appointments on facts it was shown, with a held id or a
   });
 });
 
-test("two appointments continuing one held id keep the first", () => {
+test("code keeps the ids: a held one goes to the reading most like it, once; a reading of the same facts twice counts once", () => {
   const { appointments, invalid } = checkedAppointments(
     {
       appointments: [
-        reply({ continues: "apt_000000000001" }),
-        reply({ continues: "apt_000000000001", title: "Again" }),
+        reply({
+          facts: ["obs_000000000001", "obs_000000000002"],
+          title: "Trip",
+        }),
+        reply({}),
+        reply({ title: "Again" }),
+        // A place written empty is no place, never a file that no longer reads.
+        reply({ facts: ["obs_000000000002"], place: "" }),
       ],
     },
     ctx
   );
-  expect(appointments.map((a) => a.title)).toEqual(["Session at the clinic"]);
   expect(invalid).toBe(1);
+  expect(
+    appointments.map((a) => [a.title, a.id === "apt_000000000001"])
+  ).toEqual([
+    ["Trip", false],
+    ["Session at the clinic", true],
+    ["Session at the clinic", false],
+  ]);
+  expect(appointments[2]?.place).toBeNull();
+  expect(() =>
+    Appointments.shape.appointments.parse(appointments)
+  ).not.toThrow();
+});
+
+test("a held appointment whose fact a newer one replaced keeps its id on a reading of the newer", () => {
+  expect(
+    heldIdsOf(
+      [["obs_00000000000d"]],
+      [{ facts: ["obs_00000000000d"], id: "apt_000000000009" }]
+    )
+  ).toEqual(["apt_000000000009"]);
+  const { appointments } = checkedAppointments(
+    { appointments: [reply({ facts: ["obs_00000000000d"] })] },
+    {
+      ...ctx,
+      held: [
+        { ...ctx.held[0], observations: ["obs_00000000000c"] } as Appointment,
+      ],
+      shown: new Set(["obs_00000000000d"]),
+    }
+  );
+  expect(appointments.map((a) => a.id)).toEqual(["apt_000000000001"]);
 });
 
 test("a held appointment the reply forgets stays while its facts hold and it has not ended", () => {

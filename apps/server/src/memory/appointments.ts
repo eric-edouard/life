@@ -1,12 +1,10 @@
 import { z } from "zod";
 import { readAppended, readJson } from "../core/files";
 import { digest } from "../core/hash";
-import { isTimeZone } from "../core/time-zone";
 import { stamp } from "../models/llm";
 import {
   Appointment,
   AppointmentEvent,
-  AppointmentId,
   Appointments,
 } from "../records/appointment";
 import type { Observation } from "../records/observation";
@@ -17,13 +15,13 @@ import {
   type Standing,
   stateOf,
 } from "./ledger";
-import { begin } from "./run";
+import { begin, checkedEntries } from "./run";
 import { daysBefore } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 
 // The appointments step (his request, 8 Nov 2026): one call reads his active facts ahead of him and groups and
-// times them into appointments, continuing the ids of those held. Extraction decides which fact holds; this step only
+// times them into appointments; code keeps the ids of those held. Extraction decides which fact holds; this step only
 // reads what holds now. Rewritten whole when its inputs change. `host/appointments-calendar.ts` puts them in his
 // calendar.
 
@@ -55,7 +53,7 @@ export const readAppointmentEvents = () =>
   );
 
 /** His no holds for any appointment citing every fact of one he refused, whatever its id. */
-export const isRefused = (
+const isRefused = (
   facts: readonly string[],
   refused: readonly (readonly string[])[]
 ) => refused.some((r) => r.every((f) => facts.includes(f)));
@@ -82,80 +80,107 @@ export function factsAheadOf(
   );
 }
 
+/** One appointment as the model gives it: a place it writes empty or too long is no place. */
 const Reply = z.object({
-  allDay: z.boolean(),
-  continues: AppointmentId.nullish(),
+  allDay: Appointment.shape.allDay,
   end: Appointment.shape.end,
   facts: z.array(ObservationId).min(1),
-  place: z.string().max(200).nullish(),
+  place: Appointment.shape.place.catch(null),
   start: Appointment.shape.start,
   timeGuessed: z.boolean().default(false),
   title: Appointment.shape.title,
-  zone: z.string().nullish(),
+  zone: Appointment.shape.zone.default(null),
 });
 
 /**
+ * Which held appointment each reading is: the pairs sharing facts, the most alike first (shared over all their
+ * facts), each held id to one reading at most; undefined for a new one.
+ */
+export function heldIdsOf(
+  readings: readonly (readonly string[])[],
+  held: readonly { facts: readonly string[]; id: string }[]
+) {
+  const pairs = readings
+    .flatMap((r, i) =>
+      held.map((h) => ({
+        i,
+        id: h.id,
+        score:
+          r.filter((f) => h.facts.includes(f)).length /
+          new Set([...r, ...h.facts]).size,
+      }))
+    )
+    .filter((p) => p.score > 0)
+    .toSorted((a, b) => b.score - a.score);
+  const ids: (string | undefined)[] = readings.map(() => undefined);
+  const taken = new Set<string>();
+  for (const p of pairs) {
+    if (ids[p.i] === undefined && !taken.has(p.id)) {
+      ids[p.i] = p.id;
+      taken.add(p.id);
+    }
+  }
+  return ids;
+}
+
+/**
  * The model's reply checked: each appointment citing only facts it was shown, not refused (`isRefused`), ending today
- * or later, its zone one Intl knows; `continues` kept only when it names a held id, else a new id from its facts. One
- * appointment per id. A held one the reply leaves out stays while every fact it cites is shown (active), none is cited
- * by a kept one and it has not ended: it goes when its facts do, never by a reading that forgot it (its event may be
- * one he confirmed).
+ * or later, once per set of facts. Code keeps the ids: a reading takes the id of the held appointment it shares the
+ * most facts with (a fact a newer one replaced counts as the newer, `replacedBy`), else a new id from its facts. A held
+ * one the reply leaves out stays while every fact it cites is shown (active), none is cited by a kept one and it has
+ * not ended: it goes when its facts do, never by a reading that forgot it (its event may be one he confirmed).
  */
 export function checkedAppointments(
   reply: unknown,
   ctx: {
     held: readonly Appointment[];
     refused: readonly (readonly string[])[];
+    replacedBy: (fact: string) => string | undefined;
     shown: ReadonlySet<string>;
     today: string;
   }
 ) {
-  const list = z
-    .object({ appointments: z.array(z.unknown()) })
-    .parse(reply).appointments;
-  const heldIds = new Set(ctx.held.map((h) => h.id));
-  const kept = new Map<string, Appointment>();
-  let invalid = 0;
-  for (const raw of list) {
-    const a = Reply.safeParse(raw).data;
-    // Whole days are written as days, timed ones with their hour, both edges alike.
-    const ok =
-      a?.facts.every((f) => ctx.shown.has(f)) &&
+  // Whole days are written as days, timed ones with their hour, both edges alike.
+  const valid = Reply.refine(
+    (a) =>
+      a.facts.every((f) => ctx.shown.has(f)) &&
       a.allDay === !a.start.includes(" ") &&
       a.allDay === !a.end.includes(" ") &&
       !isRefused(a.facts, ctx.refused) &&
-      (!a.zone || isTimeZone(a.zone)) &&
       a.end.slice(0, 10) >= ctx.today &&
-      a.end >= a.start;
-    const id =
-      a?.continues && heldIds.has(a.continues)
-        ? a.continues
-        : `apt_${digest("sha1", (a?.facts ?? []).toSorted().join(" "), 12)}`;
-    if (!(a && ok) || kept.has(id)) {
-      invalid += 1;
-      continue;
-    }
-    kept.set(id, {
-      allDay: a.allDay,
-      end: a.end,
-      id,
-      observations: a.facts,
-      place: a.place ?? null,
-      start: a.start,
-      timeGuessed: a.timeGuessed,
-      title: a.title,
-      zone: a.zone ?? null,
-    });
-  }
-  const cited = new Set([...kept.values()].flatMap((a) => a.observations));
+      a.end >= a.start
+  );
+  const factsOf = (facts: readonly string[]) => facts.toSorted().join(" ");
+  const { entries, invalid } = checkedEntries(
+    z.object({ appointments: z.array(z.unknown()) }).parse(reply).appointments,
+    valid,
+    (a) => factsOf(a.facts),
+    () => true
+  );
+  const ids = heldIdsOf(
+    entries.map((a) => a.facts),
+    ctx.held.map((h) => ({
+      facts: h.observations.map((f) => ctx.replacedBy(f) ?? f),
+      id: h.id,
+    }))
+  );
+  const kept = entries.map(
+    ({ facts, ...a }, i): Appointment => ({
+      ...a,
+      id: ids[i] ?? `apt_${digest("sha1", factsOf(facts), 12)}`,
+      observations: facts,
+    })
+  );
+  const keptIds = new Set(kept.map((a) => a.id));
+  const cited = new Set(kept.flatMap((a) => a.observations));
   const stays = ctx.held.filter(
     (h) =>
-      !kept.has(h.id) &&
+      !keptIds.has(h.id) &&
       h.observations.every((f) => ctx.shown.has(f) && !cited.has(f)) &&
       !isRefused(h.observations, ctx.refused) &&
       h.end.slice(0, 10) >= ctx.today
   );
-  return { appointments: [...kept.values(), ...stays], invalid };
+  return { appointments: [...kept, ...stays], invalid };
 }
 
 /** The nightly step: the appointments ahead of him, read again when their facts, the held ones or his day changed. */
@@ -183,7 +208,6 @@ export async function appointments() {
     held: held.map((a) => ({
       end: a.end,
       facts: a.observations,
-      id: a.id,
       start: a.start,
       title: a.title,
     })),
@@ -211,6 +235,7 @@ export async function appointments() {
           const c = checkedAppointments(reply, {
             held,
             refused,
+            replacedBy: (f) => standing.retired.get(f)?.by,
             shown: new Set(facts.map((o) => o.id)),
             today: step.today,
           });

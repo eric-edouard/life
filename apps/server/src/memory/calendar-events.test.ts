@@ -24,6 +24,22 @@ test("a sync keeps what shows as it is, updates what changed in place, removes a
   expect(remove.map((e) => e.id)).toEqual(["e2b", "e9"]);
 });
 
+test("an event turning all-day or timed is removed and created again; one whose kind the calendar does not say is updated", () => {
+  const { create, remove, update } = reconcile(
+    [
+      { ...draft("m1", "new"), allDay: true },
+      { ...draft("m2", "new"), allDay: true },
+    ],
+    new Map([
+      ["m1", [{ allDay: false, hash: "old", id: "e1" }]],
+      ["m2", [{ hash: "old", id: "e2" }]],
+    ])
+  );
+  expect(create.map((d) => d.of)).toEqual(["m1"]);
+  expect(remove).toEqual([{ id: "e1", of: "m1" }]);
+  expect(update.map((u) => u.id)).toEqual(["e2"]);
+});
+
 test("a sync leaves the events `isKept` names though it did not draft them", () => {
   const { remove } = reconcile(
     [],

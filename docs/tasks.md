@@ -133,9 +133,10 @@ events with `lifeEpisode` are Life's output and must be dropped.
 ## Appointments
 
 His request of 8 Nov 2026: what he is due at, from any channel, in his own calendar before his agents plan his day or
-week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active plans ahead (and recent
-undated ones) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
-a later message (his tickets) moves the same appointment; a guessed time says so. `syncAppointments`
+week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active facts ahead (plans and
+bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
+a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
+says so. `syncAppointments`
 (`apps/server/src/host/appointments-calendar.ts`, the `appointments` setting: account and calendar) brings that
 calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
 `calendar-events.ts`), touching only events with `lifeOutput=appointments`:
@@ -146,7 +147,8 @@ calendar in line each tick, through the client the Past calendar shares (`google
 - One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
   its facts is written again. One Life deletes is recorded `removed`, so it may come back.
 - Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
-  while its facts hold. The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
+  while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
+  change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
 - Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
 - An event that ended is never touched.
 

@@ -1,30 +1,27 @@
 import { exec, execOk } from "../core/proc";
 import { redact } from "../core/redact";
+import type { Draft } from "../memory/calendar-events";
 
 // One Google calendar through `gog` (as `account`), for Life's own events in it: the Past calendar
 // (`past-calendar.ts`) and the appointments (`appointments-calendar.ts`). Life finds its events by their private
 // properties and reads nothing else of a calendar.
 
-/** One of Life's events: its id and private properties. */
-export interface HeldEvent {
+/** One of Life's events: its id, whether it is all-day, and its private properties. */
+interface HeldEvent {
+  allDay: boolean;
   id: string;
   props: Record<string, string>;
 }
 
-/** What Life writes on an event. */
-export interface EventFields {
-  allDay: boolean;
+/** What Life writes on an event: a draft's when and title, and what each output adds. */
+type EventFields = Pick<Draft, "allDay" | "from" | "summary" | "to"> & {
   /** Busy, else shown as free. */
   busy: boolean;
   description: string;
-  /** RFC3339 instants, or YYYY-MM-DD days (end exclusive) when `allDay`. */
-  from: string;
   location: string | null;
   /** Its own reminders (`method:duration`) in place of the calendar's defaults. */
   reminders?: string[];
-  summary: string;
-  to: string;
-}
+};
 
 /** Google says an event is gone: not found, or deleted. */
 const GONE = /\b(404|410)\b/;
@@ -34,6 +31,7 @@ const Listed = (stdout: string) =>
     events?: {
       extendedProperties?: { private?: Record<string, string> };
       id: string;
+      start?: { date?: string };
       status?: string;
     }[];
     nextPageToken?: string;
@@ -115,7 +113,7 @@ export function googleCalendar(calendar: string, account: string) {
         for (const e of r.events ?? []) {
           const props = e.extendedProperties?.private;
           if (props && e.status !== "cancelled") {
-            held.push({ id: e.id, props });
+            held.push({ allDay: e.start?.date !== undefined, id: e.id, props });
           }
         }
         page = r.nextPageToken ?? "";

@@ -46,6 +46,7 @@ test("an event Life wrote and no longer lists is a refusal only when Google says
     AppointmentEvent.parse({
       appointment: id,
       at: now.toISOString(),
+      calendar: "cal",
       event,
       observations: ["obs_000000000001"],
       op: "created",
@@ -58,8 +59,9 @@ test("an event Life wrote and no longer lists is a refusal only when Google says
     line("apt_000000000004", "unreadable"),
     line("apt_000000000006", "gone"),
     { ...line("apt_000000000006", "gone"), op: "removed" },
+    { ...line("apt_000000000007", "elsewhere"), calendar: "old" },
   ]);
-  const list = [1, 2, 3, 4, 5, 6].map((n) =>
+  const list = [1, 2, 3, 4, 5, 6, 7].map((n) =>
     appointment({ id: `apt_00000000000${n}` })
   );
   const kept = await drafted(
@@ -69,16 +71,18 @@ test("an event Life wrote and no longer lists is a refusal only when Google says
       exists: (id: string) =>
         id === "unreadable"
           ? Promise.reject(new Error("offline"))
-          : Promise.resolve(id !== "deleted"),
+          : Promise.resolve(id !== "deleted" && id !== "elsewhere"),
     },
+    "cal",
     now
   );
-  // Listed, never written, or removed by Life (back again): drafted; gone: refused; elsewhere or unreadable: left
-  // alone this tick.
+  // Listed, never written here (another calendar's), or removed by Life (back again): drafted; gone: refused; moved
+  // or unreadable: left alone this tick.
   expect(kept.map((a) => a.id)).toEqual([
     "apt_000000000001",
     "apt_000000000005",
     "apt_000000000006",
+    "apt_000000000007",
   ]);
   const { byAppointment, refused } = readAppointmentEvents();
   expect(byAppointment.get("apt_000000000002")?.op).toBe("refused");
@@ -91,6 +95,7 @@ test("an event Life wrote and no longer lists is a refusal only when Google says
     {
       exists: () => Promise.resolve(false),
     },
+    "cal",
     now
   );
   expect(after).toEqual([]);
