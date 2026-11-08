@@ -5,7 +5,8 @@ import type { SourceEvent } from "../records/source";
 // every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
 // stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
-// The view: what `read_day` lists as due (apps/server/src/memory/search.ts gathers the candidates, each with its line). Copies merge,
+// The views: what `read_day` lists as due, and what a person's page lists as open with them (apps/server/src/memory/search.ts
+// gathers the candidates, each with its line). Copies merge,
 // timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
 
 /** One candidate open item, with the line `read_day` shows for it. */
@@ -36,6 +37,9 @@ export const AGAIN_DAYS = 3;
 /** How many days late a dated item is still listed, labelled, so a missed daily review is caught up. */
 export const OVERDUE_DAYS = 7;
 
+/** Owed to him (he can only chase it); every other open item is his to do, a promise included (decision 11b). */
+export const isOwedToHim = (c: Candidate) => c.kind === "waiting_on_someone";
+
 const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
@@ -54,7 +58,7 @@ function timely(c: Candidate, date: string, today: string, shown: string[]) {
     return (late === 1 || late === AGAIN_DAYS) && date <= today;
   }
   const late = daysFrom(when, date);
-  if (c.kind === "waiting_on_someone") {
+  if (isOwedToHim(c)) {
     return late === 0;
   }
   // Shown in Due: on a day from the one before its day (its ids elsewhere in `read_day` don't count).
@@ -76,26 +80,17 @@ const KIND = {
 };
 
 /**
- * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
- * serves (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older
- * first. Copies merge: a reminder into the observation it came from. `shown`: the days a daily review was already given each id (`read_day`'s answers).
+ * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves
+ * (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older first.
+ * Copies merge: a reminder into the observation it came from. Overdue: its day is before `date`.
  */
-export function openItems(
+export function rankedItems(
   candidates: Candidate[],
   {
     date,
     goals = [],
     levels = new Map(),
-    shown = new Map(),
-    today = date,
-  }: {
-    date: string;
-    goals?: string[][];
-    levels?: Map<string, number>;
-    shown?: Map<string, string[]>;
-    /** His day now: what the review reads ahead of it shows no undated item. */
-    today?: string;
-  }
+  }: { date: string; goals?: string[][]; levels?: Map<string, number> }
 ): OpenItem[] {
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const items = new Map<string, OpenItem>();
@@ -136,9 +131,29 @@ export function openItems(
     return i < 0 ? a.at.localeCompare(b.at) : (x[i] ?? 0) - (y[i] ?? 0);
   };
   return [...items.values()]
-    .filter((c) => timely(c, date, today, shown.get(c.id) ?? []))
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
+}
+
+/**
+ * The open items due on `date` (`timely`), ranked (`rankedItems`). `shown`: the days a daily review was already given
+ * each id (`read_day`'s answers).
+ */
+export function openItems(
+  candidates: Candidate[],
+  {
+    shown = new Map(),
+    today,
+    ...rank
+  }: Parameters<typeof rankedItems>[1] & {
+    shown?: Map<string, string[]>;
+    /** His day now: what the review reads ahead of it shows no undated item. */
+    today?: string;
+  }
+) {
+  return rankedItems(candidates, rank).filter((c) =>
+    timely(c, rank.date, today ?? rank.date, shown.get(c.id) ?? [])
+  );
 }
 
 /**
