@@ -170,3 +170,35 @@ test("a ready transcript is a silent push to the app, which the phone recognizes
     lifelog: "processing",
   });
 });
+
+test("a notice another app asks for is one visible push; an empty or long title is refused", async () => {
+  storePushToken(env.db, PUSH_TOKEN);
+  const app = appWith(pusher());
+  const post = (body: unknown) =>
+    app.request("/notifications", {
+      body: JSON.stringify(body),
+      headers: {
+        Authorization: `Bearer ${OWNER_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+  expect(
+    (await post({ body: "It reached its agent.", title: "Orbit heard you" }))
+      .status
+  ).toBe(200);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]?.request.headers).toMatchObject({
+    "apns-priority": "10",
+    "apns-push-type": "alert",
+  });
+  expect(JSON.parse(sent[0]?.request.body ?? "")).toEqual({
+    aps: {
+      alert: { body: "It reached its agent.", title: "Orbit heard you" },
+      sound: "default",
+    },
+  });
+  expect((await post({ body: "x", title: "" })).status).toBe(400);
+  expect((await post({ body: "x", title: "t".repeat(101) })).status).toBe(400);
+  expect(sent).toHaveLength(1);
+});

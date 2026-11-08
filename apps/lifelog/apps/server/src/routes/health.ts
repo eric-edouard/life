@@ -64,7 +64,10 @@ const Status = LiveStatus.extend({
 }).openapi("Status");
 
 export function healthRoutes(
-  s: Pick<Services, "db" | "excerpts" | "mac" | "restic" | "rolling" | "worker">
+  s: Pick<
+    Services,
+    "db" | "excerpts" | "mac" | "notice" | "restic" | "rolling" | "worker"
+  >
 ) {
   const { db } = s;
   return router()
@@ -125,6 +128,35 @@ export function healthRoutes(
           kind: "alert",
           token: tokenPrefix(token),
         });
+        return c.json({ stored: true }, 200);
+      }
+    )
+    .openapi(
+      createRoute({
+        description:
+          "A visible push to the phone that another app of the owner's asks for (Life: each voice " +
+          "ask it heard, so a missing one tells him at once it was not). Sent once, recorded as an " +
+          "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
+        method: "post",
+        path: "/notifications",
+        request: {
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  body: z.string().min(1).max(500),
+                  title: z.string().min(1).max(100),
+                }),
+              },
+            },
+            required: true,
+          },
+        },
+        responses: { 200: json(Stored, "Sent, or recorded as skipped") },
+      }),
+      async (c) => {
+        const { body, title } = c.req.valid("json");
+        await s.notice(title, body);
         return c.json({ stored: true }, 200);
       }
     )

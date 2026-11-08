@@ -7,6 +7,7 @@ import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
 import { clip } from "../memory/units";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
+import { notifyPhone } from "../sources/lifelog";
 import { entryId } from "./act";
 
 // His asks of his agents: each "hey <agent>" (`hear.ts`) or `bun life ask` is one `ask` line in memory/ledger.jsonl,
@@ -46,6 +47,11 @@ export function ask(
     const onAsk = settings().agents?.[after.agent]?.onAsk;
     if (onAsk) {
       startDetached(onAsk);
+    }
+    // Heard, not done: a voice ask with no push tells him at once it was not heard (his ask, 8 Nov 2026). His words
+    // stay off the push (it goes through Apple).
+    if (via === "watch") {
+      notifyPhone(`${after.agent} heard you`, "Your ask reached it.");
     }
   }
   return old ?? line;

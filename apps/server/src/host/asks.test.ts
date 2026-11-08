@@ -1,9 +1,11 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER } from "../memory/ledger";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as lifelog from "../sources/lifelog";
 import { ask, asksFor } from "./asks";
 
 const said = (quote: string, agent: string) =>
@@ -79,6 +81,33 @@ test("a new ask starts its agent's onAsk command once, a repeat never, another a
     expect(lines()).toBe(2);
   } finally {
     setSettings({ agents: before ?? null });
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test("a new voice ask pushes 'heard' to his phone once; a repeat and a session ask don't; his words stay off it", () => {
+  rmSync(LEDGER, { force: true });
+  const push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+  try {
+    const heard = () =>
+      ask(
+        {
+          at: "2026-10-15T09:00:00.000Z",
+          quote: "hey orbit, pause it",
+          ref: "test:wake",
+        },
+        { agent: "Orbit", confidence: "high" },
+        "watch",
+        "heard its wake"
+      );
+    heard();
+    heard();
+    said("call the bank", "Orbit");
+    expect(push.mock.calls).toEqual([
+      ["Orbit heard you", "Your ask reached it."],
+    ]);
+  } finally {
+    push.mockRestore();
     rmSync(LEDGER, { force: true });
   }
 });

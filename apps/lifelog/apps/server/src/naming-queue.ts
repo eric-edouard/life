@@ -22,7 +22,7 @@ import {
   turns as turnRows,
 } from "@lifelog/db/schema";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
-import { type Pusher, sendPush } from "./apns";
+import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock, RECOGNITION } from "./config";
 import { textOf } from "./elevenlabs";
@@ -651,23 +651,17 @@ export function morningPush(
 ) {
   let busy = false;
   const notify = (day: string, count: number) =>
-    sendPush(db, push, "people_digest", {
-      body: JSON.stringify({
-        aps: {
-          alert: {
-            body: `${count} ${count === 1 ? "voice" : "voices"} to name.`,
-            title: "New people",
-          },
-          sound: "default",
-        },
-        peopleDigest: day,
-      }),
-      headers: {
-        "apns-priority": "10",
-        "apns-push-type": "alert",
-        "apns-topic": bundleId,
-      },
-    });
+    sendPush(
+      db,
+      push,
+      "people_digest",
+      alertOf(
+        bundleId,
+        "New people",
+        `${count} ${count === 1 ? "voice" : "voices"} to name.`,
+        { peopleDigest: day }
+      )
+    );
   return {
     async morning(at = new Date()) {
       const { date, hour } = ownerClock(at);

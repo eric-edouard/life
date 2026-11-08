@@ -2,7 +2,14 @@
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
 import type { Db } from "@lifelog/db";
-import { apnsFor, type Nudge, type Pusher, phoneNudger } from "./apns";
+import {
+  apnsFor,
+  type Notice,
+  type Nudge,
+  type Pusher,
+  phoneNotice,
+  phoneNudger,
+} from "./apns";
 import { type HealthWatch, healthWatch } from "./archive-health";
 import { type AudioStore, memoryAudioStore } from "./audio-store";
 import type { Config } from "./config";
@@ -47,6 +54,8 @@ export function services(
     // The voices to name: the list, and its length in each morning's push.
     queue = queueCache(db),
     morning = morningPush(db, apns, config.APNS_TOPIC, queue),
+    // A visible push another app of the owner's asks for (Life: each voice ask it heard).
+    notice = phoneNotice(db, apns, config.APNS_TOPIC),
     // Summaries, chapter by chapter as conversations go on, on the Mac.
     rolling = rollingChapters(db, { mac: intelligence, nudge }),
     // At Lifelog Host's embedder, which index.ts passes; none for tests, so none calls it.
@@ -71,6 +80,7 @@ export function services(
     health?: HealthWatch;
     intelligence?: Provider | null;
     mac?: MacSocket;
+    notice?: Notice;
     nudge?: Nudge;
     pages?: PageProcessor;
     queue?: QueueCache;
@@ -124,6 +134,7 @@ export function services(
     intelligence,
     mac,
     morning,
+    notice,
     nudge,
     pages,
     queue,
