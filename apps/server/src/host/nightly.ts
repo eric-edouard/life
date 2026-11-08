@@ -8,7 +8,6 @@ import { isOn } from "../core/outputs";
 import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-style";
-import { tagDetails } from "../memory/detail-tags";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
@@ -444,7 +443,6 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Who is close decides who has a page: judged before the pages and the report's homes.
     const withPeople = await readWithPeople();
     await phase.step("closeness", () => closeness(withPeople));
-    await phase.step("details", () => tagDetails());
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
       window.from,

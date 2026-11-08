@@ -112,9 +112,10 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
   never stored as a summary; only the present is (the situation).
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
-- **Details** (a person's practical facts as fields) are a facet, never a store: his map, then his Contacts, then the
-  facts the details step tagged, in that order (`detailsOf`, the one place for it and for a birthday). Someone has one
-  birthday, home and work: a home or work is the newest current fact first, since an address book goes stale.
+- **Details** are only what is already a field (his map, then his Contacts: `detailsOf`, the one place for them and
+  for a birthday). Everything else known about someone is a line of their page: models read prose, and a field earns
+  its place only when code computes with it (a birthday, a handle). A model step that tagged facts as details (6–8 Nov
+  2026) only copied page lines, and went.
 - **What a model call is shown:** its context (the same for every call of a run, so it is cached) holds the people close
   to him now, personally or at work, and the projects underway (`refContext`, `contextPeopleBy`). Everyone else on the
   map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use

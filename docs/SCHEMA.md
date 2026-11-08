@@ -207,11 +207,8 @@ move or the prompt changes. The latest record per person wins (a person folded i
 
 ## detail-tags.jsonl
 
-Which kind of detail a fact states (`DETAILS`, `records/observation.ts`), written by the nightly's `details` step (the
-fast-tier model, `memory/detail-tags.ts`), append-only: `{schemaVersion: 1, observation, detail, madeBy, at}`. It reads
-each shown, non-conditional fact naming a person by its text alone, newest first, once per prompt version. `detail`
-null: judged, not a detail; no line: not judged yet. The latest line per observation wins. A tagged fact shows on its
-home page (`homeOf`) under its kind while it is current; it goes as any fact goes. Model-owned.
+Written 6–8 Nov 2026 only, by a step that tagged which kind of detail a fact states (`{schemaVersion: 1, observation,
+detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). Kept, as all of memory is.
 
 ## decisions.jsonl
 

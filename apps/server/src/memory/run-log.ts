@@ -19,14 +19,13 @@ export const SWEEPS = new Set([
   "memory.midday",
   "memory.backfill",
 ]);
-/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness and tags details). */
+/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
 export const STEPS = [
   "memory.repos",
   "memory.files",
   "memory.episodes",
   "memory.extract",
   "memory.closeness",
-  "memory.details",
   "memory.pages",
 ];
 /** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval. */
@@ -35,9 +34,10 @@ export const SPENDING = [...SWEEPS, ...STEPS, "memory.import", "eval"];
 const PIPELINE = [
   ...SWEEPS,
   ...STEPS,
-  // Until 18 Oct the verdicts had a step of their own, and inferring people another.
+  // Until 18 Oct the verdicts had a step of their own, and inferring people another; 6–8 Nov 2026, tagging details.
   "memory.triage",
   "memory.infer",
+  "memory.details",
 ];
 
 const omit = (e: LogEvent | undefined) => {

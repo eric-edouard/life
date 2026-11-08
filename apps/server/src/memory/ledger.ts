@@ -71,7 +71,6 @@ export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
-export const DETAIL_TAGS = join(MEMORY, "detail-tags.jsonl");
 /** The appointments ahead of him (`memory/appointments.ts`), rewritten whole. */
 export const APPOINTMENTS = join(MEMORY, "appointments.json");
 /** The events the calendar sync wrote for them and those he removed (`host/appointments-calendar.ts`), append-only. */
