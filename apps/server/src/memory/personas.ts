@@ -3,7 +3,12 @@ import { DAY, daysBefore, HOUR, MIN } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { callCharsOf, stamp } from "../models/llm";
-import { Persona, PersonaLine, type PersonaQuote } from "../records/persona";
+import {
+  GIST_MAX,
+  Persona,
+  PersonaLine,
+  type PersonaQuote,
+} from "../records/persona";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
@@ -592,13 +597,14 @@ export async function personas({ events, failed, since }: WithPeople) {
           .trim()
           .min(1)
           .safeParse((reply as { gist?: unknown } | null)?.gist);
-        // A reply with no line or no gist is a failed call: the last persona stays, the next run retries.
+        // A reply with no line or no gist is a failed call: the last persona stays (one in an older shape is shown as none
+        // until a run succeeds), the next run retries.
         if (lines.length === 0 || !gist.success) {
           throw new Error("no persona line or gist");
         }
         const persona: Persona = {
           built: step.now.toISOString(),
-          gist: clip(gist.data, 800),
+          gist: clip(gist.data, GIST_MAX),
           inputs,
           lines,
           madeBy: stamp(step.llm, PERSONA_PROMPT, step.run),

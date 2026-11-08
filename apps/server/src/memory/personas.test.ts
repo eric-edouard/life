@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { personaPath } from "./ledger";
 import {
   betweenOf,
   groupDaysOf,
@@ -9,6 +11,7 @@ import {
   personaBlock,
   personaLines,
   readingsOf,
+  readPersona,
   recordingsOf,
   sampleOf,
   shownDaysOf,
@@ -282,4 +285,27 @@ test("a group chat-day goes to whoever wrote in it, with only his and their line
     );
   expect(of(["person:2"])).toEqual(["m0", "m2"]);
   expect(of(["person:7"])).toEqual([]);
+});
+
+test("a persona in an older shape reads as none, so it is due at the next run (no migration)", async () => {
+  const ref = "person:older-shape";
+  await Bun.write(
+    personaPath(ref),
+    JSON.stringify({
+      built: "2026-11-08T00:00:00.000Z",
+      inputs: "a",
+      lines: [],
+      madeBy: {},
+      page: ref,
+      schemaVersion: 1,
+    })
+  );
+  try {
+    expect(readPersona(ref)).toBeNull();
+    expect(
+      isDue(readPersona(ref), "a", new Date("2026-11-09T00:00:00.000Z"))
+    ).toBe(true);
+  } finally {
+    rmSync(personaPath(ref));
+  }
 });
