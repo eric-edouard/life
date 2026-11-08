@@ -141,11 +141,11 @@ const Correct = Fix.extend({
     .describe("fact_check: the obs_ or ep_ id from `read_fact_checks`"),
 });
 
-/** Applies one correction the owner asked for: a Life memory correction, his answer to a fact check, or one of lifelog's four. */
 /** What an agent's token may not write: his own words (`tell_life`), his answer to a fact check. */
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
+/** Applies one correction the owner asked for: a Life memory correction, his answer to a fact check, or one of lifelog's four. */
 export async function correct(a: z.infer<typeof Correct>, agent?: string) {
   if (a.kind === "fact_check") {
     if (agent) {
