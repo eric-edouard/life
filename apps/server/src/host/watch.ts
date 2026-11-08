@@ -313,7 +313,7 @@ async function listen(running: string, started: Date): Promise<number> {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         const again = await hear(store, h.conversation, h.from).then(
           ({ heard, marked }) => {
-            // Its marks (its asks' spans, on its turns from `from`) changed: the units carry them at the next sync.
+            // Its marks (its spans, on its turns from `from`) changed: the units carry them at the next sync.
             if (marked) {
               owed.from = earliest(owed.from, new Date(h.from));
             }

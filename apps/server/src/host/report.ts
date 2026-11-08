@@ -55,7 +55,7 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Each unit holding one of his asks, read since the last night, and what the memory holds of it (`whatIsNew`). */
+  /** Each unit holding his words to Life (its marks), read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): hand runs' included. */
   observed: number;

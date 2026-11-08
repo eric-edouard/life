@@ -142,7 +142,7 @@ export async function spokenLines(
 
 /**
  * The conversation-days among `units` with their text filled from their words, as the episodes model reads them (its
- * `head`): the title, then each turn as `HH:MM speaker: words`, and `MARKED` when he asked his agent something in it. Life holds
+ * `head`): the title, then each turn as `HH:MM speaker: words`, and `MARKED` when it holds his words to Life (a mark). Life holds
  * no words, so they are fetched only for the days being read. Other units (a chapter unit among them) come back as
  * they are.
  */

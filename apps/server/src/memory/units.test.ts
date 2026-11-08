@@ -224,6 +224,24 @@ test("his words to Life are marked: every message of a chat with himself, a mess
     handles
   );
   expect(self?.unit.marked).toEqual(["w1", "w2"]);
+  // A mark is in the hash: once whose the chat is resolves, the unit is read again with its marks.
+  const [unresolved] = messageUnits(
+    [
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w1",
+      }),
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w2",
+      }),
+    ],
+    () => null
+  );
+  expect(unresolved?.unit.marked).toBeUndefined();
+  expect(unresolved?.unit.hash).not.toBe(self?.unit.hash);
   const [toDad] = messageUnits(
     [mine({ chat: "33600000002@s.whatsapp.net", chatName: "Dad", id: "w3" })],
     handles

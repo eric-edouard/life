@@ -470,7 +470,7 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
-  // His asks' spans by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  // His spans ("hey" a wake word: Life's or an agent's) by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
   const marks = new Map(
     db
       .query<{ job_id: string; refs: string; turn_index: number }, []>(
@@ -760,7 +760,7 @@ export async function visits(q: Record<string, string | number | undefined>) {
 }
 
 /**
- * Replaces the asks' spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
+ * Replaces the spans (marks) the hearing found in a conversation from `from` on (a span grows as he goes on): each
  * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
  */
 export function writeMarks(

@@ -122,7 +122,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
-  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (his asks'
+  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (his spans'
   spans, refs only) is the one thing there not rebuilt from the feed.
 - It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
   voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled

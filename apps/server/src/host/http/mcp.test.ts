@@ -582,6 +582,15 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
+test("a fact check's answer is his: an agent's token is refused", async () => {
+  await expect(
+    correct(
+      { answer: "true", kind: "fact_check", ref: "obs_000000000001" },
+      "orbit"
+    )
+  ).rejects.toThrow("an agent's words are not his");
+});
+
 test("tell_life keeps his words verbatim, marked, the question as the assistant's line; an agent's call is refused", async () => {
   rmSync(TOLD, { force: true });
   const tell = async (over: Record<string, unknown>) =>

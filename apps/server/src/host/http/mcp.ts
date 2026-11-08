@@ -142,8 +142,15 @@ const Correct = Fix.extend({
 });
 
 /** Applies one correction the owner asked for: a Life memory correction, his answer to a fact check, or one of lifelog's four. */
-export async function correct(a: z.infer<typeof Correct>) {
+/** What an agent's token may not write: his own words (`tell_life`), his answer to a fact check. */
+const NOT_HIS =
+  "Not done: this app was paired as an agent, and an agent's words are not his.";
+
+export async function correct(a: z.infer<typeof Correct>, agent?: string) {
   if (a.kind === "fact_check") {
+    if (agent) {
+      throw new Error(NOT_HIS);
+    }
     if (!(a.ref && a.answer)) {
       throw new Error("Not done: a fact_check needs `ref` and `answer`.");
     }
@@ -436,9 +443,7 @@ export function buildServer() {
       }),
       ({ asked, said }, agent) => {
         if (agent) {
-          throw new Error(
-            "Not done: this app was paired as an agent, and an agent's words are not his."
-          );
+          throw new Error(NOT_HIS);
         }
         recordTold(said, asked);
         return Promise.resolve("Kept: Life reads it at the night's run.");

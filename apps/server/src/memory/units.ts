@@ -476,9 +476,15 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
     unit: {
       date: localDate(first.at),
       end: last.at,
-      // Content only, not ids or times: the same chat seen through two sources hashes the same.
+      // Content only, not ids or times: the same chat seen through two sources hashes the same. A mark is content (a
+      // line becomes his to keep when whose the chat is resolves later), added only to a marked line.
       hash: contentHash(
-        sorted.map((e) => `${e.fromMe ? 1 : 0}|${e.text}`).join("\n")
+        sorted
+          .map(
+            (e) =>
+              `${e.fromMe ? 1 : 0}${marked.includes(e.id) ? "|kept" : ""}|${e.text}`
+          )
+          .join("\n")
       ),
       id: dayUnitId(first),
       key: first.chat,
