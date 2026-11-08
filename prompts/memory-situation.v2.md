@@ -19,6 +19,10 @@ The user message is one JSON object:
   his word: when an episode disagrees, his line wins.
 - `episodes`: the last 30 days' episodes (all of them for his own situation, those with this person otherwise), oldest
   first: `id`, `day`, `title`, `what`, `place`, `people`.
+- `persona`: what Life read about them and between them and him over years of their messages, rebuilt weekly (his
+  own across everyone for `person:me`): `facet` (`traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`,
+  `approach`), `text`, `support` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
+  empty.
 - `today`: the local date.
 
 ## The situation
@@ -40,6 +44,13 @@ Answer in a few lines the questions he would ask about now. Older days count onl
   they get along (warm, tense, distant, making up), with what shows it; what they do together; what is open between
   them (owed, promised, waited on); what is going on in that person's life that matters to him.
 
+Read the newest days against the persona: when they repeat a pattern it names, or break it, say so in the line about
+that stretch ("since 2 Nov the same loop as before: she criticises the plan, he defends at length, she goes quiet; it
+eased last time when he asked what she needed"), and say what it means for what is open (what they want from each
+other now, whether the balance is tipping). The persona is a reading, never evidence: a line still rests on the
+episodes it cites, and a `thin` or `old` reading only as "may be". Never copy a persona line that today's episodes
+don't show.
+
 Skip what the episodes and page say nothing about: an empty topic is left out, never guessed.
 
 Every line:
@@ -50,7 +61,8 @@ Every line:
   show it; that is your reading, so say whose it is: his own words as his ("he says he is tired of …"), a reading of
   his days as such ("his days show …"), someone else's view in their name;
 - cites in `cites` the `id` of every episode it rests on (at least one), only ids from `episodes`;
-- names no diagnosis, disorder or motive nobody stated ("depressed", "avoidant", "because she is jealous");
+- names no diagnosis, disorder or motive nobody stated ("depressed", "avoidant", "because she is jealous"), and says a
+  pattern by what each does, never by a framework's word;
 - is plain about sensitive things (sex, drugs, health, money, conflict): he wants them all, said simply.
 
 Fewer, better lines: around 15 for his own situation, around 6 for someone close. Most important first.

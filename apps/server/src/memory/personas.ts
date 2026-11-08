@@ -20,7 +20,7 @@ import { localDate, time } from "./zones";
 // and the owner,
 // and how each writes to the other (docs/architecture.md, "The pipeline"); his own across everyone. One call per person
 // reads their 1:1 messages both ways (the night's `readWithPeople`: 3 years), sampled across the years (`sampleOf`),
-// with their page and code's counts (`pairCountsOf`), and writes the persona whole, at most every 3 days and only when
+// with their page and code's counts (`pairCountsOf`), and writes the persona whole, at most once a week and only when
 // something new was written. Every quote is checked against the messages shown. Nothing is sent.
 
 const PERSONA_PROMPT = "memory-persona.v1";
@@ -29,8 +29,8 @@ const BUDGET = 100_000;
 /** Characters of a message shown (a mail's body runs long) and of their page. */
 const MESSAGE_MAX = 1500;
 const PAGE_MAX = 20_000;
-/** How old a persona gets before new messages rebuild it: people change slowly, and the situation already reads each night (his choice, 8 Nov). */
-const REBUILD_AFTER = 3 * DAY;
+/** How old a persona gets before new messages rebuild it: people change slowly; the situation reads it each night against the newest days (his choice, 8 Nov). */
+const REBUILD_AFTER = 7 * DAY;
 /** A line seen on fewer days is `thin`; one whose newest quote is older than a year is `old`. */
 const SOLID_DAYS = 3;
 const OLD_AFTER_DAYS = 365;
@@ -299,7 +299,7 @@ export function personaLines(reply: unknown, days: ShownDay[]) {
   });
 }
 
-/** Whether a persona is due: none yet, or 3 days old with new messages behind it. */
+/** Whether a persona is due: none yet, or a week old with new messages behind it. */
 export const isDue = (
   last: { built: string; inputs: string } | null,
   inputs: string,
