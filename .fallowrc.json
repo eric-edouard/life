@@ -5,8 +5,6 @@
     "assets/**/*.js",
     "assets/**/*.css",
     "apps/edge/*.ts",
-    "apps/web/src/main.tsx",
-    "apps/web/vite.config.ts",
     "apps/lifelog/apps/server/fixtures/fake-restic.ts",
     "apps/lifelog/scripts/*.ts"
   ],
@@ -52,10 +50,6 @@
       {
         "name": "host",
         "patterns": ["apps/server/src/host/**"]
-      },
-      {
-        "name": "web",
-        "patterns": ["apps/web/**"]
       }
     ],
     "rules": [
@@ -105,10 +99,6 @@
           "memory",
           "records"
         ]
-      },
-      {
-        "from": "web",
-        "allow": ["records"]
       }
     ]
   }

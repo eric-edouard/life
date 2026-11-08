@@ -60,7 +60,7 @@ deleted on WhatsApp say?" More, with full transcripts: [examples](docs/examples.
 ## It also works when you don't ask
 
 - Each morning you get the night's report: what's new, what's due, what you promised and to whom.
-- When Life isn't sure about a fact, it asks you on its decisions page, one question at a time, whenever you like.
+- When Life isn't sure about a fact, your assistant asks you in a chat, one question at a time, whenever you like.
 - Say "hey Orbit, book the dentist" near your recorder, Orbit being an agent of yours: Life hears it, and Orbit
   picks it up and gets on with it. [Set up your agent](docs/use/agent.md).
 - If a source stops reading (WhatsApp signed out, a bridge down), you get one email that day saying which.
@@ -129,7 +129,7 @@ How the pipeline is built, and why: [architecture](docs/architecture.md). Every 
 
 Life answers through its connector, an MCP server on your Mac, behind its own sign-in, that Claude (claude.ai, the apps, Claude Code)
 and ChatGPT add as a custom connector. It reads your memory: a person, a day, a search, your open to-dos, your chats.
-It changes only two things, and only when you ask: a correction to the memory, and an item on your to-do list.
+It changes only three things, and only when you ask: a correction to the memory, something you tell it to remember, and an item on your to-do list.
 [Connect your assistant](docs/use/connect.md).
 
 <picture>
@@ -158,7 +158,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 | Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
 | Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
-| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; the pages in React; lifelog's iPhone and Watch apps in Swift 6. |
+| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; lifelog's iPhone and Watch apps in Swift 6. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
 | Network | Tailscale: Claude Code reaches the Mac on your tailnet; claude.ai and ChatGPT through Tailscale Funnel, a public address with only Life's sign-in in front. |

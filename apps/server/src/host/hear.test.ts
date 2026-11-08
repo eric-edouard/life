@@ -10,7 +10,7 @@ import {
   lifelogStore,
   pageFixture,
 } from "../sources/store-fixtures";
-import { asksIn, hear, speechIn, type Turn, wakes } from "./hear";
+import { hear, spansIn, speechIn, type Turn, wakes } from "./hear";
 
 test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
@@ -50,7 +50,7 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
   }
 });
 
-test('"hey Life" wakes the agent as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+test('"hey Life" wakes Life as lifelog writes it (audit of 21 Oct), never an idiom', () => {
   for (const said of [
     "Hey Life, remind me",
     "Uh, hey, Life.",
@@ -98,7 +98,7 @@ test("a turn is his, someone else's when lifelog named anyone (by id or name), e
 });
 
 test("his wake is high confidence, an unattributed one low, someone else's is no ask", () => {
-  const asks = asksIn(
+  const asks = spansIn(
     [
       turn(0, "me", "hey Orbit, call the bank"),
       turn(60, "unknown", "hey Orbit, water the plant"),
@@ -117,13 +117,29 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
+test('"hey Life" is a span for Life to keep, with no agent: a mark, never an ask', () => {
+  const [kept, asked] = spansIn(
+    [
+      turn(0, "me", "hey Life, remember the neighbour's cat is Pixel"),
+      turn(60, "me", "hey Orbit, call the bank"),
+    ],
+    ""
+  );
+  expect(kept).toMatchObject({
+    agent: undefined,
+    confidence: "high",
+    turns: [0],
+  });
+  expect(asked?.agent).toBe("Orbit");
+});
+
 test("with two agents, the turn's first wake word picks its agent", () => {
   const before = settings().agents ?? null;
   try {
     setSettings({
       agents: { ...before, Comet: { misheard: [], wake: ["comet"] } },
     });
-    const asks = asksIn(
+    const asks = spansIn(
       [
         turn(0, "me", "hey Comet, plan the trip"),
         turn(60, "me", "hey Orbit, call the bank"),
@@ -139,7 +155,7 @@ test("with two agents, the turn's first wake word picks its agent", () => {
 
 // audit-4-hej-agent: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
 test("“Hej Orbit” from an unattributed voice is a low ask, from a named other none; “hey, or bit” is his low ask only", () => {
-  const asks = asksIn(
+  const asks = spansIn(
     [
       turn(0, "unknown", "Hej Orbit test."),
       turn(60, "other", "Hej Orbit, buy me a car"),
@@ -157,7 +173,7 @@ test("“Hej Orbit” from an unattributed voice is a low ask, from a named othe
 });
 
 test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Orbit”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
-  const asks = asksIn(
+  const asks = spansIn(
     [
       turn(0, "me", "Hey Zorba, add milk to the list"),
       turn(60, "me", "Zorba, can you pass me the salt?"),
@@ -194,19 +210,19 @@ test("an ask runs over his following turns until another speaker, a 15 s pause o
     turn(130, "me", "hey Orbit, one more"),
     turn(135, "unknown", "an unattributed turn ends his ask"),
   ];
-  expect(asksIn(turns, "").map((a) => [a.turns, a.quote])).toEqual([
+  expect(spansIn(turns, "").map((a) => [a.turns, a.quote])).toEqual([
     [[1, 2, 3], "Hey, Orbit. find a flight to Oslo for Friday"],
     [[6, 7], "hey orbit, remind me to call mum"],
     [[9], "hey Orbit, one more"],
   ]);
   // Only wakes at or after the hearing's start: earlier ones were heard before.
   expect(
-    asksIn(turns, "2026-10-19T10:01:40.000Z").map((a) => a.turns[0])
+    spansIn(turns, "2026-10-19T10:01:40.000Z").map((a) => a.turns[0])
   ).toEqual([6, 9]);
 });
 
 test("the pause is measured from a turn's end; the ask keeps when its last turn ended and when all of it arrived", () => {
-  const [ask] = asksIn(
+  const [ask] = spansIn(
     [
       turn(0, "me", "hey Orbit, plan the week:", 30),
       turn(40, "me", "Monday is the dentist", 3),

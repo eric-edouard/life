@@ -47,7 +47,7 @@ conversation's turns) and checked by the nightly.
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | The conversation's title, else `Recorded conversation` (a chapter: its chapter title), chat name, mail subject, or note title (`(shared)` after a shared note's) |
 | `summary` | A chapter's: lifelog's own summary (written by its model, not by Life), which marks the unit as a chapter; a repo-day's: below. Never on a conversation-day |
-| `marked` | Lifelog only, when the owner asked his agent something in it: the refs of the turns of his asks' spans (the hearing's marks); its marks move its hash, so it is read again, at importance 3, and its text then ends with `MARKED` |
+| `marked` | His words to Life, to keep, in it: the refs of the lines he gave Life to keep (a "hey Life" span or an ask's, a message to himself, a told line); it moves the hash, so the unit is read again, at importance 2 at least, and its text then ends with `MARKED` |
 | `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in it (a name given to one turn names that turn only), `person:me` when the owner speaks (not on a chapter), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
 | `refs` | Where to find the raw material. A conversation-day: its first and last turn, `<jobId>:<turnIndex>@<turn start>`; its turns are the conversation's in [`start`, `end`). A chapter: `<conversation id>#<chapter id>` and its first turn. Chats: first and last message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
 | `stats` | `items` (messages, turns, or commits), `fromMe` (messages the owner sent, his turns, or his commits), `chars` (0 on a conversation-day: Life holds no words). Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of the owner's projects every author's commits count, elsewhere only the owner's). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
@@ -215,19 +215,19 @@ home page (`homeOf`) under its kind while it is current; it goes as any fact goe
 
 ## decisions.jsonl
 
-His decisions: Life's fact checks and what he answered (`records/decision.ts`). Append-only, one line per step
-(`{at, decision, step, data, agent?, run?, schemaVersion}`); a decision now is the fold of its lines (`decisionsNow`,
-`memory/decisions.ts`), never rewritten (but by a rename's migration, in place). Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
-Oct 2026): at each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; then `done` or `expired`. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or null to clear), recorded as
-its rating at once (a note alone as Partly); an expired one is rated `skip`. One synchronous read-and-append per write
-(`writeDecision`), so his tap and Life closing the same decision can't both land: once closed, his answer is refused.
-Older lines still parse: the fact checks' `taken` (until 2 Nov 2026), which changes nothing, and his loops' (any other
-`loop`, the steps `revised`, `reopened`, `withdrawn`, `context`, `revoked`, and `agent`, `run`); the fold ignores a
-decision whose `asked` line is not a fact check.
+Historical: Life's old fact checks and what he answered on its decisions page, and his loops' decisions. Nothing reads or
+writes it any more; it stays on disk.
+
+## told.jsonl
+
+What he told Life in a chat, append-only, one synchronous line each outside the lock (`recordTold`, `memory/told.ts`, from
+the connector's `tell_life`): `{schemaVersion: 1, at, said, asked?}`. `said` is his words verbatim; `asked` is the question
+he answered, if any. Read back as the source `told`: his lines are marked, the question reads as the assistant's line,
+never his.
 
 ## corrections.jsonl
 
-What the owner told Life, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false
+His corrections, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false
 or partly reads as a `wrong` here, `ratings.jsonl`). A Claude session appends it when the owner says
 something in conversation (`bun life memory correct '<json>'`, which checks and stamps it), and the pages step adds
 `keep-mine` and `not-important` when it finds the owner editing a page file. Every rebuild respects it. Each line has
@@ -379,7 +379,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 ## statements.jsonl
 
 The fact checks: the claims the owner is asked about, one per claim, append-only, written by
-`drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night and midday runs; by hand `bun life memory doubtful <n>`):
+`drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory doubtful <n>`):
 `{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
@@ -394,8 +394,7 @@ before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
 
-The owner's answers to the fact checks, append-only, written by `recordRating` (his tap on a fact-check decision, from 30 Oct
-2026; his fact-check loop before, and the check page before 29 Oct; by hand `bun life memory rate <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
+The owner's answers to the fact checks, append-only, written by `recordRating` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory rate <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
 `skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
 rated. What each answer means is one table (`ANSWERS`, `ledger.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would

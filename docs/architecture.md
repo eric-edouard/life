@@ -140,10 +140,10 @@ someone else is capped at 0.6 confidence.
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt.
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
-- The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind the owner's sign-in.
+- The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind Life's OAuth.
   The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
-  so his connector's URL never changes. It decides nothing; the Mac's sign-in guards every path.
+  so his connector's URL never changes. It decides nothing; the Mac's OAuth guards every path.
 
 ## The code
 
@@ -162,7 +162,7 @@ core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ← 
 | `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends and open items |
 | `payments/` | The payments contract (`PaymentsBackend`) and its one backend, his `money` CLI |
 | `memory/` | The pipeline (units, episodes, observations, pages), the ledger and its readers, people and places, search, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
-| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the asks (`asks.ts`), `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the status snapshot, Life's status), and the outputs (report, the Past calendar, the appointments) |
+| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the asks (`asks.ts`), `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the brand), `status/` (the status snapshot, Life's status), and the outputs (report, the Past calendar, the appointments) |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
@@ -189,8 +189,7 @@ The repo around it is a Bun workspace:
 | `derived/` | Generated, gitignored: a checkout's state |
 | root | `bts.jsonc` (so `create-better-t-stack add` works), `bunfig.toml` (a hoisted install, for Codex's binary), the workspace's version catalog |
 
-No Turborepo: `bun run check` runs every step at once, `apps/web`'s build and types among them, and a task cache
-would buy two short steps. There is no CI: the pre-push hook runs `bun run check`.
+No Turborepo: `bun run check` runs every step at once, and a task cache would buy two short steps. There is no CI: the pre-push hook runs `bun run check`.
 
 ## The app
 
@@ -204,24 +203,11 @@ there): `docs/status-reads.md`.
 
 ## Pages
 
-All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a
-Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
+Life serves no web pages. The watcher's server serves the connector, its issuer and the brand, and none of the owner's
+data before a token. Every route is a Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens. The web
+app and the legacy portrait (`/me`) were removed on 8 Nov 2026; the server version will build what it needs.
 
-- **The web app** (`apps/web`: Vite, React, TypeScript, Tailwind, TanStack Router and Query; served by
-  `apps/server/src/host/http/web.ts`) owns `/`: its bundle (Life's code, nothing of his) answers any GET asking for HTML
-  outside `/api/` and `/.well-known/`, its hashed files are under `/app/` (the brand owns `/assets/`), and the router
-  names the pages (`/decisions`, `/sign-in`). Its data is under `/api/`, each answer 401 before sign-in. It reads types
-  from `records/` only (a fallow zone). The build is `WEB_DIST` (`core/paths.ts`), made by `bun run check` and by
-  `scripts/helper.ts` for the app; `bun run check:web` checks the decisions page's layout in a browser.
-- **His sign-in** (`host/http/sign-in.ts`): one password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, the
-  web app and the portrait are off), `POST /api/sign-in`, its cookie the expiry signed with the password, failed tries
-  capped. `/sign-in?next=` goes back only to a path on this site.
-- **The portrait** (`host/http/portrait.ts`, `/me`), parked as legacy: a one-off set of pages about the owner and his
-  people in `OWNER_DATA_DIR/docs/portrait/`, served as they are: `/me` is `index.html`, `/me/<name>` is `<name>.html`,
-  `/me/<name>/clips/<clip>.m4a|json` a clip, `/me/player.js` the clip player (`assets/portrait/`); nothing else. Its CSP
-  allows inline styles, Google Fonts and those files only. A signed-out visit goes to `/sign-in`.
-
-- **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), with no sign-in: Life's
+- **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), open to all: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.
 
 Everything Life shows follows Life's brand, one source in `assets/brand/tokens.css`: where each surface takes it is

@@ -87,7 +87,7 @@ const RETRY_MS = 30_000;
  * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
  * it have settled (its speaker, mostly within 3 s), open speech once the next recording is usually in. A wake with no
  * speaker yet waits longer, in `hear` (`NAMING_MS`).
- * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
+ * ponytail: a recording later than that ends the ask before it (`spansIn` starts at a wake); joining it to the open
  * ask would need a ledger line that extends an ask.
  */
 const WAIT_MS = { complete: 5000, open: MIN };
@@ -313,7 +313,7 @@ async function listen(running: string, started: Date): Promise<number> {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         const again = await hear(store, h.conversation, h.from).then(
           ({ heard, marked }) => {
-            // Its marks (its asks' spans, on its turns from `from`) changed: the units carry them at the next sync.
+            // Its marks (its spans, on its turns from `from`) changed: the units carry them at the next sync.
             if (marked) {
               owed.from = earliest(owed.from, new Date(h.from));
             }

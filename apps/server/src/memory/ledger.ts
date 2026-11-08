@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import {
   appendJsonl,
   filesIn,
@@ -68,8 +68,6 @@ export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
 export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
 export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
-/** His decisions: what his loops asked him and what he answered (records/decision.ts, memory/decisions.ts). */
-export const DECISIONS = join(MEMORY, "decisions.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
@@ -487,6 +485,16 @@ export async function recordCorrection(said: unknown) {
 
 /** The fact checks he was shown: every statement, in the order it was drawn. */
 export const readStatements = () => rowsOf(STATEMENTS, Statement);
+
+/** How long a drawn fact check stays open; after that it counts as skipped (derived, nothing written). */
+const FACT_CHECK_OPEN = 7 * DAY;
+/** The fact checks open now (the one place it is decided): drawn under 7 days ago, not answered. */
+export function openFactChecks(now = clock().getTime()) {
+  const rated = readRatings();
+  return readStatements().filter(
+    (s) => !rated.get(s.ref)?.answer && now - Date.parse(s.at) < FACT_CHECK_OPEN
+  );
+}
 
 /** His rated statements as facts, true or false as `ANSWERS` says (skip and partly left out). */
 export function ratedFacts() {

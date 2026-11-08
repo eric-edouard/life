@@ -11,6 +11,7 @@ import {
   CORRECTIONS,
   EPISODES,
   OBSERVATIONS,
+  openFactChecks,
   PAGES,
   readLedger,
   readRatings,
@@ -156,16 +157,13 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The fact checks: statements he answered, and those left. */
-async function rated() {
-  const [statements, ratings] = await Promise.all([
-    readStatements(),
-    readRatings(),
-  ]);
-  const left = statements.filter((s) => !ratings.get(s.ref)).length;
+/** The fact checks: statements he answered, and those open now. */
+function rated() {
+  const statements = readStatements();
+  const answered = readRatings();
   return {
-    left,
-    ratings: statements.length - left,
+    left: openFactChecks().length,
+    ratings: statements.filter((s) => answered.get(s.ref)?.answer).length,
     statements: statements.length,
   };
 }
@@ -175,12 +173,11 @@ async function memoryCounts() {
     .stdout.toString()
     .trim()
     .split("\n");
-  const [episodes, observations, people, areas, portrait] = await Promise.all([
+  const [episodes, observations, people, areas] = await Promise.all([
     filesIn(EPISODES),
     filesIn(OBSERVATIONS),
     filesIn(join(PAGES, "people"), ".md"),
     filesIn(join(PAGES, "areas"), ".md"),
-    filesIn(join(OWNER_DATA_DIR, "docs", "portrait"), ".html"),
   ]);
   return {
     commitAt: at ? new Date(at).toISOString() : null,
@@ -191,8 +188,7 @@ async function memoryCounts() {
       0
     ),
     pages: people.length + areas.length,
-    portraitPages: portrait.length,
-    ...(await rated()),
+    ...rated(),
   };
 }
 
@@ -1031,7 +1027,6 @@ function outputCards(r: Reads): Card[] {
     String(e.step).startsWith(EMAIL_STEP)
   ).length;
   const mails = since(r.sent, DAY, r.t);
-  const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
     {
       content: calls
@@ -1115,20 +1110,6 @@ function outputCards(r: Reads): Card[] {
       name: "Fact checks",
       tone: "ok",
       word: r.mem.left > 0 ? "waiting" : "all answered",
-    },
-    {
-      facts: [
-        {
-          label: "Pages",
-          value: String(r.mem.portraitPages),
-        },
-      ],
-      group: "outputs",
-      headline: portraitOn ? "behind its password" : "off",
-      id: "portrait",
-      name: "Web app and /me",
-      tone: portraitOn ? "ok" : "idle",
-      word: portraitOn ? "serving" : "off",
     },
   ];
 }

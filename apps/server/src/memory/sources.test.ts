@@ -30,6 +30,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "notes",
     "claude",
     "chatgpt",
+    "told",
     AGENT_WORD,
     "git",
     "screen",
@@ -52,6 +53,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "instagram",
     "telegram",
     "linkedin",
+    "told",
     "radio",
   ]);
   expect(Object.keys(t.SEARCHED)).toContain("radio");
@@ -63,6 +65,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "telegram",
     "linkedin",
     "mail",
+    "told",
     "radio",
   ]);
   // A source with no search window is not searched (git); mail is searched in its own section.
@@ -76,6 +79,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "notes",
     "claude",
     "chatgpt",
+    "told",
   ]);
   expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
 });

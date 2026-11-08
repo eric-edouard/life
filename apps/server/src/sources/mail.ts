@@ -415,6 +415,8 @@ interface Row {
   mailbox: string;
   prefix: string | null;
   received: number;
+  /** Every recipient's address, one per line (To, Cc and Bcc); null when none. */
+  recipients: string | null;
   rowid: number;
   sender: string | null;
   subject: string | null;
@@ -487,7 +489,9 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
                 m.conversation_id as conversation, m.subject_prefix as prefix,
                 s.subject, a.address as sender, mb.url as mailbox, g.message_id_header as header,
                 (coalesce(m.list_id_hash, 0) != 0 or coalesce(m.unsubscribe_type, 0) != 0) as bulk,
-                ${sorts ? "coalesce(g.model_category, 0) = 1" : "0"} as "transaction"
+                ${sorts ? "coalesce(g.model_category, 0) = 1" : "0"} as "transaction",
+                (select group_concat(ra.address, char(10)) from recipients r
+                   join addresses ra on ra.ROWID = r.address where r.message = m.ROWID) as recipients
            from messages m
            join mailboxes mb on mb.ROWID = m.mailbox
            left join subjects s on s.ROWID = m.subject
@@ -520,6 +524,20 @@ function parse(path: string, id: string) {
   return read;
 }
 
+/** A mail he sent only to himself: his words to Life, to keep (a mark). `recipients`: one address a line. */
+const isToSelf = (
+  sender: string,
+  recipients: string | null,
+  mine: Set<string>
+) => {
+  const to = recipients?.toLowerCase().split("\n") ?? [];
+  return mine.has(sender) && to.length > 0 && to.every((a) => mine.has(a));
+};
+
+/** A mail's chat: its conversation, else its mailbox and subject. */
+const chatOf = (r: Row, subject: string) =>
+  r.conversation ? `mail:${r.conversation}` : `${r.mailbox}#${subject}`;
+
 export function readMail(
   since: Date,
   root = mailRoot(),
@@ -548,15 +566,16 @@ export function readMail(
     events.push({
       at: new Date(r.received * 1000).toISOString(),
       bulk: r.bulk === 1,
-      chat: r.conversation
-        ? `mail:${r.conversation}`
-        : `${r.mailbox}#${subject}`,
+      chat: chatOf(r, subject),
       ...(subject ? { chatName: subject } : {}),
       ...(contacts.has(handleKey(sender)) ? { contact: true as const } : {}),
       ...(r.transaction === 1 ? { transaction: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
+      ...(isToSelf(sender, r.recipients, mine)
+        ? { marked: true as const }
+        : {}),
       sender,
       source: "mail",
       text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),

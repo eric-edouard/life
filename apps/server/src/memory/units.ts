@@ -30,7 +30,13 @@ import {
 } from "./ledger";
 import { describeFiles, showFiles } from "./message-files";
 import { loadTruth, OWNER, ownerIn, type Truth } from "./read-truth";
-import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
+import {
+  enabledSources,
+  isDirect,
+  kindOf,
+  readySources,
+  sourceOf,
+} from "./sources";
 import { dayStart, localDate, wall } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
@@ -208,9 +214,8 @@ export const head = (text: string) =>
     ? text
     : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
 
-/** What a unit holding one of his asks (its marks) adds to its text (`voiceText`, words.ts). */
-export const MARKED =
-  "[He spoke to his agent here: what he says after it is his to remember.]";
+/** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
+export const MARKED = "[He asked Life to keep what he says here.]";
 
 /**
  * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its
@@ -409,6 +414,33 @@ export function callLine({ at, phoneCall }: SourceEvent) {
 }
 
 /**
+ * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
+ * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
+ * WhatsApp, iMessage; `isDirect`) has the rest 1:1 whatever handles one person wrote from; elsewhere
+ * (bridged networks, mail) more than one other sender is a group: none.
+ */
+export function chatPerson(
+  list: SourceEvent[],
+  resolve: (s: string) => string | null
+) {
+  const others = new Set(
+    list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
+  );
+  const [first] = list;
+  if (!(first && isDirect(first.source, first.chat, others.size))) {
+    return null;
+  }
+  const named =
+    first.chatName && kindOf(first.source) !== "mail"
+      ? resolve(first.chatName)
+      : null;
+  const person = [...others].find((o) => o.startsWith("person:"));
+  // A chat only he wrote in is with whoever its key names (its source's `handleOf`: a WhatsApp id holds a phone).
+  const keyed = sourceOf(first.source).handleOf?.(first.chat) ?? first.chat;
+  return person ?? (others.size === 0 ? resolve(keyed) : null) ?? named;
+}
+
+/**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
  * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
  * episodes step, names them as `speakerOf` does now.
@@ -426,6 +458,9 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   );
   const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
+  // His words to Life: what its reader marked, or every message of a chat with himself.
+  const toSelf = chatPerson(sorted, resolve) === OWNER;
+  const marked = sorted.filter((e) => e.marked || toSelf).map((e) => e.id);
   return {
     messages: sorted.map((e) => ({
       at: e.at,
@@ -441,12 +476,19 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
     unit: {
       date: localDate(first.at),
       end: last.at,
-      // Content only, not ids or times: the same chat seen through two sources hashes the same.
+      // Content only, not ids or times: the same chat seen through two sources hashes the same. A mark is content (a
+      // line becomes his to keep when whose the chat is resolves later), added only to a marked line.
       hash: contentHash(
-        sorted.map((e) => `${e.fromMe ? 1 : 0}|${e.text}`).join("\n")
+        sorted
+          .map(
+            (e) =>
+              `${e.fromMe ? 1 : 0}${marked.includes(e.id) ? "|kept" : ""}|${e.text}`
+          )
+          .join("\n")
       ),
       id: dayUnitId(first),
       key: first.chat,
+      ...(marked.length > 0 ? { marked } : {}),
       people: [
         ...new Set(
           sorted.flatMap((e) => {

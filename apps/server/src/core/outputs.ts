@@ -11,7 +11,7 @@ export const OUTPUTS = {
   },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
-  /** The connector, its OAuth issuer and the pages behind sign-in (`server.ts`). */
+  /** The connector and its OAuth issuer (`server.ts`). */
   connector: { label: "Connector", on: () => Boolean(settings().connector) },
   /** The episodes on a calendar: Google's through `gog` with an account, else an Apple one through the app's EventKit tool (`host/past-calendar.ts`). */
   past: {

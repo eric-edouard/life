@@ -58,7 +58,7 @@ every Keychain secret in its environment:
 | Service | What it does |
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
-| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector and the pages. |
+| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
@@ -85,8 +85,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes, the index, his
-  fact checks topped up. Facts wait for the night, which reads each unit once its day is done. No commit or email; a failure only logs (the next slot and the night read the day again).
+- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes and the index. Facts wait for the night, which reads each unit once its day is done. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
 - **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
@@ -123,7 +122,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
-  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (his asks'
+  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (his spans'
   spans, refs only) is the one thing there not rebuilt from the feed.
 - It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
   voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled

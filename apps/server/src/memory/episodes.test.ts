@@ -110,14 +110,15 @@ test("a day's reply is checked: verdicts and episodes for its own units only, pe
     // Commits are never read in full, whatever the model said.
     expect.objectContaining({ importance: 1, unit: U2 }),
   ]);
-  // A unit holding one of his asks is read whatever the model said.
+  // A unit he marked is read whatever the model said, but a mark keeps, it never weighs (8 Nov 2026).
   const marked = unit({ id: U3, marked: ["j:1@a"] });
-  expect(
+  const weighed = (importance: number) =>
     parseDay(
-      { verdicts: [{ ...v, id: U3, importance: 0 }] },
+      { verdicts: [{ ...v, id: U3, importance }] },
       { ...ctx, units: new Map([[U3, marked]]) }
-    ).verdicts.map((x) => x.importance)
-  ).toEqual([3]);
+    ).verdicts.map((x) => x.importance);
+  expect(weighed(0)).toEqual([2]);
+  expect(weighed(3)).toEqual([3]);
   expect(day.invalid).toBe(3);
   expect(day.episodes).toHaveLength(3);
   const [first, twin, again] = day.episodes;

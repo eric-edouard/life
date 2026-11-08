@@ -203,6 +203,60 @@ test("a chat-day groups one chat's messages of one day, names known senders in i
   expect(built[0]?.text).toContain("dad: Can you call the plumber today?");
 });
 
+test("his words to Life are marked: every message of a chat with himself, a message its reader marked; never a chat he only wrote in", () => {
+  const handles = (s: string) =>
+    ({ "+33600000001": "person:me", "+33600000002": "person:dad" })[s] ?? null;
+  const mine = (over: Partial<SourceEvent>) =>
+    msg({ fromMe: true, sender: "me", source: "whatsapp", ...over });
+  const [self] = messageUnits(
+    [
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w1",
+      }),
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w2",
+      }),
+    ],
+    handles
+  );
+  expect(self?.unit.marked).toEqual(["w1", "w2"]);
+  // A mark is in the hash: once whose the chat is resolves, the unit is read again with its marks.
+  const [unresolved] = messageUnits(
+    [
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w1",
+      }),
+      mine({
+        chat: "33600000001@s.whatsapp.net",
+        chatName: undefined,
+        id: "w2",
+      }),
+    ],
+    () => null
+  );
+  expect(unresolved?.unit.marked).toBeUndefined();
+  expect(unresolved?.unit.hash).not.toBe(self?.unit.hash);
+  const [toDad] = messageUnits(
+    [mine({ chat: "33600000002@s.whatsapp.net", chatName: "Dad", id: "w3" })],
+    handles
+  );
+  expect(toDad?.unit.marked).toBeUndefined();
+  const [mail] = messageUnits(
+    [
+      msg({ chat: "t1", id: "m1", source: "mail" }),
+      msg({ chat: "t1", fromMe: true, id: "m2", marked: true, source: "mail" }),
+    ],
+    handles
+  );
+  expect(mail?.unit.marked).toEqual(["m2"]);
+});
+
 test("a unit keeps its senders unresolved whoever they resolve to now (a reader maps them), a note's none, and its hash never moves", () => {
   const [unknown] = messageUnits([msg({})], () => null);
   const [known] = messageUnits([msg({})], () => "person:inf_plumber");

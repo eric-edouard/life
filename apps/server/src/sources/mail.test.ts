@@ -113,6 +113,11 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   db.run("create table mailboxes (ROWID integer primary key, url text)");
   db.run("create table labels (message_id integer, mailbox_id integer)");
   db.run(
+    "create table recipients (ROWID integer primary key, message integer, address integer, type integer, position integer)"
+  );
+  // His reply goes to his other address only: a mail to himself.
+  db.run("insert into recipients values (1, 1003, 3, 0, 0)");
+  db.run(
     "create table message_global_data (ROWID integer primary key, message_id_header text, model_category integer)"
   );
   const acct = "AAAA-1111";
@@ -190,6 +195,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       files: [],
       fromMe: true,
       id: "mail:11",
+      marked: true,
       sender: "me@mine.test",
       source: "mail",
       text: "Re: Devis",
@@ -233,6 +239,17 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       text: "Big prize\nLes plans.",
     },
   ]);
+  // Copied to anyone else, it is no longer a mail to himself.
+  const again = new Database(join(root, "MailData", "Envelope Index"));
+  again.run("insert into recipients values (2, 1003, 1, 1, 0)");
+  again.close();
+  expect(
+    readMail(
+      new Date("2026-10-08T00:00:00Z"),
+      root,
+      join(base, "none.sqlite")
+    ).find((e) => e.id === "mail:11")?.marked
+  ).toBeUndefined();
   // A file inside the .emlx is read back by its part number; a part that is not there is nothing.
   expect(
     emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()

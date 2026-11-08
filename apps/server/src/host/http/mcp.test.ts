@@ -17,6 +17,7 @@ import {
 } from "../../core/settings";
 import { LEDGER } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
+import { readTold, TOLD } from "../../memory/told";
 import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
   conversation,
@@ -159,7 +160,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, `change_todo_item` writes but is not destructive", async () => {
+test("tools/list: fifteen read-only tools; `correct_memory` asks for approval, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -173,6 +174,7 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
     "read_area_page",
     "read_chats",
     "read_day",
+    "read_fact_checks",
     "read_life_status",
     "read_memory_changes",
     "read_new_events",
@@ -182,6 +184,7 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
     "read_places_visited",
     "read_processing_runs",
     "search",
+    "tell_life",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
@@ -198,7 +201,7 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = ["correct_memory", "change_todo_item"];
+  const writes = ["correct_memory", "change_todo_item", "tell_life"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -577,4 +580,40 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   } finally {
     setSettings({ todo_list: on });
   }
+});
+
+test("a fact check's answer is his: an agent's token is refused", async () => {
+  await expect(
+    correct(
+      { answer: "true", kind: "fact_check", ref: "obs_000000000001" },
+      "orbit"
+    )
+  ).rejects.toThrow("an agent's words are not his");
+});
+
+test("tell_life keeps his words verbatim, marked, the question as the assistant's line; an agent's call is refused", async () => {
+  rmSync(TOLD, { force: true });
+  const tell = async (over: Record<string, unknown>) =>
+    (
+      await rpc(await token(over), "tools/call", {
+        arguments: {
+          asked: "Where did you grow up?",
+          said: "In Lyon, until 12.",
+        },
+        name: "tell_life",
+      })
+    ).json.result;
+  expect(await tell({})).toMatchObject({ isError: true });
+  expect(await tell({ agent: undefined })).toMatchObject({ isError: false });
+  const [asked, said] = readTold(new Date(0));
+  expect(asked).toMatchObject({
+    fromMe: false,
+    text: "Where did you grow up?",
+  });
+  expect(said).toMatchObject({
+    fromMe: true,
+    marked: true,
+    source: "told",
+    text: "In Lyon, until 12.",
+  });
 });

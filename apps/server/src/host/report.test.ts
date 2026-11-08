@@ -371,7 +371,7 @@ test("each ask is listed with what the memory holds of it", () => {
     ],
   } as Night;
   const { text } = successReport("2026-10-15", 1000, n);
-  expect(text).toContain("Asks remembered (1)");
+  expect(text).toContain("Told Life (1)");
   expect(text).toContain("nothing held");
 });
 

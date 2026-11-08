@@ -12,6 +12,11 @@ import { HOME } from "./platform";
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 const NON_WORD = /\W+/g;
+/**
+ * Life's own wake ("hey Life", `hear.ts`), shaped like an agent's: it marks what he says next for Life to keep and wakes
+ * no agent. "live" is how lifelog wrote it on 21 Oct (audit 4).
+ */
+export const LIFE_WAKE = { misheard: ["live"], wake: ["life"] };
 /** A wake word as heard, compared: lower case, one space between words. */
 export const asHeard = (w: string) =>
   w.toLowerCase().replace(NON_WORD, " ").trim();
@@ -37,12 +42,15 @@ export const Settings = z
       )
       .refine(
         (agents) => {
-          const words = Object.values(agents).flatMap((a) => [
+          const words = [LIFE_WAKE, ...Object.values(agents)].flatMap((a) => [
             ...new Set([...a.wake, ...a.misheard].map(asHeard)),
           ]);
           return new Set(words).size === words.length;
         },
-        { message: "two agents share a wake or misheard word" }
+        {
+          message:
+            "two agents, or an agent and Life, share a wake or misheard word",
+        }
       )
       .optional(),
     /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */

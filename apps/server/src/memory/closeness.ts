@@ -9,8 +9,8 @@ import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
-import { isDirect, kindOf } from "./sources";
-import { daysBefore, safely, tables } from "./units";
+import { kindOf } from "./sources";
+import { chatPerson, daysBefore, safely, tables } from "./units";
 import { type People, readPeople } from "./who";
 
 import { dayNow, localDate } from "./zones";
@@ -52,31 +52,6 @@ const dayOf = (days: Days, who: string, day: string) => {
   of.set(day, d);
   return d;
 };
-
-/**
- * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
- * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
- * WhatsApp, iMessage; `isDirect`) has the rest 1:1 whatever handles one person wrote from; elsewhere
- * (bridged networks, mail) more than one other sender is a group: none.
- */
-function chatPerson(
-  list: SourceEvent[],
-  resolve: (s: string) => string | null
-) {
-  const others = new Set(
-    list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
-  );
-  const [first] = list;
-  if (!(first && isDirect(first.source, first.chat, others.size))) {
-    return null;
-  }
-  const named =
-    first.chatName && kindOf(first.source) !== "mail"
-      ? resolve(first.chatName)
-      : null;
-  const person = [...others].find((o) => o.startsWith("person:"));
-  return person ?? (others.size === 0 ? resolve(first.chat) : null) ?? named;
-}
 
 /**
  * The messages of each person's 1:1 chats and mail threads, by person ref: a chat where one other sender wrote, and not
