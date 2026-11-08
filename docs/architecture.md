@@ -69,11 +69,16 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
-- **Communication styles** (`communication-styles.ts`): how he writes, in general and to each person with a page, per
-  channel, with examples in his own words, for an agent drafting a message for him (the person page shows it). One call
-  per person reads his newest messages (120 chat, 30 mail) from the night's read of chats and mail (`readWithPeople`,
-  3 years, shared with closeness), so the whole history is never read; rebuilt whole at most weekly, when he wrote
-  something new.
+- **Personas** (`personas.ts`): what each person with a page is like, what keeps happening between them and him (both
+  sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
+  writes to them, or drafts for him; his own across everyone. One call per person reads their 1:1 messages both ways
+  from the night's read of chats and mail (`readWithPeople`, 3 years, shared with closeness), sampled to 100,000
+  characters (the newest, then each month's most eventful days, year by year), with their page and what code counts
+  between them (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like the
+  rest, marked. Each quote is found in a chat message shown and kept with its time, so how well a line is backed
+  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly,
+  when the messages changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
+  moves) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
 - **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
 
@@ -110,7 +115,7 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Old facts can be corrected:** extraction also shows an episode the facts of the last year about the close people
   (`priorFor`), so a newer fact can retire an older one.
 - **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
-  never stored as a summary; only the present is (the situation).
+  never stored as a summary; the present is (the situation), and what keeps repeating is (the persona).
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
 - **Details** are only what is already a field (his map, then his Contacts: `detailsOf`, the one place for them and
   for a birthday). Everything else known about someone is a line of their page: models read prose, and a field earns

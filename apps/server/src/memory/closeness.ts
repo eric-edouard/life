@@ -345,7 +345,7 @@ export async function waitingOf(
 
 /**
  * His chats and mail with people over the last YEARS years (`WITH_PEOPLE`), read once a night for closeness and
- * communication styles; `failed`, the sources that could not be read. Nothing older is ever read.
+ * personas; `failed`, the sources that could not be read. Nothing older is ever read.
  */
 export async function readWithPeople() {
   const since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);

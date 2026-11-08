@@ -24,7 +24,7 @@ Mac. Your assistant reads that memory through Life's connector and answers from 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/layers-dark.png">
-  <img src="assets/readme/layers-light.png" alt="Life in three layers. Capture: voice, messages, mail, notes, places, Screen Time, git and past AI chats. Memory: episodes, facts, pages, situations, communication styles and search. Act: Claude and ChatGPT, your agents, your to-do list, the Past calendar and the nightly report.">
+  <img src="assets/readme/layers-light.png" alt="Life in three layers. Capture: voice, messages, mail, notes, places, Screen Time, git and past AI chats. Memory: episodes, facts, pages, situations, personas and search. Act: Claude and ChatGPT, your agents, your to-do list, the Past calendar and the nightly report.">
 </picture>
 
 ## Ask it anything
@@ -92,7 +92,7 @@ What each source reads, exactly: [sources](docs/sources.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
-  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, communication styles and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
+  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, personas and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
 </picture>
 
 A model reads your life the way you'd tell it: a day at a time, every channel together. The voice note, the WhatsApp
@@ -106,8 +106,9 @@ thread and the mail about the same dinner end up in one place. It writes down:
   section that doesn't age: your agreements, your history, the turning points.
 - Situations: where things stand now, for you and for each person close to you, rebuilt each night from the last 30
   days. This is what answers "how are things with Ana?".
-- Communication styles: how you write, to each person and on each channel, with examples in your own words, so an
-  agent drafting a message for you sounds like you.
+- Personas: what each person is like, what keeps happening between you (your part too), and how each of you writes,
+  read weekly from years of your messages, each line with its quotes, so an agent can foresee how they will react and
+  draft a message that sounds like you.
 - Search, by words and by meaning, across languages, computed on your Mac.
 
 <picture>

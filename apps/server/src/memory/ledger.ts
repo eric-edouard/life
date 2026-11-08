@@ -59,10 +59,10 @@ export const pagePath = (ref: string) =>
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
-/** How he writes, in general and to each person with a page (`memory/communication-styles.ts`), one file per person. */
-export const COMMUNICATION_STYLES = join(MEMORY, "communication-styles");
-export const communicationStylePath = (ref: string) =>
-  join(COMMUNICATION_STYLES, `${ref.slice("person:".length)}.json`);
+/** What each person with a page is like, and how they and he write (`memory/personas.ts`), one file per person. */
+export const PERSONAS = join(MEMORY, "personas");
+export const personaPath = (ref: string) =>
+  join(PERSONAS, `${ref.slice("person:".length)}.json`);
 export const EPISODES = join(MEMORY, "episodes");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
