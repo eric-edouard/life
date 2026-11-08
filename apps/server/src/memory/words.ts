@@ -19,9 +19,9 @@ import {
   voiceKey,
   withStore,
 } from "../sources/lifelog";
-import { type Candidate, owed } from "../todo-list/items";
 import { readInferredRepos, readUnit, readUnitsOf } from "./ledger";
 import type { SourceLine } from "./observe";
+import { type Candidate, owed } from "./open-items";
 import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
 import { isDirect, kindOf, sourceOf } from "./sources";
 import {
@@ -722,7 +722,7 @@ function chatLinesOf(
 const WROTE_DAYS = 60;
 
 /**
- * The replies he owes up to `end` (`owed`, apps/server/src/todo-list/items.ts), as open items for `read_day`: in a 1:1 chat (its source can tell
+ * The replies he owes up to `end` (`owed`, apps/server/src/memory/open-items.ts), as open items for `read_day`: in a 1:1 chat (its source can tell
  * a group) of his last 60 days, the last word is theirs. Who wrote is the person's name when Life has one.
  */
 export async function repliesOwed(end: Date): Promise<Candidate[]> {

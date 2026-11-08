@@ -11,7 +11,7 @@ import {
   linked,
   norm,
   pickCompared,
-} from "../todo-list/items";
+} from "../todo-list/linked";
 
 // His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
@@ -41,7 +41,7 @@ const his = (
   schemaVersion: 1,
   target: `${prefix}:${id}`,
   via: "reminders",
-  why: kind === "import" ? "linked, no change" : "his change in Reminders",
+  why: kind === "import" ? "linked, no change" : "his change on his list",
 });
 
 /** A linked item's id in its backend. */

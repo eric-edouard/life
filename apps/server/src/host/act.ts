@@ -17,7 +17,7 @@ import {
   write,
 } from "../todo-list/backend";
 import { Change } from "../todo-list/contract";
-import { linked, openLinked } from "../todo-list/items";
+import { linked, openLinked } from "../todo-list/linked";
 import { actFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
@@ -79,7 +79,7 @@ export async function act(a: Act): Promise<LedgerEntry> {
   if (old) {
     return old;
   }
-  // Read from the ledger (apps/server/src/todo-list/items.ts), never from Reminders: his hand-made ones are there once sync read them.
+  // Read from the ledger (apps/server/src/todo-list/linked.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open =
     c.kind === "add"
       ? openLinked(await readLedger(), b.prefix).map((it) => ({

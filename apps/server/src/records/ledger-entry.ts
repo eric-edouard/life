@@ -101,3 +101,40 @@ export const isListed = (a: LedgerEntry) =>
 /** A line whose outcome stands: done, or found already done. */
 export const stands = (a: LedgerEntry) =>
   a.result === "ok" || a.result === "duplicate";
+
+/** One line saying what an action did and on which of his words: the nightly's Actions section and `read_day`. */
+export function entryLine(a: LedgerEntry) {
+  const was = a.before?.title ?? a.target;
+  const changed = Object.entries(a.after)
+    .map(([k, v]) => `${k} ${v}`)
+    .join(", ");
+  const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
+    add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
+    done: `done “${was}”`,
+    edit: a.after.title
+      ? `“${was}” → “${a.after.title}”`
+      : `“${was}”: ${changed}`,
+    // Until 19 Oct Life also emailed Instinct; those lines stay in ledger.jsonl.
+    grant: `the standing grant ${a.after.on ? "on" : "off"}`,
+    instinct: `to Instinct: “${a.after.subject}”`,
+    remove: `removed “${was}”`,
+    restore: `restored ${a.target}`,
+    undone: `reopened “${was}”`,
+  };
+  const what =
+    a.kind === "ask"
+      ? `to ${askedAgent(a)}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`
+      : (kinds[a.kind] ?? a.kind);
+  const outcome = {
+    duplicate: ` duplicate of #${a.target.split(":")[1]}`,
+    failed: ` FAILED: ${a.error}`,
+    // Never listed (`isBookkeeping`): its outcome is the next line.
+    intent: " (not answered)",
+    // A partial (done, a private step such as the section failed) is ok with its error.
+    ok: a.error ? ` (${a.error})` : "",
+  }[a.result];
+  const by = a.instruction
+    ? `← “${a.instruction.quote}”`
+    : "by him on his list";
+  return `${what} ${by}${outcome}`;
+}

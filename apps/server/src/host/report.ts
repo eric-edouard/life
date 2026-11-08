@@ -21,7 +21,7 @@ import { enabledSources, listening } from "../memory/sources";
 import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { entryLine } from "../todo-list/items";
+import { entryLine } from "../records/ledger-entry";
 import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
