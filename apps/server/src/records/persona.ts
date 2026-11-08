@@ -50,15 +50,15 @@ export const PersonaLine = z.discriminatedUnion("facet", [
 ]);
 export type PersonaLine = z.infer<typeof PersonaLine>;
 
+/** A gist's longest: a longer one is clipped. */
+export const GIST_MAX = 800;
+
 /**
  * memory/personas/<id>.json: what someone with a page is like, wants and can give, what keeps happening between them
  * and the owner, and how each writes to the other (the owner's own: across everyone), read from three years of their messages, group chats and his recordings with them; rewritten
  * whole when its inputs changed and it is a week old (`inputs`, their hash; `built`). `gist`: the same call's 2 or 3
  * sentences on what they are like, what keeps happening between them and him, and what works with them, shown first.
  */
-/** A gist's longest: a longer one is clipped. */
-export const GIST_MAX = 800;
-
 export const Persona = z
   .object({
     built: z.string(),
