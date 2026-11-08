@@ -3,16 +3,13 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { LedgerEntry } from "../records/ledger-entry";
-import { changeFeed, feedPage, matchesFilter } from "./changes";
+import { changeFeed, feedPage, listSource, matchesFilter } from "./changes";
 import { LEDGER } from "./ledger";
 import { action } from "./record-fixtures";
 
 /** A feed source of `lines` as they are now. */
-const asSource = (s: { lines: string[]; name: string }) => ({
-  count: s.lines.length,
-  lines: () => s.lines,
-  name: s.name,
-});
+const asSource = (s: { lines: string[]; name: string }) =>
+  listSource(s.name, s.lines);
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
 function drain(
@@ -70,6 +67,32 @@ test("a filter skips lines without losing any match, and `remaining` counts only
   ]);
 });
 
+test("a source read to its end moves the cursor to its end, past rows it skips (a store's sparse rows)", () => {
+  const sparse = {
+    end: 10,
+    name: "s",
+    rows: (from: number) =>
+      (
+        [
+          [2, "a"],
+          [7, "b"],
+        ] as [number, string][]
+      ).filter(([n]) => n >= from),
+  };
+  const first = feedPage([sparse], {}, 1, (_s, l) => l);
+  expect(first.items).toEqual(["a"]);
+  const second = feedPage(
+    [sparse],
+    JSON.parse(Buffer.from(first.cursor, "base64url").toString()),
+    5,
+    (_s, l) => l
+  );
+  expect(second.items).toEqual(["b"]);
+  expect(
+    JSON.parse(Buffer.from(second.cursor, "base64url").toString())
+  ).toEqual({ s: 10 });
+});
+
 test("a cursor past the end of a ledger (it shrank) is an error, not a silent restart", () => {
   const s = { lines: ["a"], name: "s" };
   expect(() => feedPage([asSource(s)], { s: 2 }, 5, (_n, l) => l)).toThrow(
@@ -124,11 +147,11 @@ test("a run filter takes the id as runs gives it, or bare", () => {
 
 test("a source the cursor has reached is not read", () => {
   const unread = {
-    count: 1,
-    lines: () => {
+    end: 1,
+    name: "b",
+    rows: () => {
       throw new Error("read");
     },
-    name: "b",
   };
   const page = feedPage(
     [asSource({ lines: ["a0"], name: "a" }), unread],

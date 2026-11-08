@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
+import { incomingArchived } from "./archived";
 import { proto, whatsappFixture } from "./store-fixtures";
 import { copyWhatsapp, phoneCallOf, readWhatsapp } from "./whatsapp";
 
@@ -57,4 +58,17 @@ test("a call is a message of its chat: its details copied as they change, read a
   expect(
     readWhatsapp(new Date(now - HOUR), dir, source)[0]?.phoneCall
   ).toBeUndefined();
+});
+
+test("incoming: an edit or a delete is a later row of the same message, never a new one", () => {
+  const { add, dir, now, source, wa } = whatsappFixture();
+  add(1, "S1", 0, "meet at 9");
+  copyWhatsapp(source, dir, now);
+  wa.run("update ZWAMESSAGE set ZTEXT = 'meet at 10' where ZSTANZAID = 'S1'");
+  add(2, "S2", 0, "on my way");
+  copyWhatsapp(source, dir, now + 5000);
+  const ids = readWhatsapp(new Date(now - HOUR), dir, source).map((e) => e.id);
+  const fresh = incomingArchived("whatsapp", "id", 1, dir);
+  expect(fresh.rows.map((r) => r.id).sort()).toEqual(ids.sort());
+  expect(incomingArchived("whatsapp", "id", fresh.end, dir).rows).toEqual([]);
 });

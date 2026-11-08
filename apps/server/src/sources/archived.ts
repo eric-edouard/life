@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
-import type { Newest } from "./contract";
+import type { Newest, NewRow } from "./contract";
 
 // Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and the bridges'
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
@@ -98,7 +98,7 @@ export function readArchived<R extends Row>(
           chatName: r.chatName?.replace(MARKS, "").trim() || undefined,
           ...(r.deleted ? { deleted: true } : {}),
           fromMe: r.fromMe === 1,
-          id: `${source}:${r.chat}/${r.id}`,
+          id: messageIdOf(source, r.chat, r.id),
           sender: r.fromMe ? "me" : sender(r.sender ?? ""),
           source,
           text: r.text,
@@ -106,6 +106,52 @@ export function readArchived<R extends Row>(
         })
       )
       .sort((a, b) => a.at.localeCompare(b.at));
+  } finally {
+    db.close();
+  }
+}
+
+/** A message's id, as `readArchived` and `incomingArchived` both give it. */
+const messageIdOf = (
+  source: SourceEvent["source"],
+  chat: string,
+  id: number | string
+) => `${source}:${chat}/${id}`;
+
+/**
+ * The messages `<archive>/<source>.sqlite` first wrote from row `from` on (`incoming`): the first row of each message,
+ * `key` naming its version's column (an edit or a delete is a later row of the same key), ids as `readArchived` makes them.
+ */
+export function incomingArchived(
+  source: SourceEvent["source"],
+  key: "eventId" | "id",
+  from: number | undefined,
+  archive = ARCHIVE
+): { end: number; rows: NewRow[] } {
+  const db = openReadOnly(archiveDb(source, archive));
+  try {
+    const end = db
+      .query<{ end: number }, []>(
+        "select coalesce(max(rowid), 0) + 1 as end from messages"
+      )
+      .get()?.end as number;
+    const rows = db
+      .query<
+        { at: string; chat: string; id: number | string; row: number },
+        [number | null]
+      >(
+        `select m.rowid as row, m.chat, m.id, m.at from messages m
+          where m.rowid >= ? and m.rowid = (select min(x.rowid) from messages x
+            where x.chat is m.chat and x.${key} = m.${key})
+          order by m.rowid`
+      )
+      .all(from ?? null)
+      .map((r) => ({
+        at: r.at,
+        id: messageIdOf(source, r.chat, r.id),
+        row: r.row,
+      }));
+    return { end, rows };
   } finally {
     db.close();
   }

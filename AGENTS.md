@@ -200,6 +200,7 @@ Before adding a helper, use the one that exists:
 | His payments | `payments()` (`apps/server/src/payments/backend.ts`): nothing else calls `money` |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
+| What an agent can wait for | `events.ts` (MCP's Events extension, by poll): computed from each source's `incoming` when polled; Life stores nothing for it, the agent keeps its cursor |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
