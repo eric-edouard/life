@@ -4,10 +4,10 @@ import { z } from "zod";
 
 /**
  * The model engine he chooses for every step (apps/server/src/models/llm.ts, `bun life engine`); the bench names one
- * per run (`LIFE_LLM`). claude and codex: the owner's subscriptions, through their CLIs; allmodels: his API key
- * (`ALLMODELS_API_KEY`).
+ * per run (`LIFE_LLM`). claude and codex: the owner's subscriptions, through their CLIs; allmodels and openrouter: his
+ * API keys, one per router of the engine's routes (`routesOf`).
  */
-export const Engine = z.enum(["claude", "codex", "allmodels"]);
+export const Engine = z.enum(["claude", "codex", "allmodels", "openrouter"]);
 
 export type Engine = z.infer<typeof Engine>;
 

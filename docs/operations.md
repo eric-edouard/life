@@ -150,14 +150,20 @@ late with harm), or spoken asks above about one a day for a month.
 ## Model engines
 
 - Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription, or
-  allmodels with his API key (since 28 Oct 2026 the only API engine: Anthropic's and OpenAI's went), chosen with
+  an API engine with his keys (allmodels since 28 Oct 2026, openrouter since 8 Nov), chosen with
   `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
-  call, key, whether it may run tools, and its quota.
-- allmodels (`ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017 abliterated on every tier, sent only to the hosts
-  after `@`, one at a time in that order (`author/model@refuseless,hopper`), streamed: a host that errs, sends nothing
-  for 5 minutes, ends its stream before it finishes or sends something that is not JSON gives way to the next (allmodels' own fallback acts only before
-  output begins, and on 29 Oct refuseless opened a day's reply and then died), and a reply from any other host is refused. Both hosts take images (the files step sends them) and say they keep
-  nothing; allmodels ignores `zdr`, so the host list is the guarantee.
+  call, keys, whether it may run tools, and its quota.
+- An API engine's model is its routes (`routesOf`): `router:author/model@host,host`, then the next router's after a
+  space; a router left out is the engine's own. Each router (`ROUTERS`) is one endpoint and one key. The hosts are
+  asked one at a time in that order, streamed, within one 60-minute deadline: a host that errs, sends nothing for 5
+  minutes, ends its stream before it finishes or sends something that is not JSON (a refusal) gives way to the next (a
+  router's own fallback acts only before output begins, and on 29 Oct refuseless opened a day's reply and then died).
+  Any other failure (no key, no credit, a reply from a host not listed) skips the rest of that router's hosts.
+- openrouter (`OPENROUTER_API_KEY`, then `ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017, not abliterated, on
+  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), then allmodels' abliterated one
+  on Refuseless then Hopper: about half the price, the abliterated model for what the plain one refuses. `isOnline`
+  asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
+  host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
   (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a sweep's steps under
   it; the quota lines appear only for an engine that has one (`hasQuota`).
@@ -165,7 +171,7 @@ late with harm), or spoken asks above about one a day for a month.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `apps/server/src/models/llm.ts` runs them in an empty temp folder.
-- The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, allmodels' as `model@host[,host]`), only
+- The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, an API engine's as its routes), only
   on a copy of the data; `LIFE_LLM` is refused on the live data.
 
 ## Backups and exports

@@ -1,5 +1,5 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec` on his subscriptions, or allmodels' API); and how full his Codex quota is.
+// engine (`claude -p` or `codex exec` on his subscriptions, or an API router: OpenRouter, allmodels); and how full his Codex quota is.
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,7 +42,7 @@ export function extractJson(text: string): unknown {
  */
 export type Tier = "fast" | "main" | "deep";
 
-/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an allmodels model is `author/model@host[,host]`). */
+/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an API engine's model is its routes, `routesOf`). */
 export interface Llm {
   effort?: string;
   engine: Engine;
@@ -128,12 +128,22 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
   main: DEEPSEEK_FLASH,
 };
 /**
- * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
+ * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
+ * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one, for what they refuse or fail.
+ */
+const DEEPSEEK_FLASH_ROUTED = `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8 allmodels:${DEEPSEEK_FLASH}`;
+const OPENROUTER_MODELS: Record<Tier, string> = {
+  deep: DEEPSEEK_FLASH_ROUTED,
+  fast: DEEPSEEK_FLASH_ROUTED,
+  main: DEEPSEEK_FLASH_ROUTED,
+};
+/**
+ * An API engine's effort by tier (OpenRouter's hosts take what allmodels' do): both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
  * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
  * and it thinks even at none. Episodes and extract think at low: on the truth days it held as many true facts, matched
  * more episodes and spent 16% fewer tokens than high (bench of 5 Nov 2026, his OK).
  */
-const ALLMODELS_EFFORT: Record<Tier, string> = {
+const API_EFFORT: Record<Tier, string> = {
   deep: "low",
   fast: "low",
   main: "high",
@@ -222,7 +232,7 @@ const modelEnv = (extra: Record<string, string> = {}) => ({
   ...extra,
 });
 
-/** An image as claude's stream-json input takes it (allmodels' call builds its data URL from it). */
+/** An image as claude's stream-json input takes it (an API call builds its data URL from it). */
 const imageBlock = async (path: string) => ({
   source: {
     data: Buffer.from(await Bun.file(path).bytes()).toString("base64"),
@@ -232,7 +242,7 @@ const imageBlock = async (path: string) => ({
   type: "image",
 });
 
-/** One chunk of allmodels' streamed reply: the text so far comes in deltas; the host, finish and tokens on any chunk. */
+/** One chunk of a router's streamed reply: the text so far comes in deltas; the host, finish and tokens on any chunk. */
 const ChatChunk = z.object({
   choices: z
     .array(
@@ -450,28 +460,62 @@ export async function quota(engine?: Engine) {
   return q;
 }
 
-const ALLMODELS_URL = "https://api.allmodels.io/oai/chat/completions";
-const ALLMODELS_KEY = "ALLMODELS_API_KEY";
+/** The API routers, each its OpenAI-shaped endpoint and the key it takes; both take OpenRouter's `provider` field. */
+const ROUTERS = {
+  allmodels: {
+    key: "ALLMODELS_API_KEY",
+    url: "https://api.allmodels.io/oai/chat/completions",
+  },
+  openrouter: {
+    key: "OPENROUTER_API_KEY",
+    url: "https://openrouter.ai/api/v1/chat/completions",
+  },
+};
+type Router = keyof typeof ROUTERS;
+const isRouter = (r: string): r is Router => Object.hasOwn(ROUTERS, r);
 /** Room for a day's episodes and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
-const ALLMODELS_MAX_TOKENS = 131_072;
-/** A host that sends no chunk for this long has died mid-reply (allmodels' keepalives are not chunks). */
+const MAX_TOKENS = 131_072;
+/** A host that sends no chunk for this long has died mid-reply (a router's keepalives are not chunks). */
 const STALL_MS = 5 * MIN;
 
+/** One host to ask: its router, the model on it, the host. */
+type Route = ReturnType<typeof routesOf>[number];
+
 /**
- * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort: the model goes only to
- * the hosts after `@`, one at a time in that order, each streamed, all within MODEL_TIMEOUT_MS. A host that fails in a
- * way another host may not (it stalls, cuts its stream, sends something that is not JSON, or answers 429, 5xx or not
- * at all) gives way to the next: allmodels' own fallback acts only before output begins, and a host can die after (29
- * Oct 2026: refuseless opened 16 Oct's reply, then sent nothing for the hour). Any other failure, like a reply from
- * another host, is final. The tokens and refusals of every host tried are kept, and each host's reply in the call's folder.
+ * An API engine's model as the routes to ask, in order: a router's hosts, `router:author/model@host[,host]`, then the
+ * next router's after a space. A router left out is the engine's own. Throws on a router Life doesn't know.
  */
-async function askAllModels(call: Call): Promise<Answer> {
-  const key = process.env[ALLMODELS_KEY];
-  const [model = "", list = ""] = call.llm.model.split("@");
-  const hosts = list.split(",").filter(Boolean);
-  if (!(key && hosts.length)) {
+export function routesOf(spec: string, engine: string) {
+  return spec
+    .split(" ")
+    .filter(Boolean)
+    .flatMap((route) => {
+      const [head = "", list = ""] = route.split("@");
+      const [router, model] = head.includes(":")
+        ? head.split(":")
+        : [engine, head];
+      if (!(router && isRouter(router) && model)) {
+        throw new Error(`no router like ${router} in ${route}`);
+      }
+      return list
+        .split(",")
+        .filter(Boolean)
+        .map((host) => ({ host, model, router })); // one host to ask (`deepinfra/fp8`: a host, then its variant)
+    });
+}
+
+/**
+ * One call through the engine's routes with his keys, at the tier's effort, one host at a time, streamed, within
+ * MODEL_TIMEOUT_MS. A host that may fail alone (a stall, a cut stream, a reply not JSON like a refusal, a 429, a 5xx, no
+ * answer) gives way to the next: a router's own fallback acts only before output begins (29 Oct 2026: refuseless died
+ * mid-reply). Any other failure (no key, no credit, another host) skips that router's hosts. Every host's tokens and
+ * refusal are kept, its reply in the call's folder.
+ */
+async function askRoutes(call: Call): Promise<Answer> {
+  const hosts = routesOf(call.llm.model, call.llm.engine);
+  if (!hosts.length) {
     throw new Error(
-      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host[,host], not ${call.llm.model}`
+      `an API engine's model is [router:]author/model@host[,host], not ${call.llm.model}`
     );
   }
   const pictures = await Promise.all(
@@ -484,7 +528,7 @@ async function askAllModels(call: Call): Promise<Answer> {
     })
   );
   const body = {
-    max_tokens: ALLMODELS_MAX_TOKENS,
+    max_tokens: MAX_TOKENS,
     messages: [
       { content: call.system, role: "system" },
       {
@@ -495,7 +539,6 @@ async function askAllModels(call: Call): Promise<Answer> {
         role: "user",
       },
     ],
-    model,
     reasoning_effort: call.llm.effort,
     stream: true,
     stream_options: { include_usage: true },
@@ -504,17 +547,22 @@ async function askAllModels(call: Call): Promise<Answer> {
   const refusals: string[] = [];
   let tokens: Tokens | undefined;
   let answer: Answer = { text: "" };
-  for (const host of hosts) {
+  let skipped: Router | undefined;
+  for (const route of hosts) {
+    const { host, router } = route;
+    if (router === skipped) {
+      continue;
+    }
     let isForAnother: boolean;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
-      const reply = await askHost(host, body, key, deadline);
+      const reply = await askHost(route, body, deadline);
       await Bun.write(
-        join(call.dir, `allmodels-${host}.json`),
+        join(call.dir, `${router}-${slug(host)}.json`),
         JSON.stringify(reply)
       );
-      answer = answerOf(hosts, reply);
-      const garbled = answer.refusal ? undefined : notJson(answer.text);
+      answer = answerOf(route, hosts, reply);
+      const garbled = answer.refusal ? undefined : notJson(router, answer.text);
       answer.refusal ??= garbled;
       isForAnother = reply.finish === undefined || garbled !== undefined;
     } catch (e) {
@@ -528,9 +576,7 @@ async function askAllModels(call: Call): Promise<Answer> {
       return answer;
     }
     refusals.push(`${host}: ${answer.refusal}`);
-    if (!isForAnother) {
-      break;
-    }
+    skipped = isForAnother ? undefined : router;
   }
   return { ...answer, refusal: refusals.join("; ") };
 }
@@ -559,26 +605,30 @@ const forAnother = (message: string) =>
   Object.assign(new Error(message), { isForAnother: true });
 
 /**
- * One host's streamed reply, put together. Throws `forAnother` on a stall, a network error, a 429 or a 5xx; any other
- * failure (another status, a chunk that doesn't parse, the call's deadline) is thrown as final.
+ * One host's streamed reply, put together. Throws `forAnother` on a stall, a network error, a 429 or a 5xx, anything
+ * else (no key, another status, a bad chunk, the deadline) as final. It asks for no data kept (`zdr`; allmodels ignores it).
  */
 async function askHost(
-  host: string,
+  { host, model, router }: Route,
   body: object,
-  key: string,
   deadline: AbortSignal
 ) {
+  const { key, url } = ROUTERS[router];
+  const secret = process.env[key];
+  if (!secret) {
+    throw new Error(`${router} needs ${key}`);
+  }
   const stalled = new AbortController();
   const timer = setTimeout(() => stalled.abort(), STALL_MS);
   const failure = (e: unknown) => {
     if (deadline.aborted) {
       return new Error(
-        `allmodels: the call's ${MODEL_TIMEOUT_MS / MIN} min ran out on ${host}`
+        `${router}: the call's ${MODEL_TIMEOUT_MS / MIN} min ran out on ${host}`
       );
     }
     if (stalled.signal.aborted) {
       return forAnother(
-        `allmodels: ${host} sent nothing for ${STALL_MS / MIN} min`
+        `${router}: ${host} sent nothing for ${STALL_MS / MIN} min`
       );
     }
     return e instanceof SyntaxError || e instanceof z.ZodError
@@ -586,13 +636,20 @@ async function askHost(
       : forAnother((e as Error).message);
   };
   try {
-    const res = await fetch(ALLMODELS_URL, {
+    const res = await fetch(url, {
       body: JSON.stringify({
         ...body,
-        provider: { allow_fallbacks: false, only: [host], order: [host] },
+        model,
+        provider: {
+          allow_fallbacks: false,
+          data_collection: "deny",
+          only: [host],
+          order: [host],
+          zdr: true,
+        },
       }),
       headers: {
-        authorization: `Bearer ${key}`,
+        authorization: `Bearer ${secret}`,
         "content-type": "application/json",
       },
       method: "POST",
@@ -603,7 +660,7 @@ async function askHost(
       throw failure(e);
     });
     if (!(res.ok && res.body)) {
-      const message = `allmodels ${res.status}: ${(await res.text()).slice(-300)}`;
+      const message = `${router} ${res.status}: ${(await res.text()).slice(-300)}`;
       throw res.status >= 500 || res.status === 429
         ? forAnother(message)
         : new Error(message);
@@ -629,22 +686,22 @@ async function askHost(
 }
 
 /** Why a finished reply is not the JSON every call asks for, or undefined when it is. */
-function notJson(text: string) {
+function notJson(router: Router, text: string) {
   try {
     extractJson(text);
   } catch (e) {
-    return `allmodels: not JSON (${(e as Error).message})`;
+    return `${router}: not JSON (${(e as Error).message})`;
   }
 }
 
-/** allmodels' reply as a runner's answer: refused when a host not in `hosts` served it, or it stopped without text. */
-function answerOf(hosts: string[], reply: ChatReply): Answer {
+/** A host's reply as a runner's answer: refused when a host not among the routes served it, or it stopped without text. */
+function answerOf({ router }: Route, hosts: Route[], reply: ChatReply): Answer {
   const u = reply.usage;
   const served = reply.provider ?? "";
   const stopped =
     reply.finish === "stop" && reply.text
       ? undefined
-      : `allmodels: stopped (${reply.finish ?? "cut before it finished"})`;
+      : `${router}: stopped (${reply.finish ?? "cut before it finished"})`;
   return {
     fields: {
       host: served,
@@ -655,9 +712,10 @@ function answerOf(hosts: string[], reply: ChatReply): Answer {
       },
     },
     refusal:
-      served && hosts.some((h) => slug(h) === slug(served))
+      served &&
+      hosts.some((h) => slug(h.host.split("/")[0] ?? "") === slug(served))
         ? stopped
-        : `allmodels: served by ${served || "an unnamed host"}, not ${hosts.join(" or ")}`,
+        : `${router}: served by ${served || "an unnamed host"}, not ${hosts.map((h) => h.host).join(" or ")}`,
     text: reply.text,
   };
 }
@@ -680,28 +738,43 @@ const codexQuota = async () =>
 interface Provider {
   ask: (call: Call) => Promise<Answer>;
   effort?: Record<Tier, string>;
-  /** Where its calls go: `isOnline` asks it. */
+  /** Where its calls go first: `isOnline` asks it. */
   host: string;
-  key?: string;
+  /** The keys it takes, one per router of its routes. */
+  keys: string[];
   models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
 }
+/** An API engine: its calls go through its routes, which name its host and keys. */
+function apiEngine(engine: Router, models: Record<Tier, string>): Provider {
+  const routers = [
+    ...new Set(routesOf(models.main, engine).map((r) => r.router)),
+  ];
+  return {
+    ask: askRoutes,
+    effort: API_EFFORT,
+    host: new URL(ROUTERS[routers[0] ?? engine].url).host,
+    keys: routers.map((r) => ROUTERS[r].key),
+    models,
+  };
+}
 const PROVIDERS: Record<Engine, Provider> = {
-  allmodels: {
-    ask: askAllModels,
-    effort: ALLMODELS_EFFORT,
-    host: new URL(ALLMODELS_URL).host,
-    key: ALLMODELS_KEY,
-    models: ALLMODELS_MODELS,
+  allmodels: apiEngine("allmodels", ALLMODELS_MODELS),
+  claude: {
+    ask: askClaude,
+    host: "api.anthropic.com",
+    keys: [],
+    models: CLAUDE_MODELS,
   },
-  claude: { ask: askClaude, host: "api.anthropic.com", models: CLAUDE_MODELS },
   codex: {
     ask: askCodex,
     effort: CODEX_EFFORT,
     host: "chatgpt.com",
+    keys: [],
     models: SOL,
     quota: codexQuota,
   },
+  openrouter: apiEngine("openrouter", OPENROUTER_MODELS),
 };
 
 /**
@@ -717,11 +790,9 @@ export const isOnline = () =>
     () => false
   );
 
-/** The key each API engine takes, by engine: the app asks for it by this name. */
+/** The keys each engine takes, by engine: the app asks for each by this name. */
 export const engineKeys = () =>
-  Object.fromEntries(
-    Object.entries(PROVIDERS).flatMap(([e, p]) => (p.key ? [[e, p.key]] : []))
-  );
+  Object.fromEntries(Object.entries(PROVIDERS).map(([e, p]) => [e, p.keys]));
 
 /**
  * Whether this process's calls (on `engine`, his setting unless a bench says) go to an engine with a quota to read (his

@@ -112,6 +112,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory` and `change_todo_item` write; `read_agent_asks` is an agent's own feed of asks; `search` and `fetch` keep ChatGPT's names. | |
 | passage | What search reads as one text: a chat's consecutive messages, cut at 30 minutes of silence, 12 messages or 700 characters; a longer message or a note's version alone (`passagesOf`). lifelog's search has its own, of a conversation's turns. | |
+| router | A service that sends one API call to the host Life names: OpenRouter or allmodels.io (`ROUTERS`, `llm.ts`). Not an engine: an API engine may use several. | |
+| route | One host an API engine asks, in order: a router, the model on it, the host (`routesOf`). | |
 | embedder | The local model that turns a text into a vector for search by meaning (`core/embedder.ts`): EmbeddingGemma under llama.cpp, a Lifelog Host child. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `episode.ts`, `ledger-entry.ts`…). | |
 

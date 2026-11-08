@@ -56,7 +56,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("an API engine: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused; a router that fails for good gives way to the next router", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: {
     finish?: string;
@@ -68,6 +68,8 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     garbled?: string[];
     /** The connection stays open after [DONE]. */
     open?: boolean;
+    /** A host's own status, over `status`. */
+    statusOf?: Record<string, number>;
   } = { finish: "stop", provider: "Refuseless", status: 200 };
   // Sent in small pieces with CRLF line ends, so an event is split across pieces.
   const sse = (chunks: unknown[]) => {
@@ -121,10 +123,9 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
           },
           { choices: [], provider: reply.provider, usage: usage(7) },
         ];
+    const status = reply.statusOf?.[host] ?? reply.status;
     return Promise.resolve(
-      new Response(reply.status === 200 ? sse(chunks) : "slow down", {
-        status: reply.status,
-      })
+      new Response(status === 200 ? sse(chunks) : "slow down", { status })
     );
   }) as unknown as typeof fetch);
   process.env.ALLMODELS_API_KEY = "test-key";
@@ -156,8 +157,10 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     expect(asked[0]?.body.stream).toBe(true);
     expect(asked[0]?.body.provider).toEqual({
       allow_fallbacks: false,
+      data_collection: "deny",
       only: ["refuseless"],
       order: ["refuseless"],
+      zdr: true,
     });
     expect(asked).toHaveLength(1);
     expect(lastLine()).toContain(
@@ -213,6 +216,40 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     reply = { ...reply, status: 429 };
     await expect(ask()).rejects.toThrow("hopper: allmodels 429");
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    // OpenRouter first, its own model on each of its hosts, then allmodels'.
+    process.env.OPENROUTER_API_KEY = "test-key";
+    const routed = () =>
+      askOnce({
+        dir: mkdtempSync(join(tmpdir(), "life-chat-")),
+        input: {},
+        llm: {
+          engine: "openrouter",
+          model: "a/b@deepinfra/fp8,morph/fp8 allmodels:x/y@refuseless",
+        },
+        prompt: "eval-judge.v2",
+        run: "r",
+      });
+    hostsAsked();
+    reply = { finish: "stop", provider: "DeepInfra", status: 200 };
+    expect(await routed()).toEqual({ ok: true });
+    expect(asked[0]?.url).toContain("openrouter.ai");
+    expect(asked[0]?.body.model).toBe("a/b");
+    expect(hostsAsked()).toEqual(["deepinfra/fp8"]);
+    // Out of credit: its other host would say the same, allmodels may not.
+    reply = {
+      ...reply,
+      provider: "Refuseless",
+      statusOf: { "deepinfra/fp8": 402 },
+    };
+    expect(await routed()).toEqual({ ok: true });
+    expect(asked[1]?.url).toContain("api.allmodels.io");
+    expect(asked[1]?.body.model).toBe("x/y");
+    expect(hostsAsked()).toEqual(["deepinfra/fp8", "refuseless"]);
+    // No key is the same.
+    delete process.env.OPENROUTER_API_KEY;
+    reply = { ...reply, statusOf: {} };
+    expect(await routed()).toEqual({ ok: true });
+    expect(hostsAsked()).toEqual(["refuseless"]);
     reply = { finish: "stop", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
     await expect(
