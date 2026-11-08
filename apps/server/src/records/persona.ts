@@ -53,7 +53,7 @@ export type PersonaLine = z.infer<typeof PersonaLine>;
 /**
  * memory/personas/<id>.json: what someone with a page is like, wants and can give, what keeps happening between them
  * and the owner, and how each writes to the other (the owner's own: across everyone), read from three years of their 1:1 messages; rewritten
- * whole when its inputs changed and it is 3 days old (`inputs`, their hash; `built`).
+ * whole when its inputs changed and it is a week old (`inputs`, their hash; `built`).
  */
 export const Persona = z
   .object({

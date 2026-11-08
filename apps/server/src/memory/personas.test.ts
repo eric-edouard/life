@@ -5,6 +5,7 @@ import {
   pairCountsOf,
   personaBlock,
   personaLines,
+  readingsOf,
   sampleOf,
   supportOf,
 } from "./personas";
@@ -139,15 +140,15 @@ test("counts: messages and deletions each way, who opens after 6 hours of quiet,
   });
 });
 
-test("a persona is rebuilt when there is none, or 3 days old with new messages", () => {
+test("a persona is rebuilt when there is none, or a week old with new messages", () => {
   const now = new Date("2026-11-08T00:00:00.000Z");
-  const last = { built: "2026-11-06T00:00:00.000Z", inputs: "a" };
+  const last = { built: "2026-11-05T00:00:00.000Z", inputs: "a" };
   expect(isDue(null, "a", now)).toBe(true);
   expect(isDue(last, "b", now)).toBe(false);
-  expect(isDue({ ...last, built: "2026-11-05T00:00:00.000Z" }, "b", now)).toBe(
+  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "b", now)).toBe(
     true
   );
-  expect(isDue({ ...last, built: "2026-11-05T00:00:00.000Z" }, "a", now)).toBe(
+  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "a", now)).toBe(
     false
   );
 });
@@ -174,5 +175,17 @@ test("a reader shows the readings with their support, and the writing lines unde
   expect(block[4]).toBe(
     '- they write, chat (whatsapp): Short. E.g. "haha ok" (2026-11-01)'
   );
+  expect(
+    readingsOf([
+      { facet: "pattern", quotes: [q], text: "Blames, then makes up." },
+      {
+        facet: "writes",
+        kind: null,
+        quotes: [q],
+        text: "Short.",
+        writer: "them",
+      },
+    ]).map((l) => l.facet)
+  ).toEqual(["pattern"]);
   expect(personaBlock([], "2026-11-08")).toEqual([]);
 });

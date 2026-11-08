@@ -65,7 +65,8 @@ flowchart LR
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
 - **Situations** (`situations.ts`): where things stand now with him and each person close to him, read nightly by one
-  call from the page and the last 30 days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
+  call from the page, the persona (to say when the newest days repeat a known pattern or break it) and the last 30
+  days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
@@ -76,7 +77,7 @@ flowchart LR
   characters (the newest, then each month's most eventful days, year by year), with their page and what code counts
   between them (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like the
   rest, marked. Each quote is found in a chat message shown and kept with its time, so how well a line is backed
-  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most every 3 days,
+  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly,
   when the messages changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
   moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.

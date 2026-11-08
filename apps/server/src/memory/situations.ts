@@ -14,16 +14,17 @@ import {
   SITUATIONS,
   situationPath,
 } from "./ledger";
+import { readingsOf, readPersonaLines, supportOf } from "./personas";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, refContext } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to
-// him, one call reads the page and the last DAYS days' episodes with them and writes where things stand now, each line
-// citing its episodes. A situation is rebuilt whole from those inputs, never from its last version, and only when they
+// him, one call reads the page, their persona (what repeats) and the last DAYS days' episodes with them and
+// writes where things stand now, each line citing its episodes. A situation is rebuilt whole from those inputs, never from its last version, and only when they
 // changed. Nothing is sent.
 
-const SITUATION_PROMPT = "memory-situation.v1";
+const SITUATION_PROMPT = "memory-situation.v2";
 /** Days of episodes a situation reads; older ones live on in the page's sections and History. */
 const DAYS = 30;
 
@@ -101,6 +102,12 @@ export async function situations() {
             ref: t.ref,
             text: (await page.exists()) ? await page.text() : "",
           },
+          // To tell what repeats from what is new.
+          persona: readingsOf(readPersonaLines(t.ref)).map((l) => ({
+            facet: l.facet,
+            support: supportOf(l.quotes, step.today),
+            text: l.text,
+          })),
         };
         const inputs = digest(
           "sha256",

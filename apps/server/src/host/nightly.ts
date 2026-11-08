@@ -455,6 +455,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     if (isOn("appointments")) {
       await appointments();
     }
+    // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     phase.at = "personas";
     await personas(withPeople);
     phase.at = "fact checks";
