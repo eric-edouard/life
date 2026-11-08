@@ -19,7 +19,7 @@ import {
 } from "./index-rows";
 import { episodesWhere } from "./ledger";
 import { OWNER } from "./read-truth";
-import { readSituationNow, situated, situationBlock } from "./situation";
+import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
 import { normalize } from "./units";
 import { embedQuery, readNearest } from "./vectors";

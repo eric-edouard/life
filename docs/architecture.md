@@ -64,12 +64,12 @@ flowchart LR
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **Situations** (`situation.ts`): where things stand now with him and each person close to him, read nightly by one
+- **Situations** (`situations.ts`): where things stand now with him and each person close to him, read nightly by one
   call from the page and the last 30 days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
-- **Communication styles** (`communication-style.ts`): how he writes, in general and to each person with a page, per
+- **Communication styles** (`communication-styles.ts`): how he writes, in general and to each person with a page, per
   channel, with examples in his own words, for an agent drafting a message for him (the person page shows it). One call
   per person reads his newest messages (120 chat, 30 mail) from the night's read of chats and mail (`readWithPeople`,
   3 years, shared with closeness), so the whole history is never read; rebuilt whole at most weekly, when he wrote

@@ -55,11 +55,11 @@ export const pagePath = (ref: string) =>
   ref.startsWith("person:")
     ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
     : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
-/** Where things stand with him and each person close to him (`memory/situation.ts`), one file per person. */
+/** Where things stand with him and each person close to him (`memory/situations.ts`), one file per person. */
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
-/** How he writes, in general and to each person with a page (`memory/communication-style.ts`), one file per person. */
+/** How he writes, in general and to each person with a page (`memory/communication-styles.ts`), one file per person. */
 export const COMMUNICATION_STYLES = join(MEMORY, "communication-styles");
 export const communicationStylePath = (ref: string) =>
   join(COMMUNICATION_STYLES, `${ref.slice("person:".length)}.json`);

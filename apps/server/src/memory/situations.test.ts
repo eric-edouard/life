@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { writeJson } from "../core/files";
 import { situationPath } from "./ledger";
-import { readSituationNow, shownLines, situationBlock } from "./situation";
+import { readSituationNow, shownLines, situationBlock } from "./situations";
 
 const REF = "person:test-ana";
 const A = "ep_aaaaaaaaaaaa";

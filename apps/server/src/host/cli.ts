@@ -31,13 +31,9 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
-import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
-
-// Episodes become what happened once, before any command reads the memory (AGENTS.md, "A rename backfills").
-await migrateStored();
 
 /** The one agent, when there is exactly one: the default of `ask`. */
 const only = () => {

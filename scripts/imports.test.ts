@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
@@ -171,4 +171,11 @@ test("a file over 800 lines never grows: its cap in CAPS is its length, lowered 
     JSON.stringify(o.linter).includes('"noExcessiveLinesPerFile":"off"')
   );
   expect(off?.includes).toEqual(Object.keys(CAPS).toSorted());
+});
+
+test("no two of the server's files share a name, a capability's contract.ts and backend.ts aside", () => {
+  const names = files
+    .map((f) => basename(f))
+    .filter((n) => n !== "contract.ts" && n !== "backend.ts");
+  expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
 });

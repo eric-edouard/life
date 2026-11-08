@@ -6,7 +6,7 @@ import { closenessLine } from "./closeness";
 import {
   communicationStyleBlock,
   readCommunicationStyle,
-} from "./communication-style";
+} from "./communication-styles";
 import { detailsBlock, readDetailsOf } from "./details";
 import {
   CURRENT,
@@ -21,7 +21,7 @@ import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
 import { parsePage, slugOf } from "./page-format";
 import { openWithOf, reminderItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
-import { readSituationNow, situationBlock } from "./situation";
+import { readSituationNow, situationBlock } from "./situations";
 import { clip, normalize } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { repliesOwed } from "./words";
