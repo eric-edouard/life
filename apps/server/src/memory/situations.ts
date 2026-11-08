@@ -20,7 +20,7 @@ import { begin, inBatches, refContext } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to
-// him, one call reads the page, their persona (what repeats, read weekly) and the last DAYS days' episodes with them and
+// him, one call reads the page, their persona (what repeats) and the last DAYS days' episodes with them and
 // writes where things stand now, each line citing its episodes. A situation is rebuilt whole from those inputs, never from its last version, and only when they
 // changed. Nothing is sent.
 

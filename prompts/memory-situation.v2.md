@@ -19,7 +19,7 @@ The user message is one JSON object:
   his word: when an episode disagrees, his line wins.
 - `episodes`: the last 30 days' episodes (all of them for his own situation, those with this person otherwise), oldest
   first: `id`, `day`, `title`, `what`, `place`, `people`.
-- `persona`: what Life read about them and between them and him over years of their messages, rebuilt weekly (his
+- `persona`: what Life read about them and between them and him over years of their messages (his
   own across everyone for `person:me`): `facet` (`traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`,
   `approach`), `text`, `support` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
   empty.
