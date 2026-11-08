@@ -447,7 +447,7 @@ export function buildServer() {
   tool(
     server,
     "read_new_events",
-    "What happened past your cursor that you wait for (JSON), as MCP's `events/poll`: no cursor starts at now. `event`: `message.received`, a message in a chat app or mail, who wrote it, where and when, never its text (`fetch` it). Its `arguments`, each optional: `person` (a name, handle or person id: who wrote it; on his own, the 1:1 chat's person), `channels` (apps), `chat` (a chat key), `from_me` (his own instead of others'), `text_matches` (a regular expression, any case). Poll again from the returned `cursor` while `hasMore`, else after `nextPollMs`.",
+    "To be woken when something happens (a reply you wait on), when your client can't send MCP's `events/poll`: what happened past your cursor that you watch (JSON), the same poll. No cursor starts at now. `event`: `message.received`, a message in a chat app or mail, who wrote it, where and when, never its text (`fetch` it). Its `arguments`, each optional: `person` (a name, handle or person id: who wrote it; on his own, the 1:1 chat's person), `channels` (apps), `chat` (a chat key), `from_me` (his own instead of others'), `text_matches` (a regular expression, any case). Poll again from the returned `cursor` while `hasMore`, else after `nextPollMs`.",
     z.object({
       arguments: z.record(z.string(), z.unknown()).optional(),
       cursor: z
