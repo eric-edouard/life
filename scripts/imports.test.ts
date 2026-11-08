@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
-// The rules on what the server's code imports, from one read of it.
+// The rules on what the server's code imports and how it reads now and importance, from one read of it.
 
 const FROM = /\bfrom\s+"(\.{1,2}\/[^"]+)"/g;
 const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;

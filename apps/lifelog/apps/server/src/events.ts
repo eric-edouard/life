@@ -35,11 +35,10 @@ export function record(
       .values({ at, fields, id, name, source })
       .onConflictDoNothing()
       .run();
-    if (clock().getTime() - prunedAt > PRUNE_EVERY_MS) {
-      prunedAt = clock().getTime();
-      const cutoff = new Date(
-        clock().getTime() - RETENTION_DAYS * 24 * 3600 * 1000
-      );
+    const now = clock().getTime();
+    if (now - prunedAt > PRUNE_EVERY_MS) {
+      prunedAt = now;
+      const cutoff = new Date(now - RETENTION_DAYS * 24 * 3600 * 1000);
       db.delete(events).where(lt(events.at, cutoff)).run();
     }
   } catch (error) {
