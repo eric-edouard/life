@@ -22,7 +22,13 @@ import {
   type Tier,
   type Tokens,
 } from "./model-call";
-import { askRoutes, ROUTERS, type Router, routesOf } from "./routers";
+import {
+  askRoutes,
+  MAX_TOKENS,
+  ROUTERS,
+  type Router,
+  routesOf,
+} from "./routers";
 
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
@@ -109,14 +115,15 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
 };
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
- * fp8 hosts OpenRouter lists as keeping no data, thinking at medium; then allmodels' abliterated one at high, for what
- * they refuse or fail.
+ * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at high, for what they refuse or fail.
+ * Episodes, extraction and the pages and personas think at high (his ask, 9 Nov 2026), the fast tier at medium.
  */
-const DEEPSEEK_FLASH_ROUTED = `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=medium allmodels:${DEEPSEEK_FLASH}=high`;
+const routed = (effort: string) =>
+  `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=high`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
-  deep: DEEPSEEK_FLASH_ROUTED,
-  fast: DEEPSEEK_FLASH_ROUTED,
-  main: DEEPSEEK_FLASH_ROUTED,
+  deep: routed("high"),
+  fast: routed("medium"),
+  main: routed("high"),
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
@@ -378,6 +385,8 @@ const codexQuota = async () =>
  */
 interface Provider {
   ask: (call: ModelCall) => Promise<Answer>;
+  /** Tokens one call can hold, the smallest of its models and routes (fallback included). */
+  contextTokens: number;
   effort?: Record<Tier, string>;
   /** Where its calls go first: `isOnline` asks it. */
   host: string;
@@ -387,7 +396,11 @@ interface Provider {
   quota?: () => Promise<Quota | undefined>;
 }
 /** An API engine: its calls go through its routes, which name its host and keys. */
-function apiEngine(engine: Router, models: Record<Tier, string>): Provider {
+function apiEngine(
+  engine: Router,
+  models: Record<Tier, string>,
+  contextTokens: number
+): Provider {
   const routers = [
     ...new Set(
       Object.values(models).flatMap((m) =>
@@ -397,29 +410,42 @@ function apiEngine(engine: Router, models: Record<Tier, string>): Provider {
   ];
   return {
     ask: askRoutes,
+    contextTokens,
     host: new URL(ROUTERS[engine].url).host,
     keys: routers.map((r) => ROUTERS[r].key),
     models,
   };
 }
+// Context sizes as each lists them (9 Nov 2026): DeepSeek V4.1 Flash 1017 on OpenRouter's hosts and allmodels'
+// abliterated one, 1,048,576; Claude Code's models, 200k; ponytail: Sol's 272k is a guess, read it if codex runs Life.
 const PROVIDERS: Record<Engine, Provider> = {
-  allmodels: apiEngine("allmodels", ALLMODELS_MODELS),
+  allmodels: apiEngine("allmodels", ALLMODELS_MODELS, 1_048_576),
   claude: {
     ask: askClaude,
+    contextTokens: 200_000,
     host: "api.anthropic.com",
     keys: [],
     models: CLAUDE_MODELS,
   },
   codex: {
     ask: askCodex,
+    contextTokens: 272_000,
     effort: CODEX_EFFORT,
     host: "chatgpt.com",
     keys: [],
     models: SOL,
     quota: codexQuota,
   },
-  openrouter: apiEngine("openrouter", OPENROUTER_MODELS),
+  openrouter: apiEngine("openrouter", OPENROUTER_MODELS, 1_048_576),
 };
+
+/**
+ * Characters of input one call of `llm` can take: its context less room for the answer (the API engines' cap, taken
+ * for the CLI engines too), at 3 characters a token (a margin that covers the prompt). What a step reads whole is
+ * held to it, never to a number of its own.
+ */
+export const callCharsOf = (llm: Llm) =>
+  (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * 3;
 
 /**
  * Whether Life is online: his main engine's provider answers at all (any HTTP status) within 5 s. Offline (travelling,

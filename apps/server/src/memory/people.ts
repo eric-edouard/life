@@ -51,8 +51,6 @@ export function checkPeople(
     at: string;
     madeBy: MadeBy;
     projects: Set<string>;
-    /** The text of a unit as the model read it. */
-    read: (b: Built) => string;
     taken: Set<string>;
     /** The refs of the people in truth/. */
     truth: Set<string>;
@@ -71,7 +69,7 @@ export function checkPeople(
     }
     const evidence = r.data.evidence.flatMap((e) => {
       const b = seen.find((x) => x.unit.id === e.unit);
-      const hit = b && locate(e.quote, [ctx.read(b)]);
+      const hit = b && locate(e.quote, [b.text]);
       return hit && b ? [{ quote: hit.verbatim, unit: b.unit.id }] : [];
     });
     if (evidence.length > 0) {

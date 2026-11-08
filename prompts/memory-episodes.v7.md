@@ -19,15 +19,15 @@ The `<context>` at the end is one JSON object: `me` (who the owner is), `people`
 The user message is one JSON object:
 
 - `day`: the local day (`YYYY-MM-DD`, the owner's time zone) the units belong to.
-- `units`: every unit of that day, in time order. Each has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail,
+- `units`: every unit of that day, in time order (a day too long for one reading comes in parts, a later part's units not shown yet). Each has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail,
   git, screen, and his agents' reports), `start` and `end` (local `YYYY-MM-DD HH:MM`), `title`, `people` (who is in it, when known), sometimes
   `areaHint`. A unit already read on an earlier reading of this day is a stub: it has `read` (what that reading said
-  it is) and no `text`; it is there so you see the whole day, and you give it no verdict. A new unit has `text`: for a recording, its title and then its turns as `HH:MM who: words`, its start and end when long, or
+  it is) and no `text`; it is there so you see the whole day, and you give it no verdict. A new unit has `text`: for a recording, its title and then its turns as `HH:MM who: words`, or
   on older days a chapter's title and summary (speakers
   are often unnamed; the owner wears the recorder, so a speaker talking about his shop, house, family, apps or plans is
   usually the owner; the recorder also picks up TV, videos, customers and strangers); for chats and mail, its messages as
   `HH:MM who: text` (`who` is `me` for the owner, a person ref, or a label such as a phone number for someone not
-  identified; a message its sender deleted afterwards is still shown), clipped when long; for git, its commits as
+  identified; a message its sender deleted afterwards is still shown; a mail is its own words, the history it quotes left out); for git, its commits as
   `HH:MM who: message` (mostly his agents', see below); for screen, one device's apps and websites in front as
   `HH:MM device: app`, with no content.
 - `stays`: where his phone stayed that day, in time order, each `{from, to, place}` (local times; `to` null while he is

@@ -8,6 +8,7 @@ import { MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { repoFiles } from "../core/proc";
 import {
   askOnce,
+  callCharsOf,
   claudeTokens,
   codexTokens,
   engineKeys,
@@ -527,4 +528,13 @@ test("only a provider with a quota reads one: a Claude run reads none, whatever 
   expect(await quota("allmodels")).toBeUndefined();
   expect(hasQuota("codex")).toBe(true);
   expect(hasQuota("allmodels")).toBe(false);
+});
+
+test("one call holds the provider's context, less the answer: his engine reads the busiest day whole", () => {
+  const chars = (engine: "claude" | "openrouter") =>
+    callCharsOf({ engine, model: "m" });
+  // The busiest day of his first 64 days was 508k characters (9 Nov 2026).
+  expect(chars("openrouter")).toBeGreaterThan(2_000_000);
+  expect(chars("claude")).toBeLessThan(chars("openrouter"));
+  expect(chars("claude")).toBeGreaterThan(0);
 });

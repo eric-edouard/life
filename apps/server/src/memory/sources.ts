@@ -272,6 +272,8 @@ export function tablesOf(sources: Descriptor[]) {
   return {
     /** The chat apps, where people speak for themselves (not mail, nor his notes). */
     CHATS: readers((s) => s.kind === "chat"),
+    /** His own writing (his notes, his imported assistant chats), as days of his persona: read by personas only. */
+    OWN_WRITING: readers((s) => s.kind === "own_writing"),
     /** What `search` reads chat messages and notes from: the sources it has a window for. */
     SEARCHED: readers((s) => s.kind !== "mail" && s.searchDays !== undefined),
     /** The mail `search` reads, in a section of its own. */

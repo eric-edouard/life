@@ -1,7 +1,6 @@
 import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
-import { within } from "../core/lists";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import {
@@ -57,7 +56,6 @@ import { localTime } from "./zones";
 const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole episodes, as many as fit. */
 const BUDGET = 40_000;
-const UNIT_MAX = 30_000;
 /** Earlier facts shown with an episode: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
@@ -395,25 +393,13 @@ export async function extract(evidence: Evidence) {
     resolve,
     truth
   );
-  let truncated = 0;
   const sourceOf = (b: Built): Source[] => {
+    // A unit is read whole: one over the budget goes in a call of its own (`packed`).
     const all =
       kindOf(b.unit.source) === "voice"
         ? (spoken.get(b.unit.id) ?? [])
         : chatLines(b, resolve);
-    // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text
-    // can be); split the unit if long conversations matter.
-    const shownLines = within(
-      all.map((l) => ({ ...l, text: l.text.slice(0, UNIT_MAX) })),
-      UNIT_MAX,
-      (l) => l.text.length
-    );
-    truncated +=
-      shownLines.length < all.length ||
-      all.some((l) => l.text.length > UNIT_MAX)
-        ? 1
-        : 0;
-    return shownLines.length > 0 ? [{ lines: shownLines, unit: b.unit }] : [];
+    return all.length > 0 ? [{ lines: all, unit: b.unit }] : [];
   };
   const calls = packed(
     groups
@@ -594,7 +580,6 @@ export async function extract(evidence: Evidence) {
     rejects: rejects.length,
     retired: retired.length,
     stale,
-    truncated,
     unkept: unkept.length,
   });
 }

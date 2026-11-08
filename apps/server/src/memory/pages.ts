@@ -6,7 +6,7 @@ import { appendJsonl } from "../core/files";
 import { within } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { stamp } from "../models/llm";
+import { callCharsOf, stamp } from "../models/llm";
 import {
   Correction,
   type InferredPerson,
@@ -75,8 +75,6 @@ import {
 // its word budget. Code checks every citation. Nothing is sent.
 
 const PAGES_PROMPT = "memory-pages.v6";
-/** Characters of observations per call; a new page over a busy area gets its newest ones. */
-const BUDGET = 90_000;
 const HOLD_MAX = 1500;
 /** "Often talk about" counts the topics of the units of this many days. */
 const OFTEN_DAYS = 90;
@@ -406,7 +404,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     // Newest first, within the character budget: what a new page is built from.
     observations: within(
       fresh.map((o) => asInput(o, r.titles)),
-      BUDGET,
+      callCharsOf(r.step.llm),
       (x) => JSON.stringify(x).length
     ),
     owner: owner.map((o) => bare(o.text)),

@@ -21,12 +21,14 @@ The user message is one JSON object:
 - `counts`: what code counted over all their 1:1 messages of the last 3 years (null for `person:me`): `sent` and `got`
   (his and theirs), `sentDeleted` and `gotDeleted` (how many each deleted), `heOpened` and `theyOpened` (who wrote
   first after 6 hours of quiet), `heAnswersIn` and `theyAnswerIn` (median minutes to answer), `days`.
-- `days`: a sample of their days, oldest first: the newest, the most eventful, and days spread across the years. Each
-  day: `day`, `kind`, `source`, `with`, `lines`: `HH:MM him: …` or `HH:MM <name>: …`. `kind` says where:
+- `days`: their days, oldest first: all of them when they fit, else a sample (the newest, the most eventful, and days
+  spread across the years). Each day: `day`, `kind`, `source`, `with`, `lines`: `HH:MM him: …` or `HH:MM <name>: …`. `kind` says where:
   - `direct`: their 1:1 chat or mail thread;
   - `group`: a group chat both are in (`with` is its name), only his and their messages;
   - `spoken`: one of his recorded conversations where they spoke (source `lifelog`), only his and their turns,
-    transcribed: a word may be misheard; `(over the phone)` marks a voice heard over a call. How they are face to face.
+    transcribed: a word may be misheard; `(over the phone)` marks a voice heard over a call. How they are face to face;
+  - `own_writing` (only for `person:me`): what he wrote for himself, his notes' changes (source `notes`) or his chats
+    with an assistant (`claude`, `chatgpt`): his words, to no one. How he thinks when no one is reading.
   `(deleted)` at a message's end marks one its writer deleted for everyone: it was sent and seen, then taken back. That
   is something they did; read it as such. A call shows as its line: `(audio call 14:02–14:20, 18 min)`.
 - `recorded`: his recorded conversations with them from before Life kept the words: `day`, `title`, `summary`

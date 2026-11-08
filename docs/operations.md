@@ -160,7 +160,7 @@ late with harm), or spoken asks above about one a day for a month.
   router's own fallback acts only before output begins, and on 29 Oct refuseless opened a day's reply and then died).
   Any other failure (no key, no credit, a reply from a host not listed) skips the rest of that router's hosts.
 - openrouter (`OPENROUTER_API_KEY`, then `ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017, not abliterated, on
-  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`) at medium effort, then
+  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), at high effort for the deep and main tiers and medium for fast (his ask, 9 Nov 2026), then
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).

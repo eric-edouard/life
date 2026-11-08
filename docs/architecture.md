@@ -57,7 +57,9 @@ flowchart LR
   a verdict per new unit (type, importance, area) and the episodes new, changed or gone: only what happened, each with
   `what` came of it and the episode holding it (`within`). The same call says who the day's unknown people are
   (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its words, fetched
-  only for the units sent in full (`voiceText`).
+  only for the units sent in full (`voiceText`). Nothing is cut (his request of 9 Nov 2026): a day too long for one
+  call (`callCharsOf`, the provider's context) is read in parts, in time order, through the same re-read; a mail is
+  its own words, the history it quotes left out (`ownWordsOf`).
 - **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`
@@ -72,12 +74,14 @@ flowchart LR
   from the situations it doesn't show whole, the lines citing an episode it found.
 - **Personas** (`personas.ts`): what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
-  writes to them, or drafts for him; his own across everyone. One call per person reads what passed between them over
+  writes to them, or drafts for him; his own across everyone, with his own writing (his notes, his imported assistant
+  chats; his request of 9 Nov 2026). One call per person reads what passed between them over
   3 years (his request of 8 Nov 2026: every raw source Life holds): their 1:1 messages both ways and the group
   chat-days they wrote in, his and their lines only (the night's read of chats and mail, `readWithPeople`, shared with
-  closeness, which leaves groups out: a group is no measure of closeness, but it shows how someone is), sampled to
-  100,000 characters (the newest, then each month's most eventful days, year by year); and his recorded conversations
-  where they spoke (the stored voice units), sampled to 100,000 more, their words read only when the persona is due; a
+  closeness, which leaves groups out: a group is no measure of closeness, but it shows how someone is) and his
+  recorded conversations where they spoke (the stored voice units, their words read only when the persona is due),
+  every message whole: all of it when it fits one call (`callCharsOf`, his request of 9 Nov 2026: nothing cut), else
+  sampled (the newest, then each month's most eventful days, year by year); a
   chapter from before Life kept words goes in as its summary, context only. With their page and what code counts over
   the 1:1 messages (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like
   the rest, marked; a call is its call line. Each quote is found in a chat message or a recorded turn shown (a writing
