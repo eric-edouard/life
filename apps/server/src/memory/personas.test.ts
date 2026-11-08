@@ -144,10 +144,10 @@ test("a persona is rebuilt when there is none, or 3 days old with new messages",
   const last = { built: "2026-11-06T00:00:00.000Z", inputs: "a" };
   expect(isDue(null, "a", now)).toBe(true);
   expect(isDue(last, "b", now)).toBe(false);
-  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "b", now)).toBe(
+  expect(isDue({ ...last, built: "2026-11-05T00:00:00.000Z" }, "b", now)).toBe(
     true
   );
-  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "a", now)).toBe(
+  expect(isDue({ ...last, built: "2026-11-05T00:00:00.000Z" }, "a", now)).toBe(
     false
   );
 });

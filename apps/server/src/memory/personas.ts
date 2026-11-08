@@ -132,7 +132,7 @@ export function personaBlock(lines: PersonaLine[], today: string) {
   return [
     ...(readings.length > 0
       ? [
-          `Persona (what they are like, want and can give, and what keeps happening between them and him, read every 3 days from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `Persona (what they are like, want and can give, and what keeps happening between them and him, read every ${REBUILD_AFTER / DAY} days from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
           ...readings.map(
             (l) =>
               `- ${l.facet} (${supportOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`
@@ -142,7 +142,7 @@ export function personaBlock(lines: PersonaLine[], today: string) {
       : []),
     ...(writes.length > 0
       ? [
-          "Communication style (how he writes to them and they to him, read every 3 days; follow his when drafting for him):",
+          `Communication style (how he writes to them and they to him, read every ${REBUILD_AFTER / DAY} days; follow his when drafting for him):`,
           ...writes.map(
             (l) =>
               `- ${l.writer === "owner" ? "he writes" : "they write"}${l.kind ? `, ${l.kind}` : ""}${l.source ? ` (${l.source})` : ""}: ${l.text}${quoted(l.quotes)}`
