@@ -1,5 +1,5 @@
 import { clock } from "../core/clock";
-import { asHeard, type Settings, settings } from "../core/settings";
+import { asHeard, LIFE_WAKE, type Settings, settings } from "../core/settings";
 import {
   endedOnSilence,
   isConversationClosed,
@@ -12,9 +12,10 @@ import {
 } from "../sources/lifelog";
 import { ask } from "./asks";
 
-// Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`; the agent pulls it,
-// `read_agent_asks`). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. Each
-// ask's span is also recorded in the store as a mark (`writeMarks`): what he asks is worth remembering.
+// Hears "hey <word>" in his recorded speech: his turns that follow are a span. Every span is recorded in the store as a
+// mark (`writeMarks`): Life keeps what he says to it. A span woken by an agent's word is also an ask for that agent
+// (`ask`; the agent pulls it, `read_agent_asks`); "hey Life" (`LIFE_WAKE`) wakes none. No model call: the two words
+// wake it, and the agent judges the rest.
 
 const SPACES = /\s+/;
 /** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
@@ -26,7 +27,7 @@ const phrase = (w: string) =>
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
 let made: { of: unknown; wakes: ReturnType<typeof wakesOf> } | undefined;
-/** The wakes of this process's agents (made once per settings read). */
+/** The wakes of this process: Life's own and its agents' (made once per settings read). */
 export function wakes() {
   const { agents } = settings();
   const m =
@@ -37,28 +38,24 @@ export function wakes() {
   return m.wakes;
 }
 function wakesOf(agents: NonNullable<Settings["agents"]>) {
-  const all = Object.entries(agents);
-  /** Each word as heard, to its agent; and whether it is its name, not a mishearing. */
-  const words = new Map<string, { agent: string; isName: boolean }>(
+  // Life's own wake first, with no agent.
+  const all: [string | undefined, typeof LIFE_WAKE][] = [
+    [undefined, LIFE_WAKE],
+    ...Object.entries(agents),
+  ];
+  type Word = [string, { agent?: string; isName: boolean }];
+  /** Each word as heard, to its agent (none for Life's own); and whether it is a name, not a mishearing. */
+  const words = new Map<string, { agent?: string; isName: boolean }>(
     all.flatMap(([agent, a]) => [
-      ...a.misheard.map((w): [string, { agent: string; isName: boolean }] => [
-        asHeard(w),
-        { agent, isName: false },
-      ]),
-      ...a.wake.map((w): [string, { agent: string; isName: boolean }] => [
-        asHeard(w),
-        { agent, isName: true },
-      ]),
+      ...a.misheard.map((w): Word => [asHeard(w), { agent, isName: false }]),
+      ...a.wake.map((w): Word => [asHeard(w), { agent, isName: true }]),
     ])
   );
   const any = all.flatMap(([, a]) => [...a.wake, ...a.misheard]).map(phrase);
-  /** A greeting then an agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
-  const wake = new RegExp(
-    any.length > 0 ? String.raw`${GREETING}(${any.join("|")})\b` : "(?!)",
-    "i"
-  );
+  /** A greeting then Life's name, an agent's or a mishearing of one, whatever the case. */
+  const wake = new RegExp(String.raw`${GREETING}(${any.join("|")})\b`, "i");
   return {
-    /** The agent a wake word wakes. */
+    /** The agent a wake word wakes; none for Life's own. */
     agentOf: (word: string) => words.get(asHeard(word))?.agent,
     /**
      * Whether a wake word is an agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on
@@ -87,7 +84,7 @@ function wakeOf(t: Turn): Confidence | undefined {
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
-/** The wake words in a turn: an agent's name, or a misheard one. */
+/** The wake words in a turn: Life's name, an agent's, or a misheard one. */
 const wakeWords = (t: Turn) =>
   [...t.text.matchAll(new RegExp(wakes().wake, "gi"))].flatMap((m) =>
     m[1] ? [m[1]] : []
@@ -105,16 +102,16 @@ export interface Turn {
 }
 
 /**
- * The asks in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
+ * The spans in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
  * after `from`: a wake turn, then the following turns of the same speaker until another speaker, a 15 s pause or a new
- * wake. Its confidence is `wakeOf`'s; its agent, the one its first wake word wakes.
+ * wake. Its confidence is `wakeOf`'s; its agent, the one its first wake word wakes (none for "hey Life": a mark only).
  */
-export function asksIn(turns: Turn[], from: string) {
+export function spansIn(turns: Turn[], from: string) {
   return turns.flatMap((t, i) => {
     const confidence = wakeOf(t);
-    // The turn's first wake word names its agent (every word the wake matches is one of an agent's).
+    // The turn's first wake word names its agent, or Life's own.
     const agent = wakes().agentOf(wakeWords(t)[0] ?? "");
-    if (t.at < from || !confidence || !agent) {
+    if (t.at < from || !confidence) {
       return [];
     }
     const rest = turns.slice(i + 1);
@@ -159,9 +156,9 @@ export function speechIn(store: Store, conversation: string, from: string) {
 }
 
 /**
- * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
- * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its marks
- * (its asks' spans) changed. The words are fetched from lifelog; a
+ * Hears one conversation from `from` on and records its marks and asks, except an ask whose wake has no speaker and is
+ * younger than NAMING_MS (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked`
+ * when its marks (its spans) changed. The words are fetched from lifelog; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -193,8 +190,10 @@ export async function hear(
   const held = (a: { timing: { arrived: string }; turns: number[] }) =>
     turns[a.turns[0] ?? -1]?.who === "unknown" &&
     now - Date.parse(a.timing.arrived) < NAMING_MS;
-  const asks = asksIn(turns, from);
-  for (const a of asks.filter((x) => !held(x))) {
+  const spans = spansIn(turns, from);
+  for (const a of spans.flatMap((x) =>
+    x.agent && !held(x) ? [{ ...x, agent: x.agent }] : []
+  )) {
     ask(
       { at: a.at, quote: a.quote, ref: a.ref },
       {
@@ -209,12 +208,12 @@ export async function hear(
       a.timing
     );
   }
-  // Each ask's span, held ones too, is a mark: its unit carries it, read again at importance 3 (units.ts, episodes.ts).
+  // Each span, held ones too, is a mark: its unit carries it and is always read (units.ts, episodes.ts).
   const marked = writeMarks(
     store,
     conversation,
     from,
-    asks.map((a) => a.turns.flatMap((i) => turns[i]?.ref ?? []))
+    spans.map((a) => a.turns.flatMap((i) => turns[i]?.ref ?? []))
   );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(
@@ -223,5 +222,5 @@ export async function hear(
       wakeWords(t).some((w) => !wakes().isName(w)) &&
       now - Date.parse(t.seen) < NAMING_MS
   );
-  return { heard: !(asks.some(held) || misheard), marked };
+  return { heard: !(spans.some(held) || misheard), marked };
 }

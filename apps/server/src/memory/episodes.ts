@@ -202,18 +202,17 @@ export const episodeId = (key: string[]) =>
   `ep_${digest("sha1", key.join("|"), 12)}`;
 
 /**
- * Code's last word on a verdict's importance: activity 1 at most (never extracted), a unit holding one of his asks 3, an
- * agent's report at least KEEP_AT (always read, for what it may close).
+ * Code's last word on a verdict's importance: activity 1 at most (never extracted); a unit he marked (he asked Life to
+ * keep it, which says nothing of its weight) and an agent's report (for what it may close) at least KEEP_AT: always read.
  */
 export function importanceOf(u: Unit, importance: number) {
   const kind = kindOf(u.source);
   if (isActivity(kind)) {
     return Math.min(importance, 1);
   }
-  if (u.marked) {
-    return 3;
-  }
-  return kind === "agent" ? Math.max(importance, KEEP_AT) : importance;
+  return u.marked || kind === "agent"
+    ? Math.max(importance, KEEP_AT)
+    : importance;
 }
 
 /** The verdicts of a day's reply for units of that day, once each, their importance `importanceOf`. */

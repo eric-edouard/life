@@ -191,7 +191,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Code yesterday",
         },
-        { kind: "pairs", list: n.marked, title: "Asks remembered" },
+        { kind: "pairs", list: n.marked, title: "Told Life" },
         { kind: "facts", list: n.facts, title: "What it found" },
         { kind: "pairs", list: n.episodes.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },

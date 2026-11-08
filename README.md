@@ -158,7 +158,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 | Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
 | Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
-| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; the pages in React; lifelog's iPhone and Watch apps in Swift 6. |
+| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; lifelog's iPhone and Watch apps in Swift 6. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
 | Network | Tailscale: Claude Code reaches the Mac on your tailnet; claude.ai and ChatGPT through Tailscale Funnel, a public address with only Life's sign-in in front. |

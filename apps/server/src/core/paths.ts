@@ -5,8 +5,6 @@ import { join } from "node:path";
 /** Life's own files (prompts, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");
-/** The web app's build (`apps/web`, `vite build`): built by the check and by the helper, served by `host/http/web.ts`. */
-export const WEB_DIST = join(LIFE_CODE_DIR, "apps", "web", "dist");
 /** `bun test` sets NODE_ENV=test: tests never touch the real log or data, nor mail with his key (a test sets its own). */
 export const TEST = process.env.NODE_ENV === "test";
 if (TEST) {

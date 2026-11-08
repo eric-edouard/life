@@ -1,8 +1,8 @@
 {
   "agents": {
     "Orbit": {
-      "misheard": ["or bit", "Zorba", "live"],
-      "wake": ["orbit", "life"]
+      "misheard": ["or bit", "Zorba"],
+      "wake": ["orbit"]
     }
   },
   "backup": {
@@ -20,7 +20,9 @@
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
   },
-  "todo_list": { "backend": "reminders" },
+  "todo_list": {
+    "backend": "reminders"
+  },
   "reports": ["alerts@agents.example.test"],
   "repos": "~/Work",
   "sources": [
@@ -32,6 +34,7 @@
     "notes",
     "claude",
     "chatgpt",
+    "told",
     "agent",
     "git"
   ]

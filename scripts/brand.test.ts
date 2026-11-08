@@ -93,7 +93,7 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
   ]);
   const read = repoFiles(
     LIFE_CODE_DIR,
-    ["apps/server/src", "assets", "apps/mac/Sources", "apps/web/src"],
+    ["apps/server/src", "assets", "apps/mac/Sources"],
     ".ts .tsx .js .css .html .swift .json .jsonl .md".split(" ")
   );
   expect(read).toContain("apps/server/src/memory/email.ts");
@@ -113,35 +113,4 @@ test("the L is one outline: the icon's, the wordmark's and the menu bar's are th
     await outline("assets/brand/life.svg"),
     await outline("assets/icon/icon.svg"),
   ]).toEqual([l, l]);
-});
-
-const CARD_RULE = /\n\s*\.(opt|field|row)\b([^{]*)\{([^}]*)\}/g;
-// Any border, outline or shadow ring on a card's side or all round (its radius aside); `0` or `none` removes one.
-const BORDER =
-  /(?:border(?!-radius)[\w-]*|outline|box-shadow):(?!\s*(?:0|none)\b)/;
-const CLASSES = /className="([^"]*)"/g;
-const ROUNDED = /\brounded/;
-// Tailwind's border utilities, border-0 aside.
-const BORDER_UTILITY = /\bborder(?!-0\b)(?:-|\b)/;
-
-test("no card draws a border in the web app: a subtle background sets it apart (owner, 30 Oct)", async () => {
-  const css = await asset("apps/web/src/styles.css");
-  // The cards' own rules (options, fields, overview rows), not their parts' (the status circle is a mark, not a card).
-  const cards = [...css.matchAll(CARD_RULE)].filter(
-    ([, , selector]) => !selector?.includes(".mark")
-  );
-  expect(cards.length).toBeGreaterThan(2);
-  const bordered = cards
-    .filter(([, , , body]) => BORDER.test(body ?? ""))
-    .map(([, name]) => name);
-  expect(bordered).toEqual([]);
-  // Any rounded box in the components carries no border utility (border-0 aside).
-  const tsx = repoFiles(LIFE_CODE_DIR, ["apps/web/src"], [".tsx"]);
-  const boxed = (await Promise.all(tsx.map(asset))).flatMap((t, i) =>
-    [...t.matchAll(CLASSES)]
-      .map(([, c]) => c ?? "")
-      .filter((c) => ROUNDED.test(c) && BORDER_UTILITY.test(c))
-      .map((c) => `${tsx[i]}: ${c}`)
-  );
-  expect(boxed).toEqual([]);
 });

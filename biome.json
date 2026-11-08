@@ -14,17 +14,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/web/**"],
-      "linter": {
-        "rules": {
-          "performance": {
-            "noJsxPropsBind": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["**", "!apps/web/**"],
+      "includes": ["**"],
       "linter": {
         "rules": {
           "correctness": {

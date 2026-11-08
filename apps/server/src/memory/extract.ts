@@ -481,7 +481,7 @@ export async function extract(evidence: Evidence) {
             source: unit.source,
             title: unit.title,
             triage: unit.marked
-              ? `${MARKED} The lines marked (marked) are his to remember: write every fact in them. ${reasons.get(unit.id) ?? ""}`
+              ? `${MARKED} Write every fact in the lines marked (marked), each at its own importance. ${reasons.get(unit.id) ?? ""}`
               : reasons.get(unit.id),
           })),
         })),

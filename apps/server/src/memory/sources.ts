@@ -32,6 +32,7 @@ import {
   readWhatsapp,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent } from "./agent-source";
+import { newestTold, readTold } from "./told";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).
@@ -143,6 +144,16 @@ const LISTED: Descriptor[] = [
       silentAfter: Number.POSITIVE_INFINITY,
     })
   ),
+  // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
+  {
+    kind: "chat",
+    label: "Told Life",
+    name: "told",
+    newest: newestTold,
+    read: readTold,
+    searchDays: Number.POSITIVE_INFINITY,
+    silentAfter: Number.POSITIVE_INFINITY,
+  },
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
     kind: "agent",

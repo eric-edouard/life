@@ -8,18 +8,14 @@ import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { keyRefusal } from "./local-key";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
-import { createPortrait } from "./portrait";
-import { createSignIn } from "./sign-in";
 import { createStatusReads } from "./status-reads";
-import { createWeb } from "./web";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
- * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer and, when
- * LIFE_PORTRAIT_PASSWORD is set, the web app and the legacy portrait (`web.ts`, `portrait.ts`). The key is never taken on the
- * public port. 404 for any other path.
+ * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer and Life's
+ * brand. The key is never taken on the public port. 404 for any other path.
  */
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
@@ -32,19 +28,19 @@ export function serve() {
   }
   const why = off("connector");
   if (why) {
-    console.log(`${why}: /mcp, the web app and /me are off`);
+    console.log(`${why}: /mcp is off`);
     return;
   }
   listen(PUBLIC_PORT, signedIn());
 }
 
-/** Any path a port's app has no route for (a route that serves nothing, the web app's or `/me`'s, answers the same). */
+/** Any path a port's app has no route for. */
 const notFound = () => new Response("not found", { status: 404 });
 
 /** One listener on loopback, for `app`'s routes; a port it can't take throws. */
 function listen(port: number, app: Hono) {
   Bun.serve({
-    // No stack traces or source in an error page: much of this answers before sign-in.
+    // No stack traces or source in an error page: much of this answers before a token.
     development: false,
     fetch: app.fetch,
     hostname: "127.0.0.1",
@@ -74,10 +70,7 @@ for (const file of BRAND) {
   );
 }
 
-/**
- * The connector's parts: its issuer and /mcp (behind Life's own tokens); with his password set, the web app and the
- * legacy portrait (behind his sign-in), last, so their catch-all never shadows a route.
- */
+/** The connector's parts: its issuer, /mcp (behind Life's own tokens) and Life's brand. */
 export function signedIn() {
   const { origin, resource } = connector();
   const life = createIssuer(origin, resource);
@@ -87,13 +80,9 @@ export function signedIn() {
     ownerSub: life.owner,
     resource,
   });
-  const app = new Hono()
+  return new Hono()
     .route("/", life.app)
     .route("/", createMcp(verify, life.issuer))
-    .route("/", brand);
-  const signIn = createSignIn();
-  if (signIn) {
-    app.route("/", createPortrait(signIn)).route("/", createWeb(signIn));
-  }
-  return app.notFound(notFound);
+    .route("/", brand)
+    .notFound(notFound);
 }

@@ -9,7 +9,7 @@ import { communicationStyles } from "../memory/communication-style";
 import { tagDetails } from "../memory/detail-tags";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
-import { askFactChecks } from "../memory/fact-checks";
+import { topUpFactChecks } from "../memory/fact-checks";
 import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
@@ -227,7 +227,7 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): today's episodes, so the day's speech is read while it is
- * fresh, then the index, then his fact checks topped up. Its facts wait for the night: a chat-day read for facts at
+ * fresh, then the index. Its facts wait for the night: a chat-day read for facts at
  * midday is read again in full at night once its later messages land, so reading it once costs about half (5 Nov). No
  * commit, no email: the nightly commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
@@ -239,12 +239,9 @@ export async function midday(now = clock(), force = false) {
   const code = await locked(() => {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), { extract: false })
-      .then(async (failure) => {
-        await askFactChecks();
-        return failure ? 1 : 0;
-      })
+      .then((failure) => (failure ? 1 : 0))
       .catch((e) => {
-        console.error(`midday fact checks: ${(e as Error).message}`);
+        console.error(`midday: ${(e as Error).message}`);
         return 1;
       });
   });
@@ -316,7 +313,7 @@ async function sweep(name: string, window: Window, o: { extract: boolean }) {
 }
 
 /**
- * Each unit holding one of his asks (its marks) that an extract run read since `since` (a backfill's or a hand run's too), with the observations citing its
+ * Each unit holding his words to Life (its marks: voice, a message to himself, `tell_life`) that an extract run read since `since` (a backfill's or a hand run's too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
@@ -451,7 +448,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     phase.at = "communication styles";
     await communicationStyles(withPeople);
     phase.at = "fact checks";
-    await askFactChecks();
+    await topUpFactChecks();
     phase.at = "index";
     await reindex();
     phase.at = "actions";
