@@ -259,14 +259,14 @@ export function buildServer() {
   tool(
     server,
     "search",
-    `Find anything by its words or topic, at any age (with \`from\`): a message about a flat, a talk about a trip. For how he or someone is, read \`read_person_page\` first (\`me\`, or the person). Searches the owner's memory (episodes: what happened; observations, each saying who spoke when not him; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from \`from\`) and Apple Notes versions (any age) and mail (the last 90 days, no newsletters, the newest 5 thread-days) holding all the words. \`from\`/\`to\` bound every section; one cut at 12 says so. Returns cited passages with ids; \`fetch\` one for more.`,
+    `Find anything by its words or topic: a message about a flat, a talk about a trip. For how he or someone is, read \`read_person_page\` first (\`me\`, or the person). Searches the owner's memory (episodes: what happened; observations, each saying who spoke when not him; units), the exact words spoken in recordings, the chat messages and mail (no newsletters, the newest 5 thread-days) and Apple Notes versions holding all the words: chats and mail the last 90 days by default, notes any age; \`from\`/\`to\` bound every section; one cut at 12 says so. Returns cited passages with ids; \`fetch\` one for more.`,
     z.object({ query: z.string().min(2).max(500), ...range }),
     ({ query, ...rest }) => search(query, rest)
   );
   tool(
     server,
     "fetch",
-    "Open in full what another tool cited by id (a recorded conversation, a chat or mail passage): who spoke and the words, a page of turns at a time. An ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words.",
+    "Open in full a conversation or a unit (chat, mail) another tool cited by id: who spoke and the words, a page of turns at a time. An ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words.",
     z.object({
       fromTurn: z.int().min(0).optional(),
       id: z
@@ -286,7 +286,7 @@ export function buildServer() {
   tool(
     server,
     "read_person_page",
-    "Read it before he meets, calls or writes to someone, and for any question about a person. Their page, whole: their details (birthday, where they live, work, family, diet, gifts, how to reach them, handles: from his map, his Contacts and tagged facts); what is open between them, whatever its day (what he owes them, then what he waits on from them); their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days); how he writes to them (Communication style); the page (who they are to the owner, where things stand, History); what Life holds about them by source and month; every observation linked to them and the episodes with them, newest first; recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
+    "Read it before he meets, calls or writes to someone, and for any question about a person. Their page, whole: their details (birthday, where they live, work, family, diet, gifts, how to reach them, handles: from his map, his Contacts and tagged facts); how close they are; what is open between them, whatever its day (what he owes them, then what he waits on from them); their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days); how he writes to them (Communication style: draft his messages to them in it, else in `me`'s); the page (who they are to the owner, where things stand, History) and the observations linked to them, newest first; what Life holds about them by source and month; the episodes with them; recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
     z.object({
       before: Day.optional().describe(
         "Page back: only what is older than this day"
@@ -389,7 +389,7 @@ export function buildServer() {
   tool(
     server,
     "correct_memory",
-    "Change something, only when the owner explicitly asked for that change: `memory` (a correction to Life's memory: a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something, only when the owner explicitly asked for that change: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -415,7 +415,7 @@ export function buildServer() {
     tool(
       server,
       "change_todo_item",
-      `Change the owner's to-do list (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, a to-do or promise he said aloud (the standing grant): add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. \`target\` is an item's id as \`read_open_todo_items\` gives it (all but add). Logged in Life's history; \`read_day\` shows it.`,
+      `Change the owner's to-do list (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, for an add only, with \`obs\`, a to-do or promise he said aloud (the standing grant): add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. \`target\` is an item's id as \`read_open_todo_items\` gives it (all but add). Logged in Life's history; \`read_day\` shows it.`,
       Reminders,
       (a) => request(a),
       REVERSIBLE
@@ -437,7 +437,7 @@ export function buildServer() {
   tool(
     server,
     "read_agent_asks",
-    'Call it first in every run: what the owner asked you, the agent this app was paired as (JSON): each time the owner said "hey <you>" or asked you through Life, past a cursor, in the order recorded: its id, when he spoke, when Life recorded it, his words and how sure the wake was (low: confirm with him). Keep your own list; Life keeps none. Who he is: `read_person_page` with his name.',
+    'As a paired agent, call it first in each session: what the owner asked you, the agent this app was paired as (JSON): each time the owner said "hey <you>" or asked you through Life, past a cursor, in the order recorded: its id, when he spoke, when Life recorded it, his words and how sure the wake was (low: confirm with him). Keep your own list; Life keeps none. Who he is: `read_person_page` with his name.',
     z.object(page),
     async ({ cursor, limit }, caller) =>
       asksFor(agentOnly(caller), cursor, limit)
