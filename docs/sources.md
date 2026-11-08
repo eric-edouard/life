@@ -30,7 +30,9 @@ the archive's media copy); Life copies none, and a description outlives its file
 | The agent's done tasks | Life's own ledger, `memory/ledger.jsonl` (`tasksOf`) | `agent-source.ts` | Kind `agent`. Stored history: no agent writes updates since 2 Nov 2026. One unit per task the agent closed done itself (its own last update, not the owner's tick in Reminders), dated when it closed: the owner's ask's words (the first 1,500 characters) and the agent's outcome, all one line by `agent:` + `AGENT_WORD`, never the owner's nor resolved to a person. Its own report, not checked by Life: extraction may read it as evidence of what was done, to close a loop it sees among its priors (one of its own episode, or one of the owner's own from its day or the day before, as for any unit), such as the to-do the owner's ask also left. Always read (importance at least 2), never searched as messages. |
 | Screen Time | Apple's Biome streams, `~/Library/Biome/streams/restricted/` (SEGB files of protobuf records): `ScreenTime.AppUsage/local` (the Mac's app time, Screen Time's own, idle left out), `App.InFocus/remote/<device>` (the app in front on each iOS device that syncs to the Mac), `App.WebUsage/local` (Safari's websites); device ids and platforms from `~/Library/Biome/sync/sync.db` | `copyScreen` and `readScreen` (`apps/server/src/sources/screen.ts`) | Kind `screen`, activity like git: never extracted, importance 1 at most, never searched as messages. Biome prunes after a week or a few, so every 5 s the archive copies each new record into `screen.sqlite` (`events`), raw, each once by its key (a record an iPhone syncs late still lands). Read back as stints (an app until the next comes or it leaves, a website by its visit; the same one back within 2 minutes joined; the lock, home and sign-in screens, Finder, settings and Life itself left out, call screens kept), one device-day per device and local day: its time by app and website (a minute or more), then its stints of 5 minutes or more. Apps by bundle id, websites by domain, never an address or a page. The `devices` setting names each device; one left out shows its platform. |
 
-The calendar is not a source: the agent reads it. (The Past calendar is Life's output, `docs/tasks.md`.)
+The calendar is not a source: the agent reads it. Nor are his payments: with the `payments` setting, `read_day` and
+`read_payments` read them from his money app (`money tx`, `apps/server/src/payments/`) and place each one in his day,
+at read time; no model reads them. (The Past calendar is Life's output, `docs/tasks.md`.)
 
 ## Not used yet
 
@@ -39,6 +41,6 @@ The calendar is not a source: the agent reads it. (The Past calendar is Life's o
 | Call history (`CallHistory.storedata`) | The phone and FaceTime calls; the messaging apps' calls come from their own chats |
 | Google Drive | Project status pages, not day-to-day material |
 | Claude Code sessions | A "where your time went" view |
-| Business numbers (payments, app stores, analytics) | Project status pages |
+| Business numbers (app stores, analytics) | Project status pages |
 | Safari's page titles (`History.db`) | Screen Time keeps domains only; add when "what was I reading then" is asked |
 | Apple Health | Only reachable from the iPhone (Shortcut export) |
