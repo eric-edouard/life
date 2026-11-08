@@ -59,7 +59,7 @@ export const pagePath = (ref: string) =>
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
-/** What each person with a page is like, and how they and he write (`memory/personas.ts`), one file per person. */
+/** What each person with a page is like, wants and can give, and how they and he write (`memory/personas.ts`), one file per person. */
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>
   join(PERSONAS, `${ref.slice("person:".length)}.json`);
