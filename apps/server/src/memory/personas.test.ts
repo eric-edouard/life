@@ -5,6 +5,7 @@ import {
   pairCountsOf,
   personaBlock,
   personaLines,
+  readingsOf,
   sampleOf,
   supportOf,
 } from "./personas";
@@ -174,5 +175,17 @@ test("a reader shows the readings with their support, and the writing lines unde
   expect(block[4]).toBe(
     '- they write, chat (whatsapp): Short. E.g. "haha ok" (2026-11-01)'
   );
+  expect(
+    readingsOf([
+      { facet: "pattern", quotes: [q], text: "Blames, then makes up." },
+      {
+        facet: "writes",
+        kind: null,
+        quotes: [q],
+        text: "Short.",
+        writer: "them",
+      },
+    ]).map((l) => l.facet)
+  ).toEqual(["pattern"]);
   expect(personaBlock([], "2026-11-08")).toEqual([]);
 });

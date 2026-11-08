@@ -448,9 +448,6 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
-    // The persona first: the situation reads it.
-    phase.at = "personas";
-    await personas(withPeople);
     phase.at = "situations";
     await situations();
     phase.at = "appointments";
@@ -458,6 +455,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     if (isOn("appointments")) {
       await appointments();
     }
+    // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
+    phase.at = "personas";
+    await personas(withPeople);
     phase.at = "fact checks";
     await topUpFactChecks();
     phase.at = "index";

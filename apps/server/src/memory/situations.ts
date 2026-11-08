@@ -14,7 +14,7 @@ import {
   SITUATIONS,
   situationPath,
 } from "./ledger";
-import { readPersonaLines, supportOf } from "./personas";
+import { readingsOf, readPersonaLines, supportOf } from "./personas";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, refContext } from "./run";
 import { readPeople } from "./who";
@@ -102,18 +102,12 @@ export async function situations() {
             ref: t.ref,
             text: (await page.exists()) ? await page.text() : "",
           },
-          // The persona's readings, to tell what repeats from what is new; its writing lines are for drafting, not here.
-          persona: readPersonaLines(t.ref).flatMap((l) =>
-            l.facet === "writes"
-              ? []
-              : [
-                  {
-                    facet: l.facet,
-                    support: supportOf(l.quotes, step.today),
-                    text: l.text,
-                  },
-                ]
-          ),
+          // To tell what repeats from what is new.
+          persona: readingsOf(readPersonaLines(t.ref)).map((l) => ({
+            facet: l.facet,
+            support: supportOf(l.quotes, step.today),
+            text: l.text,
+          })),
         };
         const inputs = digest(
           "sha256",

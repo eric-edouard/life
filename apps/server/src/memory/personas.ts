@@ -122,12 +122,16 @@ const quoted = (quotes: PersonaQuote[]) =>
     ? ` E.g. ${quotes.map((q) => `"${q.text}" (${localDate(q.at)})`).join(", ")}`
     : "";
 
+/** A persona's readings of the person and what is between them, without the writing lines (those are for drafting). */
+export const readingsOf = (lines: PersonaLine[]) =>
+  lines.flatMap((l) => (l.facet === "writes" ? [] : [l]));
+
 /**
  * Persona lines as a reader shows them: the readings under Persona, each with its support; the writing lines under
  * Communication style (the connector's word for them). Nothing when there is none.
  */
 export function personaBlock(lines: PersonaLine[], today: string) {
-  const readings = lines.flatMap((l) => (l.facet === "writes" ? [] : [l]));
+  const readings = readingsOf(lines);
   const writes = lines.flatMap((l) => (l.facet === "writes" ? [l] : []));
   return [
     ...(readings.length > 0
