@@ -178,5 +178,5 @@ reads the rest of its settings. How the report and the alerts go out:
   daily triage reads them.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - Each new voice ask: a push to his phone, "<agent> heard you" (`notifyPhone`, through lifelog), so a missing one
-  tells him at once it was not heard. Never his words.
+  tells him at once it was not heard. Never his words. Voice asks come only from lifelog, so without it there is none to push.
 - Life sends nothing into a chat.
