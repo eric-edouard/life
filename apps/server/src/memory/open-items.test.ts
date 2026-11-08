@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { SourceEvent } from "../records/source";
-import { type Candidate, openItems, owed } from "./open-items";
+import { type Candidate, openItems, owed, rankedItems } from "./open-items";
 
 const DATE = "2026-10-19";
 const item = (over: Partial<Candidate>): Candidate => ({
@@ -186,4 +186,16 @@ test("an undated to-do or promise: the day after it was said and 3 days after, a
     openItems([undated], { date: "2026-10-19", today: "2026-10-18" })
   ).toEqual([]);
   expect(openItems([undated], { date: "2026-10-19" })[0]?.overdue).toBe(false);
+});
+
+test("ranked alone, every open item stays, however old, overdue against the day", () => {
+  const old = item({ id: "obs_old", when: "2026-08-01" });
+  const undated = item({ id: "obs_said", said: "2026-08-01", when: undefined });
+  expect(ids([old, undated])).toEqual([]);
+  expect(
+    rankedItems([old, undated], { date: DATE }).map((i) => [i.id, i.overdue])
+  ).toEqual([
+    ["obs_old", true],
+    ["obs_said", false],
+  ]);
 });

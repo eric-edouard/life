@@ -39,7 +39,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `todo_list` setting, `TodoListBackend`, `todo-list/`). | |
 | to-do item | One entry in the to-do list (`TodoItem`). | |
 | act | The one command that decides and makes a change to a to-do item, and logs it in the ledger. | |
-| open item | Anything owed, derived, never stored (`openItems`): a to-do, a promise, a reply owed, a to-do item, someone the owner is waiting on. | |
+| open item | Anything owed, derived, never stored (`openItems`): a to-do, a promise, a reply owed, a to-do item, someone the owner is waiting on. A person's page lists those with them (`openWithOf`). | |
 
 ## Sources
 
