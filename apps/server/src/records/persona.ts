@@ -15,7 +15,15 @@ const quotes = z.array(PersonaQuote).max(4);
 /** A reading of the person or of what is between them and him, backed by quotes from both sides' messages. */
 const ReadingLine = z
   .object({
-    facet: z.enum(["traits", "wants", "reacts", "pattern", "approach"]),
+    facet: z.enum([
+      "traits",
+      "wants",
+      "offers",
+      "exchange",
+      "reacts",
+      "pattern",
+      "approach",
+    ]),
     quotes,
     text: z.string().min(1).max(500),
   })

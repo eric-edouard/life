@@ -131,7 +131,7 @@ export function personaBlock(lines: PersonaLine[], today: string) {
   return [
     ...(readings.length > 0
       ? [
-          `Persona (what they are like and what keeps happening between them and him, read weekly from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `Persona (what they are like, want and can give, and what keeps happening between them and him, read weekly from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
           ...readings.map(
             (l) =>
               `- ${l.facet} (${supportOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`

@@ -81,6 +81,7 @@ test("a quote stays only as words in a chat message shown, a writing line's only
         text: "Short, warm.",
         writer: "owner",
       },
+      { facet: "offers", quotes: [], text: "Gives time when asked." },
       { facet: "horoscope", quotes: [], text: "Not a kind." },
     ],
   };
@@ -99,6 +100,7 @@ test("a quote stays only as words in a chat message shown, a writing line's only
       text: "Short, warm.",
       writer: "owner",
     },
+    { facet: "offers", quotes: [], text: "Gives time when asked." },
   ]);
   expect(personaLines("not json", days)).toEqual([]);
 });
