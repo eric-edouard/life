@@ -40,6 +40,7 @@ import {
   type Resolve,
   searchableMail,
   speakerOf,
+  textOf,
   UNKNOWN,
   unitTitle,
 } from "./units";
@@ -721,7 +722,7 @@ function chatLinesOf(
         messageLine(
           localTime(e.at),
           senderOf(e, people),
-          redact(e.text),
+          redact(textOf(e)),
           e.deleted
         )
       ),

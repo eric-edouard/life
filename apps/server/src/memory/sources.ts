@@ -280,8 +280,8 @@ export function tablesOf(sources: Descriptor[]) {
     ),
     /**
      * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. Read over years once a
-     * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its days and
-     * personas sample their messages, never units.
+     * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its 1:1 days and
+     * personas sample their messages, 1:1 and in groups (their recordings come from the stored units).
      */
     WITH_PEOPLE: readers(
       (s) => s.kind === "chat" || s.kind === "mail",

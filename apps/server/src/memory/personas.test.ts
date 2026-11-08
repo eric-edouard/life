@@ -1,14 +1,21 @@
 import { expect, test } from "bun:test";
 import type { SourceEvent } from "../records/source";
+import type { Unit } from "../records/unit";
 import {
+  betweenOf,
+  groupDaysOf,
   isDue,
   pairCountsOf,
   personaBlock,
   personaLines,
   readingsOf,
+  recordingsOf,
   sampleOf,
+  shownDaysOf,
   supportOf,
 } from "./personas";
+
+const whoOf = (e: SourceEvent) => (e.fromMe ? "him" : "Dad");
 
 // Noon UTC: the same local day in any zone a test runs in.
 const msg = (
@@ -43,7 +50,10 @@ test("a sample keeps the newest days, the eventful ones and some across the year
     msg("2023-06-10", m, m % 2 === 0, "y".repeat(80), { deleted: m > 2 })
   );
   const newest = msg("2026-11-01", 0, false, "z".repeat(80));
-  const days = sampleOf([...quiet, ...fight, newest], () => "Ana", 2000);
+  const days = sampleOf(
+    shownDaysOf([...quiet, ...fight, newest], "direct", whoOf, () => "Ana"),
+    2000
+  );
   const shown = days.map((d) => d.day);
   expect(shown.at(-1)).toBe("2026-11-01");
   expect(shown).toContain("2023-06-10");
@@ -58,26 +68,42 @@ test("a sample keeps the newest days, the eventful ones and some across the year
 });
 
 test("a quote stays only as words in a chat message shown, a writing line's only from that writer, with the message's time", () => {
-  const days = sampleOf(
-    [
-      msg("2026-10-01", 0, false, "C'est encore de ta faute !"),
-      msg("2026-10-01", 1, true, "Ok ça marche, à demain"),
-      msg("2026-10-02", 0, false, "Pardon mon fils", { source: "mail" }),
-    ],
-    () => "Dad"
-  );
+  const days = [
+    ...shownDaysOf(
+      [
+        msg("2026-10-01", 0, false, "C'est encore de ta faute !"),
+        msg("2026-10-01", 1, true, "Ok ça marche, à demain"),
+        msg("2026-10-02", 0, false, "Pardon mon fils", { source: "mail" }),
+      ],
+      "direct",
+      whoOf,
+      () => "Dad"
+    ),
+    // How he writes in a group is not how he writes to them: quotable, never a writing line's.
+    ...shownDaysOf(
+      [msg("2026-10-03", 0, true, "Salut la famille", { chat: "family" })],
+      "group",
+      whoOf,
+      () => "Family (group)"
+    ),
+  ];
   const reply = {
     lines: [
       {
         facet: "pattern",
-        quotes: ["c'est encore de ta faute", "pardon mon fils", "never said"],
+        quotes: [
+          "c'est encore de ta faute",
+          "pardon mon fils",
+          "never said",
+          "salut la famille",
+        ],
         text: "He blames, then apologises.",
         writer: null,
       },
       {
         facet: "writes",
         kind: "chat",
-        quotes: ["ok ca marche", "de ta faute"],
+        quotes: ["ok ca marche", "de ta faute", "salut la famille"],
         source: "line",
         text: "Short, warm.",
         writer: "owner",
@@ -91,6 +117,7 @@ test("a quote stays only as words in a chat message shown, a writing line's only
       facet: "pattern",
       quotes: [
         { at: "2026-10-01T12:00:00.000Z", text: "C'est encore de ta faute" },
+        { at: "2026-10-03T12:00:00.000Z", text: "Salut la famille" },
       ],
       text: "He blames, then apologises.",
     },
@@ -188,4 +215,65 @@ test("a reader shows the readings with their support, and the writing lines unde
     ]).map((l) => l.facet)
   ).toEqual(["pattern"]);
   expect(personaBlock([], "2026-11-08")).toEqual([]);
+});
+
+test("his recordings with someone: the voice units they spoke in, a chapter weighed by its summary", () => {
+  const unit = (id: string, people: string[], extra: Partial<Unit> = {}) =>
+    ({
+      date: "2026-11-01",
+      end: "2026-11-01T13:00:00.000Z",
+      hash: "h",
+      id,
+      key: id,
+      people,
+      refs: [],
+      schemaVersion: 1,
+      source: "lifelog",
+      start: "2026-11-01T12:00:00.000Z",
+      stats: { chars: 0, fromMe: 2, items: 5 },
+      title: "Lunch",
+      ...extra,
+    }) as Unit;
+  const got = recordingsOf(
+    [
+      unit("a", ["person:me", "person:dad"]),
+      unit("b", ["person:me", "person:ana"]),
+      unit("c", ["person:dad"], { summary: "They talked about the house." }),
+      unit("d", ["person:dad"], { source: "whatsapp" }),
+    ],
+    new Set(["person:dad"])
+  );
+  expect(got.map((r) => [r.unit.id, r.size])).toEqual([
+    ["a", 600],
+    ["c", 33],
+  ]);
+});
+
+test("a group chat-day goes to whoever wrote in it, with only his and their lines; a 1:1 is never a group", () => {
+  const g = (minute: number, sender: string, fromMe = false) =>
+    msg("2026-10-05", minute, fromMe, `m${minute}`, {
+      chat: "family@g.us",
+      sender,
+    });
+  const group = [g(0, "+2"), g(1, "+3"), g(2, "me", true)];
+  const oneToOne = [
+    msg("2026-10-05", 0, false, "hi", {
+      chat: "+9@s.whatsapp.net",
+      sender: "+9",
+    }),
+  ];
+  const said = new Map(
+    [...group, ...oneToOne].map((e) => [
+      e,
+      e.fromMe ? "person:me" : `person:${e.sender.slice(1)}`,
+    ])
+  );
+  const days = groupDaysOf([...group, ...oneToOne], said);
+  expect(days.map((d) => d.map((e) => e.text))).toEqual([["m0", "m1", "m2"]]);
+  const of = (refs: string[]) =>
+    betweenOf(days[0] ?? [], new Set(refs), (e) => said.get(e) ?? "").map(
+      (e) => e.text
+    );
+  expect(of(["person:2"])).toEqual(["m0", "m2"]);
+  expect(of(["person:7"])).toEqual([]);
 });

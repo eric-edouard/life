@@ -72,13 +72,18 @@ flowchart LR
   from the situations it doesn't show whole, the lines citing an episode it found.
 - **Personas** (`personas.ts`): what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
-  writes to them, or drafts for him; his own across everyone. One call per person reads their 1:1 messages both ways
-  from the night's read of chats and mail (`readWithPeople`, 3 years, shared with closeness), sampled to 100,000
-  characters (the newest, then each month's most eventful days, year by year), with their page and what code counts
-  between them (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like the
-  rest, marked. Each quote is found in a chat message shown and kept with its time, so how well a line is backed
-  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly,
-  when the messages changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
+  writes to them, or drafts for him; his own across everyone. One call per person reads what passed between them over
+  3 years (his request of 8 Nov 2026: every raw source Life holds): their 1:1 messages both ways and the group
+  chat-days they wrote in, his and their lines only (the night's read of chats and mail, `readWithPeople`, shared with
+  closeness, which leaves groups out: a group is no measure of closeness, but it shows how someone is), sampled to
+  100,000 characters (the newest, then each month's most eventful days, year by year); and his recorded conversations
+  where they spoke (the stored voice units), sampled to 100,000 more, their words read only when the persona is due; a
+  chapter from before Life kept words goes in as its summary, context only. With their page and what code counts over
+  the 1:1 messages (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like
+  the rest, marked; a call is its call line. Each quote is found in a chat message or a recorded turn shown (a writing
+  line's only in that writer's 1:1 chats) and kept with its time, so how well a line is backed (`supportOf`: solid on 3
+  days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly, when what was said
+  changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
   moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
 - **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
