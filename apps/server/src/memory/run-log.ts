@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { clock, daysBefore } from "../core/clock";
 import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
-import { add, NONE, type Quota, type Tokens } from "../models/llm";
+import type { Quota } from "../models/llm";
+import { add, NONE, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./ledger";
 import { lockedSince } from "./memory-lock";

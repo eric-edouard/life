@@ -10,13 +10,13 @@ import {
   askOnce,
   claudeTokens,
   codexTokens,
-  extractJson,
   hasQuota,
   llmFor,
   llmOverride,
   quota,
   quotaOf,
 } from "./llm";
+import { extractJson } from "./model-call";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });
@@ -70,7 +70,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     open?: boolean;
     /** A host's own status, over `status`. */
     statusOf?: Record<string, number>;
-  } = { finish: "stop", provider: "Refuseless", status: 200 };
+  } = { finish: "stop", status: 200 };
   // Sent in small pieces with CRLF line ends, so an event is split across pieces.
   const sse = (chunks: unknown[]) => {
     const text = `: keepalive\r\n${chunks.map((c) => `data: ${JSON.stringify(c)}\r\n\r\n`).join("")}data: [DONE]\r\n\r\n`;
@@ -98,17 +98,19 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     const body = JSON.parse(String(init.body));
     asked.push({ body, url });
     const [host] = body.provider.only;
+    // Each host serves its own reply, unless the test names another.
+    const served = reply.provider ?? host.split("/")[0];
     const opened = {
       choices: [{ delta: { content: "", role: "assistant" } }],
-      provider: reply.provider,
+      provider: served,
     };
     const chunks = reply.cut?.includes(host)
-      ? [opened, { provider: reply.provider, usage: usage(3) }]
+      ? [opened, { provider: served, usage: usage(3) }]
       : [
           opened,
           {
             choices: [{ delta: { content: '{"ok":' } }],
-            provider: reply.provider,
+            provider: served,
           },
           {
             choices: [
@@ -119,9 +121,9 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
                 finish_reason: reply.finish,
               },
             ],
-            provider: reply.provider,
+            provider: served,
           },
-          { choices: [], provider: reply.provider, usage: usage(7) },
+          { choices: [], provider: served, usage: usage(7) },
         ];
     const status = reply.statusOf?.[host] ?? reply.status;
     return Promise.resolve(
@@ -179,7 +181,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     };
     hostsAsked();
     // The first host opens its reply, then its stream ends: the next host is asked, and both cost.
-    reply = { ...reply, cut: ["refuseless"], provider: "Hopper" };
+    reply = { ...reply, cut: ["refuseless"] };
     expect(await ask()).toEqual({ ok: true });
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
     expect(lastLine()).toContain(
@@ -207,7 +209,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(lastLine()).toContain('"input":30');
     // What another host would answer the same way is final.
     expect(hostsAsked()).toEqual(["refuseless"]);
-    reply = { ...reply, finish: "length", provider: "Hopper" };
+    reply = { ...reply, finish: "length", provider: undefined };
     await expect(ask()).rejects.toThrow("stopped (length)");
     expect(hostsAsked()).toEqual(["refuseless"]);
     reply = { ...reply, status: 401 };
@@ -231,7 +233,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         run: "r",
       });
     hostsAsked();
-    reply = { finish: "stop", provider: "DeepInfra", status: 200 };
+    reply = { finish: "stop", status: 200 };
     expect(await routed()).toEqual({ ok: true });
     expect(asked[0]?.url).toContain("openrouter.ai");
     expect(asked[0]?.body.model).toBe("a/b");
@@ -253,7 +255,13 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     reply = { ...reply, statusOf: {} };
     expect(await routed()).toEqual({ ok: true });
     expect(hostsAsked()).toEqual(["refuseless"]);
-    reply = { finish: "stop", status: 200 };
+    // A reply from a host of another router is not the asked host's: refused, and allmodels asked.
+    process.env.OPENROUTER_API_KEY = "test-key";
+    reply = { ...reply, provider: "Refuseless" };
+    expect(await routed()).toEqual({ ok: true });
+    expect(hostsAsked()).toEqual(["deepinfra/fp8", "refuseless"]);
+    delete process.env.OPENROUTER_API_KEY;
+    reply = { finish: "stop", provider: "", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
     await expect(
       askOnce({

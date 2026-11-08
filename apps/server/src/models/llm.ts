@@ -4,50 +4,25 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { CODEX, cliEnv, MACHINE_DIR } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
-
-const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
-const MODEL_TIMEOUT_MS = 60 * MIN;
-
-/**
- * The model's reply is meant to be bare JSON; tolerate a fence or a stray line around it, and a reply that corrects
- * itself with a second fenced object (the last one wins).
- */
-export function extractJson(text: string): unknown {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end < start) {
-    throw new Error("no JSON object in the model's reply");
-  }
-  try {
-    return JSON.parse(text.slice(start, end + 1));
-  } catch (e) {
-    const last = [...text.matchAll(FENCED)].at(-1)?.[1];
-    if (last === undefined) {
-      throw e;
-    }
-    return JSON.parse(last);
-  }
-}
-
-/**
- * What a step needs (each step names its tier in `begin`): files, repos, closeness and imports fast, pages main, episodes
- * and extract deep (~/Life/docs/evals/events-2026-10-18.md).
- */
-export type Tier = "fast" | "main" | "deep";
-
-/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an API engine's model is its routes, `routesOf`). */
-export interface Llm {
-  effort?: string;
-  engine: Engine;
-  model: string;
-}
+import {
+  type Answer,
+  add,
+  extractJson,
+  imageBlock,
+  type Llm,
+  MODEL_TIMEOUT_MS,
+  type ModelCall,
+  NONE,
+  type Tier,
+  type Tokens,
+} from "./model-call";
+import { askRoutes, ROUTERS, type Router, routesOf } from "./routers";
 
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
@@ -174,18 +149,6 @@ const ClaudeResult = z.object({
   usage: z.record(z.string(), z.unknown()).optional(),
 });
 
-/** The tokens of a call (on its `model.run` line), or of a run's calls: input (cached included), cached input, output. */
-export interface Tokens {
-  cached: number;
-  input: number;
-  output: number;
-}
-export const NONE: Tokens = { cached: 0, input: 0, output: 0 };
-export const add = (a: Tokens, b: Tokens): Tokens => ({
-  cached: a.cached + b.cached,
-  input: a.input + b.input,
-  output: a.output + b.output,
-});
 const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
 /** codex's `--json` events: the tokens of each `turn.completed`, summed. */
@@ -233,63 +196,6 @@ const modelEnv = (extra: Record<string, string> = {}) => ({
   ...extra,
 });
 
-/** An image as claude's stream-json input takes it (an API call builds its data URL from it). */
-const imageBlock = async (path: string) => ({
-  source: {
-    data: Buffer.from(await Bun.file(path).bytes()).toString("base64"),
-    media_type: Bun.file(path).type,
-    type: "base64",
-  },
-  type: "image",
-});
-
-/** One chunk of a router's streamed reply: the text so far comes in deltas; the host, finish and tokens on any chunk. */
-const ChatChunk = z.object({
-  choices: z
-    .array(
-      z.object({
-        delta: z.object({ content: z.string().nullish() }).nullish(),
-        finish_reason: z.string().nullish(),
-      })
-    )
-    .nullish(),
-  // The host that served it, checked against his hosts.
-  provider: z.string().nullish(),
-  usage: z
-    .object({
-      completion_tokens: z.number(),
-      prompt_tokens: z.number(),
-      prompt_tokens_details: z.object({ cached_tokens: z.number() }).nullish(),
-    })
-    .nullish(),
-});
-interface ChatReply {
-  finish?: string;
-  provider?: string;
-  text: string;
-  usage?: z.infer<typeof ChatChunk>["usage"];
-}
-const NOT_ALNUM = /[^a-z0-9]/g;
-const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
-
-/** One call as a runner gets it. */
-interface Call {
-  dir: string;
-  images: string[];
-  input: unknown;
-  llm: Llm;
-  system: string;
-}
-/**
- * A runner's reply: its text, and what the log records of the call besides the time. `refusal`: it answered, but the
- * answer is not used (still logged with what it cost).
- */
-interface Answer {
-  fields?: Record<string, unknown>;
-  refusal?: string;
-  text: string;
-}
-
 /**
  * A CLI run to its end in an empty folder outside the repo (inside it, claude loads the project's auto-memory and
  * codex its AGENTS.md: recorded content must reach the model with nothing but the prompt). Throws on a failure.
@@ -319,7 +225,7 @@ async function cli(
   return stdout;
 }
 
-async function askClaude({ dir, images, input, llm, system }: Call) {
+async function askClaude({ dir, images, input, llm, system }: ModelCall) {
   const stdout = await cli(
     "claude",
     () => [
@@ -363,7 +269,7 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
   };
 }
 
-async function askCodex({ dir, images, input, llm, system }: Call) {
+async function askCodex({ dir, images, input, llm, system }: ModelCall) {
   if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
     // codex refuses a CODEX_HOME that doesn't exist, even to log in.
     await mkdir(CODEX_HOME, { recursive: true });
@@ -461,269 +367,6 @@ export async function quota(engine?: Engine) {
   return q;
 }
 
-/** The API routers, each its OpenAI-shaped endpoint and the key it takes; both take OpenRouter's `provider` field. */
-const ROUTERS = {
-  allmodels: {
-    key: "ALLMODELS_API_KEY",
-    url: "https://api.allmodels.io/oai/chat/completions",
-  },
-  openrouter: {
-    key: "OPENROUTER_API_KEY",
-    url: "https://openrouter.ai/api/v1/chat/completions",
-  },
-};
-type Router = keyof typeof ROUTERS;
-const isRouter = (r: string): r is Router => Object.hasOwn(ROUTERS, r);
-/** Room for a day's episodes and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
-const MAX_TOKENS = 131_072;
-/** A host that sends no chunk for this long has died mid-reply (a router's keepalives are not chunks). */
-const STALL_MS = 5 * MIN;
-
-/** One host to ask: its router, the model on it, the host. */
-type Route = ReturnType<typeof routesOf>[number];
-
-/**
- * An API engine's model as the routes to ask, in order: a router's hosts, `router:author/model@host[,host][=effort]`,
- * then the next router's after a space. A router left out is the engine's own; an effort left out is the tier's.
- * Throws on a router Life doesn't know.
- */
-export function routesOf(spec: string, engine: string) {
-  return spec
-    .split(" ")
-    .filter(Boolean)
-    .flatMap((route) => {
-      const [head = "", rest = ""] = route.split("@");
-      const [list = "", effort] = rest.split("=");
-      const [router, model] = head.includes(":")
-        ? head.split(":")
-        : [engine, head];
-      if (!(router && isRouter(router) && model)) {
-        throw new Error(`no router like ${router} in ${route}`);
-      }
-      return list
-        .split(",")
-        .filter(Boolean)
-        .map((host) => ({ effort, host, model, router })); // one host to ask (`deepinfra/fp8`: a host, then its variant)
-    });
-}
-
-/**
- * One call through the engine's routes with his keys, at the tier's effort, one host at a time, streamed, within
- * MODEL_TIMEOUT_MS. A host that may fail alone (a stall, a cut stream, a reply not JSON like a refusal, a 429, a 5xx, no
- * answer) gives way to the next: a router's own fallback acts only before output begins (29 Oct 2026: refuseless died
- * mid-reply). Any other failure (no key, no credit, another host) skips that router's hosts. Every host's tokens and
- * refusal are kept, its reply in the call's folder.
- */
-async function askRoutes(call: Call): Promise<Answer> {
-  const hosts = routesOf(call.llm.model, call.llm.engine);
-  if (!hosts.length) {
-    throw new Error(
-      `an API engine's model is [router:]author/model@host[,host], not ${call.llm.model}`
-    );
-  }
-  const pictures = await Promise.all(
-    call.images.map(async (path) => {
-      const { source } = await imageBlock(path);
-      return {
-        image_url: { url: `data:${source.media_type};base64,${source.data}` },
-        type: "image_url",
-      };
-    })
-  );
-  const body = {
-    max_tokens: MAX_TOKENS,
-    messages: [
-      { content: call.system, role: "system" },
-      {
-        content: [
-          { text: JSON.stringify(call.input), type: "text" },
-          ...pictures,
-        ],
-        role: "user",
-      },
-    ],
-    reasoning_effort: call.llm.effort,
-    stream: true,
-    stream_options: { include_usage: true },
-  };
-  const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
-  const refusals: string[] = [];
-  let tokens: Tokens | undefined;
-  let answer: Answer = { text: "" };
-  let skipped: Router | undefined;
-  for (const route of hosts) {
-    const { host, router } = route;
-    if (router === skipped) {
-      continue;
-    }
-    let isForAnother: boolean;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
-      const reply = await askHost(route, body, deadline);
-      await Bun.write(
-        join(call.dir, `${router}-${slug(host)}.json`),
-        JSON.stringify(reply)
-      );
-      answer = answerOf(route, hosts, reply);
-      const garbled = answer.refusal ? undefined : notJson(router, answer.text);
-      answer.refusal ??= garbled;
-      isForAnother = reply.finish === undefined || garbled !== undefined;
-    } catch (e) {
-      answer = { refusal: (e as Error).message, text: "" };
-      isForAnother = (e as { isForAnother?: boolean }).isForAnother === true;
-    }
-    const spent = answer.fields?.tokens as Tokens | undefined;
-    tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    answer = { ...answer, fields: { ...answer.fields, tokens } };
-    if (!answer.refusal) {
-      return answer;
-    }
-    refusals.push(`${host}: ${answer.refusal}`);
-    skipped = isForAnother ? undefined : router;
-  }
-  return { ...answer, refusal: refusals.join("; ") };
-}
-
-/** The data of a server-sent event stream, one event at a time, to its end marker (comments, like keepalives, skipped). */
-async function* sseData(body: ReadableStream<Uint8Array>) {
-  const decoder = new TextDecoder();
-  let rest = "";
-  for await (const part of body) {
-    const lines = (rest + decoder.decode(part, { stream: true })).split("\n");
-    rest = lines.pop() ?? "";
-    for (const line of lines) {
-      const data = line.startsWith("data:") ? line.slice(5).trim() : "";
-      if (data === "[DONE]") {
-        return;
-      }
-      if (data) {
-        yield data;
-      }
-    }
-  }
-}
-
-/** An error another host may not have: a stall, a cut connection, a 429 or a 5xx. */
-const forAnother = (message: string) =>
-  Object.assign(new Error(message), { isForAnother: true });
-
-/**
- * One host's streamed reply, put together. Throws `forAnother` on a stall, a network error, a 429 or a 5xx, anything
- * else (no key, another status, a bad chunk, the deadline) as final. It asks for no data kept (`zdr`; allmodels ignores it).
- */
-async function askHost(
-  { effort, host, model, router }: Route,
-  body: object,
-  deadline: AbortSignal
-) {
-  const { key, url } = ROUTERS[router];
-  const secret = process.env[key];
-  if (!secret) {
-    throw new Error(`${router} needs ${key}`);
-  }
-  const stalled = new AbortController();
-  const timer = setTimeout(() => stalled.abort(), STALL_MS);
-  const failure = (e: unknown) => {
-    if (deadline.aborted) {
-      return new Error(
-        `${router}: the call's ${MODEL_TIMEOUT_MS / MIN} min ran out on ${host}`
-      );
-    }
-    if (stalled.signal.aborted) {
-      return forAnother(
-        `${router}: ${host} sent nothing for ${STALL_MS / MIN} min`
-      );
-    }
-    return e instanceof SyntaxError || e instanceof z.ZodError
-      ? e
-      : forAnother((e as Error).message);
-  };
-  try {
-    const res = await fetch(url, {
-      body: JSON.stringify({
-        ...body,
-        model,
-        ...(effort && { reasoning_effort: effort }),
-        provider: {
-          allow_fallbacks: false,
-          data_collection: "deny",
-          only: [host],
-          order: [host],
-          zdr: true,
-        },
-      }),
-      headers: {
-        authorization: `Bearer ${secret}`,
-        "content-type": "application/json",
-      },
-      method: "POST",
-      signal: AbortSignal.any([stalled.signal, deadline]),
-      // Bun's 5-minute idle timer is the stall's to decide, chunk by chunk.
-      timeout: false,
-    }).catch((e) => {
-      throw failure(e);
-    });
-    if (!(res.ok && res.body)) {
-      const message = `${router} ${res.status}: ${(await res.text()).slice(-300)}`;
-      throw res.status >= 500 || res.status === 429
-        ? forAnother(message)
-        : new Error(message);
-    }
-    const reply: ChatReply = { text: "" };
-    try {
-      for await (const data of sseData(res.body)) {
-        timer.refresh();
-        const chunk = ChatChunk.parse(JSON.parse(data));
-        const [choice] = chunk.choices ?? [];
-        reply.text += choice?.delta?.content ?? "";
-        reply.finish = choice?.finish_reason ?? reply.finish;
-        reply.provider = chunk.provider ?? reply.provider;
-        reply.usage = chunk.usage ?? reply.usage;
-      }
-    } catch (e) {
-      throw failure(e);
-    }
-    return reply;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Why a finished reply is not the JSON every call asks for, or undefined when it is. */
-function notJson(router: Router, text: string) {
-  try {
-    extractJson(text);
-  } catch (e) {
-    return `${router}: not JSON (${(e as Error).message})`;
-  }
-}
-
-/** A host's reply as a runner's answer: refused when a host not among the routes served it, or it stopped without text. */
-function answerOf({ router }: Route, hosts: Route[], reply: ChatReply): Answer {
-  const u = reply.usage;
-  const served = reply.provider ?? "";
-  const stopped =
-    reply.finish === "stop" && reply.text
-      ? undefined
-      : `${router}: stopped (${reply.finish ?? "cut before it finished"})`;
-  return {
-    fields: {
-      host: served,
-      tokens: u && {
-        cached: u.prompt_tokens_details?.cached_tokens ?? 0,
-        input: u.prompt_tokens,
-        output: u.completion_tokens,
-      },
-    },
-    refusal:
-      served &&
-      hosts.some((h) => slug(h.host.split("/")[0] ?? "") === slug(served))
-        ? stopped
-        : `${router}: served by ${served || "an unnamed host"}, not ${hosts.map((h) => h.host).join(" or ")}`,
-    text: reply.text,
-  };
-}
-
 /** His Codex plan's usage, from Codex's app-server. */
 const codexQuota = async () =>
   quotaOf(
@@ -740,7 +383,7 @@ const codexQuota = async () =>
  * and how full its quota is when it has one.
  */
 interface Provider {
-  ask: (call: Call) => Promise<Answer>;
+  ask: (call: ModelCall) => Promise<Answer>;
   effort?: Record<Tier, string>;
   /** Where its calls go first: `isOnline` asks it. */
   host: string;
@@ -750,10 +393,17 @@ interface Provider {
   quota?: () => Promise<Quota | undefined>;
 }
 /** An API engine: its calls go through its routes, which name its host and keys. */
-type ByTier = Record<Tier, string>;
-function apiEngine(engine: Router, models: ByTier, effort?: ByTier): Provider {
+function apiEngine(
+  engine: Router,
+  models: Record<Tier, string>,
+  effort?: Record<Tier, string>
+): Provider {
   const routers = [
-    ...new Set(routesOf(models.main, engine).map((r) => r.router)),
+    ...new Set(
+      Object.values(models).flatMap((m) =>
+        routesOf(m, engine).map((r) => r.router)
+      )
+    ),
   ];
   return {
     ask: askRoutes,
