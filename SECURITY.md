@@ -32,7 +32,7 @@ that is policy, not enforcement, and the risk is his, accepted.
 ## Network
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
-PKCE); Life serves no web pages; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
+PKCE); Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
 optionally a tunnel he controls.
 
 ## What leaves the Mac
@@ -52,6 +52,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 
 ## Known risks
 
+- The connector's `tell_life` appends his verbatim words to the memory. Only the owner's token may call it (an agent's is
+  refused), but a page or message a chat client reads could steer it into calling it. The worst case is a wrong fact in
+  the memory, undone by a correction.
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).

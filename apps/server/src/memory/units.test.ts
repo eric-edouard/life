@@ -221,12 +221,12 @@ test("his words to Life are marked: every message of a chat with himself, a mess
         id: "w2",
       }),
     ],
-    (s) => handles(`+${s.split("@")[0]}`)
+    handles
   );
   expect(self?.unit.marked).toEqual(["w1", "w2"]);
   const [toDad] = messageUnits(
     [mine({ chat: "33600000002@s.whatsapp.net", chatName: "Dad", id: "w3" })],
-    (s) => handles(`+${s.split("@")[0]}`)
+    handles
   );
   expect(toDad?.unit.marked).toBeUndefined();
   const [mail] = messageUnits(

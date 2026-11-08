@@ -60,7 +60,7 @@ deleted on WhatsApp say?" More, with full transcripts: [examples](docs/examples.
 ## It also works when you don't ask
 
 - Each morning you get the night's report: what's new, what's due, what you promised and to whom.
-- When Life isn't sure about a fact, it asks you on its decisions page, one question at a time, whenever you like.
+- When Life isn't sure about a fact, your assistant asks you in a chat, one question at a time, whenever you like.
 - Say "hey Orbit, book the dentist" near your recorder, Orbit being an agent of yours: Life hears it, and Orbit
   picks it up and gets on with it. [Set up your agent](docs/use/agent.md).
 - If a source stops reading (WhatsApp signed out, a bridge down), you get one email that day saying which.
@@ -129,7 +129,7 @@ How the pipeline is built, and why: [architecture](docs/architecture.md). Every 
 
 Life answers through its connector, an MCP server on your Mac, behind its own sign-in, that Claude (claude.ai, the apps, Claude Code)
 and ChatGPT add as a custom connector. It reads your memory: a person, a day, a search, your open to-dos, your chats.
-It changes only two things, and only when you ask: a correction to the memory, and an item on your to-do list.
+It changes only three things, and only when you ask: a correction to the memory, something you tell it to remember, and an item on your to-do list.
 [Connect your assistant](docs/use/connect.md).
 
 <picture>

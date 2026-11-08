@@ -132,24 +132,25 @@ events with `lifeEpisode` are Life's output and must be dropped.
 
 ## Marks
 
-What he asks is worth remembering: each ask's span (`asksIn`, `apps/server/src/host/hear.ts`) is also recorded by the
-hearing in the watcher's store as a mark (`writeMarks`, refs only). There is no other marker: "hey Life" is one of the
-agent's wake words in his settings, like its name. The unit carries its marks (`marked`, `readConversations`) and says
-so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
-importance 3 (`episodes.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
-observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask is what the agent pulls.
+A mark is his words to Life, to keep: the unit is always read, every fact extracted, each at its own importance (at least
+`KEEP_AT`). Three ways in, none of which acts, asks or sends. "hey Life" in a recording is Life's own wake word
+(`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and makes no ask; agents
+may not use "life" or "live" as wake or misheard words. A message to himself (mail he sent only to his own addresses; every
+message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
+(`tell_life`) is the source `told`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
+hash moves and only it is read again, with no prompt change. Extraction shows its lines `(marked)`. The nightly lists
+each once read, with the observations citing it ("Told Life").
 
 ## The connector
 
-`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and acts
+`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`) and acts
 only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
 grant.
 
-- **Tools:** fifteen. Thirteen read-only: `read_agent_asks` (the paired agent's own asks, above); `read_open_todo_items`, read from Reminders; the status reads
-  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads. And two
-  writes: `correct_memory` (lifelog
+- **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_open_todo_items`, read from Reminders; the status reads
+  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `act`, with the owner's words
-  in `said`, or an `obs` for the grant). The two to-do tools exist only while the to-do list is on.
+  in `said`, or an `obs` for the grant) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told.jsonl`, `memory/told.ts`; offered only while the `told` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one

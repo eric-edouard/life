@@ -24,7 +24,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
 | onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a run (a step's run). | |
-| mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
+| mark | His words to Life, to keep: a promise that the unit is always read and every fact extracted, each at its own importance, not a claim that it matters (`marked` on the unit). Made by "hey Life" in a recording (Life's own wake, `LIFE_WAKE`; no ask), a message to himself, or `tell_life`. | |
+| told, `tell_life` | What he tells Life in a chat: the connector's tool appends his words verbatim to `memory/told.jsonl`, read back as the source `told` ("Told Life"). Refused for an agent's token. | |
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). A network with no bridge on the Mac is copied from Beeper Desktop when Beeper holds it (`copierOf`). Not the connector (the MCP server). | |
 | Beeper | Beeper Desktop, his messaging app: Life copies a network from its store (`copyBeeper`) when that network has no bridge on the Mac (LINE allows one session, and he keeps LINE in Beeper, 6 Nov 2026). Never its API or MCP: only its store keeps what a deletion blanks long enough for the archive's copy. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
@@ -84,10 +85,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. A project is underway while active or waiting (`isUnderway`); parked or done, it is not. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
-| decision (his) | A fact check Life puts to him, and his answer (`decisions.jsonl`, `/decisions`). Older lines of his loops' decisions stay on disk and fold to nothing. | card |
-| overview | The list of all his decisions on the decisions page: a sidebar from 900 px, a sheet from the top below. Not the nightly report. | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
-| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on decisions Life asks itself (`memory/fact-checks.ts`; a loop's until 30 Oct 2026): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
+| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, in a chat: the connector's `read_fact_checks` lists the open ones, `correct_memory` (`fact_check`) records the answer. `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `low-confidence`. | |
 | fold | One person ref read as another (`foldsOf`'s `canon`): his `same-person`, and every inferred id a surface was given read as what the surface reads as now. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`; `person` when it is someone in `truth/`, then read as them), `repos-inferred.jsonl` (`InferredRepo`). | |
@@ -109,7 +108,6 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
-| web app | Life's pages for him (`apps/web`, served at `/`), each behind his sign-in; not the Mac app (Life.app). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory` and `change_todo_item` write; `read_agent_asks` is an agent's own feed of asks; `search` and `fetch` keep ChatGPT's names. | |
 | passage | What search reads as one text: a chat's consecutive messages, cut at 30 minutes of silence, 12 messages or 700 characters; a longer message or a note's version alone (`passagesOf`). lifelog's search has its own, of a conversation's turns. | |
 | embedder | The local model that turns a text into a vector for search by meaning (`core/embedder.ts`): EmbeddingGemma under llama.cpp, a Lifelog Host child. | |

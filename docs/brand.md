@@ -29,17 +29,16 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   The other status tokens mark only the parked Mac app's dots.
 - **Dark.** Derived, the calm inverse: ground `#1F1F1F`, ink `#F2F2F2`, text `#C9C9C9`, muted `#A3A3A3`, card
   `#2A2A2A`, rule `#3A3A3A`; green `#4ADE80` and red `#F97066`, lightened to read on the dark ground. Each colour's pair
-  is one `light-dark()` in tokens.css. Pages follow the system unless one sets `data-theme` (the decisions page's
-  Theme switch, kept in his browser); the email stays light.
-- **Type.** Literata (500, 600; 700 for the question on a wide screen) for titles and the questions he answers; Atkinson Hyperlegible Next (400, 500, 700),
+  is one `light-dark()` in tokens.css. Pages follow the system; the email stays light.
+- **Type.** Literata (500, 600) for titles; Atkinson Hyperlegible Next (400, 500, 700),
   drawn so no two letters are mistaken, for everything he reads and taps; Atkinson Hyperlegible Mono for times, money
   and ids. Mail loads no web font: titles show in Georgia, text in the system sans.
-- **Hierarchy.** Size and weight carry it, not colour: one question at a time, large; one dark button for the
-  recommended answer, the others outlined; labels small and muted.
+- **Hierarchy.** Size and weight carry it, not colour: one dark button for the primary action, the others outlined;
+  labels small and muted.
 - **Shape.** Controls 12 px radius, panels 18 px, icon strokes 1.5 px, spacing 8, 16, 24, 48. No paper texture,
   gradients or decorative shadows.
 - **Cards have no border** (owner, 30 Oct 2026): a card, a panel, an option or a field stands out from the ground by
-  its white (card) only, and a field inside a card takes the ground (owner, 31 Oct 2026); a chosen one is filled (ink, or green for his answer). A rule line separates rows
+  its white (card) only, and a field inside a card takes the ground (owner, 31 Oct 2026); a chosen one is filled (ink). A rule line separates rows
   of a list, never draws a box.
 - **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; lifelog's apps
   (iOS, Android) keep the old look until they are stripped; Android's `Brand.kt` and lifelog's `docs/design.md` describe that old look.

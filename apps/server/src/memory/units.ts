@@ -435,7 +435,9 @@ export function chatPerson(
       ? resolve(first.chatName)
       : null;
   const person = [...others].find((o) => o.startsWith("person:"));
-  return person ?? (others.size === 0 ? resolve(first.chat) : null) ?? named;
+  // A chat only he wrote in is with whoever its key names (its source's `handleOf`: a WhatsApp id holds a phone).
+  const keyed = sourceOf(first.source).handleOf?.(first.chat) ?? first.chat;
+  return person ?? (others.size === 0 ? resolve(keyed) : null) ?? named;
 }
 
 /**
