@@ -4,6 +4,7 @@ import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { conversationsBetween, visits, withStore } from "../sources/lifelog";
+import type { Draft } from "./calendar-events";
 import { endOf, span } from "./episode-span";
 import {
   episodesNow,
@@ -28,19 +29,6 @@ import { readPeople } from "./who";
 const SETTLE = 2 * HOUR;
 // Google takes 8,192 characters; a busy episode's units would pass it.
 const DESCRIPTION_MAX = 7500;
-
-/** One episode as an event, before the IO-bound part (stays and conversations, added only when it is written). */
-export interface Draft {
-  allDay: boolean;
-  episode: string;
-  /** RFC3339 instants, or YYYY-MM-DD days (end exclusive) when `allDay`. */
-  from: string;
-  hash: string;
-  place: string | null;
-  summary: string;
-  text: string;
-  to: string;
-}
 
 interface Known {
   /** Each unit's episode, of every episode (`readBy`): a fact shows under it only. */
@@ -86,7 +74,7 @@ export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
       ].join("\n");
       const draft = {
         ...when,
-        episode: m.id,
+        of: m.id,
         place: m.place,
         summary:
           m.place && !m.title.toLowerCase().includes(m.place.toLowerCase())
@@ -96,30 +84,6 @@ export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
       };
       return { ...draft, hash: digest("sha1", JSON.stringify(draft), 12) };
     });
-}
-
-export type Held = Map<string, { hash?: string; id: string }[]>;
-
-/**
- * What a sync does: the events to delete (of an episode gone or changed, and any second copy) and the drafts to write.
- * A held event of a `live` episode not drafted (outside the sync's window, or not ended `SETTLE` ago) stays.
- */
-export function plan(want: Draft[], held: Held, live: ReadonlySet<string>) {
-  const drafted = new Set(want.map((d) => d.episode));
-  const keep = new Set(
-    want.flatMap((d) => {
-      const [e, ...more] = held.get(d.episode) ?? [];
-      return e?.hash === d.hash && more.length === 0 ? [d.episode] : [];
-    })
-  );
-  return {
-    fresh: want.filter((d) => !keep.has(d.episode)),
-    stale: [...held].flatMap(([episode, events]) =>
-      keep.has(episode) || (live.has(episode) && !drafted.has(episode))
-        ? []
-        : events.map((e) => ({ episode, id: e.id }))
-    ),
-  };
 }
 
 /** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the episode's place. */
@@ -212,7 +176,7 @@ export async function* described(fresh: Draft[]) {
     const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
     yield {
       d,
-      description: `${body}\n\nEpisode ${d.episode}, written by Life.`,
+      description: `${body}\n\nEpisode ${d.of}, written by Life.`,
       location,
     };
   }

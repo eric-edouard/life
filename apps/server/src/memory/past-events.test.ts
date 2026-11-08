@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import { EPISODES, INDEX, readBy, UNITS } from "./ledger";
-import { type Draft, drafts, plan, wanted } from "./past-events";
+import { drafts, wanted } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 import { buildIndex } from "./search";
 
@@ -68,8 +68,8 @@ test("episodes that ended 2 h ago go on the calendar, timed in his zone then, wh
   // Africa/Lagos (UTC+1) from 19 Oct in the test zones.
   expect(d).toMatchObject({
     allDay: false,
-    episode: "ep_000000000001",
     from: "2026-10-20T19:00:00.000Z",
+    of: "ep_000000000001",
     to: "2026-10-20T20:30:00.000Z",
   });
   expect(d?.text).toStartWith("They eat out.");
@@ -93,28 +93,6 @@ test("no time is a whole day, no end an hour, and the hash follows what is shown
   expect(a?.hash).not.toBe(b?.hash);
 });
 
-test("a sync keeps what shows as it is, rewrites what changed or doubled, deletes what is gone", () => {
-  const draft = (id: string, hash: string) => ({ episode: id, hash }) as Draft;
-  const { fresh, stale } = plan(
-    [draft("m1", "a"), draft("m2", "a"), draft("m3", "new")],
-    new Map([
-      ["m1", [{ hash: "a", id: "e1" }]],
-      [
-        "m2",
-        [
-          { hash: "a", id: "e2" },
-          { hash: "a", id: "e2b" },
-        ],
-      ],
-      ["m3", [{ hash: "old", id: "e3" }]],
-      ["m9", [{ hash: "a", id: "e9" }]],
-    ]),
-    new Set(["m1", "m2", "m3"])
-  );
-  expect(fresh.map((d) => d.episode)).toEqual(["m2", "m3"]);
-  expect(stale.map((e) => e.id)).toEqual(["e2", "e2b", "e3", "e9"]);
-});
-
 test("a big episode keeps its event beside the smaller ones inside it (the night out dropped for a chat, 1 Nov)", () => {
   const night = episode({
     end: "2026-10-20 23:30",
@@ -131,18 +109,6 @@ test("a big episode keeps its event beside the smaller ones inside it (the night
     "Night out",
     "Chat",
   ]);
-});
-
-test("a sync leaves the event of a live episode it did not draft, and deletes one of an episode gone", () => {
-  const { stale } = plan(
-    [],
-    new Map([
-      ["ep_000000000002", [{ hash: "a", id: "e2" }]],
-      ["ep_gone", [{ hash: "a", id: "e9" }]],
-    ]),
-    new Set(["ep_000000000002"])
-  );
-  expect(stale.map((e) => e.id)).toEqual(["e9"]);
 });
 
 test("a sync of recent days drafts what the whole sync drafts of the episodes ending after its start", async () => {
@@ -200,7 +166,7 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
     const since = new Date("2026-10-19T00:00:00Z");
     const recent = await wanted(now, since);
     const whole = await wanted(now);
-    expect(recent?.drafts.map((d) => d.episode)).toEqual(["ep_000000000002"]);
+    expect(recent?.drafts.map((d) => d.of)).toEqual(["ep_000000000002"]);
     expect(recent?.drafts[0]?.text).toContain("Fact 2.");
     expect(recent?.drafts).toEqual(
       whole?.drafts.filter((d) => Date.parse(d.to) > since.getTime())

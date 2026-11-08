@@ -126,9 +126,31 @@ takes authority away.
 
 A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
-properties `lifeEpisode` and `lifeHash`. A changed episode is written again, a gone one deleted; events without
+properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
 `lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeEpisode` are Life's output and must be dropped.
+
+## Appointments
+
+His request of 8 Nov 2026: what he is due at, from any channel, in his own calendar before his agents plan his day or
+week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads his active facts ahead (plans and
+bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
+a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
+says so. `syncAppointments`
+(`apps/server/src/host/appointments-calendar.ts`, the `appointments` setting: account and calendar) brings that
+calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
+`calendar-events.ts`), touching only events with `lifeOutput=appointments`:
+
+- Until confirmed an event is titled `(Life) …` and shown as free. An agent confirms one with him by setting the
+  private property `lifeConfirmed=yes` (`gog calendar update <cal> <id> --private-prop=lifeConfirmed=yes`); Life keeps
+  amending it, without the mark, as busy.
+- One deleted by him or an agent is his no: recorded `refused` (`appointment-events.jsonl`); no appointment citing all
+  its facts is written again. One Life deletes is recorded `removed`, so it may come back.
+- Times are the place's (`zone`, when it is not where he will be); a reading that forgets a held appointment keeps it
+  while its facts hold and no new one cites them. An event turning all-day or timed is written again (Google cannot
+  change it in place). The Past calendar never touches an event with `lifeOutput`, so both may share a calendar.
+- Only a popup reminder, never mail (it would come back as a message). No guests, no invites sent.
+- An event that ended is never touched.
 
 ## Marks
 
@@ -170,7 +192,7 @@ grant.
 ## The only sends
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
-Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
+Life can turn on or off (Reminders, the Past calendar, the appointments, the connector, the backup) is an entry in `OUTPUTS`
 (`apps/server/src/core/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
 reads the rest of its settings. How the report and the alerts go out:
 

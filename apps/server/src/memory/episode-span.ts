@@ -5,13 +5,16 @@ import { dayStart } from "./zones";
 
 // When an episode was, as an event: the Past calendar's (past-events.ts) and the day's read (search.ts).
 
-const instant = (local: string) => {
+const instant = (local: string, zone?: string) => {
   const [day = "", hm] = local.split(" ");
-  return dayStart(day, undefined, hm).toISOString();
+  return dayStart(day, zone, hm).toISOString();
 };
 
-/** When an episode was: its timed start to its end (an hour when the sources don't say), else whole days. */
-export function span(m: Pick<Episode, "day" | "end" | "start">) {
+/**
+ * When an episode was: its timed start to its end (an hour when the sources don't say), else whole days. Its local
+ * times are in `zone`, else the zone he was in then (`zoneAt`).
+ */
+export function span(m: Pick<Episode, "day" | "end" | "start">, zone?: string) {
   const start = m.start ?? m.day;
   if (!start.includes(" ")) {
     const last = (m.end ?? start).slice(0, 10);
@@ -21,8 +24,8 @@ export function span(m: Pick<Episode, "day" | "end" | "start">) {
       to: daysBefore(last > start ? last : start, -1),
     };
   }
-  const from = instant(start);
-  const end = m.end?.includes(" ") ? instant(m.end) : "";
+  const from = instant(start, zone);
+  const end = m.end?.includes(" ") ? instant(m.end, zone) : "";
   // ponytail: an hour when no end is known.
   const to = end > from ? end : new Date(Date.parse(from) + HOUR).toISOString();
   return { allDay: false, from, to };
