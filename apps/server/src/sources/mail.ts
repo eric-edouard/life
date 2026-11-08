@@ -524,6 +524,20 @@ function parse(path: string, id: string) {
   return read;
 }
 
+/** A mail he sent only to himself: his words to Life, to keep (a mark). `recipients`: one address a line. */
+const isToSelf = (
+  sender: string,
+  recipients: string | null,
+  mine: Set<string>
+) => {
+  const to = recipients?.toLowerCase().split("\n") ?? [];
+  return mine.has(sender) && to.length > 0 && to.every((a) => mine.has(a));
+};
+
+/** A mail's chat: its conversation, else its mailbox and subject. */
+const chatOf = (r: Row, subject: string) =>
+  r.conversation ? `mail:${r.conversation}` : `${r.mailbox}#${subject}`;
+
 export function readMail(
   since: Date,
   root = mailRoot(),
@@ -549,23 +563,19 @@ export function readMail(
     const path = emlxPath(root, r.mailbox, r.rowid);
     const read = path ? (parsed.get(path) ?? parse(path, id)) : null;
     const sender = (r.sender ?? "unknown").toLowerCase();
-    const to = r.recipients?.toLowerCase().split("\n") ?? [];
-    // A mail he sent only to himself is his words to Life, to keep (a mark).
-    const toSelf =
-      mine.has(sender) && to.length > 0 && to.every((a) => mine.has(a));
     events.push({
       at: new Date(r.received * 1000).toISOString(),
       bulk: r.bulk === 1,
-      chat: r.conversation
-        ? `mail:${r.conversation}`
-        : `${r.mailbox}#${subject}`,
+      chat: chatOf(r, subject),
       ...(subject ? { chatName: subject } : {}),
       ...(contacts.has(handleKey(sender)) ? { contact: true as const } : {}),
       ...(r.transaction === 1 ? { transaction: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
-      ...(toSelf ? { marked: true as const } : {}),
+      ...(isToSelf(sender, r.recipients, mine)
+        ? { marked: true as const }
+        : {}),
       sender,
       source: "mail",
       text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),
