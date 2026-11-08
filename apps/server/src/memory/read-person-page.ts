@@ -3,10 +3,6 @@ import { clock } from "../core/clock";
 import { newestDays } from "../core/lists";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
-import {
-  communicationStyleBlock,
-  readCommunicationStyle,
-} from "./communication-styles";
 import { detailsBlock, readDetailsOf } from "./details";
 import {
   CURRENT,
@@ -19,6 +15,7 @@ import {
 } from "./index-rows";
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
 import { parsePage, slugOf } from "./page-format";
+import { personaBlock, readPersonaLines } from "./personas";
 import { openWithOf, reminderItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
@@ -229,10 +226,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
                 today: dayNow(),
               }),
               ...situationBlock("Situation", readSituationNow(ref, live)),
-              ...communicationStyleBlock(
-                "Communication style",
-                readCommunicationStyle(ref)
-              ),
+              ...personaBlock(readPersonaLines(ref), dayNow()),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),

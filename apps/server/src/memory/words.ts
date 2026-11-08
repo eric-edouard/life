@@ -683,6 +683,15 @@ function senderOf(e: SourceEvent, { names, resolve }: People) {
   return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
 }
 
+/** One message as a reader or a model is shown it: `<time> <who>: <text>`, `(deleted)` when its writer took it back. */
+export const messageLine = (
+  at: string,
+  who: string,
+  text: string,
+  deleted?: boolean
+) =>
+  `${at} ${who}: ${text.replaceAll("\n", " ")}${deleted ? " (deleted)" : ""}`;
+
 /** Where to read more of messages `read_chats` does not read (a note's versions): the units memory has (`units`) of their days. */
 function noteUnits(list: SourceEvent[], units: Set<string>) {
   const ids = [...new Set(list.map(dayUnitId))].filter((id) => units.has(id));
@@ -708,9 +717,13 @@ function chatLinesOf(
     return [
       "",
       `## ${first?.chatName ?? first?.chat} (${first?.source}, ${more})`,
-      ...list.map(
-        (e) =>
-          `${localTime(e.at)} ${senderOf(e, people)}: ${redact(e.text).replaceAll("\n", " ")}${e.deleted ? " (deleted)" : ""}`
+      ...list.map((e) =>
+        messageLine(
+          localTime(e.at),
+          senderOf(e, people),
+          redact(e.text),
+          e.deleted
+        )
       ),
     ];
   });

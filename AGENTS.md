@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `communication-styles/` and `appointments.json` (rebuilt whole) and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/` and `appointments.json` (rebuilt whole) and a rename's backfill (next).
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
@@ -172,6 +172,7 @@ Before adding a helper, use the one that exists:
 | Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`ledger.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
+| What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersonaLines`); psychology lives there only, pages stay facts |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |

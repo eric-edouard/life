@@ -308,14 +308,21 @@ rests on), `inputs` (a hash of the prompt version, the page and the last 30 days
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 is no longer close. A reader drops a line whose episode is no longer live. His correction is a line on the page.
 
+## personas/<id>.json
+
+What someone with a page (`pagedNow`) is like and what keeps happening between them and the owner, or the owner
+himself across everyone (`me`), written by `personas.ts` from their 1:1 chats and mail threads (`directChats`, 3
+years): `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `reacts`, `pattern`, `approach`, or
+`writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
+differs; `text`; `quotes`, each `at` and `text`, words found in a chat message the call was shown, a `writes` line's in
+that writer's own, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
+messages and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
+and it is a week old; removed when the person has no page or no message from him in the last 3 years. Nothing is
+written or removed on a night a source can't be read.
+
 ## communication-styles/<id>.json
 
-How the owner writes, in general (`me`, his messages to everyone) or to one person with a page (`pagedNow`, their 1:1
-chats and mail threads, `directChats`), written by `communication-styles.ts`: `page` (`person:<id>`), `lines` (each
-`kind`: null across channels, `chat` or `mail`; `source` when one app differs; `text`; `examples`, his words found in
-a chat message he sent), `inputs` (a hash of the prompt version and his newest 120 chat messages and 30 mails), `built`,
-`madeBy`, `schemaVersion`. Rewritten whole when its inputs changed and it is a week old; removed when the person has
-no page or no message from him in the last 3 years. Nothing is written or removed on a night a source can't be read.
+Written until 8 Nov 2026 by `communication-styles.ts`, now part of the persona (its `writes` lines); kept, never read.
 
 ## appointments.json
 

@@ -3,13 +3,13 @@ import { clock } from "../core/clock";
 import { appointments } from "../memory/appointments";
 import { changeFeed, claim } from "../memory/changes";
 import { closeness, readWithPeople } from "../memory/closeness";
-import { communicationStyles } from "../memory/communication-styles";
 import { episodes } from "../memory/episodes";
 import { extract } from "../memory/extract";
 import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
+import { personas } from "../memory/personas";
 import { placesOf } from "../memory/places";
 import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
@@ -144,9 +144,6 @@ const HANDLERS: Record<string, Handler> = {
   chats: (values) => printed(chatsOf(values)),
   claim: (_values, [id = ""]) => json(claim(id)),
   closeness: step(async () => closeness(await readWithPeople())),
-  "communication-styles": step(async () =>
-    communicationStyles(await readWithPeople())
-  ),
   /** `correct '<json>'`: appends what the owner said to memory/corrections.jsonl (checked, stamped). */
   async correct(_values, rest) {
     try {
@@ -180,6 +177,7 @@ const HANDLERS: Record<string, Handler> = {
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   person: (values, rest) => printed(person(words(rest) || undefined, values)),
+  personas: step(async () => personas(await readWithPeople())),
   places: (v) =>
     printed(
       placesOf({
@@ -226,7 +224,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | backfill --from d --to d | closeness | communication-styles | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | backfill --from d --to d | closeness | personas | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
