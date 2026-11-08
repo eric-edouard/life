@@ -315,7 +315,7 @@ himself across everyone (`me`), written by `personas.ts` from 3 years of their 1
 (`directChats`), the group chat-days they wrote in and his recorded conversations where they spoke: `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
-line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
+line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `gist` (the same call's 2 or 3 sentences on what they are like, what keeps happening between them and him, and what works with them, shown first; his request of 9 Nov 2026), `inputs` (a hash of the prompt version and the
 days, recordings and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
 and it is a week old; removed when the person has no page or nothing passed between them in the last 3 years (no 1:1 or group
 chat-day, no recording). Nothing is

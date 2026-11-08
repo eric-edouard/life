@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { personaPath } from "./ledger";
 import {
   betweenOf,
   groupDaysOf,
@@ -9,6 +11,7 @@ import {
   personaBlock,
   personaLines,
   readingsOf,
+  readPersona,
   recordingsOf,
   sampleOf,
   shownDaysOf,
@@ -183,23 +186,29 @@ test("a persona is rebuilt when there is none, or a week old with new messages",
 test("a reader shows the readings with their support, and the writing lines under Communication style", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
-    [
-      { facet: "reacts", quotes: [q], text: "Goes quiet when pressed." },
-      {
-        facet: "writes",
-        kind: "chat",
-        quotes: [q],
-        source: "whatsapp",
-        text: "Short.",
-        writer: "them",
-      },
-    ],
+    {
+      gist: "Steady, slow to answer; give one clear ask.",
+      lines: [
+        { facet: "reacts", quotes: [q], text: "Goes quiet when pressed." },
+        {
+          facet: "writes",
+          kind: "chat",
+          quotes: [q],
+          source: "whatsapp",
+          text: "Short.",
+          writer: "them",
+        },
+      ],
+    },
     "2026-11-08"
   );
   expect(block[1]).toBe(
+    "- in short: Steady, slow to answer; give one clear ask."
+  );
+  expect(block[2]).toBe(
     '- reacts (thin): Goes quiet when pressed. E.g. "haha ok" (2026-11-01)'
   );
-  expect(block[4]).toBe(
+  expect(block[5]).toBe(
     '- they write, chat (whatsapp): Short. E.g. "haha ok" (2026-11-01)'
   );
   expect(
@@ -214,7 +223,7 @@ test("a reader shows the readings with their support, and the writing lines unde
       },
     ]).map((l) => l.facet)
   ).toEqual(["pattern"]);
-  expect(personaBlock([], "2026-11-08")).toEqual([]);
+  expect(personaBlock(null, "2026-11-08")).toEqual([]);
 });
 
 test("his recordings with someone: the voice units they spoke in, a chapter weighed by its summary", () => {
@@ -276,4 +285,27 @@ test("a group chat-day goes to whoever wrote in it, with only his and their line
     );
   expect(of(["person:2"])).toEqual(["m0", "m2"]);
   expect(of(["person:7"])).toEqual([]);
+});
+
+test("a persona in an older shape reads as none, so it is due at the next run (no migration)", async () => {
+  const ref = "person:older-shape";
+  await Bun.write(
+    personaPath(ref),
+    JSON.stringify({
+      built: "2026-11-08T00:00:00.000Z",
+      inputs: "a",
+      lines: [],
+      madeBy: {},
+      page: ref,
+      schemaVersion: 1,
+    })
+  );
+  try {
+    expect(readPersona(ref)).toBeNull();
+    expect(
+      isDue(readPersona(ref), "a", new Date("2026-11-09T00:00:00.000Z"))
+    ).toBe(true);
+  } finally {
+    rmSync(personaPath(ref));
+  }
 });

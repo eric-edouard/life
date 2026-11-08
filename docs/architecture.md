@@ -72,7 +72,7 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
-- **Personas** (`personas.ts`): what each person with a page is like, what they want and can give (and what goes each
+- **Personas** (`personas.ts`): a gist first (his request of 9 Nov 2026), then what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
   writes to them, or drafts for him; his own across everyone, with his own writing (his notes, his imported assistant
   chats; his request of 9 Nov 2026). One call per person reads what passed between them over

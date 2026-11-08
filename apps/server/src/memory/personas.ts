@@ -3,7 +3,12 @@ import { DAY, daysBefore, HOUR, MIN } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { callCharsOf, stamp } from "../models/llm";
-import { Persona, PersonaLine, type PersonaQuote } from "../records/persona";
+import {
+  GIST_MAX,
+  Persona,
+  PersonaLine,
+  type PersonaQuote,
+} from "../records/persona";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
@@ -34,7 +39,7 @@ import { localDate, time } from "./zones";
 // writes the persona whole, at most once a week and only when something new was said. Every quote is checked against
 // what was shown. Nothing is sent.
 
-const PERSONA_PROMPT = "memory-persona.v1";
+const PERSONA_PROMPT = "memory-persona.v2";
 /** Characters of their page shown (Life's own text). */
 const PAGE_MAX = 20_000;
 /** How old a persona gets before new messages rebuild it: people change slowly; the situation reads it each night against the newest days (his choice, 8 Nov). */
@@ -107,13 +112,11 @@ export function pairCountsOf(list: SourceEvent[]): PairCounts {
   };
 }
 
-const readPersona = (ref: string) => {
+/** Someone's persona; none when there is none or it was written in an older shape (then it is due). */
+export const readPersona = (ref: string) => {
   const p = Persona.safeParse(readJson(personaPath(ref)));
   return p.success ? p.data : null;
 };
-
-/** A persona's lines a reader shows; none when there is none. */
-export const readPersonaLines = (ref: string) => readPersona(ref)?.lines ?? [];
 
 /** How well a line is backed, from its quotes' days: a pattern seen once is a guess, one not seen for a year may be over. */
 export function supportOf(quotes: PersonaQuote[], today: string) {
@@ -135,16 +138,21 @@ export const readingsOf = (lines: PersonaLine[]) =>
   lines.flatMap((l) => (l.facet === "writes" ? [] : [l]));
 
 /**
- * Persona lines as a reader shows them: the readings under Persona, each with its support; the writing lines under
- * Communication style (the connector's word for them). Nothing when there is none.
+ * A persona as a reader shows it: its gist, then the readings under Persona, each with its support; the writing lines
+ * under Communication style (the connector's word for them). Nothing when there is none.
  */
-export function personaBlock(lines: PersonaLine[], today: string) {
+export function personaBlock(
+  persona: Pick<Persona, "gist" | "lines"> | null,
+  today: string
+) {
+  const lines = persona?.lines ?? [];
   const readings = readingsOf(lines);
   const writes = lines.flatMap((l) => (l.facet === "writes" ? [l] : []));
   return [
     ...(readings.length > 0
       ? [
           `Persona (what they are like, want and can give, and what keeps happening between them and him, read every ${REBUILD_AFTER / DAY} days from 3 years of their messages, group chats and his recordings with them; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `- in short: ${persona?.gist}`,
           ...readings.map(
             (l) =>
               `- ${l.facet} (${supportOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`
@@ -584,17 +592,24 @@ export async function personas({ events, failed, since }: WithPeople) {
           prompt: PERSONA_PROMPT,
         });
         const lines = personaLines(reply, all);
-        // A reply with no line is a failed call: the last persona stays, the next run retries.
-        if (lines.length === 0) {
-          throw new Error("no persona line");
+        const gist = z
+          .string()
+          .trim()
+          .min(1)
+          .safeParse((reply as { gist?: unknown } | null)?.gist);
+        // A reply with no line or no gist is a failed call: the last persona stays (one in an older shape is shown as none
+        // until a run succeeds), the next run retries.
+        if (lines.length === 0 || !gist.success) {
+          throw new Error("no persona line or gist");
         }
         const persona: Persona = {
           built: step.now.toISOString(),
+          gist: clip(gist.data, GIST_MAX),
           inputs,
           lines,
           madeBy: stamp(step.llm, PERSONA_PROMPT, step.run),
           page: t.ref,
-          schemaVersion: 1,
+          schemaVersion: 2,
         };
         await Bun.write(
           personaPath(t.ref),
