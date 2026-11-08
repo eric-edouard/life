@@ -16,7 +16,8 @@ import { readPeople } from "./who";
 import { messageLine } from "./words";
 import { localDate, time } from "./zones";
 
-// `bun life memory personas`: what each person with a page is like, what keeps happening between them and the owner,
+// `bun life memory personas`: what each person with a page is like, wants and can give, what keeps happening between them
+// and the owner,
 // and how each writes to the other (docs/architecture.md, "The pipeline"); his own across everyone. One call per person
 // reads their 1:1 messages both ways (the night's `readWithPeople`: 3 years), sampled across the years (`sampleOf`),
 // with their page and code's counts (`pairCountsOf`), and writes the persona whole, at most once a week and only when
@@ -131,7 +132,7 @@ export function personaBlock(lines: PersonaLine[], today: string) {
   return [
     ...(readings.length > 0
       ? [
-          `Persona (what they are like and what keeps happening between them and him, read weekly from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `Persona (what they are like, want and can give, and what keeps happening between them and him, read weekly from 3 years of their 1:1 messages; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
           ...readings.map(
             (l) =>
               `- ${l.facet} (${supportOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`

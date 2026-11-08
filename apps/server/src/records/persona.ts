@@ -15,7 +15,15 @@ const quotes = z.array(PersonaQuote).max(4);
 /** A reading of the person or of what is between them and him, backed by quotes from both sides' messages. */
 const ReadingLine = z
   .object({
-    facet: z.enum(["traits", "wants", "reacts", "pattern", "approach"]),
+    facet: z.enum([
+      "traits",
+      "wants",
+      "offers",
+      "balance",
+      "reacts",
+      "pattern",
+      "approach",
+    ]),
     quotes,
     text: z.string().min(1).max(500),
   })
@@ -43,8 +51,8 @@ export const PersonaLine = z.discriminatedUnion("facet", [
 export type PersonaLine = z.infer<typeof PersonaLine>;
 
 /**
- * memory/personas/<id>.json: what someone with a page is like, what keeps happening between them and the owner, and how
- * each writes to the other (the owner's own: across everyone), read from three years of their 1:1 messages; rewritten
+ * memory/personas/<id>.json: what someone with a page is like, wants and can give, what keeps happening between them
+ * and the owner, and how each writes to the other (the owner's own: across everyone), read from three years of their 1:1 messages; rewritten
  * whole when its inputs changed and it is a week old (`inputs`, their hash; `built`).
  */
 export const Persona = z

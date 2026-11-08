@@ -69,8 +69,8 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
-- **Personas** (`personas.ts`): what each person with a page is like, what keeps happening between them and him (both
-  sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
+- **Personas** (`personas.ts`): what each person with a page is like, what they want and can give (and what goes each
+  way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
   writes to them, or drafts for him; his own across everyone. One call per person reads their 1:1 messages both ways
   from the night's read of chats and mail (`readWithPeople`, 3 years, shared with closeness), sampled to 100,000
   characters (the newest, then each month's most eventful days, year by year), with their page and what code counts
@@ -78,7 +78,7 @@ flowchart LR
   rest, marked. Each quote is found in a chat message shown and kept with its time, so how well a line is backed
   (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly,
   when the messages changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
-  moves) with the behaviour that shows it; pages stay facts.
+  moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
 - **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
 
