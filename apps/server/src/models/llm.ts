@@ -97,10 +97,15 @@ const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
  */
 const DEEPSEEK_FLASH =
   "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper";
+/**
+ * Its effort by route: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium" (checked 28
+ * Oct 2026), so the pages think at high. Episodes and extract think at low: on the truth days it held as many true
+ * facts, matched more episodes and spent 16% fewer tokens than high (bench of 5 Nov 2026, his OK).
+ */
 const ALLMODELS_MODELS: Record<Tier, string> = {
-  deep: DEEPSEEK_FLASH,
-  fast: DEEPSEEK_FLASH,
-  main: DEEPSEEK_FLASH,
+  deep: `${DEEPSEEK_FLASH}=low`,
+  fast: `${DEEPSEEK_FLASH}=low`,
+  main: `${DEEPSEEK_FLASH}=high`,
 };
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
@@ -112,17 +117,6 @@ const OPENROUTER_MODELS: Record<Tier, string> = {
   deep: DEEPSEEK_FLASH_ROUTED,
   fast: DEEPSEEK_FLASH_ROUTED,
   main: DEEPSEEK_FLASH_ROUTED,
-};
-/**
- * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
- * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
- * and it thinks even at none. Episodes and extract think at low: on the truth days it held as many true facts, matched
- * more episodes and spent 16% fewer tokens than high (bench of 5 Nov 2026, his OK).
- */
-const ALLMODELS_EFFORT: Record<Tier, string> = {
-  deep: "low",
-  fast: "low",
-  main: "high",
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
@@ -393,11 +387,7 @@ interface Provider {
   quota?: () => Promise<Quota | undefined>;
 }
 /** An API engine: its calls go through its routes, which name its host and keys. */
-function apiEngine(
-  engine: Router,
-  models: Record<Tier, string>,
-  effort?: Record<Tier, string>
-): Provider {
+function apiEngine(engine: Router, models: Record<Tier, string>): Provider {
   const routers = [
     ...new Set(
       Object.values(models).flatMap((m) =>
@@ -407,14 +397,13 @@ function apiEngine(
   ];
   return {
     ask: askRoutes,
-    effort,
-    host: new URL(ROUTERS[routers[0] ?? engine].url).host,
+    host: new URL(ROUTERS[engine].url).host,
     keys: routers.map((r) => ROUTERS[r].key),
     models,
   };
 }
 const PROVIDERS: Record<Engine, Provider> = {
-  allmodels: apiEngine("allmodels", ALLMODELS_MODELS, ALLMODELS_EFFORT),
+  allmodels: apiEngine("allmodels", ALLMODELS_MODELS),
   claude: {
     ask: askClaude,
     host: "api.anthropic.com",

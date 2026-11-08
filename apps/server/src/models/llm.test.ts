@@ -10,6 +10,7 @@ import {
   askOnce,
   claudeTokens,
   codexTokens,
+  engineKeys,
   hasQuota,
   llmFor,
   llmOverride,
@@ -17,6 +18,7 @@ import {
   quotaOf,
 } from "./llm";
 import { extractJson } from "./model-call";
+import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });
@@ -477,20 +479,47 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 test("each provider's model and effort by tier", () => {
   // Regression (28 Oct 2026): allmodels' hosts refuse "medium", which the pages tier used to send.
   for (const tier of ["deep", "main", "fast"] as const) {
-    expect(["none", "low", "high", "max"]).toContain(
-      llmFor(tier, "allmodels").effort ?? ""
-    );
+    for (const engine of ["allmodels", "openrouter"] as const) {
+      for (const r of routesOf(llmFor(tier, engine).model, engine)) {
+        if (r.router === "allmodels") {
+          expect(["none", "low", "high", "max"]).toContain(r.effort ?? "");
+        }
+      }
+    }
   }
   expect(llmFor("deep", "allmodels")).toEqual({
-    effort: "low",
+    effort: undefined,
     engine: "allmodels",
-    model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper",
+    model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=low",
   });
   expect(llmFor("fast", "claude")).toEqual({
     effort: undefined,
     engine: "claude",
     model: "haiku",
   });
+  // The app asks for every key an engine's routes need.
+  expect(engineKeys().openrouter).toEqual([
+    "OPENROUTER_API_KEY",
+    "ALLMODELS_API_KEY",
+  ]);
+});
+
+test("a route: its router (the engine's when left out), model, hosts and effort", () => {
+  expect(
+    routesOf("a/b:free@h1,h2/fp8=medium allmodels:x/y@r", "openrouter")
+  ).toEqual([
+    { effort: "medium", host: "h1", model: "a/b:free", router: "openrouter" },
+    {
+      effort: "medium",
+      host: "h2/fp8",
+      model: "a/b:free",
+      router: "openrouter",
+    },
+    { effort: undefined, host: "r", model: "x/y", router: "allmodels" },
+  ]);
+  expect(() => routesOf("nope:x/y@h", "allmodels")).toThrow(
+    "no router like nope"
+  );
 });
 
 test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {

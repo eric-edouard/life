@@ -63,10 +63,12 @@ const STALL_MS = 5 * MIN;
 /** One host to ask: its router, the model on it, the host. */
 type Route = ReturnType<typeof routesOf>[number];
 
+const ROUTED = /^([a-z]+):(.+)$/;
+
 /**
  * An API engine's model as the routes to ask, in order: a router's hosts, `router:author/model@host[,host][=effort]`,
- * then the next router's after a space. A router left out is the engine's own; an effort left out is the tier's.
- * Throws on a router Life doesn't know.
+ * then the next router's after a space. A router left out is the engine's own; an effort left out is the run's
+ * (`LIFE_LLM`'s). Throws on a router Life doesn't know.
  */
 export function routesOf(spec: string, engine: string) {
   return spec
@@ -75,9 +77,8 @@ export function routesOf(spec: string, engine: string) {
     .flatMap((route) => {
       const [head = "", rest = ""] = route.split("@");
       const [list = "", effort] = rest.split("=");
-      const [router, model] = head.includes(":")
-        ? head.split(":")
-        : [engine, head];
+      // A router is a bare word before `:`; a model id may hold a `:` of its own (`author/model:free`).
+      const [, router = engine, model = head] = ROUTED.exec(head) ?? [];
       if (!(router && isRouter(router) && model)) {
         throw new Error(`no router like ${router} in ${route}`);
       }
@@ -89,7 +90,7 @@ export function routesOf(spec: string, engine: string) {
 }
 
 /**
- * One call through the engine's routes with his keys, at the tier's effort, one host at a time, streamed, within
+ * One call through the engine's routes with his keys, at each route's effort, one host at a time, streamed, within
  * MODEL_TIMEOUT_MS. A host that may fail alone (a stall, a cut stream, a reply not JSON like a refusal, a 429, a 5xx, no
  * answer) gives way to the next: a router's own fallback acts only before output begins (29 Oct 2026: refuseless died
  * mid-reply). Any other failure (no key, no credit, another host) skips that router's hosts. Every host's tokens and
@@ -99,7 +100,7 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const hosts = routesOf(call.llm.model, call.llm.engine);
   if (!hosts.length) {
     throw new Error(
-      `an API engine's model is [router:]author/model@host[,host], not ${call.llm.model}`
+      `an API engine's model is [router:]author/model@host[,host][=effort], not ${call.llm.model}`
     );
   }
   const pictures = await Promise.all(
@@ -123,7 +124,6 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
         role: "user",
       },
     ],
-    reasoning_effort: call.llm.effort,
     stream: true,
     stream_options: { include_usage: true },
   };
@@ -134,13 +134,18 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
   const skipped = new Set<Router>();
   for (const route of hosts) {
     const { host, router } = route;
+    const effort = route.effort ?? call.llm.effort;
     if (skipped.has(router)) {
       continue;
     }
     let isForAnother: boolean;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
-      const reply = await askHost(route, body, deadline);
+      const reply = await askHost(
+        route,
+        { ...body, reasoning_effort: effort },
+        deadline
+      );
       await Bun.write(
         join(call.dir, `${router}-${slug(host)}.json`),
         JSON.stringify(reply)
@@ -157,7 +162,7 @@ export async function askRoutes(call: ModelCall): Promise<Answer> {
     }
     const spent = answer.fields?.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
-    answer = { ...answer, fields: { ...answer.fields, tokens } };
+    answer = { ...answer, fields: { ...answer.fields, effort, tokens } };
     if (!answer.refusal) {
       return answer;
     }
@@ -197,7 +202,7 @@ const forAnother = (message: string) =>
  * else (no key, another status, a bad chunk, the deadline) as final. It asks for no data kept (`zdr`; allmodels ignores it).
  */
 async function askHost(
-  { effort, host, model, router }: Route,
+  { host, model, router }: Route,
   body: object,
   deadline: AbortSignal
 ) {
@@ -228,7 +233,6 @@ async function askHost(
       body: JSON.stringify({
         ...body,
         model,
-        ...(effort && { reasoning_effort: effort }),
         provider: {
           allow_fallbacks: false,
           data_collection: "deny",
