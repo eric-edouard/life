@@ -249,10 +249,12 @@ const linesOf = (d: ShownDay) =>
     messageLine(time(m.at), m.fromMe ? "him" : d.with, m.text, m.deleted)
   );
 
-const ReplyLine = z.looseObject({
+const ReplyLine = z.object({
   facet: z.string(),
+  kind: z.string().nullish(),
   quotes: z.array(z.string()).catch([]),
   source: z.string().nullish(),
+  text: z.string(),
   writer: z.string().nullish(),
 });
 
@@ -282,13 +284,15 @@ export function personaLines(reply: unknown, days: ShownDay[]) {
       const m = found ? pool[found.line] : undefined;
       return found && m ? [{ at: m.at, text: clip(found.verbatim, 200) }] : [];
     });
-    const { source, ...rest } = r.data;
+    const { facet, kind, source, text, writer } = r.data;
     const l = PersonaLine.safeParse({
-      ...rest,
+      facet,
       quotes: quotes.slice(0, 4),
-      ...(source && sources.has(source as SourceEvent["source"])
-        ? { source }
-        : {}),
+      text,
+      ...(facet === "writes" && { kind: kind ?? null, writer }),
+      ...(facet === "writes" &&
+        source &&
+        sources.has(source as SourceEvent["source"]) && { source }),
     });
     return l.success ? [l.data] : [];
   });
@@ -320,7 +324,7 @@ export async function personas({ events, failed }: WithPeople) {
   }
   const people = await readPeople();
   const paged = await pagedNow(people);
-  const kept = events.filter((e) => !(e.bulk || isLifeOutput(e)));
+  const kept = events.filter((e) => !isLifeOutput(e));
   const direct = directChats(kept, people.resolve);
   const nameOf = (ref: string) => people.names.get(ref) ?? ref;
   // His own reads his 1:1 messages with everyone who has a page, each day named by whom it is with.

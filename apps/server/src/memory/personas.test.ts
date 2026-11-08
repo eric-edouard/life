@@ -71,6 +71,7 @@ test("a quote stays only as words in a chat message shown, a writing line's only
         facet: "pattern",
         quotes: ["c'est encore de ta faute", "pardon mon fils", "never said"],
         text: "He blames, then apologises.",
+        writer: null,
       },
       {
         facet: "writes",
