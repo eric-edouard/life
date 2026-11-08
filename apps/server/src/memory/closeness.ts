@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DAY } from "../core/clock";
+import { DAY, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
@@ -9,10 +9,9 @@ import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
-import { kindOf } from "./sources";
-import { chatPerson, daysBefore, safely, tables } from "./units";
+import { kindOf, safely, tables } from "./sources";
+import { chatPerson } from "./units";
 import { type People, readPeople } from "./who";
-
 import { dayNow, localDate } from "./zones";
 
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
@@ -434,4 +433,15 @@ export async function closeness({ events, failed, since }: WithPeople) {
     people: tallies.length,
     unread: failed,
   });
+}
+
+/** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
+export function closenessLine(ref: string, people: People) {
+  const l = levelsWith(people).get(ref);
+  return l
+    ? [
+        `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,
+        "",
+      ]
+    : [];
 }

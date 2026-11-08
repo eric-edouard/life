@@ -1,123 +1,20 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { DAY, MIN } from "../core/clock";
+import { join } from "node:path";
 import { writeJson } from "../core/files";
-import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { birthdaysNear, birthdayText, nextBirthday } from "./details";
-import { MEMORY, readIndex, situationPath, UNITS } from "./ledger";
-import type { Candidate } from "./open-items";
-import { layoutOf, perSection, renderPage } from "./page-format";
-import { OWNER, TRUTH } from "./read-truth";
-import {
-  areaFor,
-  buildIndex,
-  candidateLines,
-  coverageLines,
-  dayLines,
-  dueOf,
-  episodeLine,
-  openWithOf,
-  readSituationsOf,
-  readStaleness,
-  reindexUnits,
-  matches as searchMatches,
-  shownEpisode,
-  withSpans,
-} from "./search";
-import { newestDays } from "./units";
-import { meant, namedLike, nearNames } from "./who";
+import { buildIndex, reindexUnits } from "./index-writer";
+import { situationPath } from "./ledger";
+import { dayLines } from "./read-day";
+import { dueOf } from "./read-open-items";
+import { coverageLines } from "./read-person-page";
+import { OWNER } from "./read-truth";
+import { readSituationsOf, matches as searchMatches } from "./search";
 import { holdsAll } from "./words";
-
-test("day: its key observations in no episode, then its units, a recorded conversation among them", () => {
-  const lines = dayLines({
-    facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
-    units: [
-      {
-        date: "2026-10-14",
-        id: "unit_000000000001",
-        source: "whatsapp",
-        title: "Team",
-        topics: "glass",
-      },
-      {
-        date: "2026-10-14",
-        id: "unit_000000000002",
-        source: "lifelog",
-        title: "Recorded conversation",
-        topics: "plumbing",
-      },
-    ],
-  });
-  expect(lines).toContain("Units (2; `fetch <unit id>`):");
-  expect(lines).toContain(
-    "- unit_000000000002 2026-10-14 lifelog: Recorded conversation [plumbing]"
-  );
-  expect(lines).toContain(
-    "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"
-  );
-  expect(lines.slice(0, 2)).toEqual([
-    "Key observations in no episode:",
-    '- obs_1 2026-10-14 todo: Call the glazier "call him"',
-  ]);
-});
-
-test("a fact sits under the episode shown that reads its unit; one read by an episode not shown sits under none", () => {
-  const dinner = { id: "ep_000000000001" } as Episode;
-  const later = { id: "ep_000000000002" } as Episode;
-  const of = shownEpisode(
-    new Map([
-      ["unit_000000000001", dinner],
-      ["unit_000000000002", later],
-    ]),
-    new Set([dinner])
-  );
-  expect(of("unit_000000000001")).toBe(dinner);
-  expect(of("unit_000000000002")).toBeUndefined();
-  expect(of("unit_000000000003")).toBeUndefined();
-});
-
-test("person: a name two people go by lists both, with relation and count", () => {
-  const people = [
-    {
-      aliases: ["Claire"],
-      id: "claire",
-      name: "Claire Dupont",
-      relation: "half-sister",
-    },
-    {
-      aliases: ["Claire"],
-      id: "claire-friend",
-      name: "Claire (friend)",
-      relation: "ex (casual), friend",
-    },
-    {
-      aliases: ["Zoé"],
-      id: "zoe",
-      name: "Zoé Dupont",
-      relation: "half-sister",
-    },
-  ];
-  const matches = namedLike("claire", people);
-  expect(matches.map((p) => p.id)).toEqual(["claire", "claire-friend"]);
-  expect(namedLike("claire-friend", people)).toHaveLength(1);
-  expect(namedLike("Zoe", people)).toHaveLength(1);
-  const lines = candidateLines("claire", matches, (id) =>
-    id === "claire" ? 4 : 9
-  );
-  expect(lines).toContain(
-    "- claire: Claire Dupont, half-sister, 4 observations"
-  );
-  expect(lines).toContain(
-    "- claire-friend: Claire (friend), ex (casual), friend, 9 observations"
-  );
-  expect(candidateLines("zoe", namedLike("zoe", people), () => 0)).toEqual([]);
-});
 
 test("search: an observation hit names the unit it comes from and who is in it", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-search-")), "i.sqlite");
@@ -205,143 +102,6 @@ test("search: an observation hit names the unit it comes from and who is in it",
   db.close();
 });
 
-test("the index is stale when memory/ (units/ aside) or truth/ changed after its reads began; truth/ says so", async () => {
-  const path = join(await mkdtemp(join(tmpdir(), "life-stale-")), "i.sqlite");
-  expect(readStaleness(path)).toBe("index");
-  const standing = {
-    corrections: [],
-    latest: new Map(),
-    live: new Set<string>(),
-    retired: new Map(),
-  };
-  const later = new Date(Date.now() + DAY);
-  buildIndex([], path, standing, [], later);
-  expect(readStaleness(path)).toBeNull();
-  const touch = (file: string) => {
-    const at = new Date(later.getTime() + MIN);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, "");
-    utimesSync(file, at, at);
-  };
-  const unitFile = join(UNITS, "2026-10-20.jsonl");
-  const correction = join(MEMORY, "stale-test.jsonl");
-  const edit = join(TRUTH, "stale-test.md");
-  try {
-    touch(unitFile);
-    expect(readStaleness(path)).toBeNull();
-    touch(correction);
-    expect(readStaleness(path)).toBe("index");
-    touch(edit);
-    expect(readStaleness(path)).toBe("truth");
-  } finally {
-    rmSync(UNITS, { force: true, recursive: true });
-    rmSync(correction, { force: true });
-    rmSync(edit, { force: true });
-  }
-});
-
-test("person: a misheard or misspelled name lists the names near it, never a guess", () => {
-  const people = [
-    { aliases: ["Joel", "Joël"], id: "joel", name: "Joël Marchand" },
-    { aliases: [], id: "noel", name: "Noel" },
-    { aliases: ["Ines"], id: "ines", name: "Inès Fabre" },
-  ];
-  expect(nearNames("Joelle", people).map((p) => p.id)).toEqual(["joel"]);
-  expect(nearNames("Jowl", people).map((p) => p.id)).toEqual(["joel"]);
-  expect(nearNames("Joël Marchant", people).map((p) => p.id)).toEqual(["joel"]);
-  expect(nearNames("Joe", people).map((p) => p.id)).toEqual(["joel"]);
-  // A name of four letters or fewer allows one edit only: "Nil" is two from "Noel".
-  expect(nearNames("Nil", people)).toEqual([]);
-  expect(nearNames("Zebulon", people)).toEqual([]);
-});
-
-test("person pages back by whole days: a day is never cut, and `next` is the day to page back from", () => {
-  const items = [
-    "2026-10-20",
-    "2026-10-19",
-    "2026-10-19",
-    "2026-10-18",
-    "2026-10-17",
-  ];
-  const day = (d: string) => d;
-  expect(newestDays(items, day, 2)).toEqual({
-    next: "2026-10-19",
-    taken: ["2026-10-20", "2026-10-19", "2026-10-19"],
-  });
-  expect(newestDays(items, day, 2, "2026-10-19")).toEqual({
-    next: undefined,
-    taken: ["2026-10-18", "2026-10-17"],
-  });
-  expect(newestDays(items, day, 9)).toEqual({ next: undefined, taken: items });
-  expect(newestDays(items, day, 2, "2026-10-17")).toEqual({
-    next: undefined,
-    taken: [],
-  });
-});
-
-test("readIndex takes no async read: the index closes when the read returns", () => {
-  // @ts-expect-error a promise would settle after the index is closed (`bun run check` types this file)
-  const refused = () => readIndex(async () => 1);
-  expect(refused).toBeFunction();
-});
-
-test("a day opens with what he did: its episodes in plain words, where he was, what happened and their facts; units worth nothing only counted", () => {
-  const m = {
-    day: "2026-10-15",
-    end: null,
-    id: "ep_000000000001",
-    people: [
-      { ref: "person:bastien", role: "with" },
-      { ref: "unknown:Cédric", role: "with" },
-    ],
-    place: "Claire's house",
-    start: "2026-10-16 16:20",
-    title: "Road trip to see the sisters with Bastien",
-    units: ["unit_000000000001"],
-    what: "They drove to Rouen.",
-  } as Episode;
-  expect(episodeLine(m)).toStartWith(
-    "- ep_000000000001 Road trip to see the sisters with Bastien, 16 Oct"
-  );
-  expect(episodeLine(m)).toEndWith(
-    ", at Claire's house; with bastien, Cédric. [unit_000000000001]"
-  );
-  const unit = (id: string, importance: number | null) => ({
-    date: "2026-10-16",
-    id,
-    importance,
-    source: "whatsapp" as const,
-    title: "Sisters",
-    topics: "",
-  });
-  expect(
-    dayLines({
-      episodes: [
-        { episode: m, facts: ["- obs_1 a fact of the trip"], stay: "Rouen" },
-      ],
-      facts: ["- obs_2 a fact in no episode"],
-      units: [unit("unit_000000000001", 2), unit("unit_000000000002", 0)],
-      whereUnknown: false,
-    })
-  ).toEqual([
-    "Episodes (what he did, in time order):",
-    episodeLine(m),
-    "    Where he was: Rouen",
-    "    They drove to Rouen.",
-    "    - obs_1 a fact of the trip",
-    "",
-    "Key observations in no episode:",
-    "- obs_2 a fact in no episode",
-    "",
-    "Units (2; `fetch <unit id>`; 1 worth nothing not listed):",
-    "- unit_000000000001 2026-10-16 whatsapp: Sisters",
-  ]);
-  expect(
-    dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
-  ).toContain("Where he was is unknown: lifelog could not be read.");
-  expect(dayLines({})[0]).toStartWith("Units (0;");
-});
-
 test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
   const holds = holdsAll("Château pondres");
   expect(holds("Dinner at the chateau de Pondres")).toBe(true);
@@ -349,37 +109,62 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holdsAll("??")("anything")).toBe(false);
 });
 
-test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {
-  const people = [
-    { aliases: ["Claire"], id: "claire", name: "Claire Dupont" },
-    { aliases: ["Claire"], id: "claire-friend", name: "Claire (friend)" },
-    { aliases: [], id: "ann", name: "Ann Kerr" },
-  ];
-  const mean = (name: string, resolve: (s: string) => string | null) =>
-    meant(name, {
-      canon: (r: string) => r,
-      inferred: [],
-      resolve,
-      truth: { people } as never,
+test("a search opens with his situation when it names no one, then others' lines on the episodes it shows", async () => {
+  const [ep, other] = ["ep_00000000000a", "ep_00000000000b"];
+  const ANA = "person:test-ana";
+  const write = (page: string, lines: { cites: string[]; text: string }[]) =>
+    writeJson(situationPath(page), {
+      built: "2026-11-05T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      lines,
+      madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+      page,
+      schemaVersion: 1,
     });
-  const ids = (m: ReturnType<typeof mean>) => [
-    m.known,
-    m.same.map((p) => p.id),
-  ];
-  // He said this Claire is his friend (`this-is`): she is the one, listed first.
-  expect(
-    ids(mean("Claire", (s) => (s === "Claire" ? "person:claire-friend" : null)))
-  ).toEqual(["claire-friend", ["claire-friend", "claire"]]);
-  expect(ids(mean("Claire", () => null))).toEqual([
-    "claire",
-    ["claire", "claire-friend"],
+  write(OWNER, [
+    { cites: [ep], text: "He argues with his father about the house." },
   ]);
-  // A name he said is Ann: she is meant and listed first, though she goes by another name.
-  expect(ids(mean("Claire", () => "person:ann"))).toEqual([
-    "ann",
-    ["ann", "claire", "claire-friend"],
+  write(ANA, [
+    { cites: [ep], text: "Ana helps with the house." },
+    { cites: [other], text: "Ana moved flats." },
   ]);
-  expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
+  const live = new Set([ep, other]);
+  const header = "(where things stand, read each night from the last 30 days):";
+  try {
+    await expect(
+      readSituationsOf("what bothers me lately", live, new Set([ep]), true)
+    ).resolves.toEqual([
+      `His situation ${header}`,
+      `- He argues with his father about the house. [${ep}]`,
+      "",
+      `Situation with Test Ana, on the episodes below ${header}`,
+      `- Ana helps with the house. [${ep}]`,
+      "",
+    ]);
+    // A search into given days is not about now: his own shows only where it cites what was found, like anyone's.
+    await expect(
+      readSituationsOf("what bothers me lately", live, new Set([other]), false)
+    ).resolves.toEqual([
+      `Situation with Test Ana, on the episodes below ${header}`,
+      `- Ana moved flats. [${other}]`,
+      "",
+    ]);
+    // A person named shows whole; his own then shows only where it cites what was found.
+    await expect(
+      readSituationsOf("how is test ana", live, new Set([ep]), true)
+    ).resolves.toEqual([
+      `Situation with Test Ana ${header}`,
+      `- Ana helps with the house. [${ep}]`,
+      `- Ana moved flats. [${other}]`,
+      "",
+      `His situation, on the episodes below ${header}`,
+      `- He argues with his father about the house. [${ep}]`,
+      "",
+    ]);
+  } finally {
+    rmSync(situationPath(OWNER), { force: true });
+    rmSync(situationPath(ANA), { force: true });
+  }
 });
 
 const SAID_BY = / (by|heard as) jean/;
@@ -387,6 +172,7 @@ const SAID_BY = / (by|heard as) jean/;
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
 // one nudged him. `read_day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
 // Up to a week late it is still listed, labelled (a missed daily review), and what he waits on, on its day (#99).
+
 test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day or up to a week late, and waiting items on their day", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-due-")), "i.sqlite");
   const loop = (id: string, over: Partial<Observation>) =>
@@ -490,246 +276,4 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     " heard as jean",
   ]);
   expect(dayLines({ due: lines })[0]).toStartWith("Due (open items");
-});
-
-test("a person's page lists everything open with them, what he owes first, then what he waits on", async () => {
-  const path = join(await mkdtemp(join(tmpdir(), "life-open-")), "i.sqlite");
-  const obs = (id: string, over: Partial<Observation>) =>
-    ({
-      about: OWNER,
-      at: "2026-09-01T10:00:00.000Z",
-      confidence: 0.9,
-      date: "2026-09-01",
-      entities: [OWNER, "person:ana"],
-      id,
-      importance: 3,
-      quote: "I'll send Ana the plans",
-      source: { channel: "lifelog", ref: "j:1@x" },
-      speaker: OWNER,
-      text: "Send Ana the plans.",
-      type: "to_do",
-      unit: "unit_000000000001",
-      when: "2026-09-02",
-      ...over,
-    }) as unknown as Observation;
-  buildIndex(
-    [
-      // Two months old: past read_day's week, still open with her.
-      obs("obs_000000000001", {}),
-      obs("obs_000000000002", { type: "waiting_on_someone", when: undefined }),
-      obs("obs_000000000003", { entities: [OWNER, "person:bob"] }),
-      obs("obs_000000000004", {}),
-      obs("obs_000000000005", { importance: 2 }),
-    ],
-    path,
-    {
-      corrections: [],
-      latest: new Map(),
-      live: new Set(["unit_000000000001"]),
-      retired: new Map([
-        [
-          "obs_000000000004",
-          { by: "obs_000000000001", observation: "obs_000000000004" },
-        ],
-      ]),
-    } as never
-  );
-  const thing = (id: string, over: Partial<Candidate>): Candidate => ({
-    at: "2026-11-01T10:00:00.000Z",
-    id,
-    kind: "reply",
-    line: `- ${id}`,
-    ...over,
-  });
-  const lines = openWithOf(
-    new Database(path, { readonly: true }),
-    "person:ana",
-    {
-      goals: [],
-      more: [
-        thing("m_ana", { person: "person:ana" }),
-        thing("m_bob", { person: "person:bob" }),
-        thing("entry_1", { kind: "reminder", obs: "obs_000000000001" }),
-        thing("entry_3", { kind: "reminder", obs: "obs_000000000003" }),
-        thing("entry_x", { kind: "reminder" }),
-      ],
-      today: "2026-11-08",
-    }
-  );
-  expect(
-    lines.map((l) => l.split(" (")[0]?.split(" ").slice(0, 2).join(" "))
-  ).toEqual([
-    "",
-    "Open with",
-    "",
-    "He owes",
-    "- m_ana",
-    "- obs_000000000001",
-    "",
-    "He waits",
-    "- obs_000000000002",
-  ]);
-  expect(lines[5]).toEndWith("(overdue) (also entry_1)");
-  expect(
-    openWithOf(new Database(path, { readonly: true }), "person:cy", {
-      goals: [],
-      more: [],
-      today: "2026-11-08",
-    })
-  ).toEqual([]);
-});
-
-test("a Between us line shows the days of its first and latest evidence", () => {
-  const text = renderPage({
-    hold: "> Ana.",
-    layout: layoutOf("person:ana", true),
-    meta: {
-      built: "2026-10-18T02:00:00.000Z",
-      madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
-      name: "Ana",
-      page: "person:ana",
-      schemaVersion: 1,
-      seen: "r",
-    },
-    owner: [],
-    sections: {
-      ...perSection(),
-      bond: [
-        {
-          cites: ["obs_aaaaaaaaaaaa", "obs_bbbbbbbbbbbb"],
-          text: "Ana and Jean agreed to keep money apart.",
-        },
-      ],
-    },
-    title: "Ana",
-  });
-  const day: Record<string, string> = {
-    obs_aaaaaaaaaaaa: "2026-03-01",
-    obs_bbbbbbbbbbbb: "2026-09-12",
-  };
-  expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
-    "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
-  );
-});
-
-test("birthdays: the next date, days left and age; day lists this day and the next 7, soonest first", () => {
-  expect(nextBirthday("1993-11-12", "2026-11-09")).toEqual({
-    age: 33,
-    day: "2026-11-12",
-    left: 3,
-  });
-  // Passed this year: next year's; no year, no age.
-  expect(nextBirthday("--01-07", "2026-10-21")).toEqual({
-    age: null,
-    day: "2027-01-07",
-    left: 78,
-  });
-  expect(birthdayText(nextBirthday("--10-21", "2026-10-21"))).toBe(
-    "21 Oct (today)"
-  );
-  expect(
-    birthdaysNear(
-      [
-        { birthday: "2000-10-28", id: "ana", name: "Ana" },
-        { birthday: "--10-21", id: "jean", name: "Jean" },
-        { birthday: "--10-29", id: "late", name: "Late" },
-        { birthday: null, id: "none", name: "None" },
-      ],
-      "2026-10-21"
-    )
-  ).toEqual([
-    { id: "jean", name: "Jean", text: "21 Oct (today)" },
-    { id: "ana", name: "Ana", text: "28 Oct (in 7 days, turns 26)" },
-  ]);
-  // 29 Feb falls on 1 Mar in other years.
-  expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
-    day: "2027-03-01",
-    left: 1,
-  });
-  // Across the new year.
-  expect(
-    birthdaysNear(
-      [{ birthday: "--01-02", id: "jan", name: "Jan" }],
-      "2026-12-28"
-    )
-  ).toEqual([{ id: "jan", name: "Jan", text: "2 Jan (in 5 days)" }]);
-  // First in `read_day`, before what is due.
-  expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
-    "Birthdays (this day and the next 7):",
-    "- born",
-    "",
-  ]);
-});
-
-test("area: an area's or a project's id or name, never a part of one", () => {
-  const truth = {
-    areas: [{ id: "construction", name: "Construction" }],
-    projects: [{ area: "construction", id: "house", name: "The House" }],
-  } as unknown as Parameters<typeof areaFor>[1];
-  expect(areaFor("construction", truth)).toEqual({
-    id: "construction",
-    project: undefined,
-  });
-  expect(areaFor("CONSTRUCTION", truth).id).toBe("construction");
-  expect(areaFor("house", truth).project?.id).toBe("house");
-  expect(areaFor("the house", truth).id).toBe("construction");
-  expect(areaFor("constr", truth).id).toBeUndefined();
-});
-
-test("a search opens with his situation when it names no one, then others' lines on the episodes it shows", async () => {
-  const [ep, other] = ["ep_00000000000a", "ep_00000000000b"];
-  const ANA = "person:test-ana";
-  const write = (page: string, lines: { cites: string[]; text: string }[]) =>
-    writeJson(situationPath(page), {
-      built: "2026-11-05T00:00:00.000Z",
-      inputs: "0123456789abcdef",
-      lines,
-      madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
-      page,
-      schemaVersion: 1,
-    });
-  write(OWNER, [
-    { cites: [ep], text: "He argues with his father about the house." },
-  ]);
-  write(ANA, [
-    { cites: [ep], text: "Ana helps with the house." },
-    { cites: [other], text: "Ana moved flats." },
-  ]);
-  const live = new Set([ep, other]);
-  const header = "(where things stand, read each night from the last 30 days):";
-  try {
-    await expect(
-      readSituationsOf("what bothers me lately", live, new Set([ep]), true)
-    ).resolves.toEqual([
-      `His situation ${header}`,
-      `- He argues with his father about the house. [${ep}]`,
-      "",
-      `Situation with Test Ana, on the episodes below ${header}`,
-      `- Ana helps with the house. [${ep}]`,
-      "",
-    ]);
-    // A search into given days is not about now: his own shows only where it cites what was found, like anyone's.
-    await expect(
-      readSituationsOf("what bothers me lately", live, new Set([other]), false)
-    ).resolves.toEqual([
-      `Situation with Test Ana, on the episodes below ${header}`,
-      `- Ana moved flats. [${other}]`,
-      "",
-    ]);
-    // A person named shows whole; his own then shows only where it cites what was found.
-    await expect(
-      readSituationsOf("how is test ana", live, new Set([ep]), true)
-    ).resolves.toEqual([
-      `Situation with Test Ana ${header}`,
-      `- Ana helps with the house. [${ep}]`,
-      `- Ana moved flats. [${other}]`,
-      "",
-      `His situation, on the episodes below ${header}`,
-      `- He argues with his father about the house. [${ep}]`,
-      "",
-    ]);
-  } finally {
-    rmSync(situationPath(OWNER), { force: true });
-    rmSync(situationPath(ANA), { force: true });
-  }
 });

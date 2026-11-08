@@ -14,6 +14,7 @@ const GOG_TASKS = /"gog",\s*"tasks"/;
 const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
+const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
   (f) => !f.endsWith(".test.ts")
@@ -120,5 +121,16 @@ test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCH
 test("now is read only through clock()", () => {
   expect(
     linesMatching(DIRECT_CLOCK, ["apps/server/src/core/clock.ts"], true)
+  ).toEqual([]);
+});
+
+// A calendar day is `localDate`, `dayNow` or `daysBefore`; a tripwire (`iso(…).slice` slips by).
+test("no calendar day is cut from a UTC instant", () => {
+  expect(
+    linesMatching(UTC_DAY, [
+      "apps/server/src/core/clock.ts",
+      // A birthday's date, not a day of his.
+      "apps/server/src/memory/details.ts",
+    ])
   ).toEqual([]);
 });

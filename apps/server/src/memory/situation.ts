@@ -1,4 +1,5 @@
 import { readdir } from "node:fs/promises";
+import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
@@ -15,7 +16,6 @@ import {
 } from "./ledger";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, refContext } from "./run";
-import { daysBefore } from "./units";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to

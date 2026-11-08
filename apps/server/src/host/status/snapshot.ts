@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { clock, DAY, HOUR, MIN } from "../../core/clock";
+import { clock, DAY, daysBefore, HOUR, MIN } from "../../core/clock";
 import { filesIn, newestIn, readLineCount } from "../../core/files";
 import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
@@ -20,7 +20,7 @@ import {
 import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
-import { clip, daysBefore } from "../../memory/units";
+import { clip } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
 import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";

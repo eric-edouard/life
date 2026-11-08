@@ -6,12 +6,12 @@
 // but lost to another is a duplicate. For each found: start and end within 15 min, and the stay its span covers most within 150 m of the truth's
 // `gps`. Stays are lifelog's (read live, like the Past calendar).
 
-import { MIN } from "@life/server/src/core/clock";
+import { daysBefore, MIN } from "@life/server/src/core/clock";
 import { edgeTime, span } from "@life/server/src/memory/episode-span";
 import { episodesNow, readEpisodes } from "@life/server/src/memory/ledger";
 import { stayOf } from "@life/server/src/memory/places";
-import { dayRange, daysBefore } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
+import { dayRange } from "@life/server/src/memory/zones";
 import { type Episode, LocalTime } from "@life/server/src/records/episode";
 import { type Stay, visits } from "@life/server/src/sources/lifelog";
 import { z } from "zod";

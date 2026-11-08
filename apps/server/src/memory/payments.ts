@@ -1,11 +1,16 @@
+import { daysBefore } from "../core/clock";
 import { redact } from "../core/redact";
+import { payments } from "../payments/backend";
 import type { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
-import type { Stay } from "../sources/lifelog";
+import { lifelogMissing, type Stay } from "../sources/lifelog";
 import { bounds } from "./episode-span";
-import { stayOf, where } from "./places";
-import { clip, time } from "./units";
-import { localDate } from "./zones";
+import { episodesWhere } from "./ledger";
+import { stayOf, staysOf, where } from "./places";
+import { clip } from "./units";
+import { meant, who as named, readPeople } from "./who";
+import { asData } from "./words";
+import { localDate, time } from "./zones";
 
 // Payments placed in his day, at read time (`read_day`, `read_payments`): each one's day in his zone, the episode it
 // happened in and where he was. Money decides what a payment is and whether it counts; this only places it.
@@ -25,12 +30,12 @@ const MINUTE = 60_000;
  * trip around it), so a payment counts once. One with only its day (Revolut) gets that day and nothing else.
  */
 export function place(
-  payments: Payment[],
+  all: Payment[],
   episodes: Episode[],
   stays: Stay[]
 ): Placed[] {
   const timed = episodes.map((m) => ({ b: bounds(m), m }));
-  return payments.map((payment) => {
+  return all.map((payment) => {
     const { paidAt } = payment;
     if (!paidAt) {
       return { day: payment.date, payment };
@@ -80,3 +85,102 @@ export const paymentLine = ({ episode, payment: p, stay }: Placed) =>
     ...(stay ? [`at ${where(stay)}`] : []),
     ...(episode ? [`in ${episode.id}`] : []),
   ].join(" · ");
+
+/**
+ * The payments of his days `from` to `to`, placed (`place`): none while payments are off, and the backend's error
+ * instead of failing the read. A payment's day is his, so a day either side of the bank's days is read.
+ */
+export async function placedOn(
+  from: string,
+  to: string,
+  episodes: Episode[],
+  stays: Stay[]
+): Promise<{ error?: string; list: Placed[] }> {
+  const backend = payments();
+  if (!backend) {
+    return { list: [] };
+  }
+  try {
+    const all = await backend.between(daysBefore(from, 1), daysBefore(to, -1));
+    return {
+      list: place(all, episodes, stays).filter(
+        (p) => p.day >= from && p.day <= to
+      ),
+    };
+  } catch (e) {
+    return { error: (e as Error).message, list: [] };
+  }
+}
+
+/** His stays on each day `from` to `to` (none without lifelog, or when it cannot be read). */
+async function staysOn(from: string, to: string) {
+  if (lifelogMissing()) {
+    return [];
+  }
+  const days: string[] = [];
+  for (let d = from; d <= to; d = daysBefore(d, -1)) {
+    days.push(d);
+  }
+  // One lifelog read per day: its `visits` stops at 200 stays (lifelog `location.ts`), fewer than a month holds.
+  const each = await Promise.all(
+    days.map((d) => staysOf({ at: d }).catch(() => null))
+  );
+  return each.flatMap((s) => s ?? []);
+}
+
+/** `read_payments`: his payments placed in his days, what each episode cost him, and the people he was with then. */
+export async function paymentsOf(q: {
+  episode?: string;
+  from: string;
+  to?: string;
+  who?: string;
+}) {
+  const to = q.to ?? q.from;
+  const [episodes, stays, folks] = await Promise.all([
+    episodesWhere(() => true),
+    staysOn(q.from, to),
+    readPeople(),
+  ]);
+  const ofDays = await placedOn(q.from, to, episodes, stays);
+  if (ofDays.error) {
+    return `Payments unknown: ${ofDays.error}`;
+  }
+  const ref = q.who && meant(q.who, folks).known;
+  if (q.who && !ref) {
+    return `No one goes by ${q.who}.`;
+  }
+  const list = ofDays.list.filter(
+    (p) =>
+      (!q.episode || p.episode?.id === q.episode) &&
+      (!ref || p.episode?.people.some((x) => x.ref === `person:${ref}`))
+  );
+  const byEpisode = [
+    ...Map.groupBy(
+      list.filter((p) => p.episode),
+      (p) => p.episode as Episode
+    ),
+  ]
+    .map(([m, l]) => ({ m, n: l.length, paid: paid(l) }))
+    .sort((a, b) => b.paid - a.paid);
+  const byPerson = new Map<string, number>();
+  for (const { m, paid: spent } of byEpisode) {
+    for (const x of m.people.filter((y) => y.role === "with")) {
+      byPerson.set(x.ref, (byPerson.get(x.ref) ?? 0) + spent);
+    }
+  }
+  return asData([
+    `Payments ${q.from}${to === q.from ? "" : ` to ${to}`}: ${list.length}, ${euros(paid(list))} paid (EUR at today's rate; money decides what counts):`,
+    ...list.toSorted(byTime).map((p) => `${p.day} ${paymentLine(p).slice(2)}`),
+    "",
+    "Paid per episode (most first):",
+    ...byEpisode.map(
+      ({ m, paid: spent, n }) =>
+        `- ${m.id} ${m.title} (${m.day}): ${euros(spent)}, ${n} payment${n === 1 ? "" : "s"}`
+    ),
+    "",
+    "Paid in the episodes each person was in (the whole, not their share):",
+    ...[...byPerson]
+      .sort((a, b) => b[1] - a[1])
+      .map(([r, spent]) => `- ${named({ speaker: r })}: ${euros(spent)}`),
+  ]);
+}

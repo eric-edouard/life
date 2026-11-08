@@ -3,8 +3,10 @@ import { digest } from "../core/hash";
 import type { MadeBy } from "../records/fields";
 import { INFERRED_PREFIX, type InferredPerson } from "../records/observation";
 import { locate } from "./observe";
+import { slugOf } from "./page-format";
 import { kindOf } from "./sources";
-import { areaOf, type Built, slugOf, UNKNOWN } from "./units";
+import { areaOf } from "./tags";
+import { type Built, UNKNOWN } from "./units";
 
 // Who the people not on the map are: what the episodes call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.

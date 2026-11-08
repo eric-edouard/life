@@ -1,5 +1,7 @@
 import { join } from "node:path";
+import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
+import { within } from "../core/lists";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import {
@@ -32,16 +34,8 @@ import { parseObservations, type Reject, type Source } from "./observe";
 import { othersIn } from "./read-truth";
 import { begin, inBatches, involvedOf, refContext } from "./run";
 import { kindOf } from "./sources";
-import {
-  areaLookup,
-  type Built,
-  daysBefore,
-  type Evidence,
-  localTime,
-  MARKED,
-  UNKNOWN,
-  within,
-} from "./units";
+import { areaLookup } from "./tags";
+import { type Built, type Evidence, MARKED, UNKNOWN } from "./units";
 import {
   episodeNow,
   namedIn,
@@ -51,6 +45,7 @@ import {
   who,
 } from "./who";
 import { chatLines, spokenLines } from "./words";
+import { localTime } from "./zones";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, episodes.ts),
 // the deep-tier model reads the episode it belongs to (episodes.ts: every unit of it, from every channel and day, from

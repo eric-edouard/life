@@ -22,14 +22,7 @@ import { LIFE_MAIL } from "./email";
 import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
-import {
-  type Built,
-  lifeChat,
-  lifelogUnits,
-  localTime,
-  MARKED,
-  time,
-} from "./units";
+import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
 import { embedNew } from "./vectors";
 import {
   chatHits,
@@ -43,6 +36,7 @@ import {
   voiceLines,
   voiceText,
 } from "./words";
+import { localTime, time } from "./zones";
 
 const words = ["Allo", "Salut", "", "Fin"];
 const server = lifelogServer({

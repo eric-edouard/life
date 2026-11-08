@@ -12,6 +12,7 @@ import type {
   Supersession,
 } from "../records/observation";
 import { type Rating, Statement } from "../records/statement";
+import { buildIndex } from "./index-writer";
 import {
   hiding,
   INDEX,
@@ -37,7 +38,6 @@ import {
 } from "./ledger";
 import { knownOn } from "./page-format";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
-import { buildIndex } from "./search";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
   ({ id, madeBy: { run, unitHash }, unit }) as Observation;

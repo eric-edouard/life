@@ -101,7 +101,7 @@ export const readUnits = (day = "") => readFolder(UNITS, Unit, day);
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 
-/** The search index (`buildIndex`, search.ts). */
+/** The search index (`buildIndex`, index-writer.ts). */
 export const INDEX = join(OUT, "index.sqlite");
 /** Search by meaning's vectors, by text (`vectors.ts`): apart from the index, which every rebuild drops whole. */
 export const VECTORS = join(OUT, "vectors.sqlite");
@@ -632,3 +632,16 @@ export const appendVerdicts = (list: Verdict[]) =>
  */
 export const verdictOf = (verdicts: Verdicts, u: Unit) =>
   u.drop ? undefined : verdicts.get(verdictKey(u.id, u.hash));
+
+/** The episodes as they stand now that `keep` keeps, by when they happen. */
+// ponytail: every episode line is read (≈25 MB at 10 years): `person` and `day` need them all (a person's history,
+// `readBy`); index the episodes if a read of them shows up.
+export const episodesWhere = async (keep: (m: Episode) => boolean) => {
+  const [lines, corrections] = await Promise.all([
+    readEpisodes(),
+    readCorrections(),
+  ]);
+  return episodesNow(lines, corrections)
+    .filter(keep)
+    .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
+};

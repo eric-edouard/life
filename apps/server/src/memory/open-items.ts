@@ -5,7 +5,7 @@ import type { SourceEvent } from "../records/source";
 // every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
 // stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
-// The views: what `read_day` lists as due, and what a person's page lists as open with them (apps/server/src/memory/search.ts
+// The views: what `read_day` lists as due, and what a person's page lists as open with them (read-open-items.ts
 // gathers the candidates, each with its line). Copies merge,
 // timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
 

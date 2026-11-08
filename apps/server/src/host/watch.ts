@@ -5,14 +5,14 @@ import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
-import { LEDGER, readLedger } from "../memory/ledger";
-import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import {
   readSearchedTexts,
   readStaleness,
   reindex,
   reindexUnits,
-} from "../memory/search";
+} from "../memory/index-writer";
+import { LEDGER, readLedger } from "../memory/ledger";
+import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
 import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";

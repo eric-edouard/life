@@ -173,11 +173,11 @@ Before adding a helper, use the one that exists:
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
-| A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf` (`search.ts`). Only what is already a field; anything else about someone is a page line |
+| A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
-| A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
+| A local day or time | `localDate`, `dayStart`, `time`, `localTime`, `dayRange` (`zones.ts`); a calendar day's arithmetic, no zone: `daysBefore` (`core/clock.ts`); in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`, lifelog included; a duration is `performance.now()` |
 | An importance threshold | `SEARCHABLE_AT`, `KEEP_AT`, `TOP_AT` (`records/unit.ts`), never a bare number |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
@@ -208,6 +208,7 @@ Before adding a helper, use the one that exists:
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
+| A file's size | 800 lines (Biome `noExcessiveLinesPerFile`); a larger file's cap in biome.json only goes down: split it by job |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
 Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the

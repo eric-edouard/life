@@ -23,7 +23,8 @@ import {
 import { loadTruth, ownerIn } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf } from "./sources";
-import { areaLookup, areaOf, clip, lineCounts } from "./units";
+import { areaLookup, areaOf } from "./tags";
+import { clip, lineCounts } from "./units";
 import { asData } from "./words";
 import { localDate } from "./zones";
 

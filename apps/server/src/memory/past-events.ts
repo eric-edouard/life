@@ -15,8 +15,9 @@ import {
 } from "./ledger";
 import { stayOf, where } from "./places";
 import { episodeText } from "./statements";
-import { clip, time } from "./units";
+import { clip } from "./units";
 import { readPeople } from "./who";
+import { time } from "./zones";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every episode, as an event with what happened, who,
 // where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A

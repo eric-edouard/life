@@ -13,8 +13,9 @@ import { locate } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
 import { kindOf } from "./sources";
-import { isLifeOutput, localTime } from "./units";
+import { isLifeOutput } from "./units";
 import { readPeople } from "./who";
+import { localTime } from "./zones";
 
 // `bun life memory communication-styles`: how the owner writes (docs/architecture.md, "The pipeline"), in general and
 // to each person with a page, for an agent drafting a message for him. One call per person reads his latest messages

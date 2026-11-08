@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Person } from "../records/truth";
 import type { Contact } from "../sources/contacts";
-import { detailsBlock, detailsOf } from "./details";
-import { readDetailsOf } from "./search";
+import { detailsBlock, detailsOf, readDetailsOf } from "./details";
 
 const contact = (over: Partial<Contact> = {}): Contact => ({
   addresses: [],

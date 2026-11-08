@@ -1,5 +1,6 @@
 import { clock, DAY, iso, MIN } from "../core/clock";
 import { fuse } from "../core/fusion";
+import { newestDays } from "../core/lists";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
@@ -23,34 +24,28 @@ import { readInferredRepos, readUnit, readUnitsOf } from "./ledger";
 import type { SourceLine } from "./observe";
 import { type Candidate, owed } from "./open-items";
 import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
-import { isDirect, kindOf, sourceOf } from "./sources";
+import { isDirect, kindOf, sourceOf, type Tables, tables } from "./sources";
 import {
   type Built,
   builtFor,
   clip,
-  dayRange,
   dayUnitId,
   isFrozen,
   isLifeOutput,
   lifelogNames,
   lineOf,
-  localTime,
   MARKED,
-  newestDays,
   normalize,
   oneToOne,
   type Resolve,
   searchableMail,
   speakerOf,
-  type Tables,
-  tables,
-  time,
   UNKNOWN,
   unitTitle,
 } from "./units";
 import { readNearest, type Searched } from "./vectors";
 import { meant, type People, readPeople } from "./who";
-import { localDate } from "./zones";
+import { dayRange, localDate, localTime, time } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
 // from lifelog when asked for and printed, never written to disk; chats are read from the archives (WhatsApp and

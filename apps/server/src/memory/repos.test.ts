@@ -5,7 +5,7 @@ import { repoMap } from "../sources/git";
 import type { Truth } from "./read-truth";
 import { ledger, unit, verdict } from "./record-fixtures";
 import { codeRows, parseInferredRepos } from "./repos";
-import { areaLookup } from "./units";
+import { areaLookup } from "./tags";
 
 const ctx = {
   areas: areaLookup([
