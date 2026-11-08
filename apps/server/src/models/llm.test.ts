@@ -10,13 +10,15 @@ import {
   askOnce,
   claudeTokens,
   codexTokens,
-  extractJson,
+  engineKeys,
   hasQuota,
   llmFor,
   llmOverride,
   quota,
   quotaOf,
 } from "./llm";
+import { extractJson } from "./model-call";
+import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });
@@ -56,7 +58,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("an API engine: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused; a router that fails for good gives way to the next router", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: {
     finish?: string;
@@ -68,7 +70,9 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     garbled?: string[];
     /** The connection stays open after [DONE]. */
     open?: boolean;
-  } = { finish: "stop", provider: "Refuseless", status: 200 };
+    /** A host's own status, over `status`. */
+    statusOf?: Record<string, number>;
+  } = { finish: "stop", status: 200 };
   // Sent in small pieces with CRLF line ends, so an event is split across pieces.
   const sse = (chunks: unknown[]) => {
     const text = `: keepalive\r\n${chunks.map((c) => `data: ${JSON.stringify(c)}\r\n\r\n`).join("")}data: [DONE]\r\n\r\n`;
@@ -96,17 +100,19 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     const body = JSON.parse(String(init.body));
     asked.push({ body, url });
     const [host] = body.provider.only;
+    // Each host serves its own reply, unless the test names another.
+    const served = reply.provider ?? host.split("/")[0];
     const opened = {
       choices: [{ delta: { content: "", role: "assistant" } }],
-      provider: reply.provider,
+      provider: served,
     };
     const chunks = reply.cut?.includes(host)
-      ? [opened, { provider: reply.provider, usage: usage(3) }]
+      ? [opened, { provider: served, usage: usage(3) }]
       : [
           opened,
           {
             choices: [{ delta: { content: '{"ok":' } }],
-            provider: reply.provider,
+            provider: served,
           },
           {
             choices: [
@@ -117,14 +123,13 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
                 finish_reason: reply.finish,
               },
             ],
-            provider: reply.provider,
+            provider: served,
           },
-          { choices: [], provider: reply.provider, usage: usage(7) },
+          { choices: [], provider: served, usage: usage(7) },
         ];
+    const status = reply.statusOf?.[host] ?? reply.status;
     return Promise.resolve(
-      new Response(reply.status === 200 ? sse(chunks) : "slow down", {
-        status: reply.status,
-      })
+      new Response(status === 200 ? sse(chunks) : "slow down", { status })
     );
   }) as unknown as typeof fetch);
   process.env.ALLMODELS_API_KEY = "test-key";
@@ -156,8 +161,10 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     expect(asked[0]?.body.stream).toBe(true);
     expect(asked[0]?.body.provider).toEqual({
       allow_fallbacks: false,
+      data_collection: "deny",
       only: ["refuseless"],
       order: ["refuseless"],
+      zdr: true,
     });
     expect(asked).toHaveLength(1);
     expect(lastLine()).toContain(
@@ -176,7 +183,7 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     };
     hostsAsked();
     // The first host opens its reply, then its stream ends: the next host is asked, and both cost.
-    reply = { ...reply, cut: ["refuseless"], provider: "Hopper" };
+    reply = { ...reply, cut: ["refuseless"] };
     expect(await ask()).toEqual({ ok: true });
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
     expect(lastLine()).toContain(
@@ -204,7 +211,7 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     expect(lastLine()).toContain('"input":30');
     // What another host would answer the same way is final.
     expect(hostsAsked()).toEqual(["refuseless"]);
-    reply = { ...reply, finish: "length", provider: "Hopper" };
+    reply = { ...reply, finish: "length", provider: undefined };
     await expect(ask()).rejects.toThrow("stopped (length)");
     expect(hostsAsked()).toEqual(["refuseless"]);
     reply = { ...reply, status: 401 };
@@ -213,7 +220,50 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     reply = { ...reply, status: 429 };
     await expect(ask()).rejects.toThrow("hopper: allmodels 429");
     expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    // OpenRouter first, its own model on each of its hosts, then allmodels'.
+    process.env.OPENROUTER_API_KEY = "test-key";
+    const routed = () =>
+      askOnce({
+        dir: mkdtempSync(join(tmpdir(), "life-chat-")),
+        input: {},
+        llm: {
+          engine: "openrouter",
+          model:
+            "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
+        },
+        prompt: "eval-judge.v2",
+        run: "r",
+      });
+    hostsAsked();
     reply = { finish: "stop", status: 200 };
+    expect(await routed()).toEqual({ ok: true });
+    expect(asked[0]?.url).toContain("openrouter.ai");
+    expect(asked[0]?.body.model).toBe("a/b");
+    expect(asked[0]?.body.reasoning_effort).toBe("medium");
+    expect(hostsAsked()).toEqual(["deepinfra/fp8"]);
+    // Out of credit: its other host would say the same, allmodels may not.
+    reply = {
+      ...reply,
+      provider: "Refuseless",
+      statusOf: { "deepinfra/fp8": 402 },
+    };
+    expect(await routed()).toEqual({ ok: true });
+    expect(asked[1]?.url).toContain("api.allmodels.io");
+    expect(asked[1]?.body.model).toBe("x/y");
+    expect(asked[1]?.body.reasoning_effort).toBe("high");
+    expect(hostsAsked()).toEqual(["deepinfra/fp8", "refuseless"]);
+    // No key is the same.
+    delete process.env.OPENROUTER_API_KEY;
+    reply = { ...reply, statusOf: {} };
+    expect(await routed()).toEqual({ ok: true });
+    expect(hostsAsked()).toEqual(["refuseless"]);
+    // A reply from a host of another router is not the asked host's: refused, and allmodels asked.
+    process.env.OPENROUTER_API_KEY = "test-key";
+    reply = { ...reply, provider: "Refuseless" };
+    expect(await routed()).toEqual({ ok: true });
+    expect(hostsAsked()).toEqual(["deepinfra/fp8", "refuseless"]);
+    delete process.env.OPENROUTER_API_KEY;
+    reply = { finish: "stop", provider: "", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
     await expect(
       askOnce({
@@ -429,20 +479,47 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 test("each provider's model and effort by tier", () => {
   // Regression (28 Oct 2026): allmodels' hosts refuse "medium", which the pages tier used to send.
   for (const tier of ["deep", "main", "fast"] as const) {
-    expect(["none", "low", "high", "max"]).toContain(
-      llmFor(tier, "allmodels").effort ?? ""
-    );
+    for (const engine of ["allmodels", "openrouter"] as const) {
+      for (const r of routesOf(llmFor(tier, engine).model, engine)) {
+        if (r.router === "allmodels") {
+          expect(["none", "low", "high", "max"]).toContain(r.effort ?? "");
+        }
+      }
+    }
   }
   expect(llmFor("deep", "allmodels")).toEqual({
-    effort: "low",
+    effort: undefined,
     engine: "allmodels",
-    model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper",
+    model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=low",
   });
   expect(llmFor("fast", "claude")).toEqual({
     effort: undefined,
     engine: "claude",
     model: "haiku",
   });
+  // The app asks for every key an engine's routes need.
+  expect(engineKeys().openrouter).toEqual([
+    "OPENROUTER_API_KEY",
+    "ALLMODELS_API_KEY",
+  ]);
+});
+
+test("a route: its router (the engine's when left out), model, hosts and effort", () => {
+  expect(
+    routesOf("a/b:free@h1,h2/fp8=medium allmodels:x/y@r", "openrouter")
+  ).toEqual([
+    { effort: "medium", host: "h1", model: "a/b:free", router: "openrouter" },
+    {
+      effort: "medium",
+      host: "h2/fp8",
+      model: "a/b:free",
+      router: "openrouter",
+    },
+    { effort: undefined, host: "r", model: "x/y", router: "allmodels" },
+  ]);
+  expect(() => routesOf("nope:x/y@h", "allmodels")).toThrow(
+    "no router like nope"
+  );
 });
 
 test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {

@@ -7,14 +7,8 @@ import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import {
-  askOnce,
-  hasQuota,
-  llmFor,
-  llmSpec,
-  quota,
-  type Tier,
-} from "../models/llm";
+import { askOnce, hasQuota, llmFor, llmSpec, quota } from "../models/llm";
+import type { Tier } from "../models/model-call";
 import {
   INFERRED_USE_AT,
   type InferredPerson,
