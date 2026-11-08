@@ -317,7 +317,7 @@ years): `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offer
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message the call was shown, a `writes` line's in
 that writer's own, never in mail, whose text holds quoted history), `inputs` (a hash of the prompt version and the
 messages and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
-and it is a week old; removed when the person has no page or no message from him in the last 3 years. Nothing is
+and it is 3 days old; removed when the person has no page or no message from him in the last 3 years. Nothing is
 written or removed on a night a source can't be read.
 
 ## communication-styles/<id>.json
