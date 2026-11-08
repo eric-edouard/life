@@ -129,21 +129,22 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
 };
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
- * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one, for what they refuse or fail.
+ * fp8 hosts OpenRouter lists as keeping no data, thinking at medium; then allmodels' abliterated one at high, for what
+ * they refuse or fail.
  */
-const DEEPSEEK_FLASH_ROUTED = `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8 allmodels:${DEEPSEEK_FLASH}`;
+const DEEPSEEK_FLASH_ROUTED = `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=medium allmodels:${DEEPSEEK_FLASH}=high`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
   deep: DEEPSEEK_FLASH_ROUTED,
   fast: DEEPSEEK_FLASH_ROUTED,
   main: DEEPSEEK_FLASH_ROUTED,
 };
 /**
- * An API engine's effort by tier (OpenRouter's hosts take what allmodels' do): both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
+ * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
  * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
  * and it thinks even at none. Episodes and extract think at low: on the truth days it held as many true facts, matched
  * more episodes and spent 16% fewer tokens than high (bench of 5 Nov 2026, his OK).
  */
-const API_EFFORT: Record<Tier, string> = {
+const ALLMODELS_EFFORT: Record<Tier, string> = {
   deep: "low",
   fast: "low",
   main: "high",
@@ -482,15 +483,17 @@ const STALL_MS = 5 * MIN;
 type Route = ReturnType<typeof routesOf>[number];
 
 /**
- * An API engine's model as the routes to ask, in order: a router's hosts, `router:author/model@host[,host]`, then the
- * next router's after a space. A router left out is the engine's own. Throws on a router Life doesn't know.
+ * An API engine's model as the routes to ask, in order: a router's hosts, `router:author/model@host[,host][=effort]`,
+ * then the next router's after a space. A router left out is the engine's own; an effort left out is the tier's.
+ * Throws on a router Life doesn't know.
  */
 export function routesOf(spec: string, engine: string) {
   return spec
     .split(" ")
     .filter(Boolean)
     .flatMap((route) => {
-      const [head = "", list = ""] = route.split("@");
+      const [head = "", rest = ""] = route.split("@");
+      const [list = "", effort] = rest.split("=");
       const [router, model] = head.includes(":")
         ? head.split(":")
         : [engine, head];
@@ -500,7 +503,7 @@ export function routesOf(spec: string, engine: string) {
       return list
         .split(",")
         .filter(Boolean)
-        .map((host) => ({ host, model, router })); // one host to ask (`deepinfra/fp8`: a host, then its variant)
+        .map((host) => ({ effort, host, model, router })); // one host to ask (`deepinfra/fp8`: a host, then its variant)
     });
 }
 
@@ -609,7 +612,7 @@ const forAnother = (message: string) =>
  * else (no key, another status, a bad chunk, the deadline) as final. It asks for no data kept (`zdr`; allmodels ignores it).
  */
 async function askHost(
-  { host, model, router }: Route,
+  { effort, host, model, router }: Route,
   body: object,
   deadline: AbortSignal
 ) {
@@ -640,6 +643,7 @@ async function askHost(
       body: JSON.stringify({
         ...body,
         model,
+        ...(effort && { reasoning_effort: effort }),
         provider: {
           allow_fallbacks: false,
           data_collection: "deny",
@@ -746,20 +750,21 @@ interface Provider {
   quota?: () => Promise<Quota | undefined>;
 }
 /** An API engine: its calls go through its routes, which name its host and keys. */
-function apiEngine(engine: Router, models: Record<Tier, string>): Provider {
+type ByTier = Record<Tier, string>;
+function apiEngine(engine: Router, models: ByTier, effort?: ByTier): Provider {
   const routers = [
     ...new Set(routesOf(models.main, engine).map((r) => r.router)),
   ];
   return {
     ask: askRoutes,
-    effort: API_EFFORT,
+    effort,
     host: new URL(ROUTERS[routers[0] ?? engine].url).host,
     keys: routers.map((r) => ROUTERS[r].key),
     models,
   };
 }
 const PROVIDERS: Record<Engine, Provider> = {
-  allmodels: apiEngine("allmodels", ALLMODELS_MODELS),
+  allmodels: apiEngine("allmodels", ALLMODELS_MODELS, ALLMODELS_EFFORT),
   claude: {
     ask: askClaude,
     host: "api.anthropic.com",

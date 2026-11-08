@@ -224,7 +224,8 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         input: {},
         llm: {
           engine: "openrouter",
-          model: "a/b@deepinfra/fp8,morph/fp8 allmodels:x/y@refuseless",
+          model:
+            "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
         },
         prompt: "eval-judge.v2",
         run: "r",
@@ -234,6 +235,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(await routed()).toEqual({ ok: true });
     expect(asked[0]?.url).toContain("openrouter.ai");
     expect(asked[0]?.body.model).toBe("a/b");
+    expect(asked[0]?.body.reasoning_effort).toBe("medium");
     expect(hostsAsked()).toEqual(["deepinfra/fp8"]);
     // Out of credit: its other host would say the same, allmodels may not.
     reply = {
@@ -244,6 +246,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
     expect(await routed()).toEqual({ ok: true });
     expect(asked[1]?.url).toContain("api.allmodels.io");
     expect(asked[1]?.body.model).toBe("x/y");
+    expect(asked[1]?.body.reasoning_effort).toBe("high");
     expect(hostsAsked()).toEqual(["deepinfra/fp8", "refuseless"]);
     // No key is the same.
     delete process.env.OPENROUTER_API_KEY;
