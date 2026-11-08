@@ -107,7 +107,7 @@ thread and the mail about the same dinner end up in one place. It writes down:
 - Situations: where things stand now, for you and for each person close to you, rebuilt each night from the last 30
   days. This is what answers "how are things with Ana?".
 - Personas: what each person is like, what keeps happening between you (your part too), and how each of you writes,
-  read weekly from years of your messages, each line with its quotes, so an agent can foresee how they will react and
+  read every few days from years of your messages, each line with its quotes, so an agent can foresee how they will react and
   draft a message that sounds like you.
 - Search, by words and by meaning, across languages, computed on your Mac.
 

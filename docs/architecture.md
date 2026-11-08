@@ -76,7 +76,7 @@ flowchart LR
   characters (the newest, then each month's most eventful days, year by year), with their page and what code counts
   between them (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like the
   rest, marked. Each quote is found in a chat message shown and kept with its time, so how well a line is backed
-  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly,
+  (`supportOf`: solid on 3 days or more, thin, old) is counted when read, never stored. Rebuilt whole at most every 3 days,
   when the messages changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
   moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
