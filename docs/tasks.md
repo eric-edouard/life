@@ -97,7 +97,7 @@ each minute as state only: one `via: "reminders"` line each, with no `instructio
 
 ### Open items
 
-`openItems` (`apps/server/src/todo-list/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
+`openItems` (`apps/server/src/memory/open-items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to an agent's review at most twice (counted from the ids its `read_day` calls were logged
 with). `read_day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read

@@ -8,7 +8,7 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { openReadOnly } from "../core/sqlite";
 import type { Episode } from "../records/episode";
-import { isListed, type LedgerEntry } from "../records/ledger-entry";
+import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import {
   type Detail,
   INFERRED_USE_AT,
@@ -26,14 +26,7 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
-import {
-  AGAIN_DAYS,
-  type Candidate,
-  entryLine,
-  OVERDUE_DAYS,
-  openItems,
-  openLinked,
-} from "../todo-list/items";
+import { openLinked } from "../todo-list/linked";
 import { levelsWith, pagedNow } from "./closeness";
 import {
   communicationStyleBlock,
@@ -71,6 +64,12 @@ import {
   writtenPeople,
 } from "./ledger";
 import { SURE_AT } from "./observe";
+import {
+  AGAIN_DAYS,
+  type Candidate,
+  OVERDUE_DAYS,
+  openItems,
+} from "./open-items";
 import {
   bodyOf,
   generated,
@@ -891,7 +890,7 @@ export async function day(date: string) {
 }
 
 /**
- * What `read_day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
+ * What `read_day` lists as due on `date` (`openItems`, apps/server/src/memory/open-items.ts, which merges, times and ranks): the importance-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
  * ledger; the replies he owes. Who said each, when not him, is labelled.
  */
