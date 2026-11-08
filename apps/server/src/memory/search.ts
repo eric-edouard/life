@@ -11,7 +11,6 @@ import { payments } from "../payments/backend";
 import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import {
-  type Detail,
   INFERRED_USE_AT,
   Level,
   type Observation,
@@ -38,11 +37,8 @@ import {
   BIRTHDAY_DAYS,
   birthdayIn,
   birthdaysNear,
-  type DetailFact,
-  detailOf,
   detailsBlock,
   detailsOf,
-  readDetailTags,
 } from "./details";
 import { span } from "./episode-span";
 import {
@@ -75,13 +71,7 @@ import {
   openItems,
   rankedItems,
 } from "./open-items";
-import {
-  bodyOf,
-  generated,
-  parsePage,
-  placed,
-  renderLine,
-} from "./page-format";
+import { bodyOf, generated, parsePage, renderLine } from "./page-format";
 import {
   byTime,
   euros,
@@ -1315,8 +1305,7 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, importance integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text, home text, detail text);
-create index observations_home on observations (home);
+  superseded_by text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
@@ -1397,13 +1386,6 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
   }
 }
 
-/** The page each observation is a line of (`placed`) and the detail it states (`detailOf`), as the index files it. */
-interface Filed {
-  detail: (o: Observation) => Detail | null;
-  home: (o: Observation) => string | null;
-}
-const NOT_FILED: Filed = { detail: () => null, home: () => null };
-
 /**
  * derived/memory/index.sqlite, rebuilt from scratch (`writeIndex`): observations (with the observation that replaced
  * each retired one, and its end date), full-text search over claims and quotes, links; the units (`indexUnits`), so
@@ -1414,8 +1396,7 @@ export function buildIndex(
   path: string,
   standing: Standing,
   units: IndexedUnit[] = [],
-  builtAt = clock(),
-  filed: Filed = NOT_FILED
+  builtAt = clock()
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -1427,7 +1408,7 @@ export function buildIndex(
       .values();
     db.run(tables.map(([t]) => `drop table "${t}";`).join("") + INDEX_SCHEMA);
     db.run("insert into rebuilt values (?)", [builtAt.toISOString()]);
-    const row = insertInto(db, "observations", 19);
+    const row = insertInto(db, "observations", 17);
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "links", 2);
     for (const o of unique.values()) {
@@ -1449,9 +1430,7 @@ export function buildIndex(
         o.validFrom,
         retired?.validTo ?? o.validTo,
         o.when,
-        retired?.by ?? null,
-        filed.home(o),
-        filed.detail(o)
+        retired?.by ?? null
       );
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
@@ -1495,7 +1474,7 @@ export async function readSearchedTexts(): Promise<{
   };
 }
 
-/** Every person's details now (`detailsOf`): truth/, his Contacts (whose by `resolve`) and the tagged facts on their page. */
+/** Every person's details now (`detailsOf`): truth/ and his Contacts (whose by `resolve`). */
 export function readDetailsOf(
   people: Pick<People, "resolve" | "truth">,
   records: Contact[] = readContactRecords()
@@ -1507,22 +1486,10 @@ export function readDetailsOf(
       contacts.set(ref, [...(contacts.get(ref) ?? []), c]);
     }
   }
-  const facts = Map.groupBy(
-    readIndex((db) =>
-      db
-        .query<DetailFact & { home: string }, []>(
-          `select o.id, o.text, o.date, o."when", o.detail, o.home from observations o
-           where o.detail is not null and o.home is not null and ${CURRENT}`
-        )
-        .all()
-    ) ?? [],
-    (f) => f.home
-  );
   const mapped = new Map(people.truth.people.map((p) => [`person:${p.id}`, p]));
   return (ref: string) =>
     detailsOf({
       contacts: contacts.get(ref) ?? [],
-      facts: facts.get(ref) ?? [],
       person: mapped.get(ref),
     });
 }
@@ -1550,17 +1517,7 @@ export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = indexedOf(await readUnits(), people, verdicts);
   const { observations, standing } = await observationsNow(people);
-  const paged = await pagedNow(people);
-  const tags = readDetailTags();
-  const homes = new Map(
-    [...placed(observations, people.truth, paged).homes].flatMap(
-      ([home, lines]) => lines.map(({ o }) => [o.id, home] as const)
-    )
-  );
-  const n = buildIndex(observations, INDEX, standing, units, at, {
-    detail: (o) => detailOf(o, tags),
-    home: (o) => homes.get(o.id) ?? null,
-  });
+  const n = buildIndex(observations, INDEX, standing, units, at);
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
