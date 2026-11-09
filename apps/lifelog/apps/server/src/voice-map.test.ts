@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { people, voiceProfiles, voiceSamples } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { mintToken } from "../scripts/mint-token";
@@ -7,7 +9,7 @@ import { createApp } from "./app";
 import { loadConfig, RECOGNITION, sha256Hex } from "./config";
 import { queueCache } from "./naming-queue";
 import { services } from "./services";
-import { rankPeople } from "./speakers";
+import { centroid, rankPeople } from "./speakers";
 import { OWNER_TOKEN, seedTranscript, testConfig, testDb } from "./testing";
 import { readVoiceMap } from "./voice-map";
 import { pcaOf } from "./voice-pca";
@@ -236,6 +238,96 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
   ).toBe(guest);
 });
 
+test("named clouds cap newest exemplars per person/model on centroid-fitted axes", () => {
+  const { owner, guest, cards } = seedMap();
+  const jobId = seedTranscript(env.db, []);
+  // Insert out of time order: the display follows creation time, not insertion order.
+  const samples = env.db
+    .insert(voiceSamples)
+    .values(
+      Array.from({ length: 502 }, (_, i) => ({
+        conversationId: randomUUID(),
+        createdAt: new Date(4_102_444_800_000 + ((i * 251) % 503) * 1000),
+        durationSeconds: 10,
+        embedding: [Math.cos(i / 100), Math.sin(i / 100), 0],
+        jobId,
+        modelId: "first",
+        modelRevision: "r1",
+        speakerLabel: "a",
+        turnIndex: i,
+      }))
+    )
+    .returning()
+    .all();
+  env.db
+    .insert(voiceProfiles)
+    .values(
+      samples.map((s) => ({
+        personId: owner,
+        sampleId: s.id,
+      }))
+    )
+    .run();
+  const otherModel = env.db
+    .select()
+    .from(voiceSamples)
+    .where(eq(voiceSamples.modelId, "second"))
+    .get();
+  expect(otherModel).toBeDefined();
+  env.db
+    .insert(voiceProfiles)
+    .values({ personId: owner, sampleId: otherModel?.id ?? "" })
+    .run();
+  const before = env.db.$client.serialize();
+  const result = readVoiceMap(env.db, cards);
+  const points = result.models[0]?.points ?? [];
+  const ownerPoints = points.filter((p) => p.personId === owner);
+  const guestPoints = points.filter((p) => p.personId === guest);
+  const second = result.models.find((m) => m.model === "second@r2");
+  expect(second?.points.filter((p) => p.personId === owner)).toHaveLength(2);
+  expect(second?.points).toHaveLength(3);
+  expect(ownerPoints).toHaveLength(501);
+  expect(guestPoints).toHaveLength(2);
+  expect(new Set(points.map((p) => p.id)).size).toBe(points.length);
+  const vectors = [
+    centroid([[1, 0, 0], ...samples.map((s) => s.embedding)]),
+    [0, 1, 0],
+    [0.8, 0.6, 0],
+  ];
+  const exemplars = samples
+    .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 500)
+    .map((s) => s.embedding);
+  const expected = pcaOf(vectors, [...vectors, ...exemplars]);
+  for (const [i, p] of points.slice(0, 3).entries()) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      expect(p.position[axis]).toBeCloseTo(expected[i]?.[axis] ?? 0, 8);
+    }
+  }
+  for (const [i, p] of ownerPoints.slice(1).entries()) {
+    expect(p.ranking).toEqual([]);
+    expect(p.words).toBe(0);
+    for (let axis = 0; axis < 3; axis += 1) {
+      expect(p.position[axis]).toBeCloseTo(expected[i + 3]?.[axis] ?? 0, 8);
+    }
+  }
+  expect(env.db.$client.serialize()).toEqual(before);
+});
+
+test("PCA projects extra vectors without changing its fit, including empty and deficient fits", () => {
+  const fit = [
+    [-1, 0],
+    [1, 0],
+  ];
+  expect(pcaOf(fit, [...fit, [100, 100]])).toEqual([
+    [-1, 0, 0],
+    [1, 0, 0],
+    [100, 0, 0],
+  ]);
+  expect(pcaOf([], [[1, 2]])).toEqual([[0, 0, 0]]);
+  expect(pcaOf([[1, 2]], [[3, 4]])).toEqual([[0, 0, 0]]);
+});
+
 test("empty queue and archive read without writes", () => {
   const before = env.db.$client.serialize();
   const result = readVoiceMap(env.db, queueCache(env.db).items());
@@ -297,4 +389,116 @@ test("PCA retains radial distance: an outlier stays farther from the mean", () =
   for (const point of pcaOf(repeated)) {
     expect(Math.hypot(...point)).toBeCloseTo(1, 8);
   }
+});
+
+test("sidebar toggles whole clouds independently, keeps choices on refresh and preserves naming", async () => {
+  const { cards, owner, guest } = seedMap();
+  const data = readVoiceMap(env.db, cards);
+  // Duplicate display names must still toggle different people.
+  for (const person of data.people) {
+    person.name = "Made-up name";
+  }
+  const loaded = Promise.withResolvers<void>();
+  const nodes = new Map();
+  const noop = () => undefined;
+  const node = () => ({
+    addEventListener: noop,
+    append(...children: unknown[]) {
+      this.children.push(...children);
+    },
+    children: [] as any[],
+    click: null as any,
+    hidden: true,
+    on(_event: string, action: unknown) {
+      this.click = action;
+    },
+    pause: noop,
+    querySelectorAll() {
+      return this.children.map((label) => label.children[0]);
+    },
+    removeAllListeners: noop,
+    removeAttribute: noop,
+    replaceChildren(...children: unknown[]) {
+      this.children = children;
+    },
+    setAttribute: noop,
+    style: {},
+    value: "first@r1",
+  });
+  const el = (id: string) => {
+    if (!nodes.has(id)) {
+      nodes.set(id, node());
+    }
+    return nodes.get(id);
+  };
+  let traces: any[] = [];
+  let layout: any;
+  const restyles: unknown[] = [];
+  const plotly = {
+    react(_plot: unknown, next: any[], nextLayout: unknown) {
+      traces = next;
+      layout = nextLayout;
+      return Promise.resolve();
+    },
+    restyle(_plot: unknown, value: unknown, indices: unknown) {
+      restyles.push([value, indices]);
+      return Promise.resolve();
+    },
+  };
+  Object.defineProperty(el("status"), "textContent", {
+    set(value) {
+      if (value === "") {
+        loaded.resolve();
+      } else {
+        loaded.reject(new Error(value));
+      }
+    },
+  });
+  runInNewContext(
+    readFileSync(new URL("./voices/page.js", import.meta.url), "utf8"),
+    {
+      document: {
+        createElement: node,
+        createTextNode: (text: string) => text,
+        getElementById: el,
+      },
+      fetch: () =>
+        Promise.resolve({ json: () => Promise.resolve(data), ok: true }),
+      history: { replaceState: noop },
+      location: { hash: "#token=made-up-token", pathname: "/voices" },
+      URLSearchParams,
+      window: { addEventListener: noop, Plotly: plotly },
+    }
+  );
+  await loaded.promise;
+  const checkboxes = el("visibility").querySelectorAll();
+  expect(checkboxes).toHaveLength(3);
+  expect(layout.showlegend).toBe(false);
+  expect(traces.find((t) => t.customdata[0] === owner)?.customdata).toEqual([
+    owner,
+    owner,
+  ]);
+  expect(traces[0].marker.size).toEqual([9, 3]);
+  expect(traces.find((t) => t.customdata[0] === guest)?.customdata).toEqual([
+    guest,
+    guest,
+  ]);
+  checkboxes[0].checked = false;
+  checkboxes[0].onchange();
+  expect(restyles.at(-1)).toEqual([{ visible: false }, [0]]);
+  expect(checkboxes[1].checked).toBe(true);
+  await el("refresh").onclick();
+  expect(traces.map((t) => t.visible)).toEqual([false, true, true]);
+  el("show-none").onclick();
+  expect(
+    el("visibility")
+      .querySelectorAll()
+      .every((c: any) => !c.checked)
+  ).toBe(true);
+  el("show-all").onclick();
+  await el("refresh").onclick();
+  expect(traces.map((t) => t.visible)).toEqual([true, true, true]);
+  el("plot").click({ points: [{ customdata: "group" }] });
+  expect(el("detail").hidden).toBe(false);
+  expect(el("context").textContent).toContain("420 words");
 });

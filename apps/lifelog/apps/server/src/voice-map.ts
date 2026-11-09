@@ -50,7 +50,22 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
           words: g.words,
         })),
     ];
-    const positions = pcaOf(points.map((p) => p.vector));
+    const fit = points.map((p) => p.vector);
+    for (const p of known) {
+      points.push(
+        ...p.exemplars.slice(0, 500).map((vector, i) => ({
+          id: `${p.personId}/${i}`,
+          personId: p.personId,
+          ranking: [],
+          vector,
+          words: 0,
+        }))
+      );
+    }
+    const positions = pcaOf(
+      fit,
+      points.map((p) => p.vector)
+    );
     return {
       model,
       points: positions.map((position, i) => {

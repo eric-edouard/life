@@ -23,6 +23,7 @@
     }
     header {
       display: flex;
+      flex-wrap: wrap;
       gap: 20px;
       align-items: center;
       justify-content: space-between;
@@ -78,6 +79,38 @@
       grid-template-columns: minmax(0, 1fr) 340px;
       gap: 28px;
     }
+    .layout > * {
+      min-width: 0;
+    }
+    #visibility {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      max-height: 28vh;
+      padding: 0;
+      margin: 12px 0;
+      overflow: auto;
+      border: 0;
+    }
+    #visibility label {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 6px 2px;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+    }
+    .swatch {
+      flex: 0 0 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    aside button {
+      overflow-wrap: anywhere;
+    }
+    select {
+      max-width: 50vw;
+    }
     #plot {
       height: 60vh;
       min-height: 320px;
@@ -123,6 +156,12 @@
       flex: 1;
       min-width: 140px;
     }
+    #visibility input {
+      flex: none;
+      min-width: 0;
+      margin: 0;
+      accent-color: #e2626a;
+    }
     .primary {
       background: #9b1b24;
       border-color: #9b1b24;
@@ -165,7 +204,8 @@
       </header>
       <p>
         Listen to a voice, then give it a name. Grey voices are waiting; larger
-        dots hold more words.
+        grey dots hold more words. Named voices form coloured clouds with larger
+        dots at their centres.
       </p>
       <p aria-live="polite" id="status" role="status">Loading voices…</p>
       <div class="layout">
@@ -204,6 +244,10 @@
           </section>
         </section>
         <aside>
+          <h2>Show voices</h2>
+          <button id="show-all" type="button">All</button>
+          <button id="show-none" type="button">None</button>
+          <fieldset aria-label="Voice visibility" id="visibility"></fieldset>
           <h2>Easy targets</h2>
           <div id="easy"></div>
           <h2>All voices to name</h2>

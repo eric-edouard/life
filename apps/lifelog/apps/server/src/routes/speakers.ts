@@ -124,7 +124,7 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+          "The naming queue and its likeness rankings, with group centroids and up to 500 newest exemplars per person projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
         method: "get",
         path: "/speakers/map",
         responses: {
