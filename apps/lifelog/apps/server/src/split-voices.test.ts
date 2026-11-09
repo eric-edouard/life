@@ -7,7 +7,14 @@ import {
   voiceSamples,
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
-import { assign, recognize, regroup } from "./people";
+import { turnRef } from "./change-log";
+import {
+  assign,
+  ofItsSpeaker,
+  readOwnTurns,
+  recognize,
+  regroup,
+} from "./people";
 import { seedConversation, testDb } from "./testing";
 
 let env: ReturnType<typeof testDb>;
@@ -299,4 +306,44 @@ test("owner turns leave even when the aggregate matches the owner, without dupli
   expect(rows.filter((r) => r.turnIndex === 8)).toHaveLength(1);
   expect(rows.find((r) => r.turnIndex === 8)?.personId).toBe(ownerId);
   expect(rows.find((r) => r.turnIndex === null)?.personId).toBe(guestId);
+});
+
+test("own-turn SQL stays correlated in SELECT and WHERE, matching the JS rule", () => {
+  const split = seed([first, second]);
+  const whole = seed([first]);
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId: split.jobId,
+        source: "recognized",
+        speakerLabel: "mixed",
+        status: "unknown",
+        turnIndex: 1,
+      },
+      {
+        jobId: whole.jobId,
+        source: "recognized",
+        speakerLabel: "mixed",
+        status: "unknown",
+        turnIndex: null,
+      },
+    ])
+    .run();
+  const ownTurns = readOwnTurns(env.db);
+  const clean = ofItsSpeaker(voiceSamples.jobId, voiceSamples.turnIndex);
+  const selected = env.db
+    .select({ clean, sample: voiceSamples })
+    .from(voiceSamples)
+    .all();
+  expect(selected).toHaveLength(3);
+  for (const row of selected) {
+    expect(Boolean(row.clean)).toBe(
+      !ownTurns.has(turnRef(row.sample.jobId, row.sample.turnIndex))
+    );
+  }
+  const filtered = env.db.select().from(voiceSamples).where(clean).all();
+  expect(
+    filtered.map((row) => turnRef(row.jobId, row.turnIndex)).sort()
+  ).toEqual([turnRef(split.jobId, 0), turnRef(whole.jobId, 0)].sort());
 });

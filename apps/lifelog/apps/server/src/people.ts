@@ -15,6 +15,7 @@ import {
 } from "@lifelog/db/schema";
 import {
   and,
+  type Column,
   eq,
   gte,
   inArray,
@@ -64,8 +65,7 @@ type VoiceSample = Pick<
   "durationSeconds" | "embedding" | "modelId" | "modelRevision" | "turnIndex"
 >;
 
-// A voice is a speaker label of one job, and is named so everywhere: the naming queue, `fetch`'s
-// Speakers line, `assign_speaker`.
+// One job's speaker label: the same voice id in the queue, fetch and assign_speaker.
 export const voiceId = (jobId: string, label: string | null) =>
   `${jobId}/${label ?? ""}`;
 
@@ -149,8 +149,7 @@ export const keepServerSamples = (
     }
   });
 
-// A new sample becomes evidence only if the owner already assigned its turn or its speaker to a
-// person.
+// New evidence requires the owner's person assignment of the turn or its speaker.
 function evidenceForNew(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
@@ -213,8 +212,7 @@ const exemplarsOf = (clips: Clip[]) =>
     centroid(c.map((r) => r.embedding))
   );
 
-// The voices recognition weighs, per embedding model (speakers.ts `Profiles`): each person's from
-// their evidence, and the strangers'.
+// Per-model profiles from each person's evidence and the strangers' references.
 export function weighProfiles(
   rows: EvidenceRow[],
   strangers: Clip[]
@@ -282,7 +280,7 @@ export const speakerOf = <
   );
 };
 
-// Turns with their own row belong to that row, never to their label's voice.
+// Turns with their own row belong to that row, never to their label's voice; SQL form: ofItsSpeaker.
 export const readOwnTurns = (
   db: Db,
   rows = db.select().from(assignments).all()
@@ -293,9 +291,15 @@ export const readOwnTurns = (
     )
   );
 
-// SQL keeps this exclusion inside joins before materializing samples; the JS read is readOwnTurns.
-const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
-  where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
+// Same rule as readOwnTurns; explicit identifiers keep SELECT from stripping the outer table.
+export const ofItsSpeaker = (
+  job: Column,
+  turn: Column
+) => sql<boolean>`not exists (select 1 from ${assignments} t
+  where t.job_id = ${job.table}.${sql.identifier(job.name)}
+  and t.turn_index = ${turn.table}.${sql.identifier(turn.name)})`;
+
+const speakerSample = ofItsSpeaker(voiceSamples.jobId, voiceSamples.turnIndex);
 
 // An assignment covers its turn, or its speaker's turns without their own row.
 export const coveredByRow = and(
@@ -303,7 +307,7 @@ export const coveredByRow = and(
   eq(voiceSamples.speakerLabel, assignments.speakerLabel),
   or(
     eq(voiceSamples.turnIndex, assignments.turnIndex),
-    and(isNull(assignments.turnIndex), ofItsSpeaker)
+    and(isNull(assignments.turnIndex), speakerSample)
   )
 );
 
@@ -340,7 +344,7 @@ const samplesOf = (
         .from(voiceSamples)
         .where(
           and(
-            ofItsSpeaker,
+            speakerSample,
             or(
               ...voices.map((v) =>
                 and(
@@ -401,8 +405,7 @@ export function readVoices(db: Db) {
   };
 }
 
-// A speaker's voice: its samples of one embedding model (the first one's), and their centroid when
-// there is at least `minSpeakerSeconds` of clean speech.
+// One model's samples and their centroid once clean speech reaches minSpeakerSeconds.
 function speakerVoice(speakerSamples: VoiceSample[]) {
   const model = speakerSamples[0] ? modelKey(speakerSamples[0]) : "";
   const samples = speakerSamples.filter((s) => modelKey(s) === model);
@@ -536,10 +539,7 @@ export function nearbyVoices() {
 }
 type Nearby = ReturnType<typeof nearbyVoices>;
 
-// A voice that matched no profile takes a person named in its conversation: its nearest profile when only the people named nearby are weighed (`nearbyMatch`),
-// else the person of a voice `nearbyVoice` alike and `margin` ahead of the next person's (a
-// profile mixes many rooms, while the same evening sounds the same). Its score and margin stay
-// the profile's, so it never becomes a nearby voice itself.
+// Nearby matches keep profile scores/margins, so they never become references (docs/processing.md).
 function nameFromNearby(
   db: Db,
   jobId: string,
@@ -659,7 +659,7 @@ function recognizeJob(
     transcript.parsed.turns.flatMap((t) => t.speakerId ?? [])
   );
   const jobSamples = tx
-    .select({ clean: ofItsSpeaker, sample: voiceSamples })
+    .select({ clean: speakerSample, sample: voiceSamples })
     .from(voiceSamples)
     .where(eq(voiceSamples.jobId, jobId))
     .all();

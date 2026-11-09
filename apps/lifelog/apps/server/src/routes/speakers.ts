@@ -9,6 +9,7 @@ import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
+import { VOICE_SCOPES } from "../voice-map";
 import {
   ApiError,
   IdParam,
@@ -137,7 +138,7 @@ export function speakerRoutes({
                   z
                     .intersection(
                       QueueItem,
-                      z.object({ scope: z.enum(["speaker", "turns"]) })
+                      z.object({ scope: z.enum(VOICE_SCOPES) })
                     )
                     .openapi("VoiceMapCard")
                 ),

@@ -210,6 +210,8 @@ Only one pending pass runs at a time. A one-time database migration reopens ever
 audio, including jobs whose samples expired; the same sampler decides which clean turns still need samples.
 Recovery can add evidence for an existing owner assignment through `evidenceForNew`, but never changes that
 assignment. The phone sends no voice samples.
+Only owner actions create people or add person evidence. Recognition writes `recognized` assignments, preserves
+owner rows and never adds evidence; nearby matches never add evidence or propagate inferred names.
 Recognition never sends audio for transcription.
 
 Who spoke each turn (`speakers.ts`, measured against the owner's answers: `eval:voices` replays `match` alone on a

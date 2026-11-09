@@ -201,7 +201,7 @@ test("concurrent phone and map reads share the worker snapshot and omit split ca
   ).toEqual(items);
 });
 
-test("a failed worker reports the error, preserves the last map and retries after repair", async () => {
+test("a failed worker reports the error, preserves the last map, rejects stale items and retries after repair", async () => {
   const owner = randomUUID();
   env.db
     .insert(people)
@@ -211,9 +211,9 @@ test("a failed worker reports the error, preserves the last map and retries afte
   env.db.$client.run("alter table voice_profiles rename to broken_profiles");
   logChange(env.db, "person", owner);
   expect(queue.map()?.building).toBe(true);
-  const waitingItems = queue.items();
+  const waitingItems = expect(queue.items()).rejects.toThrow("could not build");
   await until(() => env.db.select().from(diagnostics).get());
-  expect(await waitingItems).toEqual([]);
+  await waitingItems;
   env.db.$client.run("alter table broken_profiles rename to voice_profiles");
   env.db
     .update(people)

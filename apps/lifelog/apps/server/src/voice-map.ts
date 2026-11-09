@@ -15,10 +15,13 @@ import { centroid, rankPeople } from "./speakers";
 import { pcaOf } from "./voice-pca";
 import type { Vector } from "./voice-vectors";
 
+export const VOICE_SCOPES = ["speaker", "turns"] as const;
+export type VoiceScope = (typeof VOICE_SCOPES)[number];
+
 export function readVoiceProjection(
   db: Db,
   shown: {
-    card: Card & { scope: "speaker" | "turns" };
+    card: Card & { scope: VoiceScope };
     samples: (typeof voiceSamples.$inferSelect)[];
   }[],
   profiles = readProfiles(db)

@@ -127,7 +127,10 @@ export function createApp(s: Services) {
               message: "This token doesn't open this route.",
             });
           }
-          c.set("isMapToken", found === tokens[2]);
+          c.set(
+            "isMapToken",
+            found !== undefined && found[0] === config.MAP_TOKEN_HASH
+          );
           return found !== undefined;
         },
       })

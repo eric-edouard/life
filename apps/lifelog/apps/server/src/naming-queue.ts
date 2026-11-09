@@ -256,14 +256,7 @@ function readSplitCards(
   clip: ReturnType<typeof readClip>
 ) {
   const byTurn = Map.groupBy(samples, (s) => turnRef(s.jobId, s.turnIndex));
-  const split = rows.filter(
-    (r) =>
-      r.source === "recognized" &&
-      r.turnIndex !== null &&
-      r.candidateId &&
-      !r.personId
-  );
-  return [...Map.groupBy(split, (r) => r.candidateId)].flatMap(
+  return [...Map.groupBy(rows, (r) => r.candidateId)].flatMap(
     ([group, members]) => {
       const voices: Voice[] = [];
       const clips: Clip[] = [];
@@ -300,6 +293,7 @@ function readSplitCards(
         0
       );
       const card: Card = {
+        // Map point/card ids are strings: turns/ reserves the split-group namespace.
         ...cardOf(`turns/${group}`, voices, seconds, 0),
         clips,
         words,
@@ -449,15 +443,12 @@ function cardsOf(
     .map(({ card, words }) => ({ ...card, words }));
 }
 
-// The voices to name: unnamed voices that talked with the owner or hold enough words, one card
-// per voice group across conversations and days. Its id is the group, or the voice's own id.
-// An answer leaves no state here: the
-// owner's rows keep its voices out of the next build. Empty without an owner person.
-// Kept between reads: built again when the change log or live conversations moved, reading again
-// only the voices of the conversations the changes touched (`touchedSince`; an answer logs its
-// speaker rows, so its voices never come back). The cards are made again from every voice, since
-// a change may be about a person or a profile. A fresh cache's first read is the full build.
-// ponytail: in-process, like the other loops; one replica.
+// A split row is a recognized, unnamed turn in a candidate group, not a label or owner row.
+const isSplitRow = (row: typeof speakerAssignments.$inferSelect) =>
+  row.source === "recognized" &&
+  row.turnIndex !== null &&
+  row.candidateId !== null &&
+  row.personId === null;
 
 export function readVoiceMap(
   db: Db,
@@ -467,18 +458,13 @@ export function readVoiceMap(
 ) {
   // Only split members need a separate read; speaker-card samples were decoded by the queue.
   const rows = db.select().from(speakerAssignments).all();
-  const splitRows = rows.filter(
-    (r) =>
-      r.source === "recognized" &&
-      r.turnIndex !== null &&
-      r.candidateId &&
-      !r.personId
-  );
+  const splitRows = rows.filter(isSplitRow);
   const samples = splitRows.length
     ? db
         .select()
         .from(voiceSamples)
         .where(
+          // SQL form of isSplitRow: filter before decoding embeddings.
           sql`exists (select 1 from ${speakerAssignments} a where a.job_id = ${voiceSamples.jobId}
       and a.turn_index = ${voiceSamples.turnIndex} and a.source = 'recognized'
       and a.candidate_id is not null and a.person_id is null)`
@@ -497,6 +483,16 @@ export function readVoiceMap(
     reader.profiles
   );
 }
+
+// The voices to name: unnamed voices that talked with the owner or hold enough words, one card
+// per voice group across conversations and days. Its id is the group, or the voice's own id.
+// An answer leaves no state here: the
+// owner's rows keep its voices out of the next build. Empty without an owner person.
+// Kept between reads: built again when the change log or live conversations moved, reading again
+// only the voices of the conversations the changes touched (`touchedSince`; an answer logs its
+// speaker rows, so its voices never come back). The cards are made again from every voice, since
+// a change may be about a person or a profile. A fresh cache's first read is the full build.
+// One incremental queue per read-only worker.
 
 export function namingQueue(db: Db) {
   let kept: {

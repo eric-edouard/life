@@ -55,42 +55,17 @@ reverse it, change its entry here in the same commit.
   It opens a loopback link with the token in the fragment, never a query. The map routes are also
   reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
-  Rebuild measurement (9 Nov 2026, Bun 1.4.2, disposable synthetic SQLite archive): 1,150 conversations,
-  40,150 ten-second samples, one 192-dimensional model, 30 people, 150 profile samples, 1,000 phone cards
-  and 1,000 split cards. The merged map has 2,575 points, including 545 named samples; the earlier branch-only
-  9,710 ms measurement had 2,030 points and no named clouds.
-
-  Before: queue build 17,795 ms; merged map rebuild 10,799 ms and maximum event-loop stall 10,804 ms.
-  Split-card construction took 9,759 ms (including 736 ms loading turns); projection 634 ms (including PCA
-  216 ms); embedding JSON decoding 207 ms. Timers overlap. The bottleneck was repeated linkage queries:
-  the existing `conversation_jobs` view filtered by job scans every conversation. An equivalent synthetic
-  query-plan comparison measured 2,000 filtered reads at 7,580 ms versus one full view read at 4.93 ms.
-
-  After: one linkage read per build, shared clip lookup, profiles and decoded samples for suggestions,
-  rankings and projection; only split members and the stride-selected named embeddings need additional reads.
-  Direct map rebuilds took 1,522 / 1,573 / 1,518 ms; reusing the queue build's reader and clips took
-  679 / 700 / 678 ms. Cold queue build took 3,251 ms. This still exceeds 200 ms, so one Bun Worker owns
-  the incremental queue and projection on its own read-only SQLite connection. Revision and rows come from
-  one read transaction. The connection lives until worker shutdown; Host includes the worker entrypoint.
-  Production phone queue reads and the morning digest await that same worker snapshot; no queue build runs
-  on the request thread. Phone cards are derived by their speaker scope, never built a second way.
-
-  GET map serves the last completed snapshot while refreshing (`building`), or 202 before the first one.
-  Polling preserves a Several people edit. Completed consistent snapshots are published even if writes arrived;
-  the next read coalesces a refresh to the newest logged revision, so continuous writes cannot starve the first
-  map. Failed workers report through diagnostics, retain the displayed map, settle queue readers and retry
-  on the next read. Scoped PUT checks that displayed map's clips. The worker is unreferenced and explicitly
-  stopped on server exit; it never writes the archive.
-
-  Worker measurement, including full map JSON serialization on each polling read: cold background build
-  4,142 ms; warm builds 3,363 / 3,317 / 3,597 ms. Maximum main-thread read plus JSON was 33.78 ms;
-  maximum event-loop stall 39.28 ms (cold 13.91 ms), below 200 ms. Cached map plus JSON averaged 7.01 ms.
-  A final run after sharing the phone queue used 4,106 ms cold and 3,191 / 3,225 / 3,217 ms warm;
-  map reads plus JSON peaked at 15.21 ms and map polling stall at 17.52 ms. An actual authenticated
-  in-process GET `/naming-queue` after invalidation awaited the worker for 3,288 ms, returned 1,000 cards,
-  and stalled the main loop at most 23.13 ms including response JSON parsing. Phone reads catch up through
-  their request-start revision, without chasing later writes. Counts remain 2,000 cards and 2,575 points. Reproduce with `bun run --cwd apps/lifelog/apps/server bench:voice-map`;
-  the benchmark creates and removes only a synthetic archive. Measurements bound this fixture, not every future archive.
+  Queue and map builds share linkage, clips, profiles and decoded samples. One read-only Bun Worker owns the
+  incremental queue and projection, with revision and rows in one transaction: even shared builds exceeded the
+  200 ms request-thread budget. Phone queue reads and the morning digest await that same snapshot through their
+  request-start revision; speaker scope selects phone cards. Host compiles the worker, unreferenced and closed on exit.
+  Map GET returns a shallow copy of the last completed snapshot while refreshing (`building`), or 202 initially.
+  Completed snapshots publish despite concurrent writes; the next read refreshes, avoiding starvation. Polling
+  preserves a Several people edit. Failed workers report diagnostics and settle waiting readers; phone queue reads
+  reject snapshots behind the requested revision. A failed revision retries only after 30 seconds or a revision
+  change. Scoped PUT checks the displayed map's clips. The worker never writes the archive.
+  Synthetic fixture: 40,150 samples, 192 dimensions, 30 people, 2,000 cards and 2,575 points; timings bound this fixture.
+  Timings (Bun 1.4.2): queue 17,795 → 3,251 ms; shared map 10,799 → 678 ms; worker cold/warm 4,106/~3,200 ms; maximum stall 10,804 → 39 ms.
 
 - **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
   turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split

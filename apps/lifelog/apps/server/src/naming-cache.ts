@@ -1,9 +1,14 @@
 // One map build at a time, off the request thread; keep the displayed snapshot while it refreshes.
+import { clock, MIN } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import { sql } from "drizzle-orm";
 import { latestSeq } from "./change-log";
 import { reportError } from "./diagnostics";
 import type { Card, readVoiceMap } from "./naming-queue";
+
+import type { VoiceScope } from "./voice-map";
+
+export const MAP_RETRY_DELAY = MIN / 2;
 
 type VoiceMap = ReturnType<typeof readVoiceMap> & { building?: boolean };
 
@@ -16,7 +21,10 @@ export function queueCache(db: Db) {
   let worker: Worker | null = null;
   let map: VoiceMap | null = null;
   let seen: number | null = null;
-  let pending: ReturnType<typeof Promise.withResolvers<void>> | null = null;
+  let pending:
+    | (ReturnType<typeof Promise.withResolvers<void>> & { revision: number })
+    | null = null;
+  let failure: { revision: number; retryAt: number } | null = null;
   const close = () => {
     worker?.terminate();
     worker = null;
@@ -24,12 +32,22 @@ export function queueCache(db: Db) {
     pending = null;
   };
   const failed = (error: unknown) => {
+    if (pending) {
+      failure = {
+        retryAt: clock().getTime() + MAP_RETRY_DELAY,
+        revision: pending.revision,
+      };
+    }
     close();
     reportError(db, "voice map", error);
   };
   const readMap = (): VoiceMap | null => {
     const revision = latestSeq(db);
-    if (!pending && seen !== revision) {
+    if (
+      !pending &&
+      seen !== revision &&
+      !(failure?.revision === revision && clock().getTime() < failure.retryAt)
+    ) {
       if (worker) {
         worker.postMessage(null);
       } else {
@@ -49,6 +67,7 @@ export function queueCache(db: Db) {
             return;
           }
           ({ map, seen } = data);
+          failure = null;
           pending?.resolve();
           pending = null;
         };
@@ -65,12 +84,9 @@ export function queueCache(db: Db) {
         worker = w;
         worker.postMessage(file);
       }
-      pending = Promise.withResolvers<void>();
+      pending = { ...Promise.withResolvers<void>(), revision };
     }
-    if (map) {
-      map.building = pending !== null;
-    }
-    return map;
+    return map ? { ...map, building: pending !== null } : null;
   };
   return {
     close,
@@ -83,14 +99,15 @@ export function queueCache(db: Db) {
         // biome-ignore lint/performance/noAwaitInLoops: one in-flight snapshot; a newer request may need its successor
         await pending?.promise;
         if (map === previous) {
-          break; // A failed build keeps the last completed snapshot.
+          break; // Keep the displayed map; queue readers must reject a stale snapshot.
         }
       }
-      if (!map) {
+      if (!map || seen === null || seen < requested) {
         throw new Error("Voice map worker could not build the naming queue");
       }
+      const scope: VoiceScope = "speaker";
       return map.cards
-        .filter((card) => card.scope === "speaker")
+        .filter((card) => card.scope === scope)
         .map(({ scope: _, ...card }) => card);
     },
     map: readMap,

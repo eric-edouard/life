@@ -3,14 +3,13 @@ import {
   conversationJobs,
   type JobMap,
   type Suggestion,
-  speakerAssignments,
   transcriptionJobs,
   turns as turnRows,
 } from "@lifelog/db/schema";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { NAMING, RECOGNITION } from "./config";
 import { textOf } from "./elevenlabs";
-import { readVoices } from "./people";
+import { ofItsSpeaker, readVoices } from "./people";
 import { keptAt, type LoadedTurn, loadTurns, timedWords } from "./transcript";
 
 // One clip a card plays: a clean turn of its voice, with the words said before it is cut. `audio`
@@ -165,9 +164,8 @@ export function cardClips(
                     )
                   )
                 ),
-                // SQL filters before word ordering and LIMIT; readOwnTurns is the JS equivalent.
-                sql`not exists (select 1 from ${speakerAssignments} a
-                  where a.job_id = ${turnRows.jobId} and a.turn_index = ${turnRows.turnIndex})`
+                // Same own-row exclusion as readOwnTurns, before word ordering and LIMIT.
+                ofItsSpeaker(turnRows.jobId, turnRows.turnIndex)
               )
             )
             .orderBy(desc(sql`json_array_length(${turnRows.words})`))
