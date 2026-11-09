@@ -1451,8 +1451,16 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "basis": {
+                        "type": ["string", "null"],
+                        "enum": ["owner", "recognized", null]
+                      },
                       "id": {
                         "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["centroid", "sample", "unnamed"]
                       },
                       "personId": {
                         "type": ["string", "null"],
@@ -1496,7 +1504,9 @@
                       }
                     },
                     "required": [
+                      "basis",
                       "id",
+                      "kind",
                       "personId",
                       "position",
                       "ranking",
@@ -4511,7 +4521,7 @@
     },
     "/speakers/map": {
       "get": {
-        "description": "The naming queue and its likeness rankings, with group centroids and up to 500 newest exemplars per person projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+        "description": "The naming queue and its likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
         "responses": {
           "200": {
             "description": "Voices and people",

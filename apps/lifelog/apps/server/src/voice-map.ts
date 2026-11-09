@@ -1,15 +1,78 @@
-// A read of the naming queue, projected per embedding model. The queue owns eligibility,
+// Named samples and the naming queue, projected per embedding model. The queue owns eligibility,
 // order, words and clips; speakers.ts owns every likeness and margin. Nothing is written.
 import type { Db } from "@lifelog/db";
-import { people } from "@lifelog/db/schema";
-import { RECOGNITION } from "./config";
+import {
+  speakerAssignments as assignments,
+  people,
+  turns,
+  voiceSamples,
+} from "@lifelog/db/schema";
+import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { RECOGNITION, VOICE_MAP_POINTS_PER_PERSON_MODEL } from "./config";
 import type { QueueCache } from "./naming-queue";
-import { modelKey, personRow, readProfiles, samplesOf } from "./people";
+import {
+  coveredByRow,
+  modelKey,
+  personRow,
+  readProfiles,
+  samplesOf,
+} from "./people";
 import { centroid, rankPeople, type Vector } from "./speakers";
 import { pcaOf } from "./voice-pca";
 
 export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
   const profiles = readProfiles(db);
+  const partition = sql`partition by ${assignments.personId}, ${voiceSamples.modelId}, ${voiceSamples.modelRevision}`;
+  const ranked = db.$with("named_samples").as(
+    db
+      .select({
+        basis: assignments.source,
+        id: voiceSamples.id,
+        ordinal:
+          sql<number>`row_number() over (${partition} order by coalesce(${turns.startAt}, ${voiceSamples.createdAt}), ${voiceSamples.id})`.as(
+            "ordinal"
+          ),
+        personId: assignments.personId,
+        total: sql<number>`count(*) over (${partition})`.as("total"),
+      })
+      .from(voiceSamples)
+      .innerJoin(assignments, coveredByRow)
+      .leftJoin(
+        turns,
+        and(
+          eq(turns.jobId, voiceSamples.jobId),
+          eq(turns.turnIndex, voiceSamples.turnIndex)
+        )
+      )
+      .where(
+        and(
+          eq(assignments.status, "person"),
+          isNotNull(assignments.personId),
+          isNull(assignments.candidates)
+        )
+      )
+  );
+  const intervals = VOICE_MAP_POINTS_PER_PERSON_MODEL - 1;
+  // Rank metadata first: decode embeddings only at floor(i * (total - 1) / intervals).
+  const named = db
+    .with(ranked)
+    .select({
+      basis: ranked.basis,
+      personId: ranked.personId,
+      sample: voiceSamples,
+    })
+    .from(ranked)
+    .innerJoin(voiceSamples, eq(voiceSamples.id, ranked.id))
+    .where(
+      or(
+        lte(ranked.total, VOICE_MAP_POINTS_PER_PERSON_MODEL),
+        eq(ranked.ordinal, ranked.total),
+        sql`cast((${ranked.ordinal} * ${intervals} + ${ranked.total} - 2) / (${ranked.total} - 1) as integer)
+        > cast(((${ranked.ordinal} - 1) * ${intervals} + ${ranked.total} - 2) / (${ranked.total} - 1) as integer)`
+      )
+    )
+    .orderBy(sql`${ranked.ordinal}`, voiceSamples.id)
+    .all();
   const groups = cards.flatMap((card) =>
     [...Map.groupBy(samplesOf(db, card.voices), modelKey)].map(
       ([model, samples]) => ({
@@ -21,10 +84,16 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
     )
   );
   const models = [
-    ...new Set([...profiles.keys(), ...groups.map((g) => g.model)]),
+    ...new Set([
+      ...profiles.keys(),
+      ...groups.map((g) => g.model),
+      ...named.map((r) => modelKey(r.sample)),
+    ]),
   ].map((model) => {
     const known = profiles.get(model)?.people ?? [];
     const points: {
+      basis: "owner" | "recognized" | null;
+      kind: "centroid" | "sample" | "unnamed";
       id: string;
       personId: string | null;
       ranking: { personId: string; score: number; margin: number }[];
@@ -32,7 +101,9 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
       words: number;
     }[] = [
       ...known.map((p) => ({
+        basis: null,
         id: p.personId,
+        kind: "centroid" as const,
         personId: p.personId,
         ranking: [],
         vector: centroid(p.exemplars),
@@ -41,7 +112,9 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
       ...groups
         .filter((g) => g.model === model)
         .map((g) => ({
+          basis: null,
           id: g.id,
+          kind: "unnamed" as const,
           personId: null,
           ranking: rankPeople(g.vector, known).map(
             ({ personId, score, margin }) => ({ margin, personId, score })
@@ -51,17 +124,20 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
         })),
     ];
     const fit = points.map((p) => p.vector);
-    for (const p of known) {
-      points.push(
-        ...p.exemplars.slice(0, 500).map((vector, i) => ({
-          id: `${p.personId}/${i}`,
-          personId: p.personId,
+    points.push(
+      ...named
+        .filter((r) => modelKey(r.sample) === model)
+        .map((row) => ({
+          basis: row.basis,
+          id: row.sample.id,
+          kind: "sample" as const,
+          personId: row.personId,
           ranking: [],
-          vector,
+          vector: row.sample.embedding,
           words: 0,
         }))
-      );
-    }
+    );
+    // Few centroids give fewer independent axes: clouds cannot show variation outside that fit.
     const positions = pcaOf(
       fit,
       points.map((p) => p.vector)

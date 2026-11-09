@@ -15,6 +15,7 @@
 // - `sweep` matches every live transcript again when profiles change, so old conversations
 //   learn names given later. `regroup` alone groups the unnamed voices, from scratch each night,
 //   and `expire` removes media samples and retired jobs' non-evidence.
+// - Nothing here calls the transcription provider.
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { clock } from "@life/server/src/core/clock";
@@ -276,7 +277,6 @@ export const evidenceRows = (db: Db) =>
     .from(voiceProfiles)
     .innerJoin(voiceSamples, eq(voiceSamples.id, voiceProfiles.sampleId))
     .innerJoin(people, eq(people.id, voiceProfiles.personId))
-    .orderBy(sql`${voiceSamples.createdAt} desc`, voiceSamples.id)
     .all();
 
 // The voices recognition weighs, per embedding model, from his answers.
@@ -304,8 +304,8 @@ export const speakerOf = <
 const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
   where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
 
-// An owner row covers its turn, or its speaker's turns without their own row.
-const coveredByRow = and(
+// An assignment covers its turn, or its speaker's turns without their own row.
+export const coveredByRow = and(
   eq(voiceSamples.jobId, assignments.jobId),
   eq(voiceSamples.speakerLabel, assignments.speakerLabel),
   or(

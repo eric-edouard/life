@@ -124,7 +124,7 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The naming queue and its likeness rankings, with group centroids and up to 500 newest exemplars per person projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+          "The naming queue and its likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
         method: "get",
         path: "/speakers/map",
         responses: {
@@ -138,7 +138,9 @@ export function speakerRoutes({
                     model: z.string(),
                     points: z.array(
                       z.object({
+                        basis: z.enum(["owner", "recognized"]).nullable(),
                         id: z.string(),
+                        kind: z.enum(["centroid", "sample", "unnamed"]),
                         personId: z.uuid().nullable(),
                         position: z.tuple([z.number(), z.number(), z.number()]),
                         ranking: z.array(

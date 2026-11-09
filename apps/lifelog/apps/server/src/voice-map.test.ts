@@ -2,12 +2,24 @@ import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { people, voiceProfiles, voiceSamples } from "@lifelog/db/schema";
+import {
+  people,
+  speakerAssignments,
+  turns,
+  voiceProfiles,
+  voiceSamples,
+} from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { mintToken } from "../scripts/mint-token";
 import { createApp } from "./app";
-import { loadConfig, RECOGNITION, sha256Hex } from "./config";
+import {
+  loadConfig,
+  RECOGNITION,
+  sha256Hex,
+  VOICE_MAP_POINTS_PER_PERSON_MODEL,
+} from "./config";
 import { queueCache } from "./naming-queue";
+import { readProfiles } from "./people";
 import { services } from "./services";
 import { centroid, rankPeople } from "./speakers";
 import { OWNER_TOKEN, seedTranscript, testConfig, testDb } from "./testing";
@@ -180,6 +192,25 @@ function seedMap() {
       { personId: guest, sampleId: samples[1]?.id ?? "" },
     ])
     .run();
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "owner",
+        speakerLabel: "b",
+        status: "person",
+      },
+    ])
+    .run();
   const card = {
     clips: [],
     conversations: 1,
@@ -238,18 +269,166 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
   ).toBe(guest);
 });
 
-test("named clouds cap newest exemplars per person/model on centroid-fitted axes", () => {
+test("named sample clouds stride across time per person/model without changing recognition or PCA fit", () => {
   const { owner, guest, cards } = seedMap();
   const jobId = seedTranscript(env.db, []);
-  // Insert out of time order: the display follows creation time, not insertion order.
   const samples = env.db
     .insert(voiceSamples)
     .values(
-      Array.from({ length: 502 }, (_, i) => ({
-        conversationId: randomUUID(),
-        createdAt: new Date(4_102_444_800_000 + ((i * 251) % 503) * 1000),
+      Array.from({ length: 907 }, (_, i) => ({
+        conversationId: jobId,
+        // Deliberately different from recording order: recovered samples can be created later.
+        createdAt: new Date(4_102_444_800_000 + ((i * 251) % 907) * 1000),
         durationSeconds: 10,
         embedding: [Math.cos(i / 100), Math.sin(i / 100), 0],
+        jobId,
+        modelId: "first",
+        modelRevision: "r1",
+        speakerLabel: i < 502 ? "a" : "b",
+        turnIndex: i,
+      }))
+    )
+    .returning()
+    .all();
+  env.db
+    .insert(turns)
+    .values(
+      samples.map((s, i) => ({
+        endAt: new Date(4_102_444_800_000 + (i + 1) * 1000),
+        jobId,
+        language: "en",
+        speakerLabel: s.speakerLabel,
+        startAt: new Date(4_102_444_800_000 + i * 1000),
+        text: "Made-up words",
+        turnIndex: i,
+        words: [],
+      }))
+    )
+    .run();
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "recognized",
+        speakerLabel: "b",
+        status: "person",
+      },
+    ])
+    .run();
+  // Many samples in one conversation: clouds must not collapse into profile exemplars.
+  env.db
+    .insert(voiceProfiles)
+    .values(
+      samples
+        .filter((s) => s.speakerLabel === "a")
+        .map((s) => ({ personId: owner, sampleId: s.id }))
+    )
+    .run();
+  const other = seedTranscript(env.db, []);
+  env.db
+    .insert(voiceSamples)
+    .values({
+      conversationId: other,
+      durationSeconds: 10,
+      embedding: [1, 0],
+      jobId: other,
+      modelId: "second",
+      modelRevision: "r2",
+      speakerLabel: "a",
+      turnIndex: 0,
+    })
+    .run();
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      jobId: other,
+      personId: owner,
+      source: "recognized",
+      speakerLabel: "a",
+      status: "person",
+    })
+    .run();
+  const profiles = readProfiles(env.db);
+  const before = env.db.$client.serialize();
+  const result = readVoiceMap(env.db, cards);
+  expect(readProfiles(env.db)).toEqual(profiles);
+  expect(readVoiceMap(env.db, cards)).toEqual(result);
+  const points =
+    result.models.find((m) => m.model === "first@r1")?.points ?? [];
+  for (const personId of [owner, guest]) {
+    const cloud = points.filter(
+      (p) => p.personId === personId && p.kind === "sample"
+    );
+    expect(cloud).toHaveLength(VOICE_MAP_POINTS_PER_PERSON_MODEL);
+    const originals = env.db
+      .select()
+      .from(voiceSamples)
+      .where(eq(voiceSamples.speakerLabel, personId === owner ? "a" : "b"))
+      .all()
+      .filter((s) => s.modelId === "first")
+      .toSorted((a, b) =>
+        a.jobId === jobId && b.jobId === jobId
+          ? a.turnIndex - b.turnIndex
+          : a.createdAt.getTime() - b.createdAt.getTime()
+      );
+    const selected = Array.from(
+      { length: VOICE_MAP_POINTS_PER_PERSON_MODEL },
+      (_, i) =>
+        originals[
+          Math.floor(
+            (i * (originals.length - 1)) /
+              (VOICE_MAP_POINTS_PER_PERSON_MODEL - 1)
+          )
+        ]
+    );
+    expect(cloud.map((p) => p.id)).toEqual(
+      selected.flatMap((s) => (s ? [s.id] : []))
+    );
+    const fit = [
+      ...(profiles.get("first@r1")?.people ?? []).map((p) =>
+        centroid(p.exemplars)
+      ),
+      [0.8, 0.6, 0],
+    ];
+    const expected = pcaOf(
+      fit,
+      selected.map((s) => s?.embedding ?? [])
+    );
+    for (const [i, p] of cloud.entries()) {
+      expect(p.ranking).toEqual([]);
+      expect(p.words).toBe(0);
+      for (let axis = 0; axis < 3; axis += 1) {
+        expect(p.position[axis]).toBeCloseTo(expected[i]?.[axis] ?? 0, 8);
+      }
+    }
+  }
+  const second = result.models.find((m) => m.model === "second@r2");
+  expect(
+    second?.points.filter((p) => p.personId === owner && p.kind === "sample")
+  ).toHaveLength(1);
+  expect(new Set(points.map((p) => p.id)).size).toBe(points.length);
+  expect(env.db.$client.serialize()).toEqual(before);
+});
+
+test("clouds resolve current sampled turns including overrides, excluding rejected and several-person fallbacks", () => {
+  const { owner, guest } = seedMap();
+  const jobId = seedTranscript(env.db, []);
+  const samples = env.db
+    .insert(voiceSamples)
+    .values(
+      Array.from({ length: 7 }, (_, i) => ({
+        conversationId: jobId,
+        durationSeconds: 10,
+        embedding: [1, 0, 0],
         jobId,
         modelId: "first",
         modelRevision: "r1",
@@ -260,58 +439,95 @@ test("named clouds cap newest exemplars per person/model on centroid-fitted axes
     .returning()
     .all();
   env.db
-    .insert(voiceProfiles)
-    .values(
-      samples.map((s) => ({
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
         personId: owner,
-        sampleId: s.id,
-      }))
-    )
+        source: "recognized",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 1,
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 2,
+      },
+      {
+        jobId,
+        source: "owner",
+        speakerLabel: "a",
+        status: "unknown",
+        turnIndex: 3,
+      },
+      {
+        jobId,
+        source: "owner",
+        speakerLabel: "a",
+        status: "media",
+        turnIndex: 4,
+      },
+      {
+        jobId,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "stranger",
+        turnIndex: 5,
+      },
+      {
+        candidates: { people: [owner, guest], unknown: false },
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 6,
+      },
+    ])
     .run();
-  const otherModel = env.db
-    .select()
-    .from(voiceSamples)
-    .where(eq(voiceSamples.modelId, "second"))
-    .get();
-  expect(otherModel).toBeDefined();
-  env.db
-    .insert(voiceProfiles)
-    .values({ personId: owner, sampleId: otherModel?.id ?? "" })
-    .run();
-  const before = env.db.$client.serialize();
-  const result = readVoiceMap(env.db, cards);
-  const points = result.models[0]?.points ?? [];
-  const ownerPoints = points.filter((p) => p.personId === owner);
-  const guestPoints = points.filter((p) => p.personId === guest);
-  const second = result.models.find((m) => m.model === "second@r2");
-  expect(second?.points.filter((p) => p.personId === owner)).toHaveLength(2);
-  expect(second?.points).toHaveLength(3);
-  expect(ownerPoints).toHaveLength(501);
-  expect(guestPoints).toHaveLength(2);
-  expect(new Set(points.map((p) => p.id)).size).toBe(points.length);
-  const vectors = [
-    centroid([[1, 0, 0], ...samples.map((s) => s.embedding)]),
-    [0, 1, 0],
-    [0.8, 0.6, 0],
-  ];
-  const exemplars = samples
-    .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 500)
-    .map((s) => s.embedding);
-  const expected = pcaOf(vectors, [...vectors, ...exemplars]);
-  for (const [i, p] of points.slice(0, 3).entries()) {
-    for (let axis = 0; axis < 3; axis += 1) {
-      expect(p.position[axis]).toBeCloseTo(expected[i]?.[axis] ?? 0, 8);
+  const points = readVoiceMap(env.db, []).models.flatMap((m) => m.points);
+  for (const [i, sample] of samples.entries()) {
+    const point = points.find((p) => p.id === sample.id);
+    if (i >= 3) {
+      expect(point).toBeUndefined();
+    } else {
+      expect(point?.kind).toBe("sample");
+      expect(point?.personId).toBe(i === 0 ? owner : guest);
+      expect(point?.basis).toBe(i === 1 ? "owner" : "recognized");
     }
   }
-  for (const [i, p] of ownerPoints.slice(1).entries()) {
-    expect(p.ranking).toEqual([]);
-    expect(p.words).toBe(0);
-    for (let axis = 0; axis < 3; axis += 1) {
-      expect(p.position[axis]).toBeCloseTo(expected[i + 3]?.[axis] ?? 0, 8);
-    }
+});
+
+test("no map point carries a vector or embedding", () => {
+  const { cards } = seedMap();
+  const points = readVoiceMap(env.db, cards).models.flatMap((m) => m.points);
+  expect(new Set(points.map((p) => p.kind))).toEqual(
+    new Set(["centroid", "sample", "unnamed"])
+  );
+  for (const point of points) {
+    expect(Object.keys(point).sort()).toEqual([
+      "basis",
+      "id",
+      "kind",
+      "personId",
+      "position",
+      "ranking",
+      "words",
+    ]);
+    expect(point).not.toHaveProperty("vector");
+    expect(point).not.toHaveProperty("embedding");
   }
-  expect(env.db.$client.serialize()).toEqual(before);
 });
 
 test("PCA projects extra vectors without changing its fit, including empty and deficient fits", () => {
@@ -394,6 +610,20 @@ test("PCA retains radial distance: an outlier stays farther from the mean", () =
 test("sidebar toggles whole clouds independently, keeps choices on refresh and preserves naming", async () => {
   const { cards, owner, guest } = seedMap();
   const data = readVoiceMap(env.db, cards);
+  // Point kind, not the id shape, chooses centroid size; basis chooses solid/hollow.
+  const [model] = data.models;
+  const ownerSample = model?.points.find(
+    (p) => p.kind === "sample" && p.personId === owner
+  );
+  if (!(model && ownerSample)) {
+    throw new Error("Missing seeded cloud");
+  }
+  for (const point of model.points) {
+    if (point.kind === "centroid" && point.personId === owner) {
+      point.id = "not-a-person-id";
+    }
+  }
+  model.points.push({ ...ownerSample, basis: "recognized", id: owner });
   // Duplicate display names must still toggle different people.
   for (const person of data.people) {
     person.name = "Made-up name";
@@ -477,8 +707,10 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
   expect(traces.find((t) => t.customdata[0] === owner)?.customdata).toEqual([
     owner,
     owner,
+    owner,
   ]);
-  expect(traces[0].marker.size).toEqual([9, 3]);
+  expect(traces[0].marker.size).toEqual([9, 3, 3]);
+  expect(traces[0].marker.symbol).toEqual(["circle", "circle", "circle-open"]);
   expect(traces.find((t) => t.customdata[0] === guest)?.customdata).toEqual([
     guest,
     guest,

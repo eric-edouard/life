@@ -16,7 +16,7 @@
     data.people.find((p) => p.id === id)?.name ?? "Unnamed voice";
   const modelOf = () => data.models.find((m) => m.model === el("model").value);
   const pointOf = (id) =>
-    modelOf()?.points.find((p) => p.id === id && !p.personId);
+    modelOf()?.points.find((p) => p.id === id && p.kind === "unnamed");
   const button = (text, action) => {
     const node = document.createElement("button");
     node.type = "button";
@@ -180,10 +180,13 @@
           opacity: 0.8,
           size: same.map((p) => {
             if (personId) {
-              return p.id === personId ? 9 : 3;
+              return p.kind === "centroid" ? 9 : 3;
             }
             return 5 + Math.min(22, Math.sqrt(p.words) / 8);
           }),
+          symbol: same.map((p) =>
+            p.basis === "recognized" ? "circle-open" : "circle"
+          ),
         },
         mode: "markers",
         name: personId ? nameOf(personId) : "Unnamed",

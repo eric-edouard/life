@@ -44,6 +44,9 @@ export function ownerClock(at: Date) {
   };
 }
 
+// Display samples per person and embedding model, spread across recording time.
+export const VOICE_MAP_POINTS_PER_PERSON_MODEL = 400;
+
 // Speaker recognition.
 // ponytail: placeholder values; calibrate on real Pendant conversations (mixed languages,
 // overlap, distance to the mic) before trusting a match.
