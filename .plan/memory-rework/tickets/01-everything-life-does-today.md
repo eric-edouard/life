@@ -1,6 +1,8 @@
 ---
 type: research
 blocked_by: []
+claimed_by: claude-session-memory-rework
+claimed_at: 2026-11-09T09:51:08Z
 ---
 
 # Everything Life does for him today
