@@ -443,8 +443,8 @@ export async function episodes(evidence: Evidence) {
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
   const days = [...new Set(all.map((b) => b.unit.date))].sort();
-  // Units first (code output, rebuildable but for lifelog's chapter units, the only copy of the voice history before
-  // conversation-days: kept even when lifelog isn't read); not when a source failed: the files would lose that source's units.
+  // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: AGENTS.md; kept even
+  // when lifelog isn't read); not when a source failed: the files would lose that source's units.
   if (failed.length === 0) {
     await writeUnits(
       days,
