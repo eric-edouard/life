@@ -41,6 +41,11 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - An exchange is read by several focused prompts, one per family of codes, never one wide read (9 Nov).
 - His checks are blind meter ratings only, once per round; he never labels single exchanges (9 Nov). Codes are checked
   against a stronger model (Codex Sol on his subscription) and by forecast backtests.
+- Talk about absent people counts everywhere (his ask, 9 Nov, from a recorded call with a close friend): when he tells A
+  about B, or A tells him about B or about A's own people, it is evidence about B (persona, what repeats between him and
+  B, B's arc), about him and A (what he confides in A is depth), and about him (his honest view, filtered by the
+  listener). B is often never named ("elle", "lui"): who is meant is worked out from the whole conversation and what
+  Life already knows (who he is seeing now), and shown as a reading when it is a guess.
 - Models: the strongest model for grilling and design tickets; cheaper ones for research reading and file work.
 - This map lives in the code repo: nothing personal in it (no names but roles, no quotes, no numbers about his people).
   Anything of his a ticket produces goes to his data repo or a scratchpad, linked by path.
