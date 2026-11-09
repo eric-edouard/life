@@ -18,7 +18,14 @@ each layer holds up. Checked against the code: the connector's 19 tools, the "an
 (`open-items.ts`, counted from the logged `mcp.call` ids, not from memory), and the layers no code reads.
 
 What the rebuild must know from it:
-- Three stored layers feed nothing: `communication-styles/`, `detail-tags.jsonl`, `decisions.jsonl`. They can go.
+- Three stored layers feed nothing today. "Go" means only that they stop being layers of the design; memory is
+  append-only, so their files stay on his disk.
+  - `communication-styles/` (written until 8 Nov): how each writes, now the persona's `writes` lines. Redundant.
+  - `detail-tags.jsonl` (6–8 Nov): a model's tags saying which kind of detail a fact states; they only copied page lines,
+    and `detailsOf` replaced them. Redundant.
+  - `decisions.jsonl` is NOT redundant (corrected 9 Nov, on his question): it holds his answers, with his notes, to the
+    questions his project loops asked him (Oct–Nov 2026), a record of decisions he made about his projects. No other
+    layer holds them. It belongs with ticket 05 (what knowing everything about him means) as a source of his word.
 - The daily, weekly and triage mails are his scheduled tasks, outside the repo, built on `read_day`,
   `read_places_visited`, `read_open_todo_items`, `read_chats`, `search` and `correct_memory`: those reads' shapes are
   part of the checklist, or change in the one batched reconnect.
