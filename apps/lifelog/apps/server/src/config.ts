@@ -54,8 +54,6 @@ export const RECOGNITION = {
   // 0.6 kept one person's 15 voices together and nobody else on Oct 10–11.
   candidateThreshold: 0.6,
   closedSetTurn: 0.4, // several people, none but the owner's picks
-  // Unnamed voice data (embeddings that are nobody's evidence) is deleted after this.
-  keepDays: 30,
   // Lead over the runner-up person; anything closer is ambiguous, so unknown.
   margin: 0.1,
   // Likeness to a person (speakers.ts `likeness`) needed for a match. Nov 3 replay on his answers:
@@ -79,13 +77,12 @@ export const RECOGNITION = {
   // and 6 not; at 0.12, 43 and 4.
   nearbyMargin: 0.15,
   // A voice that matches no profile takes the person of a voice at least `nearbyVoice` alike in
-  // another recording within `nearbyMinutes`: same room, same microphone. Of 414 pairs of
+  // the same conversation: same room, same microphone. Of 414 pairs of
   // different named people that close on Oct 13, none reached 0.70; 330 of 605 same-person
   // pairs did. A reference is a voice the owner named or a profile match of at least
   // `nearbyReference`: a guest at the Oct 11 dinner matched a friend's thin profile at 0.60 and
   // would have passed her name on. By likeness (Nov 3 replay) 331 voices are references and 19 of them
   // wrong (by centroid 257 and 21).
-  nearbyMinutes: 45,
   nearbyReference: 0.65,
   nearbyVoice: 0.7,
   // A sample scoring at most this against a voice is someone else's: the owner's own samples
@@ -128,9 +125,8 @@ export const NAMING = {
   // stranger.
   minExchanges: 10,
   minSeconds: 60,
-  // The voices to name are those of the last queueDays: voice data that isn't evidence is
-  // deleted after 30 days, so older voices have nothing left to play or learn from.
-  queueDays: 30,
+  // This many words unlocks a card even without exchanges with the owner.
+  minWords: 300,
   quoteChars: 200,
   quotes: 3,
 } as const;
@@ -195,6 +191,8 @@ const Env = z.object({
   // The Mac helper's token (apps/mac-quiet), minted by `bun run mint-token mac`. It opens only
   // the Mac's socket (mac-socket.ts); without it the socket refuses everyone.
   MAC_TOKEN_HASH: TokenHash.optional(),
+  // The voice map, its clips and naming answers only.
+  MAP_TOKEN_HASH: TokenHash.optional(),
   PORT: z.coerce.number().int().default(3000),
   PUBLIC_BASE_URL: z.url(),
   READ_TOKEN_HASH: TokenHash.optional(),

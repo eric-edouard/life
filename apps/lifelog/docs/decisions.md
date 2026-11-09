@@ -35,6 +35,18 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
+- **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
+  a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
+  the queue’s existing audio route and its answer route. The map reads the queue’s cards and words in their order,
+  with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
+  PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
+  computed per request without a cache. Likeness is not a calibrated probability. Naming still uses the queue’s
+  answer route. `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its
+  hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
+  changes. It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  reachable through the public tunnel with that token; the static shell contains no personal data.
+  Life’s separate server still serves no page.
+
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The
   phone's library is a cache, and the owner's edits travel as intents (`docs/sync.md`). Two owners of the same fact
@@ -122,11 +134,31 @@ reverse it, change its entry here in the same commit.
   reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
   runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
-- **One list of voices to name**, rebuilt nightly by average likeness and asked one voice at a time; strangers and
-  media are never asked about. Voice data that is nobody's evidence goes after 30 days.
-- **"Not anyone I know" is a stranger he doesn't care about** (his words, 3 Nov 2026). A voice that sounds more like
-  those than like anyone he named is a stranger too (status `stranger`): never named, grouped or asked about, for as
-  long as the strangers' clips are kept (30 days).
+- One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses
+  group vector sums and counts instead of an all-pairs matrix before the sample set grows. Cards with playback come
+  first, then by the words a name unlocks; overheard groups with at least 300 words are eligible. Brief strangers and
+  media are left out. Clips are built only for returned cards (`docs/processing.md`, "Speakers").
+- Unnamed samples no longer expire by age (owner's decision, 9 Nov 2026). This replaces the previous promise to delete
+  voice data that was nobody's evidence after a month. Samples stay until named or rejected; strangers' samples
+  remain negative references. An unnamed or several-person voice is still nobody's evidence. Only clips attributed
+  by the owner become person evidence; retention grants no permission to send embeddings outside the server.
+- Old voices recover through the existing sampler (owner's decision, 9 Nov 2026). One database migration reopens
+  conversation-held jobs with stored audio. The sampler alone decides eligibility, preserves existing samples and
+  owner assignments, retries least recently attempted jobs first and permits only one pending pass at a time.
+  Dictation and unsafe old audio remain excluded; recovery never transcribes again.
+- Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
+  conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
+  person merge or new evidence: the owner's assignments win. For a lone profile, `rankPeople` scores the missing runner at 0.6 (confirming review, 9 Nov);
+  no caller bypasses it. A 0.65 voice fails ordinary, candidate and nearby profile naming; a 0.55 owner
+  short turn fails its margin. Owner turns at 0.65 still match through the existing 0.6 owner threshold.
+  Current `origin/main` (30d9002d) uses zero and names the 0.62 borderline case; its null regression
+  expectation and incident comment were restored from the last review commit's parent (3741c5f3).
+  Offline `bun apps/lifelog/apps/server/scripts/eval-voices.ts --check` passed: 4,146 turns, all baseline
+  counts unchanged; no answers or baseline rewritten. This replay excludes nearby naming and candidate sets,
+  which are covered by synthetic regressions.
+- **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
+  sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
+  recovered or asked about. Its samples remain negative references.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the

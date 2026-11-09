@@ -1,7 +1,7 @@
 // The voices to name (docs/processing.md, "Speakers"): the unnamed voices that
-// talked with the owner, grouped (people.ts `regroup`), each with a name the summaries heard for
-// it, as cards to confirm, rename, give to someone else or ignore. Strangers (little
-// back-and-forth with the owner), media and announcements get none.
+// talked with the owner or hold enough words, grouped (people.ts `regroup`), with a name the
+// summaries heard for it, as cards to confirm, rename, give to someone else or ignore. Brief
+// strangers, media and announcements get none.
 //
 // - A card is only a suggestion. An answer is the owner's correction (people.ts `assign`), so
 //   only the owner creates people or adds voice evidence.
@@ -23,7 +23,7 @@ import {
   transcriptionJobs,
   turns as turnRows,
 } from "@lifelog/db/schema";
-import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock, RECOGNITION } from "./config";
@@ -33,6 +33,7 @@ import {
   assign,
   holdingConversations,
   isCalled,
+  isRejected,
   sampleRanker,
   type Target,
   voiceId,
@@ -60,6 +61,8 @@ interface Voice {
   speakerLabel: string;
   // Whether the summaries say it talks with the owner; null from runs that don't say.
   withOwner: boolean | null;
+  // Count each stored turn once, even if conversations overlap.
+  words: Map<string, number>;
 }
 
 // One conversation's unnamed voices, each with the turns it traded with the owner: a turn
@@ -81,6 +84,7 @@ function voicesOf(
         voices.get(k) ??
         newVoice(conversationId, t, label, groups.get(k) ?? k, mixed.has(k));
       voice.seconds += t.endSeconds - t.startSeconds;
+      voice.words.set(turnRef(t.ref.jobId, t.ref.turnIndex), t.words.length);
       voice.exchanges += [turns[i - 1], turns[i + 1]].filter(
         (o) => o?.ref.jobId === t.ref.jobId && o.person?.id === ownerId
       ).length;
@@ -109,6 +113,7 @@ const newVoice = (
   several,
   speakerLabel,
   withOwner: null,
+  words: new Map(),
 });
 
 // The turns a run cites (its own turn ids), as quotes.
@@ -183,7 +188,8 @@ const mostOf = (values: (string | null)[]) =>
 // A group of voices as a card, its id the group's, or why it gets none.
 function judge(
   group: string,
-  voices: Voice[]
+  voices: Voice[],
+  words: number
 ): Suggestion | "media" | "stranger" {
   const seconds = voices.reduce((sum, v) => sum + v.seconds, 0);
   const exchanges = voices.reduce((sum, v) => sum + v.exchanges, 0);
@@ -198,13 +204,14 @@ function judge(
     return "media";
   }
   // Turns next to the owner's can be people nearby talking among themselves: when the
-  // summaries say none of these voices talks with the owner, they are strangers.
+  // summaries say none talks with him, enough words still warrant asking for a name.
   const told = voices.filter((v) => v.withOwner !== null);
   const overheard = told.length > 0 && !told.some((v) => v.withOwner);
   if (
-    overheard ||
-    exchanges < NAMING.minExchanges ||
-    seconds < NAMING.minSeconds
+    words < NAMING.minWords &&
+    (overheard ||
+      exchanges < NAMING.minExchanges ||
+      seconds < NAMING.minSeconds)
   ) {
     return "stranger";
   }
@@ -263,7 +270,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
   // never asked. One called several people (`mixed`) is asked again.
   const skipped = new Set(
     rows.flatMap((r) =>
-      r.source === "owner" || r.status === "stranger"
+      r.source === "owner" || isRejected(r)
         ? [voiceId(r.jobId, r.speakerLabel)]
         : []
     )
@@ -287,7 +294,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
 const ownerOf = (db: Db) =>
   db.query.people.findFirst({ where: eq(people.isOwner, true) }).sync();
 
-// Unnamed voices as cards, the most back-and-forth first; media and strangers get none. A group
+// Unnamed voices as cards with the words naming them unlocks; media and brief strangers get none. A group
 // spans conversations (and days) through its unnamed group.
 function suggest(db: Db, voices: Voice[]) {
   // A card no summary tied to a person may still sound like one, the owner included: then it
@@ -301,69 +308,71 @@ function suggest(db: Db, voices: Voice[]) {
   };
   const suggestions = [...Map.groupBy(voices, (v) => v.group)].flatMap(
     ([group, members]) => {
-      const verdict = judge(group, members);
+      const words = [
+        ...new Map(members.flatMap((v) => [...v.words])).values(),
+      ].reduce((sum, count) => sum + count, 0);
+      const verdict = judge(group, members, words);
       return typeof verdict === "string"
         ? []
         : [
-            ((): Suggestion => {
-              const personId = verdict.personId ?? soundsLike(verdict.voices);
-              return personId && verdict.kind !== "several"
-                ? {
-                    ...verdict,
-                    kind: "known_person" as const,
-                    name: news(verdict.name, personId),
-                    personId,
-                  }
-                : verdict;
-            })(),
+            {
+              card: ((): Suggestion => {
+                const personId = verdict.personId ?? soundsLike(verdict.voices);
+                return personId && verdict.kind !== "several"
+                  ? {
+                      ...verdict,
+                      kind: "known_person" as const,
+                      name: news(verdict.name, personId),
+                      personId,
+                    }
+                  : verdict;
+              })(),
+              words,
+            },
           ];
     }
   );
-  return suggestions.sort((a, b) => b.exchanges - a.exchanges);
+  return suggestions;
 }
 
-// The live conversations of the last NAMING.queueDays before `at`.
-const windowOf = (db: Db, at: Date) =>
+// Every live conversation, including historical voices still waiting for a name.
+const conversationsOf = (db: Db) =>
   db
     .select({ id: conversations.id })
     .from(conversations)
-    .where(
-      and(
-        live,
-        gt(
-          conversations.captureStartedAt,
-          new Date(at.getTime() - NAMING.queueDays * 86_400_000)
-        )
-      )
-    )
+    .where(live)
     .all()
     .map((c) => c.id);
 
-// Voices as cards, each with its clips. Cards with a clip to play come first, the most
-// back-and-forth first, so "Who's this?" never opens on one it can't play.
+// Only eligible, returned cards get clips. Playable cards come first, then the most words a
+// name unlocks, so the first card is useful to hear and to answer.
 function cardsOf(db: Db, voices: Voice[]) {
   const clipsOf = cardClips(db);
-  const cards = suggest(db, voices).map((card) => ({
-    ...card,
-    clips: clipsOf(card),
-  }));
-  const playable = (card: (typeof cards)[number]) =>
-    card.clips.some((c) => c.audio || c.at);
-  return [...cards.filter(playable), ...cards.filter((c) => !playable(c))];
+  return suggest(db, voices)
+    .map(({ card, words }) => ({
+      card: { ...card, clips: clipsOf(card) },
+      words,
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.card.clips.some((c) => c.audio || c.at)) -
+          Number(a.card.clips.some((c) => c.audio || c.at)) || b.words - a.words
+    )
+    .map(({ card, words }) => ({ ...card, words }));
 }
 
-// The voices to name: the unnamed voices of the last NAMING.queueDays that talked with the
-// owner, one card per voice group across conversations and days. Its id is the group: the
-// unnamed group recognition keeps, or the voice's own id. An answer leaves no state here: the
+// The voices to name: unnamed voices that talked with the owner or hold enough words, one card
+// per voice group across conversations and days. Its id is the group, or the voice's own id.
+// An answer leaves no state here: the
 // owner's rows keep its voices out of the next build. Empty without an owner person.
-// Kept between reads: built again when the change log moved or the window did, reading again
+// Kept between reads: built again when the change log or live conversations moved, reading again
 // only the voices of the conversations the changes touched (`touchedSince`; an answer logs its
 // speaker rows, so its voices never come back). The cards are made again from every voice, since
 // a change may be about a person or a profile. A fresh cache's first read is the full build.
 // ponytail: in-process, like the other loops; one replica.
 export type QueueCache = ReturnType<typeof queueCache>;
 
-export function queueCache(db: Db, now = clock) {
+export function queueCache(db: Db) {
   let kept: {
     items: ReturnType<typeof cardsOf>;
     ownerId: string;
@@ -380,7 +389,7 @@ export function queueCache(db: Db, now = clock) {
       }
       const last = kept?.ownerId === owner.id ? kept : null;
       const touched = touchedSince(db, last?.seen ?? null);
-      const ids = windowOf(db, now());
+      const ids = conversationsOf(db);
       const before = last?.voices ?? new Map<string, Voice[]>();
       if (
         last &&

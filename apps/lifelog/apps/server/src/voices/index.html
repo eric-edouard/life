@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <meta content="no-referrer" name="referrer">
+    <base href="/voices/">
+    <title>Voices · lifelog</title>
+    <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #ece7e1;
+      color-scheme: dark;
+      background: #0b0a0a;
+    }
+    body {
+      margin: 0;
+    }
+    main {
+      max-width: 1440px;
+      padding: 24px;
+      margin: auto;
+    }
+    header {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 550;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 550;
+    }
+    p,
+    label {
+      line-height: 1.5;
+      color: #cfc8c0;
+    }
+    p {
+      max-width: 65ch;
+    }
+    button,
+    select,
+    input {
+      padding: 11px 14px;
+      font: inherit;
+      color: inherit;
+      background: #232120;
+      border: 1px solid #494440;
+      border-radius: 8px;
+    }
+    button {
+      text-align: left;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: #e2626a;
+    }
+    button:disabled {
+      cursor: wait;
+      opacity: 0.5;
+    }
+    :focus-visible {
+      outline: 2px solid #e2626a;
+      outline-offset: 3px;
+    }
+    #status {
+      min-height: 24px;
+      color: #e2626a;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 28px;
+    }
+    #plot {
+      height: 60vh;
+      min-height: 320px;
+    }
+    #detail {
+      padding-top: 8px;
+      border-top: 1px solid #494440;
+    }
+    #clips,
+    #answers,
+    #easy,
+    #all {
+      display: grid;
+      gap: 10px;
+    }
+    #easy,
+    #all {
+      max-height: 32vh;
+      overflow: auto;
+    }
+    blockquote {
+      margin: 0;
+      font-family: Georgia, serif;
+      line-height: 1.6;
+    }
+    .clip {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      background: #141312;
+      border-radius: 10px;
+    }
+    #answers {
+      margin: 18px 0;
+    }
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    input {
+      flex: 1;
+      min-width: 140px;
+    }
+    .primary {
+      background: #9b1b24;
+      border-color: #9b1b24;
+    }
+    audio {
+      width: 100%;
+      margin: 12px 0;
+    }
+    small {
+      color: #a9a29b;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    @media (max-width: 760px) {
+      main {
+        padding: 16px;
+      }
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      #plot {
+        height: 45vh;
+      }
+      header {
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+    }
+    </style>
+    <script defer src="./plotly-4.0.0.min.js"></script>
+    <script defer src="./page.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Voices</h1>
+        <label>Voice model <select id="model"></select></label
+        ><button id="refresh" type="button">Refresh</button>
+      </header>
+      <p>
+        Listen to a voice, then give it a name. Grey voices are waiting; larger
+        dots hold more words.
+      </p>
+      <p aria-live="polite" id="status" role="status">Loading voices…</p>
+      <div class="layout">
+        <section aria-label="Voice map">
+          <div id="plot"></div>
+          <small
+            >Drag to rotate. Scroll to zoom. Nearby dots sound alike; their
+            distance is only a projection.</small
+          >
+          <section hidden id="detail">
+            <h2 id="title">Who’s this?</h2>
+            <p id="context"></p>
+            <div id="clips"></div>
+            <!-- biome-ignore lint/a11y/useMediaCaption: each audio clip has its full transcript above the player -->
+            <audio aria-describedby="clips" controls hidden id="player"></audio>
+            <div id="answers"></div>
+            <form id="name-form">
+              <label for="name">Someone else</label>
+              <input
+                autocomplete="off"
+                id="name"
+                maxlength="200"
+                placeholder="Type a name"
+                required
+              ><button class="primary" type="submit">Name this voice</button>
+            </form>
+            <button id="ignore" type="button">Not anyone I know</button>
+            <button id="media" type="button">Media</button>
+            <p>
+              <small
+                >Likeness measures voice similarity. It is not a probability of
+                identity. Margin is the lead over the strongest other
+                person.</small
+              >
+            </p>
+          </section>
+        </section>
+        <aside>
+          <h2>Easy targets</h2>
+          <div id="easy"></div>
+          <h2>All voices to name</h2>
+          <div id="all"></div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

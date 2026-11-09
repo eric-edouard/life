@@ -60,14 +60,22 @@ export function likeness(vector: Vector, exemplars: Vector[]) {
   return top.reduce((sum, x) => sum + x, 0) / (top.length || 1);
 }
 
-// The person a voice sounds most like, and its lead over the next one. With a single profile the
-// runner-up counts as 0: unrelated voices score near 0 with ECAPA.
-function nearest(vector: Vector, profiles: Profile[]) {
-  const [best, next] = profiles
+// Everyone by likeness and lead over the strongest other person; a lone profile competes
+// with the match threshold so a thin profile cannot name a weak match by default.
+export function rankPeople(vector: Vector, profiles: Profile[]) {
+  const ranked = profiles
     .map((p) => ({ ...p, score: likeness(vector, p.exemplars) }))
     .sort((a, b) => b.score - a.score);
-  return best ? { ...best, margin: best.score - (next?.score ?? 0) } : null;
+  return ranked.map((person, i) => ({
+    ...person,
+    margin:
+      person.score -
+      (ranked[i === 0 ? 1 : 0]?.score ?? RECOGNITION.matchThreshold),
+  }));
 }
+
+const nearest = (vector: Vector, profiles: Profile[]) =>
+  rankPeople(vector, profiles)[0] ?? null;
 
 // The person a voice refused for its margin is, decided among the people named nearby
 // (people.ts `nameFromNearby`): its nearest person when they are one of them, at `matchThreshold`,

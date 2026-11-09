@@ -15,6 +15,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
+| sample | A voice embedding of one clean recorded turn, with its model and revision; no extra audio. Unnamed samples are nobody's evidence. | |
+| profile | A person's owner-attributed voice evidence, represented by one exemplar per conversation of clean clips. | |
+| likeness | A voice's mean cosine to a person's closest profile exemplars; a score, not an identity or evidence. | |
 | sender | Who wrote a message in a chat or mail. | |
 | detail | A field about someone that his map or his Contacts already holds (birthday, where they live, work, family, handles), shown on their page (`memory/details.ts`). Never stored apart from where it lives; anything else about them is a page line. | |
 

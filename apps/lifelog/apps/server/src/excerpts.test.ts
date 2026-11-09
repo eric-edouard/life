@@ -1,17 +1,21 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import { migrateDb } from "@lifelog/db";
 import {
   conversations,
+  people,
   quietRanges,
   speakerAssignments,
   type Turn,
   transcriptionJobs,
   transcripts,
+  voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { memoryAudioStore } from "./audio-store";
 import { excerptSampler } from "./excerpts";
+import { assign } from "./people";
 import { services } from "./services";
 import {
   fakeSpeechService,
@@ -297,4 +301,174 @@ test("a job's bucket audio is served, by range too; a job without any is not fou
     headers: auth,
   });
   expect(none.status).toBe(404);
+});
+
+test("the one-time reopen recovers expired samples, preserves owner rows, and survives restart", async () => {
+  const held = job(conversation);
+  const ungrouped = job(conversation, { grouped: false });
+  const noAudio = job(conversation);
+  env.db
+    .update(transcriptionJobs)
+    .set({ objectKey: null })
+    .where(eq(transcriptionJobs.id, noAudio))
+    .run();
+  env.db
+    .update(transcripts)
+    .set({ excerptsAt: new Date("2026-01-01") })
+    .run();
+  env.db
+    .insert(voiceSamples)
+    .values({
+      conversationId: crypto.randomUUID(),
+      durationSeconds: 5,
+      embedding: axis(9),
+      jobId: held,
+      modelId: "test/ecapa",
+      modelRevision: "r1",
+      speakerLabel: "speaker_0",
+      turnIndex: 0,
+    })
+    .run();
+  env.db
+    .insert(people)
+    .values({ id: "test-owner", isOwner: true, name: "Owner" })
+    .run();
+  assign(env.db, {
+    jobId: held,
+    speakerLabel: "speaker_0",
+    target: { kind: "person", personId: "test-owner" },
+    turnIndex: null,
+  });
+  const ownerRows = env.db.select().from(speakerAssignments).all();
+  // Restore the schema and journal as they were before this migration, on this disposable DB only.
+  env.db.$client.run(
+    "alter table transcripts drop column excerpts_attempted_at"
+  );
+  env.db.$client.run(
+    "delete from __drizzle_migrations where created_at = (select max(created_at) from __drizzle_migrations)"
+  );
+  migrateDb(env.db);
+  expect(cutAt(held)).toBeNull();
+  expect(cutAt(ungrouped)).toEqual(new Date("2026-01-01"));
+  expect(cutAt(noAudio)).toEqual(new Date("2026-01-01"));
+  await sampler.pending();
+  expect(samplesOf(held).map((s) => s.turnIndex)).toEqual([0, 2, 3]);
+  expect(samplesOf(held)[0]?.embedding).toEqual(axis(9));
+  expect(
+    env.db
+      .select()
+      .from(speakerAssignments)
+      .all()
+      .filter((a) => a.source === "owner")
+  ).toEqual(ownerRows);
+  expect(env.db.select().from(voiceProfiles).all()).toHaveLength(2);
+  const finished = cutAt(held);
+  migrateDb(env.db);
+  expect(cutAt(held)).toEqual(finished);
+  const restarted = excerptSampler(
+    env.db,
+    testConfig("http://localhost:1", {
+      IDENTITY_SECRET: "identity-test-secret",
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
+    }),
+    audio
+  );
+  await restarted.pending();
+  expect(speech.ranges).toHaveLength(1);
+});
+
+test("failed old jobs yield to unattempted work, across sampler restarts", async () => {
+  const jobs = Array.from({ length: 51 }, (_, i) => {
+    const id = job([turn("speaker_0", 0, 5)]);
+    env.db
+      .update(transcripts)
+      .set({ createdAt: new Date(i) })
+      .where(eq(transcripts.jobId, id))
+      .run();
+    return id;
+  });
+  const ungrouped = job(conversation, { grouped: false });
+  speech.busy = true;
+  await sampler.pending();
+  const attempts = env.db.select().from(transcripts).all();
+  expect(attempts.filter((t) => t.excerptsAttemptedAt)).toHaveLength(50);
+  expect(
+    attempts.find((t) => t.jobId === jobs[50])?.excerptsAttemptedAt
+  ).toBeNull();
+  expect(
+    attempts.find((t) => t.jobId === ungrouped)?.excerptsAttemptedAt
+  ).toBeNull();
+  speech.busy = false;
+  const read: string[] = [];
+  const restarted = excerptSampler(
+    env.db,
+    testConfig("http://localhost:1", {
+      IDENTITY_SECRET: "identity-test-secret",
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
+    }),
+    {
+      ...audio,
+      get: (key) => {
+        read.push(key);
+        return audio.get(key);
+      },
+    }
+  );
+  await restarted.pending();
+  expect(read[0]).toBe(`blocks/test/${jobs[50]}.ogg`);
+  expect(cutAt(jobs[50] ?? "")).toBeInstanceOf(Date);
+});
+
+test("two pending ticks never overlap a drain", async () => {
+  job(conversation);
+  job(conversation);
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let reads = 0;
+  const draining = excerptSampler(
+    env.db,
+    testConfig("http://localhost:1", {
+      IDENTITY_SECRET: "identity-test-secret",
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
+    }),
+    {
+      ...audio,
+      get: async (key) => {
+        reads += 1;
+        entered.resolve();
+        await release.promise;
+        return audio.get(key);
+      },
+    }
+  );
+  const first = draining.pending();
+  await entered.promise;
+  await draining.pending();
+  expect(reads).toBe(1);
+  release.resolve();
+  await first;
+  expect(reads).toBe(2);
+  expect(speech.ranges).toHaveLength(2);
+});
+
+test("recovery leaves rejected voices alone, while sampling an unanswered turn", async () => {
+  const id = job([
+    turn("speaker_0", 0, 5),
+    turn("speaker_1", 5, 10),
+    turn("speaker_2", 10, 15),
+    turn("speaker_3", 15, 20),
+  ]);
+  for (const [speakerLabel, status, source] of [
+    ["speaker_0", "unknown", "owner"],
+    ["speaker_1", "media", "owner"],
+    ["speaker_2", "stranger", "recognized"],
+  ] as const) {
+    env.db
+      .insert(speakerAssignments)
+      .values({ jobId: id, source, speakerLabel, status })
+      .run();
+  }
+  await sampler.pending();
+  expect(samplesOf(id).map((s) => s.turnIndex)).toEqual([3]);
+  expect(speech.ranges).toEqual([[[15, 20]]]);
 });

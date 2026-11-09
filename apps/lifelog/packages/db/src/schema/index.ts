@@ -272,9 +272,9 @@ export const speechFragments = sqliteTable(
 
 export const transcripts = sqliteTable("transcripts", {
   createdAt,
-  // When the server cut this job's clean turns from its bucket audio and embedded them (excerpts.ts);
-  // null until then, and always for a job without bucket audio.
+  // When the server finished cutting this job's clean turns (excerpts.ts); null until then.
   excerptsAt: instant("excerpts_at"),
+  excerptsAttemptedAt: instant("excerpts_attempted_at"), // Failed attempts yield to the rest of the queue.
   jobId: uuid("job_id")
     .primaryKey()
     .references(() => transcriptionJobs.id),

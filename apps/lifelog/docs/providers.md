@@ -26,7 +26,7 @@ VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for 
 | Data | Where | How long |
 | --- | --- | --- |
 | Job audio (Ogg Opus) | The audio store (`audio-store.ts`), kept for transcription | Sent to the identity service in one request, which keeps none: its memory only, never disk, a bucket or logs |
-| Embeddings, with conversation, turn, speaker label, model, revision and time | Server database (`voice_samples`) | 30 days unless they are someone's evidence (a retired job's after a day, the owner's media at once); evidence is kept |
+| Embeddings, with conversation, turn, speaker label, model, revision and time | Server database (`voice_samples`) | No age expiry while a live conversation holds the job; strangers stay as negative references. Non-evidence samples of retired jobs go after a day; the owner's media goes at once. Evidence is kept |
 | Voice profiles: which embeddings are evidence for which person | Server database (`voice_profiles`) | Until the owner corrects them (an answer moves a scope's evidence; a merge moves it all) |
 | People, speaker assignments | Server database | Kept |
 
@@ -34,7 +34,8 @@ VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for 
 
 - Only the owner creates people and adds evidence (naming, assigning or correcting a speaker or a
   single turn). Recognition never adds to a profile and never creates a person.
-- Recurring unnamed voices may be grouped as candidates; they are never shown as people.
+- Recurring unnamed voices may be grouped as candidates; they are never shown as people. Keeping a sample does not
+  make it evidence for anyone; a several-person voice is nobody's evidence either.
 - A speaker or turn the owner marks as media (a video, TV, radio) has no person and adds no
   evidence; any evidence it had is removed. Recognition leaves it alone.
 - Embeddings are biometric data. They stay on our server and are not sent to any provider.
