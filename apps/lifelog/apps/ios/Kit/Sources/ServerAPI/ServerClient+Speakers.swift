@@ -5,8 +5,8 @@ import Timeline
 extension ServerClient {
     // MARK: Voices to name
 
-    /// A voice to name (openapi `QueueItem`): an unnamed voice of the last 30 days that talked with the owner, across
-    /// its conversations and days, with clean clips of it and who it may be.
+    /// A voice to name (openapi `QueueItem`): an unnamed voice across its conversations and days, including
+    /// overheard voices with enough words, with clean clips of it and who it may be.
     public struct NamingItem: Sendable, Codable, Equatable, Identifiable {
         public enum Kind: String, Sendable, UnknownTolerant, Encodable {
             case newPerson = "new_person", knownPerson = "known_person", several, unknown
@@ -68,7 +68,7 @@ extension ServerClient {
         try await send(try request("transcripts/\(lower(job))/audio"))
     }
 
-    /// The voices to name, the most back-and-forth with the owner first.
+    /// The voices to name, playable first, then the most words a name unlocks.
     public func namingQueue() async throws -> [NamingItem] {
         try decode([NamingItem].self, try await send(try request("naming-queue")))
     }

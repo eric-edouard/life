@@ -61,12 +61,17 @@ export function likeness(vector: Vector, exemplars: Vector[]) {
 }
 
 // The person a voice sounds most like, and its lead over the next one. With a single profile the
-// runner-up counts as 0: unrelated voices score near 0 with ECAPA.
+// unknown competes at the match threshold, so weak singleton matches stay unnamed.
 function nearest(vector: Vector, profiles: Profile[]) {
   const [best, next] = profiles
     .map((p) => ({ ...p, score: likeness(vector, p.exemplars) }))
     .sort((a, b) => b.score - a.score);
-  return best ? { ...best, margin: best.score - (next?.score ?? 0) } : null;
+  return best
+    ? {
+        ...best,
+        margin: best.score - (next?.score ?? RECOGNITION.matchThreshold),
+      }
+    : null;
 }
 
 // The person a voice refused for its margin is, decided among the people named nearby
@@ -85,7 +90,8 @@ export function nearbyMatch(
   return best &&
     best.personId === among?.personId &&
     best.score >= RECOGNITION.matchThreshold &&
-    among.margin >= RECOGNITION.nearbyMargin
+    (nearbyPeople.size === 1 ? among.score : among.margin) >=
+      RECOGNITION.nearbyMargin
     ? best.personId
     : null;
 }
@@ -161,7 +167,7 @@ export function decide(
     seconds: number
   ) =>
     candidates
-      ? t.margin >= RECOGNITION.margin &&
+      ? ((closed && among.length === 1) || t.margin >= RECOGNITION.margin) &&
         t.score >=
           Math.min(
             least,

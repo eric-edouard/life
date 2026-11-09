@@ -15,7 +15,6 @@ import { eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
 import {
   assign as answerSpeaker,
-  averageLinkage,
   expire,
   holdingConversations,
   keepServerSamples,
@@ -33,7 +32,6 @@ import {
 import { services } from "./services";
 import { centroid } from "./speakers";
 import {
-  fakeSpeechService,
   mapJob,
   OWNER_TOKEN,
   seedTranscript,
@@ -41,7 +39,6 @@ import {
   testDb,
 } from "./testing";
 
-const speech = fakeSpeechService();
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
 
@@ -51,7 +48,7 @@ beforeAll(() => {
     services(
       testConfig("http://localhost:1", {
         IDENTITY_SECRET: "identity-test-secret",
-        IDENTITY_URL: `http://localhost:${speech.server.port}`,
+        IDENTITY_URL: "http://localhost:1",
       }),
       env.db
     )
@@ -59,11 +56,10 @@ beforeAll(() => {
 });
 afterAll(() => {
   env.drop();
-  speech.server.stop(true);
 });
 beforeEach(() => {
   env.reset();
-  speech.busy = false;
+  evenings.clear();
 });
 
 const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };
@@ -282,6 +278,7 @@ test("the owner split in two less alike voices keeps both halves", async () => {
     .set({ isOwner: true })
     .where(eq(peopleTable.id, me.personId))
     .run();
+  await enroll("Avery", v([80, 1]));
   // Both match him (0.67 and 0.64) but are only 0.43 alike: Scribe split him, not two people.
   const jobId = conversation(v([0, 1], [5, 1.1]), v([0, 1], [6, 1.2]));
   const rows = recognize(jobId);
@@ -291,6 +288,7 @@ test("the owner split in two less alike voices keeps both halves", async () => {
 
 // A conversation of `voice` and a stranger, captured `minutes` into one evening.
 const evening = Date.parse("2026-10-12T19:38:00Z");
+const evenings = new Map<number, string>();
 function recording(voice: number[], minutes: number) {
   const jobId = conversation(voice, stranger());
   const holder = holdingConversations(env.db, jobId)[0] ?? "";
@@ -304,6 +302,23 @@ function recording(voice: number[], minutes: number) {
     .where(eq(conversations.id, holder))
     .run();
   mapJob(env.db, jobId, [[start, start + 20_000]]);
+  const hour = Math.floor(minutes / 60);
+  const shared = evenings.get(hour);
+  if (shared) {
+    env.db
+      .update(voiceSamples)
+      .set({ conversationId: shared })
+      .where(eq(voiceSamples.jobId, jobId))
+      .run();
+    env.db.delete(conversations).where(eq(conversations.id, holder)).run();
+    env.db
+      .update(conversations)
+      .set({ captureEndedAt: new Date(start + 20_000) })
+      .where(eq(conversations.id, shared))
+      .run();
+  } else {
+    evenings.set(hour, holder);
+  }
   return jobId;
 }
 
@@ -311,7 +326,6 @@ test("a pass reads nearby voices again once their recording is recognized again"
   const carol = await enroll("Carol", v([2, 1]));
   const here = recording(stranger(), 0);
   const near = recording(v([2, 1]), 20);
-  // Carol again, hours later: not nearby.
   recognize(recording(v([2, 1]), 300));
   const nearby = nearbyVoices();
   expect(nearby.read(env.db, here)).toEqual([]);
@@ -337,7 +351,6 @@ test("a voice too close to two people is the one of them named nearby", async ()
   // Carol named nearby, but the voice is nearer Dana: still unknown.
   expect(named(recording(carolLike, 20))?.personId).toBe(carol.personId);
   expect(named(alone)?.personId).toBeNull();
-  // Both named nearby: still too close to call.
   expect(named(recording(danaLike, 30))?.personId).toBe(dana.personId);
   expect(named(alone)?.personId).toBeNull();
   // Later, only Dana is around: the voice is hers, with its profile score and margin kept.
@@ -349,7 +362,7 @@ test("a voice too close to two people is the one of them named nearby", async ()
   expect(named(recording(unsure, 258))?.personId).toBeNull();
 });
 
-test("a voice that misses its profile takes the name of the same voice minutes away, never by a chain", async () => {
+test("a voice that misses its profile takes a name from its conversation, never by a chain", async () => {
   const dave = await enroll("Dave", v([40, 1]));
   // 0.86 to the profile: named. Then 0.60 to the profile but 0.88 to that voice: the same
   // evening, the same person. Then 0.25 to the profile and 0.86 to the second voice only.
@@ -373,9 +386,7 @@ test("a voice that misses its profile takes the name of the same voice minutes a
   // the profile, still unnamed (a guest matched Marie-Jo's thin profile at 0.60 on Oct 11).
   const borderline = recording(v([40, 0.62], [43, 0.785]), 150);
   const guest = recording(v([40, 0.45], [43, 0.8], [44, 0.3]), 160);
-  expect(speaker(recognize(borderline), "speaker_0")?.personId).toBe(
-    dave.personId
-  );
+  expect(speaker(recognize(borderline), "speaker_0")?.personId).toBeNull();
   expect(speaker(recognize(guest), "speaker_0")?.personId).toBeNull();
 });
 
@@ -405,7 +416,7 @@ test("a stranger stays one: not regrouped, nothing rewritten, and after its voic
   await assign(unknown, "speaker_0", { target: { kind: "unknown" } });
   const voice = recording(v([50, 1], [51, 1.1]), 20);
   expect(speaker(recognize(voice), "speaker_0")?.status).toBe("stranger");
-  expect(regroup(env.db)).toBe(0);
+  expect(await regroup(env.db)).toBe(0);
   expect(recognizeJob(env.db, voice)).toBe(false);
   env.db.delete(voiceSamples).where(eq(voiceSamples.jobId, voice)).run();
   expect(recognizeJob(env.db, voice)).toBe(false);
@@ -610,14 +621,14 @@ test("unclean turns are refused and short speakers stay unknown", async () => {
   });
 });
 
-test("a recurring unnamed voice becomes a candidate at night, not a person", () => {
+test("a recurring unnamed voice becomes a candidate at night, not a person", async () => {
   const voice = v([11, 1]);
   const first = conversation(voice, stranger());
   recognize(first);
   const second = conversation(voice, stranger());
   // Grouped only by the nightly regroup.
   expect(speaker(recognize(second), "speaker_0")?.status).toBe("unknown");
-  regroup(env.db);
+  await regroup(env.db);
   const candidate = speaker(speakersOf(second), "speaker_0");
   expect(candidate).toMatchObject({ personId: null, status: "candidate" });
   const earlier = speakersOf(first);
@@ -656,26 +667,13 @@ test("renaming keeps the evidence and refuses blank names and strangers", async 
   ).toEqual(["Ali", "Lissy"]);
 });
 
-test("average linkage never chains two different voices through a middle one", () => {
-  const a = v([0, 1]);
-  const between = v([0, 1], [1, 1]);
-  const b = v([1, 1]);
-  // a~between and between~b are 0.71 alike, a~b 0: one pair, never a group of three. Of equal
-  // pairs, the last merges.
-  expect(averageLinkage([a, between, b], 0.6)).toEqual([[1, 2]]);
-  expect(averageLinkage([a, a, b, b], 0.6)).toEqual([
-    [0, 1],
-    [2, 3],
-  ]);
-});
-
 test("the sweep names old conversations once the owner names the voice", async () => {
   const voice = v([20, 1]);
   const old = conversation(voice, stranger());
   expect(speaker(recognize(old), "speaker_0")?.status).toBe("unknown");
   const { jobId: enrolled } = await enroll("Hervé", voice);
   // Settled before the sweep, so only the old conversation can change.
-  sweep(env.db);
+  await sweep(env.db);
   env.db
     .delete(speakerAssignments)
     .where(eq(speakerAssignments.jobId, old))
@@ -691,7 +689,7 @@ test("the sweep names old conversations once the owner names the voice", async (
     .run();
 
   const before = env.db.select().from(speakerAssignments).all();
-  const result = sweep(env.db);
+  const result = await sweep(env.db);
   expect(result.changed).toBe(1);
   expect(enrolled).not.toBe(old);
   const rows = recognize(old);
@@ -703,7 +701,7 @@ test("the sweep names old conversations once the owner names the voice", async (
   const after = env.db.select().from(speakerAssignments).all();
   const untouched = before.filter((r) => r.jobId !== old);
   expect(after.filter((r) => r.jobId !== old)).toEqual(untouched);
-  expect(sweep(env.db).changed).toBe(0);
+  expect((await sweep(env.db)).changed).toBe(0);
 });
 
 test("a profile is one exemplar per conversation, of its clips of 3 s or more", () => {
@@ -737,7 +735,7 @@ test("a profile is one exemplar per conversation, of its clips of 3 s or more", 
   ]);
 });
 
-test("regrouping splits a group that drifted", () => {
+test("regrouping splits a group that drifted", async () => {
   const a = v([40, 1]);
   const b = v([41, 1]);
   const jobs = [
@@ -752,7 +750,7 @@ test("regrouping splits a group that drifted", () => {
     .set({ candidateId: crypto.randomUUID(), status: "candidate" })
     .where(eq(speakerAssignments.speakerLabel, "speaker_0"))
     .run();
-  expect(regroup(env.db)).toBe(1);
+  expect(await regroup(env.db)).toBe(1);
   const rows = env.db
     .select()
     .from(speakerAssignments)
@@ -768,7 +766,7 @@ test("regrouping splits a group that drifted", () => {
   });
 });
 
-test("expiry deletes old voice data that is nobody's evidence and keeps labels", async () => {
+test("unnamed samples survive beyond 30 days and old voices can still be named", async () => {
   const voice = v([50, 1]);
   const { jobId: enrolled } = await enroll("Mira", voice);
   const later = conversation(voice, stranger());
@@ -780,12 +778,12 @@ test("expiry deletes old voice data that is nobody's evidence and keeps labels",
       createdAt: new Date(Date.now() - 31 * 24 * 3600 * 1000),
     })
     .run();
-  // Mira's 2 evidence clips stay; the 6 others go.
-  expect(expire(env.db)).toBe(6);
-  expect(countRows(env.db, voiceSamples)).toBe(2);
+  // All samples stay, but only Mira's owner-attributed clips are evidence.
+  expect(expire(env.db)).toBe(0);
+  expect(countRows(env.db, voiceSamples)).toBe(8);
   expect(countRows(env.db, voiceProfiles)).toBe(2);
-  // Without voice data, the later conversation keeps its name through a sweep.
-  sweep(env.db);
+  // The later conversation keeps its name through a sweep.
+  await sweep(env.db);
   const rows = recognize(later);
   expect(speaker(rows, "speaker_0")?.personName).toBe("Mira");
   expect(enrolled).toBeTruthy();
@@ -855,14 +853,14 @@ test("the owner's own turns inside another speaker become his, with a turn sampl
     .where(eq(voiceSamples.jobId, jobId))
     .run();
   expire(env.db);
-  sweep(env.db);
+  await sweep(env.db);
   expect(turns(recognize(jobId))).toContainEqual([1, me.personId]);
 });
 
 // Oct 13: the owner's "Several people" marked voices mixed, and the sweep 60 s later recomputed the
 // mark away. Oct 14: sweeps wrote score-less "unknown" rows for transcripts with no samples yet,
 // which let summaries start before recognition.
-test("a sweep keeps a mixed mark, and writes nothing for a transcript without samples", () => {
+test("a sweep keeps a mixed mark, and writes nothing for a transcript without samples", async () => {
   const mixed = conversation(v([30, 1]), stranger());
   recognize(mixed);
   env.db
@@ -871,7 +869,7 @@ test("a sweep keeps a mixed mark, and writes nothing for a transcript without sa
     .where(eq(speakerAssignments.jobId, mixed))
     .run();
   const bare = transcript([turn("speaker_0", 0, 5), turn("speaker_1", 5, 10)]);
-  sweep(env.db);
+  await sweep(env.db);
   const rows = env.db.select().from(speakerAssignments).all();
   expect(rows.filter((r) => r.jobId === mixed).every((r) => r.mixed)).toBe(
     true
@@ -947,7 +945,7 @@ test("a voice of several people: each sampled turn among the owner's candidates,
     .delete(voiceProfiles)
     .where(eq(voiceProfiles.personId, clara.personId))
     .run();
-  sweep(env.db);
+  await sweep(env.db);
   expect(turns(speakersOf(jobId))).toEqual(turns(rows));
 
   // The voice is nobody's evidence, even its new samples.
@@ -976,15 +974,14 @@ test("a voice of several people: each sampled turn among the owner's candidates,
   });
 });
 
-test("the nightly upkeep runs once a night, across a restart too", () => {
+test("the nightly upkeep runs once a night, across a restart too", async () => {
   const night = new Date("2026-10-11T04:00:00Z");
   expect(
-    voiceUpkeep(env.db).nightly(new Date("2026-10-11T02:00:00Z"))
+    await voiceUpkeep(env.db).nightly(new Date("2026-10-11T02:00:00Z"))
   ).toBeNull();
-  voiceUpkeep(env.db).nightly(night);
-  // A deploy later that night.
-  voiceUpkeep(env.db).nightly(new Date("2026-10-11T09:00:00Z"));
-  voiceUpkeep(env.db).nightly(new Date("2026-10-12T04:00:00Z"));
+  await voiceUpkeep(env.db).nightly(night);
+  await voiceUpkeep(env.db).nightly(new Date("2026-10-11T09:00:00Z"));
+  await voiceUpkeep(env.db).nightly(new Date("2026-10-12T04:00:00Z"));
   const runs = env.db
     .select({ day: sql<string>`${events.fields}->>'day'` })
     .from(events)

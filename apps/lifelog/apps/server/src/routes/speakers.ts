@@ -311,9 +311,10 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The voices to name: unnamed voices of the last 30 days that talked with the owner " +
-          "(at least 10 turns traded and a minute of talk), one item per voice across " +
-          "conversations and days, the most back-and-forth first, each with clean clips of its " +
+          "The voices to name: unnamed voices with at least 10 turns traded and a minute of talk " +
+          "with the owner, or at least 300 words even when overheard, across the whole archive. " +
+          "One item per voice across conversations and days, playable first then most words, " +
+          "each with clean clips of its " +
           "voice and the name the summaries heard or who it sounds like.",
         method: "get",
         path: "/naming-queue",

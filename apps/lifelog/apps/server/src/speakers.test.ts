@@ -55,3 +55,25 @@ test("a new voice unlike everyone is no stranger, however little it sounds like 
   expect(isStranger([0.3, 0.2, 0.5, Math.sqrt(0.62)])).toBe(false);
   expect(isStranger([0.3, 0.2, 0.7, Math.sqrt(0.38)])).toBe(true);
 });
+
+test("a lone profile competes with unknown, while an explicit closed choice stays usable", () => {
+  const [, person] = profiles;
+  if (!person) {
+    throw new Error("missing profile");
+  }
+  const voices = { people: [person], strangers: [] };
+  const named = (score: number) =>
+    decide(
+      { samples: [], vector: [Math.sqrt(1 - score ** 2), score, 0] },
+      voices
+    ).personId;
+  expect(named(0.65)).toBeNull();
+  expect(named(0.75)).toBe("clara");
+  const sample = turnAt(0, 0.5, 10);
+  expect(
+    decide({ samples: [sample], vector: null }, voices, {
+      people: ["clara"],
+      unknown: false,
+    }).turns.map((t) => t.personId)
+  ).toEqual(["clara"]);
+});

@@ -122,11 +122,24 @@ reverse it, change its entry here in the same commit.
   reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
   runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
-- **One list of voices to name**, rebuilt nightly by average likeness and asked one voice at a time; strangers and
-  media are never asked about. Voice data that is nobody's evidence goes after 30 days.
-- **"Not anyone I know" is a stranger he doesn't care about** (his words, 3 Nov 2026). A voice that sounds more like
-  those than like anyone he named is a stranger too (status `stranger`): never named, grouped or asked about, for as
-  long as the strangers' clips are kept (30 days).
+- One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses
+  group vector sums and counts instead of an all-pairs matrix before the sample set grows. Cards with playback come
+  first, then by the words a name unlocks; overheard groups with at least 300 words are eligible. Brief strangers and
+  media are left out. Clips are built only for returned cards (`docs/processing.md`, "Speakers").
+- Unnamed samples no longer expire by age (owner's decision, 9 Nov 2026). This replaces the previous promise to delete
+  voice data that was nobody's evidence after a month. Samples stay until named or rejected; strangers' samples
+  remain negative references. An unnamed or several-person voice is still nobody's evidence. Only clips attributed
+  by the owner become person evidence; retention grants no permission to send embeddings outside the server.
+- Old voices recover through the existing sampler (owner's decision, 9 Nov 2026). One database migration reopens
+  conversation-held jobs with stored audio. The sampler alone decides eligibility, preserves existing samples and
+  owner assignments, retries least recently attempted jobs first and permits only one pending pass at a time.
+  Dictation and unsafe old audio remain excluded; recovery never transcribes again.
+- Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
+  conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
+  person merge or new evidence: the owner's assignments win. For a lone profile, unknown competes at the match threshold; the usual lead is still required.
+- **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
+  sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
+  recovered or asked about. Its samples remain negative references.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the
