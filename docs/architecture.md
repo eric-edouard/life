@@ -21,7 +21,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
   into a small store of who spoke when, never the words (except an ask's), and a turn's words, search and places on
   demand.
 - Life builds its voice units from lifelog's conversations and their turns, by code; lifelog's summaries are never
-  read. The chapter units already stored stay as they are, so the voice history is not read through the models again.
+  read. The chapter units already stored stay as they are: facts, his ratings and corrections cite them.
 - Life writes to lifelog in two ways only: `forward`, the owner's explicit corrections (speaker, title, rename, merge),
   and `notifyPhone`, a "heard you" push for each voice ask (no words of his).
 - Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must

@@ -11,6 +11,7 @@ import {
 } from "../records/persona";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { openStore } from "../sources/lifelog";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
 import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
 import { locate } from "./observe";
@@ -319,20 +320,22 @@ export const recordingsOf = (units: Unit[], refs: Set<string>) =>
  * The sampled recordings with their words (`spokenLines`), his and `refs`' turns only, days kept in order to `budget`
  * characters; a chapter's words too while lifelog holds its turns, else its title and summary as context, never quoted.
  */
-async function spokenOf(
+export async function spokenOf(
   recordings: Recording[],
   refs: Set<string>,
-  people: People,
+  people: Pick<People, "resolve" | "truth">,
   named: (ref: string) => string,
-  budget: number
+  budget: number,
+  open = openStore
 ) {
   const spoken = await spokenLines(
     recordings.map((r) => r.unit),
     people.resolve,
-    people.truth
+    people.truth,
+    open
   );
-  const isHeard = (u: Unit) => (spoken.get(u.id)?.length ?? 0) > 0;
-  const live = recordings.flatMap((r) => (isHeard(r.unit) ? [r.unit] : []));
+  const hasWords = (u: Unit) => (spoken.get(u.id)?.length ?? 0) > 0;
+  const live = recordings.flatMap((r) => (hasWords(r.unit) ? [r.unit] : []));
   let used = 0;
   // Newest first, as the sample keeps them: a low guess of their length cuts the oldest.
   const days = live.toReversed().flatMap((u): ShownDay[] => {
@@ -367,7 +370,7 @@ async function spokenOf(
     ];
   });
   const recorded = recordings.flatMap((r) =>
-    isFrozen(r.unit) && !isHeard(r.unit)
+    isFrozen(r.unit) && !hasWords(r.unit)
       ? [{ day: r.day, summary: r.unit.summary, title: r.unit.title }]
       : []
   );

@@ -2,6 +2,14 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
+import { apply } from "../sources/lifelog";
+import {
+  conversation,
+  lifelogServer,
+  lifelogStore,
+  pageFixture,
+  turnFixture,
+} from "../sources/store-fixtures";
 import { personaPath } from "./ledger";
 import {
   betweenOf,
@@ -15,8 +23,11 @@ import {
   recordingsOf,
   sampleOf,
   shownDaysOf,
+  spokenOf,
   supportOf,
 } from "./personas";
+import type { Truth } from "./read-truth";
+import { unit as unitFixture } from "./record-fixtures";
 
 const whoOf = (e: SourceEvent) => (e.fromMe ? "him" : "Dad");
 
@@ -307,5 +318,63 @@ test("a persona in an older shape reads as none, so it is due at the next run (n
     ).toBe(true);
   } finally {
     rmSync(personaPath(ref));
+  }
+});
+
+test("an old chapter is read by its words while lifelog holds its turns, by its summary when not", async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [
+        { speakerId: "speaker_0", text: "Allo" },
+        { speakerId: "speaker_1", text: "Salut" },
+      ],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("c1")],
+      turns: [
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1", true),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", "p1", "Plumber"),
+      ],
+    })
+  );
+  const chapter = (key: string, id: string) =>
+    unitFixture({
+      date: "2026-10-14",
+      end: "2026-10-14T10:05:00.000Z",
+      id,
+      key,
+      people: ["unknown:Plumber"],
+      start: "2026-10-14T10:00:00.000Z",
+      summary: "They talked about the sink.",
+      title: "Sink",
+    });
+  try {
+    const { days, recorded } = await spokenOf(
+      recordingsOf(
+        [chapter("c1", "heard"), chapter("gone", "gone")],
+        new Set(["unknown:Plumber"])
+      ),
+      new Set(["unknown:Plumber"]),
+      { resolve: () => null, truth: { people: [] } as unknown as Truth },
+      () => "the plumber",
+      10_000,
+      () => store
+    );
+    expect(days.map((d) => d.messages.map((m) => m.text))).toEqual([
+      ["Allo", "Salut"],
+    ]);
+    expect(recorded).toEqual([
+      {
+        day: "2026-10-14",
+        summary: "They talked about the sink.",
+        title: "Sink",
+      },
+    ]);
+  } finally {
+    server.close();
   }
 });
