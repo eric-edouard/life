@@ -1,8 +1,6 @@
 ---
 type: grilling
 blocked_by: []
-claimed_by: claude-session-memory-rework
-claimed_at: 2026-11-09T11:32:38Z
 ---
 
 # Naming the unnamed voices
@@ -20,3 +18,21 @@ How do these turns get named before the pilot reads them: re-embedding from audi
 profiles, joining split voices within a conversation, context (who else spoke, where), or asking him in conversation
 for the few clusters that decide the most words. What stays unnamed, and how it is shown. The fix lands in lifelog,
 and the data is fixed before the whole history is read once.
+
+## Answer
+
+Decided with him, 9 Nov, one question at a time. Why voices slip past his naming today (lifelog's `NAMING` and
+`RECOGNITION`): a card needs 10 turns traded with him and 60 s of talk; cards cover 30 days only; unnamed voice
+fingerprints are deleted after 30 days; one person is often split into a second, unnamed voice. The fix, all in lifelog:
+
+1. Old unnamed voices are fingerprinted again from the audio (kept forever) and matched against today's profiles, at
+   lifelog's own bar.
+2. Within one conversation, an unnamed voice that clearly matches a person named in the same recording joins them.
+3. Unnamed fingerprints are kept until the voice is named or he marks it "not anyone I know"; the 30-day deletion goes.
+   Naming a voice then names it in every past recording.
+4. "Who's this?" also asks about voices that say a lot in his recordings without talking to him, ranked by the words a
+   name would unlock; strangers heard once with little said still get none. Same morning notification, never a queue.
+
+Whatever stays unnamed is context only (ticket Who really spoke in a recording). Done before the pilot reads the
+history: the share of unnamed turns near his regular people is measured again after 1–2, and the pilot uses that data.
+No model spend.

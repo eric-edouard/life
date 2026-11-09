@@ -51,6 +51,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [Who really spoke in a recording](./tickets/04-who-really-spoke.md) — lifelog's contract gains `speaker.basis` (assigned, matched, inferred, none); only assigned and matched turns are a person's own evidence
 - [Old sources, read in once](./tickets/03-old-sources.md) — old WhatsApp from an iPhone backup (started 9 Nov) plus the father's old-number export; iMessage and Notes already complete; mail needs a filter; three networks need exports; all land before the one read
 - [The questions he asks Life](./tickets/02-the-questions-he-asks.md) — 102 questions in his data repo, 25 failed; prediction, arcs and himself are thin, so the set grows from his old chats and assistant exports
+- [Naming the unnamed voices](./tickets/24-naming-the-unnamed-voices.md) — lifelog re-fingerprints old voices, joins split voices, keeps unnamed fingerprints until named, and asks about voices that say a lot near him, ranked by words; fixed before the pilot
 
 ## Not yet specified
 
