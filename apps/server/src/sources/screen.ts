@@ -382,10 +382,10 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
 
 /**
  * Each device's newest record (the status snapshot): one part per device he still uses, so a retired one turns
- * nothing amber. A device Biome no longer syncs with is gone; of one kind (iPhone, Mac), the one heard from last
+ * nothing amber. A device Biome no longer syncs with is gone; of one platform (iOS, Mac), the one heard from last
  * replaced the others.
  */
-// ponytail: two phones in use at once show as one; a setting naming retired devices if he ever runs two.
+// ponytail: two iOS devices in use at once (an iPhone and an iPad) show as one; a setting naming retired devices then.
 export function newestScreen(dir = ARCHIVE, biome = BIOME): Newest {
   const peers = readPeers(biome);
   const newest = newestArchived(
