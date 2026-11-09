@@ -380,19 +380,27 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
     .sort((a, b) => a.at.localeCompare(b.at));
 }
 
-/** Each device's newest record (the status snapshot): one part per device. */
-export function newestScreen(dir = ARCHIVE): Newest {
-  const peers = readPeers();
+/**
+ * Each device's newest record (the status snapshot): one part per device he still uses, so a retired one turns
+ * nothing amber. A device Biome no longer syncs with is gone; of one platform (iOS, Mac), the one heard from last
+ * replaced the others.
+ */
+// ponytail: two iOS devices in use at once (an iPhone and an iPad) show as one; a setting naming retired devices then.
+export function newestScreen(dir = ARCHIVE, biome = BIOME): Newest {
+  const peers = readPeers(biome);
   const newest = newestArchived(
     "screen",
     "select max(at) as at, device as label, '' as words from events group by device order by at desc",
     dir
   );
+  const platformOf = (id: string) => peers.find((p) => p.id === id)?.platform;
+  const current = (newest.parts ?? []).filter(
+    (p, i, all) =>
+      platformOf(p.label) !== undefined &&
+      all.findIndex((q) => platformOf(q.label) === platformOf(p.label)) === i
+  );
   return {
     at: newest.at,
-    parts: newest.parts?.map((p) => ({
-      ...p,
-      label: deviceName(p.label, peers),
-    })),
+    parts: current.map((p) => ({ ...p, label: deviceName(p.label, peers) })),
   };
 }

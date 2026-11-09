@@ -4,7 +4,13 @@ import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toAppleS } from "./imessage";
-import { copyScreen, parseSegb, readScreen, stintsOf } from "./screen";
+import {
+  copyScreen,
+  newestScreen,
+  parseSegb,
+  readScreen,
+  stintsOf,
+} from "./screen";
 
 // Made-up Biome files: protobuf records in a SEGB v2 file, as Biome writes them.
 
@@ -241,4 +247,29 @@ test("a record written into a file of the same size and time is still copied", (
   );
   utimesSync(full, then, then);
   expect(copyScreen(root, archive)).toBe(1);
+});
+
+test("the card counts only devices still in use: a retired phone and one Biome no longer syncs turn nothing amber", () => {
+  const { archive, root } = biomeFixture({
+    "App.InFocus/remote/GONE-1/1": segb([
+      { data: phoneApp(-900, "com.example.chat", true) },
+    ]),
+    "App.InFocus/remote/OLD-PHONE/1": segb([
+      { data: phoneApp(-600, "com.example.chat", true) },
+    ]),
+    [`App.InFocus/remote/${PHONE}/1`]: segb([
+      { data: phoneApp(-5, "com.example.chat", true) },
+    ]),
+    "ScreenTime.AppUsage/local/1": segb([
+      { data: macApp(-30, "com.example.editor", true) },
+    ]),
+  });
+  const db = new Database(join(root, "sync/sync.db"));
+  db.run("insert into DevicePeer values ('OLD-PHONE', 0, 2)");
+  db.close();
+  copyScreen(root, archive);
+  expect(newestScreen(archive, root).parts).toEqual([
+    { at: new Date(at(-5)).toISOString(), label: "iOS device" },
+    { at: new Date(at(-30)).toISOString(), label: "Mac" },
+  ]);
 });
