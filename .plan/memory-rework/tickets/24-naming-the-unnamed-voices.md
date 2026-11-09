@@ -1,6 +1,8 @@
 ---
 type: grilling
 blocked_by: []
+claimed_by: claude-session-memory-rework
+claimed_at: 2026-11-09T11:32:38Z
 ---
 
 # Naming the unnamed voices
