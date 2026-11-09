@@ -1,6 +1,6 @@
 ---
 type: grilling
-blocked_by: [04]
+blocked_by: [04, 24]
 ---
 
 # The exchange
