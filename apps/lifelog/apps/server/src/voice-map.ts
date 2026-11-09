@@ -1,25 +1,56 @@
 // A read of the naming queue, projected per embedding model. The queue owns eligibility,
 // order, words and clips; speakers.ts owns every likeness and margin. Nothing is written.
 import type { Db } from "@lifelog/db";
-import { people } from "@lifelog/db/schema";
+import {
+  people,
+  speakerAssignments,
+  transcriptionJobs,
+  voiceSamples,
+} from "@lifelog/db/schema";
 import { RECOGNITION } from "./config";
-import type { QueueCache } from "./naming-queue";
-import { modelKey, personRow, readProfiles, samplesOf } from "./people";
-import { centroid, rankPeople, type Vector } from "./speakers";
+import { clipOf } from "./naming-clips";
+import type { QueueItems } from "./naming-queue";
+import {
+  holdingConversations,
+  modelKey,
+  personRow,
+  readProfiles,
+  voiceId,
+} from "./people";
+import { centroid, rankPeople } from "./speakers";
+import { loadTurns } from "./transcript";
 import { pcaOf } from "./voice-pca";
+import type { Vector } from "./voice-vectors";
 
-export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
+export function readVoiceMap(db: Db, cards: QueueItems) {
   const profiles = readProfiles(db);
-  const groups = cards.flatMap((card) =>
-    [...Map.groupBy(samplesOf(db, card.voices), modelKey)].map(
-      ([model, samples]) => ({
-        id: card.id,
-        model,
-        vector: centroid(samples.map((s) => s.embedding)),
-        words: card.words,
-      })
-    )
+  const samples = db.select().from(voiceSamples).all();
+  const rows = db.select().from(speakerAssignments).all();
+  const turns = new Set(
+    rows
+      .filter((r) => r.turnIndex !== null)
+      .map((r) => `${r.jobId}/${r.turnIndex}`)
   );
+  const split = readSplitCards(db, rows);
+  const shown = [...cards, ...split];
+  const byVoice = Map.groupBy(
+    samples.filter((s) => !turns.has(`${s.jobId}/${s.turnIndex}`)),
+    (s) => voiceId(s.jobId, s.speakerLabel)
+  );
+  const byTurn = Map.groupBy(samples, (s) => `${s.jobId}/${s.turnIndex}`);
+  const groups = shown.flatMap((card) => {
+    const members = card.id.startsWith("turns/")
+      ? card.clips.flatMap((c) => byTurn.get(`${c.jobId}/${c.turnIndex}`) ?? [])
+      : card.voices.flatMap(
+          (v) => byVoice.get(voiceId(v.jobId, v.speakerLabel)) ?? []
+        );
+    return [...Map.groupBy(members, modelKey)].map(([model, inModel]) => ({
+      id: card.id,
+      model,
+      vector: centroid(inModel.map((s) => s.embedding)),
+      words: card.words,
+    }));
+  });
   const models = [
     ...new Set([...profiles.keys(), ...groups.map((g) => g.model)]),
   ].map((model) => {
@@ -65,8 +96,96 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
   });
   return {
     candidateThreshold: RECOGNITION.candidateThreshold,
-    cards,
+    cards: shown,
     models,
     people: db.select().from(people).all().map(personRow),
   };
+}
+
+// Split groups have no phone card: the map names their stored turns through the existing PUT.
+function readSplitCards(
+  db: Db,
+  rows: (typeof speakerAssignments.$inferSelect)[]
+) {
+  const loaded = new Map<string, ReturnType<typeof loadTurns>>();
+  const split = rows.filter(
+    (r) =>
+      r.source === "recognized" &&
+      r.turnIndex !== null &&
+      r.candidateId &&
+      !r.personId
+  );
+  if (split.length === 0) {
+    return [];
+  }
+  const jobs = new Map(
+    db
+      .select({
+        id: transcriptionJobs.id,
+        map: transcriptionJobs.map,
+        objectKey: transcriptionJobs.objectKey,
+      })
+      .from(transcriptionJobs)
+      .all()
+      .map((j) => [j.id, j])
+  );
+  const conversations = new Map(
+    [...new Set(split.map((r) => r.jobId))].map((jobId) => [
+      jobId,
+      holdingConversations(db, jobId),
+    ])
+  );
+  return [...Map.groupBy(split, (r) => r.candidateId)].flatMap(
+    ([group, members]) => {
+      let words = 0;
+      let seconds = 0;
+      const clips = members.flatMap((r) => {
+        for (const id of conversations.get(r.jobId) ?? []) {
+          if (!loaded.has(id)) {
+            loaded.set(id, loadTurns(db, id));
+          }
+          const turn = loaded
+            .get(id)
+            ?.turns.find(
+              (t) => t.ref.jobId === r.jobId && t.ref.turnIndex === r.turnIndex
+            );
+          if (turn) {
+            words += turn.words.length;
+            seconds += turn.endSeconds - turn.startSeconds;
+            const job = jobs.get(r.jobId);
+            return [clipOf(id, turn, job?.objectKey ? job.map : null)];
+          }
+        }
+        return [];
+      });
+      return clips.length
+        ? [
+            {
+              clips,
+              conversations: new Set(clips.map((c) => c.conversationId)).size,
+              evidence: [],
+              exchanges: 0,
+              id: `turns/${group}`,
+              kind: "new_person" as const,
+              name: null,
+              personId: null,
+              seconds: Math.round(seconds),
+              voices: [
+                ...new Map(
+                  clips.map((c) => [
+                    `${c.jobId}/${c.speakerLabel}`,
+                    {
+                      conversationId: c.conversationId,
+                      jobId: c.jobId,
+                      speakerLabel: c.speakerLabel ?? "",
+                    },
+                  ])
+                ).values(),
+              ],
+              words,
+            },
+          ]
+        : [];
+    }
+  );
 }

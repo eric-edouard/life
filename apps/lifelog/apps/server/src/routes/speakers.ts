@@ -8,7 +8,6 @@ import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
-import { readVoiceMap } from "../voice-map";
 import {
   ApiError,
   IdParam,
@@ -124,7 +123,7 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+          "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are cached until the naming queue rebuilds. Likeness is not a calibrated probability.",
         method: "get",
         path: "/speakers/map",
         responses: {
@@ -160,7 +159,7 @@ export function speakerRoutes({
           ),
         },
       }),
-      (c) => c.json(readVoiceMap(db, queue.items()), 200)
+      (c) => c.json(queue.map(), 200)
     )
     .openapi(
       createRoute({

@@ -47,18 +47,23 @@ import { ownerClock, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import { type Fields, record, recordedOn } from "./events";
 import {
+  keepOwnerWhole,
+  lastKnown,
+  type Recognition,
+  recognizedRows,
+  unchanged,
+} from "./recognized-rows";
+import {
   centroid,
-  cosine,
   decide,
   likeness,
   NO_PROFILES,
   nearbyMatch,
   type Profile,
   type Profiles,
-  type Vector,
 } from "./speakers";
-
 import { averageLinkage } from "./voice-linkage";
+import { cosine, type Vector } from "./voice-vectors";
 
 type Assignment = typeof assignments.$inferSelect;
 
@@ -157,6 +162,9 @@ export const keepServerSamples = (
       .set({ excerptsAt: clock() })
       .where(eq(transcripts.jobId, jobId))
       .run();
+    if (kept.length > 0) {
+      logChange(tx, "job", jobId);
+    }
   });
 
 // A new sample becomes evidence only if the owner already assigned its turn or its speaker to a
@@ -196,12 +204,6 @@ function setEvidence(db: Db, sampleIds: string[], personId: string | null) {
 }
 
 // ---- Recognition ------------------------------------------------------------
-
-// Who one speaker of a transcript is (`match`), with its unnamed group kept from its row before.
-type Recognition = ReturnType<typeof match> & {
-  candidateId: string | null;
-  label: string;
-};
 
 export interface EvidenceRow {
   conversationId: string;
@@ -433,22 +435,33 @@ function voicesWhere(db: Db, where: SQL | undefined) {
   const rows = db
     .select({ assignment: assignments, sample: voiceSamples })
     .from(assignments)
-    .innerJoin(
-      voiceSamples,
-      and(
-        eq(voiceSamples.jobId, assignments.jobId),
-        eq(voiceSamples.speakerLabel, assignments.speakerLabel)
-      )
-    )
-    .where(and(isNull(assignments.turnIndex), ofItsSpeaker, where))
+    .innerJoin(voiceSamples, coveredByRow)
+    .where(where)
     .all();
-  return [...Map.groupBy(rows, (r) => r.assignment.id).values()].flatMap(
-    (group) => {
-      const { model, vector } = speakerVoice(group.map((g) => g.sample));
-      const assignment = group[0]?.assignment;
-      return vector && assignment ? [{ assignment, model, vector }] : [];
-    }
-  );
+  return [
+    ...Map.groupBy(rows, (r) =>
+      r.assignment.turnIndex === null
+        ? r.assignment.id
+        : `${r.assignment.jobId}/${r.assignment.speakerLabel}/${r.assignment.candidateId ?? r.assignment.personId ?? r.assignment.id}`
+    ).values(),
+  ].flatMap((group) => {
+    const { model, vector } = speakerVoice(group.map((g) => g.sample));
+    const assignment = group[0]?.assignment;
+    return vector && assignment
+      ? [
+          {
+            assignment,
+            model,
+            rows: [
+              ...new Map(
+                group.map((g) => [g.assignment.id, g.assignment])
+              ).values(),
+            ],
+            vector,
+          },
+        ]
+      : [];
+  });
 }
 
 // Every unnamed recognized speaker (unknown or in a group) with enough clean speech.
@@ -611,75 +624,6 @@ export function recognize(db: Db, jobId: string, nearby = nearbyVoices()) {
   );
 }
 
-// A speaker whose voice data expired: what it was last recognized as.
-const lastKnown = (old: Assignment): Recognition => ({
-  candidateId: old.candidateId,
-  isStranger: old.status === "stranger",
-  label: old.speakerLabel,
-  margin: old.margin,
-  model: null,
-  personId: old.personId,
-  score: old.score,
-  turns: [],
-  vector: null,
-});
-
-// Whether `results` say what the stored rows already say (scores aside).
-const unchanged = (results: Recognition[], before: Map<string, Assignment>) =>
-  results.length === before.size &&
-  results.every((r) => {
-    const old = before.get(r.label);
-    return (
-      r.turns.length === 0 &&
-      old?.personId === r.personId &&
-      old.candidateId === groupOf(r) &&
-      old.status === statusOf(r)
-    );
-  });
-
-// A speaker that is the owner needs none of his turns moved.
-function keepOwnerWhole(results: Recognition[], ownerId: string | undefined) {
-  for (const r of results) {
-    if (r.personId && r.personId === ownerId) {
-      r.turns = [];
-    }
-  }
-}
-
-// The rows recognition writes for one transcript: a row per speaker, the turns found before
-// (`kept`, as they were) and those found now, in its speakers and its `several` voices.
-function recognizedRows(
-  jobId: string,
-  results: Recognition[],
-  kept: Assignment[],
-  several: Pick<Recognition, "label" | "turns">[]
-) {
-  return [
-    ...results.map((r) => ({
-      candidateId: groupOf(r),
-      jobId,
-      margin: r.margin,
-      personId: r.personId,
-      score: r.score,
-      source: "recognized" as const,
-      speakerLabel: r.label,
-      status: statusOf(r),
-    })),
-    ...kept.map(({ id: _, updatedAt: __, ...r }) => r),
-    ...[...results, ...several].flatMap((r) =>
-      r.turns.map((t) => ({
-        jobId,
-        personId: t.personId,
-        score: t.score,
-        source: "recognized" as const,
-        speakerLabel: r.label,
-        status: "person" as const,
-        turnIndex: t.turnIndex,
-      }))
-    ),
-  ];
-}
-
 // Writes one transcript's recognized rows, and only when they change (the phone reads every
 // row of a changed job). A speaker whose voice data expired keeps what it was last recognized
 // as; every speaker keeps its unnamed group (`regroup` redoes them each night). Whether anything
@@ -726,16 +670,39 @@ function recognizeJob(
     );
   const results = [...labels]
     .filter((label) => !answered.some((r) => r.speakerLabel === label))
-    .map((label): Recognition => {
+    .flatMap((label): Recognition[] => {
       const old = before.get(label);
       if (old && !jobSamples.some((s) => s.sample.speakerLabel === label)) {
-        return lastKnown(old);
+        return [lastKnown(old)];
       }
-      return {
-        ...match(clean(label), profiles),
-        candidateId: old?.candidateId ?? null,
-        label,
-      };
+      const matched = match(clean(label), profiles);
+      const splits = [
+        ...Map.groupBy(
+          matched.turns.filter((t) => t.voice),
+          (t) => t.voice
+        ).entries(),
+      ];
+      return [
+        {
+          ...matched,
+          candidateId: old?.candidateId ?? null,
+          label,
+          turns: matched.turns.filter((t) => !t.voice),
+        },
+        ...splits.flatMap(([voice, turns]) =>
+          voice
+            ? [
+                {
+                  ...voice,
+                  candidateId: randomUUID(),
+                  label,
+                  model: matched.model,
+                  turnIndices: turns.map((t) => t.turnIndex),
+                },
+              ]
+            : []
+        ),
+      ];
     });
   const several = answered.flatMap((r) =>
     r.candidates
@@ -774,20 +741,6 @@ function recognizeJob(
   return true;
 }
 
-// A named voice or a stranger is in no unnamed group.
-const groupOf = (r: Recognition) =>
-  r.personId || r.isStranger ? null : r.candidateId;
-
-const statusOf = (r: Recognition) => {
-  if (r.personId) {
-    return "person" as const;
-  }
-  if (r.isStranger) {
-    return "stranger" as const;
-  }
-  return r.candidateId ? ("candidate" as const) : ("unknown" as const);
-};
-
 // ---- Upkeep -----------------------------------------------------------------
 
 // Matches every live transcript again against today's profiles, then rebuilds the unnamed
@@ -825,20 +778,22 @@ async function groupIds(voices: UnnamedVoice[]) {
     voices.map((v) => v.vector),
     RECOGNITION.candidateThreshold
   );
-  return grouped.map((indices) => {
-    const members = indices.flatMap((i) => voices[i] ?? []);
-    const [kept] = [
-      ...Map.groupBy(
-        members.flatMap((m) => m.assignment.candidateId ?? []),
-        (x) => x
-      ).entries(),
-    ]
-      .filter(([existing]) => !used.has(existing))
-      .sort((x, y) => y[1].length - x[1].length);
-    const id = kept?.[0] ?? randomUUID();
-    used.add(id);
-    return [id, members] as const;
-  });
+  return grouped
+    .filter((indices) => indices.length > 1)
+    .map((indices) => {
+      const members = indices.flatMap((i) => voices[i] ?? []);
+      const [kept] = [
+        ...Map.groupBy(
+          members.flatMap((m) => m.assignment.candidateId ?? []),
+          (x) => x
+        ).entries(),
+      ]
+        .filter(([existing]) => !used.has(existing))
+        .sort((x, y) => y[1].length - x[1].length);
+      const id = kept?.[0] ?? randomUUID();
+      used.add(id);
+      return [id, members] as const;
+    });
 }
 
 // Rebuilds every unnamed group from scratch (`averageLinkage`), so groups that drifted come
@@ -846,12 +801,18 @@ async function groupIds(voices: UnnamedVoice[]) {
 export async function regroup(db: Db) {
   const voices = unnamedVoices(db);
   const wanted = new Map<string, string | null>(
-    voices.map((v) => [v.assignment.id, null])
+    voices.flatMap((v) =>
+      v.rows.map(
+        (r) => [r.id, r.turnIndex === null ? null : r.candidateId] as const
+      )
+    )
   );
   for (const sameModel of Map.groupBy(voices, (v) => v.model).values()) {
     for (const [id, members] of await groupIds(sameModel)) {
       for (const v of members) {
-        wanted.set(v.assignment.id, id);
+        for (const row of v.rows) {
+          wanted.set(row.id, id);
+        }
       }
     }
   }
@@ -859,21 +820,21 @@ export async function regroup(db: Db) {
   if (!isDeepStrictEqual(voices, unnamedVoices(db))) {
     return 0;
   }
-  const changes = voices.filter(
-    (v) => v.assignment.candidateId !== wanted.get(v.assignment.id)
-  );
+  const changes = voices
+    .flatMap((v) => v.rows)
+    .filter((r) => r.candidateId !== wanted.get(r.id));
   return db.transaction((tx) => {
     for (const v of changes) {
-      const candidateId = wanted.get(v.assignment.id) ?? null;
+      const candidateId = wanted.get(v.id) ?? null;
       tx.update(assignments)
         .set({ candidateId, status: candidateId ? "candidate" : "unknown" })
-        .where(eq(assignments.id, v.assignment.id))
+        .where(eq(assignments.id, v.id))
         .run();
     }
     logChange(
       tx,
       "assignment",
-      changes.map((v) => v.assignment.jobId)
+      changes.map((v) => v.jobId)
     );
     return changes.length;
   });

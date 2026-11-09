@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { people, voiceProfiles, voiceSamples } from "@lifelog/db/schema";
+import {
+  people,
+  speakerAssignments,
+  voiceProfiles,
+  voiceSamples,
+} from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { mintToken } from "../scripts/mint-token";
 import { createApp } from "./app";
@@ -8,7 +13,13 @@ import { loadConfig, RECOGNITION, sha256Hex } from "./config";
 import { queueCache } from "./naming-queue";
 import { services } from "./services";
 import { rankPeople } from "./speakers";
-import { OWNER_TOKEN, seedTranscript, testConfig, testDb } from "./testing";
+import {
+  OWNER_TOKEN,
+  seedConversation,
+  seedTranscript,
+  testConfig,
+  testDb,
+} from "./testing";
 import { readVoiceMap } from "./voice-map";
 import { pcaOf } from "./voice-pca";
 
@@ -61,7 +72,12 @@ test("map token opens exactly the map, existing clip audio and queue answer", as
       })
     ).status;
   expect(await status("/speakers/map")).toBe(200);
-  expect(await status(`/transcripts/${randomUUID()}/audio`)).toBe(404);
+  expect(
+    await status("/transcripts/00000000-0000-0000-0000-000000000000/audio")
+  ).toBe(404);
+  expect(
+    await status(`/transcripts/${randomUUID()}/speakers/voice`, "PUT")
+  ).toBe(400);
   expect(await status("/naming-queue/answer", "POST")).toBe(400);
   for (const [method, path] of [
     ["GET", "/changes"],
@@ -70,7 +86,6 @@ test("map token opens exactly the map, existing clip audio and queue answer", as
     ["GET", "/openapi.json"],
     ["GET", "/switches"],
     ["POST", "/search"],
-    ["PUT", `/transcripts/${randomUUID()}/speakers/voice`],
     ["PATCH", `/people/${randomUUID()}`],
     ["POST", "/speakers/map"],
     ["POST", `/transcripts/${randomUUID()}/audio`],
@@ -196,7 +211,7 @@ function seedMap() {
 
 test("map read keeps queue cards/order, ranks through speakers and separates models without writing or caching", async () => {
   const { owner, guest, cards, sampleId } = seedMap();
-  const queue = { items: () => cards };
+  const queue = { items: () => cards, map: () => readVoiceMap(env.db, cards) };
   const server = createApp(
     services(config(), env.db, { intelligence: null, queue })
   );
@@ -297,4 +312,125 @@ test("PCA retains radial distance: an outlier stays farther from the mean", () =
   for (const point of pcaOf(repeated)) {
     expect(Math.hypot(...point)).toBeCloseTo(1, 8);
   }
+});
+
+test("map names clips in place before the existing several answer, retaining each owner turn", async () => {
+  const first = randomUUID();
+  const second = randomUUID();
+  env.db
+    .insert(people)
+    .values([
+      { id: first, name: "First" },
+      { id: second, name: "Second" },
+    ])
+    .run();
+  const jobId = seedTranscript(env.db, [
+    { end: 10, speakerId: "a", start: 0, text: "First made-up voice" },
+    { end: 20, speakerId: "a", start: 10, text: "Second made-up voice" },
+  ]);
+  const server = app();
+  for (const [turnIndex, personId] of [first, second].entries()) {
+    // biome-ignore lint/performance/noAwaitInLoops: owner answers are ordered
+    const response = await server.request(`/transcripts/${jobId}/speakers/a`, {
+      body: JSON.stringify({ target: { kind: "person", personId }, turnIndex }),
+      headers: headers(),
+      method: "PUT",
+    });
+    expect(response.status).toBe(200);
+  }
+  const answer = await server.request("/naming-queue/answer", {
+    body: JSON.stringify({
+      answer: { kind: "several", people: [first, second], unknown: true },
+      voices: [{ jobId, speakerLabel: "a" }],
+    }),
+    headers: headers(),
+    method: "POST",
+  });
+  expect(answer.status).toBe(200);
+  const rows = env.db.select().from(speakerAssignments).all();
+  expect(rows.find((r) => r.turnIndex === 0)).toMatchObject({
+    personId: first,
+    source: "owner",
+  });
+  expect(rows.find((r) => r.turnIndex === 1)).toMatchObject({
+    personId: second,
+    source: "owner",
+  });
+  expect(rows.find((r) => r.turnIndex === null)).toMatchObject({
+    candidates: { people: [first, second].sort(), unknown: true },
+    source: "owner",
+  });
+});
+
+test("map lists split groups with every turn, outside the phone cards, and names each through PUT", async () => {
+  const { id, jobId } = seedConversation(env.db, [
+    { end: 12, speakerId: "a", start: 0, text: "Main voice" },
+    { end: 24, speakerId: "a", start: 12, text: "Split voice one" },
+    { end: 36, speakerId: "a", start: 24, text: "Split voice two" },
+  ]);
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        candidateId: "main",
+        jobId,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "candidate",
+      },
+      ...[1, 2].map((turnIndex) => ({
+        candidateId: "split",
+        jobId,
+        source: "recognized" as const,
+        speakerLabel: "a",
+        status: "unknown" as const,
+        turnIndex,
+      })),
+    ])
+    .run();
+  env.db
+    .insert(voiceSamples)
+    .values(
+      [0, 1, 2].map((turnIndex) => ({
+        conversationId: id,
+        durationSeconds: 12,
+        embedding: turnIndex ? [0, 1] : [1, 0],
+        jobId,
+        modelId: "test",
+        modelRevision: "r1",
+        speakerLabel: "a",
+        turnIndex,
+      }))
+    )
+    .run();
+  const mapped = readVoiceMap(env.db, []);
+  const [card] = mapped.cards;
+  expect(card?.id).toBe("turns/split");
+  expect(card?.clips.map((c) => c.turnIndex)).toEqual([1, 2]);
+  expect(mapped.models[0]?.points[0]?.id).toBe(card?.id);
+  const personId = randomUUID();
+  const server = app();
+  for (const clip of card?.clips ?? []) {
+    // biome-ignore lint/performance/noAwaitInLoops: owner answers are ordered
+    const response = await server.request(
+      `/transcripts/${clip.jobId}/speakers/${clip.speakerLabel}`,
+      {
+        body: JSON.stringify({
+          target: { id: personId, kind: "new", name: "Guest" },
+          turnIndex: clip.turnIndex,
+        }),
+        headers: headers(),
+        method: "PUT",
+      }
+    );
+    expect(response.status).toBe(200);
+  }
+  expect(readVoiceMap(env.db, []).cards).toEqual([]);
+  const rows = env.db.select().from(speakerAssignments).all();
+  expect(rows.find((r) => r.turnIndex === null)?.candidateId).toBe("main");
+  expect(
+    rows
+      .filter((r) => r.turnIndex !== null)
+      .every((r) => r.source === "owner" && r.personId === personId)
+  ).toBe(true);
 });

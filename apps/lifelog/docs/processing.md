@@ -243,14 +243,22 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   For a lone profile, `rankPeople` scores the missing runner at 0.6, in every caller: ordinary and
   candidate matches need a 0.1 lead over it; nearby profile naming needs 0.15. Closed choices do not bypass
   this margin. Owner turns at 0.6 still match without a margin; weaker short turns need the same 0.1 lead.
-- A provider speaker can hold several people. Only the owner says so ("Several people" in "Who's this?"): he names
-  each clip in place, its turn alone (one of his people, someone new, or "don't know"), then Done says who: those he
-  named, himself, and "unknown too" if a clip was "don't know". His row on the voice holds them (`candidates`) and
-  names nobody, unless one person besides him is picked without "unknown too": the turns no voice decides fall back on
-  them. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next, and at
-  0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
+- A provider speaker can hold several people. After the owner's turns leave it, recognition groups its remaining
+  clean sampled turns within the job, label and embedding model by exact average linkage. It splits only when every
+  group has at least two sampled turns and `minSpeakerSeconds` of speech, and every pair of group centroids
+  has cosine at most `notThem` (0.2). Failing the grouping threshold alone does not establish another person. The largest
+  group keeps the label's row; other groups get recognized turn rows and go through ordinary matching and nearby
+  naming. A split supplies no name or evidence; unsampled turns stay with the label, owner rows win and written turn
+  rows are kept. The phone keeps one card for the label's main group; the map lists split groups and names each
+  group's turns through the per-turn route. Regroup can join them again.
+- "Several people" in "Who's this?" or on the map lets the owner name each clip in place, its turn alone (one of the
+  owner's people, someone new, or "don't know"), then Done says who: those the owner named, the owner, and
+  "unknown too" if a clip was "don't know". The owner's row on the voice holds them (`candidates`)
+  and names nobody, unless one other person is picked without "unknown too": the turns no voice decides fall back on
+  that person. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next,
+  and at 0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
   answer. A turn's row, once written, is kept. The voice is nobody's evidence and never a
-  nearby reference; the clips he named are his rows, and so evidence. The phone then asks Generate for its
+  nearby reference; the clips the owner named are owner rows, and so evidence. The phone then asks Generate for its
   conversations; nothing else re-runs.
 - Before the multi-select, "several people" named nobody and marked the speaker `mixed`. Those voices come
   back in "Who's this?", each on its own card (kind `several`, past the stranger and media checks) that opens with

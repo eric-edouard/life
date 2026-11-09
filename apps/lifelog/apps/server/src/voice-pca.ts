@@ -1,5 +1,5 @@
 // Three principal components of centered group centroids, preserving their distance from the mean.
-import type { Vector } from "./speakers";
+import type { Vector } from "./voice-vectors";
 
 function covariance(rows: Vector[], dimensions: number) {
   const matrix = new Float64Array(dimensions * dimensions);

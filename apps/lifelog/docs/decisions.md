@@ -37,15 +37,24 @@ reverse it, change its entry here in the same commit.
 
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
   a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
-  the queue’s existing audio route and its answer route. The map reads the queue’s cards and words in their order,
-  with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
+  the queue’s existing audio and answer routes, and the existing per-turn naming PUT. The map reads the queue’s
+  cards and words in their order, with the same likeness ranking as recognition; easy targets are cards above the
+  candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
-  computed per request without a cache. Likeness is not a calibrated probability. Naming still uses the queue’s
-  answer route. `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its
-  hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
-  changes. It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  cached for each incremental queue build, with samples read in one query. Likeness is not a calibrated probability.
+  Naming uses the queue’s answer route or per-turn PUT. `bun run voices` keeps the map token in the Mac Keychain
+  (`lifelog-map-token`), activates its hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
+  changes. Its restart probe requests the nil transcript UUID's audio with the map token and expects 404, without
+  building the map. It opens a loopback link with the token in the fragment, never a query. The map routes are also
   reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
+
+- **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
+  turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split
+  supplies neither a name nor evidence. Matching and nearby naming apply to every group. The largest group stays
+  the label's only phone card; the map lists the others and names their turns through the existing PUT. The map also
+  offers the phone's "Several people" answer: name clips first, then submit the existing answer. No phone change.
+  A turn containing two voices needs re-cutting within the turn and is outside this change.
 
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The

@@ -48,6 +48,7 @@ const CORRECTIONS = [
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
 ];
 const MAP = [
+  "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
   "GET /speakers/map",
   "GET /transcripts/{jobId}/audio",
   "POST /naming-queue/answer",

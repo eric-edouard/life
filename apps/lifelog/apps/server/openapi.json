@@ -4511,7 +4511,7 @@
     },
     "/speakers/map": {
       "get": {
-        "description": "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+        "description": "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are cached until the naming queue rebuilds. Likeness is not a calibrated probability.",
         "responses": {
           "200": {
             "description": "Voices and people",

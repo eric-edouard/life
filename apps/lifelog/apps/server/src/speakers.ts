@@ -14,8 +14,9 @@
 
 import type { Candidates } from "@lifelog/db/schema";
 import { RECOGNITION } from "./config";
+import { averageLinkageSync } from "./voice-linkage";
 
-export type Vector = number[];
+import { cosine, type Vector } from "./voice-vectors";
 
 // A person's voice: one centroid per conversation of their evidence (people.ts `weighProfiles`).
 export interface Profile {
@@ -31,15 +32,6 @@ export interface Profiles {
   strangers: Vector[];
 }
 export const NO_PROFILES: Profiles = { people: [], strangers: [] };
-
-// Embeddings are L2-normalized, so the dot product is the cosine.
-export function cosine(a: Vector, b: Vector) {
-  let sum = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    sum += (a[i] ?? 0) * (b[i] ?? 0);
-  }
-  return sum;
-}
 
 function unit(v: Vector): Vector {
   const norm = Math.hypot(...v) || 1;
@@ -137,7 +129,7 @@ function nameOf(vector: Vector, { strangers, people }: Profiles) {
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little
 // speech; people.ts `speakerVoice`), `voices` that model's. Among his candidates, nothing is
 // refused for sounding like a stranger: he said who is there.
-export function decide(
+function decisionOf(
   {
     samples,
     vector,
@@ -181,7 +173,7 @@ export function decide(
             t.score >= RECOGNITION.ownerShortTurn &&
             t.margin >= RECOGNITION.margin));
   const turns =
-    candidates || (owner && personId !== owner)
+    candidates || owner
       ? samples.flatMap((s) => {
           const t = nearest(s.embedding, among);
           return t &&
@@ -200,4 +192,65 @@ export function decide(
     turns,
     vector,
   };
+}
+
+// A split needs repeated, strongly separated speech; unsampled turns keep the label.
+export function decide(
+  voice: Parameters<typeof decisionOf>[0],
+  profiles: Profiles,
+  candidates?: Candidates | null
+) {
+  const initial = decisionOf(voice, profiles, candidates);
+  interface Turn {
+    personId: string | null;
+    score: number | null;
+    turnIndex: number;
+    voice?: ReturnType<typeof decisionOf>;
+  }
+  const turns: Turn[] = initial.turns;
+  if (candidates) {
+    return { ...initial, turns };
+  }
+  // His own turns leave first, before the remaining voice is grouped.
+  const moved = new Set(turns.map((t) => t.turnIndex));
+  const remaining = voice.samples.filter((s) => !moved.has(s.turnIndex));
+  const groups = averageLinkageSync(
+    remaining.map((s) => s.embedding),
+    RECOGNITION.candidateThreshold
+  )
+    .map((indices) => {
+      const samples = indices.flatMap((i) => remaining[i] ?? []);
+      return {
+        samples,
+        seconds: samples.reduce((sum, s) => sum + s.durationSeconds, 0),
+        vector: centroid(samples.map((s) => s.embedding)),
+      };
+    })
+    .sort((a, b) => b.seconds - a.seconds);
+  if (
+    groups.length < 2 ||
+    groups.some(
+      (g, i) =>
+        g.samples.length < 2 ||
+        g.seconds < RECOGNITION.minSpeakerSeconds ||
+        groups
+          .slice(i + 1)
+          .some((other) => cosine(g.vector, other.vector) > RECOGNITION.notThem)
+    )
+  ) {
+    return { ...initial, turns };
+  }
+  const [main, ...others] = groups;
+  for (const group of others) {
+    const reading = decisionOf(group, profiles);
+    turns.push(
+      ...group.samples.map((s) => ({
+        personId: reading.personId,
+        score: reading.score,
+        turnIndex: s.turnIndex,
+        voice: reading,
+      }))
+    );
+  }
+  return { ...decisionOf(main ?? voice, profiles), turns };
 }

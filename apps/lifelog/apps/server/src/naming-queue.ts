@@ -15,7 +15,6 @@ import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
-  type JobMap,
   live,
   people,
   type Suggestion,
@@ -23,12 +22,12 @@ import {
   transcriptionJobs,
   turns as turnRows,
 } from "@lifelog/db/schema";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock, RECOGNITION } from "./config";
-import { textOf } from "./elevenlabs";
 import { record, recordedOn } from "./events";
+import { type Clip, clipOf } from "./naming-clips";
 import {
   assign,
   holdingConversations,
@@ -41,7 +40,8 @@ import {
 } from "./people";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
-import { keptAt, type LoadedTurn, loadTurns, timedWords } from "./transcript";
+import { type LoadedTurn, loadTurns } from "./transcript";
+import { readVoiceMap } from "./voice-map";
 
 interface Voice {
   conversationId: string;
@@ -73,13 +73,19 @@ function voicesOf(
   ownerId: string,
   groups: Map<string, string>,
   skipped: Set<string>,
+  skippedTurns: Set<string>,
   mixed: Set<string>
 ) {
   const voices = new Map<string, Voice>();
   for (const [i, t] of turns.entries()) {
     const label = t.person ? null : t.speakerLabel;
     const k = label && voiceId(t.ref.jobId, label);
-    if (label && k && !skipped.has(k)) {
+    if (
+      label &&
+      k &&
+      !skipped.has(k) &&
+      !skippedTurns.has(turnRef(t.ref.jobId, t.ref.turnIndex))
+    ) {
       const voice =
         voices.get(k) ??
         newVoice(conversationId, t, label, groups.get(k) ?? k, mixed.has(k));
@@ -246,19 +252,20 @@ function cardOf(
 function voicesIn(db: Db, id: string, ownerId: string) {
   const loaded = loadTurns(db, id)?.turns ?? [];
   const jobs = [...new Set(loaded.map((t) => t.ref.jobId))];
-  const rows =
+  const assignments =
     jobs.length > 0
       ? db
           .select()
           .from(speakerAssignments)
-          .where(
-            and(
-              inArray(speakerAssignments.jobId, jobs),
-              isNull(speakerAssignments.turnIndex)
-            )
-          )
+          .where(inArray(speakerAssignments.jobId, jobs))
           .all()
       : [];
+  const rows = assignments.filter((r) => r.turnIndex === null);
+  const skippedTurns = new Set(
+    assignments.flatMap((r) =>
+      r.turnIndex === null ? [] : [turnRef(r.jobId, r.turnIndex)]
+    )
+  );
   const groups = new Map(
     rows.flatMap((r) =>
       r.source === "recognized" && r.candidateId && !r.mixed
@@ -285,7 +292,15 @@ function voicesIn(db: Db, id: string, ownerId: string) {
       ? { ...t, person: null }
       : t
   );
-  const mine = voicesOf(id, turns, ownerId, groups, skipped, mixed);
+  const mine = voicesOf(
+    id,
+    turns,
+    ownerId,
+    groups,
+    skipped,
+    skippedTurns,
+    mixed
+  );
   heardIn(run?.result ?? null, run?.turns ?? [], loaded, mine);
   return [...mine.values()];
 }
@@ -370,9 +385,11 @@ function cardsOf(db: Db, voices: Voice[]) {
 // speaker rows, so its voices never come back). The cards are made again from every voice, since
 // a change may be about a person or a profile. A fresh cache's first read is the full build.
 // ponytail: in-process, like the other loops; one replica.
+export type QueueItems = ReturnType<typeof cardsOf>;
 export type QueueCache = ReturnType<typeof queueCache>;
 
 export function queueCache(db: Db) {
+  let map: ReturnType<typeof readVoiceMap> | null = null;
   let kept: {
     items: ReturnType<typeof cardsOf>;
     ownerId: string;
@@ -384,6 +401,7 @@ export function queueCache(db: Db) {
     items() {
       const owner = ownerOf(db);
       if (!owner) {
+        map = null;
         kept = null;
         return [];
       }
@@ -406,6 +424,7 @@ export function queueCache(db: Db) {
           (!again.has(id) && before.get(id)) || voicesIn(db, id, owner.id),
         ])
       );
+      map = null;
       kept = {
         items: cardsOf(db, [...voices.values()].flat()),
         ownerId: owner.id,
@@ -413,6 +432,11 @@ export function queueCache(db: Db) {
         voices,
       };
       return kept.items;
+    },
+    map() {
+      const items = this.items();
+      map ??= readVoiceMap(db, items);
+      return map;
     },
   };
 }
@@ -499,64 +523,6 @@ export function answerVoices(
     voices: answered,
   });
   return answered > 0 ? { personId } : null;
-}
-
-// One clip a card plays: a clean turn of its voice, with the words said before it is cut. `audio`
-// places it in the job's bucket audio (`GET /transcripts/{jobId}/audio`, seconds into that file):
-// the server's own copy, for every job that has one. Only a job from before the bucket has none;
-// then the phone plays `at` to `until` from its own recording. `words` time both, from `at`.
-// The turn (`jobId`, `speakerLabel`, `turnIndex`) is what "several people" names in place, and
-// `personId` who it reads as now.
-export interface Clip {
-  at: string | null;
-  audio: { end: number; jobId: string; start: number } | null;
-  conversationId: string;
-  jobId: string;
-  personId: string | null;
-  speakerLabel: string | null;
-  text: string;
-  turnIndex: number;
-  until: string | null;
-  words: [number, number, number][];
-}
-
-// A turn as a card plays it: its words begun within NAMING.clipSeconds, from the first to the end
-// of the last (never past the cut), so it stops where its voice does. With bucket audio it also
-// stops where its stretch of kept speech does: the bucket audio has the silence after it cut out,
-// so only inside one stretch do capture time and the file's time run together (docs/formats.md).
-function clipOf(
-  conversationId: string,
-  turn: LoadedTurn,
-  // The job's map when it has bucket audio.
-  map: JobMap | null
-): Clip {
-  const at = turn.ref.capturedAt;
-  const from = turn.startSeconds * 1000;
-  const kept = map && keptAt(map, from);
-  const cut = Math.min(
-    from + NAMING.clipSeconds * 1000,
-    kept?.end ?? Number.POSITIVE_INFINITY
-  );
-  const said = turn.words.filter((w) => w.start < cut);
-  const end = Math.min(said.at(-1)?.end ?? turn.endSeconds * 1000, cut);
-  return {
-    at,
-    audio: kept
-      ? {
-          end: (kept.prepared + end - from) / 1000,
-          jobId: turn.ref.jobId,
-          start: kept.prepared / 1000,
-        }
-      : null,
-    conversationId,
-    jobId: turn.ref.jobId,
-    personId: turn.person?.id ?? null,
-    speakerLabel: turn.speakerLabel,
-    text: textOf(said),
-    turnIndex: turn.ref.turnIndex,
-    until: new Date(end).toISOString(),
-    words: timedWords(said, from),
-  };
 }
 
 // The clips of an open card, best first: the clean turns (samples) that clearly sound like its
