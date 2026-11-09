@@ -98,7 +98,5 @@ const statusOf = (r: Recognition) => {
   if (r.isStranger) {
     return "stranger" as const;
   }
-  return r.candidateId && !r.turnIndices
-    ? ("candidate" as const)
-    : ("unknown" as const);
+  return r.candidateId ? ("candidate" as const) : ("unknown" as const);
 };

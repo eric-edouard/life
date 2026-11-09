@@ -50,7 +50,7 @@ const script = readFileSync(
   new URL("./voices/page.js", import.meta.url),
   "utf8"
 );
-async function page(id = "main") {
+async function page(scope = "speaker") {
   const owner = randomUUID();
   const first = randomUUID();
   const second = randomUUID();
@@ -75,8 +75,9 @@ async function page(id = "main") {
       turnIndex,
     })),
     conversations: 1,
-    id,
+    id: "group",
     name: null,
+    scope,
     voices: [{ jobId: "job", speakerLabel: "a" }],
     words: 500,
   };
@@ -167,7 +168,7 @@ test("Several people derives the owner and an unnamed clip after a clip PUT, wit
 });
 
 test("a split group names every turn with PUT and never answers a phone card", async () => {
-  const { calls, el } = await page("turns/group");
+  const { calls, el } = await page("turns");
   el("name").value = "Guest";
   el("name-form").onsubmit?.({
     preventDefault() {

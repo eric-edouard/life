@@ -1,20 +1,8 @@
 // Speaker recognition and the owner's corrections (docs/brief.md, "Speakers and people").
 //
 // - Only owner actions create people/evidence; recognition writes "recognized" assignments.
-// - A profile match needs `matchThreshold` likeness and `margin` lead over the next person.
-// - A turn whose own voice is nearest the owner's is his, whoever the speaker (speakers.ts).
-// - `nameFromNearby`: a missed voice can take a conversation's owner-attributed or profile-matched
-//   name, from its nearest profile or a similar voice; names inferred this way never propagate.
-// - Owner rows survive recognition; `candidates` restricts each sampled turn to his choices.
-// - `weighProfiles`: one exemplar per conversation of owner-attributed clips of at least 3 s.
-// - A voice that sounds more like the strangers (voices he answered "Not anyone I know" for: people
-//   he doesn't care about) than like its match, and as like them as an unnamed group's voices are
-//   alike (`candidateThreshold`), is a stranger too (speakers.ts `decide`): status
-//   `stranger`, never named from nearby, grouped or asked about. The strangers' clips are read from
-//   his answers (`strangerRows`) and stay as negative references.
-// - `sweep` matches every live transcript again when profiles change, so old conversations
-//   learn names given later. `regroup` alone groups the unnamed voices, from scratch each night,
-//   and `expire` removes media samples and retired jobs' non-evidence.
+// - Recognition and nearby matches never add evidence or propagate inferred names.
+// - Owner rows survive; unnamed groups and stranger references follow speakers.ts.
 // - Nothing here calls the transcription provider.
 
 import { randomUUID } from "node:crypto";
@@ -42,7 +30,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { logChange } from "./change-log";
+import { logChange, turnRef } from "./change-log";
 import { ownerClock, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import { type Fields, record, recordedOn } from "./events";
@@ -303,7 +291,18 @@ export const speakerOf = <
   );
 };
 
-// A named turn isn't its speaker's voice. Qualify columns: Drizzle drops single-table prefixes.
+// Turns with their own row belong to that row, never to their label's voice.
+export const readOwnTurns = (
+  db: Db,
+  rows = db.select().from(assignments).all()
+) =>
+  new Set(
+    rows.flatMap((r) =>
+      r.turnIndex === null ? [] : [turnRef(r.jobId, r.turnIndex)]
+    )
+  );
+
+// SQL keeps this exclusion inside joins before materializing samples; the JS read is readOwnTurns.
 const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
   where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
 
@@ -550,7 +549,8 @@ function nameFromNearby(
   nearby: Nearby
 ) {
   const missed = results.filter(
-    (r) => !(r.personId || r.isStranger) && r.vector
+    (r): r is Recognition & { vector: Vector } =>
+      !(r.personId || r.isStranger) && r.vector !== null
   );
   if (missed.length === 0) {
     return;
@@ -582,7 +582,7 @@ function nameFromNearby(
     );
     r.personId =
       nearbyMatch(
-        r.vector ?? [],
+        r.vector,
         (profiles.get(r.model ?? "") ?? NO_PROFILES).people,
         nearbyPeople
       ) ?? nearbyPerson(r, voices);

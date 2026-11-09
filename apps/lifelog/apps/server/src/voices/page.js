@@ -12,7 +12,7 @@
   let playback = 0;
   let saving = false;
   let isSeveral = false;
-  const isSplit = (card) => card.id.startsWith("turns/");
+  const isSplit = (card) => card.scope === "turns";
   const nameOf = (id) =>
     data.people.find((p) => p.id === id)?.name ?? "Unnamed voice";
   const modelOf = () => data.models.find((m) => m.model === el("model").value);

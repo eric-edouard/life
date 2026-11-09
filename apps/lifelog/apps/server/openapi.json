@@ -1435,7 +1435,7 @@
           "cards": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/QueueItem"
+              "$ref": "#/components/schemas/VoiceMapCard"
             }
           },
           "models": {
@@ -1516,6 +1516,23 @@
           }
         },
         "required": ["candidateThreshold", "cards", "models", "people"]
+      },
+      "VoiceMapCard": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/QueueItem"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": ["speaker", "turns"]
+              }
+            },
+            "required": ["scope"]
+          }
+        ]
       },
       "QueueItem": {
         "type": "object",
@@ -4632,6 +4649,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Map token: this turn is outside the current cached map"
           },
           "404": {
             "description": "No such job or transcript",

@@ -10,7 +10,8 @@ import { eq } from "drizzle-orm";
 import { mintToken } from "../scripts/mint-token";
 import { createApp } from "./app";
 import { loadConfig, RECOGNITION, sha256Hex } from "./config";
-import { queueCache } from "./naming-queue";
+import { clipOf } from "./naming-clips";
+import { type Card, queueCache, readVoiceMap } from "./naming-queue";
 import { services } from "./services";
 import { rankPeople } from "./speakers";
 import {
@@ -20,7 +21,7 @@ import {
   testConfig,
   testDb,
 } from "./testing";
-import { readVoiceMap } from "./voice-map";
+import { loadTurns } from "./transcript";
 import { pcaOf } from "./voice-pca";
 
 let env: ReturnType<typeof testDb>;
@@ -103,6 +104,24 @@ test("map token opens exactly the map, existing clip audio and queue answer", as
   expect(await status("/speakers/map", "GET", "helper")).toBe(401);
   expect((await server.request("/speakers/map")).status).toBe(401);
   expect(await status("/speakers/map", "GET", OWNER_TOKEN)).toBe(200);
+});
+
+test("map token refuses a turn outside the current map without writing", async () => {
+  const jobId = seedTranscript(env.db, [
+    { end: 10, speakerId: "a", start: 0, text: "Outside the map" },
+  ]);
+  const server = app();
+  const before = env.db.$client.serialize();
+  for (const turnIndex of [0, undefined]) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential authorization checks
+    const response = await server.request(`/transcripts/${jobId}/speakers/a`, {
+      body: JSON.stringify({ target: { kind: "unknown" }, turnIndex }),
+      headers: headers(),
+      method: "PUT",
+    });
+    expect(response.status).toBe(403);
+  }
+  expect(env.db.$client.serialize()).toEqual(before);
 });
 
 test("static page and pinned assets are public and contain no archive data", async () => {
@@ -193,7 +212,7 @@ function seedMap() {
       { personId: guest, sampleId: samples[1]?.id ?? "" },
     ])
     .run();
-  const card = {
+  const card: Card = {
     clips: [],
     conversations: 1,
     evidence: [],
@@ -206,7 +225,12 @@ function seedMap() {
     voices: [{ conversationId, jobId, speakerLabel: "c" }],
     words: 420,
   };
-  return { cards: [card], guest, owner, sampleId: samples[2]?.id ?? "" };
+  return {
+    cards: [card] as [Card],
+    guest,
+    owner,
+    sampleId: samples[2]?.id ?? "",
+  };
 }
 
 test("map read keeps queue cards/order, ranks through speakers and separates models without writing or caching", async () => {
@@ -219,7 +243,9 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
   const result = await (
     await server.request("/speakers/map", { headers: headers() })
   ).json();
-  expect(result.cards).toEqual(cards);
+  expect(result.cards).toEqual(
+    cards.map((card) => ({ ...card, scope: "speaker" }))
+  );
   expect(result.candidateThreshold).toBe(RECOGNITION.candidateThreshold);
   expect(result.models.map((m: { model: string }) => m.model)).toEqual([
     "first@r1",
@@ -324,11 +350,19 @@ test("map names clips in place before the existing several answer, retaining eac
       { id: second, name: "Second" },
     ])
     .run();
-  const jobId = seedTranscript(env.db, [
+  const { id, jobId } = seedConversation(env.db, [
     { end: 10, speakerId: "a", start: 0, text: "First made-up voice" },
     { end: 20, speakerId: "a", start: 10, text: "Second made-up voice" },
   ]);
-  const server = app();
+  const { cards } = seedMap();
+  const [card] = cards;
+  card.clips = (loadTurns(env.db, id)?.turns ?? []).map((turn) =>
+    clipOf(id, turn, null)
+  );
+  const queue = { items: () => cards, map: () => readVoiceMap(env.db, cards) };
+  const server = createApp(
+    services(config(), env.db, { intelligence: null, queue })
+  );
   for (const [turnIndex, personId] of [first, second].entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: owner answers are ordered
     const response = await server.request(`/transcripts/${jobId}/speakers/a`, {
@@ -383,7 +417,7 @@ test("map lists split groups with every turn, outside the phone cards, and names
         jobId,
         source: "recognized" as const,
         speakerLabel: "a",
-        status: "unknown" as const,
+        status: "candidate" as const,
         turnIndex,
       })),
     ])
@@ -405,11 +439,29 @@ test("map lists split groups with every turn, outside the phone cards, and names
     .run();
   const mapped = readVoiceMap(env.db, []);
   const [card] = mapped.cards;
-  expect(card?.id).toBe("turns/split");
+  expect(card?.scope).toBe("turns");
   expect(card?.clips.map((c) => c.turnIndex)).toEqual([1, 2]);
   expect(mapped.models[0]?.points[0]?.id).toBe(card?.id);
   const personId = randomUUID();
   const server = app();
+  const before = env.db.$client.serialize();
+  for (const [job, label, turnIndex] of [
+    [randomUUID(), "a", 1],
+    [jobId, "b", 1],
+    [jobId, "a", 0],
+  ] as const) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential authorization checks
+    const refused = await server.request(
+      `/transcripts/${job}/speakers/${label}`,
+      {
+        body: JSON.stringify({ target: { kind: "unknown" }, turnIndex }),
+        headers: headers(),
+        method: "PUT",
+      }
+    );
+    expect(refused.status).toBe(403);
+  }
+  expect(env.db.$client.serialize()).toEqual(before);
   for (const clip of card?.clips ?? []) {
     // biome-ignore lint/performance/noAwaitInLoops: owner answers are ordered
     const response = await server.request(

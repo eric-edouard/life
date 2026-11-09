@@ -151,6 +151,7 @@ export async function openVoices({
         }
       );
       await response.body?.cancel();
+      // Auth runs before routing: nil UUID has no audio, so 404 proves this token passed auth.
       return response.status === 404 ? true : undefined;
     }, "Host accepting the map token after restarting");
   }

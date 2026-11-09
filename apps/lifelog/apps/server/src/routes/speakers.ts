@@ -3,6 +3,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { people, speakerStatuses, suggestionKinds } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
@@ -131,7 +132,14 @@ export function speakerRoutes({
             z
               .object({
                 candidateThreshold: z.number(),
-                cards: z.array(QueueItem),
+                cards: z.array(
+                  z
+                    .intersection(
+                      QueueItem,
+                      z.object({ scope: z.enum(["speaker", "turns"]) })
+                    )
+                    .openapi("VoiceMapCard")
+                ),
                 models: z.array(
                   z.object({
                     model: z.string(),
@@ -247,12 +255,33 @@ export function speakerRoutes({
         },
         responses: {
           200: json(z.array(SpeakerAssignment), "Assignments after the change"),
+          403: {
+            description:
+              "Map token: this turn is outside the current cached map",
+          },
           404: notFound,
         },
       }),
       (c) => {
         const { jobId, speakerLabel } = c.req.valid("param");
         const { target, turnIndex } = c.req.valid("json");
+        if (
+          c.get("isMapToken") &&
+          !queue
+            .map()
+            .cards.some((card) =>
+              card.clips.some(
+                (clip) =>
+                  clip.jobId === jobId &&
+                  clip.speakerLabel === speakerLabel &&
+                  clip.turnIndex === turnIndex
+              )
+            )
+        ) {
+          throw new HTTPException(403, {
+            message: "This turn is outside the current voice map.",
+          });
+        }
         const result = assign(db, {
           jobId,
           speakerLabel,

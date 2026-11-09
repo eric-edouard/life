@@ -99,7 +99,7 @@ test("two sampled voices split into recognized unnamed turn rows, without people
     split.every(
       (r) =>
         r.source === "recognized" &&
-        r.status === "unknown" &&
+        r.status === "candidate" &&
         r.personId === null
     )
   ).toBe(true);
@@ -107,6 +107,14 @@ test("two sampled voices split into recognized unnamed turn rows, without people
   expect(split[0]?.candidateId).toBe(split[1]?.candidateId);
   expect(env.db.select().from(people).all()).toEqual([]);
   expect(env.db.select().from(voiceProfiles).all()).toEqual([]);
+});
+
+test("a successful split recognized twice is unchanged with identical candidate ids", () => {
+  const held = seed([first, first, second, second], [12, 12, 10, 10]);
+  expect(recognize(env.db, held.jobId)).toBe(true);
+  const before = rowsOf(held.jobId);
+  expect(recognize(env.db, held.jobId)).toBe(false);
+  expect(rowsOf(held.jobId)).toEqual(before);
 });
 
 test("one long dissimilar turn does not establish a second voice", () => {
@@ -168,7 +176,9 @@ test("owner turns leave first, then the remaining two voices split", () => {
     status: "person",
   });
   expect(
-    split.filter((r) => r.turnIndex !== 4).every((r) => r.status === "unknown")
+    split
+      .filter((r) => r.turnIndex !== 4)
+      .every((r) => r.status === "candidate")
   ).toBe(true);
 });
 

@@ -37,7 +37,9 @@ reverse it, change its entry here in the same commit.
 
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
   a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
-  the queue’s existing audio and answer routes, and the existing per-turn naming PUT. The map reads the queue’s
+  the queue’s existing audio and answer routes, and per-turn naming PUT only for (job, label, turn) triples
+  in the current cached map's clips. Missing turn indices and triples outside it receive 403; device and corrections
+  tokens retain their existing scope. The map reads the queue’s
   cards and words in their order, with the same likeness ranking as recognition; easy targets are cards above the
   candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
@@ -48,6 +50,13 @@ reverse it, change its entry here in the same commit.
   building the map. It opens a loopback link with the token in the fragment, never a query. The map routes are also
   reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
+  Rebuild measurement (9 Nov 2026, disposable synthetic SQLite archive, Bun 1.4.2 on this Mac): 1,150
+  conversations, 40,150 ten-second samples, one 192-dimensional model, 30 known people with five profile
+  samples each, 1,000 phone cards and 1,000 split cards (2,030 projected points). Each unnamed job has 40
+  alternating owner/guest turns; its last two guest turns form a split. Five map-only rebuilds after the queue
+  build took 9,887 / 9,674 / 9,718 / 9,642 / 9,710 ms (median 9,710 ms); the first queue build took 16,531 ms.
+  Cached map reads averaged 0.62 ms over 100 reads. These synchronous rebuilds block requests; caching avoids
+  that cost between queue changes, but this synthetic measurement does not bound larger archives.
 
 - **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
   turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split

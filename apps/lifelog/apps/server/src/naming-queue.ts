@@ -21,6 +21,7 @@ import {
   speakerAssignments,
   transcriptionJobs,
   turns as turnRows,
+  voiceSamples,
 } from "@lifelog/db/schema";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
@@ -33,6 +34,7 @@ import {
   holdingConversations,
   isCalled,
   isRejected,
+  readOwnTurns,
   sampleRanker,
   type Target,
   voiceId,
@@ -41,7 +43,7 @@ import {
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";
-import { readVoiceMap } from "./voice-map";
+import { readVoiceProjection } from "./voice-map";
 
 interface Voice {
   conversationId: string;
@@ -248,6 +250,76 @@ function cardOf(
   };
 }
 
+export type Card = Suggestion & { clips: Clip[]; words: number };
+
+// Split groups are map-only cards; their members include every sample, even past the clip cut.
+function readSplitCards(
+  db: Db,
+  rows: (typeof speakerAssignments.$inferSelect)[],
+  samples: (typeof voiceSamples.$inferSelect)[]
+) {
+  const clip = readClip(db);
+  const byTurn = Map.groupBy(samples, (s) => turnRef(s.jobId, s.turnIndex));
+  const split = rows.filter(
+    (r) =>
+      r.source === "recognized" &&
+      r.turnIndex !== null &&
+      r.candidateId &&
+      !r.personId
+  );
+  return [...Map.groupBy(split, (r) => r.candidateId)].flatMap(
+    ([group, members]) => {
+      const voices: Voice[] = [];
+      const clips: Clip[] = [];
+      const memberSamples: (typeof voiceSamples.$inferSelect)[] = [];
+      for (const row of members) {
+        if (row.turnIndex === null) {
+          continue;
+        }
+        const found = clip({ jobId: row.jobId, turnIndex: row.turnIndex });
+        if (!found) {
+          continue;
+        }
+        const voice = newVoice(
+          found.conversationId,
+          found.turn,
+          row.speakerLabel,
+          group ?? row.id,
+          false
+        );
+        voice.seconds = found.turn.endSeconds - found.turn.startSeconds;
+        voice.words.set(
+          turnRef(row.jobId, row.turnIndex),
+          found.turn.words.length
+        );
+        voices.push(voice);
+        clips.push(found.clip);
+        memberSamples.push(
+          ...(byTurn.get(turnRef(row.jobId, row.turnIndex)) ?? [])
+        );
+      }
+      const seconds = voices.reduce((sum, v) => sum + v.seconds, 0);
+      const words = voices.reduce(
+        (sum, v) => sum + [...v.words.values()].reduce((a, b) => a + b, 0),
+        0
+      );
+      const card: Card = {
+        ...cardOf(`turns/${group}`, voices, seconds, 0),
+        clips,
+        words,
+      };
+      return clips.length
+        ? [
+            {
+              card: { ...card, scope: "turns" as const },
+              samples: memberSamples,
+            },
+          ]
+        : [];
+    }
+  );
+}
+
 // The unnamed voices of conversation `id`, with what its summary said about them.
 function voicesIn(db: Db, id: string, ownerId: string) {
   const loaded = loadTurns(db, id)?.turns ?? [];
@@ -261,11 +333,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
           .all()
       : [];
   const rows = assignments.filter((r) => r.turnIndex === null);
-  const skippedTurns = new Set(
-    assignments.flatMap((r) =>
-      r.turnIndex === null ? [] : [turnRef(r.jobId, r.turnIndex)]
-    )
-  );
+  const skippedTurns = readOwnTurns(db, assignments);
   const groups = new Map(
     rows.flatMap((r) =>
       r.source === "recognized" && r.candidateId && !r.mixed
@@ -385,8 +453,26 @@ function cardsOf(db: Db, voices: Voice[]) {
 // speaker rows, so its voices never come back). The cards are made again from every voice, since
 // a change may be about a person or a profile. A fresh cache's first read is the full build.
 // ponytail: in-process, like the other loops; one replica.
-export type QueueItems = ReturnType<typeof cardsOf>;
 export type QueueCache = ReturnType<typeof queueCache>;
+
+export function readVoiceMap(db: Db, cards: Card[]) {
+  const samples = db.select().from(voiceSamples).all();
+  const rows = db.select().from(speakerAssignments).all();
+  const turns = readOwnTurns(db, rows);
+  const byVoice = Map.groupBy(
+    samples.filter((s) => !turns.has(turnRef(s.jobId, s.turnIndex))),
+    (s) => voiceId(s.jobId, s.speakerLabel)
+  );
+  return readVoiceProjection(db, [
+    ...cards.map((card) => ({
+      card: { ...card, scope: "speaker" as const },
+      samples: card.voices.flatMap(
+        (v) => byVoice.get(voiceId(v.jobId, v.speakerLabel)) ?? []
+      ),
+    })),
+    ...readSplitCards(db, rows, samples),
+  ]);
+}
 
 export function queueCache(db: Db) {
   let map: ReturnType<typeof readVoiceMap> | null = null;
@@ -530,8 +616,7 @@ export function answerVoices(
 // each is cut to NAMING.clipSeconds. A turn the provider gave one speaker can hold several
 // people: it sounds unlike the voice, so it comes late, and one that clearly is someone else
 // (RECOGNITION.notThem) only when nothing else is left.
-export function cardClips(db: Db) {
-  const rank = sampleRanker(db);
+function readClip(db: Db) {
   const loaded = new Map<string, LoadedTurn[]>();
   const turnsOf = (conversationId: string) => {
     const turns =
@@ -560,6 +645,20 @@ export function cardClips(db: Db) {
       .get();
     return row?.key ? row.map : null;
   };
+  return (ref: { jobId: string; turnIndex: number }) => {
+    const found = turnOf(ref.jobId, ref.turnIndex);
+    return found
+      ? {
+          ...found,
+          clip: clipOf(found.conversationId, found.turn, bucketMap(ref.jobId)),
+        }
+      : null;
+  };
+}
+
+export function cardClips(db: Db) {
+  const rank = sampleRanker(db);
+  const clip = readClip(db);
   return (card: Pick<Suggestion, "kind" | "personId" | "voices">): Clip[] => {
     const ranked = rank(
       card.voices,
@@ -593,6 +692,7 @@ export function cardClips(db: Db) {
                     )
                   )
                 ),
+                // SQL filters before word ordering and LIMIT; readOwnTurns is the JS equivalent.
                 sql`not exists (select 1 from ${speakerAssignments} a
                   where a.job_id = ${turnRows.jobId} and a.turn_index = ${turnRows.turnIndex})`
               )
@@ -605,11 +705,9 @@ export function cardClips(db: Db) {
       if (clips.length >= NAMING.clips) {
         break;
       }
-      const found = turnOf(sample.jobId, sample.turnIndex);
+      const found = clip(sample);
       if (found) {
-        clips.push(
-          clipOf(found.conversationId, found.turn, bucketMap(sample.jobId))
-        );
+        clips.push(found.clip);
       }
     }
     return clips;
