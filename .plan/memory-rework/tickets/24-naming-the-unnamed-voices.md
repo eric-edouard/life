@@ -36,3 +36,9 @@ fingerprints are deleted after 30 days; one person is often split into a second,
 Whatever stays unnamed is context only (ticket Who really spoke in a recording). Done before the pilot reads the
 history: the share of unnamed turns near his regular people is measured again after 1–2, and the pilot uses that data.
 No model spend.
+
+Added the same day (his yes): in a one-to-one phone call, a voice lifelog heard over the phone is the person called.
+This lives in Life, not lifelog (lifelog never sees the call): Life joins the call line (`phoneCall`) with how voices
+were heard (`heardAs`) when it reads who spoke, and the evidence basis is the call, not a voice match. It reverses
+AGENTS.md's "who he talked with on it is the model's reading … never a timing rule" for this one case; the build PR
+rewrites that line. Group calls and calls where his own room also speaks stay with the model's reading.
