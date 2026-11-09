@@ -60,14 +60,17 @@ export function likeness(vector: Vector, exemplars: Vector[]) {
   return top.reduce((sum, x) => sum + x, 0) / (top.length || 1);
 }
 
-// Everyone by likeness and lead over the strongest other person; without a runner, margin is score.
+// Everyone by likeness and lead over the strongest other person; a lone profile competes
+// with the match threshold so a thin profile cannot name a weak match by default.
 export function rankPeople(vector: Vector, profiles: Profile[]) {
   const ranked = profiles
     .map((p) => ({ ...p, score: likeness(vector, p.exemplars) }))
     .sort((a, b) => b.score - a.score);
   return ranked.map((person, i) => ({
     ...person,
-    margin: person.score - (ranked[i === 0 ? 1 : 0]?.score ?? 0),
+    margin:
+      person.score -
+      (ranked[i === 0 ? 1 : 0]?.score ?? RECOGNITION.matchThreshold),
   }));
 }
 

@@ -148,7 +148,14 @@ reverse it, change its entry here in the same commit.
   Dictation and unsafe old audio remain excluded; recovery never transcribes again.
 - Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
   conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
-  person merge or new evidence: the owner's assignments win. For a lone profile, the missing runner scores zero: margin equals likeness everywhere (review fix, 9 Nov). Ordinary and open-candidate matches use the usual 0.6 threshold, without an extra lead over a synthetic unknown score.
+  person merge or new evidence: the owner's assignments win. For a lone profile, `rankPeople` scores the missing runner at 0.6 (confirming review, 9 Nov);
+  no caller bypasses it. A 0.65 voice fails ordinary, candidate and nearby profile naming; a 0.55 owner
+  short turn fails its margin. Owner turns at 0.65 still match through the existing 0.6 owner threshold.
+  Current `origin/main` (30d9002d) uses zero and names the 0.62 borderline case; its null regression
+  expectation and incident comment were restored from the last review commit's parent (3741c5f3).
+  Offline `bun apps/lifelog/apps/server/scripts/eval-voices.ts --check` passed: 4,146 turns, all baseline
+  counts unchanged; no answers or baseline rewritten. This replay excludes nearby naming and candidate sets,
+  which are covered by synthetic regressions.
 - **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
   sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
   recovered or asked about. Its samples remain negative references.

@@ -50,7 +50,10 @@ test("a turn that sounds more like a stranger than the owner stays put, unless h
     );
   expect(owned(sample)).toEqual(["owner"]);
   expect(moved(null)).toEqual([]);
-  expect(moved({ people: ["owner"], unknown: false })).toEqual(["owner"]);
+  expect(moved({ people: ["owner"], unknown: false })).toEqual([]);
+  expect(moved({ people: ["owner", "clara"], unknown: false })).toEqual([
+    "owner",
+  ]);
 });
 
 test("a new voice unlike everyone is no stranger, however little it sounds like the people", () => {
@@ -62,7 +65,7 @@ test("a new voice unlike everyone is no stranger, however little it sounds like 
   expect(isStranger([0.3, 0.2, 0.7, Math.sqrt(0.38)])).toBe(true);
 });
 
-test("a lone profile has its likeness as margin in ordinary, nearby and candidate recognition", () => {
+test("a lone profile competes with the match threshold in every margin check", () => {
   const [, person] = profiles;
   if (!person) {
     throw new Error("missing profile");
@@ -74,10 +77,10 @@ test("a lone profile has its likeness as margin in ordinary, nearby and candidat
       voices
     ).personId;
   expect(named(0.55)).toBeNull();
-  expect(named(0.65)).toBe("clara");
+  expect(named(0.65)).toBeNull();
   const vector = [0, 0.65, Math.sqrt(1 - 0.65 ** 2)];
-  expect(rankPeople(vector, [person])[0]?.margin).toBe(0.65);
-  expect(nearbyMatch(vector, [person], new Set(["clara"]))).toBe("clara");
+  expect(rankPeople(vector, [person])[0]?.margin).toBeCloseTo(0.05);
+  expect(nearbyMatch(vector, [person], new Set(["clara"]))).toBeNull();
   expect(
     decide(
       {
@@ -87,18 +90,21 @@ test("a lone profile has its likeness as margin in ordinary, nearby and candidat
       voices,
       { people: ["clara"], unknown: true }
     ).turns[0]?.personId
-  ).toBe("clara");
+  ).toBeUndefined();
   expect(named(0.75)).toBe("clara");
+  expect(nearbyMatch([0, 0.8, 0.6], [person], new Set(["clara"]))).toBe(
+    "clara"
+  );
   const sample = turnAt(0, 0.5, 10);
   expect(
     decide({ samples: [sample], vector: null }, voices, {
       people: ["clara"],
       unknown: false,
     }).turns.map((t) => t.personId)
-  ).toEqual(["clara"]);
+  ).toEqual([]);
 });
 
-test("a lone owner profile takes a short turn at 0.65", () => {
+test("a lone owner still takes 0.65 through ownerTurn, but not 0.55 through its short-turn margin", () => {
   const owner: Profile = {
     exemplars: [[1, 0, 0]],
     isOwner: true,
@@ -117,5 +123,5 @@ test("a lone owner profile takes a short turn at 0.65", () => {
       { samples: [turnAt(0.55, 0, 3)], vector: null },
       { people: [owner], strangers: [] }
     ).turns[0]?.personId
-  ).toBe("owner");
+  ).toBeUndefined();
 });
