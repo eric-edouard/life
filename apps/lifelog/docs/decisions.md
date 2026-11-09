@@ -35,6 +35,16 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
+- **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
+  a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
+  the queue’s existing audio route and its answer route. The map reads the queue’s cards and words in their order,
+  with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
+  PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
+  computed per request without a cache. Likeness is not a calibrated probability. Naming still uses the queue’s
+  answer route. `bun run voices` rotates only the map hash in Host’s owner-only `server.env`, restarts its
+  verified supervised server child, and opens a loopback link with the token in the fragment, never a query.
+  Life’s separate server still serves no page.
+
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The
   phone's library is a cache, and the owner's edits travel as intents (`docs/sync.md`). Two owners of the same fact

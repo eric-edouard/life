@@ -191,6 +191,8 @@ const Env = z.object({
   // The Mac helper's token (apps/mac-quiet), minted by `bun run mint-token mac`. It opens only
   // the Mac's socket (mac-socket.ts); without it the socket refuses everyone.
   MAC_TOKEN_HASH: TokenHash.optional(),
+  // The voice map, its clips and naming answers only.
+  MAP_TOKEN_HASH: TokenHash.optional(),
   PORT: z.coerce.number().int().default(3000),
   PUBLIC_BASE_URL: z.url(),
   READ_TOKEN_HASH: TokenHash.optional(),

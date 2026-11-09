@@ -19,9 +19,16 @@ import { switchRoutes } from "./routes/switches";
 import { MAC_SOCKET_PATH, syncRoutes } from "./routes/sync";
 import { timelineRoutes } from "./routes/timeline";
 import { transcriptionRoutes } from "./routes/transcription";
+import { voicePageRoutes } from "./routes/voice-page";
 import type { Services } from "./services";
 
-const PUBLIC_PATHS = ["/health", "/webhooks/elevenlabs"];
+const PUBLIC_PATHS = [
+  "/health",
+  "/webhooks/elevenlabs",
+  "/voices",
+  "/voices/page.js",
+  "/voices/plotly-4.0.0.min.js",
+];
 // What a reader's token opens (docs/voice-source.md); the device token opens every route.
 const READS = [
   "GET /capabilities",
@@ -39,6 +46,11 @@ const CORRECTIONS = [
   "POST /people/{id}/merge",
   "PUT /conversations/{id}/title",
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
+];
+const MAP = [
+  "GET /speakers/map",
+  "GET /transcripts/{jobId}/audio",
+  "POST /naming-queue/answer",
 ];
 const opening = (routes: string[]) => {
   const patterns = routes.map(
@@ -64,6 +76,7 @@ export function createApp(s: Services) {
   const tokens = [
     [config.DEVICE_TOKEN_HASH, null],
     [config.READ_TOKEN_HASH, opening(READS)],
+    [config.MAP_TOKEN_HASH, opening(MAP)],
     [config.CORRECTIONS_TOKEN_HASH, opening(CORRECTIONS)],
   ] as const;
   const app = new OpenAPIHono();
@@ -143,6 +156,7 @@ export function createApp(s: Services) {
 
   app
     .route("/", healthRoutes(s))
+    .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
     .route("/", pageRoutes(s))

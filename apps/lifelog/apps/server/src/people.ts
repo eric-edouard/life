@@ -79,7 +79,7 @@ type VoiceSample = Pick<
 export const voiceId = (jobId: string, label: string | null) =>
   `${jobId}/${label ?? ""}`;
 
-const modelKey = (s: Pick<Sample, "modelId" | "modelRevision">) =>
+export const modelKey = (s: Pick<Sample, "modelId" | "modelRevision">) =>
   `${s.modelId}@${s.modelRevision}`;
 
 // A job's transcript, null before it has one.
@@ -278,7 +278,7 @@ export const evidenceRows = (db: Db) =>
     .all();
 
 // The voices recognition weighs, per embedding model, from his answers.
-const readProfiles = (db: Db): ProfilesByModel =>
+export const readProfiles = (db: Db): ProfilesByModel =>
   weighProfiles(evidenceRows(db), strangerRows(db));
 
 // The one read rule for who spoke: a turn's own row (the owner's correction, or one of his turns
@@ -339,7 +339,7 @@ export const strangerRows = (db: Db): Clip[] =>
     .all();
 
 // Every sample of these voices (job and speaker label).
-const samplesOf = (
+export const samplesOf = (
   db: Db,
   voices: { jobId: string; speakerLabel: string }[]
 ) =>

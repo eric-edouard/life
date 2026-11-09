@@ -8,6 +8,7 @@ import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
+import { readVoiceMap } from "../voice-map";
 import {
   ApiError,
   IdParam,
@@ -107,6 +108,7 @@ const QueueItem = z
     personId: z.uuid().nullable(),
     seconds: z.number(),
     voices: z.array(Voice),
+    words: z.int(),
   })
   .openapi("QueueItem");
 
@@ -119,6 +121,47 @@ export function speakerRoutes({
   voices,
 }: Pick<Services, "audio" | "db" | "queue" | "voices">) {
   return router()
+    .openapi(
+      createRoute({
+        description:
+          "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+        method: "get",
+        path: "/speakers/map",
+        responses: {
+          200: json(
+            z
+              .object({
+                candidateThreshold: z.number(),
+                cards: z.array(QueueItem),
+                models: z.array(
+                  z.object({
+                    model: z.string(),
+                    points: z.array(
+                      z.object({
+                        id: z.string(),
+                        personId: z.uuid().nullable(),
+                        position: z.tuple([z.number(), z.number(), z.number()]),
+                        ranking: z.array(
+                          z.object({
+                            margin: z.number(),
+                            personId: z.uuid(),
+                            score: z.number(),
+                          })
+                        ),
+                        words: z.int(),
+                      })
+                    ),
+                  })
+                ),
+                people: z.array(Person),
+              })
+              .openapi("VoiceMap"),
+            "Voices and people"
+          ),
+        },
+      }),
+      (c) => c.json(readVoiceMap(db, queue.items()), 200)
+    )
     .openapi(
       createRoute({
         description:

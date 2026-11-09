@@ -130,5 +130,5 @@ test("cards rank playable first, then the words naming them unlocks; cache agree
   );
   expect(cards.at(-1)?.clips).toEqual([]);
   expect(queue.items()).toEqual(queueCache(env.db).items());
-  expect(Object.hasOwn(cards[0] ?? {}, "words")).toBe(false);
+  expect(cards.map((c) => c.words)).toEqual([400, 300, 500]);
 });

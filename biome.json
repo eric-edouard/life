@@ -4,6 +4,7 @@
   "files": {
     "includes": [
       "!!.claude",
+      "!!apps/lifelog/apps/server/src/voices/plotly-4.0.0.min.js",
       "!!apps/lifelog/apps/ios",
       "!!apps/lifelog/research-fixtures",
       "!!apps/lifelog/docs/research/*.html"

@@ -357,7 +357,7 @@ function cardsOf(db: Db, voices: Voice[]) {
         Number(b.card.clips.some((c) => c.audio || c.at)) -
           Number(a.card.clips.some((c) => c.audio || c.at)) || b.words - a.words
     )
-    .map(({ card }) => card);
+    .map(({ card, words }) => ({ ...card, words }));
 }
 
 // The voices to name: unnamed voices that talked with the owner or hold enough words, one card

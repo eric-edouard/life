@@ -157,7 +157,6 @@ test("a voice that talked with the owner is queued with the name heard; others a
   // People nearby talking among themselves, between the owner's turns.
   conversation(me, talk(8), [identity({ withOwner: false })]);
 
-  // Only Hervé's voice: the others are strangers or media.
   const items = queued();
   expect(items[0]?.clips.length).toBeGreaterThan(0);
   expect(items).toEqual([
@@ -184,6 +183,7 @@ test("a voice that talked with the owner is queued with the name heard; others a
           speakerLabel: "speaker_1",
         },
       ],
+      words: 8,
     },
   ]);
 });

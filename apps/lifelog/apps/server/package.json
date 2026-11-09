@@ -12,7 +12,8 @@
     "mint-token": "bun scripts/mint-token.ts",
     "openapi": "bun scripts/openapi.ts && biome format --write openapi.json",
     "start": "bun src/index.ts",
-    "test": "bun test --timeout 60000"
+    "test": "bun test --timeout 60000",
+    "voices": "bun scripts/voices.ts"
   },
   "dependencies": {
     "@hono/zod-openapi": "1.6.3",
