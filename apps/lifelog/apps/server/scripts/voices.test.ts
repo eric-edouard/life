@@ -3,7 +3,12 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Hex } from "../src/config";
-import { mapEnvironment, openVoices, parseHostServer } from "./voices";
+import {
+  mapEnvironment,
+  openVoices,
+  parseHostServer,
+  readMapToken,
+} from "./voices";
 
 const table = `100 1 /Applications/Lifelog Host.app/Contents/MacOS/LifelogHost
 101 100 /Applications/Lifelog Host.app/Contents/Helpers/lifelog-server`;
@@ -38,9 +43,9 @@ test("launcher activates only a map token, waits for it, opens fragment through 
   let opened = "";
   let attempts = 0;
   try {
-    await openVoices({
+    const launch = {
       file,
-      pause: () => Promise.resolve(),
+      readToken: () => Promise.resolve("test-map-bearer"),
       request: (url: string, options?: RequestInit) => {
         if (String(url).endsWith("/voices")) {
           return Promise.resolve(
@@ -55,7 +60,7 @@ test("launcher activates only a map token, waits for it, opens fragment through 
           new Response("{}", { status: attempts === 1 ? 401 : 200 })
         );
       },
-      run: (cmd, options) => {
+      run: (cmd: string[], options?: { stdin?: string }) => {
         if (cmd[0] === "ps") {
           return Promise.resolve(table);
         }
@@ -67,17 +72,29 @@ test("launcher activates only a map token, waits for it, opens fragment through 
         opened = options?.stdin ?? "";
         return Promise.resolve("");
       },
-      stop: (pid) => {
+      stop: (pid: number) => {
         expect(pid).toBe(101);
         stopped = true;
       },
-    });
+    };
+    await openVoices(launch);
     const token = authorization.replace("Bearer ", "");
     expect(await readFile(file, "utf8")).toContain(sha256Hex(token));
     expect((await stat(file)).mode % 0o1000).toBe(0o600);
     expect(opened).toContain(`/voices#token=${token}`);
     expect(opened).not.toContain("?token=");
     expect(attempts).toBe(2);
+    stopped = false;
+    const before = (await stat(file)).mtimeMs;
+    await openVoices(launch);
+    expect(stopped).toBe(false);
+    expect(attempts).toBe(2);
+    expect((await stat(file)).mtimeMs).toBe(before);
+    // Losing the hash activates the same Keychain token once more.
+    await Bun.write(file, "OTHER=value\n");
+    await openVoices(launch);
+    expect(stopped).toBe(true);
+    expect(await readFile(file, "utf8")).toContain(sha256Hex(token));
   } finally {
     await rm(dir, { force: true, recursive: true });
   }
@@ -88,7 +105,7 @@ test("unsafe listener or old build leaves the token and process unchanged; readi
   let stopped = false;
   let opened = false;
   const options = {
-    pause: () => Promise.resolve(),
+    readToken: () => Promise.resolve("test-map-bearer"),
     request: () => Promise.resolve(new Response(null, { status: 404 })),
     run: (cmd: string[]) => {
       if (cmd[0] === "ps") {
@@ -105,7 +122,7 @@ test("unsafe listener or old build leaves the token and process unchanged; readi
     },
     update: () => {
       changed = true;
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
   };
   await expect(openVoices(options)).rejects.toThrow("loopback");
@@ -114,15 +131,38 @@ test("unsafe listener or old build leaves the token and process unchanged; readi
     cmd[0] === "lsof" ? Promise.resolve("n127.0.0.1:45678") : options.run(cmd);
   await expect(openVoices({ ...options, run })).rejects.toThrow("no voice map");
   expect(changed || stopped || opened).toBe(false);
-  const request = (url: string) =>
-    Promise.resolve(
-      String(url).endsWith("/voices")
-        ? new Response("", { headers: { "Content-Type": "text/html" } })
-        : new Response(null, { status: 401 })
-    );
-  await expect(openVoices({ ...options, request, run })).rejects.toThrow(
-    "did not accept"
-  );
-  expect(changed && stopped).toBe(true);
-  expect(opened).toBe(false);
+  expect(changed || stopped || opened).toBe(false);
+});
+
+test("Keychain mints once, keeps the bearer out of argv, and fails closed on read/write errors", async () => {
+  let stored = "";
+  let writes = 0;
+  const run: Parameters<typeof readMapToken>[0] = (cmd, options) => {
+    const result = { code: 0, killed: null, stderr: "", stdout: "" };
+    if (cmd[1] === "find-generic-password") {
+      return Promise.resolve({
+        ...result,
+        code: stored ? 0 : 44,
+        stdout: stored,
+      });
+    }
+    expect(cmd).toEqual(["security", "-i"]);
+    stored = options?.stdin?.trim().split(" ").at(-1) ?? "";
+    writes += 1;
+    return Promise.resolve(result);
+  };
+  const token = await readMapToken(run);
+  expect(token).toHaveLength(43);
+  expect(await readMapToken(run)).toBe(token);
+  expect(writes).toBe(1);
+  await expect(
+    readMapToken(() =>
+      Promise.resolve({ code: 1, killed: null, stderr: "locked", stdout: "" })
+    )
+  ).rejects.toThrow("Cannot read");
+  await expect(
+    readMapToken(() =>
+      Promise.resolve({ code: 44, killed: null, stderr: "", stdout: "" })
+    )
+  ).rejects.toThrow("Cannot save");
 });

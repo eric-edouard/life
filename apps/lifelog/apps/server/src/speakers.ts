@@ -60,17 +60,14 @@ export function likeness(vector: Vector, exemplars: Vector[]) {
   return top.reduce((sum, x) => sum + x, 0) / (top.length || 1);
 }
 
-// Everyone by likeness, each with their lead over the strongest other person. With a single
-// profile unknown competes at the match threshold, so weak singleton matches stay unnamed.
+// Everyone by likeness and lead over the strongest other person; without a runner, margin is score.
 export function rankPeople(vector: Vector, profiles: Profile[]) {
   const ranked = profiles
     .map((p) => ({ ...p, score: likeness(vector, p.exemplars) }))
     .sort((a, b) => b.score - a.score);
   return ranked.map((person, i) => ({
     ...person,
-    margin:
-      person.score -
-      (ranked[i === 0 ? 1 : 0]?.score ?? RECOGNITION.matchThreshold),
+    margin: person.score - (ranked[i === 0 ? 1 : 0]?.score ?? 0),
   }));
 }
 
@@ -93,8 +90,7 @@ export function nearbyMatch(
   return best &&
     best.personId === among?.personId &&
     best.score >= RECOGNITION.matchThreshold &&
-    (nearbyPeople.size === 1 ? among.score : among.margin) >=
-      RECOGNITION.nearbyMargin
+    among.margin >= RECOGNITION.nearbyMargin
     ? best.personId
     : null;
 }
@@ -170,7 +166,7 @@ export function decide(
     seconds: number
   ) =>
     candidates
-      ? ((closed && among.length === 1) || t.margin >= RECOGNITION.margin) &&
+      ? t.margin >= RECOGNITION.margin &&
         t.score >=
           Math.min(
             least,

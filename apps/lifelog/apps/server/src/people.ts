@@ -1,18 +1,12 @@
 // Speaker recognition and the owner's corrections (docs/brief.md, "Speakers and people").
 //
-// - Only owner actions create people or add voice evidence. Recognition writes
-//   assignments with source "recognized" and nothing else.
-// - A match needs a likeness >= matchThreshold to a person's profile AND a lead of at least
-//   `margin` over the runner-up person. Anything else stays unknown.
+// - Only owner actions create people/evidence; recognition writes "recognized" assignments.
+// - A profile match needs `matchThreshold` likeness and `margin` lead over the next person.
 // - A turn whose own voice is nearest the owner's is his, whoever the speaker (speakers.ts).
-// - A speaker matching no profile may take a person named in another recording of
-//   its conversation (`nameFromNearby`): its nearest profile among the people named there, or the
-//   person of a voice that sounds the same. Only from the owner's names and profile matches,
-//   never from a voice named that way.
-// - Owner rows (source "owner") survive every later recognition run. Several people: his row holds
-//   them (`candidates`), and each sampled turn is decided among them once.
-// - A profile is one exemplar per conversation of clean evidence, clips of at least 3 s
-//   (`weighProfiles`); a voice is scored against the person's closest conversations.
+// - `nameFromNearby`: a missed voice can take a conversation's owner-attributed or profile-matched
+//   name, from its nearest profile or a similar voice; names inferred this way never propagate.
+// - Owner rows survive recognition; `candidates` restricts each sampled turn to his choices.
+// - `weighProfiles`: one exemplar per conversation of owner-attributed clips of at least 3 s.
 // - A voice that sounds more like the strangers (voices he answered "Not anyone I know" for: people
 //   he doesn't care about) than like its match, and as like them as an unnamed group's voices are
 //   alike (`candidateThreshold`), is a stranger too (speakers.ts `decide`): status
@@ -67,6 +61,15 @@ import {
 import { averageLinkage } from "./voice-linkage";
 
 type Assignment = typeof assignments.$inferSelect;
+
+// Rejected for sampling or naming, not merely already named: candidates still need their clips.
+export const isRejected = (
+  assignment: Pick<Assignment, "source" | "status" | "candidates"> | undefined
+) =>
+  assignment?.status === "stranger" ||
+  (assignment?.source === "owner" &&
+    !assignment.candidates &&
+    (assignment.status === "unknown" || assignment.status === "media"));
 type Sample = typeof voiceSamples.$inferSelect;
 // What recognition reads of a sample.
 type VoiceSample = Pick<
@@ -298,15 +301,11 @@ export const speakerOf = <
   );
 };
 
-// Its other half: a sample of a turn named on its own isn't its speaker's voice.
-// Spelled out: Drizzle leaves the table off a column inside a single-table select, and `t`'s own
-// column would answer.
+// A named turn isn't its speaker's voice. Qualify columns: Drizzle drops single-table prefixes.
 const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
   where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
 
-// The samples an owner row covers: its turn's, or for a speaker row, its turns without a row of
-// their own. His answer moves their evidence (`writeOwnerRow`); "Not anyone I know" makes them a
-// stranger's clips (`strangerRows`).
+// An owner row covers its turn, or its speaker's turns without their own row.
 const coveredByRow = and(
   eq(voiceSamples.jobId, assignments.jobId),
   eq(voiceSamples.speakerLabel, assignments.speakerLabel),
@@ -316,7 +315,7 @@ const coveredByRow = and(
   )
 );
 
-// The retained negative references of voices he answered "Not anyone I know" for.
+// isRejected's owner unknown subset supplies negative references; media is expired instead.
 export const strangerRows = (db: Db): Clip[] =>
   db
     .select({
@@ -880,9 +879,8 @@ export async function regroup(db: Db) {
   });
 }
 
-// Deletes voice data (embeddings only; never audio or transcripts) that is nobody's evidence:
-// a speaker the owner marked as media at once, a retired job's after a day; unnamed samples are
-// retained otherwise. Recognized labels stay as they were (recognizeJob keeps them).
+// Deletes non-evidence embeddings: effective owner media rows now, retired jobs after a day.
+// Other samples and recognized labels stay; audio and transcripts are never removed.
 export function expire(db: Db) {
   const days = (n: number) => clock().getTime() - n * 86_400_000;
   const removed = db.all<{ id: string }>(sql`
@@ -894,8 +892,10 @@ export function expire(db: Db) {
         or exists (
           select 1 from ${assignments} a
           where a.job_id = s.job_id and a.speaker_label = s.speaker_label
-            and a.source = 'owner' and a.status = 'media'
-            and (a.turn_index is null or a.turn_index = s.turn_index))
+            and a.source = 'owner' and a.status = 'media' and a.candidates is null
+            and (a.turn_index = s.turn_index or (a.turn_index is null
+              and not exists (select 1 from ${assignments} t
+                where t.job_id = s.job_id and t.turn_index = s.turn_index))))
       )
     returning id`);
   return removed.length;

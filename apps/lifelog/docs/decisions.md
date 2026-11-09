@@ -41,8 +41,10 @@ reverse it, change its entry here in the same commit.
   with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
   computed per request without a cache. Likeness is not a calibrated probability. Naming still uses the queue’s
-  answer route. `bun run voices` rotates only the map hash in Host’s owner-only `server.env`, restarts its
-  verified supervised server child, and opens a loopback link with the token in the fragment, never a query.
+  answer route. `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its
+  hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
+  changes. It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
 
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
@@ -146,7 +148,7 @@ reverse it, change its entry here in the same commit.
   Dictation and unsafe old audio remain excluded; recovery never transcribes again.
 - Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
   conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
-  person merge or new evidence: the owner's assignments win. For a lone profile, unknown competes at the match threshold; the usual lead is still required.
+  person merge or new evidence: the owner's assignments win. For a lone profile, the missing runner scores zero: margin equals likeness everywhere (review fix, 9 Nov). Ordinary and open-candidate matches use the usual 0.6 threshold, without an extra lead over a synthetic unknown score.
 - **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
   sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
   recovered or asked about. Its samples remain negative references.

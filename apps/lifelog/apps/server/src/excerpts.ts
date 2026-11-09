@@ -25,6 +25,7 @@ import { touchesQuiet } from "./cutter";
 import { record } from "./events";
 import {
   holdingConversations,
+  isRejected,
   keepServerSamples,
   loadTranscript,
   recognize,
@@ -52,15 +53,8 @@ function wantedTurns(db: Db, jobId: string, parsed: ParsedTranscript) {
   return parsed.turns
     .flatMap((turn, index) => {
       const assignment = speakerOf(assignments, turn.speakerId, index);
-      const rejected =
-        assignment &&
-        (assignment.status === "stranger" ||
-          (assignment.source === "owner" &&
-            !assignment.candidates &&
-            (assignment.status === "unknown" ||
-              assignment.status === "media")));
       return turn.speakerId &&
-        !rejected &&
+        !isRejected(assignment) &&
         !sampled.has(index) &&
         !uncleanTurn(parsed, index)
         ? [{ index, speaker: turn.speakerId, turn }]

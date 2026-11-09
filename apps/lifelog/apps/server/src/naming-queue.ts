@@ -33,6 +33,7 @@ import {
   assign,
   holdingConversations,
   isCalled,
+  isRejected,
   sampleRanker,
   type Target,
   voiceId,
@@ -269,7 +270,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
   // never asked. One called several people (`mixed`) is asked again.
   const skipped = new Set(
     rows.flatMap((r) =>
-      r.source === "owner" || r.status === "stranger"
+      r.source === "owner" || isRejected(r)
         ? [voiceId(r.jobId, r.speakerLabel)]
         : []
     )

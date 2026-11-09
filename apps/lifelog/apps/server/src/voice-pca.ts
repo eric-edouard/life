@@ -1,14 +1,15 @@
-// Three principal components of centered group centroids. Distances here are projections,
-// never recognition scores. Cyclic Jacobi also handles repeated eigenvalues and deficient rank.
-import { cosine, type Vector } from "./speakers";
+// Three principal components of centered group centroids, preserving their distance from the mean.
+import type { Vector } from "./speakers";
 
 function covariance(rows: Vector[], dimensions: number) {
   const matrix = new Float64Array(dimensions * dimensions);
   for (const row of rows) {
     for (let i = 0; i < dimensions; i += 1) {
+      const x = row[i] ?? 0;
+      let at = i * dimensions + i;
       for (let j = i; j < dimensions; j += 1) {
-        const at = i * dimensions + j;
-        matrix[at] = (matrix[at] ?? 0) + (row[i] ?? 0) * (row[j] ?? 0);
+        matrix[at] = (matrix[at] ?? 0) + x * (row[j] ?? 0);
+        at += 1;
       }
     }
   }
@@ -20,42 +21,80 @@ function covariance(rows: Vector[], dimensions: number) {
   return matrix;
 }
 
-function rotate(
+const productOf = (matrix: Float64Array, vector: Vector) =>
+  vector.map((_, i) =>
+    vector.reduce(
+      (sum, x, j) => sum + (matrix[i * vector.length + j] ?? 0) * x,
+      0
+    )
+  );
+
+function axisOf(
   matrix: Float64Array,
-  axes: Float64Array,
-  p: number,
-  q: number,
-  n: number
+  seed: Vector,
+  axes: Vector[],
+  scale: number
 ) {
-  const off = matrix[p * n + q] ?? 0;
-  if (Math.abs(off) < 1e-12) {
-    return false;
-  }
-  const pp = matrix[p * n + p] ?? 0;
-  const qq = matrix[q * n + q] ?? 0;
-  const theta = 0.5 * Math.atan2(2 * off, qq - pp);
-  const c = Math.cos(theta);
-  const s = Math.sin(theta);
-  for (let k = 0; k < n; k += 1) {
-    if (k !== p && k !== q) {
-      const kp = matrix[k * n + p] ?? 0;
-      const kq = matrix[k * n + q] ?? 0;
-      matrix[k * n + p] = c * kp - s * kq;
-      matrix[p * n + k] = c * kp - s * kq;
-      matrix[k * n + q] = s * kp + c * kq;
-      matrix[q * n + k] = s * kp + c * kq;
+  let vector = seed;
+  const n = vector.length;
+  for (let step = 0; step < 128; step += 1) {
+    const next = productOf(matrix, vector);
+    // Reorthogonalize to keep numerical residue from reviving an earlier axis.
+    for (const previous of axes) {
+      const along = dot(next, previous);
+      for (let i = 0; i < n; i += 1) {
+        next[i] = (next[i] ?? 0) - along * (previous[i] ?? 0);
+      }
     }
-    const ap = axes[k * n + p] ?? 0;
-    const aq = axes[k * n + q] ?? 0;
-    axes[k * n + p] = c * ap - s * aq;
-    axes[k * n + q] = s * ap + c * aq;
+    const norm = Math.hypot(...next);
+    if (norm <= scale * 1e-12 || norm === 0) {
+      break;
+    }
+    const unit = next.map((x) => x / norm);
+    const change = Math.abs(1 - Math.abs(dot(unit, vector)));
+    vector = unit;
+    if (change < 1e-12) {
+      break;
+    }
   }
-  matrix[p * n + p] = c * c * pp - 2 * s * c * off + s * s * qq;
-  matrix[q * n + q] = s * s * pp + 2 * s * c * off + c * c * qq;
-  matrix[p * n + q] = 0;
-  matrix[q * n + p] = 0;
-  return true;
+  return vector;
 }
+
+// Only three axes: bounded power iterations on the covariance, with orthogonal deflation.
+function axesOf(matrix: Float64Array, n: number) {
+  const axes: Vector[] = [];
+  const scale = Math.max(...matrix.map(Math.abs), 0);
+  for (let axis = 0; axis < Math.min(3, n); axis += 1) {
+    const pivot = Array.from({ length: n }, (_, i) => i).reduce(
+      (best, i) =>
+        (matrix[i * n + i] ?? 0) > (matrix[best * n + best] ?? 0) ? i : best,
+      0
+    );
+    let vector = Array.from(
+      { length: n },
+      (_, i) => (i === pivot ? 1 : 0) + 0.01 * Math.sin((i + 1) * (axis + 1))
+    );
+    const length = Math.hypot(...vector);
+    vector = vector.map((x) => x / length);
+    vector = axisOf(matrix, vector, axes, scale);
+    const value = dot(vector, productOf(matrix, vector));
+    if (value <= scale * 1e-12 || value === 0) {
+      break;
+    }
+    axes.push(vector);
+    for (let i = 0; i < n; i += 1) {
+      for (let j = 0; j < n; j += 1) {
+        const at = i * n + j;
+        matrix[at] =
+          (matrix[at] ?? 0) - value * (vector[i] ?? 0) * (vector[j] ?? 0);
+      }
+    }
+  }
+  return axes;
+}
+
+const dot = (a: Vector, b: Vector) =>
+  a.reduce((sum, x, i) => sum + x * (b[i] ?? 0), 0);
 
 export function pcaOf(vectors: Vector[]): [number, number, number][] {
   const n = vectors[0]?.length ?? 0;
@@ -67,28 +106,10 @@ export function pcaOf(vectors: Vector[]): [number, number, number][] {
     );
   const rows = vectors.map((v) => v.map((x, i) => x - (mean[i] ?? 0)));
   const matrix = covariance(rows, n);
-  const axes = new Float64Array(n * n);
-  for (let i = 0; i < n; i += 1) {
-    axes[i * n + i] = 1;
-  }
-  for (let sweep = 0; sweep < 40; sweep += 1) {
-    let changed = false;
-    for (let p = 0; p < n; p += 1) {
-      for (let q = p + 1; q < n; q += 1) {
-        changed = rotate(matrix, axes, p, q, n) || changed;
-      }
-    }
-    if (!changed) {
-      break;
-    }
-  }
-  const top = Array.from({ length: n }, (_, i) => i)
-    .sort((a, b) => (matrix[b * n + b] ?? 0) - (matrix[a * n + a] ?? 0))
-    .slice(0, 3)
-    .map((i) => Array.from({ length: n }, (_, j) => axes[j * n + i] ?? 0));
+  const top = axesOf(matrix, n);
   return rows.map((v) => [
-    cosine(v, top[0] ?? []),
-    cosine(v, top[1] ?? []),
-    cosine(v, top[2] ?? []),
+    dot(v, top[0] ?? []),
+    dot(v, top[1] ?? []),
+    dot(v, top[2] ?? []),
   ]);
 }

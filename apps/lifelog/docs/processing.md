@@ -240,7 +240,8 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   there and leads everyone else named there by 0.15. Else it takes the name of a voice there that sounds 0.70 alike
   and leads the next person by 0.1. Only voices the owner named or that matched a profile at 0.65 count as references;
   references are fixed before nearby naming, so a voice named this way never names another or becomes evidence.
-  For a lone profile, unknown competes at the match threshold, so it still needs the usual lead above that bar.
+  For a lone profile, margin equals likeness: no other person competes. Ordinary and open-candidate matches
+  need 0.6; closed choices still need 0.4. Short owner turns use the same margin rule.
 - A provider speaker can hold several people. Only the owner says so ("Several people" in "Who's this?"): he names
   each clip in place, its turn alone (one of his people, someone new, or "don't know"), then Done says who: those he
   named, himself, and "unknown too" if a clip was "don't know". His row on the voice holds them (`candidates`) and

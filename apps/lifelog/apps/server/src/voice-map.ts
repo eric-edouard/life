@@ -53,10 +53,14 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
     const positions = pcaOf(points.map((p) => p.vector));
     return {
       model,
-      points: points.map(({ vector: _, ...point }, i) => ({
-        ...point,
-        position: positions[i] ?? ([0, 0, 0] as [number, number, number]),
-      })),
+      points: positions.map((position, i) => {
+        const paired = points[i];
+        if (!paired) {
+          throw new Error("PCA position has no voice point");
+        }
+        const { vector: _, ...point } = paired;
+        return { ...point, position };
+      }),
     };
   });
   return {

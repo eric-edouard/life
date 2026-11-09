@@ -364,8 +364,7 @@ test("a voice too close to two people is the one of them named nearby", async ()
 
 test("a voice that misses its profile takes a name from its conversation, never by a chain", async () => {
   const dave = await enroll("Dave", v([40, 1]));
-  // 0.86 to the profile: named. Then 0.60 to the profile but 0.88 to that voice: the same
-  // evening, the same person. Then 0.25 to the profile and 0.86 to the second voice only.
+  // The first voice matches; the second is like it, the third like only the second.
   const first = recording(v([40, 1], [41, 0.6]), 0);
   const second = recording(v([40, 0.5], [41, 0.6], [42, 0.3]), 30);
   const third = recording(v([40, 0.2], [41, 0.5], [42, 0.6]), 60);
@@ -382,11 +381,12 @@ test("a voice that misses its profile takes a name from its conversation, never 
   expect(speaker(recognize(third), "speaker_0")?.personId).toBeNull();
   // Hours later the same voice is just a stranger again.
   expect(speaker(recognize(later), "speaker_0")?.personId).toBeNull();
-  // A voice that only just matched the profile (0.62) passes nothing on: 0.94 alike, 0.47 to
-  // the profile, still unnamed (a guest matched Marie-Jo's thin profile at 0.60 on Oct 11).
+  // A 0.62 lone-profile match names nobody nearby; its 0.47 guest stays unnamed.
   const borderline = recording(v([40, 0.62], [43, 0.785]), 150);
   const guest = recording(v([40, 0.45], [43, 0.8], [44, 0.3]), 160);
-  expect(speaker(recognize(borderline), "speaker_0")?.personId).toBeNull();
+  expect(speaker(recognize(borderline), "speaker_0")?.personId).toBe(
+    dave.personId
+  );
   expect(speaker(recognize(guest), "speaker_0")?.personId).toBeNull();
 });
 

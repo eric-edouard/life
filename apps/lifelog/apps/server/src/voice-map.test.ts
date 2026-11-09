@@ -276,3 +276,25 @@ test("PCA centers, orders variance and preserves 3D distances including rotated 
   expect(variances[0]).toBeGreaterThanOrEqual(variances[1] ?? 0);
   expect(variances[1]).toBeGreaterThanOrEqual(variances[2] ?? 0);
 });
+
+test("PCA retains radial distance: an outlier stays farther from the mean", () => {
+  const points = pcaOf([
+    [-4, 0],
+    [0, 0],
+    [1, 0],
+    [3, 0],
+  ]);
+  expect(Math.hypot(...(points[0] ?? []))).toBeGreaterThan(
+    Math.hypot(...(points[2] ?? []))
+  );
+  const repeated = [
+    [1, 0, 0, 0],
+    [-1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, -1, 0, 0],
+  ];
+  expect(pcaOf(repeated)).toEqual(pcaOf(repeated));
+  for (const point of pcaOf(repeated)) {
+    expect(Math.hypot(...point)).toBeCloseTo(1, 8);
+  }
+});

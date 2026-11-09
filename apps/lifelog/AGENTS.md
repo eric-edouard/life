@@ -72,6 +72,7 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   alias, phone, email, handle or chat id from the owner's `truth/` (Life's `scripts/scrub-check.ts`; it skips
   without his data); first
   names, places and git history are on you.
+- lifelog serves one local page, the voice map (9 Nov, `docs/decisions.md`), behind its scoped map token; its map routes are also reachable through the public tunnel with that token.
 - **One process writes the archive.** The server holds `<file>.lock`; scripts open it read-only. Read production
   with `sqlite3 -readonly`, never write it.
 

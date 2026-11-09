@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { decide, likeness, type Profile } from "./speakers";
+import {
+  decide,
+  likeness,
+  nearbyMatch,
+  type Profile,
+  rankPeople,
+} from "./speakers";
 
 const profiles: Profile[] = [
   { exemplars: [[1, 0, 0]], isOwner: true, personId: "owner" },
@@ -56,7 +62,7 @@ test("a new voice unlike everyone is no stranger, however little it sounds like 
   expect(isStranger([0.3, 0.2, 0.7, Math.sqrt(0.38)])).toBe(true);
 });
 
-test("a lone profile competes with unknown, while an explicit closed choice stays usable", () => {
+test("a lone profile has its likeness as margin in ordinary, nearby and candidate recognition", () => {
   const [, person] = profiles;
   if (!person) {
     throw new Error("missing profile");
@@ -67,7 +73,21 @@ test("a lone profile competes with unknown, while an explicit closed choice stay
       { samples: [], vector: [Math.sqrt(1 - score ** 2), score, 0] },
       voices
     ).personId;
-  expect(named(0.65)).toBeNull();
+  expect(named(0.55)).toBeNull();
+  expect(named(0.65)).toBe("clara");
+  const vector = [0, 0.65, Math.sqrt(1 - 0.65 ** 2)];
+  expect(rankPeople(vector, [person])[0]?.margin).toBe(0.65);
+  expect(nearbyMatch(vector, [person], new Set(["clara"]))).toBe("clara");
+  expect(
+    decide(
+      {
+        samples: [{ durationSeconds: 3, embedding: vector, turnIndex: 0 }],
+        vector: null,
+      },
+      voices,
+      { people: ["clara"], unknown: true }
+    ).turns[0]?.personId
+  ).toBe("clara");
   expect(named(0.75)).toBe("clara");
   const sample = turnAt(0, 0.5, 10);
   expect(
@@ -76,4 +96,26 @@ test("a lone profile competes with unknown, while an explicit closed choice stay
       unknown: false,
     }).turns.map((t) => t.personId)
   ).toEqual(["clara"]);
+});
+
+test("a lone owner profile takes a short turn at 0.65", () => {
+  const owner: Profile = {
+    exemplars: [[1, 0, 0]],
+    isOwner: true,
+    personId: "owner",
+  };
+  const sample = turnAt(0.65, 0, 3);
+  expect(
+    decide(
+      { samples: [sample], vector: null },
+      { people: [owner], strangers: [] }
+    ).turns
+  ).toEqual([{ personId: "owner", score: 0.65, turnIndex: 0 }]);
+  // Below ownerTurn: this specifically exercises the lone-profile margin convention.
+  expect(
+    decide(
+      { samples: [turnAt(0.55, 0, 3)], vector: null },
+      { people: [owner], strangers: [] }
+    ).turns[0]?.personId
+  ).toBe("owner");
 });
