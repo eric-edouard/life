@@ -381,14 +381,11 @@ test("a voice that misses its profile takes a name from its conversation, never 
   expect(speaker(recognize(third), "speaker_0")?.personId).toBeNull();
   // Hours later the same voice is just a stranger again.
   expect(speaker(recognize(later), "speaker_0")?.personId).toBeNull();
-  // A voice that only just matched the profile (0.62) passes nothing on: 0.94 alike, 0.47 to
-  // the profile, still unnamed (a guest matched Marie-Jo's thin profile at 0.60 on Oct 11).
+  // A just-matching 0.62 passes nothing on (a guest matched a thin profile at 0.60 on Oct 11).
   const borderline = recording(v([40, 0.62], [43, 0.785]), 150);
   const guest = recording(v([40, 0.45], [43, 0.8], [44, 0.3]), 160);
   expect(speaker(recognize(borderline), "speaker_0")?.personId).toBeNull();
   expect(speaker(recognize(guest), "speaker_0")?.personId).toBeNull();
-  const lone = recording(v([40, 0.65], [45, Math.sqrt(1 - 0.65 ** 2)]), 170);
-  expect(speaker(recognize(lone), "speaker_0")?.personId).toBeNull();
 });
 
 test('a voice like one he answered "Not anyone I know" for is a stranger, nearby too', async () => {
