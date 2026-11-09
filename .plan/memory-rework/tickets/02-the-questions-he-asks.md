@@ -24,3 +24,6 @@ prediction, and about himself; 25 marked failed from his own record.
 - So the set grows from his old chats and assistant exports, once in (his ask of 9 Nov: the personal moments that
   matter, code and work chatter filtered out), before Validation uses it. The 18 existing eval questions were graded by
   a model, not by him.
+- Extended the same day (his ask): 196 more questions mined from his chats since 2015, about 36 of each thin kind,
+  predictions as backtests on what actually followed; quotes checked verbatim. Old WhatsApp and his assistant chats
+  follow when the iPhone backup and the exports land.
