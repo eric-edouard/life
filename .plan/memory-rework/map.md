@@ -48,6 +48,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 ## Decisions so far
 
 - [Everything Life does for him today](./tickets/01-everything-life-does-today.md) — the feature checklist with what feeds each; two stored layers are redundant, and his old project-loop answers are a source to keep; the daily mails live in his scheduled tasks; appointments, area situations and some CLI-only features are gaps to improve
+- [Who really spoke in a recording](./tickets/04-who-really-spoke.md) — lifelog's contract gains `speaker.basis` (assigned, matched, inferred, none); only assigned and matched turns are a person's own evidence
 
 ## Not yet specified
 
