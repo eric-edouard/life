@@ -33,6 +33,7 @@ import {
   mailHits,
   passagesOf,
   readChatTexts,
+  spokenLines,
   transcripts,
   voiceLines,
   voiceText,
@@ -145,6 +146,28 @@ test("a conversation-day read for its episodes: its title, then who said what an
     MARKED,
   ]);
   expect(chapter?.text).toBe("Shop\nA summary");
+});
+
+test("a chapter unit's words while lifelog holds its turns, the ones in its span (the persona reads them); none past them", async () => {
+  const store = open();
+  const chapter = (start: string, end: string) =>
+    unit({ end, key: "c1", source: "lifelog", start, summary: "A summary" });
+  const spoken = await spokenLines(
+    [
+      chapter("2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
+      {
+        ...chapter("2026-10-15T10:00:00.000Z", "2026-10-15T11:00:00.000Z"),
+        id: "later",
+      },
+    ],
+    () => null,
+    { people: [] } as unknown as Truth,
+    () => store
+  );
+  expect([...spoken.values()].map((l) => l.map((x) => x.text))).toEqual([
+    ["Allo", "Salut"],
+    [],
+  ]);
 });
 
 test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {

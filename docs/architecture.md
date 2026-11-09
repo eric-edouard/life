@@ -82,7 +82,8 @@ flowchart LR
   recorded conversations where they spoke (the stored voice units, their words read only when the persona is due),
   every message whole: all of it when it fits one call (`callCharsOf`, his request of 9 Nov 2026: nothing cut), else
   sampled (the newest, then each month's most eventful days, year by year); a
-  chapter from before Life kept words goes in as its summary, context only. With their page and what code counts over
+  chapter from before conversation-days goes in by its words while lifelog holds its turns, else as its summary,
+  context only. With their page and what code counts over
   the 1:1 messages (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like
   the rest, marked; a call is its call line. Each quote is found in a chat message or a recorded turn shown (a writing
   line's only in that writer's 1:1 chats) and kept with its time, so how well a line is backed (`supportOf`: solid on 3

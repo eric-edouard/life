@@ -292,7 +292,7 @@ const dayInput = (d: ShownDay) => ({
   with: d.with,
 });
 
-/** A recorded conversation-day before its sample has read its words: a chapter (`isFrozen`) is its summary. */
+/** A recorded conversation-day before its sample has read its words; a chapter (`isFrozen`) lifelog holds no turns of is its summary. */
 interface Recording extends Sampled {
   unit: Unit;
 }
@@ -308,9 +308,7 @@ export const recordingsOf = (units: Unit[], refs: Set<string>) =>
           {
             day: u.date,
             eventful: u.stats.items,
-            size: isFrozen(u)
-              ? u.title.length + (u.summary?.length ?? 0)
-              : u.stats.items * TURN_CHARS,
+            size: u.stats.items * TURN_CHARS,
             unit: u,
           },
         ]
@@ -319,7 +317,7 @@ export const recordingsOf = (units: Unit[], refs: Set<string>) =>
 
 /**
  * The sampled recordings with their words (`spokenLines`), his and `refs`' turns only, days kept in order to `budget`
- * characters; the chapters as context, title and summary, never quoted.
+ * characters; a chapter's words too while lifelog holds its turns, else its title and summary as context, never quoted.
  */
 async function spokenOf(
   recordings: Recording[],
@@ -328,8 +326,13 @@ async function spokenOf(
   named: (ref: string) => string,
   budget: number
 ) {
-  const live = recordings.flatMap((r) => (isFrozen(r.unit) ? [] : [r.unit]));
-  const spoken = await spokenLines(live, people.resolve, people.truth);
+  const spoken = await spokenLines(
+    recordings.map((r) => r.unit),
+    people.resolve,
+    people.truth
+  );
+  const isHeard = (u: Unit) => (spoken.get(u.id)?.length ?? 0) > 0;
+  const live = recordings.flatMap((r) => (isHeard(r.unit) ? [r.unit] : []));
   let used = 0;
   // Newest first, as the sample keeps them: a low guess of their length cuts the oldest.
   const days = live.toReversed().flatMap((u): ShownDay[] => {
@@ -364,7 +367,7 @@ async function spokenOf(
     ];
   });
   const recorded = recordings.flatMap((r) =>
-    isFrozen(r.unit)
+    isFrozen(r.unit) && !isHeard(r.unit)
       ? [{ day: r.day, summary: r.unit.summary, title: r.unit.title }]
       : []
   );

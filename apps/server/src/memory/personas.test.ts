@@ -226,7 +226,7 @@ test("a reader shows the readings with their support, and the writing lines unde
   expect(personaBlock(null, "2026-11-08")).toEqual([]);
 });
 
-test("his recordings with someone: the voice units they spoke in, a chapter weighed by its summary", () => {
+test("his recordings with someone: the voice units they spoke in, a chapter weighed by its turns like any", () => {
   const unit = (id: string, people: string[], extra: Partial<Unit> = {}) =>
     ({
       date: "2026-11-01",
@@ -254,7 +254,7 @@ test("his recordings with someone: the voice units they spoke in, a chapter weig
   );
   expect(got.map((r) => [r.unit.id, r.size])).toEqual([
     ["a", 600],
-    ["c", 33],
+    ["c", 600],
   ]);
 });
 
