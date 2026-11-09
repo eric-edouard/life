@@ -7,7 +7,7 @@ import {
   speakerAssignments,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { queueCache } from "./naming-queue";
+import { namingQueue } from "./naming-queue";
 import { PROMPT_VERSION } from "./summary-calls";
 import { seedConversation, storedResult, testDb } from "./testing";
 
@@ -73,7 +73,7 @@ test("historical overheard cards need 300 words; media and brief strangers stay 
   const brief = overheard(299);
   const enough = overheard(300);
   overheard(500, "media");
-  const cards = queueCache(env.db).items();
+  const cards = namingQueue(env.db).items();
   expect(cards.map((c) => c.id)).toEqual([`${enough.jobId}/speaker_1`]);
   expect(cards[0]?.clips).toHaveLength(1);
   expect(cards.some((c) => c.voices.some((v) => v.jobId === brief.jobId))).toBe(
@@ -102,7 +102,7 @@ test("word totals deduplicate a turn held by overlapping conversations", () => {
       status: "candidate",
     })
     .run();
-  expect(queueCache(env.db).items()).toEqual([]);
+  expect(namingQueue(env.db).items()).toEqual([]);
 });
 
 test("cards rank playable first, then the words naming them unlocks; cache agrees", () => {
@@ -123,12 +123,12 @@ test("cards rank playable first, then the words naming them unlocks; cache agree
       turnIndex: 99,
     })
     .run();
-  const queue = queueCache(env.db);
+  const queue = namingQueue(env.db);
   const cards = queue.items();
   expect(cards.map((c) => c.id)).toEqual(
     [more, fewer, unplayable].map((c) => `${c.jobId}/speaker_1`)
   );
   expect(cards.at(-1)?.clips).toEqual([]);
-  expect(queue.items()).toEqual(queueCache(env.db).items());
+  expect(queue.items()).toEqual(namingQueue(env.db).items());
   expect(cards.map((c) => c.words)).toEqual([400, 300, 500]);
 });

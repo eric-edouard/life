@@ -96,7 +96,10 @@ function axesOf(matrix: Float64Array, n: number) {
 const dot = (a: Vector, b: Vector) =>
   a.reduce((sum, x, i) => sum + x * (b[i] ?? 0), 0);
 
-export function pcaOf(vectors: Vector[]): [number, number, number][] {
+export function pcaOf(
+  vectors: Vector[],
+  project = vectors
+): [number, number, number][] {
   const n = vectors[0]?.length ?? 0;
   const mean = new Array<number>(n)
     .fill(0)
@@ -107,9 +110,11 @@ export function pcaOf(vectors: Vector[]): [number, number, number][] {
   const rows = vectors.map((v) => v.map((x, i) => x - (mean[i] ?? 0)));
   const matrix = covariance(rows, n);
   const top = axesOf(matrix, n);
-  return rows.map((v) => [
-    dot(v, top[0] ?? []),
-    dot(v, top[1] ?? []),
-    dot(v, top[2] ?? []),
-  ]);
+  return project
+    .map((v) => v.map((x, i) => x - (mean[i] ?? 0)))
+    .map((v) => [
+      dot(v, top[0] ?? []),
+      dot(v, top[1] ?? []),
+      dot(v, top[2] ?? []),
+    ]);
 }

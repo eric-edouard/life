@@ -43,20 +43,54 @@ reverse it, change its entry here in the same commit.
   cards and words in their order, with the same likeness ranking as recognition; easy targets are cards above the
   candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
-  cached for each incremental queue build, with samples read in one query. Likeness is not a calibrated probability.
-  Naming uses the queue’s answer route or per-turn PUT. `bun run voices` keeps the map token in the Mac Keychain
-  (`lifelog-map-token`), activates its hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
-  changes. Its restart probe requests the nil transcript UUID's audio with the map token and expects 404, without
-  building the map. It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  cached for each incremental queue build. Named clouds read currently named turn samples through the shared
+  assignment resolver, including owner evidence (solid) and recognition matches (hollow). Each person and model
+  shows at most 400 samples, chosen by deterministic stride across recording time (sample creation time for legacy
+  rows), on those same centroid-fitted axes. Point kinds are explicit; vectors never leave the server.
+  Sidebar checkboxes toggle each person and unnamed voices, with All/None controls.
+  Likeness is not a calibrated probability. Naming uses the queue’s answer route or scoped per-turn PUT.
+  `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its hash in Host’s
+  owner-only `server.env` and restarts its verified supervised server child only when that hash changes.
+  Its restart probe requests the nil transcript UUID's audio and expects 404 without building the map.
+  It opens a loopback link with the token in the fragment, never a query. The map routes are also
   reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
-  Rebuild measurement (9 Nov 2026, disposable synthetic SQLite archive, Bun 1.4.2 on this Mac): 1,150
-  conversations, 40,150 ten-second samples, one 192-dimensional model, 30 known people with five profile
-  samples each, 1,000 phone cards and 1,000 split cards (2,030 projected points). Each unnamed job has 40
-  alternating owner/guest turns; its last two guest turns form a split. Five map-only rebuilds after the queue
-  build took 9,887 / 9,674 / 9,718 / 9,642 / 9,710 ms (median 9,710 ms); the first queue build took 16,531 ms.
-  Cached map reads averaged 0.62 ms over 100 reads. These synchronous rebuilds block requests; caching avoids
-  that cost between queue changes, but this synthetic measurement does not bound larger archives.
+  Rebuild measurement (9 Nov 2026, Bun 1.4.2, disposable synthetic SQLite archive): 1,150 conversations,
+  40,150 ten-second samples, one 192-dimensional model, 30 people, 150 profile samples, 1,000 phone cards
+  and 1,000 split cards. The merged map has 2,575 points, including 545 named samples; the earlier branch-only
+  9,710 ms measurement had 2,030 points and no named clouds.
+
+  Before: queue build 17,795 ms; merged map rebuild 10,799 ms and maximum event-loop stall 10,804 ms.
+  Split-card construction took 9,759 ms (including 736 ms loading turns); projection 634 ms (including PCA
+  216 ms); embedding JSON decoding 207 ms. Timers overlap. The bottleneck was repeated linkage queries:
+  the existing `conversation_jobs` view filtered by job scans every conversation. An equivalent synthetic
+  query-plan comparison measured 2,000 filtered reads at 7,580 ms versus one full view read at 4.93 ms.
+
+  After: one linkage read per build, shared clip lookup, profiles and decoded samples for suggestions,
+  rankings and projection; only split members and the stride-selected named embeddings need additional reads.
+  Direct map rebuilds took 1,522 / 1,573 / 1,518 ms; reusing the queue build's reader and clips took
+  679 / 700 / 678 ms. Cold queue build took 3,251 ms. This still exceeds 200 ms, so one Bun Worker owns
+  the incremental queue and projection on its own read-only SQLite connection. Revision and rows come from
+  one read transaction. The connection lives until worker shutdown; Host includes the worker entrypoint.
+  Production phone queue reads and the morning digest await that same worker snapshot; no queue build runs
+  on the request thread. Phone cards are derived by their speaker scope, never built a second way.
+
+  GET map serves the last completed snapshot while refreshing (`building`), or 202 before the first one.
+  Polling preserves a Several people edit. Completed consistent snapshots are published even if writes arrived;
+  the next read coalesces a refresh to the newest logged revision, so continuous writes cannot starve the first
+  map. Failed workers report through diagnostics, retain the displayed map, settle queue readers and retry
+  on the next read. Scoped PUT checks that displayed map's clips. The worker is unreferenced and explicitly
+  stopped on server exit; it never writes the archive.
+
+  Worker measurement, including full map JSON serialization on each polling read: cold background build
+  4,142 ms; warm builds 3,363 / 3,317 / 3,597 ms. Maximum main-thread read plus JSON was 33.78 ms;
+  maximum event-loop stall 39.28 ms (cold 13.91 ms), below 200 ms. Cached map plus JSON averaged 7.01 ms.
+  A final run after sharing the phone queue used 4,106 ms cold and 3,191 / 3,225 / 3,217 ms warm;
+  map reads plus JSON peaked at 15.21 ms and map polling stall at 17.52 ms. An actual authenticated
+  in-process GET `/naming-queue` after invalidation awaited the worker for 3,288 ms, returned 1,000 cards,
+  and stalled the main loop at most 23.13 ms including response JSON parsing. Phone reads catch up through
+  their request-start revision, without chasing later writes. Counts remain 2,000 cards and 2,575 points. Reproduce with `bun run --cwd apps/lifelog/apps/server bench:voice-map`;
+  the benchmark creates and removes only a synthetic archive. Measurements bound this fixture, not every future archive.
 
 - **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
   turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split

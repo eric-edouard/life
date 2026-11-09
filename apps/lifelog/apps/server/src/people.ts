@@ -1,10 +1,4 @@
-// Speaker recognition and the owner's corrections (docs/brief.md, "Speakers and people").
-//
-// - Only owner actions create people/evidence; recognition writes "recognized" assignments.
-// - Recognition and nearby matches never add evidence or propagate inferred names.
-// - Owner rows survive; unnamed groups and stranger references follow speakers.ts.
-// - Nothing here calls the transcription provider.
-
+// Speaker recognition and owner corrections: only owner actions create people or evidence.
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { clock } from "@life/server/src/core/clock";
@@ -270,13 +264,10 @@ export const evidenceRows = (db: Db) =>
     .innerJoin(people, eq(people.id, voiceProfiles.personId))
     .all();
 
-// The voices recognition weighs, per embedding model, from his answers.
 export const readProfiles = (db: Db): ProfilesByModel =>
   weighProfiles(evidenceRows(db), strangerRows(db));
 
-// The one read rule for who spoke: a turn's own row (the owner's correction, or one of his turns
-// moved to him by speakers.ts `decide`), else its speaker's (`turn` null: the speaker's). `rows`
-// are one job's.
+// One job's speaker: its turn's own row, else its label's row (turn null).
 export const speakerOf = <
   R extends { speakerLabel: string; turnIndex: number | null },
 >(
@@ -306,8 +297,8 @@ export const readOwnTurns = (
 const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
   where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
 
-// An owner row covers its turn, or its speaker's turns without their own row.
-const coveredByRow = and(
+// An assignment covers its turn, or its speaker's turns without their own row.
+export const coveredByRow = and(
   eq(voiceSamples.jobId, assignments.jobId),
   eq(voiceSamples.speakerLabel, assignments.speakerLabel),
   or(
@@ -338,8 +329,7 @@ export const strangerRows = (db: Db): Clip[] =>
     )
     .all();
 
-// Every sample of these voices (job and speaker label).
-export const samplesOf = (
+const samplesOf = (
   db: Db,
   voices: { jobId: string; speakerLabel: string }[]
 ) =>
@@ -363,42 +353,51 @@ export const samplesOf = (
         )
         .all();
 
-// Who several unnamed voices sound like together, by the usual rule (threshold and margin):
-// a group spread over conversations often matches where none of its voices does alone. Only
-// a hint for the naming queue's cards; it never assigns anyone.
-export function voiceMatcher(db: Db) {
+// One queue build shares decoded samples and profiles between suggestions, clips and projection.
+export function readVoices(db: Db) {
   const profiles = readProfiles(db);
-  return (voices: { jobId: string; speakerLabel: string }[]) =>
-    match(samplesOf(db, voices), profiles).personId;
-}
-
-// A naming card's samples ranked by how much each sounds like the card's voice: `personId`'s
-// profile when the card asks "Is this X?", else the samples together. A turn the provider gave
-// one speaker can hold several people; it sounds unlike the voice and ranks low. Only a ranking
-// for the card's clips; it assigns nothing.
-export function sampleRanker(db: Db) {
-  const profiles = readProfiles(db);
-  return (
-    voices: { jobId: string; speakerLabel: string }[],
-    personId: string | null
-  ) => {
-    const samples = samplesOf(db, voices);
-    const [model] = [...Map.groupBy(samples, modelKey)].sort(
-      (a, b) => b[1].length - a[1].length
+  const kept = new Map<string, Sample[]>();
+  const samples = (voices: { jobId: string; speakerLabel: string }[]) => {
+    const missing = voices.filter(
+      (v) => !kept.has(voiceId(v.jobId, v.speakerLabel))
     );
-    if (!model) {
-      return [];
+    const found = Map.groupBy(samplesOf(db, missing), (s) =>
+      voiceId(s.jobId, s.speakerLabel)
+    );
+    for (const v of missing) {
+      const key = voiceId(v.jobId, v.speakerLabel);
+      kept.set(key, found.get(key) ?? []);
     }
-    const [key, same] = model;
-    const exemplars = (profiles.get(key) ?? NO_PROFILES).people.find(
-      (p) => p.personId === personId
-    )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
-    return same
-      .map((sample) => ({
-        sample,
-        score: likeness(sample.embedding, exemplars),
-      }))
-      .sort((a, b) => b.score - a.score);
+    return [
+      ...new Set(voices.map((v) => kept.get(voiceId(v.jobId, v.speakerLabel)))),
+    ].flatMap((rows) => rows ?? []);
+  };
+  return {
+    match: (voices: { jobId: string; speakerLabel: string }[]) =>
+      match(samples(voices), profiles).personId,
+    profiles,
+    rank(
+      voices: { jobId: string; speakerLabel: string }[],
+      personId: string | null
+    ) {
+      const [model] = [...Map.groupBy(samples(voices), modelKey)].sort(
+        (a, b) => b[1].length - a[1].length
+      );
+      if (!model) {
+        return [];
+      }
+      const [key, same] = model;
+      const exemplars = (profiles.get(key) ?? NO_PROFILES).people.find(
+        (p) => p.personId === personId
+      )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
+      return same
+        .map((sample) => ({
+          sample,
+          score: likeness(sample.embedding, exemplars),
+        }))
+        .sort((a, b) => b.score - a.score);
+    },
+    samples,
   };
 }
 

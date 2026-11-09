@@ -124,13 +124,14 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The naming queue and its likeness rankings, with group centroids projected into three PCA dimensions per embedding model. Read-only; points are cached until the naming queue rebuilds. Likeness is not a calibrated probability.",
+          "The naming queue, split cards and likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; a read-only worker rebuilds after changes. Serves the last built map while refreshing, or 202 initially. Likeness is not a calibrated probability.",
         method: "get",
         path: "/speakers/map",
         responses: {
           200: json(
             z
               .object({
+                building: z.boolean().optional(),
                 candidateThreshold: z.number(),
                 cards: z.array(
                   z
@@ -145,7 +146,9 @@ export function speakerRoutes({
                     model: z.string(),
                     points: z.array(
                       z.object({
+                        basis: z.enum(["owner", "recognized"]).nullable(),
                         id: z.string(),
+                        kind: z.enum(["centroid", "sample", "unnamed"]),
                         personId: z.uuid().nullable(),
                         position: z.tuple([z.number(), z.number(), z.number()]),
                         ranking: z.array(
@@ -165,9 +168,18 @@ export function speakerRoutes({
               .openapi("VoiceMap"),
             "Voices and people"
           ),
+          202: json(
+            z.object({ building: z.literal(true) }),
+            "First map is building; retry shortly"
+          ),
         },
       }),
-      (c) => c.json(queue.map(), 200)
+      (c) => {
+        const map = queue.map();
+        return map
+          ? c.json(map, 200)
+          : c.json({ building: true as const }, 202);
+      }
     )
     .openapi(
       createRoute({
@@ -269,7 +281,7 @@ export function speakerRoutes({
           c.get("isMapToken") &&
           !queue
             .map()
-            .cards.some((card) =>
+            ?.cards.some((card) =>
               card.clips.some(
                 (clip) =>
                   clip.jobId === jobId &&
@@ -391,7 +403,7 @@ export function speakerRoutes({
         path: "/naming-queue",
         responses: { 200: json(z.array(QueueItem), "Voices to name") },
       }),
-      (c) => c.json(queue.items(), 200)
+      async (c) => c.json(await queue.items(), 200)
     )
     .openapi(
       createRoute({

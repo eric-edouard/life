@@ -3,17 +3,24 @@ import { randomUUID } from "node:crypto";
 import {
   people,
   speakerAssignments,
+  turns,
   voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { mintToken } from "../scripts/mint-token";
 import { createApp } from "./app";
-import { loadConfig, RECOGNITION, sha256Hex } from "./config";
+import {
+  loadConfig,
+  RECOGNITION,
+  sha256Hex,
+  VOICE_MAP_POINTS_PER_PERSON_MODEL,
+} from "./config";
 import { clipOf } from "./naming-clips";
-import { type Card, queueCache, readVoiceMap } from "./naming-queue";
+import { type Card, namingQueue, readVoiceMap } from "./naming-queue";
+import { readProfiles } from "./people";
 import { services } from "./services";
-import { rankPeople } from "./speakers";
+import { centroid, rankPeople } from "./speakers";
 import {
   OWNER_TOKEN,
   seedConversation,
@@ -42,7 +49,16 @@ const config = () =>
     MAP_TOKEN_HASH: mapToken.hash,
     READ_TOKEN_HASH: sha256Hex("reader"),
   });
-const app = () => createApp(services(config(), env.db, { intelligence: null }));
+const app = () => {
+  const queue = namingQueue(env.db);
+  const map = queue.projection();
+  return createApp(
+    services(config(), env.db, {
+      intelligence: null,
+      queue: { items: queue.items, map: () => map },
+    })
+  );
+};
 const headers = (token = mapToken.token) => ({
   Authorization: `Bearer ${token}`,
   "Content-Type": "application/json",
@@ -212,6 +228,25 @@ function seedMap() {
       { personId: guest, sampleId: samples[1]?.id ?? "" },
     ])
     .run();
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "owner",
+        speakerLabel: "b",
+        status: "person",
+      },
+    ])
+    .run();
   const card: Card = {
     clips: [],
     conversations: 1,
@@ -277,9 +312,284 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
   ).toBe(guest);
 });
 
+test("named sample clouds stride across time per person/model without changing recognition or PCA fit", () => {
+  const { owner, guest, cards } = seedMap();
+  const jobId = seedTranscript(env.db, []);
+  const samples = env.db
+    .insert(voiceSamples)
+    .values(
+      Array.from({ length: 907 }, (_, i) => ({
+        conversationId: jobId,
+        // Deliberately different from recording order: recovered samples can be created later.
+        createdAt: new Date(4_102_444_800_000 + ((i * 251) % 907) * 1000),
+        durationSeconds: 10,
+        embedding: [Math.cos(i / 100), Math.sin(i / 100), 0],
+        jobId,
+        modelId: "first",
+        modelRevision: "r1",
+        speakerLabel: i < 502 ? "a" : "b",
+        turnIndex: i,
+      }))
+    )
+    .returning()
+    .all();
+  env.db
+    .insert(turns)
+    .values(
+      samples.map((s, i) => ({
+        endAt: new Date(4_102_444_800_000 + (i + 1) * 1000),
+        jobId,
+        language: "en",
+        speakerLabel: s.speakerLabel,
+        startAt: new Date(4_102_444_800_000 + i * 1000),
+        text: "Made-up words",
+        turnIndex: i,
+        words: [],
+      }))
+    )
+    .run();
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "recognized",
+        speakerLabel: "b",
+        status: "person",
+      },
+    ])
+    .run();
+  // Many samples in one conversation: clouds must not collapse into profile exemplars.
+  env.db
+    .insert(voiceProfiles)
+    .values(
+      samples
+        .filter((s) => s.speakerLabel === "a")
+        .map((s) => ({ personId: owner, sampleId: s.id }))
+    )
+    .run();
+  const other = seedTranscript(env.db, []);
+  env.db
+    .insert(voiceSamples)
+    .values({
+      conversationId: other,
+      durationSeconds: 10,
+      embedding: [1, 0],
+      jobId: other,
+      modelId: "second",
+      modelRevision: "r2",
+      speakerLabel: "a",
+      turnIndex: 0,
+    })
+    .run();
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      jobId: other,
+      personId: owner,
+      source: "recognized",
+      speakerLabel: "a",
+      status: "person",
+    })
+    .run();
+  const profiles = readProfiles(env.db);
+  const before = env.db.$client.serialize();
+  const result = readVoiceMap(env.db, cards);
+  expect(readProfiles(env.db)).toEqual(profiles);
+  expect(readVoiceMap(env.db, cards)).toEqual(result);
+  const points =
+    result.models.find((m) => m.model === "first@r1")?.points ?? [];
+  for (const personId of [owner, guest]) {
+    const cloud = points.filter(
+      (p) => p.personId === personId && p.kind === "sample"
+    );
+    expect(cloud).toHaveLength(VOICE_MAP_POINTS_PER_PERSON_MODEL);
+    const originals = env.db
+      .select()
+      .from(voiceSamples)
+      .where(eq(voiceSamples.speakerLabel, personId === owner ? "a" : "b"))
+      .all()
+      .filter((s) => s.modelId === "first")
+      .toSorted((a, b) =>
+        a.jobId === jobId && b.jobId === jobId
+          ? a.turnIndex - b.turnIndex
+          : a.createdAt.getTime() - b.createdAt.getTime()
+      );
+    const selected = Array.from(
+      { length: VOICE_MAP_POINTS_PER_PERSON_MODEL },
+      (_, i) =>
+        originals[
+          Math.floor(
+            (i * (originals.length - 1)) /
+              (VOICE_MAP_POINTS_PER_PERSON_MODEL - 1)
+          )
+        ]
+    );
+    expect(cloud.map((p) => p.id)).toEqual(
+      selected.flatMap((s) => (s ? [s.id] : []))
+    );
+    const fit = [
+      ...(profiles.get("first@r1")?.people ?? []).map((p) =>
+        centroid(p.exemplars)
+      ),
+      [0.8, 0.6, 0],
+    ];
+    const expected = pcaOf(
+      fit,
+      selected.map((s) => s?.embedding ?? [])
+    );
+    for (const [i, p] of cloud.entries()) {
+      expect(p.ranking).toEqual([]);
+      expect(p.words).toBe(0);
+      for (let axis = 0; axis < 3; axis += 1) {
+        expect(p.position[axis]).toBeCloseTo(expected[i]?.[axis] ?? 0, 8);
+      }
+    }
+  }
+  const second = result.models.find((m) => m.model === "second@r2");
+  expect(
+    second?.points.filter((p) => p.personId === owner && p.kind === "sample")
+  ).toHaveLength(1);
+  expect(new Set(points.map((p) => p.id)).size).toBe(points.length);
+  expect(env.db.$client.serialize()).toEqual(before);
+});
+
+test("clouds resolve current sampled turns including overrides, excluding rejected and several-person fallbacks", () => {
+  const { owner, guest } = seedMap();
+  const jobId = seedTranscript(env.db, []);
+  const samples = env.db
+    .insert(voiceSamples)
+    .values(
+      Array.from({ length: 7 }, (_, i) => ({
+        conversationId: jobId,
+        durationSeconds: 10,
+        embedding: [1, 0, 0],
+        jobId,
+        modelId: "first",
+        modelRevision: "r1",
+        speakerLabel: "a",
+        turnIndex: i,
+      }))
+    )
+    .returning()
+    .all();
+  env.db
+    .insert(speakerAssignments)
+    .values([
+      {
+        jobId,
+        personId: owner,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "person",
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 1,
+      },
+      {
+        jobId,
+        personId: guest,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 2,
+      },
+      {
+        jobId,
+        source: "owner",
+        speakerLabel: "a",
+        status: "unknown",
+        turnIndex: 3,
+      },
+      {
+        jobId,
+        source: "owner",
+        speakerLabel: "a",
+        status: "media",
+        turnIndex: 4,
+      },
+      {
+        jobId,
+        source: "recognized",
+        speakerLabel: "a",
+        status: "stranger",
+        turnIndex: 5,
+      },
+      {
+        candidates: { people: [owner, guest], unknown: false },
+        jobId,
+        personId: owner,
+        source: "owner",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 6,
+      },
+    ])
+    .run();
+  const points = readVoiceMap(env.db, []).models.flatMap((m) => m.points);
+  for (const [i, sample] of samples.entries()) {
+    const point = points.find((p) => p.id === sample.id);
+    if (i >= 3) {
+      expect(point).toBeUndefined();
+    } else {
+      expect(point?.kind).toBe("sample");
+      expect(point?.personId).toBe(i === 0 ? owner : guest);
+      expect(point?.basis).toBe(i === 1 ? "owner" : "recognized");
+    }
+  }
+});
+
+test("no map point carries a vector or embedding", () => {
+  const { cards } = seedMap();
+  const points = readVoiceMap(env.db, cards).models.flatMap((m) => m.points);
+  expect(new Set(points.map((p) => p.kind))).toEqual(
+    new Set(["centroid", "sample", "unnamed"])
+  );
+  for (const point of points) {
+    expect(Object.keys(point).sort()).toEqual([
+      "basis",
+      "id",
+      "kind",
+      "personId",
+      "position",
+      "ranking",
+      "words",
+    ]);
+    expect(point).not.toHaveProperty("vector");
+    expect(point).not.toHaveProperty("embedding");
+  }
+});
+
+test("PCA projects extra vectors without changing its fit, including empty and deficient fits", () => {
+  const fit = [
+    [-1, 0],
+    [1, 0],
+  ];
+  expect(pcaOf(fit, [...fit, [100, 100]])).toEqual([
+    [-1, 0, 0],
+    [1, 0, 0],
+    [100, 0, 0],
+  ]);
+  expect(pcaOf([], [[1, 2]])).toEqual([[0, 0, 0]]);
+  expect(pcaOf([[1, 2]], [[3, 4]])).toEqual([[0, 0, 0]]);
+});
+
 test("empty queue and archive read without writes", () => {
   const before = env.db.$client.serialize();
-  const result = readVoiceMap(env.db, queueCache(env.db).items());
+  const result = readVoiceMap(env.db, namingQueue(env.db).items());
   expect(result).toEqual({
     candidateThreshold: RECOGNITION.candidateThreshold,
     cards: [],
@@ -287,57 +597,6 @@ test("empty queue and archive read without writes", () => {
     people: [],
   });
   expect(env.db.$client.serialize()).toEqual(before);
-});
-
-test("PCA centers, orders variance and preserves 3D distances including rotated and deficient sets", () => {
-  expect(pcaOf([])).toEqual([]);
-  expect(pcaOf([[2, 3, 4]])).toEqual([[0, 0, 0]]);
-  const vectors = [
-    [3, 1, 1],
-    [-3, -1, 1],
-    [0, 2, -1],
-    [0, -2, -1],
-  ];
-  const points = pcaOf(vectors);
-  for (let i = 0; i < vectors.length; i += 1) {
-    for (let j = 0; j < i; j += 1) {
-      const distance = (rows: number[][]) =>
-        Math.hypot(...(rows[i] ?? []).map((x, k) => x - (rows[j]?.[k] ?? 0)));
-      expect(distance(points)).toBeCloseTo(distance(vectors), 8);
-    }
-  }
-  expect(points[0]?.[0]).not.toBe(0);
-  expect(pcaOf([[1], [3]])).toEqual([
-    [-1, 0, 0],
-    [1, 0, 0],
-  ]);
-  const variances = [0, 1, 2].map((i) =>
-    points.reduce((sum, p) => sum + (p[i] ?? 0) ** 2, 0)
-  );
-  expect(variances[0]).toBeGreaterThanOrEqual(variances[1] ?? 0);
-  expect(variances[1]).toBeGreaterThanOrEqual(variances[2] ?? 0);
-});
-
-test("PCA retains radial distance: an outlier stays farther from the mean", () => {
-  const points = pcaOf([
-    [-4, 0],
-    [0, 0],
-    [1, 0],
-    [3, 0],
-  ]);
-  expect(Math.hypot(...(points[0] ?? []))).toBeGreaterThan(
-    Math.hypot(...(points[2] ?? []))
-  );
-  const repeated = [
-    [1, 0, 0, 0],
-    [-1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, -1, 0, 0],
-  ];
-  expect(pcaOf(repeated)).toEqual(pcaOf(repeated));
-  for (const point of pcaOf(repeated)) {
-    expect(Math.hypot(...point)).toBeCloseTo(1, 8);
-  }
 });
 
 test("map names clips in place before the existing several answer, retaining each owner turn", async () => {
@@ -381,7 +640,11 @@ test("map names clips in place before the existing several answer, retaining eac
     method: "POST",
   });
   expect(answer.status).toBe(200);
-  const rows = env.db.select().from(speakerAssignments).all();
+  const rows = env.db
+    .select()
+    .from(speakerAssignments)
+    .where(eq(speakerAssignments.jobId, jobId))
+    .all();
   expect(rows.find((r) => r.turnIndex === 0)).toMatchObject({
     personId: first,
     source: "owner",
