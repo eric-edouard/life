@@ -37,19 +37,42 @@ reverse it, change its entry here in the same commit.
 
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
   a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
-  the queue’s existing audio route and its answer route. The map reads the queue’s cards and words in their order,
-  with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
+  the queue’s existing audio and answer routes, and per-turn naming PUT only for (job, label, turn) triples
+  in the current cached map's clips. Missing turn indices and triples outside it receive 403; device and corrections
+  tokens retain their existing scope. The map reads the queue’s
+  cards and words in their order, with the same likeness ranking as recognition; easy targets are cards above the
+  candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
-  computed per request without a cache. Named clouds read currently named turn samples in one query through the shared assignment resolver,
-  including owner evidence (solid) and recognition matches (hollow). Each person and model shows at most 400
-  samples, chosen by deterministic stride across recording time (sample creation time for legacy rows),
-  on those same centroid-fitted axes. Point kinds are explicit; vectors never leave the server. Sidebar checkboxes toggle each person and unnamed voices.
-  Likeness is not a calibrated probability. Naming still uses the queue’s
-  answer route. `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its
-  hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
-  changes. It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  cached for each incremental queue build. Named clouds read currently named turn samples through the shared
+  assignment resolver, including owner evidence (solid) and recognition matches (hollow). Each person and model
+  shows at most 400 samples, chosen by deterministic stride across recording time (sample creation time for legacy
+  rows), on those same centroid-fitted axes. Point kinds are explicit; vectors never leave the server.
+  Sidebar checkboxes toggle each person and unnamed voices, with All/None controls.
+  Likeness is not a calibrated probability. Naming uses the queue’s answer route or scoped per-turn PUT.
+  `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its hash in Host’s
+  owner-only `server.env` and restarts its verified supervised server child only when that hash changes.
+  Its restart probe requests the nil transcript UUID's audio and expects 404 without building the map.
+  It opens a loopback link with the token in the fragment, never a query. The map routes are also
   reachable through the public tunnel with that token; the static shell contains no personal data.
   Life’s separate server still serves no page.
+  Queue and map builds share linkage, clips, profiles and decoded samples. One read-only Bun Worker owns the
+  incremental queue and projection, with revision and rows in one transaction: even shared builds exceeded the
+  200 ms request-thread budget. Phone queue reads and the morning digest await that same snapshot through their
+  request-start revision; speaker scope selects phone cards. Host compiles the worker, unreferenced and closed on exit.
+  Map GET returns a shallow copy of the last completed snapshot while refreshing (`building`), or 202 initially.
+  Completed snapshots publish despite concurrent writes; the next read refreshes, avoiding starvation. Polling
+  preserves a Several people edit. Failed workers report diagnostics and settle waiting readers; phone queue reads
+  reject snapshots behind the requested revision. A failed revision retries only after 30 seconds or a revision
+  change. Scoped PUT checks the displayed map's clips. The worker never writes the archive.
+  Synthetic fixture: 40,150 samples, 192 dimensions, 30 people, 2,000 cards and 2,575 points; timings bound this fixture.
+  Timings (Bun 1.4.2): queue 17,795 → 3,251 ms; shared map 10,799 → 678 ms; worker cold/warm 4,106/~3,200 ms; maximum stall 10,804 → 39 ms.
+
+- **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
+  turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split
+  supplies neither a name nor evidence. Matching and nearby naming apply to every group. The largest group stays
+  the label's only phone card; the map lists the others and names their turns through the existing PUT. The map also
+  offers the phone's "Several people" answer: name clips first, then submit the existing answer. No phone change.
+  A turn containing two voices needs re-cutting within the turn and is outside this change.
 
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The

@@ -105,6 +105,7 @@ test("the host binary compiles for Windows, its VAD worker and runtime inside", 
     const text = new TextDecoder("latin1").decode(bytes);
     for (const name of [
       "vad-worker",
+      "voice-map-worker",
       "ort-wasm-simd-threaded.wasm",
       "silero-vad-v6.0-16k",
     ]) {

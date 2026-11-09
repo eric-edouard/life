@@ -53,11 +53,15 @@ test("launcher activates only a map token, waits for it, opens fragment through 
           );
         }
         expect(stopped).toBe(true);
+        expect(url).toEndWith(
+          "/transcripts/00000000-0000-0000-0000-000000000000/audio"
+        );
+        expect(options?.method ?? "GET").toBe("GET");
         attempts += 1;
         authorization =
           new Headers(options?.headers).get("Authorization") ?? "";
         return Promise.resolve(
-          new Response("{}", { status: attempts === 1 ? 401 : 200 })
+          new Response("{}", { status: [401, 200, 404][attempts - 1] ?? 404 })
         );
       },
       run: (cmd: string[], options?: { stdin?: string }) => {
@@ -83,12 +87,12 @@ test("launcher activates only a map token, waits for it, opens fragment through 
     expect((await stat(file)).mode % 0o1000).toBe(0o600);
     expect(opened).toContain(`/voices#token=${token}`);
     expect(opened).not.toContain("?token=");
-    expect(attempts).toBe(2);
+    expect(attempts).toBe(3);
     stopped = false;
     const before = (await stat(file)).mtimeMs;
     await openVoices(launch);
     expect(stopped).toBe(false);
-    expect(attempts).toBe(2);
+    expect(attempts).toBe(3);
     expect((await stat(file)).mtimeMs).toBe(before);
     // Losing the hash activates the same Keychain token once more.
     await Bun.write(file, "OTHER=value\n");

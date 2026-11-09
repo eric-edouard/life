@@ -7,6 +7,7 @@ import { HTTPException } from "hono/http-exception";
 import { type Config, sha256Hex } from "./config";
 import { storeServerError } from "./diagnostics";
 import { backupRoutes } from "./routes/backup";
+import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
 import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
@@ -48,6 +49,7 @@ const CORRECTIONS = [
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
 ];
 const MAP = [
+  "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
   "GET /speakers/map",
   "GET /transcripts/{jobId}/audio",
   "POST /naming-queue/answer",
@@ -79,7 +81,7 @@ export function createApp(s: Services) {
     [config.MAP_TOKEN_HASH, opening(MAP)],
     [config.CORRECTIONS_TOKEN_HASH, opening(CORRECTIONS)],
   ] as const;
-  const app = new OpenAPIHono();
+  const app = new OpenAPIHono<ApiEnv>();
   // A route that throws: logged, kept as a `server_error` diagnostic (never the request body),
   // and answered in the routes' error shape. Hono's own refusals (401, malformed JSON) pass.
   app.onError((error, c) => {
@@ -125,6 +127,10 @@ export function createApp(s: Services) {
               message: "This token doesn't open this route.",
             });
           }
+          c.set(
+            "isMapToken",
+            found !== undefined && found[0] === config.MAP_TOKEN_HASH
+          );
           return found !== undefined;
         },
       })
@@ -173,7 +179,7 @@ export function createApp(s: Services) {
   return app;
 }
 
-export const openApiDocument = (app: OpenAPIHono, config: Config) =>
+export const openApiDocument = (app: OpenAPIHono<ApiEnv>, config: Config) =>
   app.getOpenAPI31Document({
     info: { title: "lifelog", version: "1" },
     openapi: "3.1.0",

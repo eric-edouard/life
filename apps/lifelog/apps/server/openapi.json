@@ -1429,13 +1429,16 @@
       "VoiceMap": {
         "type": "object",
         "properties": {
+          "building": {
+            "type": "boolean"
+          },
           "candidateThreshold": {
             "type": "number"
           },
           "cards": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/QueueItem"
+              "$ref": "#/components/schemas/VoiceMapCard"
             }
           },
           "models": {
@@ -1526,6 +1529,23 @@
           }
         },
         "required": ["candidateThreshold", "cards", "models", "people"]
+      },
+      "VoiceMapCard": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/QueueItem"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": ["speaker", "turns"]
+              }
+            },
+            "required": ["scope"]
+          }
+        ]
       },
       "QueueItem": {
         "type": "object",
@@ -4521,7 +4541,7 @@
     },
     "/speakers/map": {
       "get": {
-        "description": "The naming queue and its likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+        "description": "The naming queue, split cards and likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; a read-only worker rebuilds after changes. Serves the last built map while refreshing, or 202 initially. Likeness is not a calibrated probability.",
         "responses": {
           "200": {
             "description": "Voices and people",
@@ -4529,6 +4549,23 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VoiceMap"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "First map is building; retry shortly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "building": {
+                      "type": "boolean",
+                      "enum": [true]
+                    }
+                  },
+                  "required": ["building"]
                 }
               }
             }
@@ -4642,6 +4679,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Map token: this turn is outside the current cached map"
           },
           "404": {
             "description": "No such job or transcript",

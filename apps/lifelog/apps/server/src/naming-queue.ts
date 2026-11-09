@@ -15,33 +15,32 @@ import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
-  type JobMap,
   live,
   people,
   type Suggestion,
   speakerAssignments,
-  transcriptionJobs,
-  turns as turnRows,
+  voiceSamples,
 } from "@lifelog/db/schema";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
-import { NAMING, ownerClock, RECOGNITION } from "./config";
-import { textOf } from "./elevenlabs";
+import { NAMING, ownerClock } from "./config";
 import { record, recordedOn } from "./events";
+import { type Clip, cardClips, readClip } from "./naming-clips";
+
 import {
   assign,
-  holdingConversations,
   isCalled,
   isRejected,
-  sampleRanker,
+  readOwnTurns,
+  readVoices,
   type Target,
   voiceId,
-  voiceMatcher,
 } from "./people";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
-import { keptAt, type LoadedTurn, loadTurns, timedWords } from "./transcript";
+import { type LoadedTurn, loadTurns } from "./transcript";
+import { readVoiceProjection } from "./voice-map";
 
 interface Voice {
   conversationId: string;
@@ -73,13 +72,19 @@ function voicesOf(
   ownerId: string,
   groups: Map<string, string>,
   skipped: Set<string>,
+  skippedTurns: Set<string>,
   mixed: Set<string>
 ) {
   const voices = new Map<string, Voice>();
   for (const [i, t] of turns.entries()) {
     const label = t.person ? null : t.speakerLabel;
     const k = label && voiceId(t.ref.jobId, label);
-    if (label && k && !skipped.has(k)) {
+    if (
+      label &&
+      k &&
+      !skipped.has(k) &&
+      !skippedTurns.has(turnRef(t.ref.jobId, t.ref.turnIndex))
+    ) {
       const voice =
         voices.get(k) ??
         newVoice(conversationId, t, label, groups.get(k) ?? k, mixed.has(k));
@@ -242,23 +247,83 @@ function cardOf(
   };
 }
 
+export type Card = Suggestion & { clips: Clip[]; words: number };
+
+// Split groups are map-only cards; their members include every sample, even past the clip cut.
+function readSplitCards(
+  rows: (typeof speakerAssignments.$inferSelect)[],
+  samples: (typeof voiceSamples.$inferSelect)[],
+  clip: ReturnType<typeof readClip>
+) {
+  const byTurn = Map.groupBy(samples, (s) => turnRef(s.jobId, s.turnIndex));
+  return [...Map.groupBy(rows, (r) => r.candidateId)].flatMap(
+    ([group, members]) => {
+      const voices: Voice[] = [];
+      const clips: Clip[] = [];
+      const memberSamples: (typeof voiceSamples.$inferSelect)[] = [];
+      for (const row of members) {
+        if (row.turnIndex === null) {
+          continue;
+        }
+        const found = clip({ jobId: row.jobId, turnIndex: row.turnIndex });
+        if (!found) {
+          continue;
+        }
+        const voice = newVoice(
+          found.conversationId,
+          found.turn,
+          row.speakerLabel,
+          group ?? row.id,
+          false
+        );
+        voice.seconds = found.turn.endSeconds - found.turn.startSeconds;
+        voice.words.set(
+          turnRef(row.jobId, row.turnIndex),
+          found.turn.words.length
+        );
+        voices.push(voice);
+        clips.push(found.clip);
+        memberSamples.push(
+          ...(byTurn.get(turnRef(row.jobId, row.turnIndex)) ?? [])
+        );
+      }
+      const seconds = voices.reduce((sum, v) => sum + v.seconds, 0);
+      const words = voices.reduce(
+        (sum, v) => sum + [...v.words.values()].reduce((a, b) => a + b, 0),
+        0
+      );
+      const card: Card = {
+        // Map point/card ids are strings: turns/ reserves the split-group namespace.
+        ...cardOf(`turns/${group}`, voices, seconds, 0),
+        clips,
+        words,
+      };
+      return clips.length
+        ? [
+            {
+              card: { ...card, scope: "turns" as const },
+              samples: memberSamples,
+            },
+          ]
+        : [];
+    }
+  );
+}
+
 // The unnamed voices of conversation `id`, with what its summary said about them.
 function voicesIn(db: Db, id: string, ownerId: string) {
   const loaded = loadTurns(db, id)?.turns ?? [];
   const jobs = [...new Set(loaded.map((t) => t.ref.jobId))];
-  const rows =
+  const assignments =
     jobs.length > 0
       ? db
           .select()
           .from(speakerAssignments)
-          .where(
-            and(
-              inArray(speakerAssignments.jobId, jobs),
-              isNull(speakerAssignments.turnIndex)
-            )
-          )
+          .where(inArray(speakerAssignments.jobId, jobs))
           .all()
       : [];
+  const rows = assignments.filter((r) => r.turnIndex === null);
+  const skippedTurns = readOwnTurns(db, assignments);
   const groups = new Map(
     rows.flatMap((r) =>
       r.source === "recognized" && r.candidateId && !r.mixed
@@ -285,7 +350,15 @@ function voicesIn(db: Db, id: string, ownerId: string) {
       ? { ...t, person: null }
       : t
   );
-  const mine = voicesOf(id, turns, ownerId, groups, skipped, mixed);
+  const mine = voicesOf(
+    id,
+    turns,
+    ownerId,
+    groups,
+    skipped,
+    skippedTurns,
+    mixed
+  );
   heardIn(run?.result ?? null, run?.turns ?? [], loaded, mine);
   return [...mine.values()];
 }
@@ -296,10 +369,14 @@ const ownerOf = (db: Db) =>
 
 // Unnamed voices as cards with the words naming them unlocks; media and brief strangers get none. A group
 // spans conversations (and days) through its unnamed group.
-function suggest(db: Db, voices: Voice[]) {
+function suggest(
+  db: Db,
+  voices: Voice[],
+  reader: ReturnType<typeof readVoices>
+) {
   // A card no summary tied to a person may still sound like one, the owner included: then it
   // asks "Is this X?" rather than calling them new.
-  const soundsLike = voiceMatcher(db);
+  const soundsLike = reader.match;
   const everyone = db.select().from(people).all();
   // A heard name that is already the person's says nothing new ("Jojo" for Marie-Jo): no name.
   const news = (name: string | null, personId: string) => {
@@ -346,9 +423,14 @@ const conversationsOf = (db: Db) =>
 
 // Only eligible, returned cards get clips. Playable cards come first, then the most words a
 // name unlocks, so the first card is useful to hear and to answer.
-function cardsOf(db: Db, voices: Voice[]) {
-  const clipsOf = cardClips(db);
-  return suggest(db, voices)
+function cardsOf(
+  db: Db,
+  voices: Voice[],
+  reader: ReturnType<typeof readVoices>,
+  clip: ReturnType<typeof readClip>
+) {
+  const clipsOf = cardClips(db, reader, clip);
+  return suggest(db, voices, reader)
     .map(({ card, words }) => ({
       card: { ...card, clips: clipsOf(card) },
       words,
@@ -361,6 +443,47 @@ function cardsOf(db: Db, voices: Voice[]) {
     .map(({ card, words }) => ({ ...card, words }));
 }
 
+// A split row is a recognized, unnamed turn in a candidate group, not a label or owner row.
+const isSplitRow = (row: typeof speakerAssignments.$inferSelect) =>
+  row.source === "recognized" &&
+  row.turnIndex !== null &&
+  row.candidateId !== null &&
+  row.personId === null;
+
+export function readVoiceMap(
+  db: Db,
+  cards: Card[],
+  reader = readVoices(db),
+  clip = readClip(db)
+) {
+  // Only split members need a separate read; speaker-card samples were decoded by the queue.
+  const rows = db.select().from(speakerAssignments).all();
+  const splitRows = rows.filter(isSplitRow);
+  const samples = splitRows.length
+    ? db
+        .select()
+        .from(voiceSamples)
+        .where(
+          // SQL form of isSplitRow: filter before decoding embeddings.
+          sql`exists (select 1 from ${speakerAssignments} a where a.job_id = ${voiceSamples.jobId}
+      and a.turn_index = ${voiceSamples.turnIndex} and a.source = 'recognized'
+      and a.candidate_id is not null and a.person_id is null)`
+        )
+        .all()
+    : [];
+  return readVoiceProjection(
+    db,
+    [
+      ...cards.map((card) => ({
+        card: { ...card, scope: "speaker" as const },
+        samples: reader.samples(card.voices),
+      })),
+      ...readSplitCards(splitRows, samples, clip),
+    ],
+    reader.profiles
+  );
+}
+
 // The voices to name: unnamed voices that talked with the owner or hold enough words, one card
 // per voice group across conversations and days. Its id is the group, or the voice's own id.
 // An answer leaves no state here: the
@@ -369,12 +492,13 @@ function cardsOf(db: Db, voices: Voice[]) {
 // only the voices of the conversations the changes touched (`touchedSince`; an answer logs its
 // speaker rows, so its voices never come back). The cards are made again from every voice, since
 // a change may be about a person or a profile. A fresh cache's first read is the full build.
-// ponytail: in-process, like the other loops; one replica.
-export type QueueCache = ReturnType<typeof queueCache>;
+// One incremental queue per read-only worker.
 
-export function queueCache(db: Db) {
+export function namingQueue(db: Db) {
   let kept: {
     items: ReturnType<typeof cardsOf>;
+    reader: ReturnType<typeof readVoices>;
+    clip: ReturnType<typeof readClip>;
     ownerId: string;
     seen: number;
     voices: Map<string, Voice[]>;
@@ -406,13 +530,22 @@ export function queueCache(db: Db) {
           (!again.has(id) && before.get(id)) || voicesIn(db, id, owner.id),
         ])
       );
+      const reader = readVoices(db);
+      const clip = readClip(db);
       kept = {
-        items: cardsOf(db, [...voices.values()].flat()),
+        clip,
+        items: cardsOf(db, [...voices.values()].flat(), reader, clip),
         ownerId: owner.id,
+        reader,
         seen: touched.through,
         voices,
       };
       return kept.items;
+    },
+    // The worker calls this after items(), reusing that build's parsed samples and clips.
+    projection() {
+      const items = this.items();
+      return readVoiceMap(db, items, kept?.reader, kept?.clip);
     },
   };
 }
@@ -501,155 +634,6 @@ export function answerVoices(
   return answered > 0 ? { personId } : null;
 }
 
-// One clip a card plays: a clean turn of its voice, with the words said before it is cut. `audio`
-// places it in the job's bucket audio (`GET /transcripts/{jobId}/audio`, seconds into that file):
-// the server's own copy, for every job that has one. Only a job from before the bucket has none;
-// then the phone plays `at` to `until` from its own recording. `words` time both, from `at`.
-// The turn (`jobId`, `speakerLabel`, `turnIndex`) is what "several people" names in place, and
-// `personId` who it reads as now.
-export interface Clip {
-  at: string | null;
-  audio: { end: number; jobId: string; start: number } | null;
-  conversationId: string;
-  jobId: string;
-  personId: string | null;
-  speakerLabel: string | null;
-  text: string;
-  turnIndex: number;
-  until: string | null;
-  words: [number, number, number][];
-}
-
-// A turn as a card plays it: its words begun within NAMING.clipSeconds, from the first to the end
-// of the last (never past the cut), so it stops where its voice does. With bucket audio it also
-// stops where its stretch of kept speech does: the bucket audio has the silence after it cut out,
-// so only inside one stretch do capture time and the file's time run together (docs/formats.md).
-function clipOf(
-  conversationId: string,
-  turn: LoadedTurn,
-  // The job's map when it has bucket audio.
-  map: JobMap | null
-): Clip {
-  const at = turn.ref.capturedAt;
-  const from = turn.startSeconds * 1000;
-  const kept = map && keptAt(map, from);
-  const cut = Math.min(
-    from + NAMING.clipSeconds * 1000,
-    kept?.end ?? Number.POSITIVE_INFINITY
-  );
-  const said = turn.words.filter((w) => w.start < cut);
-  const end = Math.min(said.at(-1)?.end ?? turn.endSeconds * 1000, cut);
-  return {
-    at,
-    audio: kept
-      ? {
-          end: (kept.prepared + end - from) / 1000,
-          jobId: turn.ref.jobId,
-          start: kept.prepared / 1000,
-        }
-      : null,
-    conversationId,
-    jobId: turn.ref.jobId,
-    personId: turn.person?.id ?? null,
-    speakerLabel: turn.speakerLabel,
-    text: textOf(said),
-    turnIndex: turn.ref.turnIndex,
-    until: new Date(end).toISOString(),
-    words: timedWords(said, from),
-  };
-}
-
-// The clips of an open card, best first: the clean turns (samples) that clearly sound like its
-// voice (RECOGNITION.matchThreshold), 5–20 s before other lengths, then the rest by likeness;
-// each is cut to NAMING.clipSeconds. A turn the provider gave one speaker can hold several
-// people: it sounds unlike the voice, so it comes late, and one that clearly is someone else
-// (RECOGNITION.notThem) only when nothing else is left.
-export function cardClips(db: Db) {
-  const rank = sampleRanker(db);
-  const loaded = new Map<string, LoadedTurn[]>();
-  const turnsOf = (conversationId: string) => {
-    const turns =
-      loaded.get(conversationId) ?? loadTurns(db, conversationId)?.turns ?? [];
-    loaded.set(conversationId, turns);
-    return turns;
-  };
-  // The turn in the live conversations that hold its job now (a regroup can split a job).
-  const turnOf = (jobId: string, turnIndex: number) => {
-    for (const id of holdingConversations(db, jobId)) {
-      const turn = turnsOf(id).find(
-        (t) => t.ref.jobId === jobId && t.ref.turnIndex === turnIndex
-      );
-      if (turn) {
-        return { conversationId: id, turn };
-      }
-    }
-    return null;
-  };
-  // The job's map when it has bucket audio, which the map places in capture time.
-  const bucketMap = (jobId: string) => {
-    const row = db
-      .select({ key: transcriptionJobs.objectKey, map: transcriptionJobs.map })
-      .from(transcriptionJobs)
-      .where(eq(transcriptionJobs.id, jobId))
-      .get();
-    return row?.key ? row.map : null;
-  };
-  return (card: Pick<Suggestion, "kind" | "personId" | "voices">): Clip[] => {
-    const ranked = rank(
-      card.voices,
-      card.kind === "known_person" ? card.personId : null
-    );
-    const fit = ranked.filter((r) => r.score > RECOGNITION.notThem);
-    const usable = fit.length > 0 ? fit : ranked;
-    const fits = (seconds: number) =>
-      seconds >= NAMING.clipMinSeconds && seconds <= NAMING.clipSeconds;
-    const sure = usable.filter((r) => r.score >= RECOGNITION.matchThreshold);
-    const ordered = [
-      ...sure.filter((r) => fits(r.sample.durationSeconds)),
-      ...sure.filter((r) => !fits(r.sample.durationSeconds)),
-      ...usable.filter((r) => r.score < RECOGNITION.matchThreshold),
-    ];
-    // A voice with no sample yet (most turns before the server cut excerpts): its own turns with the
-    // most words, never one named on its own, so the card still has something to hear.
-    const picks =
-      ordered.length > 0
-        ? ordered.map((r) => r.sample)
-        : db
-            .select({ jobId: turnRows.jobId, turnIndex: turnRows.turnIndex })
-            .from(turnRows)
-            .where(
-              and(
-                or(
-                  ...card.voices.map((v) =>
-                    and(
-                      eq(turnRows.jobId, v.jobId),
-                      eq(turnRows.speakerLabel, v.speakerLabel)
-                    )
-                  )
-                ),
-                sql`not exists (select 1 from ${speakerAssignments} a
-                  where a.job_id = ${turnRows.jobId} and a.turn_index = ${turnRows.turnIndex})`
-              )
-            )
-            .orderBy(desc(sql`json_array_length(${turnRows.words})`))
-            .limit(NAMING.clips * 3)
-            .all();
-    const clips: Clip[] = [];
-    for (const sample of picks) {
-      if (clips.length >= NAMING.clips) {
-        break;
-      }
-      const found = turnOf(sample.jobId, sample.turnIndex);
-      if (found) {
-        clips.push(
-          clipOf(found.conversationId, found.turn, bucketMap(sample.jobId))
-        );
-      }
-    }
-    return clips;
-  };
-}
-
 // Once a morning, from NAMING.hour in the owner's zone: one notification with how many voices wait
 // to be named, the queue's length, which is the number the app's badge shows. Nothing when none
 // waits. Recorded as an event, so a restart the same morning sends nothing twice.
@@ -658,7 +642,7 @@ export function morningPush(
   db: Db,
   push: Pusher | null,
   bundleId: string,
-  queue: QueueCache
+  queue: { items: () => Card[] | Promise<Card[]> }
 ) {
   let busy = false;
   const notify = (day: string, count: number) =>
@@ -684,7 +668,7 @@ export function morningPush(
         if (recordedOn(db, "voices.digest", date)) {
           return null;
         }
-        const count = queue.items().length;
+        const count = (await queue.items()).length;
         record(db, "voices.digest", { count, day: date });
         if (count > 0) {
           await notify(date, count);

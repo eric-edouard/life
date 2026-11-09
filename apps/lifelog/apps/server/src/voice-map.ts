@@ -1,4 +1,4 @@
-// Named samples and the naming queue, projected per embedding model. The queue owns eligibility,
+// A read of the naming queue, projected per embedding model. The queue owns eligibility,
 // order, words and clips; speakers.ts owns every likeness and margin. Nothing is written.
 import type { Db } from "@lifelog/db";
 import {
@@ -9,19 +9,23 @@ import {
 } from "@lifelog/db/schema";
 import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { RECOGNITION, VOICE_MAP_POINTS_PER_PERSON_MODEL } from "./config";
-import type { QueueCache } from "./naming-queue";
-import {
-  coveredByRow,
-  modelKey,
-  personRow,
-  readProfiles,
-  samplesOf,
-} from "./people";
-import { centroid, rankPeople, type Vector } from "./speakers";
+import type { Card } from "./naming-queue";
+import { coveredByRow, modelKey, personRow, readProfiles } from "./people";
+import { centroid, rankPeople } from "./speakers";
 import { pcaOf } from "./voice-pca";
+import type { Vector } from "./voice-vectors";
 
-export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
-  const profiles = readProfiles(db);
+export const VOICE_SCOPES = ["speaker", "turns"] as const;
+export type VoiceScope = (typeof VOICE_SCOPES)[number];
+
+export function readVoiceProjection(
+  db: Db,
+  shown: {
+    card: Card & { scope: VoiceScope };
+    samples: (typeof voiceSamples.$inferSelect)[];
+  }[],
+  profiles = readProfiles(db)
+) {
   const partition = sql`partition by ${assignments.personId}, ${voiceSamples.modelId}, ${voiceSamples.modelRevision}`;
   const ranked = db.$with("named_samples").as(
     db
@@ -73,15 +77,13 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
     )
     .orderBy(sql`${ranked.ordinal}`, voiceSamples.id)
     .all();
-  const groups = cards.flatMap((card) =>
-    [...Map.groupBy(samplesOf(db, card.voices), modelKey)].map(
-      ([model, samples]) => ({
-        id: card.id,
-        model,
-        vector: centroid(samples.map((s) => s.embedding)),
-        words: card.words,
-      })
-    )
+  const groups = shown.flatMap(({ card, samples: members }) =>
+    [...Map.groupBy(members, modelKey)].map(([model, inModel]) => ({
+      id: card.id,
+      model,
+      vector: centroid(inModel.map((s) => s.embedding)),
+      words: card.words,
+    }))
   );
   const models = [
     ...new Set([
@@ -156,7 +158,7 @@ export function readVoiceMap(db: Db, cards: ReturnType<QueueCache["items"]>) {
   });
   return {
     candidateThreshold: RECOGNITION.candidateThreshold,
-    cards,
+    cards: shown.map(({ card }) => card),
     models,
     people: db.select().from(people).all().map(personRow),
   };

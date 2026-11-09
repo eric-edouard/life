@@ -1,4 +1,4 @@
-import { cosine, type Vector } from "./speakers";
+import { cosine, type Vector } from "./voice-vectors";
 
 interface Best {
   b: number;
@@ -7,14 +7,13 @@ interface Best {
 
 // Exact average linkage: dotting unnormalized group sums is the sum of every pair's cosine.
 // Memory is O(n * dimensions), not an all-pairs matrix. Of equal pairs, the last merges.
-export async function averageLinkage(vectors: Vector[], threshold: number) {
+function* linkage(vectors: Vector[], threshold: number) {
   const groups: (number[] | null)[] = vectors.map((_, i) => [i]);
   const sums = vectors.map((v) => [...v]);
   const average = (a: number, b: number) =>
     cosine(sums[a] ?? [], sums[b] ?? []) /
     ((groups[a]?.length ?? 1) * (groups[b]?.length ?? 1));
-  let yieldedAt = performance.now();
-  const bestOf = async (a: number) => {
+  function* bestOf(a: number): Generator<void, Best> {
     let best: Best = { b: -1, score: Number.NEGATIVE_INFINITY };
     for (let b = a + 1; b < groups.length; b += 1) {
       if (groups[b]) {
@@ -23,18 +22,15 @@ export async function averageLinkage(vectors: Vector[], threshold: number) {
           best = { b, score };
         }
       }
-      if (b % 256 === 0 && performance.now() - yieldedAt >= 16) {
-        // biome-ignore lint/performance/noAwaitInLoops: keep requests moving during a full regroup
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        yieldedAt = performance.now();
+      if (b % 256 === 0) {
+        yield;
       }
     }
     return best;
-  };
+  }
   const best: Best[] = [];
   for (let a = 0; a < groups.length; a += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: each row yields during its scan
-    best.push(await bestOf(a));
+    best.push(yield* bestOf(a));
   }
   for (let a = nextMerge(best, groups, threshold); a >= 0; ) {
     const b = best[a]?.b ?? -1;
@@ -45,11 +41,10 @@ export async function averageLinkage(vectors: Vector[], threshold: number) {
       sum[d] = (sum[d] ?? 0) + (sums[b]?.[d] ?? 0);
     }
     sums[b] = [];
-    // biome-ignore lint/performance/noAwaitInLoops: each merge yields during its row scans
-    await afterMerge(best, groups, average, bestOf, [a, b]);
+    yield* afterMerge(best, groups, average, bestOf, [a, b]);
     a = nextMerge(best, groups, threshold);
   }
-  return groups.filter((g): g is number[] => !!g && g.length > 1);
+  return groups.filter((g): g is number[] => !!g);
 }
 
 function nextMerge(best: Best[], groups: unknown[], threshold: number) {
@@ -65,11 +60,11 @@ function nextMerge(best: Best[], groups: unknown[], threshold: number) {
 }
 
 // Only rows whose best changed need rescanning; earlier rows may now prefer the merged sum.
-async function afterMerge(
+function* afterMerge(
   best: Best[],
   groups: unknown[],
   average: (a: number, b: number) => number,
-  bestOf: (a: number) => Promise<Best>,
+  bestOf: (a: number) => Generator<void, Best>,
   [a, b]: [number, number]
 ) {
   for (let k = 0; k <= b; k += 1) {
@@ -78,8 +73,7 @@ async function afterMerge(
       continue;
     }
     if (k === a || row.b === a || row.b === b) {
-      // biome-ignore lint/performance/noAwaitInLoops: each row yields during its scan
-      best[k] = await bestOf(k);
+      best[k] = yield* bestOf(k);
     } else if (k < a) {
       const score = average(k, a);
       if (score > row.score || (score === row.score && a > row.b)) {
@@ -87,4 +81,31 @@ async function afterMerge(
       }
     }
   }
+}
+
+// Recognition runs inside a synchronous transaction; regroup yields to requests between scans.
+export function averageLinkageSync(vectors: Vector[], threshold: number) {
+  const steps = linkage(vectors, threshold);
+  let step = steps.next();
+  while (!step.done) {
+    step = steps.next();
+  }
+  return step.value;
+}
+
+export async function averageLinkage(vectors: Vector[], threshold: number) {
+  const steps = linkage(vectors, threshold);
+  let yieldedAt = performance.now();
+  // Even a short regroup must let a correction invalidate its snapshot before it writes.
+  await Promise.resolve();
+  let step = steps.next();
+  while (!step.done) {
+    if (performance.now() - yieldedAt >= 16) {
+      // biome-ignore lint/performance/noAwaitInLoops: keep requests moving during a full regroup
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      yieldedAt = performance.now();
+    }
+    step = steps.next();
+  }
+  return step.value;
 }

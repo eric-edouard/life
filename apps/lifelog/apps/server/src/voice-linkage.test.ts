@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { exec } from "@life/server/src/core/proc";
 import { speakerAssignments, voiceSamples } from "@lifelog/db/schema";
 import { assign, regroup } from "./people";
-import { cosine, type Vector } from "./speakers";
 import { seedTranscript, testDb } from "./testing";
-import { averageLinkage } from "./voice-linkage";
+import { averageLinkage, averageLinkageSync } from "./voice-linkage";
+import { cosine, type Vector } from "./voice-vectors";
 
 // Deliberately slow oracle: score every original pair again, without the production sums/cache.
 function linkedByPairs(vectors: Vector[], threshold: number) {
@@ -36,7 +36,7 @@ function linkedByPairs(vectors: Vector[], threshold: number) {
       }
     }
     if (!chosen) {
-      return groups.filter((g): g is number[] => !!g && g.length > 1);
+      return groups.filter((g): g is number[] => !!g);
     }
     const [a, b] = chosen;
     groups[a] = (groups[a] ?? []).concat(groups[b] ?? []);
@@ -65,6 +65,9 @@ test("linkage sums preserve pair averages, ties and empty/singleton results", as
     }),
   ]) {
     for (const threshold of [0.2, 0.6, 0.85, 1]) {
+      expect(averageLinkageSync(vectors, threshold)).toEqual(
+        linkedByPairs(vectors, threshold)
+      );
       // biome-ignore lint/performance/noAwaitInLoops: each fixture is compared with the independent oracle
       expect(await averageLinkage(vectors, threshold)).toEqual(
         linkedByPairs(vectors, threshold)
@@ -89,7 +92,7 @@ test("a large linkage scan yields and uses less than a dense matrix's memory", a
   ]);
   expect(result.code).toBe(0);
   const measured = JSON.parse(result.stdout);
-  expect(measured.groups).toBe(0);
+  expect(measured.groups).toBe(6000);
   expect(measured.ticks).toBeGreaterThan(0);
   // A 6000² matrix alone needs 275 MiB of doubles, before row-array overhead.
   expect(measured.memoryKB).toBeLessThan(64 * 1024);
@@ -147,7 +150,7 @@ test("average linkage never chains two different voices through an equally simil
   const a = [1, 0];
   const between = [Math.SQRT1_2, Math.SQRT1_2];
   const b = [0, 1];
-  expect(await averageLinkage([a, between, b], 0.6)).toEqual([[1, 2]]);
+  expect(await averageLinkage([a, between, b], 0.6)).toEqual([[0], [1, 2]]);
   expect(await averageLinkage([a, a, b, b], 0.6)).toEqual([
     [0, 1],
     [2, 3],

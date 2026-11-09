@@ -11,6 +11,9 @@
   let audioUrl;
   let playback = 0;
   let saving = false;
+  let refresh;
+  let isSeveral = false;
+  const isSplit = (card) => card.scope === "turns";
   const hiddenPeople = new Set();
   const nameOf = (id) =>
     data.people.find((p) => p.id === id)?.name ?? "Unnamed voice";
@@ -83,12 +86,42 @@
     status("");
   }
   function show(card, autoplay = true) {
+    if (saving) {
+      return;
+    }
     stopAudio();
     selected = card;
+    isSeveral = false;
+    el("several-people").replaceChildren();
+    el("several-people").hidden = true;
+    el("done").hidden = true;
+    el("name-form").hidden = false;
+    el("several").hidden = isSplit(card);
     el("detail").hidden = false;
     el("title").textContent = card.name || "Who's this?";
     el("context").textContent =
       `${card.words.toLocaleString()} words across ${card.conversations} conversations`;
+    showClips(card);
+    showRankings(card);
+    el("name").value = "";
+    if (autoplay) {
+      const clip = card.clips.find((c) => c.audio);
+      if (clip) {
+        play(clip).catch((e) => status(e.message));
+      }
+    }
+  }
+  function showRankings(card) {
+    el("answers").replaceChildren(
+      ...(pointOf(card.id)?.ranking ?? []).map((r) =>
+        button(
+          `${nameOf(r.personId)} · likeness ${r.score.toFixed(3)} · margin ${r.margin.toFixed(3)}`,
+          () => answer({ kind: "assign", personId: r.personId })
+        )
+      )
+    );
+  }
+  function showClips(card) {
     el("clips").replaceChildren(
       ...card.clips.map((clip) => {
         const node = document.createElement("div");
@@ -101,24 +134,112 @@
         );
         listen.disabled = !clip.audio;
         node.append(quote, listen);
+        if (isSeveral) {
+          node.append(clipNames(clip));
+        }
         return node;
       })
     );
-    el("answers").replaceChildren(
-      ...(pointOf(card.id)?.ranking ?? []).map((r) =>
-        button(
-          `${nameOf(r.personId)} · likeness ${r.score.toFixed(3)} · margin ${r.margin.toFixed(3)}`,
-          () => answer({ kind: "assign", personId: r.personId })
-        )
+  }
+  function personSelect(personId) {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "Who is speaking in this clip?");
+    for (const person of [{ id: "", name: "Unknown" }, ...data.people]) {
+      const option = document.createElement("option");
+      option.value = person.id;
+      option.textContent = person.name;
+      select.append(option);
+    }
+    select.value = personId || "";
+    return select;
+  }
+  function clipNames(clip) {
+    const form = document.createElement("form");
+    const select = personSelect(clip.personId);
+    const name = document.createElement("input");
+    name.placeholder = "Or type a new name";
+    name.setAttribute("aria-label", "New name for this clip");
+    name.maxLength = 200;
+    const save = button("Save clip", async () => {
+      if (saving || !clip.speakerLabel) {
+        return;
+      }
+      saving = true;
+      save.disabled = true;
+      try {
+        const text = name.value.trim();
+        const value = text
+          ? { kind: "confirm", name: text }
+          : { kind: "assign", personId: select.value };
+        const target = targetOf(value, crypto.randomUUID());
+        await nameTurn(clip, target);
+        clip.personId = target.personId || target.id || null;
+        if (target.kind === "new") {
+          data.people.push({ id: target.id, name: target.name });
+        }
+        showClips(selected);
+        showPeople();
+        status("Clip saved. Name the other clips, then choose Done.");
+      } finally {
+        saving = false;
+        save.disabled = false;
+      }
+    });
+    form.onsubmit = (event) => event.preventDefault();
+    form.append(select, name, save);
+    return form;
+  }
+  function readSeveralPeople() {
+    const required = new Set([
+      ...data.people.filter((p) => p.isOwner).map((p) => p.id),
+      ...selected.clips.map((clip) => clip.personId || "unknown"),
+    ]);
+    const chosen = new Set([
+      ...required,
+      ...[...el("several-people").querySelectorAll("input:checked")]
+        .filter((input) => !input.disabled)
+        .map((input) => input.value),
+    ]);
+    return { chosen, required };
+  }
+  function showPeople() {
+    const { chosen, required } = readSeveralPeople();
+    el("several-people").replaceChildren(
+      ...[...data.people, { id: "unknown", name: "Someone unknown too" }].map(
+        (person) => {
+          const label = document.createElement("label");
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = person.id;
+          input.checked = chosen.has(person.id);
+          input.disabled = required.has(person.id);
+          label.append(input, document.createTextNode(person.name));
+          return label;
+        }
       )
     );
-    el("name").value = "";
-    if (autoplay) {
-      const clip = card.clips.find((c) => c.audio);
-      if (clip) {
-        play(clip).catch((e) => status(e.message));
+  }
+  const nameTurn = (clip, target) =>
+    request(
+      `/transcripts/${clip.jobId}/speakers/${encodeURIComponent(clip.speakerLabel)}`,
+      {
+        body: JSON.stringify({ target, turnIndex: clip.turnIndex }),
+        method: "PUT",
       }
+    );
+  function targetOf(value, id) {
+    if (value.kind === "confirm") {
+      const existing = data.people.find(
+        (p) => p.name.toLowerCase() === value.name.toLowerCase()
+      );
+      return existing
+        ? { kind: "person", personId: existing.id }
+        : { id, kind: "new", name: value.name };
     }
+    if (value.kind === "assign" && value.personId) {
+      return { kind: "person", personId: value.personId };
+    }
+    return { kind: value.kind === "media" ? "media" : "unknown" };
   }
   async function answer(value) {
     if (saving || !selected) {
@@ -126,22 +247,32 @@
     }
     saving = true;
     const card = selected;
-    const controls = [...el("detail").querySelectorAll("button, input")];
+    const controls = [
+      ...el("detail").querySelectorAll("button, input, select"),
+    ];
     for (const control of controls) {
       control.disabled = true;
     }
     status("Saving…");
     try {
-      await request("/naming-queue/answer", {
-        body: JSON.stringify({
-          answer: value,
-          voices: card.voices.map(({ jobId, speakerLabel }) => ({
-            jobId,
-            speakerLabel,
-          })),
-        }),
-        method: "POST",
-      });
+      if (isSplit(card)) {
+        const target = targetOf(value, crypto.randomUUID());
+        for (const clip of card.clips) {
+          // biome-ignore lint/performance/noAwaitInLoops: the first PUT creates a new person before the rest name them
+          await nameTurn(clip, target);
+        }
+      } else {
+        await request("/naming-queue/answer", {
+          body: JSON.stringify({
+            answer: value,
+            voices: card.voices.map(({ jobId, speakerLabel }) => ({
+              jobId,
+              speakerLabel,
+            })),
+          }),
+          method: "POST",
+        });
+      }
       selected = null;
       stopAudio();
       el("detail").hidden = true;
@@ -277,10 +408,10 @@
     if (!data.cards.length) {
       el("all").textContent = "All caught up.";
     }
-    if (selected) {
+    if (selected && !isSeveral) {
       const card = data.cards.find((c) => c.id === selected.id);
       if (card) {
-        show(card, false);
+        showRankings(card);
       } else {
         selected = null;
         el("detail").hidden = true;
@@ -289,7 +420,17 @@
     }
   }
   async function load() {
-    data = await (await request("/speakers/map")).json();
+    clearTimeout(refresh);
+    const response = await request("/speakers/map");
+    const next = await response.json();
+    if (next.building) {
+      refresh = setTimeout(() => load().catch((e) => status(e.message)), 500);
+    }
+    if (response.status === 202) {
+      status("Building the voice map…");
+      return;
+    }
+    data = next;
     const previous = el("model").value;
     el("model").replaceChildren(
       ...data.models.map((m) => {
@@ -330,7 +471,30 @@
     answer({ kind: "ignore" }).catch((e) => status(e.message));
   el("media").onclick = () =>
     answer({ kind: "media" }).catch((e) => status(e.message));
-  window.addEventListener("pagehide", stopAudio);
+  el("several").onclick = () => {
+    isSeveral = true;
+    showClips(selected);
+    showPeople();
+    el("several-people").hidden = false;
+    el("done").hidden = false;
+    el("name-form").hidden = true;
+    el("answers").replaceChildren();
+    status(
+      "Name each clip, then choose everyone heard in this voice and Done."
+    );
+  };
+  el("done").onclick = () => {
+    const { chosen } = readSeveralPeople();
+    answer({
+      kind: "several",
+      people: [...chosen].filter((id) => id !== "unknown"),
+      unknown: chosen.has("unknown"),
+    }).catch((e) => status(e.message));
+  };
+  window.addEventListener("pagehide", () => {
+    clearTimeout(refresh);
+    stopAudio();
+  });
   if (token) {
     load().catch((e) => status(e.message));
   } else {

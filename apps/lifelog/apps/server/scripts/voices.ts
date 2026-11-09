@@ -143,12 +143,16 @@ export async function openVoices({
   if (await update(file, sha256Hex(token))) {
     stop(server.pid);
     await untilAnswers(async () => {
-      const response = await request(`${base}/speakers/map`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(1000),
-      });
+      const response = await request(
+        `${base}/transcripts/00000000-0000-0000-0000-000000000000/audio`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(1000),
+        }
+      );
       await response.body?.cancel();
-      return response.ok ? true : undefined;
+      // Auth runs before routing: nil UUID has no audio, so 404 proves this token passed auth.
+      return response.status === 404 ? true : undefined;
     }, "Host accepting the map token after restarting");
   }
   const link = new URL("/voices", base);

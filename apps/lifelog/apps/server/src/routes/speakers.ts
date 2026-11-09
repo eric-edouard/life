@@ -3,12 +3,13 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { people, speakerStatuses, suggestionKinds } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
-import { readVoiceMap } from "../voice-map";
+import { VOICE_SCOPES } from "../voice-map";
 import {
   ApiError,
   IdParam,
@@ -124,15 +125,23 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The naming queue and its likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; points are computed for this request, never cached. Likeness is not a calibrated probability.",
+          "The naming queue, split cards and likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; a read-only worker rebuilds after changes. Serves the last built map while refreshing, or 202 initially. Likeness is not a calibrated probability.",
         method: "get",
         path: "/speakers/map",
         responses: {
           200: json(
             z
               .object({
+                building: z.boolean().optional(),
                 candidateThreshold: z.number(),
-                cards: z.array(QueueItem),
+                cards: z.array(
+                  z
+                    .intersection(
+                      QueueItem,
+                      z.object({ scope: z.enum(VOICE_SCOPES) })
+                    )
+                    .openapi("VoiceMapCard")
+                ),
                 models: z.array(
                   z.object({
                     model: z.string(),
@@ -160,9 +169,18 @@ export function speakerRoutes({
               .openapi("VoiceMap"),
             "Voices and people"
           ),
+          202: json(
+            z.object({ building: z.literal(true) }),
+            "First map is building; retry shortly"
+          ),
         },
       }),
-      (c) => c.json(readVoiceMap(db, queue.items()), 200)
+      (c) => {
+        const map = queue.map();
+        return map
+          ? c.json(map, 200)
+          : c.json({ building: true as const }, 202);
+      }
     )
     .openapi(
       createRoute({
@@ -250,12 +268,33 @@ export function speakerRoutes({
         },
         responses: {
           200: json(z.array(SpeakerAssignment), "Assignments after the change"),
+          403: {
+            description:
+              "Map token: this turn is outside the current cached map",
+          },
           404: notFound,
         },
       }),
       (c) => {
         const { jobId, speakerLabel } = c.req.valid("param");
         const { target, turnIndex } = c.req.valid("json");
+        if (
+          c.get("isMapToken") &&
+          !queue
+            .map()
+            ?.cards.some((card) =>
+              card.clips.some(
+                (clip) =>
+                  clip.jobId === jobId &&
+                  clip.speakerLabel === speakerLabel &&
+                  clip.turnIndex === turnIndex
+              )
+            )
+        ) {
+          throw new HTTPException(403, {
+            message: "This turn is outside the current voice map.",
+          });
+        }
         const result = assign(db, {
           jobId,
           speakerLabel,
@@ -365,7 +404,7 @@ export function speakerRoutes({
         path: "/naming-queue",
         responses: { 200: json(z.array(QueueItem), "Voices to name") },
       }),
-      (c) => c.json(queue.items(), 200)
+      async (c) => c.json(await queue.items(), 200)
     )
     .openapi(
       createRoute({
