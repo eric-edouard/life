@@ -42,3 +42,9 @@ This lives in Life, not lifelog (lifelog never sees the call): Life joins the ca
 were heard (`heardAs`) when it reads who spoke, and the evidence basis is the call, not a voice match. It reverses
 AGENTS.md's "who he talked with on it is the model's reading … never a timing rule" for this one case; the build PR
 rewrites that line. Group calls and calls where his own room also speaks stay with the model's reading.
+
+Added later the same day (his yes, "I'm always the bottleneck"): mixed voices are split automatically by turn before he
+is asked; then an AI naming pass names each grouped voice from context (names said, the call, place, calendar, his
+chats) and voice likeness, applies it alone when confident and not contradicted by the voice, else puts it first on the
+card. AI-named voices are marked so, never train a voice profile, and his answer wins; the pass is measured on his past
+answers (held out) before it applies anything. Codex on his ChatGPT plan, no cash. Built after the split PR.
