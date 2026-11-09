@@ -26,7 +26,7 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/mac-llm.test.ts": 831,
   "apps/lifelog/apps/server/src/naming-queue.test.ts": 834,
   "apps/lifelog/apps/server/src/people.test.ts": 991,
-  "apps/lifelog/apps/server/src/people.ts": 1225,
+  "apps/lifelog/apps/server/src/people.ts": 1224,
   "apps/lifelog/packages/db/src/schema/index.ts": 1091,
   "apps/server/src/host/status/snapshot.ts": 1220,
   "apps/server/src/memory/observe.test.ts": 848,

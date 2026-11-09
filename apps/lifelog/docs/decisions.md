@@ -40,7 +40,11 @@ reverse it, change its entry here in the same commit.
   the queue’s existing audio route and its answer route. The map reads the queue’s cards and words in their order,
   with the same likeness ranking as recognition; easy targets are cards above the candidate threshold.
   PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
-  computed per request without a cache. Likeness is not a calibrated probability. Naming still uses the queue’s
+  computed per request without a cache. Named clouds read currently named turn samples in one query through the shared assignment resolver,
+  including owner evidence (solid) and recognition matches (hollow). Each person and model shows at most 400
+  samples, chosen by deterministic stride across recording time (sample creation time for legacy rows),
+  on those same centroid-fitted axes. Point kinds are explicit; vectors never leave the server. Sidebar checkboxes toggle each person and unnamed voices.
+  Likeness is not a calibrated probability. Naming still uses the queue’s
   answer route. `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its
   hash in Host’s owner-only `server.env` and restarts its verified supervised server child only when that hash
   changes. It opens a loopback link with the token in the fragment, never a query. The map routes are also

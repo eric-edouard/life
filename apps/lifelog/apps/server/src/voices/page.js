@@ -11,11 +11,12 @@
   let audioUrl;
   let playback = 0;
   let saving = false;
+  const hiddenPeople = new Set();
   const nameOf = (id) =>
     data.people.find((p) => p.id === id)?.name ?? "Unnamed voice";
   const modelOf = () => data.models.find((m) => m.model === el("model").value);
   const pointOf = (id) =>
-    modelOf()?.points.find((p) => p.id === id && !p.personId);
+    modelOf()?.points.find((p) => p.id === id && p.kind === "unnamed");
   const button = (text, action) => {
     const node = document.createElement("button");
     node.type = "button";
@@ -164,35 +165,65 @@
   async function draw() {
     const model = modelOf();
     const points = model?.points ?? [];
-    const traces = [...new Set(points.map((p) => p.personId))].map(
-      (personId) => {
-        const same = points.filter((p) => p.personId === personId);
-        return {
-          customdata: same.map((p) => p.id),
-          hoverinfo: "text",
-          marker: {
-            color: personId
-              ? colors[
-                  data.people.findIndex((p) => p.id === personId) %
-                    colors.length
-                ]
-              : "#8a837d",
-            opacity: 0.9,
-            size: same.map((p) =>
-              personId ? 9 : 5 + Math.min(22, Math.sqrt(p.words) / 8)
-            ),
-          },
-          mode: "markers",
-          name: personId ? nameOf(personId) : "Unnamed",
-          text: same.map((p) =>
-            personId ? nameOf(personId) : `${p.words.toLocaleString()} words`
+    const people = [...new Set(points.map((p) => p.personId))];
+    const traces = people.map((personId) => {
+      const same = points.filter((p) => p.personId === personId);
+      return {
+        customdata: same.map((p) => p.personId ?? p.id),
+        hoverinfo: "text",
+        marker: {
+          color: personId
+            ? colors[
+                data.people.findIndex((p) => p.id === personId) % colors.length
+              ]
+            : "#8a837d",
+          opacity: 0.8,
+          size: same.map((p) => {
+            if (personId) {
+              return p.kind === "centroid" ? 9 : 3;
+            }
+            return 5 + Math.min(22, Math.sqrt(p.words) / 8);
+          }),
+          symbol: same.map((p) =>
+            p.basis === "recognized" ? "circle-open" : "circle"
           ),
-          type: "scatter3d",
-          x: same.map((p) => p.position[0]),
-          y: same.map((p) => p.position[1]),
-          z: same.map((p) => p.position[2]),
+        },
+        mode: "markers",
+        name: personId ? nameOf(personId) : "Unnamed",
+        text: same.map((p) =>
+          personId ? nameOf(personId) : `${p.words.toLocaleString()} words`
+        ),
+        type: "scatter3d",
+        visible: !hiddenPeople.has(personId),
+        x: same.map((p) => p.position[0]),
+        y: same.map((p) => p.position[1]),
+        z: same.map((p) => p.position[2]),
+      };
+    });
+    el("visibility").replaceChildren(
+      ...traces.map((trace, i) => {
+        const personId = people[i];
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = trace.visible;
+        checkbox.onchange = () => {
+          if (checkbox.checked) {
+            hiddenPeople.delete(personId);
+          } else {
+            hiddenPeople.add(personId);
+          }
+          window.Plotly.restyle(el("plot"), { visible: checkbox.checked }, [
+            i,
+          ]).catch((e) => status(e.message));
         };
-      }
+        const swatch = document.createElement("span");
+        swatch.className = "swatch";
+        swatch.style.backgroundColor = trace.marker.color;
+        swatch.setAttribute("aria-hidden", "true");
+        label.append(checkbox, swatch, document.createTextNode(trace.name));
+        return label;
+      })
     );
     await window.Plotly.react(
       el("plot"),
@@ -207,6 +238,7 @@
           yaxis: { visible: false },
           zaxis: { visible: false },
         },
+        showlegend: false,
         uirevision: model?.model,
       },
       {
@@ -276,6 +308,14 @@
         ? ""
         : "No voice samples yet. Voices can still be named from the list."
     );
+  }
+  for (const id of ["show-all", "show-none"]) {
+    el(id).onclick = () => {
+      for (const checkbox of el("visibility").querySelectorAll("input")) {
+        checkbox.checked = id === "show-all";
+        checkbox.onchange();
+      }
+    };
   }
   el("refresh").onclick = () => load().catch((e) => status(e.message));
   el("model").onchange = () => draw().catch((e) => status(e.message));
