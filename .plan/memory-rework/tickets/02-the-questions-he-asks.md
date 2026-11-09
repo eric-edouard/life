@@ -1,6 +1,8 @@
 ---
 type: research
 blocked_by: []
+claimed_by: claude-session-memory-rework
+claimed_at: 2026-11-09T10:06:18Z
 ---
 
 # The questions he asks Life
