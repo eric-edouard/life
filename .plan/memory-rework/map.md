@@ -50,6 +50,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [Everything Life does for him today](./tickets/01-everything-life-does-today.md) — the feature checklist with what feeds each; two stored layers are redundant, and his old project-loop answers are a source to keep; the daily mails live in his scheduled tasks; appointments, area situations and some CLI-only features are gaps to improve
 - [Who really spoke in a recording](./tickets/04-who-really-spoke.md) — lifelog's contract gains `speaker.basis` (assigned, matched, inferred, none); only assigned and matched turns are a person's own evidence
 - [Old sources, read in once](./tickets/03-old-sources.md) — old WhatsApp from an iPhone backup (started 9 Nov) plus the father's old-number export; iMessage and Notes already complete; mail needs a filter; three networks need exports; all land before the one read
+- [The questions he asks Life](./tickets/02-the-questions-he-asks.md) — 102 questions in his data repo, 25 failed; prediction, arcs and himself are thin, so the set grows from his old chats and assistant exports
 
 ## Not yet specified
 
