@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
-import { answerVoices } from "../naming-queue";
+import { answerVoices, severalTarget } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
 import { VOICE_SCOPES } from "../voice-map";
@@ -56,6 +56,12 @@ const SpeakerTarget = z
     z.object({ kind: z.literal("unknown") }),
     // A video, TV or radio: hidden from summaries and search, never a voice profile.
     z.object({ kind: z.literal("media") }),
+    // Several people: who, and whether someone he does not know is among them.
+    z.object({
+      kind: z.literal("several"),
+      people: z.array(z.uuid()).max(20),
+      unknown: z.boolean(),
+    }),
   ])
   .openapi("SpeakerTarget");
 
@@ -246,8 +252,8 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The owner names (kind new), assigns (kind person) or un-assigns (kind unknown) " +
-          "a speaker, or one turn when turnIndex is set. Evidence from that scope in this " +
+          "The owner names (kind new), assigns (kind person), un-assigns (kind unknown) or says " +
+          "several people speak in (kind several) a speaker, or one turn when turnIndex is set. Evidence from that scope in this " +
           "transcript moves with it. Survives every later recognition run. A new person takes the " +
           "id the phone chose, so a replay makes nobody twice.",
         method: "put",
@@ -295,10 +301,19 @@ export function speakerRoutes({
             message: "This turn is outside the current voice map.",
           });
         }
+        const owned =
+          target.kind === "several" ? severalTarget(db, target) : target;
+        if (
+          target.kind === "several" &&
+          owned.kind === "several" &&
+          owned.candidates.people.length < new Set(target.people).size
+        ) {
+          return c.json(noPerson, 404);
+        }
         const result = assign(db, {
           jobId,
           speakerLabel,
-          target,
+          target: owned,
           turnIndex: turnIndex ?? null,
         });
         // What the owner just taught reaches every other conversation.
