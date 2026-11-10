@@ -50,7 +50,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `claude`, `chatgpt`, and the agent's. | |
+| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `phone`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `claude`, `chatgpt`, and the agent's. | |
 | kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `agent`. | |
 | activity | What his devices record he did, never anyone's words: the `repo` and `screen` kinds (`isActivity`). Never extracted, importance 1 at most. | |
 | stint | One stretch of time in one app or website on one device, from Screen Time; the same one back within 2 minutes is one stint. Not a Claude session. | |
@@ -61,7 +61,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
 | chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
 | transaction | A mail Mail itself sorted as Transactions (an order, booking, receipt, delivery or bank notice), kept even from a sender he doesn't know. Not a database transaction. | |
-| phone call | A voice or video call on a messaging app (WhatsApp, LINE, Instagram): one message of its chat, with its length once it ended (0: not picked up), its line written by Life (`callLine`). "Call" alone is a model call. | |
+| phone source | Phone & FaceTime call history (`phone`), copied from Apple’s store into `archive/phone.sqlite`; call-only chats keyed by remote handles or explicit participant sets; the Phone app's call log, not the owner's iPhone recordings (lifelog's `phone`). | |
+| phone call | A voice or video call, on Phone & FaceTime or a messaging app: one event of its chat (including a call-only chat), with its length once it ended (0: not picked up), its line written by Life (`callLine`). "Call" alone is a model call. | |
 | heard as | How lifelog heard a voice it could not name (`readVoiceKinds`): live with him, live nearby but not talking with him, over a phone, from a screen or speaker, an announcement. Its words carry it as a prefix. | |
 | payment | Money he paid or got back, as his money app gives it (`apps/server/src/payments/`): not a source, never a unit nor read by a model. Placed at read time in his day, the episode it happened in (the shortest holding its time) and where he was. Not a `transaction` (a mail). | |
 | paid | What was paid in an episode or a range, in EUR: money out less refunds. Not "cost" or "spend", which are model spend (`run-log.ts`). | |

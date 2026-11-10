@@ -302,10 +302,8 @@ export function callLine({ at, phoneCall }: SourceEvent) {
 export const textOf = (e: SourceEvent) => (e.phoneCall ? callLine(e) : e.text);
 
 /**
- * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
- * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
- * WhatsApp, iMessage; `isDirect`) has the rest 1:1 whatever handles one person wrote from; elsewhere
- * (bridged networks, mail) more than one other sender is a group: none.
+ * A 1:1 chat's person: its other senders, else its key, else its name (never a mail subject or a call-only display name).
+ * `isDirect` uses the source's group predicate, else more than one other sender means a group.
  */
 export function chatPerson(
   list: SourceEvent[],
@@ -319,7 +317,9 @@ export function chatPerson(
     return null;
   }
   const named =
-    first.chatName && kindOf(first.source) !== "mail"
+    first.chatName &&
+    !list.every((e) => e.phoneCall) &&
+    kindOf(first.source) !== "mail"
       ? resolve(first.chatName)
       : null;
   const person = [...others].find((o) => o.startsWith("person:"));

@@ -192,12 +192,17 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
   const checkboxes = el("visibility").querySelectorAll();
   expect(checkboxes).toHaveLength(3);
   expect(layout.showlegend).toBe(false);
+  // The axes span every voice, so toggling one never rescales the others.
+  expect(layout.scene.xaxis.range).toHaveLength(2);
+  expect(layout.scene.xaxis.autorange).toBeUndefined();
   expect(traces.find((t) => t.customdata[0] === owner)?.customdata).toEqual([
     owner,
     owner,
     owner,
   ]);
-  expect(traces[0].marker.size).toEqual([9, 3, 3]);
+  expect(traces[0].marker.size).toEqual([9, 4, 4]);
+  // A hollow sample's ring is its person's colour, never the default white.
+  expect(traces[0].marker.line.color).toBe(traces[0].marker.color);
   expect(traces[0].marker.symbol).toEqual(["circle", "circle", "circle-open"]);
   expect(traces.find((t) => t.customdata[0] === guest)?.customdata).toEqual([
     guest,

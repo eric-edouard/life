@@ -33,6 +33,10 @@ test("an export holds everything with its checksum and counts, and never a secre
     db.run("create table messages (id text)");
     db.run("insert into messages values ('a'), ('b')");
     db.close();
+    const phone = new Database(join(archive, "phone.sqlite"));
+    phone.run("create table calls (id text)");
+    phone.run("insert into calls values ('synthetic-call')");
+    phone.close();
     mkdirSync(join(archive, "media"));
     writeFileSync(join(archive, "media", "photo.jpg"), "jpeg");
 
@@ -58,6 +62,8 @@ test("an export holds everything with its checksum and counts, and never a secre
     const m = await stage(dir, archive);
     const paths = m.files.map((f) => f.path);
     expect(paths).toContain("archive/whatsapp.sqlite");
+    expect(paths).toContain("archive/phone.sqlite");
+    expect(m.counts.rows["archive/phone.sqlite"]).toEqual({ calls: 1 });
     expect(paths).toContain("archive/media/photo.jpg");
     expect(paths.some((p) => p.startsWith("data/"))).toBe(true);
     expect(paths.filter((p) => SECRET.test(p))).toEqual([]);

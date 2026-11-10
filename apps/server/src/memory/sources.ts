@@ -38,6 +38,12 @@ import {
   readMail,
 } from "../sources/mail";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
+import {
+  copyPhone,
+  isPhoneGroup,
+  newestPhone,
+  readPhone,
+} from "../sources/phone";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
 import {
   copyWhatsapp,
@@ -109,6 +115,19 @@ const LISTED: Descriptor[] = [
       copy: copyWhatsapp,
       deleted: { media: "media" },
     },
+  },
+  {
+    chatDays: 7,
+    group: isPhoneGroup,
+    kind: "chat",
+    label: "Phone & FaceTime",
+    macOnly: true,
+    name: "phone",
+    newest: newestPhone,
+    read: readPhone,
+    searchDays: 90,
+    silentAfter: 72 * HOUR,
+    store: { copies: "calls", copy: copyPhone },
   },
   ...NETWORKS.map(bridgedSource),
   {

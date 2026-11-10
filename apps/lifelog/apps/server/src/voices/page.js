@@ -1,3 +1,12 @@
+// One axis's extent over every point, a little padded.
+const rangeOf = (points, axis) => {
+  const values = points.map((p) => p.position[axis]);
+  const low = Math.min(...values, 0);
+  const high = Math.max(...values, 0);
+  const pad = (high - low) * 0.05 || 1;
+  return [low - pad, high + pad];
+};
+
 (() => {
   const token = new URLSearchParams(location.hash.slice(1)).get("token");
   // Keep the token only in this page's memory, never in history or browser storage.
@@ -299,19 +308,22 @@
     const people = [...new Set(points.map((p) => p.personId))];
     const traces = people.map((personId) => {
       const same = points.filter((p) => p.personId === personId);
+      const color = personId
+        ? colors[
+            data.people.findIndex((p) => p.id === personId) % colors.length
+          ]
+        : "#8a837d";
       return {
         customdata: same.map((p) => p.personId ?? p.id),
         hoverinfo: "text",
         marker: {
-          color: personId
-            ? colors[
-                data.people.findIndex((p) => p.id === personId) % colors.length
-              ]
-            : "#8a837d",
+          color,
+          // A hollow (recognized) sample's ring takes its person's colour too.
+          line: { color, width: 1.5 },
           opacity: 0.8,
           size: same.map((p) => {
             if (personId) {
-              return p.kind === "centroid" ? 9 : 3;
+              return p.kind === "centroid" ? 9 : 4;
             }
             return 5 + Math.min(22, Math.sqrt(p.words) / 8);
           }),
@@ -364,10 +376,12 @@
         margin: { b: 0, l: 0, r: 0, t: 0 },
         paper_bgcolor: "#0b0a0a",
         scene: {
+          // Axes span every voice, shown or not, so toggling one never moves or rescales the rest.
+          aspectmode: "cube",
           bgcolor: "#0b0a0a",
-          xaxis: { visible: false },
-          yaxis: { visible: false },
-          zaxis: { visible: false },
+          xaxis: { range: rangeOf(points, 0), visible: false },
+          yaxis: { range: rangeOf(points, 1), visible: false },
+          zaxis: { range: rangeOf(points, 2), visible: false },
         },
         showlegend: false,
         uirevision: model?.model,

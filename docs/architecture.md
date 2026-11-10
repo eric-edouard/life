@@ -140,18 +140,21 @@ A question like "what is my arc with this friend?" needs more than recent logist
   year, and nothing is forgotten: replies are checked and names resolved against the whole map.
 - **Historical collection:** `bun life memory units` collects bounded owner-local months without models, voice writes or file descriptions, ending before the nightly window. Historical zones use sent-mail Date offsets; gap rules are in [operations](operations.md#historical-collection). Imports and model backfills require the optional `backfillEngine`; scheduled model backfill is paused until prompts are frozen. Nightly and midday keep the ordinary engine.
 
-**Phone calls** are messages of their chat, never a second record: a call reads as a line of its chat-day ("(audio call
+**Phone calls** are events of their chat, including call-only chats, never a second record: a call reads as a line of its chat-day ("(audio call
 10:02–10:40, 38 min)"), and a voice lifelog heard over a phone, or nearby but not with him, reads with that prefix
 (`heardAs`, words.ts), so the episodes call joins a call to what was said in the room by time and by how voices were heard,
-never by a timing rule of Life's.
+never by a timing rule of Life's. Phone & FaceTime has its own `phone` source, read from the archive (see
+[sources](sources.md)); messaging apps retain their own calls. A completed 1:1 call from any source sets the same
+voice day as a recording in `chatDays`, once per person and local day, and never adds message weight. A call-only
+chat resolves identity through its handles, never its display name. Voice attribution remains the model's reading.
 
-Known limits: no phone or FaceTime call records (CallHistory), no Telegram calls, no unrecorded time together, no location history before lifelog's; a spoken claim about
+Known limits: no Telegram calls, no unrecorded time together, no location history before lifelog's; a spoken claim about
 someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac
 
 - The owner data dir is a local git repository with no remote: the nightly commits and never pushes.
-- The archive (deleted messages, old note versions, Screen Time's records) is the only live copy of what the apps delete or prune; it lives in
+- The archive (deleted messages, old note versions, phone call history, Screen Time's records) is the only live copy of what the apps delete or prune; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
   OpenAI through the owner's subscription's CLI, or OpenRouter and allmodels.io with his keys: `docs/operations.md`, "Model engines"). Calls run in
