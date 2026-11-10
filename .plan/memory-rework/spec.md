@@ -555,7 +555,7 @@ everything stands on. No model layer has read them, and none should yet.
   (links and his word now end things); `doubtful` alone decides what he is asked; closeness is counted from raw
   signals only (kept for what feeds a model, section 10).
 
-## 18. Names, for his yes
+## 18. Names (approved by him, 10 Nov 2026)
 
 | Word | What it is | What it is not |
 |---|---|---|
@@ -585,7 +585,9 @@ In this spec, evidence comes in "forms" and forecasts in "sorts", because "kind"
 
 ## 19. His calls
 
-Raised by the two reviews; each is his. The spec assumes the answer shown; he can say no to any.
+Raised by the two reviews; each is his. **Answered by him on the decision page, 10 Nov 2026**: he left every
+assumed yes as it was and pressed done. On the two that needed his word: the pilot's reads run on DeepSeek and Claude
+checks (his note); the ten verdicts stay at yes.
 
 | # | The call | Assumed |
 |---|---|---|
@@ -600,11 +602,12 @@ Raised by the two reviews; each is his. The spec assumes the answer shown; he ca
 | 9 | Attachment as two behaviours only, never a style. Today's persona writes about attachment in prose; that goes | Yes |
 | 10 | Forecasts start with six sorts code can count. From both personas, his own usual move, longer horizons, a free question, testing a message: later | Yes |
 | 11 | Impulsivity: the pilot runs with a conduct line; the research note comes when he wants it | Yes |
-| 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word needed |
-| 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | His word needed |
+| 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word: DeepSeek reads, Claude checks |
+| 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | Yes |
 
-Also his: the names of section 18; the poles of the meters in his words; the rules of `AGENTS.md` at build time;
-the model for each read and the history's cost after the pilot.
+The names of section 18 and the meters' wording he left as written (same page, same day), except one meter he
+reworded, still being settled: "matter-of-fact or warm". Still his, later: the rules of `AGENTS.md` at build time;
+the history's cost after the pilot.
 
 ## 20. What the review changed
 

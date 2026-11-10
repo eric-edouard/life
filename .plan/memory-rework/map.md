@@ -87,11 +87,11 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 ## Waiting on his word
 
-- One page holds everything below for him to answer, each already set to what the spec assumes: https://claude.ai/artifact/Tmq61RqP56MR5CpqEcRJFU (its answers are read back from its `answers` collection, then written into the spec).
-- His thirteen calls of spec section 19 (the spec assumes yes to eleven; two need his word: the pilot's model families, and ten verdicts of his to measure the judge).
-- The names of spec section 18, and the poles of the meters in his words.
+- One meter's wording ("matter-of-fact or warm": he tried "expressive"), being settled in conversation.
 - The rules of `AGENTS.md` listed in spec section 17, rewritten with the build, on his yes.
-- The model for each read and the backfill's cost, after the pilot.
+- The history's cost, shown after the pilot.
+
+His answers of 10 Nov (the decision page, https://claude.ai/artifact/Tmq61RqP56MR5CpqEcRJFU): yes to the eleven assumed calls and to the ten verdicts; the pilot's reads on DeepSeek with Claude checking; the names and the meters' wording as written. They are in spec sections 18 and 19.
 
 ## Not yet specified
 
