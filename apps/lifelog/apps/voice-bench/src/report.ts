@@ -14,7 +14,9 @@ import {
   curveOf,
   equalErrorOf,
   type Heard,
+  isKnown,
   isNamed,
+  isRight,
   pointAt,
   sharesBy,
 } from "./score";
@@ -70,15 +72,12 @@ function voicesOf(turns: Heard[], speakerOf: (id: string) => string) {
 }
 
 function summaryOf(calls: Call[]) {
-  const known = calls.filter((c) => c.truth?.kind === "person");
+  const known = calls.filter(isKnown);
   return {
     equalError: equalErrorOf(calls),
     // Known voices whose first guess is right, however unsure: no threshold, so his answers'
     // mistakes weigh little on it.
-    firstRight:
-      known.filter(
-        (c) => c.truth?.kind === "person" && c.truth.personId === c.best
-      ).length / (known.length || 1),
+    firstRight: known.filter(isRight).length / (known.length || 1),
     points: BUDGETS.map((budget) => ({ budget, ...pointAt(calls, budget) })),
   };
 }
@@ -120,7 +119,8 @@ function modelOf(
   const vectors = heard.map((t) => t.vector);
   const positions = pcaOf(centroids.length >= 4 ? centroids : vectors, vectors);
   const callOf = new Map(calls.map((c) => [c.id, c]));
-  const scores = calls.map((c) => c.score);
+  // A call with no profile to compare has no score.
+  const scores = calls.map((c) => c.score).filter(Number.isFinite);
   const middle = mean(scores);
   const deviation = Math.sqrt(mean(scores.map((x) => (x - middle) ** 2))) || 1;
   return {
@@ -162,7 +162,9 @@ function modelOf(
             position: (positions[i] ?? [0, 0, 0]).map(round),
             score: round(call?.score ?? 0),
             // The score among this model's scores: how sure it is, on a scale models share.
-            sureness: round(((call?.score ?? middle) - middle) / deviation),
+            sureness: round(
+              ((call?.best ? call.score : middle) - middle) / deviation
+            ),
           },
         ];
       })
@@ -308,7 +310,7 @@ const percent = (x: number) => `${(x * 100).toFixed(1)}%`;
 export function markdownOf(report: Report) {
   const row = (name: string, s: ReturnType<typeof summaryOf>, rest: string[]) =>
     `| ${[name, ...s.points.map((p) => percent(p.namedRight)), percent(s.firstRight), percent(s.equalError), ...rest].join(" | ")} |`;
-  const head = `| Model | ${BUDGETS.map((b) => `Named right at ${percent(b)} wrong`).join(" | ")} | First guess right | Equal error | Whole voices at 1% | Each person once | s per clip |\n|---|---|---|---|---|---|---|---|---|`;
+  const head = `| Model | ${BUDGETS.map((b) => `Named right at ${percent(b)} wrong`).join(" | ")} | First guess right | Equal error | Whole voices at 1% | Each person once | s per clip | Turns heard |\n|---|---|---|---|---|---|---|---|---|---|`;
   return [
     "# Voice bench",
     "",
@@ -320,6 +322,8 @@ export function markdownOf(report: Report) {
         percent(winnerOf(m.voices).namedRight),
         percent(m.macro),
         m.secondsPerClip.toFixed(3),
+        // Fewer than the sample: a quick look, not to be ranked against a full run.
+        String(Object.keys(m.turns).length),
       ])
     ),
     "",

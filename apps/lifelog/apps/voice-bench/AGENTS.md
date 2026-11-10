@@ -25,7 +25,8 @@ wrong. What it found: `docs/research/voice-bench.md`.
 ## Worth knowing
 
 - Who spoke a turn is decided when scoring (`src/truth.ts`): his answer in the bench's review, else his answer in
-  the archive, by the server's own rule (`answers`, `speakerOf`). The sample stores no truth.
+  the archive, by the server's own rule (`answers`, `speakerOf`). The sample holds his archive answers as they were
+  at the draw: one he changes in the app later reaches the bench at the next `sample`.
 - Profiles and ranking are the server's (`profilesWithout`, `rankPeople`): a turn is judged against profiles built
   without the evidence of its own conversations, as the voice eval does. The bench has no profile code of its own.
 - No server threshold is used. The bench sweeps its own score threshold and lead, so models whose scores sit in

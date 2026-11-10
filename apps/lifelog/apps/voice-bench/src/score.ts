@@ -38,6 +38,7 @@ export function callsOf(items: Heard[], turns: Heard[]): Call[] {
     durationSeconds: t.seconds,
     embedding: t.vector,
     isOwner: false,
+    // One model's vectors at a time: the server keys profiles by model, and here there is one key.
     modelId: "",
     modelRevision: "",
     personId,
@@ -128,8 +129,8 @@ export function blendOf(models: Call[][]): Call[] {
   });
 }
 
-const isKnown = (c: Call) => c.truth?.kind === "person";
-const isRight = (c: Call) =>
+export const isKnown = (c: Call) => c.truth?.kind === "person";
+export const isRight = (c: Call) =>
   c.truth?.kind === "person" && c.truth.personId === c.best;
 // Judged: he answered, and the clip is one voice.
 const judged = (calls: Call[]) =>

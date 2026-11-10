@@ -63,7 +63,9 @@ async function embed(...models: string[]) {
 
 // embeddings/<model>@<revision>.json names the clips, in the order of the vectors in its .f32.
 async function readEmbeddings(): Promise<Embedded[]> {
-  const metas = (await readdir(EMBEDDINGS)).filter((f) => f.endsWith(".json"));
+  const metas = (await readdir(EMBEDDINGS).catch(() => [])).filter((f) =>
+    f.endsWith(".json")
+  );
   return Promise.all(
     metas.map(async (file) => {
       const meta = await readJson<

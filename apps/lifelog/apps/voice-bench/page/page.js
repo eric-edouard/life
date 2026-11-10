@@ -1,7 +1,6 @@
 // The voice bench's page: the report as a cloud to turn and listen to, the models side by side,
 // and the review, whose answers go to the bench's own file (POST /answers).
 (() => {
-  const WINNER = 0.01;
   const NAMES = {
     campplus: "CAM++",
     ecapa: "ECAPA",
@@ -32,8 +31,9 @@
   const surestOf = () =>
     report.models.toSorted((a, b) => b.firstRight - a.firstRight)[0];
   const heardBy = (m) => Object.keys(m.turns).length;
-  const at = (summary, budget = WINNER) =>
-    summary.points.find((p) => p.budget === budget) ?? { namedRight: 0 };
+  // A summary at one of the report's budgets of wrong names: the first is his rule.
+  const at = (summary, budget = 0) =>
+    summary.points[budget] ?? { budget: 0, namedRight: 0 };
   const status = (text) => {
     el("status").textContent = text;
   };
@@ -281,8 +281,8 @@
               : ""
           ),
           node("td", {}, bar(at(m).namedRight)),
-          cell(percent(at(m, 0.03).namedRight)),
-          cell(percent(at(m, 0.1).namedRight)),
+          cell(percent(at(m, 1).namedRight)),
+          cell(percent(at(m, 2).namedRight)),
           cell(percent(m.firstRight)),
           cell(percent(at(m.voices).namedRight)),
           cell(percent(m.macro)),
@@ -299,8 +299,8 @@
           {},
           cell(b.models.map(labelOf).join(" + "), ""),
           node("td", {}, bar(at(b).namedRight)),
-          cell(percent(at(b, 0.03).namedRight)),
-          cell(percent(at(b, 0.1).namedRight)),
+          cell(percent(at(b, 1).namedRight)),
+          cell(percent(at(b, 2).namedRight)),
           cell(percent(b.firstRight)),
           cell(""),
           cell(""),
@@ -347,8 +347,8 @@
           {
             line: { color: "#e2626a", dash: "dash", width: 1 },
             type: "line",
-            x0: WINNER * 100,
-            x1: WINNER * 100,
+            x0: at(model).budget * 100,
+            x1: at(model).budget * 100,
             y0: 0,
             y1: 1,
             yref: "paper",
