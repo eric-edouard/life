@@ -352,6 +352,37 @@ test("a person's 1:1 chats on two apps are theirs together; a group, a mailing l
   ]);
 });
 
+test.each([
+  ["completed", 60],
+  ["missed", 0],
+  ["unseen", undefined],
+] as const)(
+  "a %s WhatsApp phoneCall counts only a completed voice day, never a message",
+  (_, seconds) => {
+    const days = chatDays(
+      [
+        {
+          ...msg("+1", "2026-10-01T10:00:00.000Z", false),
+          phoneCall: { seconds, video: false },
+          text: "",
+        },
+      ],
+      (s) => (s === "+1" ? "person:ann" : null)
+    );
+    expect([...days.values()].flatMap((d) => [...d.values()])).toEqual(
+      seconds
+        ? [
+            {
+              chat: { got: 0, sent: 0 },
+              mail: { got: 0, sent: 0 },
+              voice: true,
+            },
+          ]
+        : []
+    );
+  }
+);
+
 test("completed 1:1 calls of every source are voice days, never messages or extra recording days", () => {
   const at = "2026-10-01T10:00:00.000Z";
   const call = {

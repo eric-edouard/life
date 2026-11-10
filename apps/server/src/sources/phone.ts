@@ -47,7 +47,7 @@ export function copyPhone(source = PHONE, dir = ARCHIVE, now = clock()) {
           join ZHANDLE h on h.Z_PK = p.Z_4REMOTEPARTICIPANTHANDLES
           where p.Z_2REMOTEPARTICIPANTCALLS = c.Z_PK and h.ZVALUE <> '' order by h.ZVALUE
         )) as participants
-      from ZCALLRECORD c where c.ZSERVICE_PROVIDER in ('com.apple.Telephony', 'com.apple.FaceTime')
+      from ZCALLRECORD c where c.ZSERVICE_PROVIDER in (${Call.shape.provider.options.map((provider) => `'${provider}'`).join(", ")})
     `)
       .all()
       .map((r) =>
