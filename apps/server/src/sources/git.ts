@@ -230,16 +230,34 @@ export function readGit(
       Number(mapped(b.key)) - Number(mapped(a.key)) ||
       a.key.localeCompare(b.key)
   );
+  const format = `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`;
   return ordered.flatMap(({ key, path }) => {
-    const out = git(path, [
+    // The commits first, then the lines of the wanted ones only: a month of old history never pays for the diffs of
+    // every commit since (minutes in a large repo). No --until: git's dates are the committer's, the window the author's.
+    const listed = git(path, [
       "log",
       "--all",
       "--no-merges",
       ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
-      "--numstat",
-      `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,
+      format,
     ]);
+    const wanted = parseLog(
+      listed.stdout.toString(),
+      key,
+      since,
+      me,
+      new Set(seen),
+      before
+    ).map((e) => e.id.slice(e.id.lastIndexOf("/") + 1));
+    const out =
+      listed.exitCode === 0 && wanted.length > 0
+        ? git(
+            path,
+            ["log", "--no-walk=unsorted", "--stdin", "--numstat", format],
+            wanted.join("\n")
+          )
+        : listed;
     if (out.exitCode !== 0) {
       log("run.error", {
         error: out.stderr.toString().trim(),
