@@ -47,6 +47,20 @@ rebuild from it. Reprocess that first layer only when a measured gap shows it mi
 Building on the current layers is the default. Starting over is right when a layer exists only to work around a
 limit the new model no longer has, or when the measurements below say the current shape cannot reach the goal.
 
+## A research project
+
+The memory between the units and the agents is treated as a scientific research project, not a feature to ship.
+Each layer is a hypothesis: that storing this, extracted this way, makes Life better at the goal than not storing it.
+So, for every change:
+
+- State the hypothesis and what result would refute it before running anything.
+- Compare against baselines, at least plain retrieval over the units and the current layers, on the same test set.
+- Change one thing at a time, and remove a layer to see what it was worth (an ablation) as readily as adding one.
+- Keep the test set held out from whatever is being tuned, and record every run: model, prompt version, inputs,
+  scores, cost. Model output is cached by input, so a result can be reproduced.
+- Write down results that failed as carefully as results that worked, in the owner's data repo
+  (`docs/memory-rework/experiments/`), so the next agent does not repeat them.
+
 ## How to do it
 
 1. Read the goal and the test set first, nothing else. The test set is the owner's real questions with what a right
