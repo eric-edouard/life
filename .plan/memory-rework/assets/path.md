@@ -79,6 +79,11 @@ Passed but heavy: C2 read 1.3 million characters in about 60 calls (no layer hol
 read raw chats one by one). These match the spec's diagnosis: no counts (who reaches out), no long story (C4),
 no endings (A11), performance not told apart from view (C1).
 
+**Pilot round 1, 10 Nov** (his yes; the connection read, both people, all years): 85 of 85 calls ok, 8,091 moves
+kept, 1.6% dropped by the quote check, about $1.55 (output, thinking included, was about 36,000 tokens a call:
+three times the estimate). Counts by side in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-round-1.md`.
+Next for the pilot: the checking pass by another family on a sample, then his look at the counts.
+
 **Was next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
 to price a case; then the baseline over all twelve; then the conflict and mentions reads, one PR each; then the
 pilot's first round on his word, with its cost shown and the place where kept replies are committed settled.
