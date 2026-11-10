@@ -9,6 +9,7 @@
     "apps/lifelog/apps/server/scripts",
     "apps/lifelog/apps/server/fixtures",
     "apps/lifelog/apps/stt-bench/src",
+    "apps/lifelog/apps/voice-bench/src",
     "apps/lifelog/packages/*/src",
     "apps/lifelog/packages/db/drizzle.config.ts",
     "apps/lifelog/scripts"

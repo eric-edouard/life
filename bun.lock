@@ -48,6 +48,18 @@
         "@types/bun": "catalog:",
       },
     },
+    "apps/lifelog/apps/voice-bench": {
+      "name": "@lifelog/voice-bench",
+      "dependencies": {
+        "@life/server": "workspace:*",
+        "@lifelog/db": "workspace:*",
+        "@lifelog/server": "workspace:*",
+        "drizzle-orm": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "apps/lifelog/packages/db": {
       "name": "@lifelog/db",
       "dependencies": {
@@ -210,6 +222,8 @@
     "@lifelog/server": ["@lifelog/server@workspace:apps/lifelog/apps/server"],
 
     "@lifelog/stt-bench": ["@lifelog/stt-bench@workspace:apps/lifelog/apps/stt-bench"],
+
+    "@lifelog/voice-bench": ["@lifelog/voice-bench@workspace:apps/lifelog/apps/voice-bench"],
 
     "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.3.1", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-laVmIhPGpWi7rG9q+0UigblRN0Hws/Yjlb6qLFtVqryXVLkc4h+yN8z731POD2LnAGQlFe7/tXhUm7Bi0YB91g=="],
 

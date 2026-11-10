@@ -1,12 +1,3 @@
-// One axis's extent over every point, a little padded.
-const rangeOf = (points, axis) => {
-  const values = points.map((p) => p.position[axis]);
-  const low = Math.min(...values, 0);
-  const high = Math.max(...values, 0);
-  const pad = (high - low) * 0.05 || 1;
-  return [low - pad, high + pad];
-};
-
 (() => {
   const token = new URLSearchParams(location.hash.slice(1)).get("token");
   // Keep the token only in this page's memory, never in history or browser storage.
@@ -294,14 +285,6 @@ const rangeOf = (points, axis) => {
       }
     }
   }
-  const colors = [
-    "#e2626a",
-    "#78b3cf",
-    "#b9a0db",
-    "#d0b478",
-    "#83bba3",
-    "#d69b7d",
-  ];
   async function draw() {
     const model = modelOf();
     const points = model?.points ?? [];
@@ -309,10 +292,10 @@ const rangeOf = (points, axis) => {
     const traces = people.map((personId) => {
       const same = points.filter((p) => p.personId === personId);
       const color = personId
-        ? colors[
-            data.people.findIndex((p) => p.id === personId) % colors.length
-          ]
-        : "#8a837d";
+        ? window.voiceCloud.colorOf(
+            data.people.findIndex((p) => p.id === personId)
+          )
+        : window.voiceCloud.unnamed;
       return {
         customdata: same.map((p) => p.personId ?? p.id),
         hoverinfo: "text",
@@ -368,31 +351,7 @@ const rangeOf = (points, axis) => {
         return label;
       })
     );
-    await window.Plotly.react(
-      el("plot"),
-      traces,
-      {
-        font: { color: "#cfc8c0" },
-        margin: { b: 0, l: 0, r: 0, t: 0 },
-        paper_bgcolor: "#0b0a0a",
-        scene: {
-          // Axes span every voice, shown or not, so toggling one never moves or rescales the rest.
-          aspectmode: "cube",
-          bgcolor: "#0b0a0a",
-          xaxis: { range: rangeOf(points, 0), visible: false },
-          yaxis: { range: rangeOf(points, 1), visible: false },
-          zaxis: { range: rangeOf(points, 2), visible: false },
-        },
-        showlegend: false,
-        uirevision: model?.model,
-      },
-      {
-        displayModeBar: false,
-        responsive: true,
-        showLink: false,
-        showSendToCloud: false,
-      }
-    );
+    await window.voiceCloud.draw(el("plot"), traces, points, model?.model);
     el("plot").removeAllListeners("plotly_click");
     el("plot").on("plotly_click", (event) => {
       const id = event.points[0]?.customdata;

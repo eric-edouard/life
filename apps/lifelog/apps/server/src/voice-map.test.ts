@@ -152,6 +152,8 @@ test("static page and pinned assets are public and contain no archive data", asy
   expect(page.headers.get("Content-Security-Policy")).toContain(
     "connect-src 'self'"
   );
+  expect(html).toContain("./cloud.js");
+  expect((await server.request("/voices/cloud.js")).status).toBe(200);
   expect((await server.request("/voices/page.js")).status).toBe(200);
   const plotly = await server.request("/voices/plotly-4.0.0.min.js");
   expect(plotly.status).toBe(200);

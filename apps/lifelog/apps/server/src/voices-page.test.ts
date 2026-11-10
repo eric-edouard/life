@@ -141,8 +141,13 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
       }
     },
   });
+  // The page's two scripts, in the order index.html loads them.
   runInNewContext(
-    readFileSync(new URL("./voices/page.js", import.meta.url), "utf8"),
+    ["cloud", "page"]
+      .map((name) =>
+        readFileSync(new URL(`./voices/${name}.js`, import.meta.url), "utf8")
+      )
+      .join("\n"),
     {
       clearTimeout: noop,
       crypto,

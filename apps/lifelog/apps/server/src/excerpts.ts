@@ -66,6 +66,15 @@ function wantedTurns(db: Db, jobId: string, parsed: ParsedTranscript) {
 }
 type Wanted = Awaited<ReturnType<typeof wantedTurns>>;
 
+// The seconds of a turn that are embedded: its first `maxSeconds`.
+export const excerptRange = (turn: {
+  end: number;
+  start: number;
+}): [number, number] => [
+  turn.start,
+  Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
+];
+
 // The bucket key of a job's audio identity may hear: a block's that no quiet range touches.
 // "never" for any other (an old job's, or one with dictation or playback in it); null when there
 // is nothing to cut (no audio, or cut already).
@@ -114,10 +123,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     const result = await embedRanges(
       config,
       ogg,
-      wanted.map(({ turn }) => [
-        turn.start,
-        Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
-      ])
+      wanted.map(({ turn }) => excerptRange(turn))
     );
     if (!("embeddings" in result)) {
       if (result.error === "identity_unavailable") {
