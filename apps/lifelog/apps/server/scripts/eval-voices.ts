@@ -20,14 +20,14 @@ import { eq } from "drizzle-orm";
 import {
   evidenceRows,
   match,
-  modelKey,
   type ProfilesByModel,
   speakerOf,
   strangerRows,
   voiceId,
   weighProfiles,
 } from "../src/people";
-import { likeness, profilesWithout, soundsLikeOf } from "../src/speakers";
+import { recheckOf } from "../src/recheck";
+import { likeness, profilesWithout } from "../src/speakers";
 
 export type Export = ReturnType<typeof exportVoices>;
 type Sample = Export["samples"][number];
@@ -122,6 +122,7 @@ export function profilesOf({
 function replay(data: Export) {
   const answerOf = answers(data);
   const without = profilesOf(data);
+  const all = without(new Set());
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
       const profiles = without(new Set(inJob.map((s) => s.conversationId)));
@@ -132,20 +133,17 @@ function replay(data: Export) {
         });
         const own = voice.filter((s) => answerOf(s)?.turnIndex === null);
         const namedPersonId = own[0] && answerOf(own[0])?.personId;
-        const [model] = [...Map.groupBy(own, modelKey)].sort(
-          (a, b) => b[1].length - a[1].length
-        );
         return judged.length > 0
           ? [
               {
                 ...scoreVoice(data.owner, judged, voice, profiles),
                 recheck: !!(
                   namedPersonId &&
-                  model &&
-                  soundsLikeOf(
-                    model[1].map((s) => s.embedding),
+                  recheckOf(
+                    own,
                     namedPersonId,
-                    profiles.get(model[0])?.people ?? []
+                    all,
+                    new Set(own.map((s) => s.conversationId))
                   )
                 ),
               },

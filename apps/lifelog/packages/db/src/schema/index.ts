@@ -443,8 +443,8 @@ export interface Suggestion {
   id: string;
   kind: (typeof suggestionKinds)[number];
   name: string | null;
-  namedPersonId: string | null;
-  personId: string | null;
+  namedPersonId: string | null; // recheck: the person he named
+  personId: string | null; // known_person: who the summaries think it is; recheck: who it sounds like
   seconds: number;
   voices: {
     conversationId: string;

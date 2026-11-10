@@ -33,13 +33,12 @@ import {
   assign,
   isCalled,
   isRejected,
-  modelKey,
   readOwnTurns,
   readVoices,
   type Target,
   voiceId,
 } from "./people";
-import { NO_PROFILES, profilesWithout, soundsLikeOf } from "./speakers";
+import { recheckOf } from "./recheck";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";
@@ -281,28 +280,20 @@ function readRechecks(
   return rows
     .flatMap((row) => {
       const samples = reader.samples([row]);
-      const [model] = [...Map.groupBy(samples, modelKey)].sort(
-        (a, b) => b[1].length - a[1].length
-      );
-      if (!(model && row.personId)) {
-        return [];
-      }
-      const [key, same] = model;
-      const profiles = profilesWithout(
-        reader.profiles.get(key) ?? NO_PROFILES,
-        new Set(samples.map((s) => s.conversationId))
-      ).people;
-      const heard = soundsLikeOf(
-        same.map((s) => s.embedding),
-        row.personId,
-        profiles
-      );
+      const heard =
+        row.personId &&
+        recheckOf(
+          samples,
+          row.personId,
+          reader.profiles,
+          new Set(samples.map((s) => s.conversationId))
+        );
       if (!heard) {
         return [];
       }
       const group = voiceId(row.jobId, row.speakerLabel);
       const voices = new Map<string, Voice>();
-      for (const sample of same) {
+      for (const sample of samples) {
         const found = clip(sample);
         if (!found) {
           continue;

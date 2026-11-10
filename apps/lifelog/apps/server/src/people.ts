@@ -402,7 +402,7 @@ export function readVoices(db: Db) {
 }
 
 // One model's samples and their centroid once clean speech reaches minSpeakerSeconds.
-function speakerVoice(speakerSamples: VoiceSample[]) {
+export function speakerVoice(speakerSamples: VoiceSample[]) {
   const model = speakerSamples[0] ? modelKey(speakerSamples[0]) : "";
   const samples = speakerSamples.filter((s) => modelKey(s) === model);
   const seconds = samples.reduce((sum, s) => sum + s.durationSeconds, 0);

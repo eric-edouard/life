@@ -115,7 +115,7 @@ export function soundsLikeOf(
   namedPersonId: string,
   profiles: Profile[]
 ) {
-  if (!profiles.some((p) => p.personId === namedPersonId)) {
+  if (!(vectors.length && profiles.some((p) => p.personId === namedPersonId))) {
     return null;
   }
   const others = vectors.flatMap((v) => {
