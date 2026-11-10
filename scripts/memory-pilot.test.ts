@@ -111,11 +111,15 @@ test("a move stays inside its exchange; an exchange the batch does not hold is m
           exchange: 0,
           moves: [{ ...ASKS, line: 1 }],
           tension: false,
-          tone: { me: null },
+          tone: { me: null, them: "icy" },
         },
         {
           exchange: 2,
-          moves: [ASKS, { code: "shares", line: 3, quote: "audio call" }],
+          moves: [
+            // A call is never an answer either.
+            { ...ASKS, answer: { kind: "toward", line: 3 } },
+            { code: "shares", line: 3, quote: "audio call" },
+          ],
           tension: true,
           tone: WARM,
         },
@@ -125,9 +129,9 @@ test("a move stays inside its exchange; an exchange the batch does not hold is m
     batch,
     [0, 2]
   );
-  expect(exchanges.map((x) => x.moves.map((m) => m.code))).toEqual([
+  expect(exchanges.map((x) => x.moves.map((m) => [m.code, m.answer]))).toEqual([
     [],
-    ["asks_for"],
+    [["asks_for", undefined]],
   ]);
   expect(missing).toBe(0);
   expect(checkedMoves(replyOf([], 7), batch, [0, 2]).missing).toBe(2);

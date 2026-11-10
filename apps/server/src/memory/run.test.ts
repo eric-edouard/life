@@ -1,5 +1,4 @@
 import { expect, spyOn, test } from "bun:test";
-import { digest } from "../core/hash";
 import type { InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
 import {
@@ -198,10 +197,7 @@ test("a sweep's selected engine reaches collection, attachments, episodes and ex
   }
 });
 
-test("a call's inputs digest is the prompt, a new line and the input as JSON: the one personas, situations and appointments kept", () => {
-  const input = { a: [1, "é"], b: null };
-  expect(inputsOf("memory-persona.v2", input)).toBe(
-    digest("sha256", `memory-persona.v2\n${JSON.stringify(input)}`, 16)
-  );
-  expect(inputsOf("p", input)).not.toBe(inputsOf("q", input));
+test("a call's inputs digest is pinned: the one personas, situations and appointments kept (a change rebuilds them all)", () => {
+  expect(inputsOf("memory-persona.v2", { a: 1 })).toBe("dba367e9d7038416");
+  expect(inputsOf("p", { a: 1 })).not.toBe(inputsOf("q", { a: 1 }));
 });

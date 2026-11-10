@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { writeJson } from "@life/server/src/core/files";
+import { digest } from "@life/server/src/core/hash";
 import { Engine } from "@life/server/src/core/names";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { directOf, readWithPeople } from "@life/server/src/memory/closeness";
@@ -96,13 +97,14 @@ const Move = z.discriminatedUnion("code", [
   }),
 ]);
 type Move = z.infer<typeof Move>;
-const Tone = z.enum(["warm", "neutral", "cold"]).nullish();
+const Tone = z.enum(["warm", "neutral", "cold"]).nullish().catch(undefined);
 /** One exchange of a reply; its moves are checked one by one (`movesOf`). */
-const Read = z.object({
+const ExchangeEntry = z.object({
   exchange: z.int().min(0),
   moves: z.array(z.unknown()),
   tension: z.boolean(),
-  tone: z.object({ me: Tone, them: Tone }),
+  // A tone that is none of the three is no tone: it never costs the exchange its moves.
+  tone: z.object({ me: Tone, them: Tone }).catch({}),
 });
 /** What makes a reply one, and so worth keeping: an object with its exchanges. The rest is checked when read. */
 const Reply = z.object({ exchanges: z.array(z.unknown()) });
@@ -136,9 +138,8 @@ function quoted(m: Move, span: Span) {
 function answerOf(m: Move, line: number, by: SourceEvent, span: Span) {
   const answer = "answer" in m ? m.answer : undefined;
   const reply = answer ? span.messages[answer.line - span.start] : undefined;
-  return answer && reply && answer.line > line && reply.fromMe !== by.fromMe
-    ? answer
-    : undefined;
+  const isTheirs = reply && !reply.phoneCall && reply.fromMe !== by.fromMe;
+  return answer && isTheirs && answer.line > line ? answer : undefined;
 }
 
 /**
@@ -199,7 +200,7 @@ export function checkedMoves(
   );
   const { entries } = checkedEntries(
     Reply.parse(reply).exchanges,
-    Read,
+    ExchangeEntry,
     (x) => String(x.exchange),
     (key) => spans.has(Number(key))
   );
@@ -297,7 +298,7 @@ export async function makeCalls(
           messages: c.messages.map((m) => `${m.source}|${m.id}`),
           reply,
           starts: c.starts,
-          wording: inputsOf(wording, null),
+          wording: digest("sha256", wording, 16),
         });
         counts.dropped += checked.dropped;
         counts.missing += checked.missing;
