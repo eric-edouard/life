@@ -11,6 +11,22 @@ A proper benchmark tool for the memory layer: a good seed of data that is not hi
 tests of different kinds added to it, among them from the MCP agents' side; and a check that the answers contain
 the information we want. "This is how we rate models, right?"
 
+His second word, the same day: whenever he talks with an agent and sees it does not answer as he would want, or
+cannot easily reach information it should, he must be able to make a new test case easily, while the system is
+being amended.
+
+So adding a case has to be nearly free, and said in conversation: he never writes a file. Life already has the
+start of this loop (when he says something did not work, it is audited and its fix carries a regression case, kept
+in his data repo). The benchmark widens it:
+- **One harness, two sets of cases.** The made-up life's cases live in the repo. His own cases, on his real data,
+  live in his data repo, as his regression cases and his question set do today. The same run answers both; only
+  the data differs.
+- **A case is small**: the question as he asked it, what the answer must hold, what it must not say, and whether
+  the agent has only the connector.
+- **From a failure to a case**: he says what was wrong and what the answer should have held. The agent writes his
+  case on his data, in his words. When the failure shows a kind of question the made-up life cannot ask yet, the
+  same kind is planted in the script and asked there too, with no fact of his.
+
 ## What exists today (checked in the code, 10 Nov)
 
 - `scripts/bench.ts` rates models, but on his own hand-checked days, and only on facts and the timeline.
