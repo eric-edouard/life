@@ -29,6 +29,23 @@ night, and outputs already have an on and off switch (`core/outputs.ts`).
 
 Each line is one PR unless it says otherwise. "Shadow" means rule 2. "Deletes" is what goes once it has moved.
 
+### Stage 0, re-read against today's code (10 Nov, at the start of the build)
+
+The stage below was drafted from an older tree: `main` had moved 54 commits (the history import, passages for
+search, the phone source). Read against today's code, part of it already exists:
+
+| Step | What today's code already has | What is really left |
+|---|---|---|
+| 0.1 The exchange | The rule exists once, inline: a quiet of 6 hours in the persona's pair counts (`personas.ts`, `OPENS_AFTER`). Search has its own, different cut (`passages.ts`, 30 minutes) | Give the cut one home; size his chats with it |
+| 0.2 Reactions, reply links, deletions | Deletions are carried (`deleted` on a message). Reactions are filtered out; reply links are not read | Reactions and reply links, with the other session, which owns the sources |
+| 0.3 Measures | The persona already counts per pair: who opened, median answer time, deletions each way, days | Per exchange: left unanswered, last word, shares. Added when a reader needs them, not before |
+| 0.4 Coverage | A person's page says what Life holds by source and month (`coverageLines`) | A record of days a source was not captured |
+| 0.5 Hours | Nothing | As drafted; low value until an episode names a project |
+
+So the first PR is smaller and more useful than drafted: the exchange cut in one place, and a read-only script that
+prints the numbers both reviews asked for (how many exchanges, how long, where the quiet falls, how many are
+one-sided, how they batch). The map branch is merged with `main`, so the spec now sits on today's code.
+
 ### Stage 0. By code, no model, no reader moved (can start before the pilot)
 
 | Step | What ships | Proven by | Value at once |
