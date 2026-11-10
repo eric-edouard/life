@@ -47,9 +47,26 @@ rebuild from it. Reprocess that first layer only when a measured gap shows it mi
 Building on the current layers is the default. Starting over is right when a layer exists only to work around a
 limit the new model no longer has, or when the measurements below say the current shape cannot reach the goal.
 
+## A research project
+
+The memory between the units and the agents is treated as a scientific research project, not a feature to ship.
+Each layer is a hypothesis: that storing this, extracted this way, makes Life better at the goal than not storing it.
+So, for every change:
+
+- State the hypothesis and what result would refute it before running anything.
+- Compare against baselines, at least plain retrieval over the units and the current layers, on the same test set.
+- Change one thing at a time, and remove a layer to see what it was worth (an ablation) as readily as adding one.
+- Split the owner's questions: a development share to design with, and a held-out share no design step sees, used
+  only to judge. Score as Life already does ([Measuring](operations.md#measuring)) and keep every regression case
+  ([Regression cases](operations.md#regression-cases)) passing beside the new comparisons.
+- Record every experiment: model, prompt version, inputs, scores, cost. Model output is cached by input
+  ([architecture](architecture.md)), so an experiment can be replayed without new model calls as long as its inputs and prompt versions are unchanged.
+- Write down results that failed as carefully as results that worked, in the owner's data repo
+  (`docs/memory-rework/experiments/`), so the next agent does not repeat them.
+
 ## How to do it
 
-1. Read the goal and the test set first, nothing else. The test set is the owner's real questions with what a right
+1. Read the goal and the development share of the test set first, nothing else. The test set is the owner's real questions with what a right
    answer contains, in the owner's data repo (`docs/memory-rework/02-questions.md` and the mined `02b-`, `02c-` files).
 2. Sketch your own data model from the goal, the test set and what the new model can do. Write it down before
    reading the history below, so the past shapes do not anchor you.
@@ -74,7 +91,7 @@ limit the new model no longer has, or when the measurements below say the curren
 - How are the owner's words to someone (possibly a performance) told apart from what the owner says about them to others?
 - What makes closeness, if not volume or time?
 - What does Life predict, and how is each prediction proven before it drives anything?
-- How is each layer checked: an eval case, a real reader, a production run?
+- How is each layer checked: an eval case, a real reader, a night of the live Life?
 
 ## Research to start from
 
