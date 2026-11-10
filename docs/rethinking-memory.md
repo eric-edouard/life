@@ -38,6 +38,12 @@ acts and forecasts. A stronger model changes the answer because it changes three
   built to compensate for a weak reader may go.
 - What a read costs. Cheaper reads move work from stored layers to question time; dearer ones the other way.
 
+The layer just above the units deserves the most care, because it is the one a migration most wants to keep. If it
+extracts as much as the raw data holds, close to the evidence (who said or did what, when, quoted, typed, per unit)
+and light on interpretation, a stronger model can build new upper layers from it instead of reading the raw data
+again. Interpretation (traits, patterns, arcs, where things stand) belongs in the layers above, which are cheap to
+rebuild from it. Reprocess that first layer only when a measured gap shows it missed something a question needs.
+
 Building on the current layers is the default. Starting over is right when a layer exists only to work around a
 limit the new model no longer has, or when the measurements below say the current shape cannot reach the goal.
 
