@@ -20,7 +20,9 @@ import { eq } from "drizzle-orm";
 import { latestSeq, logChange } from "./change-log";
 import { MAP_RETRY_DELAY, queueCache } from "./naming-cache";
 import { namingQueue } from "./naming-queue";
-import { assign, keepServerSamples, readVoices, recognize } from "./people";
+import { assign, keepServerSamples } from "./people";
+
+import { readVoices, recognize } from "./speaker-recognition";
 import { seedConversation, testDb } from "./testing";
 
 let env: ReturnType<typeof testDb>;

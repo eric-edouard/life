@@ -35,6 +35,15 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
         words: 420,
       },
     ],
+    inferred: [0, 1].map((turnIndex) => ({
+      inference: { evidence: [] },
+      jobId: "job",
+      personId: guest,
+      personName: "Guest",
+      speakerLabel: "b",
+      text: "Made-up inferred words",
+      turnIndex,
+    })),
     models: [
       {
         model: "first@r1",
@@ -83,7 +92,7 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
   let mapReads = 0;
   const nodes = new Map();
   const noop = () => undefined;
-  const node = () => ({
+  const node = (tag?: string) => ({
     addEventListener(_event: string, action: unknown) {
       this.click = action;
     },
@@ -103,13 +112,18 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
         ? inputs.filter((input) => input.checked)
         : inputs;
     },
+    remove() {
+      this.removed = true;
+    },
     removeAllListeners: noop,
     removeAttribute: noop,
+    removed: false,
     replaceChildren(...children: unknown[]) {
       this.children = children;
     },
     setAttribute: noop,
     style: {},
+    tag,
     value: "first@r1",
   });
   const el = (id: string) => {
@@ -194,6 +208,19 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
   await polls[0]?.();
   await loaded.promise;
   expect(polls).toHaveLength(2);
+  const inferredRows = el("inferred").children;
+  expect(inferredRows).toHaveLength(2);
+  expect(
+    inferredRows.every((row: any) =>
+      row.children.every((child: any) => child.tag !== "form")
+    )
+  ).toBe(true);
+  await inferredRows[0].children[3].click();
+  const [, , , , firstEditor] = inferredRows[0].children;
+  expect(firstEditor.children[0].tag).toBe("select");
+  await inferredRows[1].children[3].click();
+  expect(firstEditor.removed).toBe(true);
+  expect(inferredRows[1].children[4].children[0].tag).toBe("select");
   const checkboxes = el("visibility").querySelectorAll();
   expect(checkboxes).toHaveLength(3);
   expect(layout.showlegend).toBe(false);

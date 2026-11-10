@@ -1,13 +1,15 @@
 // Speakers: a job's audio, the owner's answers, and the people they name. Voice samples are cut on
 // the server (excerpts.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { people, speakerStatuses, suggestionKinds } from "@lifelog/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  assignmentSources,
+  speakerStatuses,
+  suggestionKinds,
+} from "@lifelog/db/schema";
 import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
-import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
-import { aliasesOf, assign, merge, personRow } from "../people";
+import { assign, merge, renamePerson } from "../people";
 import type { Services } from "../services";
 import { VOICE_SCOPES } from "../voice-map";
 import {
@@ -21,12 +23,27 @@ import {
 
 const JobParam = z.object({ jobId: z.uuid() });
 
+export const SpeakerInference = z
+  .object({
+    attemptId: z.string(),
+    confidence: z.number(),
+    evidence: z.array(
+      z.object({ jobId: z.string(), quote: z.string(), turnIndex: z.int() })
+    ),
+    inputHash: z.string(),
+    snapshotRevision: z.int(),
+  })
+  .nullable()
+  .openapi("SpeakerInference");
+
 // Who a speaker (turnIndex null) or one turn is. A turn without its own row is its speaker's.
 const SpeakerAssignment = z
   .object({
+    inference: SpeakerInference,
     jobId: z.uuid(),
     personId: z.uuid().nullable(),
     personName: z.string().nullable(),
+    source: z.enum(assignmentSources),
     speakerLabel: z.string(),
     status: z.enum(speakerStatuses),
     turnIndex: z.int().nullable(),
@@ -142,12 +159,23 @@ export function speakerRoutes({
                     )
                     .openapi("VoiceMapCard")
                 ),
+                inferred: z.array(
+                  z.object({
+                    inference: SpeakerInference,
+                    jobId: z.uuid(),
+                    personId: z.uuid(),
+                    personName: z.string(),
+                    speakerLabel: z.string(),
+                    text: z.string(),
+                    turnIndex: z.int(),
+                  })
+                ),
                 models: z.array(
                   z.object({
                     model: z.string(),
                     points: z.array(
                       z.object({
-                        basis: z.enum(["owner", "recognized"]).nullable(),
+                        basis: z.enum(assignmentSources).nullable(),
                         id: z.string(),
                         kind: z.enum(["centroid", "sample", "unnamed"]),
                         personId: z.uuid().nullable(),
@@ -280,16 +308,15 @@ export function speakerRoutes({
         const { target, turnIndex } = c.req.valid("json");
         if (
           c.get("isMapToken") &&
-          !queue
-            .map()
-            ?.cards.some((card) =>
-              card.clips.some(
-                (clip) =>
-                  clip.jobId === jobId &&
-                  clip.speakerLabel === speakerLabel &&
-                  clip.turnIndex === turnIndex
-              )
-            )
+          ![
+            ...(queue.map()?.cards.flatMap((card) => card.clips) ?? []),
+            ...(queue.map()?.inferred ?? []),
+          ].some(
+            (turn) =>
+              turn.jobId === jobId &&
+              turn.speakerLabel === speakerLabel &&
+              turn.turnIndex === turnIndex
+          )
         ) {
           throw new HTTPException(403, {
             message: "This turn is outside the current voice map.",
@@ -336,26 +363,8 @@ export function speakerRoutes({
       }),
       (c) => {
         const { id } = c.req.valid("param");
-        const { aliases, name } = c.req.valid("json");
-        const old = db.select().from(people).where(eq(people.id, id)).get();
-        if (!old) {
-          return c.json(noPerson, 404);
-        }
-        const newName = name ?? old.name;
-        const person = db.transaction((tx) => {
-          const renamed = tx
-            .update(people)
-            .set({
-              aliases: aliasesOf(newName, aliases ?? old.aliases),
-              name: newName,
-            })
-            .where(eq(people.id, id))
-            .returning()
-            .get();
-          logChange(tx, "person", id);
-          return renamed;
-        });
-        return person ? c.json(personRow(person), 200) : c.json(noPerson, 404);
+        const person = renamePerson(db, id, c.req.valid("json"));
+        return person ? c.json(person, 200) : c.json(noPerson, 404);
       }
     )
     .openapi(

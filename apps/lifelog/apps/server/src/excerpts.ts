@@ -24,14 +24,13 @@ import { type Config, EXCERPTS } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
 import {
-  holdingConversations,
   isRejected,
   keepServerSamples,
-  loadTranscript,
-  recognize,
   speakerOf,
   uncleanTurn,
 } from "./people";
+import { holdingConversations, loadTranscript } from "./recognized-rows";
+import { recognize } from "./speaker-recognition";
 import { embedRanges, speechServiceSet } from "./speech-service";
 import { switches } from "./switches";
 

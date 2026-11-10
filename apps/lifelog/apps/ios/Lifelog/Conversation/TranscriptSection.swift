@@ -252,7 +252,7 @@ struct Passage: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(name)\(isWaiting ? ", waiting to sync" : ""), \(PlayerClock.spoken(offset))")
-        .accessibilityValue(line.text)
+        .accessibilityValue(line.speaker.source == .inferred ? "Inferred speaker. " + line.text : line.text)
         .accessibilityHint("Plays from here")
         .accessibilityAddTraits(state == .spoken ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("passage")
@@ -279,6 +279,10 @@ struct Passage: View {
                         .tracking(0.9)
                         .textCase(.uppercase)
                         .lineLimit(2)
+                    if line.speaker.source == .inferred {
+                        Text("Inferred")
+                            .font(.caption2)
+                    }
                     if isWaiting {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .imageScale(.small)
@@ -326,12 +330,24 @@ struct Passage: View {
         let suggested = (shown + store.recent).reduce(into: [WhoPills.Pick]()) { all, pick in
             if !all.contains(pick) { all.append(pick) }
         }
-        return WhoPills(
-            people: store.people, suggested: suggested, picked: current,
-            everywhere: line.speaker.label == nil ? nil : $everywhere,
-            split: store.conversation?.isImported == true ? nil : { store.splitting = line }
-        ) { pick in
-            Task { await store.name(line, as: pick, everywhere: everywhere) }
+        return VStack(alignment: .leading, spacing: 6) {
+            if let inference = line.speaker.inference, line.speaker.source == .inferred {
+                Text("Inferred from context")
+                    .font(.caption)
+                    .foregroundStyle(Palette.textSecondary)
+                ForEach(inference.evidence.indices, id: \.self) { index in
+                    Text(inference.evidence[index].quote)
+                        .font(.caption)
+                        .foregroundStyle(Palette.textTertiary)
+                }
+            }
+            WhoPills(
+                people: store.people, suggested: suggested, picked: current,
+                everywhere: line.speaker.label == nil ? nil : $everywhere,
+                split: store.conversation?.isImported == true ? nil : { store.splitting = line }
+            ) { pick in
+                Task { await store.name(line, as: pick, everywhere: everywhere) }
+            }
         }
         .padding([.horizontal, .bottom], 12)
     }

@@ -1,4 +1,5 @@
 import { type QueueCache, queueCache } from "./naming-cache";
+import { namingPass } from "./naming-pass";
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
@@ -25,6 +26,7 @@ import { type MacSocket, macSocket } from "./mac-socket";
 import { type MorningPush, morningPush } from "./naming-queue";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
+
 import { macProvider, type Provider } from "./providers";
 import { type Restic, resticFor } from "./restic";
 import { type Rolling, rollingChapters } from "./rolling";
@@ -130,6 +132,15 @@ export function services(
     intelligence,
     mac,
     morning,
+    naming: namingPass(
+      db,
+      mac,
+      macProvider(
+        mac,
+        () => !switches().ai,
+        () => "codex"
+      )
+    ),
     notice,
     nudge,
     pages,

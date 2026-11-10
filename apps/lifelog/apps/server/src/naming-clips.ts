@@ -9,7 +9,8 @@ import {
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { NAMING, RECOGNITION } from "./config";
 import { textOf } from "./elevenlabs";
-import { ofItsSpeaker, readVoices } from "./people";
+import { ofItsSpeaker } from "./recognized-rows";
+import { readVoices } from "./speaker-recognition";
 import { keptAt, type LoadedTurn, loadTurns, timedWords } from "./transcript";
 
 // One clip a card plays: a clean turn of its voice, with the words said before it is cut. `audio`

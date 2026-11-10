@@ -18,8 +18,9 @@ import { createApp } from "./app";
 import { setOwnerTimeZone } from "./config";
 import { cardClips } from "./naming-clips";
 import { answerVoices, morningPush, namingQueue } from "./naming-queue";
-import { assign, sweep } from "./people";
+import { assign } from "./people";
 import { services } from "./services";
+import { sweep } from "./speaker-recognition";
 import { PROMPT_VERSION } from "./summary-calls";
 import {
   mapJob,
@@ -316,9 +317,7 @@ test("answers are the owner's corrections, once each", () => {
     )
   ).toBeNull();
 });
-
-// A heard name may be someone else at the table: answering a card heard as "Nina" with Lea once
-// made Nina Lea's alias, and every later "Nina" read as Lea. Names come from the owner only.
+// A heard name is card evidence, never an owner-authorized alias.
 test("an answer teaches no name, and a typed nickname is the person", async () => {
   const me = owner();
   const [marie] = env.db

@@ -36,16 +36,13 @@ import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { type ChangeKind, latestSeq, turnRef } from "./change-log";
 import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
-import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, personRow, speakerOf } from "./people";
 import { placeName } from "./places";
 import { macView } from "./quiet-ranges";
+import { voiceId } from "./recognized-rows";
 import { latestValidRun, rendererFor, splitsOf } from "./summaries";
-import {
-  keptWords,
-  personOf,
-  timedWords,
-  loadTurns as transcriptOf,
-} from "./transcript";
+import { personOf, timedWords, loadTurns as transcriptOf } from "./transcript";
+import { keptWords } from "./transcript-visibility";
 import { vocabularyTerms } from "./vocabulary";
 
 export const SEQ = /^\d+$/;
@@ -389,7 +386,7 @@ function holdersOf(db: Db, instants: number[]) {
 }
 
 // The turns asked for, and every turn of the conversations whose speakers changed names. Text as
-// every reader shows it (transcript.ts `keptWords`): empty when a quiet range or a media speaker
+// every reader shows it (transcript-visibility.ts `keptWords`): empty when a quiet range or a media speaker
 // hides it all. Each carries the live conversation it starts in (the server places words, the one
 // rule) and its speaker's name as that conversation's transcript gives it. A turn is final when
 // it lands (blocks are complete jobs); a changed one comes again under its key.
@@ -474,10 +471,12 @@ function loadTurns(
         language: t.language,
         speaker: {
           displayName: displayName(person, voices, t),
+          inference: speaker?.inference ?? null,
           isOwner: person?.id === ownerPersonId,
           label: t.speakerLabel,
           personId: person?.id ?? null,
           personName: person?.name ?? null,
+          source: speaker?.source ?? null,
         },
         startAt: t.startAt.toISOString(),
         turnIndex: t.turnIndex,
@@ -512,7 +511,7 @@ function namesIn(db: Db, ids: (string | null)[]) {
   );
 }
 
-// The turn as every reader shows it (transcript.ts `keptWords`): its text and timed words.
+// The turn as every reader shows it (transcript-visibility.ts `keptWords`): its text and timed words.
 function shown(
   t: typeof turns.$inferSelect,
   media: boolean,

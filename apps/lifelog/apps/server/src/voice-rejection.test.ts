@@ -1,12 +1,8 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
 import { voiceSamples } from "@lifelog/db/schema";
-import {
-  assign,
-  expire,
-  isRejected,
-  keepServerSamples,
-  strangerRows,
-} from "./people";
+import { assign, isRejected, keepServerSamples } from "./people";
+
+import { expire, strangerRows } from "./speaker-recognition";
 import { seedConversation, testDb } from "./testing";
 
 const env = testDb();

@@ -194,6 +194,20 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
         }))
       )
       .run();
+    tx.update(speakerAssignments)
+      .set({
+        inference: {
+          attemptId: "synthetic-attempt",
+
+          confidence: 0.99,
+          evidence: [{ jobId: JOB, quote: "Monday at nine.", turnIndex: 1 }],
+          inputHash: "synthetic-input",
+          snapshotRevision: 1,
+        },
+        source: "inferred",
+      })
+      .where(eq(speakerAssignments.personId, PERSON))
+      .run();
     // A summary run: the title, the TLDR and an unsure split at the second turn.
     tx.insert(intelligenceRuns)
       .values({

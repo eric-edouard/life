@@ -8,13 +8,15 @@ import {
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { turnRef } from "./change-log";
+import { buildNamingInput } from "./inferred-speakers";
+import { assign } from "./people";
+import { ofItsSpeaker, readOwnTurns } from "./recognized-rows";
 import {
-  assign,
-  ofItsSpeaker,
-  readOwnTurns,
+  readProfiles,
   recognize,
+  recognizeJob,
   regroup,
-} from "./people";
+} from "./speaker-recognition";
 import { seedConversation, testDb } from "./testing";
 
 let env: ReturnType<typeof testDb>;
@@ -346,4 +348,186 @@ test("own-turn SQL stays correlated in SELECT and WHERE, matching the JS rule", 
   expect(
     filtered.map((row) => turnRef(row.jobId, row.turnIndex)).sort()
   ).toEqual([turnRef(split.jobId, 0), turnRef(whole.jobId, 0)].sort());
+});
+
+const contextPerson = () => {
+  const id = randomUUID();
+  env.db.insert(people).values({ id, name: "Aster" }).run();
+  return id;
+};
+function keepInference(jobId: string, indices: number[], personId: string) {
+  env.db
+    .insert(speakerAssignments)
+    .values(
+      indices.map((turnIndex) => ({
+        jobId,
+        personId,
+        source: "inferred" as const,
+        speakerLabel: "mixed",
+        status: "person" as const,
+        turnIndex,
+      }))
+    )
+    .run();
+}
+test("a newly recognized split preserves inference on the unrelated main turns", () => {
+  const other = teach(second);
+  const held = seed([first, first, second, second], [12, 12, 10, 10]);
+  const inferred = contextPerson();
+  keepInference(held.jobId, [0, 1], inferred);
+  recognize(env.db, held.jobId);
+  expect(
+    turnRowsOf(held.jobId).map((r) => [r.turnIndex, r.personId, r.source])
+  ).toEqual([
+    [0, inferred, "inferred"],
+    [1, inferred, "inferred"],
+    [2, other, "recognized"],
+    [3, other, "recognized"],
+  ]);
+});
+test("a newly recognized main voice preserves inference on its explicit unnamed split", () => {
+  const main = teach(first);
+  const held = seed([first, first, second, second], [12, 12, 10, 10]);
+  const inferred = contextPerson();
+  keepInference(held.jobId, [2, 3], inferred);
+  recognize(env.db, held.jobId);
+  expect(rowsOf(held.jobId).find((r) => r.turnIndex === null)?.personId).toBe(
+    main
+  );
+  expect(
+    turnRowsOf(held.jobId).map((r) => [r.turnIndex, r.personId, r.source])
+  ).toEqual([
+    [2, inferred, "inferred"],
+    [3, inferred, "inferred"],
+  ]);
+});
+test("context can name an exact unnamed split behind a recognized main label", () => {
+  const main = teach(first);
+  const held = seed([first, first, second, second], [12, 12, 10, 10]);
+  const inferred = contextPerson();
+  const input = buildNamingInput({
+    conversationId: held.id,
+    people: [
+      {
+        aliases: [],
+        canonicalRef: "person:aster",
+        name: "Aster",
+        personId: inferred,
+      },
+    ],
+    snapshotRevision: 1,
+    targets: [
+      {
+        id: "split",
+        jobId: held.jobId,
+        profiles: { people: [], strangers: [] },
+        speakerLabel: "mixed",
+        turnIndices: [2, 3],
+        vector: second,
+      },
+    ],
+    turns: [0, 1, 2, 3].map((turnIndex) => ({
+      jobId: held.jobId,
+      speakerLabel: "mixed",
+      text: "Made-up speech.",
+      turnIndex,
+    })),
+  });
+  env.db.transaction((tx) =>
+    recognizeJob(tx, held.jobId, readProfiles(tx), undefined, {
+      attemptId: "synthetic",
+      calibration: {
+        confidence: 0.99,
+        contradictionMargin: 0.2,
+        contradictionScore: 0.8,
+      },
+      input,
+      readings: [
+        {
+          confidence: 1,
+          evidence: [{ quote: "Made-up speech.", turn: 2 }],
+          personId: inferred,
+          scopeId: "split",
+        },
+      ],
+      resolvePerson: (id) => id,
+    })
+  );
+  expect(rowsOf(held.jobId).find((r) => r.turnIndex === null)?.personId).toBe(
+    main
+  );
+  expect(
+    turnRowsOf(held.jobId).map((r) => [r.turnIndex, r.personId, r.source])
+  ).toEqual([
+    [2, inferred, "inferred"],
+    [3, inferred, "inferred"],
+  ]);
+});
+
+test("an exact scope's qualifying voice wins and is stored when its label cannot split", () => {
+  const expected = teach(first);
+  const other = teach(second);
+  const held = seed([first, second], [12, 12]);
+  const profiles = readProfiles(env.db);
+  const input = buildNamingInput({
+    conversationId: held.id,
+    people: [
+      {
+        aliases: [],
+        canonicalRef: "person:aster",
+        name: "Aster",
+        personId: expected,
+      },
+      {
+        aliases: [],
+        canonicalRef: "person:bela",
+        name: "Bela",
+        personId: other,
+      },
+    ],
+    snapshotRevision: 1,
+    targets: [
+      {
+        id: "turn",
+        jobId: held.jobId,
+        profiles: profiles.get("test@r1") ?? { people: [], strangers: [] },
+        speakerLabel: "mixed",
+        turnIndices: [0],
+        vector: first,
+      },
+    ],
+    turns: [0, 1].map((turnIndex) => ({
+      jobId: held.jobId,
+      speakerLabel: "mixed",
+      text: "Made-up speech.",
+      turnIndex,
+    })),
+  });
+  env.db.transaction((tx) =>
+    recognizeJob(tx, held.jobId, profiles, undefined, {
+      attemptId: "synthetic",
+      calibration: {
+        confidence: 0.99,
+        contradictionMargin: 0.2,
+        contradictionScore: 0.8,
+      },
+      input,
+      readings: [
+        {
+          confidence: 1,
+          evidence: [{ quote: "Made-up speech.", turn: 0 }],
+          personId: other,
+          scopeId: "turn",
+        },
+      ],
+      resolvePerson: (id) => id,
+    })
+  );
+  expect(turnRowsOf(held.jobId)).toHaveLength(1);
+  expect(turnRowsOf(held.jobId)[0]).toMatchObject({
+    inference: null,
+    personId: expected,
+    source: "recognized",
+    turnIndex: 0,
+  });
 });

@@ -45,6 +45,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     try mirrors(ConversationKind.self, "FeedConversation", "kind")
     try mirrors(ConversationState.self, "FeedConversation", "state", phoneOnly: ["notUploaded"])
     try mirrors(WaitingReason.self, "FeedConversation", "waiting", "reason")
+    try mirrors(CachedTurn.Speaker.Source.self, "FeedTurn", "speaker", "source")
     try mirrors(CachedEdit.Kind.self, "Feed", "edits", "kind")
     try mirrors(CachedEdit.Source.self, "Feed", "edits", "source")
 }

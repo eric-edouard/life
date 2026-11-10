@@ -4,14 +4,23 @@ import type { Db } from "@lifelog/db";
 import {
   speakerAssignments as assignments,
   people,
+  quietRanges,
   turns,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import { RECOGNITION, VOICE_MAP_POINTS_PER_PERSON_MODEL } from "./config";
+import { and, desc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  NAMING,
+  RECOGNITION,
+  VOICE_MAP_POINTS_PER_PERSON_MODEL,
+} from "./config";
+import { textOf } from "./elevenlabs";
 import type { Card } from "./naming-queue";
-import { coveredByRow, modelKey, personRow, readProfiles } from "./people";
+import { personRow } from "./people";
+import { coveredByRow, modelKey, ofItsSpeaker } from "./recognized-rows";
+import { readProfiles } from "./speaker-recognition";
 import { centroid, rankPeople } from "./speakers";
+import { keptWords, readInference } from "./transcript-visibility";
 import { pcaOf } from "./voice-pca";
 import type { Vector } from "./voice-vectors";
 
@@ -94,7 +103,7 @@ export function readVoiceProjection(
   ].map((model) => {
     const known = profiles.get(model)?.people ?? [];
     const points: {
-      basis: "owner" | "recognized" | null;
+      basis: "owner" | "recognized" | "inferred" | null;
       kind: "centroid" | "sample" | "unnamed";
       id: string;
       personId: string | null;
@@ -156,9 +165,56 @@ export function readVoiceProjection(
       }),
     };
   });
+  const quiet = db
+    .select()
+    .from(quietRanges)
+    .all()
+    .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
   return {
     candidateThreshold: RECOGNITION.candidateThreshold,
     cards: shown.map(({ card }) => card),
+    inferred: db
+      .select({
+        inference: assignments.inference,
+        jobId: turns.jobId,
+        personId: people.id,
+        personName: people.name,
+        speakerLabel: assignments.speakerLabel,
+        turn: turns,
+        turnIndex: turns.turnIndex,
+      })
+      .from(turns)
+      .innerJoin(
+        assignments,
+        and(
+          eq(assignments.jobId, turns.jobId),
+          eq(assignments.speakerLabel, turns.speakerLabel),
+          or(
+            eq(assignments.turnIndex, turns.turnIndex),
+            and(
+              isNull(assignments.turnIndex),
+              ofItsSpeaker(turns.jobId, turns.turnIndex)
+            )
+          )
+        )
+      )
+      .innerJoin(people, eq(people.id, assignments.personId))
+      .where(eq(assignments.source, "inferred"))
+      .orderBy(desc(turns.startAt), turns.jobId, turns.turnIndex)
+      .limit(NAMING.inferredMaxTurns)
+      .all()
+      .flatMap(({ turn, ...inferred }) => {
+        const kept = keptWords(turn.words, turn.startAt.getTime(), quiet);
+        return kept
+          ? [
+              {
+                ...inferred,
+                inference: readInference(db, inferred.inference),
+                text: kept === turn.words ? turn.text : textOf(kept),
+              },
+            ]
+          : [];
+      }),
     models,
     people: db.select().from(people).all().map(personRow),
   };

@@ -51,7 +51,7 @@ export function logChange(
 
 // Logs every turn in one of `ranges` (epoch ms or Dates): what a conversation's range,
 // a quiet range or a retirement changed for their conversation or a turn's text. The feed gives
-// each its conversation (the server's placement, the one rule), so it is never stale.
+// each its conversation and current inference quotes, so dependent citations cannot stay stale.
 export function logPlacedIn(
   tx: Pick<Db, "run">,
   ranges: [Date | number, Date | number][]
@@ -69,7 +69,16 @@ export function logPlacedIn(
     insert into change_log (kind, ref, at)
     select distinct 'turn', ${TURN_REF}, ${clock().getTime()} from turns t
     join json_each(${json}) r
-      on t.start_at < r.value ->> 1 and t.end_at > r.value ->> 0`);
+      on t.start_at < r.value ->> 1 and t.end_at > r.value ->> 0
+    union
+    select distinct 'turn', ${TURN_REF}, ${clock().getTime()} from turns t
+    join speaker_assignments a on a.job_id = t.job_id and a.speaker_label = t.speaker_label
+      and (a.turn_index is null or a.turn_index = t.turn_index)
+    join json_each(a.inference, '$.evidence') e
+    join turns cited on cited.job_id = e.value ->> '$.jobId'
+      and cited.turn_index = e.value ->> '$.turnIndex'
+    join json_each(${json}) r
+      on cited.start_at < r.value ->> 1 and cited.end_at > r.value ->> 0`);
 }
 
 export function latestSeq(db: Pick<Db, "all">) {

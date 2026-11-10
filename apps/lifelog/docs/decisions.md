@@ -163,9 +163,24 @@ reverse it, change its entry here in the same commit.
 ## People, places and search
 
 - **Speaker recognition is self-hosted.** SpeechBrain ECAPA on a small CPU service, so voices and embeddings never
-  reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
-  runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
+  reach a third party. Only owner assignments add voice evidence; a voice match needs a score and a lead over the
+  runner-up, else unknown. Context naming and inferred creation follow the decisions below. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
+- **Autonomous speaker naming from context and voice likeness** (owner's decision, 10 Nov 2026).
+  This supersedes owner-only naming and creation above. A validated context reading may name a checked
+  turn scope as `source: inferred`: what the model guessed and uses until corrected, never voice evidence.
+  Qualifying voice matches and owner answers win; inferred names supply neither profiles nor nearby references.
+- **Dropped the owner-plus-one shortcut** (owner's decision, 10 Nov 2026).
+  "I don't think it's a good rule. There can be background music, they can be people saying things in the background, so not great."
+  Context and voice likeness still name checked turns; no conversation-size premise names the remaining turns.
+- **Automatically add Life people “when confident”** (owner's decision, 10 Nov 2026).
+  This supersedes the no-background-write rule below for Life's authenticated complete people snapshot and
+  the automatic-merge ban for canonical Life folds only. A fold retargets a link or uses the existing merge
+  transaction, preserving owner attribution and evidence; nearby naming never merges. Inferred creation
+  provenance is separate from attribution. Conflicting owner links or rejections block an automatic fold.
+  None of these decisions authorizes overwriting owner answers, reprocessing speech or summaries, a model
+  backfill, or an archive naming run. Calibration, a held-out gate, the capped pilot and separate archive-run
+  authorization must precede archive writes.
 - One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses
   group vector sums and counts instead of an all-pairs matrix before the sample set grows. Cards with playback come
   first, then by the words a name unlocks; overheard groups with at least 300 words are eligible. Brief strangers and
@@ -179,7 +194,7 @@ reverse it, change its entry here in the same commit.
   owner assignments, retries least recently attempted jobs first and permits only one pending pass at a time.
   Dictation and unsafe old audio remain excluded; recovery never transcribes again.
 - Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
-  conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
+  conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, nearby-driven
   person merge or new evidence: the owner's assignments win. For a lone profile, `rankPeople` scores the missing runner at 0.6 (confirming review, 9 Nov);
   no caller bypasses it. A 0.65 voice fails ordinary, candidate and nearby profile naming; a 0.55 owner
   short turn fails its margin. Owner turns at 0.65 still match through the existing 0.6 owner threshold.
@@ -200,7 +215,8 @@ reverse it, change its entry here in the same commit.
 ## Readers and glances
 
 - **Readers use a contract, not the phone's API.** A reader such as Life follows the feed with its own `read` or
-  `corrections` token, never writes in the background, and lifelog never calls it (`docs/voice-source.md`).
+  `corrections` token. Life alone may push its authenticated people snapshot and request the naming pass
+  in the background; lifelog never calls Life (`docs/voice-source.md`).
 - **lifelog signs no tokens for readers.** Its OAuth issuer (`packages/auth`, Better Auth) signed Life's tokens until
   24 Oct 2026; Life now signs its own (Life's `oauth.ts`, approved by a pairing code on the Mac), so the issuer, its
   pages, `AUTH_SECRET`, `LIFE_URL` and the `auth_*` tables went. A reader reaches lifelog only with its own `read` or

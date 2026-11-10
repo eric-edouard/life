@@ -4,7 +4,9 @@
 // (transcript.ts `speakerNames`): a person's name, the owner's too, else "Speaker N". So naming a
 // voice later fixes every summary at no cost. Cases: apps/server/fixtures/speaker-tokens.json.
 import type { Db } from "@lifelog/db";
-import { assignmentsByJob, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, speakerOf } from "./people";
+import { voiceId } from "./recognized-rows";
+
 import { loadTurns, personOf } from "./transcript";
 
 export interface SpeakerToken {

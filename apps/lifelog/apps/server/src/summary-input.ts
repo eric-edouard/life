@@ -5,8 +5,8 @@
 import type { Db } from "@lifelog/db";
 import { locationHistory, people, type TurnRef } from "@lifelog/db/schema";
 import { between } from "drizzle-orm";
-import { voiceId } from "./people";
 import { distanceM } from "./places";
+import { voiceId } from "./recognized-rows";
 import type { SpeakerToken } from "./speaker-tokens";
 import { loadTurns } from "./transcript";
 

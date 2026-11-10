@@ -14,6 +14,7 @@ import { sha256Hex } from "./config";
 import { feed } from "./feed";
 import { storeHistory } from "./location";
 import { assign } from "./people";
+
 import { addQuietRange } from "./quiet-ranges";
 import { services } from "./services";
 import { writeChapters } from "./summaries";
@@ -149,10 +150,12 @@ test("turns come with their conversation, and again with a newer seq when revise
   ]);
   expect(first.turns[0]?.speaker).toEqual({
     displayName: "Speaker 1",
+    inference: null,
     isOwner: false,
     label: "speaker_0",
     personId: null,
     personName: null,
+    source: null,
   });
 
   const named = assign(env.db, {

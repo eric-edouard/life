@@ -1,6 +1,7 @@
 // Sync: the feed, the phone's playback quiet ranges and the Mac helper's socket.
 import { createRoute, z } from "@hono/zod-openapi";
 import {
+  assignmentSources,
   conversationKinds,
   conversationStates,
   editSources,
@@ -17,7 +18,7 @@ import type { Services } from "../services";
 import { Subscriptions, subscriptions } from "../subscriptions";
 import { switches } from "../switches";
 import { json, router, TimedWords } from "./common";
-import { Person } from "./speakers";
+import { Person, SpeakerInference } from "./speakers";
 import { SwitchesView } from "./switches";
 
 // Opened by the Mac helper's own token only (app.ts), at `?protocol=` MAC_PROTOCOL. Its events
@@ -220,6 +221,7 @@ const Feed = z
               .describe(
                 'What every reader calls it: the person\'s name, else "Speaker N" in its conversation, as the summaries do'
               ),
+            inference: SpeakerInference,
             isOwner: z.boolean(),
             label: z.string().nullable(),
             personId: z.uuid().nullable(),
@@ -227,6 +229,7 @@ const Feed = z
               .string()
               .nullable()
               .describe("As emitted; a rename comes in `people`"),
+            source: z.enum(assignmentSources).nullable(),
           }),
           startAt: Instant,
           text: z

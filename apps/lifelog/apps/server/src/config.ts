@@ -118,20 +118,47 @@ export const EXCERPTS = {
 
 // The voices to name and their morning push (naming-queue.ts). Values from Oct 10–11.
 export const NAMING = {
+  addedContextPrecision: 0.98,
+  backlogContext: 2,
+  backlogVoice: 1,
+  // No production cutoff before the separate calibration; evaluation binds its calibrated values.
+  calibration: null as {
+    confidence: number;
+    contradictionScore: number;
+    contradictionMargin: number;
+  } | null,
   // A card plays up to `clips` clean turns of its voice, 5 to 20 s preferred, cut at 20 s.
   clipMinSeconds: 5,
   clipSeconds: 20,
   clips: 3,
+  contextMaxChars: 60_000,
+  contextMaxPeople: 100,
+  contextMaxQuotes: 8,
+  contextMaxScopes: 80,
+  contextMaxTurns: 400,
+  contextQuoteChars: 600,
+  contextRankings: 3,
+  gateZ: 1.96,
   // The morning push goes out from this hour in the owner's zone.
   hour: 8,
+  inferredMaxTurns: 100,
   // A card needs this many turns traded with the owner and this much talk; anything less is a
   // stranger.
   minExchanges: 10,
+  minimumGatePredictions: 50,
   minSeconds: 60,
   // This many words unlocks a card even without exchanges with the owner.
   minWords: 300,
+  pilotMaxCalls: 50,
+  policyVersion: 1,
+  precision: 0.98,
+  promptVersion: 1,
+  quotaMaxAgeMs: 5 * 60_000,
+  quotaMaxPercent: 90,
   quoteChars: 200,
   quotes: 3,
+  retryBackoffMs: 60_000,
+  retryMaxAttempts: 3,
 } as const;
 
 // Search by meaning (search.ts). Measured on the owner's French, English and Thai queries (5 Nov 2026).

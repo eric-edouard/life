@@ -10,6 +10,8 @@ import { backupRoutes } from "./routes/backup";
 import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
 import { healthRoutes } from "./routes/health";
+import { lifePeopleRoutes } from "./routes/life-people";
+import { namingPassRoutes } from "./routes/naming-pass";
 import { pageRoutes } from "./routes/pages";
 import { placeRoutes } from "./routes/places";
 import { quickRoutes } from "./routes/quick";
@@ -43,7 +45,10 @@ const READS = [
   "POST /search",
 ];
 const CORRECTIONS = [
+  "POST /naming-pass",
+  "POST /naming-gate",
   ...READS,
+  "PUT /life/people",
   "PATCH /people/{id}",
   "POST /people/{id}/merge",
   "PUT /conversations/{id}/title",
@@ -163,6 +168,8 @@ export function createApp(s: Services) {
 
   app
     .route("/", healthRoutes(s))
+    .route("/", lifePeopleRoutes(s))
+    .route("/", namingPassRoutes(s))
     .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))

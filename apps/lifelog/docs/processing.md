@@ -210,12 +210,14 @@ Only one pending pass runs at a time. A one-time database migration reopens ever
 audio, including jobs whose samples expired; the same sampler decides which clean turns still need samples.
 Recovery can add evidence for an existing owner assignment through `evidenceForNew`, but never changes that
 assignment. The phone sends no voice samples.
-Only owner actions create people or add person evidence. Recognition writes `recognized` assignments, preserves
-owner rows and never adds evidence; nearby matches never add evidence or propagate inferred names.
-Recognition never sends audio for transcription.
+Only owner assignments add person voice evidence. Recognition writes `recognized` assignments; validated context
+readings write `inferred` assignments through the same reconciler. Confident Life identities may create people with
+inferred creation provenance. Owner rows win; inferred and nearby names supply neither profile evidence nor nearby
+references. Creation provenance remains unchanged when the owner confirms or renames a person; `nameSource`
+keeps that later owner authority. Merges retain owner names and aliases, never provisional ones. Recognition never
+sends audio for transcription.
 
-Who spoke each turn (`speakers.ts`, measured against the owner's answers: `eval:voices` replays `match` alone on a
-frozen copy of them, and the gate fails when a change moves its committed counts until `eval:voices` rewrites them):
+Who spoke each turn (`speakers.ts`; evaluation and rollout are described under Context naming below):
 
 - A person's profile is one exemplar per conversation of their evidence: the centroid of its clips of 3 s or more. A
   voice's likeness to a person is its mean cosine to their two closest exemplars: one voice sounds different by room,
@@ -267,8 +269,8 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   each clip to name; recognition leaves them as they are until then, and the column goes once none is left.
 - A person can have other names (Mamie for a grandmother, Jojo for Marie-Jo). Summaries, the assistant's `person` and
   `assign_speaker` tools and "Who's this?" find people by them, so a nickname never creates a duplicate. Only the
-  owner sets them, on the person's page, and a merged person's name becomes an alias. An answer never learns the name
-  the summaries heard: at a table it is often someone else's (a sister's name became another sister's alias, 18 Oct).
+  owner sets them, on the person's page, and an owner merge preserves the merged person's names. A canonical Life fold
+  does not teach an inferred name as an owner alias. An answer never learns the name the summaries heard: at a table it is often someone else's (a sister's name became another sister's alias, 18 Oct).
 - Unnamed voices are grouped across conversations by how alike they sound (0.6, exact average linkage), each night and
   a minute after the owner's answers (`regroup`, with the sweep); a new voice is its own card until then. Group vector
   sums and counts replace the all-pairs matrix, with the same scoring and ties. Computation yields outside database
@@ -286,6 +288,58 @@ On 9 Nov 2026 the owner replaced the age-based deletion promise: unnamed samples
 rejected, and rejected strangers remain negative references. The full retention rules are in
 [providers.md](providers.md#speaker-recognition-our-own-service-no-third-party). Keeping an unnamed sample longer
 does not make it anyone's evidence or allow external transmission; only owner-attributed clips become person evidence.
+
+### Context naming
+
+The bounded reader (`inferred-speakers.ts`) receives transcript turns, exact target scopes, canonical candidate
+names and aliases, trusted speaker names, and local `rankPeople` likeness scores and leads. Target names, inferred
+attributions and generated summaries are excluded from trusted evidence. Embeddings stay local. Strict parsing
+checks candidate membership, finite confidence, cited turns and exact quotes; recorded words remain data.
+
+`speakers.ts` decides after voice matching, owner-turn extraction, splits and nearby naming. A qualifying voice
+match wins. A context reading needs the calibrated confidence cutoff and no calibrated voice contradiction; missing
+embeddings permit context-only naming. The reader abstains when those checks fail. The owner dropped the
+owner-plus-one shortcut on 10 Nov 2026 because background music and voices invalidate its premise.
+
+The recognition transaction rechecks the input hash, scope, snapshot revision and owner answers before writing exact
+checked turns as `source: inferred`. Confidence, quoted evidence and attempt reference stay separate from voice
+score and margin. Inferred names survive unchanged sweeps; stronger voice evidence or an owner answer replaces
+them. An inferred owner name stays descriptive: Life admits owner words to its wake/action stream only from
+owner-confirmed or voice-recognized attribution, using the feed source. Unknown, media and several-person owner
+answers cannot be replayed away. Confirmation through `assign` alone
+promotes a clip to profile evidence.
+
+One persisted queue (`naming-pass.ts`) serves evaluation, pilot, archive and arrivals. Fresh eligible arrivals with no
+attempt come first; backlog follows as trusted speaker names or useful rankings, then
+context-only, newest first within each class and conversation id breaking ties. Calls are serialized. Errors and
+unsupported readings are distinct, with persisted attempt counts, due instants, backoff and caps from `NAMING`;
+changed input resets eligibility. Disjoint bounded windows keep long conversations moving even when an earlier
+window abstains or reaches its cap. Candidate priority uses constraints, trusted names, voice rankings and mentions;
+a mention is never presence evidence. An oversized single target stays ineligible without truncating its words.
+Arrivals exclude pre-activation archive conversations; only an explicitly authorized archive pass can write those.
+The snapshot ordering revision is checked separately from its content hash, so unchanged restatements keep caches.
+
+Life supplies its selected `backfillEngine` through the authenticated pass request. Absence is off; a non-Codex
+choice defers this Codex-only pass. It freezes the explicit subscription engine through retries, caches usable reads
+and abstentions by input/model/prompt/policy/snapshot hash, and never creates summary runs to cache naming. The sole
+admission check requires an idle socket with no queued, pending or foreign call and current quota for both windows.
+Naming yields to summaries after its current call; stale quota or unavailable Codex pauses work without sleep loops.
+Map, split-card, clip and cache workers only read; correction access remains available without embeddings.
+
+Rollout is disabled pending separate calibration and held-out measurement. The existing `eval-voices.ts` is the only
+scorer: frozen reads replay the production decision and reconciliation path without live calls during the gate.
+Calibration and held-out recordings supply no identity, presence, same-recording or future profile evidence to their
+own predictions. Reports bind model, prompt, policy and input hashes and include counts, coverage, precision,
+confidence intervals and short/group/context-only strata. Recording and call units count as right only
+when all their predictions are right; the gate uses the weakest turn, recording and call lower bound. Zero
+predictions or insufficient independent evidence cannot
+authorize writes. `NAMING` requires 98% overall and added-context precision before the capped pilot of at most 50
+actual Codex calls, retries included. Finish evaluation-mode reads on the private copy before freezing its immutable
+evidence and call cache. Cases share content-addressed snapshots; each replay quarantines a disposable copy and
+checks the stored queue receipt and actual audio provenance. No owner archive is opened for writing by the scorer.
+Pilot tokens, latency and both subscription windows determine sustainable pace.
+Archive naming additionally requires separate archive-run authorization. No calibration, held-out measurement,
+pilot or archive run has been performed by this implementation task; speech, profiles and Life units are not rebuilt.
 
 ### Summaries
 

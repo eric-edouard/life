@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { countRows } from "@lifelog/db";
 import {
   conversations,
-  events,
   people as peopleTable,
   speakerAssignments,
   type Turn,
@@ -15,21 +14,21 @@ import { eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
 import {
   assign as answerSpeaker,
-  expire,
-  holdingConversations,
   keepServerSamples,
-  loadTranscript,
   merge,
+  uncleanTurn,
+} from "./people";
+import { holdingConversations, loadTranscript } from "./recognized-rows";
+import { services } from "./services";
+import {
+  expire,
   nearbyVoices,
   recognize as recognizeJob,
   regroup,
   strangerRows,
   sweep,
-  uncleanTurn,
-  voiceUpkeep,
   weighProfiles,
-} from "./people";
-import { services } from "./services";
+} from "./speaker-recognition";
 import { centroid } from "./speakers";
 import {
   mapJob,
@@ -972,20 +971,4 @@ test("a voice of several people: each sampled turn among the owner's candidates,
     people: [me.personId],
     unknown: false,
   });
-});
-
-test("the nightly upkeep runs once a night, across a restart too", async () => {
-  const night = new Date("2026-10-11T04:00:00Z");
-  expect(
-    await voiceUpkeep(env.db).nightly(new Date("2026-10-11T02:00:00Z"))
-  ).toBeNull();
-  await voiceUpkeep(env.db).nightly(night);
-  await voiceUpkeep(env.db).nightly(new Date("2026-10-11T09:00:00Z"));
-  await voiceUpkeep(env.db).nightly(new Date("2026-10-12T04:00:00Z"));
-  const runs = env.db
-    .select({ day: sql<string>`${events.fields}->>'day'` })
-    .from(events)
-    .where(eq(events.name, "voices.upkeep"))
-    .all();
-  expect(runs.map((r) => r.day)).toEqual(["2026-10-11", "2026-10-12"]);
 });

@@ -15,7 +15,6 @@ import {
   newestTurn,
   openStore,
   ownerSpoke,
-  Page,
   poll,
   readConversations,
   readPhoneZone,
@@ -29,6 +28,7 @@ import {
   visits,
   writeMarks,
 } from "./lifelog";
+import { Page } from "./lifelog-feed";
 import {
   conversation,
   lifelogServer,
@@ -601,4 +601,38 @@ test("the newest turn is read without creating or changing the store: no store, 
   expect(await newestTurn(join(dir, "watch"))).toBeNull();
   expect(existsSync(join(dir, "watch"))).toBe(false);
   rmSync(dir, { force: true, recursive: true });
+});
+
+test("Life accepts inferred speaker provenance and quotes while older feed rows remain valid", () => {
+  const at = "2026-10-14T10:00:00.000Z";
+  const turn = turnFixture(0, at, JEAN, "Jean", "c1");
+  const inferred = Page.parse(
+    pageFixture({
+      turns: [
+        {
+          ...turn,
+          speaker: {
+            ...turn.speaker,
+            inference: {
+              attemptId: "synthetic-attempt",
+              confidence: 0.99,
+              evidence: [
+                { jobId: turn.jobId, quote: "Made-up words", turnIndex: 0 },
+              ],
+              inputHash: "synthetic-input",
+              snapshotRevision: 1,
+            },
+            source: "inferred",
+          },
+        },
+      ],
+    })
+  );
+  expect(inferred.turns[0]?.speaker.source).toBe("inferred");
+  expect(inferred.turns[0]?.speaker.inference?.evidence[0]?.quote).toBe(
+    "Made-up words"
+  );
+  expect(
+    Page.parse(pageFixture({ turns: [turn] })).turns[0]?.speaker.source
+  ).toBeUndefined();
 });

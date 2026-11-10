@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { exec } from "@life/server/src/core/proc";
 import { speakerAssignments, voiceSamples } from "@lifelog/db/schema";
-import { assign, regroup } from "./people";
+import { assign } from "./people";
+
+import { regroup } from "./speaker-recognition";
 import { seedTranscript, testDb } from "./testing";
 import { averageLinkage, averageLinkageSync } from "./voice-linkage";
 import { cosine, type Vector } from "./voice-vectors";

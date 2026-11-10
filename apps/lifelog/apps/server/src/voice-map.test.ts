@@ -18,8 +18,8 @@ import {
 } from "./config";
 import { clipOf } from "./naming-clips";
 import { type Card, namingQueue, readVoiceMap } from "./naming-queue";
-import { readProfiles } from "./people";
 import { services } from "./services";
+import { readProfiles } from "./speaker-recognition";
 import { centroid, rankPeople } from "./speakers";
 import {
   OWNER_TOKEN,
@@ -595,6 +595,7 @@ test("empty queue and archive read without writes", () => {
   expect(result).toEqual({
     candidateThreshold: RECOGNITION.candidateThreshold,
     cards: [],
+    inferred: [],
     models: [],
     people: [],
   });
