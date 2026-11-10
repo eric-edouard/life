@@ -256,3 +256,15 @@ test("an older deletion placeholder cannot delete an archived live message with 
     wa.close();
   }
 });
+
+test("a full copy keeps a deletion its own store holds beside the message", () => {
+  const { add, dir, now, source, wa } = whatsappFixture();
+  add(1, "message", 0, "a made-up message");
+  add(2, "deletion", 14, null);
+  try {
+    copyWhatsapp(source, dir, now, true);
+    expect(readWhatsapp(new Date(0), dir, source)[0]?.deleted).toBe(true);
+  } finally {
+    wa.close();
+  }
+});

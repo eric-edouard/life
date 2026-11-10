@@ -8,7 +8,7 @@ import {
   readSync,
 } from "node:fs";
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
 import { type Field, fieldsOf } from "../core/protobuf";
 import { settings } from "../core/settings";
@@ -355,13 +355,20 @@ export function readScreen(
   }
   const db = openReadOnly(path);
   // Join complete stints before bounding their starts: an edge can close or rejoin across either boundary.
+  // ponytail: a day of records either side of the bounds; a stint longer than a day is cut there.
   const rows = (() => {
     try {
       return db
-        .query<ScreenRecord & { device: string; stream: Stream }, []>(
-          "select device, stream, at, starting, bundle, domain, visit from events order by at"
+        .query<
+          ScreenRecord & { device: string; stream: Stream },
+          [string, string | null]
+        >(
+          "select device, stream, at, starting, bundle, domain, visit from events where at >= ?1 and (?2 is null or at < ?2) order by at"
         )
-        .all();
+        .all(
+          iso(since.getTime() - DAY),
+          before ? iso(before.getTime() + DAY) : null
+        );
     } finally {
       db.close();
     }

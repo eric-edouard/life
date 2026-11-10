@@ -237,7 +237,7 @@ export function copyWhatsapp(
          as (values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
        insert or ignore into messages select * from incoming
        where not exists (select 1 from messages m where m.chat is incoming.chat
-         and ${isFull ? "(m.id = incoming.id or (incoming.type = 14 and m.at = incoming.at and m.fromMe = incoming.fromMe))" : "m.id = incoming.id and m.type = incoming.type and m.text = incoming.text and m.media = incoming.media"})`,
+         and ${isFull ? "(m.id = incoming.id or (incoming.type = 14 and m.at = incoming.at and m.fromMe = incoming.fromMe and m.seenAt <> incoming.seenAt))" : "m.id = incoming.id and m.type = incoming.type and m.text = incoming.text and m.media = incoming.media"})`,
       rows.map((r) => [
         ...[
           r.id,
