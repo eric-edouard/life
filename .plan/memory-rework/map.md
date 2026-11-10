@@ -50,9 +50,17 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   raw holds, close to the evidence and light on interpretation; interpretation lives in the layers above, cheap to rebuild.
 - All backfilling runs on Codex (his subscription), never a cash provider (his word, 10 Nov); except the old WhatsApp
   history, which runs on OpenRouter's DeepSeek after a cost estimate he approves (his word, 10 Nov).
+- The memory layer is encapsulated (his word, 10 Nov): it is becoming its own thing and may one day move out of this
+  repo. So it has one boundary: what it takes in (units and his word, through a contract), what it owns on disk, and
+  what it gives out (the reads the connector, the pages and the mails use). Nothing outside reaches into its files or
+  its internals. Ticket 25.
 - Models: the strongest model for grilling and design tickets; cheaper ones for research reading and file work.
 - This map lives in the code repo: nothing personal in it (no names but roles, no quotes, no numbers about his people).
   Anything of his a ticket produces goes to his data repo or a scratchpad, linked by path.
+
+## Waiting on his word
+
+- [What he wants, and where Life stands against it](./assets/00-what-he-wants.md) — draft of 10 Nov at his ask, before any more grilling: the goal as four questions about three subjects, today's memory on that grid, what worked, what didn't by cause, what the psychology research adds, and what the map lacks (the evidence layer as a whole, several of #390's items, the "direct" promise). The exchange's silence question (ticket 11) waits behind it.
 
 ## Decisions so far
 
