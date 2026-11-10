@@ -60,7 +60,7 @@ So, for every change:
   only to judge. Score as Life already does ([Measuring](operations.md#measuring)) and keep every regression case
   ([Regression cases](operations.md#regression-cases)) passing beside the new comparisons.
 - Record every experiment: model, prompt version, inputs, scores, cost. Model output is cached by input
-  ([architecture](architecture.md)), which makes an experiment repeatable while its inputs stand.
+  ([architecture](architecture.md)), so an experiment can be replayed without new model calls as long as its inputs and prompt versions are unchanged.
 - Write down results that failed as carefully as results that worked, in the owner's data repo
   (`docs/memory-rework/experiments/`), so the next agent does not repeat them.
 
@@ -91,7 +91,7 @@ So, for every change:
 - How are the owner's words to someone (possibly a performance) told apart from what the owner says about them to others?
 - What makes closeness, if not volume or time?
 - What does Life predict, and how is each prediction proven before it drives anything?
-- How is each layer checked: an eval case, a real reader, a production run?
+- How is each layer checked: an eval case, a real reader, a night of the live Life?
 
 ## Research to start from
 
