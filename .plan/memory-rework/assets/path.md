@@ -1,5 +1,21 @@
 # The path: reaching the spec in small steps
 
+## Prove first (his decision, 10 Nov evening)
+
+Before the layers are built as PRs, the spec's big bets are tested cheaply on the benchmark. A layer is built
+properly only when it moves the score. The bet most at risk: that stored summaries beat an agent reading raw data
+(today's agent, with search and raw chats, already passes 8 of 12).
+
+1. **Grow the cases to about 40**, most of them relationships, arcs and himself, from his own words and the mined
+   questions (`docs/memory-rework/02b-`, `02c-`), each stating today's truth.
+2. **Counts in the person read** (who starts, reply times, deletions per pair: `pairCountsOf` already computes them
+   for personas). Test: does C1's "he reaches out first" pass once an agent can see them.
+3. **One history by hand** for his father and his close friend (month, year, story, from facts Life holds), served
+   to the agent beside the connector. Test: C1, C4, C19 and the new arc cases, with and without it.
+4. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
+   enough until a layer consumes the codes).
+
+
 Draft of 10 Nov 2026, at his ask: reach the whole [spec](../spec.md) iteratively, never break the working state,
 and never open one huge rework PR. This is the skeleton of the build plan; each step still gets its own golden-rule
 plan when it starts. Checked against today's code: a night is a list of named steps (`host/nightly.ts`: episodes,
