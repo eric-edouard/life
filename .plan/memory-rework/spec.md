@@ -511,12 +511,12 @@ everything stands on. No model layer has read them, and none should yet.
   - What a read would see, all years: about 16 million characters, some 4.7 million tokens. Chats both sides wrote
     in: 11 million characters (WhatsApp since 2011, iMessage since 2015, and two small networks). Mail threads both
     sides wrote in: 5.4 million.
-  - Mail is 327 million characters in all, and 98.6% of it is one-sided. The rule "only threads he wrote in" is
-    what makes mail small: it keeps 1.6% of the text.
-  - Chats: 24,300 exchanges, and 44 in 100 have one side only. So reading the one-sided sittings of a living chat
+  - Mail with people (newsletters left out) is 210 million characters, and 98 in 100 of its exchanges are
+    one-sided. The rule "only threads he wrote in" is what makes mail small: it keeps 2.5% of the text.
+  - Chats: 24,300 exchanges, and 45 in 100 have one side only. So reading the one-sided sittings of a living chat
     matters: it is nearly half of them.
   - Read together by chat and year, in calls of 30,000 characters: about 3,300 calls for one read of everything,
-    against 133,000 if each exchange were its own call.
+    against 103,000 if each exchange were its own call.
   - The quiet: 89 in 100 gaps between messages are under 6 hours, and beyond that the rate is flat. Six hours, the
     number the persona's counts already use, stands.
   - So the whole written history is a few million tokens: one read of it is hours, not weeks. What grows is
