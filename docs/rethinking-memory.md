@@ -18,20 +18,19 @@ A layer that does not make Life better at that, measured, does not earn its plac
 
 These are not reopened by a stronger model:
 
-- Raw data is kept forever, as the sources give it (`docs/sources.md`, the archive, `imports/`). It is the only truth.
+- Raw data is kept forever, as the sources give it (`docs/sources.md`, the archive, the owner's `imports/`). It is the only truth.
 - Units are built by code, closest to the raw data: a conversation-day, a chat-day, a thread-day, a note-day. A unit
   is a unit whatever the model.
-- Retrieval is text plus vector embeddings over units and their passages (`memory/vectors.ts`). No graph database, no
+- Retrieval is text plus vector embeddings over units and their passages (`apps/server/src/memory/vectors.ts`). No graph database, no
   packaged memory product.
-- The invariants in `AGENTS.md`: nothing personal in the repo, only the owner writes `truth/`, the archive is never
-  rewritten, model output is cached and paid for once, the owner's word wins.
+- The invariants in `AGENTS.md` ("Invariants").
 
 ## What is always in question
 
 Everything between the units and the agents: which layers exist, what each extracts, how, how much, and for how long.
 Today that is episodes, observations, pages, situations, personas and closeness (`docs/architecture.md`); the memory
-rework (its map in `.plan/memory-rework/` while it lasts) adds arcs, coded acts and forecasts. A stronger model
-changes the answer because it changes three things:
+rework (its map on branch `claude/memory-distillation`, in `.plan/memory-rework/`, while it lasts) adds arcs, coded
+acts and forecasts. A stronger model changes the answer because it changes three things:
 
 - How much raw text one call can read well. The longer a model reads accurately, the fewer layers are needed to carry
   the long story, and the more a question can be answered from raw at question time.
@@ -48,7 +47,7 @@ limit the new model no longer has, or when the measurements below say the curren
    answer contains, in the owner's data repo (`docs/memory-rework/02-questions.md` and the mined `02b-`, `02c-` files).
 2. Sketch your own data model from the goal, the test set and what the new model can do. Write it down before
    reading the history below, so the past shapes do not anchor you.
-3. Then read the history, to learn what failed and why, not to copy it: the plans in `docs/plans/`, the memory rework
+3. Then read the history, to learn what failed and why, not to copy it: the architecture plans in `docs/plans/`, the memory rework
    map and its tickets, the owner's problem statement and wants (the owner's data repo, `docs/memory-rework/inputs/`), the
    reviews in the owner's data repo's `docs/reviews/`. Keep what the history proves; drop what it only assumed.
 4. Measure before adopting anything. A new layer or a new prompt is tried on a pilot (a few people and periods),
@@ -56,9 +55,10 @@ limit the new model no longer has, or when the measurements below say the curren
    are never a target to tune toward. Predictions are scored against what actually happened later (backtests). The
    practical answers (what is owed, open, when) must not get worse.
 5. Count the cost before any backfill and show it to the owner. Every read of old history happens once, after its
-   prompt is frozen on the pilot; backfills run on Codex, never on a cash provider.
+   prompt is frozen on the pilot, and backfills run on Codex (the owner's decision of 10 Nov 2026; quota and pacing
+   in `docs/operations.md`, "Backfill").
 6. Migrate without losing the owner's word: the owner's corrections, ratings and labels are inputs to every new build, never
-   annotations that must survive an id; the ledger's line count never moves; a rename ships one migration.
+   annotations that must survive an id; stored records change only as `AGENTS.md`'s invariants allow.
 
 ## Questions every redesign answers
 
