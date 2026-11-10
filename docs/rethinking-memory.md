@@ -23,7 +23,7 @@ These are not reopened by a stronger model:
   is a unit whatever the model.
 - Retrieval is text plus vector embeddings over units and their passages (`apps/server/src/memory/vectors.ts`). No graph database, no
   packaged memory product.
-- The invariants in `AGENTS.md` ("Invariants").
+- The invariants in [AGENTS.md](../AGENTS.md#invariants).
 
 ## What is always in question
 
@@ -56,9 +56,9 @@ limit the new model no longer has, or when the measurements below say the curren
    practical answers (what is owed, open, when) must not get worse.
 5. Count the cost before any backfill and show it to the owner. Every read of old history happens once, after its
    prompt is frozen on the pilot, and backfills run on Codex (the owner's decision of 10 Nov 2026; quota and pacing
-   in `docs/operations.md`, "Backfill").
+   in [operations](operations.md), "Backfill").
 6. Migrate without losing the owner's word: the owner's corrections, ratings and labels are inputs to every new build, never
-   annotations that must survive an id; stored records change only as `AGENTS.md`'s invariants allow.
+   annotations that must survive an id; stored records change only as [AGENTS.md's invariants](../AGENTS.md#invariants) allow.
 
 ## Questions every redesign answers
 
