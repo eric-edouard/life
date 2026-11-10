@@ -45,15 +45,14 @@ type Outcome = (typeof OUTCOMES)[number];
 const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
 
 // His answer for a sampled turn, by the one read rule (`speakerOf`): for the turn, else for its
-// voice; none when he never answered. A row of several people names a fallback, not who spoke. A
+// voice; none when he never answered, or answered several people (a fallback, not who spoke). A
 // row without a person is "Not anyone I know" or media (its `status`): nobody he knows.
 export function answers(data: Pick<Export, "assignments">) {
-  const byJob = Map.groupBy(
-    data.assignments.filter((a) => !a.candidates),
-    (a) => a.jobId
-  );
-  return (s: Pick<Sample, "jobId" | "speakerLabel" | "turnIndex">) =>
-    speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex);
+  const byJob = Map.groupBy(data.assignments, (a) => a.jobId);
+  return (s: Pick<Sample, "jobId" | "speakerLabel" | "turnIndex">) => {
+    const row = speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex);
+    return row?.candidates ? undefined : row;
+  };
 }
 
 function outcome(

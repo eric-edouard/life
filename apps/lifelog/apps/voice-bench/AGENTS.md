@@ -37,11 +37,15 @@ wrong. What it found: `docs/research/voice-bench.md`.
   models give to the same person, against his answer or where he gave none. One answer on the page is written for
   every turn of the card. Names come closest first: the share of the models' first guesses on the card's turns.
 - "Nobody I know" is mostly a voice he does not care about: never a known voice, and a name given to it is a wrong
-  name. "Several voices" and "not a person" leave the scoring.
+  name. "Several people" and "not a person" leave the scoring.
 - A blend is the mean of the models' z-scored likenesses (`blendOf`). "Fuse" is rank fusion, another thing
   (`core/fusion.ts`).
-- The review's answers go to `answers.jsonl` in the bench's folder, append-only, the latest per turn. They never
-  reach the archive: lifelog's naming is his to change in the app (`docs/decisions.md`).
+- The review's answers go to `answers.jsonl` in the bench's folder, append-only, the latest per turn. `bench apply`
+  lists those that differ from his answers in the archive now; `bench apply --write` sends them to lifelog's server
+  as his corrections (`src/apply.ts`, `docs/decisions.md`): a whole speaker when every sample it has got the same
+  answer (samples only: a speaker with one sampled turn is named whole), else turn by turn; what the server refuses
+  is listed and tried again at the next run. It needs `PORT` and Life's `LIFELOG_TOKEN` in the environment. A person
+  id after it is left out. Then `sample` and `score` again.
 - The cloud is drawn by the server's `src/voices/cloud.js`, shared with lifelog's voice map; its positions are the
   server's `pcaOf`.
 - A model that cannot be loaded from its authors' release is left out and named in the research note, never faked.

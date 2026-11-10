@@ -114,6 +114,8 @@ test("a conversation is judged without its own evidence, and a several-people an
     assignments: [
       answer("b", "s1", null, "pat"),
       answer("b", "s2", null, "pat", true),
+      // One turn of a named voice where several people speak: no answer either.
+      answer("b", "s1", 1, null, true),
     ],
     evidence: [...hisEvidence, evidence(b[0] as Sample, "pat")],
     owner: "me",
@@ -122,8 +124,8 @@ test("a conversation is judged without its own evidence, and a several-people an
     strangers: [],
   };
   const { counts, turns } = evaluate(data);
-  expect(turns).toBe(2);
-  expect(counts.leftUnnamed).toBe(2);
+  expect(turns).toBe(1);
+  expect(counts.leftUnnamed).toBe(1);
 });
 
 test("a job whose samples were cut in two conversations is judged without the evidence of either", () => {

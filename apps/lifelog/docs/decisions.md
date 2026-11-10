@@ -35,11 +35,14 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
-- **The voice bench keeps its own answers and its own page (owner's choice, 10 Nov 2026).** What the owner answers
-  in the bench's review goes to the bench's `answers.jsonl`, never to the archive: the bench reads the archive
-  read-only, and his naming changes only in the app. Its page is a development tool the CLI serves on 127.0.0.1
-  from the bench's private folder, not a page lifelog serves: no token, no tunnel, and its only writes are an
-  answer and a new scoring, from its own origin.
+- **The voice bench's answers reach the archive through the server (owner's decision, 10 Nov 2026, reversing his
+  "bench only" of that morning).** His review found many of his past names wrong, so they belong in lifelog. The
+  review still writes the bench's `answers.jsonl`; `bench apply` lists what differs from his answers in the archive
+  now, and `--write` sends each as his own correction (`PUT /transcripts/{jobId}/speakers/{speakerLabel}`, with the
+  reader's corrections token, on this Mac). The bench never opens the archive to write, and stores no "sent" mark:
+  a second run compares again. "Several people" waits for that route to take it.
+  The bench's page stays a development tool the CLI serves on 127.0.0.1 from the bench's private folder: no token,
+  no tunnel, and its only writes are an answer and a new scoring, from its own origin.
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
   a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
   the queue’s existing audio and answer routes, and per-turn naming PUT only for (job, label, turn) triples

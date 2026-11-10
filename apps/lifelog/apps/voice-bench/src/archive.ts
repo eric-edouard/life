@@ -26,6 +26,18 @@ function env(name: string) {
   return value;
 }
 
+// His answers and every sample as the archive holds them now, and the people it has.
+// ponytail: `exportVoices` reads every embedding too; a narrower read when the archive is too large for that.
+export function readNames() {
+  const db = connect(env("DATABASE_PATH"), { readonly: true });
+  try {
+    const ids = db.select({ id: people.id }).from(people).all();
+    return [exportVoices(db), new Set(ids.map((p) => p.id))] as const;
+  } finally {
+    db.$client.close(true);
+  }
+}
+
 export type Sample = ReturnType<typeof readSample>;
 export type SampledTurn = Sample["turns"][number];
 

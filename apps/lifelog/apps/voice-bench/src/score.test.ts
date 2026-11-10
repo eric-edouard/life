@@ -73,7 +73,7 @@ test("a blend of two noisy models that err apart names more voices than either",
   );
 });
 
-test("the bench's answer wins over the archive's, a skip does not, media and several voices leave the scoring", () => {
+test("the bench's answer wins over the archive's, a skip does not, media and several people leave the scoring", () => {
   const archive = { personId: "ada", status: "person" };
   const answers = parseAnswers(
     [
