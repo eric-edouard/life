@@ -68,7 +68,7 @@ Rules:
 - His word is evidence of its own kind (next section), pinned to the raw messages and the subject it is about, not
   to a model-made id. Every build reads it and it beats any reading.
 
-## His word, and Life's own list (replaces `truth/`; waiting on his yes)
+## His word, and Life's own list (what `truth/` becomes)
 
 Today `truth/` is a folder of files (who people are, his areas, his projects, his goals) that "only he writes". He
 never wrote a line of it: agents typed in what he said, on his yes, 51 times. He does not know what it is (his
@@ -85,6 +85,30 @@ words, 10 Nov). It is a step nobody needs.
 - His goals and their order are the latest he told Life. Each change is dated, so "my goals as they stood that
   month" has an answer. What he says about his goals elsewhere is evidence set against them, never a change.
 - What `truth/` holds today is kept as his word, dated when it was written.
+
+### What he wants out of life: declared, heard, asked
+
+His answer (10 Nov): `truth/` was the way to define his goals and seed the system, and some form of it is still
+needed. It is the onboarding: what he wants out of life and how he plans to get there. And that feedback must keep
+coming, continuously, in a good way.
+
+So the declared side stays, as a part of Life's list and not as files: his vision, his goals in order, how he plans
+to reach each, who people are to him. It is what the observer measures his actions against. Three ways keep it
+current, and none waits on him:
+
+1. **Heard.** What he says he wants or plans, anywhere (a recording, a note, a chat with an assistant), is read as
+   evidence. Life drafts and updates his goals and plans from it, marked "as Life understands it".
+2. **Asked in context.** Life keeps the questions it has for him, each tied to a subject: a goal with no plan, a goal
+   his time contradicts, a person who matters and whose place is unknown, a matter that may be over. When he talks
+   with an agent about that subject, the agent gets those questions and can ask there and then. His answer is his
+   word.
+3. **A sitting, when he wants one.** An agent walks through the open questions, the ones whose answer would change
+   the most first. The first sitting of a new install is the onboarding; for him the seed is what `truth/` holds.
+
+- The questions are worked out from what is stored (a hole in the list, a contradiction, a miss), never kept as a
+  queue. An answered one does not come back; "I don't care" is an answer.
+- This widens today's fact check (is this claim right?) to anything Life needs from him.
+- Which agent asks, and when, is the agents' job; the memory only says what is worth asking and why.
 
 ## Who acts, toward whom, in front of whom
 
