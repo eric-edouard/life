@@ -1,4 +1,10 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
@@ -31,15 +37,36 @@ const PER_CALL = 10;
 /** What the model reads of a conversation: its title and the start of his messages. */
 const GIST = 3000;
 
-/** An export folder's `conversations.json`: which assistant's it is and its conversations, pruned. */
+/** A file of a ChatGPT export too large for one: `conversations-000.json`, `-001`… */
+const PART = /^conversations-\d+\.json$/;
+
+/**
+ * An export folder's conversations: which assistant's they are, pruned, and the one file kept of them (`copy`).
+ * A large ChatGPT export has no `conversations.json` but parts (`PART`): read by their number and joined.
+ */
 export function readExport(folder: string) {
-  const file = join(folder, "conversations.json");
-  const json: unknown = JSON.parse(readFileSync(file, "utf8"));
+  const whole = join(folder, "conversations.json");
+  const parts = existsSync(whole)
+    ? []
+    : readdirSync(folder)
+        .filter((f) => PART.test(f))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const read = (file: string): unknown =>
+    JSON.parse(readFileSync(file, "utf8"));
+  const json = parts.length
+    ? parts.flatMap((f) => read(join(folder, f)))
+    : read(whole);
   const source = formatOf(json);
   if (!source) {
-    throw new Error(`${file} is neither a claude.ai nor a ChatGPT export`);
+    throw new Error(`${folder} is neither a claude.ai nor a ChatGPT export`);
   }
-  return { ...parsedExport(source, json), file, source };
+  return {
+    ...parsedExport(source, json),
+    copy: parts.length
+      ? Buffer.from(JSON.stringify(json))
+      : readFileSync(whole),
+    source,
+  };
 }
 
 const gist = (c: Conversation) =>
@@ -106,9 +133,9 @@ export function parseJudged(
  * of the same assistant is refused: the copy is the only source of its units' words.
  */
 export async function importExport(folder: string) {
-  const { all, conversations, file, source } = readExport(folder);
+  const { all, conversations, copy, source } = readExport(folder);
   const to = importOf(source);
-  if (existsSync(to) && !readFileSync(to).equals(readFileSync(file))) {
+  if (existsSync(to) && !readFileSync(to).equals(copy)) {
     throw new Error(
       `${to} holds another ${FORMATS[source].label} export already`
     );
@@ -119,7 +146,7 @@ export async function importExport(folder: string) {
   }
   await spareQuota(engine);
   mkdirSync(dirname(to), { recursive: true });
-  copyFileSync(file, to);
+  writeFileSync(to, copy);
   const step = await begin(
     "import",
     "fast",

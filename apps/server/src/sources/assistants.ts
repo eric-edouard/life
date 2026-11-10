@@ -145,7 +145,7 @@ function parseChatgpt(json: unknown): Conversation[] {
   });
 }
 
-/** Each export's reader, and how its file is told apart (both are named `conversations.json`). */
+/** Each export's reader, and how its conversations are told apart (both name their file `conversations`). */
 export const FORMATS: Record<
   Assistant,
   {
