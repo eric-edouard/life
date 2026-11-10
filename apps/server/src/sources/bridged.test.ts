@@ -272,7 +272,8 @@ test("Beeper closed: its store can't be read, so the archive opens Beeper and th
   expect(copierOf("telegram", closed)).toBe("beeper-closed");
   const archive = mkdtempSync(join(tmpdir(), "archive-"));
   const copy = () => copyBeeper("telegram", archive, closed);
-  // The archive's incident for the store stays open until a copy reads it again.
+  // Every pass fails while it is closed: the archive's incident for the store stays open until a copy reads it again.
+  expect(copy).toThrow("Beeper is closed");
   expect(copy).toThrow("Beeper is closed");
   // Beeper runs again: its store has its `-shm`.
   const running = new Database(join(closed, "index.db"));
