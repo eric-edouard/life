@@ -59,6 +59,9 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   repo. So it has one boundary: what it takes in (units and his word, through a contract), what it owns on disk, and
   what it gives out (the reads the connector, the pages and the mails use). Nothing outside reaches into its files or
   its internals. Ticket 25.
+- How he decides (10 Nov): on the shape of the design he leaves it to the designer ("you probably know better"). So a
+  shape question is decided with its reason and written down, for him to overrule; he is asked only what he alone
+  knows: what he wants, what he prefers, what is true of his life.
 - Models: the strongest model for grilling and design tickets; cheaper ones for research reading and file work.
 - This map lives in the code repo: nothing personal in it (no names but roles, no quotes, no numbers about his people).
   Anything of his a ticket produces goes to his data repo or a scratchpad, linked by path.
@@ -71,6 +74,8 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [Old sources, read in once](./tickets/03-old-sources.md) — old WhatsApp from an iPhone backup (started 9 Nov) plus the father's old-number export; iMessage and Notes already complete; mail needs a filter; three networks need exports; all land before the one read
 - [The questions he asks Life](./tickets/02-the-questions-he-asks.md) — 102 questions in his data repo, 25 failed; prediction, arcs and himself are thin, so the set grows from his old chats and assistant exports
 - [Naming the unnamed voices](./tickets/24-naming-the-unnamed-voices.md) — lifelog re-fingerprints old voices, joins split voices, keeps unnamed fingerprints until named, and asks about voices that say a lot near him, ranked by words; fixed before the pilot
+
+- [Organic memory](./tickets/10-organic-memory.md) — left to the designer (10 Nov): calendar steps per subject (month, year, the whole story), a level only where the one below is too big to read whole, sealed months read once, upper levels rebuilt from the level below and never from themselves, counts never summarized, the long-standing carried up by rule
 
 ## Not yet specified
 
