@@ -79,6 +79,10 @@ test("phone archives versions once, rescans old calls, and survives Apple prunin
     expect(readPhone(new Date("2026-10-02T00:00:00Z"), dir, new Map())).toEqual(
       []
     );
+    // The end is exclusive: a history month never takes the next month's calls.
+    expect(
+      readPhone(since, dir, new Map(), new Date(calls[0]?.at ?? ""))
+    ).toEqual([]);
     expect(textOf(calls[0] as SourceEvent)).toContain("13 s");
     expect(
       chatPerson(calls, (s) => (s === "+15550000001" ? "person:friend" : null))

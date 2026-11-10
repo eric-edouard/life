@@ -100,16 +100,17 @@ function secondsOf(c: z.infer<typeof Call>) {
 export function readPhone(
   since: Date,
   dir = ARCHIVE,
-  contacts = readContacts()
+  contacts = readContacts(),
+  before?: Date
 ): SourceEvent[] {
   const db = openReadOnly(archiveDb("phone", dir));
   try {
     return db
-      .query<{ at: string; payload: string }, [string]>(`
-      select at, payload from calls c where at >= ?
+      .query<{ at: string; payload: string }, [string, string | null]>(`
+      select at, payload from calls c where at >= ?1 and (?2 is null or at < ?2)
       and rowid = (select max(rowid) from calls x where x.id = c.id) order by at, id
     `)
-      .all(since.toISOString())
+      .all(since.toISOString(), before?.toISOString() ?? null)
       .map((r) => {
         const c = Call.parse(JSON.parse(r.payload));
         const handles = c.participants.length
