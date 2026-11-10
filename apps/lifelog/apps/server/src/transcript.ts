@@ -15,7 +15,8 @@ import {
 } from "@lifelog/db/schema";
 import { and, asc, gt, gte, inArray, lt, min } from "drizzle-orm";
 import { textOf } from "./elevenlabs";
-import { assignmentsByJob, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, speakerOf } from "./people";
+import { voiceId } from "./recognized-rows";
 
 // Where each kept interval begins in the prepared audio (ms): the map's `starts` when its audio was
 // joined from fragments (audio.ts `joinOggOpus`), else each one separator after the one before.

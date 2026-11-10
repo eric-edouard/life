@@ -1441,6 +1441,46 @@
               "$ref": "#/components/schemas/VoiceMapCard"
             }
           },
+          "inferred": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inference": {
+                  "$ref": "#/components/schemas/SpeakerInference"
+                },
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "personId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "personName": {
+                  "type": "string"
+                },
+                "speakerLabel": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "turnIndex": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "inference",
+                "jobId",
+                "personId",
+                "personName",
+                "speakerLabel",
+                "text",
+                "turnIndex"
+              ]
+            }
+          },
           "models": {
             "type": "array",
             "items": {
@@ -1456,7 +1496,7 @@
                     "properties": {
                       "basis": {
                         "type": ["string", "null"],
-                        "enum": ["owner", "recognized", null]
+                        "enum": ["recognized", "inferred", "owner", null]
                       },
                       "id": {
                         "type": "string"
@@ -1528,7 +1568,13 @@
             }
           }
         },
-        "required": ["candidateThreshold", "cards", "models", "people"]
+        "required": [
+          "candidateThreshold",
+          "cards",
+          "inferred",
+          "models",
+          "people"
+        ]
       },
       "VoiceMapCard": {
         "allOf": [
@@ -1717,6 +1763,53 @@
         },
         "description": "Each word: start and end in ms from the passage's start, and its UTF-16 length in the text with the spacing before it (none before the first)"
       },
+      "SpeakerInference": {
+        "type": ["object", "null"],
+        "properties": {
+          "attemptId": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string",
+            "enum": ["context", "two-person"]
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jobId": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "turnIndex": {
+                  "type": "integer"
+                }
+              },
+              "required": ["jobId", "quote", "turnIndex"]
+            }
+          },
+          "inputHash": {
+            "type": "string"
+          },
+          "snapshotRevision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attemptId",
+          "basis",
+          "confidence",
+          "evidence",
+          "inputHash",
+          "snapshotRevision"
+        ]
+      },
       "Person": {
         "type": "object",
         "properties": {
@@ -1742,6 +1835,9 @@
       "SpeakerAssignment": {
         "type": "object",
         "properties": {
+          "inference": {
+            "$ref": "#/components/schemas/SpeakerInference"
+          },
           "jobId": {
             "type": "string",
             "format": "uuid"
@@ -1752,6 +1848,10 @@
           },
           "personName": {
             "type": ["string", "null"]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["recognized", "inferred", "owner"]
           },
           "speakerLabel": {
             "type": "string"
@@ -1765,9 +1865,11 @@
           }
         },
         "required": [
+          "inference",
           "jobId",
           "personId",
           "personName",
+          "source",
           "speakerLabel",
           "status",
           "turnIndex"
@@ -2441,6 +2543,9 @@
                 "type": "string",
                 "description": "What every reader calls it: the person's name, else \"Speaker N\" in its conversation, as the summaries do"
               },
+              "inference": {
+                "$ref": "#/components/schemas/SpeakerInference"
+              },
               "isOwner": {
                 "type": "boolean"
               },
@@ -2454,14 +2559,20 @@
               "personName": {
                 "type": ["string", "null"],
                 "description": "As emitted; a rename comes in `people`"
+              },
+              "source": {
+                "type": ["string", "null"],
+                "enum": ["recognized", "inferred", "owner", null]
               }
             },
             "required": [
               "displayName",
+              "inference",
               "isOwner",
               "label",
               "personId",
-              "personName"
+              "personName",
+              "source"
             ]
           },
           "startAt": {
@@ -3823,6 +3934,176 @@
                   "items": {
                     "$ref": "#/components/schemas/Event"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/life/people": {
+      "put": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "complete": {
+                    "type": "boolean",
+                    "enum": [true]
+                  },
+                  "folds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "aliases": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "personId": {
+                          "type": ["string", "null"],
+                          "format": "uuid"
+                        },
+                        "ref": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["aliases", "name", "personId", "ref"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "version": {
+                    "type": "number",
+                    "enum": [1]
+                  }
+                },
+                "required": [
+                  "complete",
+                  "folds",
+                  "people",
+                  "revision",
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Complete snapshot accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["changed", "revision"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or incomplete snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or identity link conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/naming-pass": {
+      "post": {
+        "description": "Advance at most one persisted naming work item on the selected Codex subscription. Evaluation and pilot store readings only; archive writes require separate explicit authorization. Missing/non-Codex engine is off. Summary work has priority.",
+        "requestBody": {
+          "description": "Selected backfill engine and pass mode",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "archiveAuthorized": {
+                    "type": "boolean"
+                  },
+                  "engine": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["evaluation", "pilot", "archive", "arrivals"]
+                  }
+                },
+                "required": ["mode"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Current queue state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

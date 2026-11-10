@@ -2,21 +2,20 @@ import { afterAll, beforeEach, expect, test } from "bun:test";
 import { clock } from "@life/server/src/core/clock";
 import {
   conversations,
+  events,
   speakerAssignments,
   voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { assign, keepServerSamples, voiceUpkeep } from "./people";
 import {
-  assign,
   expire,
-  keepServerSamples,
   nearbyVoices,
   recognize,
   regroup,
   sweep,
-  voiceUpkeep,
-} from "./people";
+} from "./speaker-recognition";
 import { mapJob, seedTranscript, testDb } from "./testing";
 
 const env = testDb();
@@ -211,4 +210,20 @@ test("upkeep queues another night while an earlier pass yields", async () => {
     sql`select count(*) as n from events where name = 'voices.upkeep'`
   );
   expect(nights[0]?.n).toBe(2);
+});
+
+test("the nightly upkeep runs once a night, across a restart too", async () => {
+  const night = new Date("2026-10-11T04:00:00Z");
+  expect(
+    await voiceUpkeep(db).nightly(new Date("2026-10-11T02:00:00Z"))
+  ).toBeNull();
+  await voiceUpkeep(db).nightly(night);
+  await voiceUpkeep(db).nightly(new Date("2026-10-11T09:00:00Z"));
+  await voiceUpkeep(db).nightly(new Date("2026-10-12T04:00:00Z"));
+  const runs = db
+    .select({ day: sql<string>`${events.fields}->>'day'` })
+    .from(events)
+    .where(eq(events.name, "voices.upkeep"))
+    .all();
+  expect(runs.map((r) => r.day)).toEqual(["2026-10-11", "2026-10-12"]);
 });

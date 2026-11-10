@@ -1,10 +1,10 @@
 // The voices to name (docs/processing.md, "Speakers"): the unnamed voices that
-// talked with the owner or hold enough words, grouped (people.ts `regroup`), with a name the
+// talked with the owner or hold enough words, grouped (speaker-recognition.ts `regroup`), with a name the
 // summaries heard for it, as cards to confirm, rename, give to someone else or ignore. Brief
 // strangers, media and announcements get none.
 //
 // - A card is only a suggestion. An answer is the owner's correction (people.ts `assign`), so
-//   only the owner creates people or adds voice evidence.
+//   only an owner answer adds voice evidence; autonomous inferred names use naming-pass.ts.
 // - One notification a morning, and only when voices wait: its number is the queue's length,
 //   the same the app's badge shows.
 // - Names come from the summary runs (intelligence.ts `speakerIdentities`): recorded speech is
@@ -28,15 +28,9 @@ import { NAMING, ownerClock } from "./config";
 import { record, recordedOn } from "./events";
 import { type Clip, cardClips, readClip } from "./naming-clips";
 
-import {
-  assign,
-  isCalled,
-  isRejected,
-  readOwnTurns,
-  readVoices,
-  type Target,
-  voiceId,
-} from "./people";
+import { assign, isCalled, isRejected, type Target } from "./people";
+import { readOwnTurns, voiceId } from "./recognized-rows";
+import { readVoices } from "./speaker-recognition";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";

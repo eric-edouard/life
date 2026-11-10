@@ -241,3 +241,48 @@ test("synchronous worker setup failure never leaves queue readers waiting", asyn
     db.$client.close(true);
   }
 });
+
+test("cached worker keeps inferred turns without embeddings visible and read-only until an owner correction", async () => {
+  const personId = randomUUID();
+  env.db
+    .insert(people)
+    .values({ creationSource: "inferred", id: personId, name: "Guest" })
+    .run();
+  const { jobId } = seedConversation(env.db, [
+    { end: 8, speakerId: "a", start: 0, text: "A guest speaks." },
+  ]);
+  const inference = {
+    attemptId: "synthetic-attempt",
+    basis: "context" as const,
+    confidence: 0.99,
+    evidence: [{ jobId, quote: "A guest speaks.", turnIndex: 0 }],
+    inputHash: "synthetic-input",
+    snapshotRevision: 1,
+  };
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      inference,
+      jobId,
+      personId,
+      source: "inferred",
+      speakerLabel: "a",
+      status: "person",
+      turnIndex: 0,
+    })
+    .run();
+  logChange(env.db, "assignment", jobId);
+  const before = env.db.$client.serialize();
+  const map = await ready();
+  expect(map.inferred).toHaveLength(1);
+  expect(map.inferred[0]?.inference).toEqual(inference);
+  expect(map.models).toEqual([]);
+  expect(env.db.$client.serialize()).toEqual(before);
+  const result = await app().request(`/transcripts/${jobId}/speakers/a`, {
+    body: JSON.stringify({ target: { kind: "unknown" }, turnIndex: 0 }),
+    headers,
+    method: "PUT",
+  });
+  expect(result.status).toBe(200);
+  expect((await ready()).inferred).toEqual([]);
+});

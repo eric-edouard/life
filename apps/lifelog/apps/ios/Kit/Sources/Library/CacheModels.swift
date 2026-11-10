@@ -93,6 +93,33 @@ public enum WaitingReason: String, Sendable, UnknownTolerant {
 /// One turn of words, in capture time (contract `turns[]`). Already without dictation and media.
 public struct CachedTurn: Sendable, Equatable, Decodable {
     public struct Speaker: Sendable, Equatable, Decodable {
+        public enum Source: String, Sendable, UnknownTolerant {
+            case owner, recognized, inferred, unknown
+        }
+
+        public struct Inference: Sendable, Equatable, Decodable {
+            public enum Basis: String, Sendable, UnknownTolerant {
+                case context
+                case twoPerson = "two-person"
+                case unknown
+            }
+
+            public struct Evidence: Sendable, Equatable, Decodable {
+                public var jobId: String
+                public var quote: String
+                public var turnIndex: Int
+            }
+
+            public var attemptId: String
+            public var basis: Basis
+            public var confidence: Double
+            public var evidence: [Evidence]
+            public var inputHash: String
+            public var snapshotRevision: Int
+        }
+
+        public var source: Source?
+        public var inference: Inference?
         public var label: String?
         public var personId: UUID?
         public var personName: String?
@@ -103,8 +130,10 @@ public struct CachedTurn: Sendable, Equatable, Decodable {
 
         public init(
             label: String?, displayName: String, personId: UUID? = nil, personName: String? = nil,
-            isOwner: Bool? = nil
+            isOwner: Bool? = nil, source: Source? = nil, inference: Inference? = nil
         ) {
+            self.source = source
+            self.inference = inference
             self.label = label
             self.personId = personId
             self.personName = personName

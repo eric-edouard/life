@@ -147,10 +147,12 @@
       "language": "eng",
       "speaker": {
         "displayName": "Dave",
+        "inference": null,
         "isOwner": true,
         "label": "speaker_0",
         "personId": "00000000-0000-4000-8000-000000000012",
-        "personName": "Dave"
+        "personName": "Dave",
+        "source": "owner"
       },
       "startAt": "2026-10-14T10:00:00.000Z",
       "turnIndex": 0,
@@ -164,10 +166,25 @@
       "language": "eng",
       "speaker": {
         "displayName": "Marie-Jo",
+        "inference": {
+          "attemptId": "synthetic-attempt",
+          "basis": "context",
+          "confidence": 0.99,
+          "evidence": [
+            {
+              "jobId": "00000000-0000-4000-8000-000000000003",
+              "quote": "Monday at nine.",
+              "turnIndex": 1
+            }
+          ],
+          "inputHash": "synthetic-input",
+          "snapshotRevision": 1
+        },
         "isOwner": false,
         "label": "speaker_1",
         "personId": "00000000-0000-4000-8000-000000000004",
-        "personName": "Marie-Jo"
+        "personName": "Marie-Jo",
+        "source": "inferred"
       },
       "startAt": "2026-10-14T10:00:05.000Z",
       "turnIndex": 1,

@@ -24,6 +24,7 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
+import { syncLifelogPeople } from "./lifelog-people";
 import { lockReport, sendReport } from "./report";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
@@ -366,6 +367,9 @@ async function quiet(running: string) {
 }
 
 function minute() {
+  syncLifelogPeople().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "lifelog.people" })
+  );
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "todo.tick" })
   );

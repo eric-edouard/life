@@ -29,6 +29,7 @@ import { record } from "./events";
 import { aiSplitId, groupSource, markDirty } from "./grouping";
 import { MAC_SLOTS } from "./mac-socket";
 import { isCalled } from "./people";
+
 import {
   MacGone,
   type ModelCall,
@@ -371,7 +372,7 @@ function planResult(input: Input, plan: ReadPlan) {
 }
 
 // Who the model says each unnamed speaker is. A name counts only with turns that show it,
-// and only turns of this conversation; a known person only when the owner has one by that name
+// and only turns of this conversation; a known person only when an owner-named or confident linked Life person has that name
 // or alias.
 function speakerIdentities(speakers: Plan["speakers"], input: Input) {
   const last = input.turns.length - 1;

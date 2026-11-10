@@ -32,7 +32,7 @@ Speed of processing never wins over accuracy.
 
 - Diarization separates speakers within a recording; recognition links them to persistent people.
 - A match needs enough clean voice evidence; similar embeddings alone are not proof, and ambiguity stays unknown.
-- Only the owner creates people and adds voice evidence. Manual corrections survive all later processing.
+- Confident context may infer names and create linked Life people; only owner assignments add voice evidence. Manual corrections survive all later processing.
 - Recurring unnamed voices are never presented as confirmed people.
 - Recognition never triggers another paid transcription. Removing a profile never deletes recordings.
 

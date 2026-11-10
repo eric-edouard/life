@@ -1,36 +1,50 @@
-// The ground truth for who spoke inside a voice: every turn with a voice sample and an owner's
-// answer, for the turn itself or for its voice. Each answered voice is replayed through `match` as
-// if unanswered, with profiles rebuilt without its conversation, and scored against his answers.
-// It measures `match` alone, on a first pass: no nearby voices, no several-people candidates, and
-// every sample of a voice (production leaves out turns with their own row).
-// His answered voices are frozen once in one file beside the archive, never in the repo (it holds
-// his voice); the replay's counts are committed in `fixtures/voice-eval-baseline.json`, and the
-// gate (`--check`) fails when a change moves them, on the same file. A change to `match`, `decide`
-// or `weighProfiles` rewrites the baseline, so the PR shows its effect.
-//   DATABASE_PATH=<the archive> bun run --cwd apps/lifelog/apps/server eval:voices export   # freeze his answers again, then as below
-//   bun run --cwd apps/lifelog/apps/server eval:voices             # replay, print, rewrite the baseline
-//   bun run --cwd apps/lifelog/apps/server eval:voices --check     # the gate
-
+import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { sha256Of } from "@life/server/src/core/hash";
 import { APP_DATA } from "@life/server/src/core/platform";
 import { connect, type Db } from "@lifelog/db";
-import { people, speakerAssignments, voiceSamples } from "@lifelog/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  conversationJobs,
+  conversations,
+  lifePeopleSnapshot,
+  namingAttempts,
+  people,
+  speakerAssignments,
+  transcriptionJobs,
+  voiceProfiles,
+  voiceSamples,
+} from "@lifelog/db/schema";
+import { eq, gt, inArray, or } from "drizzle-orm";
+import { NAMING, RECOGNITION } from "../src/config";
+import {
+  type NamingInput,
+  namingPolicyHash,
+  namingPromptHash,
+  namingWorkHash,
+  parseNamingReadings,
+} from "../src/inferred-speakers";
+import { resolveLifePerson } from "../src/life-people";
+import { readNamingInput, readNamingInputs } from "../src/naming-pass";
+import { speakerOf } from "../src/people";
+import { loadTranscript, voiceId } from "../src/recognized-rows";
 import {
   evidenceRows,
   match,
+  nearbyVoices,
   type ProfilesByModel,
-  speakerOf,
+  readProfiles,
+  recognizeJob,
+  reconcileNaming,
   strangerRows,
-  voiceId,
   weighProfiles,
-} from "../src/people";
-import { likeness } from "../src/speakers";
-
-export type Export = ReturnType<typeof exportVoices>;
+} from "../src/speaker-recognition";
+import { likeness, type NamingCalibration } from "../src/speakers";
+import { freezeVoiceSnapshot, withFrozenVoiceSnapshot } from "./frozen-voices";
+export type Export = ReturnType<typeof exportVoices> & {
+  naming?: FrozenNamingEvaluation;
+};
 type Sample = Export["samples"][number];
-
 const OUTCOMES = [
   "ownerRight",
   "ownerMissed",
@@ -41,12 +55,7 @@ const OUTCOMES = [
   "leftUnnamed",
 ] as const;
 type Outcome = (typeof OUTCOMES)[number];
-
 const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
-
-// Who he said spoke a sampled turn, by the one read rule (`speakerOf`): his answer for the turn,
-// else for its voice. A row of several people names a fallback, not who spoke. A null answer is
-// "Not anyone I know" or media: nobody he knows.
 function answers(data: Export) {
   const byJob = Map.groupBy(
     data.assignments.filter((a) => !a.candidates),
@@ -55,7 +64,6 @@ function answers(data: Export) {
   return (s: Sample) =>
     speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex)?.personId;
 }
-
 function outcome(
   owner: string,
   truth: string | null,
@@ -72,9 +80,6 @@ function outcome(
   }
   return said ? "wrongPerson" : "leftUnnamed";
 }
-
-// One answered voice replayed: each judged turn's outcome, his likeness for each turn inside a voice
-// recognized as him, and whether the voice holds him, him and another, and was credited to him.
 function scoreVoice(
   owner: string,
   judged: { s: Sample; truth: string | null }[],
@@ -104,13 +109,9 @@ function scoreVoice(
     }),
   };
 }
-
-// Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
   const truthOf = answers(data);
   const { strangers, evidence } = data;
-  // A job is judged without the evidence of any conversation its samples were cut in: a sample
-  // keeps the conversation it was cut for, and a job's can differ.
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
       const own = new Set(inJob.map((s) => s.conversationId));
@@ -130,7 +131,6 @@ function replay(data: Export) {
     }
   );
 }
-
 export function evaluate(data: Export) {
   const voices = replay(data);
   const turns = voices.flatMap((v) => v.turns);
@@ -142,30 +142,24 @@ export function evaluate(data: Export) {
       t.likeness !== null && t.his === his ? [t.likeness] : []
     );
   return {
-    // Voices holding his voice, those also holding another voice or nobody he knows, and of those,
-    // the ones credited to him.
     clusters: {
       creditedWithAnother: voices.filter((v) => v.another && v.credited).length,
       holdingHim: voices.filter((v) => v.holdsHim).length,
       holdingHimAndAnother: voices.filter((v) => v.another).length,
     },
     counts,
-    // His likeness, per turn inside a voice recognized as him: his own turns and the others'.
     insideHim: { his: inside(true), others: inside(false) },
     turns: turns.length,
   };
 }
-
-// What the eval reads, read-only, inside the server's container: voices and his answers, never a
-// transcript's text.
 export function exportVoices(db: Db) {
-  // One snapshot (the script opens the file read-only).
   return db.transaction((tx) => {
-    const owner = tx
-      .select({ id: people.id })
-      .from(people)
-      .where(eq(people.isOwner, true))
-      .get();
+    const owner = tx.query.people
+      .findFirst({
+        columns: { id: true },
+        where: (p, { eq: is }) => is(p.isOwner, true),
+      })
+      .sync();
     if (!owner) {
       throw new Error("no owner");
     }
@@ -184,34 +178,559 @@ export function exportVoices(db: Db) {
       evidence: evidenceRows(tx),
       owner: owner.id,
       samples: tx
-        .select({
-          conversationId: voiceSamples.conversationId,
-          durationSeconds: voiceSamples.durationSeconds,
-          embedding: voiceSamples.embedding,
-          id: voiceSamples.id,
-          jobId: voiceSamples.jobId,
-          modelId: voiceSamples.modelId,
-          modelRevision: voiceSamples.modelRevision,
-          speakerLabel: voiceSamples.speakerLabel,
-          turnIndex: voiceSamples.turnIndex,
-        })
+        .select()
         .from(voiceSamples)
-        .all(),
+        .all()
+        .map(({ createdAt: _, ...sample }) => sample),
       strangers: strangerRows(tx),
     };
   });
 }
-
-const quantiles = (xs: number[]) => {
-  const sorted = xs.toSorted((a, b) => a - b);
-  return [0.1, 0.25, 0.5, 0.75, 0.9].map((q) =>
-    (sorted[Math.floor(q * (sorted.length - 1))] ?? Number.NaN).toFixed(2)
-  );
+export interface FrozenRecording {
+  at: number;
+  conversationId: string;
+  jobId: string;
+  recordingId: string;
+}
+export interface FrozenNamingCase {
+  answers: {
+    jobId: string;
+    personId: string | null;
+    speakerLabel: string;
+    turnIndex: number;
+  }[];
+  archiveHash: string;
+  at: number;
+  call: ReturnType<typeof frozenNamingCall> | null;
+  conversationId: string;
+  identityEvidence: { personId: string; at: number; recordingIds: string[] }[];
+  inputHash: string | null;
+  partition: "calibration" | "held-out";
+  recordings: FrozenRecording[];
+}
+export interface FrozenNamingEvaluation {
+  calibration: NamingCalibration;
+  cases: FrozenNamingCase[];
+  model: string;
+  policyHash: string;
+  promptHash: string;
+  snapshots: Record<string, string>;
+}
+const hashOf = (value: unknown) =>
+  createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const recordingIds = (
+  cases: FrozenNamingCase[],
+  partition: FrozenNamingCase["partition"]
+) => {
+  const ids = new Set<string>();
+  for (const item of cases.filter((c) => c.partition === partition)) {
+    for (const recording of item.recordings.filter(
+      (r) => r.conversationId === item.conversationId
+    )) {
+      ids.add(recording.recordingId);
+    }
+  }
+  return [...ids].sort();
 };
+function removeNamingLeakage(
+  db: Db,
+  data: FrozenNamingEvaluation,
+  item: FrozenNamingCase
+) {
+  if (
+    !Number.isFinite(item.at) ||
+    item.recordings.some((r) => !Number.isFinite(r.at))
+  ) {
+    throw new Error("recording instants must be finite");
+  }
+  const actual = readFrozenRecordings(db);
+  const conversation = db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, item.conversationId))
+    .get();
+  if (
+    conversation?.captureEndedAt.getTime() !== item.at ||
+    !isDeepStrictEqual(actual, item.recordings)
+  ) {
+    throw new Error(
+      "recording identity, capture time or conversation provenance mismatch"
+    );
+  }
+  const held = new Set(
+    data.cases.flatMap((c) =>
+      c.recordings
+        .filter((r) => r.conversationId === c.conversationId)
+        .map((r) => r.recordingId)
+    )
+  );
+  const identities = new Set(
+    item.identityEvidence
+      .filter(
+        (e) =>
+          Number.isFinite(e.at) &&
+          e.at <= item.at &&
+          e.recordingIds.every((id) => !held.has(id))
+      )
+      .map((e) => e.personId)
+  );
+  const recordings = new Map(item.recordings.map((r) => [r.jobId, r]));
+  const excluded = new Set(
+    item.recordings
+      .filter((r) => held.has(r.recordingId) || r.at > item.at)
+      .map((r) => r.jobId)
+  );
+  const futurePeople = new Set(
+    db
+      .select()
+      .from(people)
+      .all()
+      .filter(
+        (p) =>
+          p.createdAt.getTime() > item.at ||
+          p.updatedAt.getTime() > item.at ||
+          !(
+            identities.has(p.id) ||
+            (p.lifeRef && identities.has(`life:${p.lifeRef}`))
+          )
+      )
+      .map((p) => p.id)
+  );
+  const samples = db.select().from(voiceSamples).all();
+  const unsafeSamples = new Set(
+    samples
+      .filter(
+        (sample) =>
+          !recordings.has(sample.jobId) ||
+          excluded.has(sample.jobId) ||
+          sample.createdAt.getTime() > item.at
+      )
+      .map((sample) => sample.id)
+  );
+  db.delete(voiceProfiles)
+    .where(
+      or(
+        inArray(voiceProfiles.sampleId, [...unsafeSamples]),
+        inArray(voiceProfiles.personId, [...futurePeople]),
+        gt(voiceProfiles.createdAt, new Date(item.at))
+      )
+    )
+    .run();
+  for (const row of db.select().from(speakerAssignments).all()) {
+    const record = recordings.get(row.jobId);
+    if (
+      !record ||
+      record.at > item.at ||
+      row.updatedAt.getTime() > item.at ||
+      futurePeople.has(row.personId ?? "") ||
+      (excluded.has(row.jobId) && !row.candidates) ||
+      row.source === "inferred"
+    ) {
+      db.delete(speakerAssignments)
+        .where(eq(speakerAssignments.id, row.id))
+        .run();
+    }
+  }
+  for (const id of futurePeople) {
+    db.update(people)
+      .set({
+        creationSource: "inferred",
+        lifeRef: null,
+        nameSource: "inferred",
+      })
+      .where(eq(people.id, id))
+      .run();
+  }
+  const snapshot = db.select().from(lifePeopleSnapshot).get();
+  if (!snapshot || snapshot.updatedAt.getTime() > item.at) {
+    throw new Error("missing historical candidate snapshot");
+  }
+  db.update(lifePeopleSnapshot)
+    .set({
+      people: snapshot.people.filter(
+        (p) =>
+          identities.has(`life:${p.ref}`) ||
+          (p.personId !== null && identities.has(p.personId))
+      ),
+    })
+    .run();
+  return samples;
+}
+function namingReplay(
+  data: FrozenNamingEvaluation,
+  item: FrozenNamingCase & { attemptId?: string },
+  isFreezing = false
+) {
+  return withFrozenVoiceSnapshot(data.snapshots, item.archiveHash, (db) => {
+    const samples = removeNamingLeakage(db, data, item);
+    const profiles = readProfiles(db);
+    const nearby = nearbyVoices();
+    const jobs = [
+      ...new Set(
+        item.recordings
+          .filter((r) => r.conversationId === item.conversationId)
+          .map((r) => r.jobId)
+      ),
+    ].sort();
+    if (!jobs.length || item.answers.some((a) => !jobs.includes(a.jobId))) {
+      throw new Error("answer without recording provenance");
+    }
+    for (const jobId of jobs) {
+      recognizeJob(db, jobId, profiles, nearby);
+    }
+    const rowsBefore = db
+      .select()
+      .from(speakerAssignments)
+      .where(inArray(speakerAssignments.jobId, jobs))
+      .all();
+    const attempt = item.attemptId
+      ? db
+          .select()
+          .from(namingAttempts)
+          .where(eq(namingAttempts.id, item.attemptId))
+          .get()
+      : null;
+    const input =
+      readNamingInputs(db, item.conversationId).find((candidate) =>
+        isFreezing
+          ? !attempt ||
+            namingWorkHash(candidate.inputHash, data.model) ===
+              attempt.inputHash
+          : candidate.inputHash === item.inputHash
+      ) ?? null;
+    if (
+      !isFreezing &&
+      ((input?.inputHash ?? null) !== item.inputHash || (input && !item.call))
+    ) {
+      throw new Error("input hash mismatch or missing call provenance");
+    }
+    if (input && item.call !== null) {
+      const call = frozenNamingCall(
+        db,
+        data,
+        item.conversationId,
+        input,
+        item.call.attemptId
+      );
+      if (!isDeepStrictEqual(call, item.call)) {
+        throw new Error("cached naming call provenance mismatch");
+      }
+      const readings = parseNamingReadings(item.call.raw, input);
+      reconcileNaming(
+        db,
+        {
+          attemptId: "frozen-replay",
+          calibration: data.calibration,
+          input,
+          readings,
+        },
+        (tx) => readNamingInput(tx, item.conversationId, input.inputHash),
+        resolveLifePerson
+      );
+    }
+    const rowsAfter = db
+      .select()
+      .from(speakerAssignments)
+      .where(inArray(speakerAssignments.jobId, jobs))
+      .all();
+    return {
+      input,
+      rows: item.answers.map((a) => {
+        const before = speakerOf(
+          rowsBefore.filter((r) => r.jobId === a.jobId),
+          a.speakerLabel,
+          a.turnIndex
+        );
+        const after = speakerOf(
+          rowsAfter.filter((r) => r.jobId === a.jobId),
+          a.speakerLabel,
+          a.turnIndex
+        );
+        const sample = samples.find(
+          (v) => v.jobId === a.jobId && v.turnIndex === a.turnIndex
+        );
+        const parsed = loadTranscript(db, a.jobId)?.parsed.turns[a.turnIndex];
+        return {
+          baselineCorrect: (before?.personId ?? null) === a.personId,
+          baselinePrediction: before?.personId ?? null,
+          callId: item.call?.attemptId ?? `voice:${item.conversationId}`,
+          context: after?.source === "inferred" && !before?.personId,
+          contextOnly: !sample,
+          correct: after?.personId === a.personId,
+          group: item.answers
+            .filter((other) => other.jobId === a.jobId)
+            .some((other) => other.personId !== a.personId),
+          potentialContext: !before?.personId,
+          prediction: after?.personId ?? null,
+          recordingId:
+            item.recordings.find((r) => r.jobId === a.jobId)?.recordingId ?? "",
+          short:
+            !!parsed &&
+            parsed.end - parsed.start < RECOGNITION.shortTurnSeconds,
+          twoPerson: after?.inference?.basis === "two-person",
+        };
+      }),
+    };
+  });
+}
+function frozenNamingCall(
+  db: Db,
+  data: Omit<FrozenNamingEvaluation, "cases">,
+  conversationId: string,
+  input: NamingInput | null,
+  attemptId: string
+) {
+  const cached = db
+    .select()
+    .from(namingAttempts)
+    .where(eq(namingAttempts.id, attemptId))
+    .get();
+  const raw = (cached?.call as { text?: string } | null)?.text;
+  if (
+    cached === undefined ||
+    cached.engine !== "codex" ||
+    !input ||
+    !raw ||
+    cached.conversationId !== conversationId ||
+    cached.model !== data.model ||
+    cached.promptHash !== data.promptHash ||
+    cached.policyHash !== data.policyHash ||
+    cached.inputHash !== namingWorkHash(input.inputHash, data.model)
+  ) {
+    throw new Error("cached naming call provenance mismatch");
+  }
+  return {
+    attemptId: cached.id,
+    inputHash: cached.inputHash,
+    model: cached.model,
+    policyHash: cached.policyHash,
+    promptHash: cached.promptHash,
+    raw,
+    snapshotHash: input.snapshotHash,
+    snapshotRevision: cached.snapshotRevision,
+  };
+}
+export function readFrozenRecordings(db: Db): FrozenRecording[] {
+  return db
+    .select({
+      at: transcriptionJobs.captureEnd,
+      conversationId: conversationJobs.conversationId,
+      jobId: transcriptionJobs.id,
+      recordingId: transcriptionJobs.audioSha256,
+    })
+    .from(conversationJobs)
+    .innerJoin(
+      transcriptionJobs,
+      eq(transcriptionJobs.id, conversationJobs.jobId)
+    )
+    .orderBy(conversationJobs.jobId, conversationJobs.conversationId)
+    .all()
+    .flatMap((r) => (r.at ? [{ ...r, at: r.at.getTime() }] : []));
+}
+export function freezeNamingCase(
+  db: ReturnType<typeof connect>,
+  data: Omit<FrozenNamingEvaluation, "cases"> & { cases?: FrozenNamingCase[] },
+  item: Omit<
+    FrozenNamingCase,
+    "archiveHash" | "inputHash" | "call" | "recordings"
+  > & {
+    attemptId?: string;
+    archiveHash?: string;
+  }
+) {
+  const archiveHash =
+    item.archiveHash ?? freezeVoiceSnapshot(db, data.snapshots);
+  const frozen = {
+    ...item,
+    archiveHash,
+    call: null,
+    inputHash: null,
+    recordings: readFrozenRecordings(db),
+  };
+  const prepared = namingReplay(
+    { ...data, cases: [...(data.cases ?? []), frozen] },
+    frozen,
+    true
+  );
+  return {
+    ...frozen,
+    call: item.attemptId
+      ? frozenNamingCall(
+          db,
+          data,
+          item.conversationId,
+          prepared.input,
+          item.attemptId
+        )
+      : null,
+    input: prepared.input,
+    inputHash: prepared.input?.inputHash ?? null,
+  };
+}
+type NamingScoreRow = ReturnType<typeof namingReplay>["rows"][number];
+function namingCounts(rows: { prediction: string | null; correct: boolean }[]) {
+  const predicted = rows.filter((r) => r.prediction !== null);
+  const correct = predicted.filter((r) => r.correct).length;
+  const n = predicted.length;
+  const z2 = NAMING.gateZ ** 2;
+  const centre = (correct + z2 / 2) / (n + z2);
+  const spread = n
+    ? (NAMING.gateZ * Math.sqrt((correct * (n - correct)) / n + z2 / 4)) /
+      (n + z2)
+    : 0;
+  return {
+    correct,
+    coverage: rows.length ? n / rows.length : 0,
+    interval: n ? [centre - spread, centre + spread] : null,
+    precision: n ? correct / n : null,
+    predictions: n,
+    turns: rows.length,
+  };
+}
+export function summarizeNamingUnits(
+  rows: {
+    prediction: string | null;
+    correct: boolean;
+    recordingId: string;
+    callId: string;
+  }[]
+) {
+  const units = (key: "recordingId" | "callId") =>
+    namingCounts(
+      [...Map.groupBy(rows, (r) => r[key]).values()].map((group) => ({
+        correct: group.every((r) => r.prediction === null || r.correct),
+        prediction: group.some((r) => r.prediction !== null) ? "named" : null,
+      }))
+    );
+  return { calls: units("callId"), recordings: units("recordingId") };
+}
+const lowerBoundOf = (...reports: { interval: number[] | null }[]) =>
+  Math.min(...reports.map((r) => r.interval?.[0] ?? 0));
+export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
+  const reasons: string[] = [];
+  const calibrationRecordingIds = recordingIds(data.cases, "calibration");
+  const heldOutRecordingIds = recordingIds(data.cases, "held-out");
+  const calibrationConversations = new Set(
+    data.cases
+      .filter((c) => c.partition === "calibration")
+      .map((c) => c.conversationId)
+  );
+  if (
+    calibrationRecordingIds.some((id) => heldOutRecordingIds.includes(id)) ||
+    data.cases.some(
+      (c) =>
+        c.partition === "held-out" &&
+        calibrationConversations.has(c.conversationId)
+    )
+  ) {
+    reasons.push(
+      "calibration and held-out recordings or conversations overlap"
+    );
+  }
+  if (!(calibrationRecordingIds.length && heldOutRecordingIds.length)) {
+    reasons.push("both independent partitions are required");
+  }
+  if (
+    data.promptHash !== namingPromptHash() ||
+    data.policyHash !== namingPolicyHash() ||
+    hashOf(data.calibration) !== hashOf(NAMING.calibration)
+  ) {
+    reasons.push("model policy, prompt or calibrated cutoffs differ");
+  }
+  const rows: NamingScoreRow[] = [];
+  const inputHashes: string[] = [];
+  for (const item of data.cases.filter((c) => c.partition === "held-out")) {
+    try {
+      const replayed = namingReplay(data, item);
+      rows.push(...replayed.rows);
+      if (replayed.input) {
+        inputHashes.push(replayed.input.inputHash);
+      }
+    } catch (error) {
+      reasons.push(
+        `${item.conversationId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+  const overall = namingCounts(rows);
+  const addedContext = namingCounts(
+    rows
+      .filter((r) => r.potentialContext)
+      .map((r) => ({ ...r, prediction: r.context ? r.prediction : null }))
+  );
+  const independent = summarizeNamingUnits(rows);
+  const contextIndependent = summarizeNamingUnits(
+    rows.filter((r) => r.context)
+  );
+  const lowerBound = lowerBoundOf(
+    overall,
+    independent.recordings,
+    independent.calls
+  );
+  const contextLowerBound = lowerBoundOf(
+    addedContext,
+    contextIndependent.recordings,
+    contextIndependent.calls
+  );
+  if (
+    Math.min(
+      independent.recordings.predictions,
+      independent.calls.predictions,
+      contextIndependent.recordings.predictions,
+      contextIndependent.calls.predictions
+    ) < NAMING.minimumGatePredictions ||
+    lowerBound < NAMING.precision ||
+    contextLowerBound < NAMING.addedContextPrecision ||
+    !inputHashes.length
+  ) {
+    reasons.push("insufficient held-out precision or predictions");
+  }
 
+  return {
+    addedContext,
+    baseline: namingCounts(
+      rows.map((r) => ({
+        ...r,
+        correct: r.baselineCorrect,
+        prediction: r.baselinePrediction,
+      }))
+    ),
+    contextIndependent,
+    independent,
+    overall,
+    reasons,
+    receipt: {
+      calibration: data.calibration,
+      calibrationRecordingIds,
+      callPredictions: independent.calls.predictions,
+      contextCallPredictions: contextIndependent.calls.predictions,
+      contextCorrect: addedContext.correct,
+      contextLowerBound,
+      contextPredictions: addedContext.predictions,
+      contextRecordingPredictions: contextIndependent.recordings.predictions,
+      correct: overall.correct,
+      datasetHash: hashOf(data),
+      heldOutRecordingIds,
+      inputHashes: [...new Set(inputHashes)].sort(),
+      lowerBound,
+      model: data.model,
+      passed: reasons.length === 0,
+      policyHash: data.policyHash,
+      precision: overall.precision,
+      predictions: overall.predictions,
+      promptHash: data.promptHash,
+      recordingPredictions: independent.recordings.predictions,
+    },
+    strata: {
+      contextOnly: namingCounts(rows.filter((r) => r.contextOnly)),
+      group: namingCounts(rows.filter((r) => r.group)),
+      short: namingCounts(rows.filter((r) => r.short)),
+      twoPerson: namingCounts(rows.filter((r) => r.twoPerson)),
+    },
+  };
+}
 const ANSWERED = join(APP_DATA, "lifelog", "answered-voices.json");
 const BASELINE = `${import.meta.dir}/../fixtures/voice-eval-baseline.json`;
-
 if (import.meta.main) {
   if (Bun.argv.includes("export")) {
     const url = process.env.DATABASE_PATH;
@@ -228,13 +747,21 @@ if (import.meta.main) {
     process.exit(0);
   }
   const answered = await sha256Of(ANSWERED);
-  const { clusters, counts, insideHim, turns } = evaluate(
-    await Bun.file(ANSWERED).json()
-  );
+  const frozen: Export = await Bun.file(ANSWERED).json();
+  if (Bun.argv.includes("--naming")) {
+    if (!frozen.naming) {
+      throw new Error("no frozen naming corpus; model reads use naming-pass");
+    }
+    const report = evaluateNamingFrozen(frozen.naming);
+    console.log(JSON.stringify(report, null, 2));
+    process.exit(
+      Bun.argv.includes("--check") && !report.receipt.passed ? 1 : 0
+    );
+  }
+  const { clusters, counts, insideHim, turns } = evaluate(frozen);
   const result = { answered, clusters, counts, turns };
   if (Bun.argv.includes("--check")) {
     const baseline = await Bun.file(BASELINE).json();
-    // His answers frozen again on another branch: that branch's baseline judges them.
     if (baseline.answered !== answered) {
       console.log(
         "voice eval: skipped, the baseline was made from other answers"
@@ -250,12 +777,14 @@ if (import.meta.main) {
   await Bun.write(BASELINE, `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify({ clusters, counts, turns }, null, 2));
   console.log("his likeness inside his voices, 10/25/50/75/90%:");
-  console.log(
-    `  his turns (${insideHim.his.length})`,
-    quantiles(insideHim.his).join(" ")
-  );
-  console.log(
-    `  others' (${insideHim.others.length})`,
-    quantiles(insideHim.others).join(" ")
-  );
+  for (const [label, values] of [
+    ["his turns", insideHim.his],
+    ["others'", insideHim.others],
+  ] as const) {
+    const sorted = values.toSorted((a, b) => a - b);
+    const quantiles = [0.1, 0.25, 0.5, 0.75, 0.9].map((q) =>
+      (sorted[Math.floor(q * (sorted.length - 1))] ?? Number.NaN).toFixed(2)
+    );
+    console.log(`  ${label} (${values.length})`, quantiles.join(" "));
+  }
 }

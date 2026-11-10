@@ -34,8 +34,6 @@
         "apps/lifelog/apps/server/src/mac-llm.test.ts",
         "apps/lifelog/apps/server/src/naming-queue.test.ts",
         "apps/lifelog/apps/server/src/people.test.ts",
-        "apps/lifelog/apps/server/src/people.ts",
-        "apps/lifelog/packages/db/src/schema/index.ts",
         "apps/server/src/host/status/snapshot.ts",
         "apps/server/src/memory/observe.test.ts",
         "apps/server/src/memory/units.test.ts",

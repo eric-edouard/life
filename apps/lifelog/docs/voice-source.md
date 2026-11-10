@@ -1,7 +1,8 @@
 # The voice-source contract
 
-What a reader of lifelog can rely on: a program that follows the owner's recorded speech, never writes in the
-background, and knows nothing of the phone. Lifelog never calls a reader and does not know which one reads it. Any other
+Reference: what a reader following the owner's recorded speech can rely on without knowing the phone. Life has one
+deliberate background-write exception: its authenticated people snapshot and naming-pass request. Lifelog never calls
+a reader. Any other
 voice recorder can offer the same routes and be read the same way. `openapi.json` has every shape; this page says what
 the shapes mean.
 
@@ -11,7 +12,7 @@ Every route takes `Authorization: Bearer <token>`. A reader gets its own token, 
 
 - `bun run --cwd apps/lifelog/apps/server mint-token read` prints a token and `READ_TOKEN_HASH`. It opens the reads below.
 - `bun run --cwd apps/lifelog/apps/server mint-token corrections` prints a token and `CORRECTIONS_TOKEN_HASH`. It opens the reads and
-  the corrections.
+  the corrections, Life's people snapshot and naming-pass request.
 
 Only the hash goes in the server's environment. Mint again to rotate. A token on a route it doesn't open gets 403; an
 unknown token 401. The phone's device token opens everything, the reads included.
@@ -39,13 +40,14 @@ What a reader needs from a page:
   - `retired: { successorId }`: merged or undone away. Drop what was built from it; the successor holds its words.
 - **Turns**: keyed by `jobId` and `turnIndex`, with `conversationId` (the live conversation it falls in), `startAt`,
   `endAt`, `text`, timed `words` and `speaker`: `{ personId, personName, isOwner, displayName, label }`. Text never
-  holds dictation or media. A renamed voice sends its turns again.
+  holds dictation or media. Speaker attribution includes its owner, recognized or inferred basis; inference carries
+  model confidence and cited evidence separately from voice scores. A renamed voice sends its turns again.
 - **Chapters**: `id` (stable per conversation and start), `conversationId`, `startAt`, `endAt`, `title`, `summary`.
 - **Jobs**: one recording each, `id`, `durationSeconds` (seconds of speech), `state`, and `endedOnSilence`: true when
   nobody spoke for at least 30 s after it, so no turn follows it closely. False says nothing either way: a long
   recording is cut at 2 minutes or at a 5 s pause, before anyone knows what follows. Null on older jobs. A reader
   waiting for the end of what someone said uses this, then `closed`, rather than any timing rule of its own.
-- **People**: the owner's people, with their aliases.
+- **People**: named people, with their aliases; inferred creation provenance is distinct from a turn's attribution.
 
 The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, `vocabulary`). A reader may ignore it.
 
@@ -62,9 +64,16 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is
   `{ place?, latitude, longitude, arrivedAt, leftAt }`.
-- **corrections**, only the owner's explicit ones, never in the background: `PUT /transcripts/{jobId}/speakers/{label}`
+- **corrections**, the owner's explicit changes: `PUT /transcripts/{jobId}/speakers/{label}`
   (with `turnIndex` for one turn), `PUT /conversations/{id}/title`, `PATCH /people/{id}`, `POST /people/{id}/merge`.
   Splits and merges stay in the app.
+- **Life people and naming**, the deliberate background-write exception: `PUT /life/people` replaces a complete,
+  versioned snapshot of confident canonical identities, names, aliases, explicit lifelog links and fold mappings.
+  Older revisions are refused, replay is idempotent, and partial or failed snapshots remove nothing. A complete empty
+  snapshot removes eligibility, not recordings or owner evidence. `POST /naming-pass` carries Life's selected
+  `backfillEngine`; absent means off and a non-Codex engine defers the pass. Both routes require the corrections or
+  device token; read and map tokens cannot write them. No phone-call records or other Life memory move across this
+  boundary. Naming remains subject to the [rollout gates](processing.md#context-naming).
 - **status**: `GET /status`. `pendant` (`connection`, `recording`, `recordingKnownAt`, `batteryPercent`, `charging`,
   `knownAt`), `phoneHeartbeat` (the phone's last report, `backlog.pages` among it), `pipeline` (where audio and
   summaries are, `docs/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and

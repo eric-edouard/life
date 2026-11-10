@@ -254,3 +254,91 @@ export function decide(
   }
   return { ...decisionOf(main ?? voice, profiles), turns };
 }
+
+// A model reading names only its checked scope; it is never profile evidence.
+export interface InferredReading {
+  basis: "context" | "two-person";
+  confidence: number;
+  evidence: { quote: string; turn: number }[];
+  personId: string | null;
+}
+
+export interface NamingCalibration {
+  confidence: number;
+  contradictionMargin: number;
+  contradictionScore: number;
+}
+
+function isSupportedReading(
+  reading: InferredReading,
+  cutoff: NamingCalibration,
+  candidates?: Candidates | null
+) {
+  return (
+    Object.values(cutoff).every(Number.isFinite) &&
+    Number.isFinite(reading.confidence) &&
+    reading.confidence >= 0 &&
+    reading.confidence >= cutoff.confidence &&
+    reading.confidence <= 1 &&
+    reading.evidence.length > 0 &&
+    (!candidates ||
+      (!!reading.personId && candidates.people.includes(reading.personId)))
+  );
+}
+
+// Applied after the ordinary voice and nearby decisions, with the owner's fixed turns removed.
+export function decideInferredName(
+  result: {
+    isStranger: boolean;
+    personId: string | null;
+    vector: Vector | null;
+  },
+  profiles: Profiles,
+  reading: InferredReading,
+  context: {
+    calibration: NamingCalibration | null;
+    candidates?: Candidates | null;
+    hasOnlyCleanRemainingTurns?: boolean;
+    ownerId?: string;
+    trustedParticipants?: string[];
+  }
+) {
+  if (result.personId || result.isStranger) {
+    return result.personId;
+  }
+  const cutoff = context.calibration;
+  if (
+    !(
+      cutoff &&
+      reading.personId &&
+      isSupportedReading(reading, cutoff, context.candidates)
+    )
+  ) {
+    return null;
+  }
+  if (reading.basis === "two-person") {
+    const participants = new Set(context.trustedParticipants);
+    if (
+      !context.ownerId ||
+      participants.size !== 2 ||
+      !participants.has(context.ownerId) ||
+      !participants.has(reading.personId) ||
+      reading.personId === context.ownerId ||
+      !context.hasOnlyCleanRemainingTurns
+    ) {
+      return null;
+    }
+  }
+  const best = result.vector
+    ? rankPeople(result.vector, profiles.people)[0]
+    : null;
+  if (
+    best &&
+    best.personId !== reading.personId &&
+    best.score >= cutoff.contradictionScore &&
+    best.margin >= cutoff.contradictionMargin
+  ) {
+    return null;
+  }
+  return reading.personId;
+}

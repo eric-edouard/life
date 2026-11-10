@@ -18,7 +18,7 @@ VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for 
    until the phone backfills it; the samples the phone sent before the rebuild stay, and it sends none now. The server
    cuts only the turns without one.
 2. The server stores the embeddings.
-3. Recognition compares each speaker (8 s of clean speech or more) with the people the owner named.
+3. Recognition compares each speaker (8 s of clean speech or more) with owner-attributed voice profiles.
    A match needs a high enough score and a clear lead over the next person; otherwise "unknown".
 
 **What is stored where**
@@ -32,8 +32,9 @@ VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for 
 
 **Rules**
 
-- Only the owner creates people and adds evidence (naming, assigning or correcting a speaker or a
-  single turn). Recognition never adds to a profile and never creates a person.
+- Only owner assignments add voice evidence. Context may infer a checked speaker scope and create a person from a
+  confident linked Life identity; creation provenance and attribution provenance are separate. An inferred name never
+  adds to a profile, a nearby reference or trusted presence. Owner corrections win.
 - Recurring unnamed voices may be grouped as candidates; they are never shown as people. Keeping a sample does not
   make it evidence for anyone; a several-person voice is nobody's evidence either.
 - A speaker or turn the owner marks as media (a video, TV, radio) has no person and adds no
@@ -67,10 +68,10 @@ them to a paid API.
 **What is sent**, per call (a call is asked again up to twice when its answer is unusable; a roll sends only the
 tail past the chapters already summarized, and the owner's Generate reads the conversation again from its first turn):
 
-- the transcript text, turn by turn, each speaker a token (S1, S2…) with a legend: the owner, the owner's people by
-  name, voices not identified yet,
+- the transcript text, turn by turn, each speaker a token (S1, S2…) with a legend: the owner, named people
+  (owner-attributed or inferred), and voices not identified yet,
 - each turn's capture time, the recognizer's language codes and the owner's title, if any.
-- the names of the owner's people (to say whether an unnamed speaker is one of them), and which one is the owner.
+- candidate people's names and aliases, including confident linked Life identities, and which one is the owner.
 
 A roll reads the transcript twice: once for the chapters (a window of about 24,000 characters), then each closed
 chapter's turns for its summary. The title and
@@ -98,6 +99,21 @@ wants. An answer that isn't that JSON is unusable and asked again.
 Reading it twice, plus a chapter per ~4,000 tokens and the title, makes about 35,000 tokens in
 and 2,000 out, which counts against the plan's limits.
 
+## Context naming: Codex on the Mac
+
+Life's optional `backfillEngine` selects the naming pass; absent is off and a non-Codex choice defers it. The pass
+uses the same Mac subscription transport as summaries, with its selected engine frozen for retries. No paid API or
+Claude fallback exists. Calls count against the owner's ChatGPT subscription and use its consumer retention terms.
+
+Each bounded call sends transcript turns, exact target scopes, canonical candidate identities and aliases, trusted
+presence, and derived voice likeness scores and leads. It sends no embeddings, audio, generated summaries or target
+attributions as trusted evidence. The server retains per-input reads, abstentions, validation errors, attempt counts,
+tokens and latency separately from summary runs. The queue pauses on stale quota or unavailable Codex and admits a
+call only while the shared FIFO socket is idle; summaries run before the next naming call.
+
+Calibration, held-out precision gates, the capped pilot and separate archive-run authorization remain required;
+[processing.md](processing.md#context-naming) defines their order and the disabled rollout state.
+
 ## Places: Apple, on the phone
 
 The phone takes a fix about every five minutes (latitude, longitude, accuracy, time) and names it as it takes it with
@@ -116,8 +132,8 @@ returns passages that mean the query without using its words, marked "by meaning
 is downloaded at run time and nothing it embeds leaves the Mac. Chosen on 5 Nov 2026 against OpenAI's
 `text-embedding-3-large` and seven open models: better on the owner's French, English and Thai, and about 10 ms a query.
 
-**What is embedded:** passages of about 30 to 60 seconds of consecutive turns, with the names the owner gave speakers
-("<name>: words"), again only when their text changes; and each query.
+**What is embedded:** passages of about 30 to 60 seconds of consecutive turns, with the currently resolved speaker
+names (owner-attributed or inferred: "<name>: words"), again only when their text changes; and each query.
 
 **What we keep.** The passages, their vectors, capture times, speaker names and language in the server's database
 (`search_passages`), rebuilt from the transcript. A passage of another model is re-embedded, never compared.

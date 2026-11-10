@@ -12,7 +12,7 @@ import { openReadOnly } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except `forward` (the owner's explicit corrections) and `notifyPhone` (a "heard you" push). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except Life's authenticated people snapshot/naming pass, `forward` (the owner's explicit corrections) and `notifyPhone` (a "heard you" push). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -22,57 +22,7 @@ const WAIT_MARGIN_S = 30;
 
 export const WATCH = join(LIFE_STATE_DIR, "watch");
 
-// The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
-// (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read (its chapters and
-// summaries among them) are left out and ignored.
-export const Page = z.object({
-  conversations: z.array(
-    z.object({
-      // Settled (the contract's `closed`): grouping adds nothing more to it; late audio or an edit can reopen it.
-      closed: z.boolean().nullish(),
-      endAt: z.string(),
-      id: z.string(),
-      kind: z.string(),
-      ownerTitle: z.string().nullable(),
-      // A retired conversation has a successor, or none (lifelog dropped it, e.g. playback it transcribed by mistake).
-      retired: z.object({ successorId: z.string().nullable() }).nullable(),
-      startAt: z.string(),
-      state: z.string(),
-      title: z.string().nullable(),
-    })
-  ),
-  cursor: z.string(),
-  // Each recording, and whether nobody spoke for 30 s after it (`endedOnSilence`; null on older ones).
-  jobs: z.array(
-    z.object({ endedOnSilence: z.boolean().nullish(), id: z.string() })
-  ),
-  more: z.boolean(),
-  removed: z.array(z.object({ kind: z.string(), ref: z.string() })),
-  turns: z
-    .array(
-      z.object({
-        // null while lifelog's server has not yet grouped the turn into a conversation; it is sent again once it has.
-        conversationId: z.string().nullable(),
-        endAt: z.string(),
-        jobId: z.string(),
-        // Who spoke, as the server resolves it: a name given to one turn beats the voice's name.
-        speaker: z.object({
-          isOwner: z.boolean().default(false),
-          personId: z.string().nullable(),
-          personName: z.string().nullable(),
-        }),
-        startAt: z.string(),
-        turnIndex: z.number(),
-      })
-    )
-    .transform((ts) =>
-      ts.filter(
-        (t): t is typeof t & { conversationId: string } =>
-          t.conversationId !== null
-      )
-    ),
-});
-type Page = z.infer<typeof Page>;
+import { isOwnerSpeech, Page } from "./lifelog-feed";
 
 /** A recorded turn: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
 export interface LifelogTurn {
@@ -81,7 +31,7 @@ export interface LifelogTurn {
   end: string | null;
   jobId: string;
   name: string | null;
-  /** Lifelog says the owner spoke it. */
+  /** Owner-confirmed or voice-recognized owner speech; context grants no action authority. */
   owner: boolean;
   /** Lifelog's person, when it named the speaker (a person with no name is still someone). */
   personId: string | null;
@@ -118,7 +68,7 @@ function config() {
 }
 
 /** GET `path`, or send `body` to it (POST unless `method` says otherwise). */
-async function call(
+export async function callLifelog(
   path: string,
   timeoutS = 60,
   body?: unknown,
@@ -165,7 +115,7 @@ export const LifelogStatus = z.object({
     .nullish(),
 });
 export const lifelogStatus = async () =>
-  LifelogStatus.parse(await call("/status", 15));
+  LifelogStatus.parse(await callLifelog("/status", 15));
 
 /**
  * The phone's zone, from its newest heartbeat; null when lifelog is not set up or that heartbeat names no zone Intl
@@ -376,7 +326,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
         t.startAt,
         t.speaker.personId,
         t.speaker.personName,
-        t.speaker.isOwner ? 1 : 0,
+        isOwnerSpeech(t.speaker) ? 1 : 0,
         t.endAt,
         seen
       );
@@ -397,14 +347,17 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
 export async function poll(store: Store, wait: number) {
   const since = readCursor(store);
   const page = Page.parse(
-    await call(`/changes?since=${since}&wait=${wait}`, wait + WAIT_MARGIN_S)
+    await callLifelog(
+      `/changes?since=${since}&wait=${wait}`,
+      wait + WAIT_MARGIN_S
+    )
   );
   // Before the page is folded in. A turn lifelog re-sends is not news; one it only now marks as his (it identifies the
   // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, apps/server/src/host/hear.ts).
   const stored = ownerRow(store);
   const owner = page.turns.filter((t) => {
     const row = stored.get(t.jobId, t.turnIndex);
-    return t.speaker.isOwner
+    return isOwnerSpeech(t.speaker)
       ? !row?.is_owner
       : !(row || t.speaker.personId || t.speaker.personName);
   });
@@ -597,7 +550,9 @@ export const Transcript = z.object({
 /** One recording's transcript turns, in order (a turn ref's `turnIndex` indexes this list). Read-only. */
 export async function readTranscript(jobId: string) {
   return Transcript.parse(
-    await call(`/transcription-jobs/${encodeURIComponent(jobId)}/transcript`)
+    await callLifelog(
+      `/transcription-jobs/${encodeURIComponent(jobId)}/transcript`
+    )
   ).turns;
 }
 
@@ -632,7 +587,7 @@ export interface VoiceKind {
  * lifelog no longer has. Read-only.
  */
 export async function readVoiceKinds(conversationId: string) {
-  const answer = await call(
+  const answer = await callLifelog(
     `/conversations/${encodeURIComponent(conversationId)}`
   ).catch((e: { status?: number }) => {
     if (e.status === 404) {
@@ -720,7 +675,7 @@ export async function searchVoice(
   limit: number
 ) {
   return Hits.parse(
-    await call("/search", 60, {
+    await callLifelog("/search", 60, {
       dateRange: range,
       limit,
       query,
@@ -741,7 +696,7 @@ export type Stay = z.infer<typeof Stays>[number];
 
 /** Where the owner was at `at`, an ISO instant: 0 or 1 stay. A day's stays: `visits` with its bounds (`dayRange`). */
 export async function whereAt(at: string) {
-  return Stays.parse(await call(`/where?at=${encodeURIComponent(at)}`));
+  return Stays.parse(await callLifelog(`/where?at=${encodeURIComponent(at)}`));
 }
 
 /** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates. */
@@ -753,7 +708,7 @@ export async function visits(q: Record<string, string | number | undefined>) {
   );
   // A 404 is lifelog's answer when no place the phone named matches: no stays.
   return Stays.parse(
-    await call(`/visits?${query}`).catch((e: { status?: number }) =>
+    await callLifelog(`/visits?${query}`).catch((e: { status?: number }) =>
       e.status === 404 ? [] : Promise.reject(e)
     )
   );
@@ -917,7 +872,7 @@ export async function forward(kind: string, a: Fix) {
   }
   const [method, path, body] = f.request(a);
   log("lifelog.write", { body, method, path, phase: "before" });
-  const after = await call(path, 60, body, method);
+  const after = await callLifelog(path, 60, body, method);
   log("lifelog.write", { after, method, path, phase: "after" });
   return after;
 }
@@ -930,7 +885,7 @@ export async function notifyPhone(title: string, body: string) {
   const path = "/notifications";
   log("lifelog.write", { body: { title }, path, phase: "before" });
   try {
-    await call(path, 30, { body, title });
+    await callLifelog(path, 30, { body, title });
     log("lifelog.write", { path, phase: "after" });
   } catch (e) {
     log("lifelog.write", { error: String(e), path, phase: "failed" });

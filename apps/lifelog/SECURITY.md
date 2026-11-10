@@ -15,6 +15,8 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | Transcripts | ElevenLabs keeps a copy under its own retention policy | Their terms ([docs/providers.md](docs/providers.md)) |
 | Push alerts' text (the voices-to-name count, "open lifelog", Life's "heard you" notices; never what was said) | Apple's push service, on its way to the phone | Apple's terms; silent pushes carry no text |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
+| Bounded context naming input: transcript turns, canonical candidate names/aliases, trusted presence and derived likeness scores | Your ChatGPT account, through Codex; no audio or embeddings | Your subscription's consumer terms |
+| Life people snapshot, links, folds and naming attempts | The server database | Mac file permissions; no other Life memory is transferred |
 
 ## Where secrets live
 
@@ -37,8 +39,9 @@ the server compares its hash.
   processing switches. Whoever holds it is the owner, as far as the server knows. Mint a new one
   (`bun run --cwd apps/lifelog/apps/server mint-token`) and re-pair the phone to rotate it.
 - A **reader token** opens only the reads the voice-source contract lists, and a `corrections` token also the
-  owner's explicit corrections (titles, speakers, people). Both see every transcript and the location history. Lifelog
-  Host's reader token is a `corrections` token.
+  owner's explicit corrections (titles, speakers, people), plus the deliberate Life background writes
+  `PUT /life/people` and `POST /naming-pass`. Read and map tokens cannot call those writes. Both reader token kinds see
+  every transcript and the location history. Lifelog Host's reader token is a `corrections` token.
 - The **Mac token** opens only the helper's socket, but that socket carries the summaries' prompts (transcript text)
   and the dictation ranges. A stolen one could read prompts while the real helper is away, answer them with made-up
   summaries, and vouch for the Mac without sending ranges, which would let dictation reach ElevenLabs.
@@ -63,8 +66,9 @@ delivered: a phone that dies mid-transfer loses it ([docs/research/omi.md](docs/
 **Prompt injection through speech.** Anyone near the recorder can say "ignore your instructions and…". What a
 recording, transcript or summary says is never an instruction: model calls run in an empty folder with no tools,
 settings, MCP servers or web access, the transcript is sent as quoted data, and answers must match a strict JSON
-schema whose claims cite real turns. The worst a spoken attack can do is a wrong title or summary, which the owner
-can see and regenerate. Readers such as Life must treat lifelog's text the same way.
+schema whose claims cite real turns. A spoken attack can still cause a wrong title, summary or inferred speaker
+name. Context naming also validates candidate membership, quotes and calibrated voice contradictions, preserves owner
+answers and never promotes inferred names to voice evidence. Readers such as Life must treat lifelog's text as data.
 
 **Dictation.** When the owner dictates to the Mac, the recorder hears it. The Mac helper reports those ranges, and
 the server cuts them from every block before ElevenLabs, the identity service or a model sees it, checking twice.

@@ -162,7 +162,7 @@ const rangeOf = (points, axis) => {
     select.value = personId || "";
     return select;
   }
-  function clipNames(clip) {
+  function clipNames(clip, afterSave) {
     const form = document.createElement("form");
     const select = personSelect(clip.personId);
     const name = document.createElement("input");
@@ -186,9 +186,14 @@ const rangeOf = (points, axis) => {
         if (target.kind === "new") {
           data.people.push({ id: target.id, name: target.name });
         }
-        showClips(selected);
-        showPeople();
-        status("Clip saved. Name the other clips, then choose Done.");
+        if (afterSave) {
+          afterSave();
+          status("Speaker corrected.");
+        } else {
+          showClips(selected);
+          showPeople();
+          status("Clip saved. Name the other clips, then choose Done.");
+        }
       } finally {
         saving = false;
         save.disabled = false;
@@ -302,6 +307,27 @@ const rangeOf = (points, axis) => {
     "#83bba3",
     "#d69b7d",
   ];
+  function showInferred() {
+    el("inferred").replaceChildren(
+      ...(data.inferred ?? []).map((turn) => {
+        const row = document.createElement("div");
+        const title = document.createElement("p");
+        title.textContent = `${turn.personName} · Inferred ${turn.inference?.basis === "two-person" ? "from two participants" : "from context"}`;
+        const quote = document.createElement("blockquote");
+        quote.textContent = turn.text;
+        const evidence = document.createElement("small");
+        evidence.textContent = (turn.inference?.evidence ?? [])
+          .map((e) => e.quote)
+          .join(" · ");
+        const form = clipNames(turn, () => {
+          data.inferred = data.inferred.filter((t) => t !== turn);
+          showInferred();
+        });
+        row.append(title, quote, evidence, form);
+        return row;
+      })
+    );
+  }
   async function draw() {
     const model = modelOf();
     const points = model?.points ?? [];
@@ -327,8 +353,13 @@ const rangeOf = (points, axis) => {
             }
             return 5 + Math.min(22, Math.sqrt(p.words) / 8);
           }),
-          symbol: same.map((p) =>
-            p.basis === "recognized" ? "circle-open" : "circle"
+          symbol: same.map(
+            (p) =>
+              ({
+                inferred: "diamond-open",
+                owner: "circle",
+                recognized: "circle-open",
+              })[p.basis ?? "owner"]
           ),
         },
         mode: "markers",
@@ -458,6 +489,7 @@ const rangeOf = (points, axis) => {
       el("model").value = previous;
     }
     await draw();
+    showInferred();
     status(
       data.models.length
         ? ""

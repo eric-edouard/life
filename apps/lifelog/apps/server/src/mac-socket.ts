@@ -516,6 +516,8 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       const since = row ? dictatingSince(row.state, clock().getTime()) : null;
       return since === null ? null : new Date(since).toISOString();
     },
+    // Naming admits only onto an empty FIFO, including work the helper kept across a restart.
+    idle: () => queue.length === 0 && pending.size === 0 && foreign.size === 0,
     // The live view while a socket said hello, else null (the stored row stands).
     live(): MacView | null {
       const row = current ? macRow(db) : undefined;

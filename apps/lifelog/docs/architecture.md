@@ -56,8 +56,12 @@ flowchart TB
   Server -. "silent push" .-> SyncStore
   Server --> Identity
   Mac <-->|"WebSocket: dictation, summaries"| Server
-  Life -- "REST, read or corrections token (docs/voice-source.md)" --> Server
+  Life -- "REST: reads, corrections, people snapshot, naming pass (scoped token)" --> Server
 ```
+
+Life's people snapshot and naming-pass request are deliberate background writes through the corrections or device
+token; read and map tokens cannot call them. The server validates complete snapshot revisions and fold mappings;
+Life memory code, files and databases are never imported or opened by lifelog ([voice contract](voice-source.md)).
 
 **Kit** holds everything that doesn't need UIKit, so it builds and tests on the Mac in seconds:
 

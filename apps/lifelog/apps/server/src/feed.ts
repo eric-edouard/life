@@ -36,9 +36,10 @@ import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { type ChangeKind, latestSeq, turnRef } from "./change-log";
 import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
-import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, personRow, speakerOf } from "./people";
 import { placeName } from "./places";
 import { macView } from "./quiet-ranges";
+import { voiceId } from "./recognized-rows";
 import { latestValidRun, rendererFor, splitsOf } from "./summaries";
 import {
   keptWords,
@@ -474,10 +475,12 @@ function loadTurns(
         language: t.language,
         speaker: {
           displayName: displayName(person, voices, t),
+          inference: speaker?.inference ?? null,
           isOwner: person?.id === ownerPersonId,
           label: t.speakerLabel,
           personId: person?.id ?? null,
           personName: person?.name ?? null,
+          source: speaker?.source ?? null,
         },
         startAt: t.startAt.toISOString(),
         turnIndex: t.turnIndex,

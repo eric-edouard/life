@@ -55,7 +55,8 @@ The contract exists: the source descriptor (`Descriptor`, `apps/server/src/sourc
   done (`/changes`);
 - a transcript per job, turns with speaker and words, fetched on demand (`/transcription-jobs/{id}/transcript`);
 - exact-word search over transcripts (`POST /search`);
-- the owner's corrections written back: speaker, title, rename, merge (`forward`, the only write);
+- the owner's corrections written back: speaker, title, rename, merge (`forward`); the current deliberate background
+  exception is Life's authenticated people snapshot and naming-pass request ([voice contract](../../apps/lifelog/docs/voice-source.md));
 - optional: where he was (`/where`, `/visits`) and the source's own status (`/status`).
 
 Life never receives audio and keeps no transcript text (except an ask's words). This list is lifelog's input contract
@@ -81,8 +82,9 @@ and home, and the CLIs' environment.
 
 ### Transcription providers
 
-Transcription belongs to lifelog, not Life: lifelog holds the audio and Life never sees it (an invariant: memory does
-not move into lifelog, and audio does not move into Life). The contract lives in lifelog's report. From the Transcription
+Transcription belongs to lifelog: audio never moves into Life. The later authenticated people snapshot is the sole
+memory-transfer exception into lifelog: confident canonical identities, names, aliases, explicit links and folds;
+no observations, chat or mail text, or phone-call records. The contract lives in lifelog's report. From the Transcription
 v2 benchmark (interim, 22 Oct), the shape a provider must give: timed words, each with a speaker label (nullable) and an
 optional confidence; a language per job, better per turn. Diarization can be a separate stage (pyannote) merged onto
 the words. The likely winner routes by language (local models for English and French, Scribe or a Thai model for

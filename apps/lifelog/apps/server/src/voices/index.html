@@ -206,7 +206,8 @@
         Listen to a voice, then give it a name. Grey voices are waiting; larger
         grey dots hold more words. Each named voice is a cloud in its colour:
         solid dots are samples you named, hollow ones lifelog matched to that
-        person, and the larger dot is the centre of the voice.
+        person, hollow diamonds are inferred from context, and the larger dot is
+        the centre of the voice.
       </p>
       <p aria-live="polite" id="status" role="status">Loading voices…</p>
       <div class="layout">
@@ -254,6 +255,8 @@
           <fieldset aria-label="Voice visibility" id="visibility"></fieldset>
           <h2>Easy targets</h2>
           <div id="easy"></div>
+          <h2>Inferred speakers</h2>
+          <div id="inferred"></div>
           <h2>All voices to name</h2>
           <div id="all"></div>
         </aside>
