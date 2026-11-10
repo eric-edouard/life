@@ -137,3 +137,44 @@ page-writing prompt.
 | A reader moved too early | The old writer still runs until the PR after; moving back is one line |
 | A prompt change re-reads the archive | Rule 9; a version change is asked first |
 | The pilot says a layer fails | Its stage is dropped; the stages before it stand alone |
+
+## If it is built in days, not weeks
+
+His word (10 Nov): he means to reach the whole spec within one or two days; his quota is back whenever he wants.
+The rules above do not change: they are what makes a fast build safe. What changes is the pace and the order.
+
+**Lanes instead of a line.** Steps that touch different files run side by side, each in its own worktree and PR:
+
+| Lane | Steps | Files it owns |
+|---|---|---|
+| Sources | 0.2 | One reader per source |
+| Exchange and measures | 0.1, 0.3, 5.1 | New files; the persona's counting |
+| Coverage and hours | 0.4, 0.5 | New files; source health |
+| Links | 1.1 to 1.3 | A new file; open items |
+| Histories | 2.1 to 2.5 | A new file; situations |
+| The pilot | Stage 3 | `scripts/` only |
+| His word and questions | 6.1, 6.2 | Statements, corrections |
+| Forecasts | 7.1 | New files |
+
+- **One PR first, alone**: new night steps register themselves in a small list instead of each editing the night's
+  one file. Without it every lane collides on the same lines.
+- Two writers never share a file. The focused reads (stage 4), the readings that rest on them (5.2 to 5.6), the
+  connector's batch and the boundary stay in a line, after the pilot.
+
+**Replay instead of waiting for nights.** A new layer is run over the last two months on a copy of his data and
+compared there, the same day. "Shadow" then only means: merged, switched off for readers, until its comparison is in.
+
+**What speed cannot buy**
+
+| Thing | Why |
+|---|---|
+| The names, before the first record is stored | A stored name that changes later costs a migration. His yes comes first |
+| The pilot, before the focused reads' wording is frozen | Everything is read once with that wording |
+| The history read | It is priced after the pilot and runs in weeks on Codex, by itself, after the code is done |
+| A verdict per PR | The merge gate stays |
+| The other session's data work | It owns units, sources and the import; the sources lane waits for it or is agreed with it |
+
+**The honest risk.** His own words: he is wary of sprees that burn tokens and get rebuilt. A two-day build of
+everything is one unless each lane stops at its comparison. So: a lane merges switched off, and a reader moves only
+on its number. What two days can truly deliver is all the code, the pilot's result and the first readers moved;
+the history and the proof on real nights follow by themselves.
