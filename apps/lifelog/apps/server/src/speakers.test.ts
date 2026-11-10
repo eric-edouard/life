@@ -8,8 +8,18 @@ import {
 } from "./speakers";
 
 const profiles: Profile[] = [
-  { exemplars: [[1, 0, 0]], isOwner: true, personId: "owner" },
-  { exemplars: [[0, 1, 0]], isOwner: false, personId: "clara" },
+  {
+    conversations: ["reference"],
+    exemplars: [[1, 0, 0]],
+    isOwner: true,
+    personId: "owner",
+  },
+  {
+    conversations: ["reference"],
+    exemplars: [[0, 1, 0]],
+    isOwner: false,
+    personId: "clara",
+  },
 ];
 
 // A turn's sample at `owner` to his profile and `other` to Clara's.
@@ -21,7 +31,7 @@ const turnAt = (owner: number, other: number, durationSeconds: number) => ({
 const owned = (sample: ReturnType<typeof turnAt>) =>
   decide(
     { samples: [sample], vector: null },
-    { people: profiles, strangers: [] }
+    { people: profiles, strangerConversations: [], strangers: [] }
   ).turns.map((t) => t.personId);
 
 test("a short turn is the owner's at 0.5 only with a 0.1 lead; a long one still needs 0.6", () => {
@@ -43,7 +53,11 @@ test("a voice is as like a person as its two closest conversations of theirs", (
 
 test("a turn that sounds more like a stranger than the owner stays put, unless he named who is there", () => {
   const sample = turnAt(0.62, 0, 10); // 0.79 to the stranger below
-  const voices = { people: profiles, strangers: [[0, 0, 1]] };
+  const voices = {
+    people: profiles,
+    strangerConversations: ["reference"],
+    strangers: [[0, 0, 1]],
+  };
   const moved = (candidates: { people: string[]; unknown: boolean } | null) =>
     decide({ samples: [sample], vector: null }, voices, candidates).turns.map(
       (t) => t.personId
@@ -57,7 +71,11 @@ test("a turn that sounds more like a stranger than the owner stays put, unless h
 });
 
 test("a new voice unlike everyone is no stranger, however little it sounds like the people", () => {
-  const voices = { people: profiles, strangers: [[0, 0, 1]] };
+  const voices = {
+    people: profiles,
+    strangerConversations: ["reference"],
+    strangers: [[0, 0, 1]],
+  };
   const isStranger = (vector: number[]) =>
     decide({ samples: [], vector }, voices).isStranger;
   // 0.30 to the owner, 0.50 to the stranger: ahead, but not as alike as one group's voices.
@@ -70,7 +88,7 @@ test("a lone profile competes with the match threshold in every margin check", (
   if (!person) {
     throw new Error("missing profile");
   }
-  const voices = { people: [person], strangers: [] };
+  const voices = { people: [person], strangerConversations: [], strangers: [] };
   const named = (score: number) =>
     decide(
       { samples: [], vector: [Math.sqrt(1 - score ** 2), score, 0] },
@@ -106,6 +124,7 @@ test("a lone profile competes with the match threshold in every margin check", (
 
 test("a lone owner still takes 0.65 through ownerTurn, but not 0.55 through its short-turn margin", () => {
   const owner: Profile = {
+    conversations: ["reference"],
     exemplars: [[1, 0, 0]],
     isOwner: true,
     personId: "owner",
@@ -114,14 +133,14 @@ test("a lone owner still takes 0.65 through ownerTurn, but not 0.55 through its 
   expect(
     decide(
       { samples: [sample], vector: null },
-      { people: [owner], strangers: [] }
+      { people: [owner], strangerConversations: [], strangers: [] }
     ).turns
   ).toEqual([{ personId: "owner", score: 0.65, turnIndex: 0 }]);
   // Below ownerTurn: this specifically exercises the lone-profile margin convention.
   expect(
     decide(
       { samples: [turnAt(0.55, 0, 3)], vector: null },
-      { people: [owner], strangers: [] }
+      { people: [owner], strangerConversations: [], strangers: [] }
     ).turns[0]?.personId
   ).toBeUndefined();
 });

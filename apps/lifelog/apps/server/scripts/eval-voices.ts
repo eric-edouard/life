@@ -20,13 +20,14 @@ import { eq } from "drizzle-orm";
 import {
   evidenceRows,
   match,
+  modelKey,
   type ProfilesByModel,
   speakerOf,
   strangerRows,
   voiceId,
   weighProfiles,
 } from "../src/people";
-import { likeness } from "../src/speakers";
+import { likeness, profilesWithout, soundsLikeOf } from "../src/speakers";
 
 export type Export = ReturnType<typeof exportVoices>;
 type Sample = Export["samples"][number];
@@ -104,33 +105,51 @@ function scoreVoice(
   };
 }
 
-// Profiles rebuilt without the evidence of `conversations`. A job is judged without any conversation
-// its samples were cut in: a sample keeps the conversation it was cut for, and a job's can differ.
-export const profilesWithout = (
-  { evidence, strangers }: Pick<Export, "evidence" | "strangers">,
-  conversations: Set<string>
-) =>
-  weighProfiles(
-    evidence.filter((e) => !conversations.has(e.conversationId)),
-    strangers.filter((e) => !conversations.has(e.conversationId))
-  );
+// Every model's profiles, to judge a job without any conversation its samples were cut in
+// (speakers.ts `profilesWithout`): a sample keeps the conversation it was cut for, and a job's can differ.
+export function profilesOf({
+  evidence,
+  strangers,
+}: Pick<Export, "evidence" | "strangers">) {
+  const all = weighProfiles(evidence, strangers);
+  return (conversations: Set<string>): ProfilesByModel =>
+    new Map(
+      [...all].map(([m, p]) => [m, profilesWithout(p, conversations)] as const)
+    );
+}
 
 // Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
   const answerOf = answers(data);
+  const without = profilesOf(data);
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
-      const profiles = profilesWithout(
-        data,
-        new Set(inJob.map((s) => s.conversationId))
-      );
+      const profiles = without(new Set(inJob.map((s) => s.conversationId)));
       return [...Map.groupBy(inJob, voiceOf).values()].flatMap((voice) => {
         const judged = voice.flatMap((s) => {
           const answer = answerOf(s);
           return answer ? [{ s, truth: answer.personId }] : [];
         });
+        const own = voice.filter((s) => answerOf(s)?.turnIndex === null);
+        const namedPersonId = own[0] && answerOf(own[0])?.personId;
+        const [model] = [...Map.groupBy(own, modelKey)].sort(
+          (a, b) => b[1].length - a[1].length
+        );
         return judged.length > 0
-          ? [scoreVoice(data.owner, judged, voice, profiles)]
+          ? [
+              {
+                ...scoreVoice(data.owner, judged, voice, profiles),
+                recheck: !!(
+                  namedPersonId &&
+                  model &&
+                  soundsLikeOf(
+                    model[1].map((s) => s.embedding),
+                    namedPersonId,
+                    profiles.get(model[0])?.people ?? []
+                  )
+                ),
+              },
+            ]
           : [];
       });
     }
@@ -158,6 +177,7 @@ export function evaluate(data: Export) {
     counts,
     // His likeness, per turn inside a voice recognized as him: his own turns and the others'.
     insideHim: { his: inside(true), others: inside(false) },
+    rechecks: voices.filter((v) => v.recheck).length,
     turns: turns.length,
   };
 }
@@ -235,10 +255,10 @@ if (import.meta.main) {
     process.exit(0);
   }
   const answered = await sha256Of(ANSWERED);
-  const { clusters, counts, insideHim, turns } = evaluate(
+  const { clusters, counts, insideHim, rechecks, turns } = evaluate(
     await Bun.file(ANSWERED).json()
   );
-  const result = { answered, clusters, counts, turns };
+  const result = { answered, clusters, counts, rechecks, turns };
   if (Bun.argv.includes("--check")) {
     const baseline = await Bun.file(BASELINE).json();
     // His answers frozen again on another branch: that branch's baseline judges them.
@@ -255,7 +275,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   await Bun.write(BASELINE, `${JSON.stringify(result, null, 2)}\n`);
-  console.log(JSON.stringify({ clusters, counts, turns }, null, 2));
+  console.log(JSON.stringify({ clusters, counts, rechecks, turns }, null, 2));
   console.log("his likeness inside his voices, 10/25/50/75/90%:");
   console.log(
     `  his turns (${insideHim.his.length})`,

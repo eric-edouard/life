@@ -47,7 +47,6 @@ beforeEach(() => {
 // Oct 10 at noon in the tests' zone (Asia/Jakarta, set below), and the next morning at 9.
 const NOON = Date.parse("2026-10-10T05:00:00Z");
 const NEXT_MORNING = new Date("2026-10-11T02:00:00Z");
-// The whole naming queue.
 const queued = () => namingQueue(env.db).items();
 
 // Conversations seeded in this test: each one starts an hour after the one before, so their
@@ -170,6 +169,7 @@ test("a voice that talked with the owner is queued with the name heard; others a
       id: `${herve.jobId}/speaker_1`,
       kind: "new_person",
       name: "Hervé",
+      namedPersonId: null,
       personId: null,
       seconds: 72,
       voices: [

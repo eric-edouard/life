@@ -132,6 +132,8 @@ export const NAMING = {
   minWords: 300,
   quoteChars: 200,
   quotes: 3,
+  // Measured on the owner's review of 10 Nov 2026: caught two thirds of changed names; 9 in 10 flagged names were wrong.
+  recheckShare: 0.5,
 } as const;
 
 // Search by meaning (search.ts). Measured on the owner's French, English and Thai queries (5 Nov 2026).

@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
+  conversationJobs,
   conversations,
   live,
   people,
@@ -21,7 +22,7 @@ import {
   speakerAssignments,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock } from "./config";
@@ -32,11 +33,13 @@ import {
   assign,
   isCalled,
   isRejected,
+  modelKey,
   readOwnTurns,
   readVoices,
   type Target,
   voiceId,
 } from "./people";
+import { NO_PROFILES, profilesWithout, soundsLikeOf } from "./speakers";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";
@@ -237,6 +240,7 @@ function cardOf(
     id: group,
     kind: personId ? "known_person" : "new_person",
     name: mostOf(voices.flatMap((v) => v.names)),
+    namedPersonId: null,
     personId,
     seconds: Math.round(seconds),
     voices: voices.map(({ conversationId, jobId, speakerLabel }) => ({
@@ -248,6 +252,110 @@ function cardOf(
 }
 
 export type Card = Suggestion & { clips: Clip[]; words: number };
+
+// The voices to recheck: each speaker he named, judged without its own conversations
+// (speakers.ts `soundsLikeOf`), the most doubtful first. A turn with its own answer is not the
+// speaker's sample.
+// ponytail: every named voice is judged again on each build (0.7 s for 700 of them, in the
+// worker); keep each voice's verdict between builds if that grows.
+function readRechecks(
+  db: Db,
+  reader: ReturnType<typeof readVoices>,
+  clip: ReturnType<typeof readClip>
+) {
+  const rows = db
+    .select()
+    .from(speakerAssignments)
+    .where(
+      and(
+        eq(speakerAssignments.source, "owner"),
+        isNull(speakerAssignments.turnIndex),
+        isNotNull(speakerAssignments.personId),
+        isNull(speakerAssignments.candidates),
+        eq(speakerAssignments.rechecked, false),
+        sql`exists (select 1 from ${conversationJobs} c where c.job_id = ${speakerAssignments.jobId})`
+      )
+    )
+    .all();
+  const clipsOf = cardClips(db, reader, clip);
+  return rows
+    .flatMap((row) => {
+      const samples = reader.samples([row]);
+      const [model] = [...Map.groupBy(samples, modelKey)].sort(
+        (a, b) => b[1].length - a[1].length
+      );
+      if (!(model && row.personId)) {
+        return [];
+      }
+      const [key, same] = model;
+      const profiles = profilesWithout(
+        reader.profiles.get(key) ?? NO_PROFILES,
+        new Set(samples.map((s) => s.conversationId))
+      ).people;
+      const heard = soundsLikeOf(
+        same.map((s) => s.embedding),
+        row.personId,
+        profiles
+      );
+      if (!heard) {
+        return [];
+      }
+      const group = voiceId(row.jobId, row.speakerLabel);
+      const voices = new Map<string, Voice>();
+      for (const sample of same) {
+        const found = clip(sample);
+        if (!found) {
+          continue;
+        }
+        const voice =
+          voices.get(found.conversationId) ??
+          newVoice(
+            found.conversationId,
+            found.turn,
+            row.speakerLabel,
+            group,
+            false
+          );
+        voice.seconds += found.turn.endSeconds - found.turn.startSeconds;
+        voice.words.set(
+          turnRef(row.jobId, sample.turnIndex),
+          found.turn.words.length
+        );
+        voices.set(found.conversationId, voice);
+      }
+      if (!voices.size) {
+        return [];
+      }
+      const members = [...voices.values()];
+      const card: Suggestion = {
+        ...cardOf(
+          group,
+          members,
+          members.reduce((sum, v) => sum + v.seconds, 0),
+          0
+        ),
+        kind: "recheck",
+        namedPersonId: row.personId,
+        personId: heard.personId,
+      };
+      return [
+        {
+          card: {
+            ...card,
+            clips: clipsOf(card),
+            words: members.reduce(
+              (sum, v) =>
+                sum + [...v.words.values()].reduce((a, b) => a + b, 0),
+              0
+            ),
+          },
+          share: heard.share,
+        },
+      ];
+    })
+    .sort((a, b) => b.share - a.share)
+    .map(({ card }) => card);
+}
 
 // Split groups are map-only cards; their members include every sample, even past the clip cut.
 function readSplitCards(
@@ -497,6 +605,7 @@ export function readVoiceMap(
 export function namingQueue(db: Db) {
   let kept: {
     items: ReturnType<typeof cardsOf>;
+    rechecks: Card[];
     reader: ReturnType<typeof readVoices>;
     clip: ReturnType<typeof readClip>;
     ownerId: string;
@@ -537,6 +646,7 @@ export function namingQueue(db: Db) {
         items: cardsOf(db, [...voices.values()].flat(), reader, clip),
         ownerId: owner.id,
         reader,
+        rechecks: readRechecks(db, reader, clip),
         seen: touched.through,
         voices,
       };
@@ -546,6 +656,10 @@ export function namingQueue(db: Db) {
     projection() {
       const items = this.items();
       return readVoiceMap(db, items, kept?.reader, kept?.clip);
+    },
+    rechecks() {
+      this.items();
+      return kept?.rechecks ?? [];
     },
   };
 }

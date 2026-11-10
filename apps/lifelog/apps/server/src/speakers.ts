@@ -13,13 +13,14 @@
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
 import type { Candidates } from "@lifelog/db/schema";
-import { RECOGNITION } from "./config";
+import { NAMING, RECOGNITION } from "./config";
 import { averageLinkageSync } from "./voice-linkage";
 
 import { cosine, type Vector } from "./voice-vectors";
 
 // A person's voice: one centroid per conversation of their evidence (people.ts `weighProfiles`).
 export interface Profile {
+  conversations: string[];
   exemplars: Vector[];
   isOwner: boolean;
   personId: string;
@@ -29,14 +30,54 @@ export interface Profile {
 // strangers' (people.ts `weighProfiles`).
 export interface Profiles {
   people: Profile[];
+  strangerConversations: string[];
   strangers: Vector[];
 }
-export const NO_PROFILES: Profiles = { people: [], strangers: [] };
+export const NO_PROFILES: Profiles = {
+  people: [],
+  strangerConversations: [],
+  strangers: [],
+};
+
+// Each centroid belongs to one conversation; filtering never changes its vector or order.
+export function profilesWithout(
+  profiles: Profiles,
+  excluded: Set<string>
+): Profiles {
+  const without = (exemplars: Vector[], conversations: string[]) => ({
+    conversations: conversations.filter((id) => !excluded.has(id)),
+    exemplars: exemplars.filter(
+      (_, i) => !excluded.has(conversations[i] ?? "")
+    ),
+  });
+  const strangers = without(profiles.strangers, profiles.strangerConversations);
+  return {
+    people: profiles.people.flatMap((p) => {
+      const kept = without(p.exemplars, p.conversations);
+      return kept.exemplars.length ? [{ ...p, ...kept }] : [];
+    }),
+    strangerConversations: strangers.conversations,
+    strangers: strangers.exemplars,
+  };
+}
 
 function unit(v: Vector): Vector {
   const norm = Math.hypot(...v) || 1;
   return v.map((x) => x / norm);
 }
+
+// One exemplar per conversation: the centroid of its clips.
+export const exemplarsOf = (
+  clips: { conversationId: string; embedding: Vector }[]
+) => {
+  const grouped = Map.groupBy(clips, (r) => r.conversationId);
+  return {
+    conversations: [...grouped.keys()],
+    exemplars: [...grouped.values()].map((c) =>
+      centroid(c.map((r) => r.embedding))
+    ),
+  };
+};
 
 export const centroid = (vectors: Vector[]): Vector =>
   unit(vectors.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0))));
@@ -64,6 +105,28 @@ export function rankPeople(vector: Vector, profiles: Profile[]) {
       person.score -
       (ranked[i === 0 ? 1 : 0]?.score ?? RECOGNITION.matchThreshold),
   }));
+}
+
+// A voice he named that sounds like someone else (a recheck): the share of its turns whose first
+// guess is another person, and that person, once the share reaches `NAMING.recheckShare`. Null
+// when the named person has no evidence elsewhere: nothing to compare with.
+export function soundsLikeOf(
+  vectors: Vector[],
+  namedPersonId: string,
+  profiles: Profile[]
+) {
+  if (!profiles.some((p) => p.personId === namedPersonId)) {
+    return null;
+  }
+  const others = vectors.flatMap((v) => {
+    const personId = rankPeople(v, profiles)[0]?.personId;
+    return personId && personId !== namedPersonId ? [personId] : [];
+  });
+  const share = others.length / vectors.length;
+  const [personId] = [...Map.groupBy(others, (id) => id)]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([id]) => id);
+  return personId && share >= NAMING.recheckShare ? { personId, share } : null;
 }
 
 const nearest = (vector: Vector, profiles: Profile[]) =>
