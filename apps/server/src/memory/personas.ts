@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { DAY, daysBefore, MIN } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
-import { digest } from "../core/hash";
 import { callCharsOf, stamp } from "../models/llm";
 import {
   GIST_MAX,
@@ -17,7 +16,7 @@ import { exchangesOf } from "./exchanges";
 import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
 import { locate } from "./observe";
 import { OWNER } from "./read-truth";
-import { begin, inBatches, meContext } from "./run";
+import { begin, inBatches, inputsOf, meContext } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
 import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "./units";
 import { type People, readPeople, unitNow } from "./who";
@@ -552,11 +551,7 @@ export async function personas({ events, failed, since }: WithPeople) {
         };
         // What was said decides whether it is due, not the page (rewritten most nights); a recording's words are read
         // only then.
-        const inputs = digest(
-          "sha256",
-          `${PERSONA_PROMPT}\n${JSON.stringify(shown)}`,
-          16
-        );
+        const inputs = inputsOf(PERSONA_PROMPT, shown);
         if (!isDue(readPersona(t.ref), inputs, step.now)) {
           return;
         }

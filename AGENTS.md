@@ -193,8 +193,10 @@ Before adding a helper, use the one that exists:
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
-| Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), and `batchesOf` for what one call reads of them; search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
+| Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isLiving` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
 | Messages by chat | `chatGroups` (`records/source.ts`) |
+| Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input |
+| The one-to-one messages of people named on a command line | `directOf` (`closeness.ts`) |
 | Packing items into calls by size | `packed` (`core/lists.ts`): in order, an item never split; a step passes its own size |
 | Tokens from characters | `CHARS_PER_TOKEN` (`models/llm.ts`), a low bound: a count made with it is a ceiling |
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, lifelog's search and Life's alike |

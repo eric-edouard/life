@@ -1,7 +1,15 @@
 import { expect, spyOn, test } from "bun:test";
 import type { InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { begin, involvedOf, metered, phases, record, refContext } from "./run";
+import {
+  begin,
+  inputsOf,
+  involvedOf,
+  metered,
+  phases,
+  record,
+  refContext,
+} from "./run";
 import { runs } from "./run-log";
 
 /** The run as the status reads' `read_processing_runs` reads it back from the (test) log. */
@@ -187,4 +195,9 @@ test("a sweep's selected engine reaches collection, attachments, episodes and ex
     described.mockRestore();
     ready.mockRestore();
   }
+});
+
+test("a call's inputs digest is pinned: the one personas, situations and appointments kept (a change rebuilds them all)", () => {
+  expect(inputsOf("memory-persona.v2", { a: 1 })).toBe("dba367e9d7038416");
+  expect(inputsOf("p", { a: 1 })).not.toBe(inputsOf("q", { a: 1 }));
 });

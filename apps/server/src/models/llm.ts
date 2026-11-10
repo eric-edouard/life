@@ -188,7 +188,8 @@ export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
 const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
-const promptText = (prompt: string) =>
+/** A prompt's text, by its name (`prompts/<name>.md`). */
+export const promptText = (prompt: string) =>
   Bun.file(join(LIFE_CODE_DIR, "prompts", `${prompt}.md`)).text();
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
