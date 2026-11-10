@@ -137,6 +137,15 @@ test("map token refuses a turn outside the current map without writing", async (
     });
     expect(response.status).toBe(403);
   }
+  // Several people must all exist, like any person a correction names.
+  const several = await server.request(`/transcripts/${jobId}/speakers/a`, {
+    body: JSON.stringify({
+      target: { kind: "several", people: [randomUUID()], unknown: false },
+    }),
+    headers: headers(OWNER_TOKEN),
+    method: "PUT",
+  });
+  expect(several.status).toBe(404);
   expect(env.db.$client.serialize()).toEqual(before);
 });
 

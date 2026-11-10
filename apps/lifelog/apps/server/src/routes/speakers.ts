@@ -301,11 +301,22 @@ export function speakerRoutes({
             message: "This turn is outside the current voice map.",
           });
         }
+        const owned =
+          target.kind === "several" ? severalTarget(db, target) : target;
+        if (
+          target.kind === "several" &&
+          owned.kind === "several" &&
+          owned.candidates.people.length < new Set(target.people).size
+        ) {
+          return c.json(
+            { error: "not_found" as const, message: "no such person" },
+            404
+          );
+        }
         const result = assign(db, {
           jobId,
           speakerLabel,
-          target:
-            target.kind === "several" ? severalTarget(db, target) : target,
+          target: owned,
           turnIndex: turnIndex ?? null,
         });
         // What the owner just taught reaches every other conversation.
