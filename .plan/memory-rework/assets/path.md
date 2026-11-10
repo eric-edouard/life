@@ -170,7 +170,7 @@ compared there, the same day. "Shadow" then only means: merged, switched off for
 |---|---|
 | The names, before the first record is stored | A stored name that changes later costs a migration. His yes comes first |
 | The pilot, before the focused reads' wording is frozen | Everything is read once with that wording |
-| The history read | It is priced after the pilot and runs in weeks on Codex, by itself, after the code is done |
+| The history read | It waits for the pilot's frozen wording, then runs by itself. By the second review's count of his data it is days of reading, not months (spec section 16, "The history, read once") |
 | A verdict per PR | The merge gate stays |
 | The other session's data work | It owns units, sources and the import; the sources lane waits for it or is agreed with it |
 
@@ -178,3 +178,18 @@ compared there, the same day. "Shadow" then only means: merged, switched off for
 everything is one unless each lane stops at its comparison. So: a lane merges switched off, and a reader moves only
 on its number. What two days can truly deliver is all the code, the pilot's result and the first readers moved;
 the history and the proof on real nights follow by themselves.
+
+## Where the imports and the history fit
+
+The other session's imports (WhatsApp since 2011, his Claude and ChatGPT conversations) arriving as units is the
+right thing at the right time: stage 0 and the pilot both stand on them.
+
+| When | What reads the old years |
+|---|---|
+| Now | Nothing with a model. The imports land as units |
+| Stage 0 | Code only: who started, delays, shares, deletions, over every year, free |
+| The pilot | Two or three people in full, across all their years: needs the imports |
+| After the pilot | The frozen reads, newest year first; then links; then histories |
+
+One thing to settle with that session: it should not run today's model layers (the day's read, the claims read,
+personas) over the old years in the meantime. Those would be read again once the wording is frozen.

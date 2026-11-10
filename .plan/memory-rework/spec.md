@@ -1,7 +1,8 @@
 # Life's memory: the spec
 
-Second draft, 10 Nov 2026. The first draft was reviewed the same day by an independent reviewer and scored 38 out
-of 100 as ready for a pilot; this draft answers that review (section 20 says how). Written by the designer; he left
+Third draft, 10 Nov 2026. Two independent reviews the same day: the first draft scored 38 out of 100 as ready for
+a pilot, the second 57. This draft answers both (section 20 says how). There is no third review: his rule is one
+confirming review, then stop. Written by the designer; he left
 the shape to the designer and can overrule any line. The names are section 18's and need his yes. Nothing here is
 built or run before the pilot, and the pilot waits for his credits.
 
@@ -61,11 +62,16 @@ forecasts. Each part works without the ones after it.
   today; the focused reads run once the exchange is complete, so at most a night later, never twice.
 - Read by a model: every exchange of a chat where both sides ever wrote, with anyone, at any age. A sitting where
   only one side wrote is read too: an ignored message is evidence. Skipped by code: notifications, newsletters,
-  chats where nobody ever answered, big groups where he never speaks. A small group is read even when he is silent,
+  chats where nobody ever answered, big groups where he never speaks, and recordings lifelog heard from a screen, a
+  speaker or an announcement, or nearby and not with him. A small group is read even when he is silent,
   if someone who also talks with him one to one speaks in it.
 - New from the sources, by code: reactions, which message a reply answers, deletions (who, how many, the text kept).
-- People are never written into a record: it keeps the handle or the voice as the source names it, and who that is
-  is worked out when read, as units do today. So naming a voice or merging two people re-reads nothing.
+- People in a record: it keeps the handle or the voice of whoever spoke, as the source names it. Where a model had
+  to work someone out (the target of a move in a group, who "elle" is), it keeps the words used and the model's
+  guess, marked as a guess, made with the people in his life then given as context. Who a handle or a voice is, is
+  worked out when read: merging two people, or naming a voice, relabels the focused reads' records with no re-read,
+  since they are kept under the words and the voices, not the names. A voice still unnamed has its moves recorded.
+  Today's day and claims reads keep today's rule: a voice named late re-reads its days. That cost is counted.
 - His chats with an assistant are not exchanges: his own writing. A passage where he reacts to Life's own reading
   of someone is his word about that reading, never fresh evidence about the person.
 - Not read: his coding sessions (work chatter), mail threads he never wrote in, except what Mail marks as
@@ -74,7 +80,8 @@ forecasts. Each part works without the ones after it.
 ## 4. The evidence log
 
 One append-only log. Each record has a day, the handles or voices in it, and either a quote checked against its
-messages or a number code measured. Its subjects are worked out when read, never stored.
+messages or a number code measured. The people in it are worked out when read. The project or matter it belongs to
+is a reading, stored as a guess as today and corrected by his word.
 
 | Form | What it holds | Today |
 |---|---|---|
@@ -121,12 +128,20 @@ context, and nothing else: never an earlier reading. Each move names who did it 
   model reads better: those families are the ones read again under a new model, and their price over the whole
   history is counted at the pilot.
 - "Going silent" is not coded: code sees a fault raised or a pressing left unanswered.
-- **Routing** (the default, on his word about scale): the day's read, which already judges every unit, flags which
-  families an exchange holds. A focused read runs only where flagged. One exchange in twenty is read in full
-  anyway, for ever, to measure what routing misses, per family and per language.
-- **Batching**: short exchanges of one chat go together in one call, up to a size, with their edges marked.
-- **Compared on the pilot** (section 16): four families against two (connection with giving and asking; mentions and
-  self-reports inside the claims read), and against one model reading a whole thread and listing its moves.
+- **Three reads, not four.** Connection with giving and asking is one read; mentions and self-reports is one;
+  conflict and steering is one. The first two run on every exchange that is read: nearly every real conversation
+  holds a question, a thanks or a word about oneself, so routing them would save nothing.
+- **Routing, for conflict only.** The connection read, which sees every exchange, also answers one yes or no: is
+  there any tension, disagreement or fault raised here? The conflict read runs where it says yes. One exchange in
+  twenty gets the conflict read anyway, for ever, to measure what the flag misses, per code, per language and per
+  source. The day's read is not the router: it judges a whole day at once and is told to pass over small talk.
+- A rate is counted only over exchanges the read actually saw.
+- The unit of a re-read under a better model is a read. The connection and conflict reads hold the graded codes;
+  the mentions read is mostly surface.
+- **Batching**: short exchanges of one chat go in one call, up to about 8,000 tokens, their edges marked, kept under
+  the batch's own text. It bounds the backfill; a live night has little to batch.
+- **Compared on the pilot** (section 16): these three reads against one model reading a whole thread and listing
+  its moves; a batch against the same exchanges read alone.
 - The wording of each code is frozen only after the pilot's sample across people, languages and channels.
 - Languages: quotes stay as said. Every check is reported per language; a code that fails in one is exploratory
   there.
@@ -137,20 +152,31 @@ context, and nothing else: never an earlier reading. Each move names who did it 
 Some readings need two records from different exchanges tied together: a promise and its ending, a problem and its
 fix, "let's move on" and the reopening, the same complaint coming back, one story told to three listeners.
 
-- A nightly step, reading evidence only. For each new record that can be tied, code picks the few open or past
-  records of the same subject it could belong with (by form and by meaning), and one small call says which, with
-  the reason: ends, repeats, reopens, same story, same matter.
-- An ending may cite a commit's subject line or a payment, which are not otherwise read.
-- A link is a record: two ids, the relation, the reason. Kept under the new record and its candidates.
-- This replaces today's window of 14 days in which a fact can retire another.
+- A nightly step, reading evidence only: one call per subject and night, for that subject's new records that can be
+  tied. Code gives it the subject's open things (promises, waits, plans, problems) and its past records of the same
+  form closest in meaning, twenty at most. The call says which belong together and why: ends, repeats, reopens, same
+  story, same matter.
+- What starts it: a new record; and a new day of commits or a payment on a person or project that has open things,
+  so a fix nobody announced can still end a problem.
+- Whose records: a person's by handle; a project's or a matter's by the stored guess.
+- Order: links run per subject in time order, once the reads of a span exist. The backfill may read spans in any
+  order and links them after.
+- A link is a record: the two records, their messages, the relation, the reason. Naming the messages keeps it
+  whole if a re-read shifts an id.
+- **A wrong link is the dear mistake**: a false ending hides a live promise. So an item closed by a link shows
+  what closed it, with the quote; "that's not done" from him removes the link for good; and links are judged on two
+  marks, nothing stale left open and nothing live closed (section 15).
+- Until links pass those marks, extraction retires facts as today. After, links are the one place a later record
+  ends an earlier one, and the window of 14 days goes.
 
 ## 7. Subjects, and who acts toward whom
 
 Three kinds of subject: he himself, a person, a part of his life (an area, a project, a goal).
 
 - Everyone has their evidence. No gate decides who gets it.
-- A part of his life he never declared (a dispute, a purchase, a trip) is named by the day's read, kept in Life's
-  list, used at once. Two names for one matter are folded by a link or by his word, as two people are.
+- A part of his life he never declared (a dispute, a purchase, a trip) is found by a small step that reads episodes only
+  and groups those that belong to one running thing. It is kept in Life's list and used at once. The day's read is
+  not changed, so no stored day is read again. Two names for one matter are folded by a link or by his word, as two people are.
 - Which reads a subject needs: a person, all of them. A part of his life: claims, endings, measures; not the moves
   between people.
 
@@ -162,8 +188,8 @@ He is not one person in the data. So:
   between them. His view: what he tells others, tells Life and writes for himself.
 - **Where he performs** is counted through links: what he complains of about someone to others, tied to the same
   event, with no fault raised to that person.
-- A view told to listeners is shown only when at least two heard it, with who heard it; one story retold counts
-  once.
+- His own words about someone are always shown, quoted, with who heard them. A meter of his view needs at least
+  two listeners; one story retold counts once.
 - What a person tells him about someone is that person's view, never the someone's own words.
 
 ## 8. His word, and Life's list
@@ -199,7 +225,12 @@ How each kind of his word survives a rebuild:
 | An answer to a question | The frozen text he was shown | Kept; the eval's scores rest on it |
 | A rating of a meter | A frozen copy of the meter as shown: rate, count, span, quotes | Kept with the copy |
 | "This meter is wrong" | The subject and the meter | Shown beside the meter as his view; he can mark the quotes that are wrong, and the count moves |
+| "That's not done", "these are not the same" | The two records' messages | The link is removed and that pair is never tied again |
+| "This line of the summary is wrong" | The subject and the span | Given to the next build as an input |
 | A label, a told line, a mark | As today | As today |
+
+A "wrong" hides the record at once, as today, and also feeds the next read. Each row gets its regression case when
+it is built.
 
 This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten with the build, on his yes.
 
@@ -208,9 +239,11 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
 - **The unit is the exchange**: one vote per code, per actor and target, per exchange. One blow-up is one exchange.
 - **The chance** is recorded, never assumed. For an answer: the move it answers (a fault raised, a bid, an ask, a
   decision at stake). For a move that starts something (a bid, a fault raised, a disclosure, an ask): each exchange
-  the person took part in, read against that pair's own usual and shown with the volume.
-- **A meter is one rate**: a share of chances, in one vantage (with him, with others, as he tells it, as others tell
-  it). The cursor is that share. Beside it: how many chances, and where it sits among the people of his life who
+  the person took part in, counted apart per channel, so a long recording and a three-line chat are never pooled.
+  It is shown as a level (the share) and as a trend (against that pair's usual), with the volume.
+- **A meter is one rate of one code**: a share of chances, in one vantage (with him, with others, as he tells it, as
+  others tell it). The cursor is that share. A reading of section 10 that lists several codes shows one rate for
+  each, side by side, the first listed leading. Tone is counted as the share of exchanges that read warm. Beside it: how many chances, and where it sits among the people of his life who
   have enough. Below the minimum: "too few to say".
 - **Never pulled to the middle.** Nothing shown is averaged toward a typical person. "At its strongest" is the
   strongest level reached in at least two exchanges, with a quote; a single case is shown as "once".
@@ -220,8 +253,10 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
 - **Lately against before**, and the month it changed, from monthly counts.
 - **A pattern** is one of a fixed list of sequences, found by code within an exchange or across links, always with
   how often the second move follows anyway: a fault raised then denied; blames then denies blaming; presses until
-  the other yields; "let's move on" then reopens; an apology then the same fault again. Anything freer is prose in
-  the story, marked as a reading.
+  the other yields; "let's move on" then reopens; an apology then the same fault again. The same list is counted for
+  him across people (does he yield when pressed with everyone, or with one person), and for what he resolves and
+  then does. Anything freer is prose in the story, marked as a reading. The list grows only with a case that shows
+  the need.
 - A code two model families agree on less than half the time (kappa under 0.5) is exploratory: kept, shown as such,
   feeding no meter.
 
@@ -239,21 +274,22 @@ the track record, how they write, a gist and what works with them. His own is th
 | Warm or matter-of-fact | Tone; affection, thanks, support given, questions about the other | Exchanges; support asked | Agreeableness: compassion | Well |
 | Tactful or blunt when disagreeing | Contempt, strength, engages against counters | A fault raised | Agreeableness: politeness | Fairly; needs disagreements |
 | Does what they said or drops it | Promises and their endings (links) | A promise made | Conscientiousness: industriousness | Well |
-| Planned or improvised | Plans and schedules proposed | A decision at stake | Conscientiousness: orderliness | Fairly; shown only if it differs from the line above |
+| Planned or improvised | Plans and schedules made for their own doings, never what they ask of others | A decision at stake | Conscientiousness: orderliness | Fairly; shown only if it differs from the line above |
 | Even-tempered or quick to anger | Strength rising inside one exchange | A fault raised | Neuroticism: volatility | Fairly |
 | Worries aloud or not | Self-reports of worry | Exchanges | Neuroticism: withdrawal, as what is said | Poorly; labelled as expressed |
 | Curious for ideas or practical | Ideas and questions explored | Exchanges | Openness: intellect | Fairly |
 | Asks for reassurance or not | Requests for reassurance | Exchanges; after a silence | A behaviour; not an attachment reading | Fairly |
 | Shares feelings or keeps them private | Disclosures and their depth; self-reports of feeling | Exchanges | A behaviour; not an attachment reading | Fairly |
-| Returns what is given or not | Asks, gives, returns, by resource | Something given or asked | A description of the flow; never a verdict in a close tie | Countable |
+| Fair or takes advantage | Returns what is given; keeps promises (links); owns a fault; praise just before an ask | Something given, asked or promised | HEXACO Honesty-Humility, as behaviour: counts and quotes, never a verdict | Fairly |
 
 Conduct lines, his asks by name, as counts with quotes: defensive or engages when faulted; blames or owns a fault;
 an apology's parts; whether a mending holds and whether the past is let go (both through links); steers hard or
 lets things be (the same code as taking the lead, shown once). Impulsivity: one research note before the pilot.
 
-- **The Big Five profile** is these rates grouped under the five names. One cursor per name is drawn only once the
-  pilot shows it stable (section 9). Aesthetic openness and attachment are not readable from his data; they are
-  left out rather than guessed.
+- **The Big Five profile** is these rates grouped under the five names. One cursor per name is drawn for a person
+  once the two halves of that person's own evidence give the same answer (section 9): it appears person by person,
+  as their evidence grows. Aesthetic openness is left out. Attachment is kept as its two behaviours (asks for
+  reassurance, shares feelings) and never as a style: the research says a style cannot be read from text.
 - How accurate: counting coded moves is the route the research calls auditable. No study shows it more accurate
   than rating a trait in one go, and that reaches a stranger's level. The pilot can show stability, his agreement
   and predictions; it cannot show truth about a person.
@@ -277,7 +313,7 @@ lets things be (the same code as taking the lead, shown once). Impulsivity: one 
 
 **Also counted**: the track record of promises, each way. Wants and offers in four directions, by resource, shown as
 asked, given, said. His hours and money per project, area and person against his declared goals (the hour rule).
-How he says he feels over time, by person and by activity. His routines. His view of each person set side by side,
+How he says he feels over time, by person and by activity. His routines. His health lines, which never age out. His view of each person set side by side,
 so "the one he is hardest on" has an answer. Ties between other people.
 
 **Closeness** is depth: what is confided each way, support exchanged, the personal against the practical; personal
@@ -295,11 +331,13 @@ above the evidence that looks at raw words.
   story from its years, rebuilt when a year closes or a turning point is marked, not at every month.
 - His own month is read from the month's episodes, what he says of himself and what code measured. It waits on no
   other subject.
-- **Built when wanted**: a history is built the night after it is first asked for, and kept current for the
-  subjects the overview shows and those read lately. Until then a read returns the counts and the evidence that
-  matters most.
+- **Made ahead for whoever has a page today**: he himself, the people with a page, his areas and the projects
+  underway. Their history and situation are kept current every night, so a first ask is never worse than today.
+- **Everyone else, when first asked**: built the night after, twenty new builds a night at most. Until then a read
+  returns the counts and the evidence that matters most, and says a summary is coming.
 - **A situation** (today's word, for every subject) is the newest summary plus the evidence since. It is rebuilt
-  when new evidence of importance 2 or more lands, at most once a night, and only for subjects kept current.
+  when new evidence of importance 2 or more lands, at most once a night, and only for subjects kept ahead. His own
+  carries the gap between his declared goals and his hours, with what it means, written once, there.
 - A part of his life also carries one word, by code: done (ended by his word or by its last open thing); waiting on
   someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
   dormant (none for 45 covered days); drifting (falling against its own usual).
@@ -315,7 +353,9 @@ above the evidence that looks at raw words.
 
 ## 12. Forecasts
 
-Code first. Each sort has its trigger, its outcomes, the code that settles it, and the baseline it must beat.
+Code first. A forecast is a rate counted on past cases like this one: the same pair, the same day of the week, as
+long since the last contact, the same sort of promise. Its baselines ignore those conditions; that is how it can
+beat them. The trigger and the outcomes of each sort are written with its build.
 
 | Sort | Settled by | Must beat |
 |---|---|---|
@@ -326,12 +366,13 @@ Code first. Each sort has its trigger, its outcomes, the code that settles it, a
 | A project moving or going quiet | Evidence on covered days | The same as last month |
 | A pattern recurring | The sequence, counted | How often the second move follows anyway |
 
-- Every forecast is "if he does nothing". One he acted on is set aside, not scored. A share is never shown, to keep
-  an honest sample.
+- Every forecast is "if he does nothing". He acted when he did the outcome himself first, or told Life he would:
+  that one is set aside, not scored. One in ten is never shown, to keep an honest sample.
+- A sort settled by a link or by an episode is settled by a model's reading, and says so.
 - Void when the days were not covered or the outcome could not be seen (a call nobody recorded).
 - Small counts: the forecast may lean on the rate of everyone for that sort, with the person's own count shown
   beside it. This is arithmetic for a forecast, never a meter.
-- A few open forecasts per person at most. The track record is shown by sort; per person only as counts.
+- Three open forecasts per person at most. The track record is shown by sort; per person only as counts.
 - The backtest is the same code "as of" a past day, on a sample of past triggers, using only what was known then:
   who a voice or handle was then, his corrections as of then, evidence dated before.
 - A model adjusts a sort only after a year of settled cases, or a backtest on a sample, shows a gain.
@@ -369,10 +410,11 @@ What bounds it now:
 
 | Where it multiplied | Bound |
 |---|---|
-| Four reads of every exchange | Routing: a focused read only where the day's read flags it |
+| Four reads of every exchange | Three reads; two on every exchange read, the conflict read only where flagged |
+| Links, a call per record | One call per subject and night, twenty candidates at most |
 | A full prompt for three lines | Batching short exchanges of one chat |
 | Situations nightly, from the whole tail | Only for subjects kept current, only on evidence that matters, once a night |
-| Histories for everyone, every month | Built when first asked, only where the evidence does not fit one read |
+| Histories for everyone, every month | Kept ahead for those with a page today; others built when first asked, twenty a night at most |
 | The story at every month | At a year's end or a turning point |
 | His month reading everything | Episodes, his own words, measures |
 | Cascades | A changed summary is rebuilt once at the next build, bottom up |
@@ -382,9 +424,11 @@ What bounds it now:
 
 - Honest about what still grows: the story reads all its years; the overview grows with the subjects it shows.
   Both stay small. A family read again under a new model costs the whole history for that family.
-- The target, to be measured and not assumed: a year of model input within about four times the raw text, against
-  about 1.5 times for today's day and claims reads plus today's weekly re-read of three years per person, which
-  goes.
+- The second review recounted this draft's first version at about 5 to 10 times the raw text a year, on its own
+  measures of his data: voice is nine tenths of new text, and one year of it is about nine times all his stored
+  chats. The target after these bounds is about five times, and it holds only if the conflict read runs on fewer
+  than one exchange in six and links stay one call per subject. Neither that nor today's own cost is measured yet:
+  the pilot measures both, on the same month.
 - Before any backfill, measured on his data: how many exchanges, how long, the size of a prompt, the share that is
   evidence. Then the cost of each layer over the whole history is shown to him.
 - **Information value**: each family must change answers to his questions on the pilot or it is not run over the
@@ -394,22 +438,34 @@ What bounds it now:
 
 Before anything runs, this table is filled with numbers and kept beside the results, failures included.
 
-| Layer | Its claim | Compared with | Passes when |
-|---|---|---|---|
-| The focused reads | The moves they find are really in the words | A second model family; the same exchange read twice | Agreement of 0.5 or more per code, per language; else the code is exploratory |
-| Routing | It misses nothing that matters | The one in twenty read in full | It finds 95 in 100 of the moves a full read finds, per family |
-| Four families | They beat fewer | Two families; one whole-thread read | Better answers on his questions, or they are merged |
-| Links | Endings and repeats are found | His marked failures on open loops; what he closed by word | No stale open item in a sample he checks |
-| Counts | A rate is stable | The two halves of the evidence | The halves agree; else "too few to say" |
-| Meters | He recognizes the person | His blind rating, once per round, never a target | Stated before the round |
-| Histories | A summary answers as well as the raw | The raw read whole where it fits one call; search over units; today's pages, situations and personas | Not worse than the raw; better than search and than today on relationship, arc and about-him questions |
-| The practical answers | Not worse than today | Today's reads; every regression case | All cases pass |
-| Forecasts | A sort beats its baseline | The baselines of section 12 | On settled cases code resolved, with a margin |
+| Layer | Its claim | Compared with | Passes when | If it fails |
+|---|---|---|---|---|
+| The focused reads | The moves are really in the words | A second model family; the same exchange read twice | Per code and per language: agreement 0.5 or more with the other family, 0.7 or more with itself, on at least 30 cases | The code is exploratory; a read with half its codes exploratory is dropped |
+| The conflict flag | It misses little | The one in twenty read in full | It catches 90 in 100 exchanges holding any conflict code, and 80 in 100 for each code, per language and per source | The conflict read runs everywhere, and is priced |
+| Focused reads | They beat one wide read | One model reading the whole thread and listing its moves | On 40 of his own questions, judged blind, they win or tie 6 times in 10 | The whole-thread read becomes the read for threads that fit one call (his call) |
+| Batching | A batch reads like single exchanges | The same exchanges read alone | Agreement 0.8 or more | No batching; the history is priced without it |
+| Ids | A re-read keeps them | The same exchange read twice | 8 ids in 10 kept | Everything cites messages only |
+| Links | Endings are found and none invented | 50 open and 50 closed items he checks | At most 2 stale left open; none live closed | Endings stay with extraction; no track record shown |
+| Counts | A rate is stable | The two halves of the evidence | The halves fall in the same band for 8 meters in 10 | Minimums raised until they do |
+| Meters | He recognizes the person | His blind rating, three people, once | He marks 7 in 10 right or partly; never tuned toward | Only the meters he recognized are shown |
+| Histories | A summary answers as well as the raw | The raw read whole where it fits; search over units; today's layers | On 30 questions where the raw fits: not worse than the raw 8 times in 10, and better than today's layers 6 times in 10 on relationship, arc and about-him questions | No histories: evidence, counts and search only |
+| A first ask | Not worse than today | Today's person read, same people | Not worse 9 times in 10 | More subjects kept ahead |
+| Time against goals | The hours are true | One week he checks | Within a fifth of his own count for 4 of his 5 main projects; under a third unassigned | The gap is not written |
+| Coverage | Gaps are known | The outages on record | Every one shows as "not seen" | No trend shown for years it cannot vouch for |
+| The overview | It says where things stand | His own reading of it | He marks at most 2 lines wrong | Reworked before any reader uses it |
+| Closeness | Depth ranks as he would | His word on ten people | 8 pairs in 10 in his order | Today's levels stay |
+| His word | It survives a re-read | 20 exchanges he corrected, read again | None of the 20 comes back | Blocks the build |
+| The practical answers | Not worse than today | Every regression case | All pass | Blocks the build |
+| Forecasts | A sort beats its baseline | The baselines of section 12 | A better score on 50 settled cases | The sort is not shown |
 
-- **Who grades.** A judge model, first measured on cases he settled, as today's evals require. The model that
-  checks never comes from the family that wrote. Scores on his own 102 questions are reported apart from the 293 a
-  model mined, since a model wrote those answers.
-- **Held out**: a share of his questions no design step sees.
+These numbers are the designer's starting marks, written before any run; he can move any of them, before the run.
+
+- **Who grades.** A judge model, first measured on cases he settled. For facts those cases exist. For relationship
+  and arc answers none do: the judge is measured on ten answers he gives a verdict on, in conversation (his call).
+  The model that checks never comes from the family that wrote; which families the pilot uses is his choice.
+- Scores on his own 102 questions are reported apart from the 293 a model mined, since a model wrote those answers.
+- **Held out**: honestly weak. The design has seen all 102 of his own questions. What is held out is a share of the
+  mined ones, whose answers a model wrote, checked against their quotes; and every question he asks from now on.
 - **Checked against the world**, not a model: a reply within a day, who started, a payment or a commit after a
   promise.
 - **What no check here can see**: one code read wrongly by both model families, in one language, across years. The
@@ -421,7 +477,8 @@ After this spec and its second review, once his credits are back; never before.
 
 1. **Two people in full**, at every age: his father and a close friend. And a third the design never looked at.
 2. **One project and one goal in full**: the second row of his grid, and time against goals.
-3. **One recent month of everything**: his own month, the overview, the hour rule, coverage.
+3. **One recent month of everything**, recordings included, read by the day's read and by all three focused reads
+   in full: his own month, the overview, the hour rule, coverage, and what the conflict flag misses.
 4. **A sample of about 300 exchanges** from other people, languages, channels, groups and work ties, read by the
    focused reads only, before any wording is frozen.
 
@@ -429,8 +486,31 @@ After this spec and its second review, once his credits are back; never before.
 - Forecasts in the pilot: only the sorts code settles, pooled.
 - **It does not prove**: his whole history; the year and story levels of his own life; a cursor per trait;
   forecasts about one person; anything in a language the sample lacks.
-- Each change of a family's wording re-reads the pilot's set: the rounds are counted in its budget.
-- Then: the build plan (a golden-rule plan), the build, the backfill.
+- Each change of a read's wording re-reads the pilot's set: three rounds at most, counted in its budget.
+- Then: the build (the path), and the history.
+
+### The history, read once
+
+The other session's imports (WhatsApp since 2011, his Claude and ChatGPT conversations) land as units: the floor
+everything stands on. No model layer has read them, and none should yet.
+
+- **Free, at once, on every year**: what code measures (who started, delays, shares, deletions) works on the whole
+  history the day it ships, with no model.
+- **No model reads the old years before the wording is frozen** on the pilot: not today's day and claims reads
+  either, since the pilot may still change what the claims read keeps for old years (lasting claims, no to-dos).
+  His rule: old data is read once.
+- **Before it starts**: the imports are in; each source's first day is known, so earlier days are "not seen"; the
+  unnamed voices are named as far as they will be; the cost is counted on his data and shown to him.
+- **The pilot's last round is the first slice** of the history: those reads are kept, not paid again.
+- **Order**: by year, the newest first, so stopping anywhere leaves the most useful part done. Links follow per
+  subject in time order. Then the histories of those kept ahead.
+- **His assistant chats** are read for what he says of himself and of others, by the mentions read and the claims
+  read; the passages where he reacts to Life's own readings are set apart as his word about them.
+- **Engines**: Codex, his subscription; the old WhatsApp years on OpenRouter's DeepSeek after an estimate he
+  approves (his words). The checking model is from another family.
+- **The size, from the second review's count of his data**: all his stored two-sided chats are about 4 million
+  tokens, before the new imports; recordings are about 100,000 tokens a day since September. So the whole history is
+  tens of millions of tokens, a matter of days of reading, not months. To be measured, not trusted.
 
 ## 17. From today to this
 
@@ -472,7 +552,7 @@ After this spec and its second review, once his credits are back; never before.
 | move | Something one person did toward another in an exchange, quoted | The `act` command; a trait |
 | mention | Talk about someone absent, with teller and listener | That person's own words |
 | ending | How a promise, a wait, a plan, a problem or a choice closed | A new claim |
-| link | Two records tied: ends, repeats, reopens, same story | A summary |
+| link | Two records tied: ends, repeats, reopens, same story, same matter | A summary |
 | coverage | Whether a source was captured on a day | Silence |
 | exchange | One sitting of talk, cut by code | A unit, an episode |
 | subject | Who or what a history is about | A topic, a place |
@@ -487,29 +567,33 @@ After this spec and its second review, once his credits are back; never before.
 | forecast | A dated expectation that gets settled and scored | Advice |
 | overview | Where things stand across his life | A page, a mail |
 | his word | What he tells Life | What he says to others |
-| map | Life's list of subjects (today's word, widened to hold what `truth/` held) | Files he writes |
+| map | Life's own list of subjects, written "Life's list" in this spec (today's word, widened to hold what `truth/` held) | Files he writes |
 | question | Something Life needs from him, asked in conversation (widens the fact check) | A queue, a task |
 
 In this spec, evidence comes in "forms" and forecasts in "sorts", because "kind" and "type" already mean something.
 
 ## 19. His calls
 
-Raised by the review; each is his, none is decided here.
+Raised by the two reviews; each is his. The spec assumes the answer shown; he can say no to any.
 
-1. **Routing.** "Every exchange gets the close read" becomes "a model reads every exchange at least once, and a
-   focused read where it holds something". Section 5 assumes yes.
-2. **A third person in the pilot**, one the design never looked at. Section 16 assumes yes.
-3. **One whole-thread read as a comparison** on the pilot. He decided focused reads, never one wide read; this is
-   only the yardstick they must beat. Section 15 assumes yes.
-4. **Doubtful codes asked to him in conversation.** He labels no single exchange; this asks a few, when he likes,
-   where two models disagree and it matters. It is the only check that is not a model. Section 8 assumes yes.
-5. **A forecast leaning on everyone's rate when a person's count is tiny.** Never shown as a meter. Section 12
-   assumes yes.
-6. **Reading moves over the whole history**, against his earlier "old archives go straight to the overview". The
-   later decision stands; the price is shown after the pilot, before any backfill.
+| # | The call | Assumed |
+|---|---|---|
+| 1 | "Every exchange gets the close read" becomes: two focused reads on every exchange read, and the conflict read only where the first says there is tension | Yes |
+| 2 | A third person in the pilot, one the design never looked at | Yes |
+| 3 | One whole-thread read as the yardstick the focused reads must beat; and if it wins, it becomes the read for threads that fit one call | Yes to the yardstick; his word if it wins |
+| 4 | A few doubtful codes asked to him in conversation, where two models disagree and it matters | Yes |
+| 5 | A forecast leaning on everyone's rate when a person's count is tiny; never shown as a meter | Yes |
+| 6 | Reading moves over the whole history, against his earlier "old archives go straight to the overview" | Yes, once the price is shown |
+| 7 | Summaries made ahead every night only for whoever has a page today, him and his areas; everyone else when first asked. He had confirmed "made ahead, every night"; scale asks for a limit | Yes |
+| 8 | The Big Five cursor appears person by person, when that person's evidence is stable; until then the rates under each name | Yes |
+| 9 | Attachment as two behaviours only, never a style. Today's persona writes about attachment in prose; that goes | Yes |
+| 10 | Forecasts start with six sorts code can count. From both personas, his own usual move, longer horizons, a free question, testing a message: later | Yes |
+| 11 | Impulsivity: the pilot runs with a conduct line; the research note comes when he wants it | Yes |
+| 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word needed |
+| 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | His word needed |
 
 Also his: the names of section 18; the poles of the meters in his words; the rules of `AGENTS.md` at build time;
-the model for each read and the backfill's cost after the pilot.
+the model for each read and the history's cost after the pilot.
 
 ## 20. What the review changed
 
@@ -529,5 +613,24 @@ read), 5 (surface or graded), 8 (how each kind of his word survives), 11 (keys, 
 named, the boundary as a target, the honest count). The full review is in his data repo:
 `docs/memory-rework/experiments/2026-11-10-spec-review-1.md`.
 
-Not yet answered: the impulsivity research note; the test set's answer for "goals month by month", which predates
-his decision that goals move only on his word.
+**The second review** (a fresh reviewer again, the same day): 57 out of 100. "A pilot would no longer be wasted";
+not ready, for five reasons, each answered in this draft:
+
+| Flaw | Answer |
+|---|---|
+| Most pass marks were still words | Section 15: a number and a consequence in every row, and eight rows added |
+| Routing by the day's read was the wrong reader, untestable, and a miss bent the counts | Section 5: three reads, two on everything, only conflict routed, by the read that sees every exchange; a rate counts only what was read |
+| A wrong link could hide a live promise, unseen | Section 6: what closed it is shown, his word removes it, two marks |
+| "People never written into a record" could not be built | Section 3: the words and the guess are kept; a named voice relabels without a re-read |
+| Things he asked for were narrowed without telling him | Section 19: calls 7 to 13 |
+
+Left for the build plan, by the reviewer's own sorting: the batch's exact key; coverage for past years beyond each
+source's first day; hours for work done alone, which no episode holds; the exact forecast per sort; the rule from
+depth to closeness levels; patterns beyond conflict; wording churn on drawn pages; measuring today's own cost.
+
+Not answered: the impulsivity research note; the test set's answer for "goals month by month", which predates his
+decision that goals move only on his word; the hand pilot of 8 and 9 Nov is still not written up in
+`experiments/`.
+
+No third review: his rule is one confirming review, then stop. Both reviews are in his data repo,
+`docs/memory-rework/experiments/`.

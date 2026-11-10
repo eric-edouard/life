@@ -80,18 +80,17 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [The exchange](./tickets/11-the-exchange.md) — cut by code at a night's silence, one channel each, never stored twice; every two-sided exchange gets the close read; measured facts, reactions and reply links beside the units; talk about someone absent is a mention inside its exchange; assistant chats are his own writing, not exchanges; in a group each act names who did it and to whom
 - [Organic memory](./tickets/10-organic-memory.md) — left to the designer (10 Nov): calendar steps per subject (month, year, the whole story), a level only where the one below is too big to read whole, sealed months read once, upper levels rebuilt from the level below and never from themselves, counts never summarized, the long-standing carried up by rule
 
-- [The spec](./spec.md) — second draft, 10 Nov. The first draft was reviewed the same day by a fresh reviewer (38 out of 100 as ready for a pilot; the review is in his data repo, `docs/memory-rework/experiments/2026-11-10-spec-review-1.md`). The second draft answers it: a count is defined (the exchange as the unit, the chance recorded, one rate per meter, a table from codes to readings), links tie a promise to its ending, the pilot has four pieces with claims, baselines and pass marks, his word has a row per kind, histories are built when first asked, and scale is bounded (section 14). Tickets 05 to 28 point at its sections.
+- [The spec](./spec.md) — third draft, 10 Nov, after two independent reviews the same day (38, then 57 out of 100 as ready for a pilot; both in his data repo, `docs/memory-rework/experiments/`). It answers both: a count is defined, links tie a promise to its ending and a wrong link is caught, three focused reads with only conflict routed, every pass mark is a number with what happens on a fail, the pilot has four pieces, summaries are kept ahead for whoever has a page today, and the history is read once after the pilot's wording is frozen. No third review (his rule).
 - [Scale, and the value of a read](./tickets/28-scale-and-the-value-of-a-read.md) — his word, 10 Nov: no exponential reads; scale reasonably while maximizing information value. Spec section 14.
 
 - [The path](./assets/path.md) — at his ask (10 Nov): the spec reached in about forty small PRs, never one rework. New layers beside the old, in shadow first, one reader moved at a time, then the old mechanism deleted. Code-only steps, links and histories from today's evidence come before the pilot's model work; the connector changes once, near the end.
 
 ## Waiting on his word
 
-- His six calls of spec section 19: routing; a third person in the pilot; one whole-thread read as a comparison; doubtful codes asked to him in conversation; a forecast leaning on everyone's rate when a count is tiny; the price of reading moves over the whole history. The spec assumes yes to the first five.
+- His thirteen calls of spec section 19 (the spec assumes yes to eleven; two need his word: the pilot's model families, and ten verdicts of his to measure the judge).
 - The names of spec section 18, and the poles of the meters in his words.
 - The rules of `AGENTS.md` listed in spec section 17, rewritten with the build, on his yes.
 - The model for each read and the backfill's cost, after the pilot.
-- A confirming second review of the spec, then stop reviewing.
 
 ## Not yet specified
 
