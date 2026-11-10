@@ -716,7 +716,7 @@ test("a batch as lines: numbered from 0 across its exchanges, each under its day
     ],
     [at("2026-10-03T12:00:00.000Z", true, "on se voit ?")],
   ];
-  const { lines, messages } = batchLines(batch, (e) =>
+  const { lines, messages, starts } = batchLines(batch, (e) =>
     e.fromMe ? "me" : "Ana"
   );
   expect(lines.map((l) => l.replace(CLOCK, "HH:MM"))).toEqual([
@@ -727,4 +727,5 @@ test("a batch as lines: numbered from 0 across its exchanges, each under its day
     "[2] HH:MM me: on se voit ?",
   ]);
   expect(messages).toEqual(batch.flat());
+  expect(starts).toEqual([0, 2]);
 });

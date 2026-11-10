@@ -262,12 +262,15 @@ step: [Back up and restore](use/backup.md).
   the one-to-one chats of the people named, a batch of exchanges per call, with one of the rework's reads
   (`connection` so far; its prompt is `prompts/memory-connection.v1.md`). Without `--run` it asks nothing: per
   person, by position, how many calls it would make, how many are kept already, and at most how many tokens. With
-  `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by another family), refuses
-  over the quota reserve like an eval, and keeps each reply whose shape is one in his data,
-  `docs/memory-rework/pilot/<read>/<engine>/<key>.json`: the reply as given, what made it and the messages it read.
-  The key is the prompt's text and the input, so a batch is never asked twice for the same wording, and a reworded
-  prompt asks again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It
-  prints counts only. A run spends his quota: show him the dry run's numbers first.
+  `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by another family), as one
+  `memory.pilot` run, and keeps each reply that is one in his data,
+  `docs/memory-rework/pilot/<read>/<engine>/<key>.json`: the reply as given, what made it, the wording's digest and
+  the messages it read. The key is the prompt's text and the input, so a batch is never asked twice for the same
+  wording, and a reworded prompt asks again. Moves are worked out from a kept reply when read, never stored: each
+  must sit in an exchange the batch holds, with its words found there. It writes nothing in `memory/`, so it holds
+  no lock; `LIFE_LLM` stays refused on his data. It prints counts only. A run spends: on Codex it is refused over
+  the quota reserve, like an eval; an API engine has no such reserve, so the dry run's numbers, shown to him first,
+  are the only guard on cash.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits
