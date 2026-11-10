@@ -483,7 +483,7 @@
           body: JSON.stringify({ id, kind, personId }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
-        })
+        }).catch(() => ({ ok: false, status: "the bench did not answer" }))
       )
     );
     const failed = responses.find((response) => !response.ok);

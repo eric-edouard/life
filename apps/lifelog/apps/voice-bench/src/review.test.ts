@@ -53,3 +53,13 @@ test("the review offers voices, the likely wrong names first, names closest firs
     },
   ]);
 });
+
+test("a turn enters on the models that heard it, two at least", () => {
+  const review = reviewOf(
+    [turn("t1", "speaker_0"), turn("t2", "speaker_1"), turn("t3", "speaker_2")],
+    // A quick look: the second model heard only t2; on t3 the two disagree.
+    models({ t1: "bo", t2: "bo", t3: "bo" }, { t2: "bo", t3: "cy" }),
+    new Map()
+  );
+  expect(review.map((card) => card.turns)).toEqual([["t2"]]);
+});

@@ -51,7 +51,7 @@ const combinations = <T>(all: T[], size: number): T[][] =>
       );
 
 // A speaker's turns in one job, as one vector, when they hold enough speech and one truth.
-function voicesOf(turns: Heard[], voiceOf: (turn: Heard) => string) {
+function voicesOf<T extends Heard>(turns: T[], voiceOf: (turn: T) => string) {
   return [...Map.groupBy(turns, voiceOf)].flatMap(([id, inVoice]): Heard[] => {
     const [first] = inVoice;
     const seconds = inVoice.reduce((sum, t) => sum + t.seconds, 0);
@@ -99,7 +99,7 @@ function modelOf(
   conversationsOf: (personId: string) => number
 ) {
   const byId = new Map(turns.map((t) => [t.id, t]));
-  const heard: Heard[] = turns.flatMap((t) => {
+  const heard = turns.flatMap((t) => {
     const vector = embedded.vectors.get(t.id);
     return vector ? [{ ...t, seconds: t.durationSeconds, vector }] : [];
   });
@@ -163,9 +163,7 @@ function modelOf(
     ),
     voices: summaryOf(
       callsOf(
-        voicesOf(heard, (t) =>
-          voiceId(t.jobId, byId.get(t.id)?.speakerLabel ?? null)
-        ),
+        voicesOf(heard, (t) => voiceId(t.jobId, t.speakerLabel)),
         heard
       )
     ),
@@ -244,17 +242,15 @@ export function reviewOf(
         first.turn.truth?.kind === "person"
           ? first.turn.truth.personId
           : undefined;
-      const closest = all.slice(0, REVIEW.names);
-      const candidates =
-        said && !closest.some((c) => c.personId === said)
-          ? [
-              ...closest.slice(0, REVIEW.names - 1),
-              all.find((c) => c.personId === said) ?? {
-                personId: said,
-                share: 0,
-              },
-            ]
-          : closest;
+      const mine = said
+        ? [all.find((c) => c.personId === said) ?? { personId: said, share: 0 }]
+        : [];
+      const candidates = [
+        ...all
+          .filter((c) => c.personId !== said)
+          .slice(0, REVIEW.names - mine.length),
+        ...mine,
+      ].sort((a, b) => b.share - a.share);
       const ids = group
         .map((item) => item.turn)
         .sort((a, b) => b.durationSeconds - a.durationSeconds)
