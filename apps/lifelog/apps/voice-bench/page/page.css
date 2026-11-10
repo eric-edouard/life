@@ -481,7 +481,7 @@ tr.picked td:first-child {
   color: var(--quiet);
 }
 
-#review-heard button {
+#review-names button {
   padding: 10px 14px;
   font-size: 15px;
   border-color: var(--red);
@@ -509,4 +509,9 @@ tr.picked td:first-child {
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.share {
+  font-family: var(--mono);
+  color: var(--quiet);
 }

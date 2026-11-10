@@ -42,7 +42,7 @@ Seconds a clip were measured while the Mac was short on memory: read them agains
   guess is right 84% to 86% of the time for all three, and turns over 15 seconds reach the same 84% to 86%. Models
   this different do not share mistakes by chance: either some names are wrong (a name given to a speaker goes to every
   turn the recording gave that speaker), or some voices are heard in conditions no profile of them covers yet. The
-  review on the bench's page is built to tell which: it offers these turns first.
+  review on the bench's page is built to tell which: it offers these voices first.
 - **A newer model helps, a little.** MECT-B2 and ReDimNet2-B6 put the right person first 5 to 6 points more often
   than ECAPA, most on short turns (under 3 seconds: 71% against 62%), at 5 to 7 times the compute.
 - **Blending adds almost nothing.** MECT-B2 with ReDimNet2-B6: 75.4% first guess right, against 75.0% alone. The
@@ -56,7 +56,7 @@ Seconds a clip were measured while the Mac was short on memory: read them agains
 
 - Changing the model now would buy about 6 points of first guess and no name at his 1% rule. Not worth a migration
   of every stored voice sample yet.
-- The next step is his review of the turns where the models agree against the name. Once answered, `bench score`
+- The next step is his review of the voices where the models agree against the name. Once answered, `bench score`
   shows whether the wall was the names (the numbers jump for every model) or the voices (they stay).
 - If it was the names, lifelog's own naming has the same wrong names in its profiles: correcting them there is his
   to do in the app, and would lift ECAPA too.

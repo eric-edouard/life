@@ -33,8 +33,9 @@ wrong. What it found: `docs/research/voice-bench.md`.
   different ranges compare fairly.
 - The report also gives the first guess right, with no threshold (the share of known voices whose most alike
   person is the right one): it moves little when some of his answers are wrong, where the 1% rule collapses.
-- The review offers the turns where most models agree against his answer, or agree on a name for a turn he has not
-  answered: models that agree are a better hint of a wrong answer than one model's score.
+- The review offers cards: the turns of one voice (a speaker in a recording), with one answer of his, that most
+  models give to the same person, against his answer or where he gave none. One answer on the page is written for
+  every turn of the card. Names come closest first: the share of the models' first guesses on the card's turns.
 - "Nobody I know" is mostly a voice he does not care about: never a known voice, and a name given to it is a wrong
   name. "Several voices" and "not a person" leave the scoring.
 - A blend is the mean of the models' z-scored likenesses (`blendOf`). "Fuse" is rank fusion, another thing
