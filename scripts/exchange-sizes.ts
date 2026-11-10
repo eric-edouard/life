@@ -129,9 +129,9 @@ if (import.meta.main) {
     const people = await readPeople();
     const direct = directChats(events, people.resolve);
     for (const [i, who] of asked.entries()) {
-      const ref = `person:${meant(who, people).known ?? who}`;
-      console.log(`Person ${i + 1}`);
-      console.table(sizesOf(direct.get(ref) ?? []).rows);
+      const { known } = meant(who, people);
+      console.log(`Person ${i + 1}${known ? "" : ": no one by that name"}`);
+      console.table(sizesOf(direct.get(`person:${known}`) ?? []).rows);
     }
   } else {
     const { quiet, rows } = sizesOf(events);

@@ -5,7 +5,11 @@ import type { SourceEvent } from "../records/source";
 /** With no message for this long an exchange is over: the next message opens a new one. */
 export const EXCHANGE_ENDS_AFTER = 6 * HOUR;
 
-/** The characters of exchanges one call reads at most, when a stream's exchanges are read together. */
+/**
+ * The characters of exchanges one call reads at most, when a stream's exchanges are read together: about 10,000
+ * tokens, small on purpose. A read that marks what was said and done line by line gets worse as its input grows, so
+ * this is far under what a call could take (`callCharsOf`), and it is a number of the read, not of an engine.
+ */
 export const EXCHANGE_BATCH_CHARS = 30_000;
 
 /** The characters of messages' texts. */

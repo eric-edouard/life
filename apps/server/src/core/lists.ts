@@ -10,8 +10,8 @@ export function within<T>(list: T[], budget: number, size: (x: T) => number) {
 }
 
 /**
- * A list packed in order into runs whose sizes add up to `budget` at most. An item is never split: one over the
- * budget sits alone in its run.
+ * A list packed in order into groups whose sizes add up to `budget` at most. An item is never split: one over the
+ * budget is a group alone.
  */
 export function packed<T>(list: T[], budget: number, size: (x: T) => number) {
   const out: T[][] = [];

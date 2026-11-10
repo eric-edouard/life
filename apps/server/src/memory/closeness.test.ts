@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Closeness, Correction } from "../records/observation";
@@ -22,8 +22,10 @@ import {
   pagedNow,
   parseLevels,
   personallyClose,
+  readWithPeople,
   voiceDays,
 } from "./closeness";
+import { LIFE_MAIL } from "./email";
 import { pagePath } from "./ledger";
 import { foldsOf } from "./who";
 
@@ -431,4 +433,37 @@ test("completed 1:1 calls of every source are voice days, never messages or extr
     voice: 1,
   });
   store.db.close();
+});
+
+test("the read with people leaves out bulk mail and Life's own mail, for every step that reads it", async () => {
+  const sources = await import("./sources");
+  const mail = (id: string, extra: Partial<SourceEvent> = {}): SourceEvent => ({
+    at: "2026-10-01T12:00:00.000Z",
+    chat: id,
+    fromMe: false,
+    id,
+    sender: "ana@example.com",
+    source: "mail",
+    text: "x",
+    ...extra,
+  });
+  const read = () => [
+    mail("from-a-person"),
+    mail("a-newsletter", { bulk: true }),
+    mail("lifes-report", {
+      chatName: `${LIFE_MAIL.subject}10 Nov`,
+      sender: LIFE_MAIL.from as string,
+    }),
+  ];
+  const tables = spyOn(sources, "tables").mockReturnValue({
+    ...sources.tablesOf([]),
+    WITH_PEOPLE: { mail: read },
+  });
+  try {
+    const { events, failed } = await readWithPeople();
+    expect(events.map((e) => e.id)).toEqual(["from-a-person"]);
+    expect(failed).toEqual([]);
+  } finally {
+    tables.mockRestore();
+  }
 });
