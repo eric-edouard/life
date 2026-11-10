@@ -65,7 +65,13 @@ dir of its own linked to the live one (`linkState`), each reply checked by the e
 (`docs/evals/question-cases/<run>.json`), counts only on screen and in the log. Run it from the main checkout (it
 refuses without a search index).
 
-**Next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
+**First paid run, 10 Nov** (his word): B5, C21, C6, all three passed. Per case: one Codex call of about 32,000 to
+56,000 input tokens (most cached) and 100 to 170 output, 15 to 20 seconds, one or two connector reads; one judge call
+on his engine of about 600 input and 200 to 1,700 output tokens, a fraction of a cent. Results in his data,
+`docs/evals/question-cases/2026-11-10T08-46-05.632Z.json`. These three are facts Life already holds; the baseline
+must include the hard ones (relationships, arcs).
+
+**Was next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
 to price a case; then the baseline over all twelve; then the conflict and mentions reads, one PR each; then the
 pilot's first round on his word, with its cost shown and the place where kept replies are committed settled.
 
