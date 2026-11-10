@@ -203,7 +203,9 @@ def run(bench: Path, name: str) -> None:
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {"ids": [], "seconds": 0.0}
     rows = list(np.fromfile(rows_path, dtype=np.float32).reshape(len(meta["ids"]), -1)) if meta["ids"] else []
     done = set(meta["ids"])
-    clips = sorted(p for p in (bench / "clips").glob("*.wav") if p.stem not in done)
+    # VOICE_BENCH_CLIPS=1500 embeds only the first 1,500 clips: a quick look at a model before its full run.
+    most = int(os.environ.get("VOICE_BENCH_CLIPS", 0)) or None
+    clips = [p for p in sorted((bench / "clips").glob("*.wav"))[:most] if p.stem not in done]
     if not clips:
         print(f"{name}: nothing new", flush=True)
         return

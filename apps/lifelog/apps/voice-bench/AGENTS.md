@@ -13,8 +13,10 @@ wrong. What it found: `docs/research/voice-bench.md`.
   and `AUDIO_DIR` as Lifelog Host's `server.env` sets them. It takes every turn he answered and a seeded draw of the
   others, for the review. `clips` needs `ffmpeg`.
 - `embed` needs `uv` (`local/embed.py`). Every model is pinned in its `MODELS` (code commit, weights revision) and
-  downloads on first use; a new pin embeds again. It runs one worker per core: about ten minutes a model for 6,000
-  clips. `score` takes seconds.
+  downloads on first use; a new pin embeds again. It is the slow step: about half a second a clip on one core, and
+  each worker (`VOICE_BENCH_WORKERS`) peaks at 2 to 4 GB, so about 25 minutes a model for 6,000 clips on six workers.
+  `VOICE_BENCH_CLIPS=1500` embeds only the first 1,500 clips, a quick look before a model's full run. `score` takes
+  seconds.
 - `page` serves the report on 127.0.0.1 (`VOICE_BENCH_PORT` to choose the port): the cloud, the models, and the
   review. Stop it when done.
 - Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/lifelog/voice-bench/`
@@ -28,6 +30,10 @@ wrong. What it found: `docs/research/voice-bench.md`.
   without the evidence of its own conversations, as the voice eval does. The bench has no profile code of its own.
 - No server threshold is used. The bench sweeps its own score threshold and lead, so models whose scores sit in
   different ranges compare fairly.
+- The report also gives the first guess right, with no threshold (the share of known voices whose most alike
+  person is the right one): it moves little when some of his answers are wrong, where the 1% rule collapses.
+- The review offers the turns where most models agree against his answer, or agree on a name for a turn he has not
+  answered: models that agree are a better hint of a wrong answer than one model's score.
 - "Nobody I know" is mostly a voice he does not care about: never a known voice, and a name given to it is a wrong
   name. "Several voices" and "not a person" leave the scoring.
 - A blend is the mean of the models' z-scored likenesses (`blendOf`). "Fuse" is rank fusion, another thing

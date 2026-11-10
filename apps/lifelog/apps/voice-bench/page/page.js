@@ -28,6 +28,10 @@
     return made;
   };
   const percent = (x) => `${(x * 100).toFixed(1)}%`;
+  // The model whose first guess is right most often: the one to look at first.
+  const surestOf = () =>
+    report.models.toSorted((a, b) => b.firstRight - a.firstRight)[0];
+  const heardBy = (m) => Object.keys(m.turns).length;
   const at = (summary, budget = WINNER) =>
     summary.points.find((p) => p.budget === budget) ?? { namedRight: 0 };
   const status = (text) => {
@@ -267,6 +271,13 @@
             name,
             m.model === BASELINE
               ? node("span", { className: "note" }, "what lifelog runs today")
+              : "",
+            heardBy(m) < report.counts.turns
+              ? node(
+                  "span",
+                  { className: "note" },
+                  `quick look, ${heardBy(m).toLocaleString()} turns`
+                )
               : ""
           ),
           node("td", {}, bar(at(m).namedRight)),
@@ -577,19 +588,25 @@
     const [best] = report.models;
     const baseline = report.models.find((m) => m.model === BASELINE);
     const [blend] = report.blends;
-    const parts = [
-      `${labelOf(best.key)} names ${percent(at(best).namedRight)} of your known voices, wrong on at most 1 name in 100.`,
-    ];
-    if (baseline && baseline !== best) {
-      parts.push(
-        `${labelOf(baseline.key)}, what lifelog runs today, names ${percent(at(baseline).namedRight)}.`
-      );
-    }
-    if (blend && at(blend).namedRight > at(best).namedRight) {
-      parts.push(
-        `${blend.models.map(labelOf).join(" with ")} together: ${percent(at(blend).namedRight)}.`
-      );
-    }
+    const surest = surestOf();
+    const parts =
+      at(best).namedRight < 0.1
+        ? [
+            "No model names your voices at 1 wrong name in 100 yet.",
+            `${labelOf(surest.key)} has the right person first ${percent(surest.firstRight)} of the time` +
+              (baseline && baseline !== surest
+                ? `, ${labelOf(baseline.key)} today ${percent(baseline.firstRight)}.`
+                : "."),
+          ]
+        : [
+            `${labelOf(best.key)} names ${percent(at(best).namedRight)} of your known voices, wrong on at most 1 name in 100.`,
+            baseline && baseline !== best
+              ? `${labelOf(baseline.key)}, what lifelog runs today, names ${percent(at(baseline).namedRight)}.`
+              : "",
+            blend && at(blend).namedRight > at(best).namedRight
+              ? `${blend.models.map(labelOf).join(" with ")} together: ${percent(at(blend).namedRight)}.`
+              : "",
+          ];
     el("verdict").textContent = parts.join(" ");
     const { answered: all, excluded, known, turns, unknown } = report.counts;
     el("counts").textContent =
@@ -625,7 +642,7 @@
         .toSorted((a, b) => a.name.localeCompare(b.name))
         .map((p) => node("option", { value: p.id }, p.name))
     );
-    model = report.models.find((m) => m.key === model?.key) ?? report.models[0];
+    model = report.models.find((m) => m.key === model?.key) ?? surestOf();
     drawTop();
     drawPeople();
     drawPairs();
