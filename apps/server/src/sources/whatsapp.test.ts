@@ -180,3 +180,79 @@ test("a backup without ContactsV2 uses the Mac's contacts for sender LIDs", () =
     wa.close();
   }
 });
+
+test("an older snapshot fills missing identities without replacing archived messages or calls", () => {
+  const { add, dir, now, source, wa } = whatsappFixture();
+  const details = (seconds: number) =>
+    proto([87, proto([1, proto([3, seconds])])]);
+  add(1, "edited", 0, "latest text");
+  add(2, "empty", 0, "");
+  add(3, "call", 59, null);
+  wa.run("insert into ZWAMEDIAITEM (Z_PK, ZMETADATA) values (3, ?)", [
+    details(412),
+  ]);
+  wa.run("update ZWAMESSAGE set ZMEDIAITEM = 3 where Z_PK = 3");
+  copyWhatsapp(source, dir, now);
+  const archive = new Database(join(dir, "whatsapp.sqlite"));
+  try {
+    const original = archive
+      .query("select rowid, * from messages order by rowid")
+      .all();
+    const originalCalls = archive
+      .query("select rowid, * from phone_calls order by rowid")
+      .all();
+    wa.run("update ZWAMESSAGE set ZTEXT = 'old text' where Z_PK in (1, 2)");
+    wa.run("update ZWAMEDIAITEM set ZMETADATA = ? where Z_PK = 3", [
+      details(0),
+    ]);
+    add(4, "missing", 0, "only in snapshot");
+    expect(copyWhatsapp(source, dir, now + 5000, true)).toBe(1);
+    expect(
+      archive
+        .query(
+          "select rowid, * from messages where id <> 'missing' order by rowid"
+        )
+        .all()
+    ).toEqual(original);
+    expect(
+      archive.query("select rowid, * from phone_calls order by rowid").all()
+    ).toEqual(originalCalls);
+    const events = readWhatsapp(new Date(0), dir, source);
+    expect(events.find((e) => e.id.endsWith("/edited"))?.text).toBe(
+      "latest text"
+    );
+    expect(events.find((e) => e.id.endsWith("/empty"))?.text).toBe("");
+    expect(events.find((e) => e.id.endsWith("/call"))?.phoneCall?.seconds).toBe(
+      412
+    );
+    expect(events.find((e) => e.id.endsWith("/missing"))?.text).toBe(
+      "only in snapshot"
+    );
+    wa.run("update ZWAMESSAGE set ZTEXT = 'live edit' where Z_PK = 4");
+    copyWhatsapp(source, dir, now + 10_000);
+    expect(
+      readWhatsapp(new Date(0), dir, source).find((e) =>
+        e.id.endsWith("/missing")
+      )?.text
+    ).toBe("live edit");
+  } finally {
+    archive.close();
+    wa.close();
+  }
+});
+
+test("an older deletion placeholder cannot delete an archived live message with a different id", () => {
+  const { add, dir, now, source, wa } = whatsappFixture();
+  add(1, "live", 0, "current message");
+  copyWhatsapp(source, dir, now);
+  const before = readWhatsapp(new Date(0), dir, source);
+  add(2, "old-deletion", 14, null);
+  try {
+    copyWhatsapp(source, dir, now + 5000, true);
+    expect(readWhatsapp(new Date(0), dir, source)).toEqual(before);
+    expect(copyWhatsapp(source, dir, now + 10_000)).toBe(1);
+    expect(readWhatsapp(new Date(0), dir, source)[0]?.deleted).toBe(true);
+  } finally {
+    wa.close();
+  }
+});

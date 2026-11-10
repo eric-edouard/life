@@ -194,3 +194,32 @@ test("read-only historical uncertainty survives an earlier zone append without w
     writeFileSync(ZONES, was);
   }
 });
+
+test("a midday initial zone protects stored units earlier on that same day", async () => {
+  const was = readFileSync(ZONES, "utf8");
+  const path = join(UNITS, "2018-01-02.jsonl");
+  mkdirSync(UNITS, { recursive: true });
+  const instant = "2018-01-02T00:30:00Z";
+  writeFileSync(
+    path,
+    `${JSON.stringify({ date: "2018-01-02", end: instant, hash: "a".repeat(16), id: "unit_aaaaaaaaaaaa", key: "test", people: [], refs: ["test"], schemaVersion: 1, source: "imessage", start: instant, stats: { chars: 20, fromMe: 1, items: 1 }, title: "Example" })}\n`
+  );
+  try {
+    writeFileSync(
+      ZONES,
+      `${JSON.stringify({ from: "2018-01-02T12:00:00Z", schemaVersion: 1, tz: "Etc/GMT" })}\n`
+    );
+    const initial = readFileSync(ZONES, "utf8");
+    const report = await prepareHistoricalZones(
+      { from: "2018-01-01", to: "2018-01-01" },
+      () => [sent("2018-01-01", "-0500")]
+    );
+    expect(report.runs).toEqual([]);
+    expect(report.reasons).toHaveLength(1);
+    expect(zoneAt(instant)).toBe("Etc/GMT");
+    expect(readFileSync(ZONES, "utf8")).toBe(initial);
+  } finally {
+    rmSync(path);
+    writeFileSync(ZONES, was);
+  }
+});

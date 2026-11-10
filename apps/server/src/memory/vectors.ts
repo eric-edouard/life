@@ -20,13 +20,6 @@ import { listening } from "./sources";
 // text is embedded once whatever holds it and whatever rebuilds the index. Derived and safe to delete: the watcher
 // embeds it all again (`embedNew`). Written outside the memory lock: it holds nothing of memory's.
 
-/** A text search may rank by meaning, and when it happened (the newest are embedded first). */
-export interface Searched {
-  at: string;
-  hash?: string;
-  text: string;
-}
-
 /** The embedder, Lifelog Host's: none when Life reads no voice source (no Host), and search ranks by words alone. */
 export const embedderNow = (): Embedder | null =>
   listening() ? embedderAt(EMBEDDER_URL) : null;
@@ -110,26 +103,6 @@ function prepareVectors(db: Database) {
   db.run("create index if not exists vectors_partition on vectors(partition)");
 }
 
-/** The hashes among `hashes` that have a vector. */
-function readKnown(hashes: string[]) {
-  if (!existsSync(VECTORS)) {
-    return new Set<string>();
-  }
-  const db = openReadOnly(VECTORS);
-  try {
-    return new Set(
-      db
-        .query<{ hash: string }, [string]>(
-          "select hash from vectors where hash in (select value from json_each(?))"
-        )
-        .all(JSON.stringify(hashes))
-        .map((r) => r.hash)
-    );
-  } finally {
-    db.close();
-  }
-}
-
 /** How many texts it embeds before writing them. */
 const WRITE_EVERY = 256;
 
@@ -137,28 +110,47 @@ const WRITE_EVERY = 256;
  * Embeds at most 256 missing texts, newest first; the next tick reselects new arrivals before the historical backlog.
  * A failed batch publishes nothing; its unchanged hashes are retried on the next tick.
  */
-export async function embedNew(embedder: Embedder, texts: Searched[]) {
-  const byHash = new Map<string, string>();
-  for (const t of texts.toSorted((a, b) => b.at.localeCompare(a.at))) {
-    const hash = t.hash ?? textHashOf(embedder.model, t.text);
-    if (!byHash.has(hash)) {
-      byHash.set(hash, t.text);
-    }
-  }
-  const known = readKnown([...byHash.keys()]);
-  const missing = [...byHash]
-    .filter(([hash]) => !known.has(hash))
-    .slice(0, WRITE_EVERY);
+export async function embedNew(
+  embedder: Embedder,
+  readTexts: (db: Database) => boolean
+) {
   // Complete the model-free cache conversion before requesting any new embeddings.
   mkdirSync(dirname(VECTORS), { recursive: true });
   const db = new Database(VECTORS, { create: true });
   db.run("pragma busy_timeout = 30000");
   db.run("pragma journal_mode = wal");
+  let count = 0;
   try {
     prepareVectors(db);
+    const isWhole = readTexts(db);
+    db.run(
+      "create temp table searched_hashes (hash text primary key, at text)"
+    );
+    db.run(
+      "insert into searched_hashes select hash, max(at) from searched group by hash"
+    );
+    if (isWhole) {
+      pruneVectors(db);
+    }
+    const hashes = db
+      .query<{ hash: string }, []>(
+        `select s.hash from searched_hashes s where not exists (select 1 from vectors v where v.hash = s.hash) order by s.at desc limit ${WRITE_EVERY}`
+      )
+      .all();
+    const readText = db.query<{ text: string }, [string]>(
+      "select text from searched where hash = ? limit 1"
+    );
+    const missing = hashes.map(({ hash }) => {
+      const row = readText.get(hash);
+      if (!row) {
+        throw new Error(`missing searched text for ${hash}`);
+      }
+      return [hash, row.text] as const;
+    });
     if (missing.length === 0) {
       return 0;
     }
+    count = missing.length;
     const vectors = await embedAll(
       embedder,
       missing.map(([, text]) => text)
@@ -182,27 +174,14 @@ export async function embedNew(embedder: Embedder, texts: Searched[]) {
   } finally {
     db.close(true);
   }
-  return missing.length;
+  return count;
 }
 
 /** Drops the vectors of texts no longer searched (a passage that grew, a message past its window). */
-export function pruneVectors(embedder: Embedder, texts: Searched[]) {
-  if (!existsSync(VECTORS)) {
-    return;
-  }
-  const db = new Database(VECTORS);
-  db.run("pragma busy_timeout = 30000");
-  try {
-    db.query(
-      "delete from vectors where hash not in (select value from json_each(?))"
-    ).run(
-      JSON.stringify(
-        texts.map((t) => t.hash ?? textHashOf(embedder.model, t.text))
-      )
-    );
-  } finally {
-    db.close(true);
-  }
+function pruneVectors(db: Database) {
+  db.run(
+    "delete from vectors where not exists (select 1 from searched_hashes s where s.hash = vectors.hash)"
+  );
 }
 
 /** The nearest ids, scanning hash-addressed partitions while retaining only the best candidates. */

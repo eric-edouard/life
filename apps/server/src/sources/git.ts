@@ -237,7 +237,6 @@ export function readGit(
       "--no-merges",
       ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
-      ...(before ? [`--until=${before.toISOString()}`] : []),
       "--numstat",
       `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,
     ]);

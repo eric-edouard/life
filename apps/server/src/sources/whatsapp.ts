@@ -209,12 +209,13 @@ export function copyWhatsapp(
       !isFull && archive.query("select 1 from phone_calls limit 1").get()
         ? toAppleS(now) - WINDOW_S
         : 0;
+    // An older store fills gaps only: any archived identity already has the more authoritative version.
     insertAll(
       archive,
       `with incoming (chat, id, details, seenAt) as (values (?, ?, ?, ?))
        insert or ignore into phone_calls select * from incoming
        where not exists (select 1 from phone_calls c where c.chat is incoming.chat
-         and c.id = incoming.id and c.details = incoming.details)`,
+         and c.id = incoming.id ${isFull ? "" : "and c.details = incoming.details"})`,
       whatsapp
         .query<
           { chat: string | null; details: Uint8Array; id: string },
@@ -236,7 +237,7 @@ export function copyWhatsapp(
          as (values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
        insert or ignore into messages select * from incoming
        where not exists (select 1 from messages m where m.chat is incoming.chat
-         and m.id = incoming.id and m.type = incoming.type and m.text = incoming.text and m.media = incoming.media)`,
+         and ${isFull ? "(m.id = incoming.id or (incoming.type = 14 and m.at = incoming.at and m.fromMe = incoming.fromMe))" : "m.id = incoming.id and m.type = incoming.type and m.text = incoming.text and m.media = incoming.media"})`,
       rows.map((r) => [
         ...[
           r.id,

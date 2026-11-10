@@ -334,10 +334,12 @@ export async function readHistoricalZones(
   // change their dates; restoring it on their first day is forbidden by the past-zone boundary.
   const hasUnsafeExtension =
     firstUnit &&
-    firstZone &&
-    firstUnit < firstZone &&
     runs.length > 0 &&
-    runs.at(-1)?.tz !== zoneAt(dayStart(firstUnit).toISOString());
+    rowsOf(join(UNITS, `${firstUnit}.jsonl`), Unit).some(
+      (unit) =>
+        Date.parse(unit.start) < (zones()[0]?.from ?? 0) &&
+        runs.at(-1)?.tz !== zoneAt(unit.start)
+    );
   if (hasUnsafeExtension) {
     for (let day = window.from; day <= limit; day = daysBefore(day, -1)) {
       deferred.push(day);

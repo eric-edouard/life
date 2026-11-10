@@ -10,12 +10,10 @@ import {
   enabledSources,
   kindOf,
   readySources,
-  SOURCES,
   type Tables,
   tables,
 } from "./sources";
 import { dayUnitId, isLifeOutput, normalize, searchableMail } from "./units";
-import type { Searched } from "./vectors";
 import { type DayRange, dayStart, localDate, type Window } from "./zones";
 
 // Rebuildable source text, independent of index.sqlite. Each passage belongs to its first message's unit.
@@ -382,16 +380,18 @@ export function writePassages(...args: Parameters<typeof preparePassages>) {
   preparePassages(...args)();
 }
 
-function filterOf(range: DayRange, mail: boolean) {
+function filterOf(range: DayRange, mail?: boolean) {
   return {
     args: [
       range.from ?? "",
       range.to ?? iso(clock().getTime() + 1),
       JSON.stringify(
-        SOURCES.filter((s) => s.kind === "mail").map((s) => s.name)
+        enabledSources()
+          .filter((s) => mail === undefined || (s.kind === "mail") === mail)
+          .map((s) => s.name)
       ),
     ],
-    sql: `end >= ? and start < ? and source ${mail ? "in" : "not in"} (select value from json_each(?))`,
+    sql: "end >= ? and start < ? and source in (select value from json_each(?))",
   };
 }
 
@@ -467,53 +467,55 @@ export function readPassages(
 }
 
 /** Coverage must span every source without a gap before absent hashes can safely be pruned. */
-export function readPassageTexts(): { texts: Searched[]; isWhole: boolean } {
+export function readPassageTexts(db: Database): boolean {
   if (!existsSync(PASSAGES)) {
-    return { isWhole: false, texts: [] };
-  }
-  const db = openReadOnly(PASSAGES);
-  try {
-    const ready = readySources();
-    const searched = enabledSources().filter(
-      (s) => s.kind === "chat" || s.kind === "own_writing" || s.kind === "mail"
+    db.run(
+      "create temp view passage_texts as select null as at, null as hash, null as text where 0"
     );
-    const isWhole = searched.every((source) => {
-      if (!ready.includes(source)) {
-        return false;
-      }
-      let earliest: string | null | undefined;
-      try {
-        earliest = source.earliest?.();
-      } catch {
-        return false;
-      }
-      if (!earliest) {
-        return true;
-      }
-      let edge = earliest;
-      for (const r of db
-        .query<{ start: string; end: string }, [string]>(
-          "select start,end from coverage where source = ? order by start"
-        )
-        .all(source.name)) {
-        if (r.start > edge) {
-          return false;
-        }
-        if (r.end > edge) {
-          edge = r.end;
-        }
-      }
-      return edge >= clock().toISOString();
-    });
-    return {
-      isWhole,
-      texts: db
-        .query<Searched, []>(
-          "select end as at,hash,text from passages order by end desc"
-        )
-        .all(),
-    };
-  } finally {
-    db.close();
+    return false;
   }
+  db.run("attach database ? as passage_store", [`file:${PASSAGES}?mode=ro`]);
+  const f = filterOf({});
+  let parameter = 0;
+  const where = f.sql.replaceAll("?", () => {
+    const value = f.args[parameter];
+    parameter += 1;
+    return `'${String(value).replaceAll("'", "''")}'`;
+  });
+  db.run(
+    `create temp view passage_texts as select end as at, hash, text from passage_store.passages where ${where}`
+  );
+  const ready = readySources();
+  const searched = enabledSources().filter(
+    (s) => s.kind === "chat" || s.kind === "own_writing" || s.kind === "mail"
+  );
+  const isWhole = searched.every((source) => {
+    if (!ready.includes(source)) {
+      return false;
+    }
+    let earliest: string | null | undefined;
+    try {
+      earliest = source.earliest?.();
+    } catch {
+      return false;
+    }
+    if (!earliest) {
+      return true;
+    }
+    let edge = earliest;
+    for (const r of db
+      .query<{ start: string; end: string }, [string]>(
+        "select start,end from passage_store.coverage where source = ? order by start"
+      )
+      .all(source.name)) {
+      if (r.start > edge) {
+        return false;
+      }
+      if (r.end > edge) {
+        edge = r.end;
+      }
+    }
+    return edge >= clock().toISOString();
+  });
+  return isWhole;
 }

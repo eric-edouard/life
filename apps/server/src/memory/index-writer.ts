@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { clock } from "../core/clock";
 import { EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { newestIn } from "../core/files";
@@ -17,7 +18,6 @@ import {
   episodesWhere,
   INDEX,
   MEMORY,
-  readIndex,
   readUnits,
   readVerdicts,
   type Standing,
@@ -27,7 +27,6 @@ import {
 } from "./ledger";
 import { readPassageTexts } from "./passages";
 import { TRUTH } from "./read-truth";
-import type { Searched } from "./vectors";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
 
 // derived/memory/index.sqlite: the one writer of the index the read path reads (`buildIndex`, `reindex`,
@@ -49,6 +48,7 @@ create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
 create index unit_topics_topic on unit_topics (topic);
 create table search_hashes (id text primary key, hash text not null);
+create table episode_search (id text primary key, at text, text text);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`stateOf`). */
@@ -155,8 +155,11 @@ export function buildIndex(
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "links", 2);
     const hash = insertInto(db, "search_hashes", 2);
+    const episodeRow = insertInto(db, "episode_search", 3);
     for (const episode of episodes) {
-      hash.run(episode.id, textHashOf(EMBEDDER_MODEL, episodeTextNow(episode)));
+      const words = episodeTextNow(episode);
+      hash.run(episode.id, textHashOf(EMBEDDER_MODEL, words));
+      episodeRow.run(episode.id, daysOf(episode)[0], words);
     }
     for (const o of unique.values()) {
       const retired = retirement(o, standing);
@@ -191,35 +194,23 @@ export function buildIndex(
 }
 
 /**
- * Every text `search` ranks by meaning, with when it happened: what the watcher embeds (`embedNew`). Whole when the
- * index and every source were read: only then may vectors of texts not among them go (`pruneVectors`).
+ * Exposes searchable texts as a temporary SQLite view for `embedNew`, without loading them. Whole only when the
+ * index and every source were read: only then may vectors of absent hashes go.
  */
-export async function readSearchedTexts(): Promise<{
-  isWhole: boolean;
-  texts: Searched[];
-}> {
-  const episodes = await episodesWhere(() => true);
-  const indexed = readIndex((db) => [
-    ...db
-      .query<Searched, []>(
-        `select o.date as at, h.hash, ${OBSERVATION_TEXT} as text from observations o join search_hashes h on h.id = o.id where ${CURRENT}`
-      )
-      .all(),
-    ...db
-      .query<Searched, []>(
-        `select u.date as at, h.hash, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id join search_hashes h on h.id = u.id`
-      )
-      .all(),
-  ]);
-  const chats = readPassageTexts();
-  return {
-    isWhole: indexed !== null && chats.isWhole,
-    texts: [
-      ...(indexed ?? []),
-      ...episodes.map((m) => ({ at: daysOf(m)[0], text: episodeTextNow(m) })),
-      ...chats.texts,
-    ],
-  };
+export function readSearchedTexts(db: Database): boolean {
+  const hasIndex = existsSync(INDEX);
+  let indexed = "select null as at, null as hash, null as text where 0";
+  if (hasIndex) {
+    db.run("attach database ? as search_index", [`file:${INDEX}?mode=ro`]);
+    indexed = `select o.date as at, h.hash, ${OBSERVATION_TEXT} as text from search_index.observations o join search_index.search_hashes h on h.id = o.id where ${CURRENT}
+      union all select u.date as at, h.hash, ${UNIT_TEXT} as text from search_index.unit_search s join search_index.units u on u.id = s.id join search_index.search_hashes h on h.id = u.id
+      union all select e.at, h.hash, e.text from search_index.episode_search e join search_index.search_hashes h on h.id = e.id`;
+  }
+  const wholePassages = readPassageTexts(db);
+  db.run(
+    `create temp view searched as ${indexed} union all select at, hash, text from passage_texts`
+  );
+  return hasIndex && wholePassages;
 }
 
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
@@ -281,8 +272,9 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       rebuilt = db
         .query<{ at: string }, []>("select at from rebuilt")
         .get()?.at;
-      // A pre-hash index must rebuild even when none of its source files changed.
+      // An index without stored search texts and hashes must rebuild even when its inputs did not change.
       db.query("select id from search_hashes limit 0").all();
+      db.query("select id from episode_search limit 0").all();
     } finally {
       db.close();
     }

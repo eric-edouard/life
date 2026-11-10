@@ -1,15 +1,19 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { iso, MIN } from "../core/clock";
+import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { buildIndex } from "./index-writer";
+import { PASSAGES } from "./ledger";
 import {
   passagesOf,
   preparePassages,
   readPassageCandidates,
   readPassages,
+  readPassageTexts,
   writePassages,
 } from "./passages";
 import { dayUnitId } from "./units";
@@ -211,4 +215,70 @@ test("edge storage reads are shared across chats and skipped when the closest ev
     path
   );
   expect(reads).toBe(0);
+});
+
+test("disabled cached sources disappear from lexical and vector candidates and return when enabled", () => {
+  const path = pathOf();
+  const all = messages("2020-05-01");
+  const before = settings().sources;
+  try {
+    setSettings({ sources: ["line"] });
+    writePassages(
+      all,
+      { from: "2020-04-30", to: "2020-05-01" },
+      [],
+      { line: readerOf(all) },
+      path
+    );
+    expect(
+      readPassageCandidates("message", {}, false, path, true).hashes.length
+    ).toBeGreaterThan(0);
+    setSettings({ sources: [] });
+    expect(readPassageCandidates("message", {}, false, path, true)).toEqual({
+      count: 0,
+      hashes: [],
+      held: [],
+    });
+    expect(readPassages({}, false, path)).toEqual([]);
+    setSettings({ sources: ["line"] });
+    expect(
+      readPassageCandidates("message", {}, false, path, true).count
+    ).toBeGreaterThan(0);
+  } finally {
+    setSettings({ sources: before });
+  }
+});
+
+test("embedding passage selection shares the enabled filter even when a source is unavailable", () => {
+  const all = messages("2020-05-01");
+  writePassages(
+    all,
+    { from: "2020-04-30", to: "2020-05-01" },
+    [],
+    { line: readerOf(all) },
+    PASSAGES
+  );
+  const before = settings().sources;
+  try {
+    for (const enabled of [true, false, true]) {
+      setSettings({ sources: enabled ? ["line"] : [] });
+      const db = new Database(":memory:");
+      try {
+        readPassageTexts(db);
+        const rows = db
+          .query<{ text: string }, []>("select text from passage_texts")
+          .all();
+        const expected = passagesOf(all).map((group) =>
+          group.map((e) => e.text).join("\n")
+        );
+        expect(rows.filter((row) => expected.includes(row.text))).toHaveLength(
+          enabled ? 3 : 0
+        );
+      } finally {
+        db.close();
+      }
+    }
+  } finally {
+    setSettings({ sources: before });
+  }
 });

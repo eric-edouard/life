@@ -145,3 +145,39 @@ test("a commit in two clones of one repo counts once: in a mapped clone first, e
     "bakery-shop:menu",
   ]);
 }, 20_000);
+
+test("historical months use author dates even when a commit was committed the next month", () => {
+  const root = mkdtempSync(join(tmpdir(), "life-git-dates-"));
+  const repo = join(root, "calendar-app");
+  const owner = ["owner@example.com", "Jean Dupont"];
+  git(root, owner, "init", "-q", repo);
+  const saved = Bun.spawnSync(
+    [
+      "git",
+      "-C",
+      repo,
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "January work",
+    ],
+    {
+      env: {
+        ...as("owner@example.com", "Jean Dupont"),
+        GIT_AUTHOR_DATE: "2024-01-31T12:00:00Z",
+        GIT_COMMITTER_DATE: "2024-02-02T12:00:00Z",
+      },
+      stderr: "pipe",
+    }
+  );
+  expect(saved.exitCode).toBe(0);
+  const read = (from: string, to: string) =>
+    readGit(new Date(from), new Map(), me, root, new Date(to));
+  const january = read("2024-01-01", "2024-02-01");
+  expect(january.map((e) => [e.text, e.at])).toEqual([
+    ["January work", "2024-01-31T12:00:00.000Z"],
+  ]);
+  expect(read("2024-02-01", "2024-03-01")).toEqual([]);
+}, 20_000);

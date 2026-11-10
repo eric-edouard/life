@@ -354,20 +354,14 @@ export function readScreen(
     return [];
   }
   const db = openReadOnly(path);
+  // Join complete stints before bounding their starts: an edge can close or rejoin across either boundary.
   const rows = (() => {
     try {
       return db
-        .query<
-          ScreenRecord & { device: string; stream: Stream },
-          [string, string | null, string | null]
-        >(
-          "select device, stream, at, starting, bundle, domain, visit from events where at >= ? and (? is null or at < ?) order by at"
+        .query<ScreenRecord & { device: string; stream: Stream }, []>(
+          "select device, stream, at, starting, bundle, domain, visit from events order by at"
         )
-        .all(
-          since.toISOString(),
-          before?.toISOString() ?? null,
-          before?.toISOString() ?? null
-        );
+        .all();
     } finally {
       db.close();
     }
@@ -376,6 +370,10 @@ export function readScreen(
   const groups = Map.groupBy(rows, (r) => `${r.device}|${r.stream}`);
   return [...groups.values()]
     .flatMap((g) => stintsOf(g, (g[0] as (typeof g)[number]).stream))
+    .filter(
+      (s) =>
+        s.at >= since.toISOString() && (!before || s.at < before.toISOString())
+    )
     .map(
       (s): SourceEvent => ({
         at: s.at,
