@@ -253,7 +253,7 @@ function cardOf(
 export type Card = Suggestion & { clips: Clip[]; words: number };
 
 // The voices to recheck: each speaker he named, judged without its own conversations
-// (speakers.ts `soundsLikeOf`), the most doubtful first. A turn with its own answer is not the
+// (recheck.ts `recheckOf`), the most doubtful first. A turn with its own answer is not the
 // speaker's sample.
 // ponytail: every named voice is judged again on each build (0.7 s for 700 of them, in the
 // worker); keep each voice's verdict between builds if that grows.
