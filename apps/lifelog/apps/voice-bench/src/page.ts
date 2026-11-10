@@ -1,5 +1,5 @@
-// The bench's page, for this Mac only: the report, the clips, and the one write, his answer to a
-// reviewed voice (one line a turn). A development tool on loopback, never a page lifelog serves.
+// The bench's page, for this Mac only: the report, the clips, his answers, and the one write, his
+// answer to a reviewed voice (one line a turn). A development tool on loopback, never a page lifelog serves.
 import { join } from "node:path";
 import { clipPath } from "./clips";
 import { ANSWER_KINDS, appendAnswer, type BenchAnswer } from "./truth";
@@ -61,7 +61,8 @@ export function answerTo(
     const path = clip
       ? clipPath(dir, clip)
       : (FILES[pathname] ??
-        (pathname === "/report.json" ? join(dir, "report.json") : null));
+        (pathname === "/report.json" ? join(dir, "report.json") : null) ??
+        (pathname === "/answers.jsonl" ? answersPath : null));
     const file = path && Bun.file(path);
     return file && (await file.exists())
       ? new Response(file, { headers: { "Cache-Control": "no-store" } })
