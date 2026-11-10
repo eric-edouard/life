@@ -573,9 +573,9 @@ function existingPerson(db: Db, action: CardAnswer) {
 
 // "Several people": who, named passage by passage in place, and the one besides the owner to
 // fall back on in a closed set (owner, Oct 15).
-export function severalTarget(
+function severalTarget(
   db: Db,
-  { people: ids, unknown }: { people: string[]; unknown: boolean }
+  { people: ids, unknown }: Extract<CardAnswer, { kind: "several" }>
 ): Target {
   const chosen = db.select().from(people).where(inArray(people.id, ids)).all();
   const [other, more] = chosen.filter((p) => !p.isOwner);

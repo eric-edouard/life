@@ -1827,27 +1827,6 @@
               }
             },
             "required": ["kind"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["several"]
-              },
-              "people": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "maxItems": 20
-              },
-              "unknown": {
-                "type": "boolean"
-              }
-            },
-            "required": ["kind", "people", "unknown"]
           }
         ]
       },
@@ -4645,7 +4624,7 @@
     },
     "/transcripts/{jobId}/speakers/{speakerLabel}": {
       "put": {
-        "description": "The owner names (kind new), assigns (kind person), un-assigns (kind unknown) or says several people speak in (kind several) a speaker, or one turn when turnIndex is set. Evidence from that scope in this transcript moves with it. Survives every later recognition run. A new person takes the id the phone chose, so a replay makes nobody twice.",
+        "description": "The owner names (kind new), assigns (kind person) or un-assigns (kind unknown) a speaker, or one turn when turnIndex is set. Evidence from that scope in this transcript moves with it. Survives every later recognition run. A new person takes the id the phone chose, so a replay makes nobody twice.",
         "parameters": [
           {
             "schema": {

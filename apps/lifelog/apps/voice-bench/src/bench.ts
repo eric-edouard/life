@@ -133,7 +133,10 @@ async function apply(...args: string[]) {
   if (!(token && port)) {
     throw new Error("set PORT (server.env) and LIFELOG_TOKEN (Life's .env)");
   }
-  for (const write of writes) {
+  // Several people last: the route refuses it until the server takes it for a turn.
+  for (const write of writes.toSorted(
+    (a, b) => Number(a.kind === "several") - Number(b.kind === "several")
+  )) {
     // biome-ignore lint/performance/noAwaitInLoops: one writer, in order
     await send(`http://127.0.0.1:${port}`, token, write);
   }
