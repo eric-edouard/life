@@ -83,6 +83,8 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [The spec](./spec.md) — second draft, 10 Nov. The first draft was reviewed the same day by a fresh reviewer (38 out of 100 as ready for a pilot; the review is in his data repo, `docs/memory-rework/experiments/2026-11-10-spec-review-1.md`). The second draft answers it: a count is defined (the exchange as the unit, the chance recorded, one rate per meter, a table from codes to readings), links tie a promise to its ending, the pilot has four pieces with claims, baselines and pass marks, his word has a row per kind, histories are built when first asked, and scale is bounded (section 14). Tickets 05 to 28 point at its sections.
 - [Scale, and the value of a read](./tickets/28-scale-and-the-value-of-a-read.md) — his word, 10 Nov: no exponential reads; scale reasonably while maximizing information value. Spec section 14.
 
+- [The path](./assets/path.md) — at his ask (10 Nov): the spec reached in about forty small PRs, never one rework. New layers beside the old, in shadow first, one reader moved at a time, then the old mechanism deleted. Code-only steps, links and histories from today's evidence come before the pilot's model work; the connector changes once, near the end.
+
 ## Waiting on his word
 
 - His six calls of spec section 19: routing; a third person in the pilot; one whole-thread read as a comparison; doubtful codes asked to him in conversation; a forecast leaning on everyone's rate when a count is tiny; the price of reading moves over the whole history. The spec assumes yes to the first five.
