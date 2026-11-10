@@ -552,15 +552,17 @@ function beeperChats(network: string, beeper: string) {
 /**
  * Who copies a network into its archive: its bridge, when one is added on this Mac; else Beeper Desktop, when it holds
  * an account of the network (LINE allows one such session: he keeps LINE in Beeper, 6 Nov 2026); else no one.
+ * `beeper-closed` while Beeper's store can't say: only Beeper could be copying it, so the archive opens it.
  */
 export function copierOf(network: string, beeper = BEEPER) {
   if (isBridgeAdded(network)) {
     return "bridge" as const;
   }
-  // Unknown counts as Beeper's: the archive opens it (`store.app`), and the next pass knows.
-  return (beeperChats(network, beeper)?.length ?? 1) > 0
-    ? ("beeper" as const)
-    : undefined;
+  const chats = beeperChats(network, beeper);
+  if (!chats) {
+    return "beeper-closed" as const;
+  }
+  return chats.length > 0 ? ("beeper" as const) : undefined;
 }
 
 // Beeper caches mxc://<host>/<id> at media/<host>/<id>, localmxc://<bridge>/<id> at media/localhost<bridge>/<id>.
@@ -626,7 +628,10 @@ export function copyBeeper(
   synapse = SYNAPSE
 ): number {
   const chats = beeperChats(network, beeper);
-  if (!chats?.length) {
+  if (!chats) {
+    throw new Error("Beeper is closed: its store can't be read");
+  }
+  if (chats.length === 0) {
     return 0;
   }
   const archive = openBridged(network, dir);
@@ -726,7 +731,9 @@ export const bridgedSource = (network: Network): Descriptor => {
     store: {
       // Beeper's store gets new messages only while Beeper runs; the bridges' one job keeps a bridge running.
       get app() {
-        return copierOf(name) === "beeper" ? "Beeper Desktop" : undefined;
+        return copierOf(name)?.startsWith("beeper")
+          ? "Beeper Desktop"
+          : undefined;
       },
       copies: "messages",
       copy: () =>

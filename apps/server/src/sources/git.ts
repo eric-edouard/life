@@ -254,7 +254,7 @@ export function readGit(
       listed.exitCode === 0 && wanted.length > 0
         ? git(
             path,
-            ["log", "--no-walk", "--stdin", "--numstat", format],
+            ["log", "--no-walk=unsorted", "--stdin", "--numstat", format],
             wanted.join("\n")
           )
         : listed;

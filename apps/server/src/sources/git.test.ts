@@ -187,7 +187,7 @@ test("a month reads the lines of its own commits only: a later commit whose diff
   const repo = join(root, "calendar-app");
   const owner = ["owner@example.com", "Jean Dupont"];
   git(root, owner, "init", "-q", repo);
-  const save = (text: string, subject: string, at: string) => {
+  const save = (text: string, subject: string, at: string, committed = at) => {
     writeFileSync(join(repo, "notes"), text);
     git(repo, owner, "add", "notes");
     const saved = Bun.spawnSync(
@@ -205,14 +205,17 @@ test("a month reads the lines of its own commits only: a later commit whose diff
         env: {
           ...as("owner@example.com", "Jean Dupont"),
           GIT_AUTHOR_DATE: at,
-          GIT_COMMITTER_DATE: at,
+          GIT_COMMITTER_DATE: committed,
         },
         stderr: "pipe",
       }
     );
     expect(saved.exitCode).toBe(0);
   };
-  save("one\ntwo\n", "January work", "2024-01-15T12:00:00Z");
+  // Two at one author time, the first committed later: read child first, as one log gave them, not by commit time.
+  const noon = "2024-01-15T12:00:00Z";
+  save("one\n", "January draft", noon, "2024-01-20T12:00:00Z");
+  save("one\ntwo\n", "January work", noon, "2024-01-16T12:00:00Z");
   save("one\ntwo\nthree\n", "March work", "2024-03-15T12:00:00Z");
   // March's file is gone from the store: counting its lines fails, as reading every later diff once did by its cost.
   const blob = Bun.spawnSync(["git", "-C", repo, "rev-parse", "HEAD:notes"])
@@ -226,5 +229,8 @@ test("a month reads the lines of its own commits only: a later commit whose diff
     root,
     new Date("2024-02-01")
   );
-  expect(january.map((e) => [e.text, e.added])).toEqual([["January work", 2]]);
+  expect(january.map((e) => [e.text, e.added])).toEqual([
+    ["January work", 1],
+    ["January draft", 1],
+  ]);
 }, 20_000);

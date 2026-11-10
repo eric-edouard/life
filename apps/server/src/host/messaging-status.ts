@@ -72,6 +72,9 @@ async function bridgePart(n: Network): Promise<Part> {
   if (copier === "beeper") {
     return { kind: "bridge", ok: true, text: "read from Beeper" };
   }
+  if (copier === "beeper-closed") {
+    return { kind: "bridge", ok: false, text: "Beeper is closed" };
+  }
   if (!copier) {
     return {
       kind: "bridge",
