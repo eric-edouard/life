@@ -56,14 +56,17 @@ So, for every change:
 - State the hypothesis and what result would refute it before running anything.
 - Compare against baselines, at least plain retrieval over the units and the current layers, on the same test set.
 - Change one thing at a time, and remove a layer to see what it was worth (an ablation) as readily as adding one.
-- Keep the test set held out from whatever is being tuned, and record every run: model, prompt version, inputs,
-  scores, cost. Model output is cached by input, so a result can be reproduced.
+- Split the owner's questions: a development share to design with, and a held-out share no design step sees, used
+  only to judge. Score as Life already does ([Measuring](operations.md#measuring)) and keep every regression case
+  ([Regression cases](operations.md#regression-cases)) passing beside the new comparisons.
+- Record every experiment: model, prompt version, inputs, scores, cost. Model output is cached by input
+  ([architecture](architecture.md)), which makes an experiment repeatable while its inputs stand.
 - Write down results that failed as carefully as results that worked, in the owner's data repo
   (`docs/memory-rework/experiments/`), so the next agent does not repeat them.
 
 ## How to do it
 
-1. Read the goal and the test set first, nothing else. The test set is the owner's real questions with what a right
+1. Read the goal and the development share of the test set first, nothing else. The test set is the owner's real questions with what a right
    answer contains, in the owner's data repo (`docs/memory-rework/02-questions.md` and the mined `02b-`, `02c-` files).
 2. Sketch your own data model from the goal, the test set and what the new model can do. Write it down before
    reading the history below, so the past shapes do not anchor you.
