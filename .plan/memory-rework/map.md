@@ -87,7 +87,6 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 ## Waiting on his word
 
-- One meter's wording ("matter-of-fact or warm": he tried "expressive"), being settled in conversation.
 - The rules of `AGENTS.md` listed in spec section 17, rewritten with the build, on his yes.
 - The history's cost, shown after the pilot.
 

@@ -268,9 +268,9 @@ the track record, how they write, a gist and what works with them. His own is th
 
 | Reading (poles need his words) | Codes in | Chance | Accepted construct | Seen in text |
 |---|---|---|---|---|
-| Outgoing or reserved | Starts, invitations, length, reactions (code) | Exchanges taken part in | Extraversion: enthusiasm | Well |
+| Reserved or expressive | Starts, invitations, length, reactions (code) | Exchanges taken part in | Extraversion: enthusiasm | Well |
 | Takes the lead or goes along | Directs, proposes, defers; who made the decision | A decision at stake | Extraversion: assertiveness | Well; role named |
-| Warm or matter-of-fact | Tone; affection, thanks, support given, questions about the other | Exchanges; support asked | Agreeableness: compassion | Well |
+| Distant or warm | Tone; affection, thanks, support given, questions about the other | Exchanges; support asked | Agreeableness: compassion | Well |
 | Tactful or blunt when disagreeing | Contempt, strength, engages against counters | A fault raised | Agreeableness: politeness | Fairly; needs disagreements |
 | Does what they said or drops it | Promises and their endings (links) | A promise made | Conscientiousness: industriousness | Well |
 | Planned or improvised | Plans and schedules made for their own doings, never what they ask of others | A decision at stake | Conscientiousness: orderliness | Fairly; shown only if it differs from the line above |
@@ -605,8 +605,9 @@ checks (his note); the ten verdicts stay at yes.
 | 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word: DeepSeek reads, Claude checks |
 | 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | Yes |
 
-The names of section 18 and the meters' wording he left as written (same page, same day), except one meter he
-reworded, still being settled: "matter-of-fact or warm". Still his, later: the rules of `AGENTS.md` at build time;
+The names of section 18 and the meters' wording he left as written (same page, same day), except two he set in
+conversation: "distant or warm" for the meter of care (he saw that matter-of-fact was no opposite of warm), and
+"reserved or expressive" for the first. Still his, later: the rules of `AGENTS.md` at build time;
 the history's cost after the pilot.
 
 ## 20. What the review changed
