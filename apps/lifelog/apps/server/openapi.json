@@ -1769,10 +1769,6 @@
           "attemptId": {
             "type": "string"
           },
-          "basis": {
-            "type": "string",
-            "enum": ["context", "two-person"]
-          },
           "confidence": {
             "type": "number"
           },
@@ -1803,7 +1799,6 @@
         },
         "required": [
           "attemptId",
-          "basis",
           "confidence",
           "evidence",
           "inputHash",
@@ -4043,6 +4038,59 @@
           },
           "409": {
             "description": "Revision or identity link conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/naming-gate": {
+      "post": {
+        "description": "Install an offline passing naming evaluation. The server remains the only database writer; this runs no measurement or model call.",
+        "requestBody": {
+          "description": "Measured model and passing report",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "receipt": {}
+                },
+                "required": ["model"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gate receipt installed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "installed": {
+                      "type": "boolean",
+                      "enum": [true]
+                    }
+                  },
+                  "required": ["installed"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Insufficient or mismatched report",
             "content": {
               "application/json": {
                 "schema": {

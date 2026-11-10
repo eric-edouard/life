@@ -8,15 +8,19 @@ import {
   turns,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import { RECOGNITION, VOICE_MAP_POINTS_PER_PERSON_MODEL } from "./config";
+import { and, desc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  NAMING,
+  RECOGNITION,
+  VOICE_MAP_POINTS_PER_PERSON_MODEL,
+} from "./config";
 import { textOf } from "./elevenlabs";
 import type { Card } from "./naming-queue";
 import { personRow } from "./people";
 import { coveredByRow, modelKey, ofItsSpeaker } from "./recognized-rows";
 import { readProfiles } from "./speaker-recognition";
 import { centroid, rankPeople } from "./speakers";
-import { keptWords } from "./transcript";
+import { keptWords, readInference } from "./transcript-visibility";
 import { pcaOf } from "./voice-pca";
 import type { Vector } from "./voice-vectors";
 
@@ -196,6 +200,8 @@ export function readVoiceProjection(
       )
       .innerJoin(people, eq(people.id, assignments.personId))
       .where(eq(assignments.source, "inferred"))
+      .orderBy(desc(turns.startAt), turns.jobId, turns.turnIndex)
+      .limit(NAMING.inferredMaxTurns)
       .all()
       .flatMap(({ turn, ...inferred }) => {
         const kept = keptWords(turn.words, turn.startAt.getTime(), quiet);
@@ -203,6 +209,7 @@ export function readVoiceProjection(
           ? [
               {
                 ...inferred,
+                inference: readInference(db, inferred.inference),
                 text: kept === turn.words ? turn.text : textOf(kept),
               },
             ]

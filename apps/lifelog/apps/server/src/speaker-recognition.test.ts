@@ -35,7 +35,6 @@ function seed() {
     snapshotRevision: 1,
     targets: [
       {
-        clean: true,
         id: "scope",
         jobId,
         profiles: { people: [], strangers: [] },
@@ -54,7 +53,6 @@ function seed() {
     input,
     readings: [
       {
-        basis: "context" as const,
         confidence: 1,
         evidence: [{ quote: "My name is Dara.", turn: 0 }],
         personId: "person",

@@ -165,10 +165,9 @@ reverse it, change its entry here in the same commit.
   This supersedes owner-only naming and creation above. A validated context reading may name a checked
   turn scope as `source: inferred`: what the model guessed and uses until corrected, never voice evidence.
   Qualifying voice matches and owner answers win; inferred names supply neither profiles nor nearby references.
-- **“If it's two, then it's just the other person”** (owner's decision, 10 Nov 2026).
-  This supersedes owner-only naming for the remaining clean turns only when independent evidence establishes
-  exactly two participants, including the owner, and identifies the other. Two diarizer labels or a mentioned
-  name do not establish that premise. Owner turns are separated first; otherwise abstain.
+- **Dropped the owner-plus-one shortcut** (owner's decision, 10 Nov 2026).
+  "I don't think it's a good rule. There can be background music, they can be people saying things in the background, so not great."
+  Context and voice likeness still name checked turns; no conversation-size premise names the remaining turns.
 - **Automatically add Life people “when confident”** (owner's decision, 10 Nov 2026).
   This supersedes the no-background-write rule below for Life's authenticated complete people snapshot and
   the automatic-merge ban for canonical Life folds only. A fold retargets a link or uses the existing merge

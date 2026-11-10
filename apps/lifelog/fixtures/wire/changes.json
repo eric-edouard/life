@@ -168,7 +168,7 @@
         "displayName": "Marie-Jo",
         "inference": {
           "attemptId": "synthetic-attempt",
-          "basis": "context",
+
           "confidence": 0.99,
           "evidence": [
             {

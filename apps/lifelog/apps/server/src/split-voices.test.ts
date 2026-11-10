@@ -418,7 +418,6 @@ test("context can name an exact unnamed split behind a recognized main label", (
     snapshotRevision: 1,
     targets: [
       {
-        clean: true,
         id: "split",
         jobId: held.jobId,
         profiles: { people: [], strangers: [] },
@@ -445,7 +444,6 @@ test("context can name an exact unnamed split behind a recognized main label", (
       input,
       readings: [
         {
-          basis: "context",
           confidence: 1,
           evidence: [{ quote: "Made-up speech.", turn: 2 }],
           personId: inferred,
@@ -490,7 +488,6 @@ test("an exact scope's qualifying voice wins and is stored when its label cannot
     snapshotRevision: 1,
     targets: [
       {
-        clean: true,
         id: "turn",
         jobId: held.jobId,
         profiles: profiles.get("test@r1") ?? { people: [], strangers: [] },
@@ -517,7 +514,6 @@ test("an exact scope's qualifying voice wins and is stored when its label cannot
       input,
       readings: [
         {
-          basis: "context",
           confidence: 1,
           evidence: [{ quote: "Made-up speech.", turn: 0 }],
           personId: other,

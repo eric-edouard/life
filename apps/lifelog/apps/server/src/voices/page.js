@@ -308,22 +308,27 @@ const rangeOf = (points, axis) => {
     "#d69b7d",
   ];
   function showInferred() {
+    let editor;
     el("inferred").replaceChildren(
       ...(data.inferred ?? []).map((turn) => {
         const row = document.createElement("div");
         const title = document.createElement("p");
-        title.textContent = `${turn.personName} · Inferred ${turn.inference?.basis === "two-person" ? "from two participants" : "from context"}`;
+        title.textContent = `${turn.personName} · Inferred from context`;
         const quote = document.createElement("blockquote");
         quote.textContent = turn.text;
         const evidence = document.createElement("small");
         evidence.textContent = (turn.inference?.evidence ?? [])
           .map((e) => e.quote)
           .join(" · ");
-        const form = clipNames(turn, () => {
-          data.inferred = data.inferred.filter((t) => t !== turn);
-          showInferred();
+        const correct = button("Correct speaker", () => {
+          editor?.remove();
+          editor = clipNames(turn, () => {
+            data.inferred = data.inferred.filter((t) => t !== turn);
+            showInferred();
+          });
+          row.append(editor);
         });
-        row.append(title, quote, evidence, form);
+        row.append(title, quote, evidence, correct);
         return row;
       })
     );

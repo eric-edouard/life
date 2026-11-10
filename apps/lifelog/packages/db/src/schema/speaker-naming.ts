@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -164,7 +165,6 @@ export interface Suggestion {
 // The model's support for this exact scope; none of it is voice-profile evidence.
 export interface SpeakerInference {
   attemptId: string;
-  basis: "context" | "two-person";
   confidence: number;
   evidence: { jobId: string; quote: string; turnIndex: number }[];
   inputHash: string;
@@ -219,18 +219,22 @@ export const namingAttempts = sqliteTable(
 );
 
 // Approval is bound to the measured policy, model and prompt; absence never authorizes writes.
-export const namingRollout = sqliteTable("naming_rollout", {
-  createdAt,
-  gate: json("gate"),
-  inputTokens: integer("input_tokens").notNull().default(0),
-  latencyMs: integer("latency_ms").notNull().default(0),
-  longWindow: json("long_window"),
-  model: text("model").notNull(),
-  outputTokens: integer("output_tokens").notNull().default(0),
-  pilotCalls: integer("pilot_calls").notNull().default(0),
-  pilotPassed: boolean("pilot_passed").notNull().default(false),
-  policyHash: text("policy_hash").primaryKey(),
-  promptHash: text("prompt_hash").notNull(),
-  shortWindow: json("short_window"),
-  updatedAt,
-});
+export const namingRollout = sqliteTable(
+  "naming_rollout",
+  {
+    createdAt,
+    gate: json("gate"),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    latencyMs: integer("latency_ms").notNull().default(0),
+    longWindow: json("long_window"),
+    model: text("model").notNull(),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    pilotCalls: integer("pilot_calls").notNull().default(0),
+    pilotPassed: boolean("pilot_passed").notNull().default(false),
+    policyHash: text("policy_hash").notNull(),
+    promptHash: text("prompt_hash").notNull(),
+    shortWindow: json("short_window"),
+    updatedAt,
+  },
+  (t) => [primaryKey({ columns: [t.model, t.promptHash, t.policyHash] })]
+);

@@ -6,6 +6,7 @@ import { latestSeq } from "./change-log";
 import { reportError } from "./diagnostics";
 import type { Card, readVoiceMap } from "./naming-queue";
 
+import { readInference } from "./transcript-visibility";
 import type { VoiceScope } from "./voice-map";
 
 export const MAP_RETRY_DELAY = MIN / 2;
@@ -86,7 +87,16 @@ export function queueCache(db: Db) {
       }
       pending = { ...Promise.withResolvers<void>(), revision };
     }
-    return map ? { ...map, building: pending !== null } : null;
+    return map
+      ? {
+          ...map,
+          building: pending !== null,
+          inferred: map.inferred.map((turn) => ({
+            ...turn,
+            inference: readInference(db, turn.inference),
+          })),
+        }
+      : null;
   };
   return {
     close,

@@ -41,6 +41,12 @@ import {
 } from "../src/speaker-recognition";
 import { likeness, type NamingCalibration } from "../src/speakers";
 import { freezeVoiceSnapshot, withFrozenVoiceSnapshot } from "./frozen-voices";
+import {
+  installNamingGate,
+  lowerBoundOf,
+  namingCounts,
+  summarizeNamingUnits,
+} from "./naming-evaluation";
 export type Export = ReturnType<typeof exportVoices> & {
   naming?: FrozenNamingEvaluation;
 };
@@ -391,7 +397,7 @@ function namingReplay(
           .get()
       : null;
     const input =
-      readNamingInputs(db, item.conversationId).find((candidate) =>
+      [...readNamingInputs(db, item.conversationId)].find((candidate) =>
         isFreezing
           ? !attempt ||
             namingWorkHash(candidate.inputHash, data.model) ===
@@ -467,7 +473,6 @@ function namingReplay(
           short:
             !!parsed &&
             parsed.end - parsed.start < RECOGNITION.shortTurnSeconds,
-          twoPerson: after?.inference?.basis === "two-person",
         };
       }),
     };
@@ -568,44 +573,24 @@ export function freezeNamingCase(
   };
 }
 type NamingScoreRow = ReturnType<typeof namingReplay>["rows"][number];
-function namingCounts(rows: { prediction: string | null; correct: boolean }[]) {
-  const predicted = rows.filter((r) => r.prediction !== null);
-  const correct = predicted.filter((r) => r.correct).length;
-  const n = predicted.length;
-  const z2 = NAMING.gateZ ** 2;
-  const centre = (correct + z2 / 2) / (n + z2);
-  const spread = n
-    ? (NAMING.gateZ * Math.sqrt((correct * (n - correct)) / n + z2 / 4)) /
-      (n + z2)
-    : 0;
-  return {
-    correct,
-    coverage: rows.length ? n / rows.length : 0,
-    interval: n ? [centre - spread, centre + spread] : null,
-    precision: n ? correct / n : null,
-    predictions: n,
-    turns: rows.length,
-  };
+function namingRows(data: FrozenNamingEvaluation, reasons: string[]) {
+  const rows: NamingScoreRow[] = [];
+  const inputHashes: string[] = [];
+  for (const item of data.cases.filter((c) => c.partition === "held-out")) {
+    try {
+      const replayed = namingReplay(data, item);
+      rows.push(...replayed.rows);
+      if (replayed.input) {
+        inputHashes.push(replayed.input.inputHash);
+      }
+    } catch (error) {
+      reasons.push(
+        `${item.conversationId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+  return { inputHashes, rows };
 }
-export function summarizeNamingUnits(
-  rows: {
-    prediction: string | null;
-    correct: boolean;
-    recordingId: string;
-    callId: string;
-  }[]
-) {
-  const units = (key: "recordingId" | "callId") =>
-    namingCounts(
-      [...Map.groupBy(rows, (r) => r[key]).values()].map((group) => ({
-        correct: group.every((r) => r.prediction === null || r.correct),
-        prediction: group.some((r) => r.prediction !== null) ? "named" : null,
-      }))
-    );
-  return { calls: units("callId"), recordings: units("recordingId") };
-}
-const lowerBoundOf = (...reports: { interval: number[] | null }[]) =>
-  Math.min(...reports.map((r) => r.interval?.[0] ?? 0));
 export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
   const reasons: string[] = [];
   const calibrationRecordingIds = recordingIds(data.cases, "calibration");
@@ -637,21 +622,7 @@ export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
   ) {
     reasons.push("model policy, prompt or calibrated cutoffs differ");
   }
-  const rows: NamingScoreRow[] = [];
-  const inputHashes: string[] = [];
-  for (const item of data.cases.filter((c) => c.partition === "held-out")) {
-    try {
-      const replayed = namingReplay(data, item);
-      rows.push(...replayed.rows);
-      if (replayed.input) {
-        inputHashes.push(replayed.input.inputHash);
-      }
-    } catch (error) {
-      reasons.push(
-        `${item.conversationId}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
+  const { rows, inputHashes } = namingRows(data, reasons);
   const overall = namingCounts(rows);
   const addedContext = namingCounts(
     rows
@@ -725,7 +696,6 @@ export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
       contextOnly: namingCounts(rows.filter((r) => r.contextOnly)),
       group: namingCounts(rows.filter((r) => r.group)),
       short: namingCounts(rows.filter((r) => r.short)),
-      twoPerson: namingCounts(rows.filter((r) => r.twoPerson)),
     },
   };
 }
@@ -754,6 +724,9 @@ if (import.meta.main) {
     }
     const report = evaluateNamingFrozen(frozen.naming);
     console.log(JSON.stringify(report, null, 2));
+    if (Bun.argv.includes("--install")) {
+      await installNamingGate(report.receipt);
+    }
     process.exit(
       Bun.argv.includes("--check") && !report.receipt.passed ? 1 : 0
     );

@@ -98,12 +98,6 @@ public struct CachedTurn: Sendable, Equatable, Decodable {
         }
 
         public struct Inference: Sendable, Equatable, Decodable {
-            public enum Basis: String, Sendable, UnknownTolerant {
-                case context
-                case twoPerson = "two-person"
-                case unknown
-            }
-
             public struct Evidence: Sendable, Equatable, Decodable {
                 public var jobId: String
                 public var quote: String
@@ -111,7 +105,6 @@ public struct CachedTurn: Sendable, Equatable, Decodable {
             }
 
             public var attemptId: String
-            public var basis: Basis
             public var confidence: Double
             public var evidence: [Evidence]
             public var inputHash: String

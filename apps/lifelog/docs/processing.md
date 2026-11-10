@@ -292,17 +292,14 @@ does not make it anyone's evidence or allow external transmission; only owner-at
 ### Context naming
 
 The bounded reader (`inferred-speakers.ts`) receives transcript turns, exact target scopes, canonical candidate
-names and aliases, trusted presence, and local `rankPeople` likeness scores and leads. Target names, inferred
+names and aliases, trusted speaker names, and local `rankPeople` likeness scores and leads. Target names, inferred
 attributions and generated summaries are excluded from trusted evidence. Embeddings stay local. Strict parsing
 checks candidate membership, finite confidence, cited turns and exact quotes; recorded words remain data.
 
 `speakers.ts` decides after voice matching, owner-turn extraction, splits and nearby naming. A qualifying voice
 match wins. A context reading needs the calibrated confidence cutoff and no calibrated voice contradiction; missing
-embeddings permit context-only naming. The two-person rule applies only with independent evidence of exactly two
-participants, including the owner and an identified other person, after owner turns are separated. Mentioning a name
-or seeing two diarizer labels proves neither premise. Otherwise the reader abstains. The current production
-snapshot carries identities, not exhaustive conversation membership; the queue supplies no two-person premise.
-That shortcut stays disabled until a trusted participant source is chosen; explicit synthetic premises exercise it.
+embeddings permit context-only naming. The reader abstains when those checks fail. The owner dropped the
+owner-plus-one shortcut on 10 Nov 2026 because background music and voices invalidate its premise.
 
 The recognition transaction rechecks the input hash, scope, snapshot revision and owner answers before writing exact
 checked turns as `source: inferred`. Confidence, quoted evidence and attempt reference stay separate from voice
@@ -313,7 +310,7 @@ answers cannot be replayed away. Confirmation through `assign` alone
 promotes a clip to profile evidence.
 
 One persisted queue (`naming-pass.ts`) serves evaluation, pilot, archive and arrivals. Fresh eligible arrivals with no
-attempt come first; backlog follows as owner-plus-one-person, trusted participants or useful rankings, then
+attempt come first; backlog follows as trusted speaker names or useful rankings, then
 context-only, newest first within each class and conversation id breaking ties. Calls are serialized. Errors and
 unsupported readings are distinct, with persisted attempt counts, due instants, backoff and caps from `NAMING`;
 changed input resets eligibility. Disjoint bounded windows keep long conversations moving even when an earlier
@@ -333,7 +330,7 @@ Rollout is disabled pending separate calibration and held-out measurement. The e
 scorer: frozen reads replay the production decision and reconciliation path without live calls during the gate.
 Calibration and held-out recordings supply no identity, presence, same-recording or future profile evidence to their
 own predictions. Reports bind model, prompt, policy and input hashes and include counts, coverage, precision,
-confidence intervals and short/group/two-person/context-only strata. Recording and call units count as right only
+confidence intervals and short/group/context-only strata. Recording and call units count as right only
 when all their predictions are right; the gate uses the weakest turn, recording and call lower bound. Zero
 predictions or insufficient independent evidence cannot
 authorize writes. `NAMING` requires 98% overall and added-context precision before the capped pilot of at most 50

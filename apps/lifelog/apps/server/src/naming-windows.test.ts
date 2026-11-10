@@ -55,7 +55,6 @@ function abstain(call: ModelCall) {
   const input = JSON.parse(call.user) as NamingInput;
   return {
     readings: input.scopes.map((scope) => ({
-      basis: "context",
       confidence: 0,
       evidence: [],
       personId: null,
@@ -84,17 +83,25 @@ test("81 unchecked turns progress past a pending abstention and cached retries r
   seed();
   const fake = provider();
   const queue = namingPass(env.db, idleMac, fake);
-  expect(await queue.run(request)).toBe("abstained");
+  const nextWork = async () => {
+    let outcome = await queue.run(request);
+    while (outcome === "advancing") {
+      // biome-ignore lint/performance/noAwaitInLoops: advance bounded fixture windows until work or idle
+      outcome = await queue.run(request);
+    }
+    return outcome;
+  };
+  expect(await nextWork()).toBe("abstained");
   const [first] = attempts();
   assert(first);
   expect(scopeCount(first)).toBe(NAMING.contextMaxScopes);
   expect(first.nextEligibleAt?.getTime()).toBeGreaterThan(clock().getTime());
-  expect(await queue.run(request)).toBe("abstained");
+  expect(await nextWork()).toBe("abstained");
   const second = attempts().find((attempt) => attempt.id !== first.id);
   assert(second);
   expect(scopeCount(second)).toBe(1);
   expect(fake.calls).toHaveLength(2);
-  expect(await queue.run(request)).toBe("idle");
+  expect(await nextWork()).toBe("idle");
   for (const attempt of [first, second]) {
     for (
       let count = attempt.attempts + 1;
@@ -103,7 +110,7 @@ test("81 unchecked turns progress past a pending abstention and cached retries r
     ) {
       makeDue(attempt.id);
       // biome-ignore lint/performance/noAwaitInLoops: each persisted retry is made due in order
-      expect(await queue.run(request)).toBe("abstained");
+      expect(await nextWork()).toBe("abstained");
       expect(attempts().find((row) => row.id === attempt.id)?.attempts).toBe(
         count
       );
@@ -117,7 +124,7 @@ test("81 unchecked turns progress past a pending abstention and cached retries r
   expect(attempts().every((attempt) => attempt.state === "abstained")).toBe(
     true
   );
-  expect(await queue.run(request)).toBe("idle");
+  expect(await nextWork()).toBe("idle");
 });
 
 test("a failed first window reaching its cap cannot prevent the remaining turn from being called", async () => {

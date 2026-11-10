@@ -6,6 +6,7 @@ import {
   type JobMap,
   transcriptionJobs as jobs,
   quietRanges,
+  speakerAssignments,
   type Turn,
   type TurnRef,
   type TurnWord,
@@ -13,10 +14,22 @@ import {
   unfinishedJobStates,
   type Word,
 } from "@lifelog/db/schema";
-import { and, asc, gt, gte, inArray, lt, min } from "drizzle-orm";
+import {
+  and,
+  asc,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  min,
+  or,
+  sql,
+} from "drizzle-orm";
 import { textOf } from "./elevenlabs";
-import { assignmentsByJob, speakerOf } from "./people";
+import { assignmentRows, speakerOf } from "./people";
 import { voiceId } from "./recognized-rows";
+import { keptWords } from "./transcript-visibility";
 
 // Where each kept interval begins in the prepared audio (ms): the map's `starts` when its audio was
 // joined from fragments (audio.ts `joinOggOpus`), else each one separator after the one before.
@@ -112,7 +125,11 @@ function speakerNames(
 // (dictation, playback) are left out of everything built on this: summaries, search, the feed.
 // `pendingFrom` is where the first job over it still to transcribe starts: the words before it are
 // all there. Null for an unknown conversation.
-export function loadTurns(db: Db, conversationId: string) {
+export function loadTurns(
+  db: Db,
+  conversationId: string,
+  window?: { offset: number; limit: number }
+) {
   const conversation = db.query.conversations
     .findFirst({
       where: (c, { eq: is }) => is(c.id, conversationId),
@@ -126,7 +143,13 @@ export function loadTurns(db: Db, conversationId: string) {
     .select()
     .from(turnRows)
     .where(and(gte(turnRows.startAt, start), lt(turnRows.startAt, end)))
-    .orderBy(asc(turnRows.startAt))
+    .orderBy(
+      asc(turnRows.startAt),
+      asc(turnRows.jobId),
+      asc(turnRows.turnIndex)
+    )
+    .limit(window?.limit ?? -1)
+    .offset(window?.offset ?? 0)
     .all();
   const [first] = db
     .select({ at: min(jobs.captureStart) })
@@ -140,9 +163,23 @@ export function loadTurns(db: Db, conversationId: string) {
     )
     .all();
   const quiet = quietIn(db, start, end);
-  const assigned = assignmentsByJob(
-    db,
-    rows.map((t) => t.jobId)
+  const assigned = Map.groupBy(
+    assignmentRows(
+      db,
+      and(
+        inArray(speakerAssignments.jobId, [
+          ...new Set(rows.map((t) => t.jobId)),
+        ]),
+        or(
+          isNull(speakerAssignments.turnIndex),
+          inArray(
+            sql`${speakerAssignments.jobId} || '/' || ${speakerAssignments.turnIndex}`,
+            rows.map((t) => `${t.jobId}/${t.turnIndex}`)
+          )
+        )
+      )
+    ),
+    (r) => r.jobId
   );
   const shown = rows.flatMap((t) => {
     const assignedTo = speakerOf(
@@ -178,6 +215,10 @@ export function loadTurns(db: Db, conversationId: string) {
   const loaded: LoadedTurn[] = shown.map((t) => ({ ...t, speaker: nameOf(t) }));
   return {
     languages: [...new Set(loaded.map((t) => t.languageCode))],
+    nextOffset:
+      window && rows.length === window.limit
+        ? window.offset + rows.length
+        : null,
     ownerTitle: conversation.ownerTitle,
     pendingFrom: first?.at?.getTime() ?? null,
     // Its capture range (epoch ms).
@@ -193,30 +234,6 @@ const quietIn = (db: Db, from: Date, to: Date) =>
     .where(and(lt(quietRanges.startedAt, to), gt(quietRanges.endedAt, from)))
     .all()
     .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
-
-// The one hiding rule (summaries, search, the feed): a word that starts inside a quiet
-// range is the owner dictating to the Mac and goes; a turn without words goes by its own start.
-// `at` places a start in capture time (epoch ms; null: unplaced, kept). Returns `words` itself
-// when nothing goes, null when everything does.
-export function keptWords<W extends { start: number }>(
-  words: W[],
-  turnStart: number,
-  quiet: (readonly [number, number])[],
-  at: (start: number) => number | null = (start) => start
-): W[] | null {
-  const isQuiet = (start: number) => {
-    const t = at(start);
-    return t !== null && quiet.some(([from, to]) => from <= t && t < to);
-  };
-  if (words.length === 0) {
-    return isQuiet(turnStart) ? null : words;
-  }
-  const kept = words.filter((w) => !isQuiet(w.start));
-  if (kept.length === words.length) {
-    return words;
-  }
-  return kept.length > 0 ? kept : null;
-}
 
 // The words of a turn: its speaker's, inside its span.
 export const ownWords = (turn: Turn, words: Word[]) =>

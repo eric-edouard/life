@@ -120,7 +120,6 @@ export const EXCERPTS = {
 export const NAMING = {
   addedContextPrecision: 0.98,
   backlogContext: 2,
-  backlogOwnerPair: 0,
   backlogVoice: 1,
   // No production cutoff before the separate calibration; evaluation binds its calibrated values.
   calibration: null as {
@@ -142,6 +141,7 @@ export const NAMING = {
   gateZ: 1.96,
   // The morning push goes out from this hour in the owner's zone.
   hour: 8,
+  inferredMaxTurns: 100,
   // A card needs this many turns traded with the owner and this much talk; anything less is a
   // stranger.
   minExchanges: 10,

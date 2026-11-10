@@ -73,7 +73,9 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   snapshot removes eligibility, not recordings or owner evidence. `POST /naming-pass` carries Life's selected
   `backfillEngine`; absent means off and a non-Codex engine defers the pass. Both routes require the corrections or
   device token; read and map tokens cannot write them. No phone-call records or other Life memory move across this
-  boundary. Naming remains subject to the [rollout gates](processing.md#context-naming).
+  boundary. The offline evaluator can install a passing report through `POST /naming-gate` with the same
+  corrections or device token; read and map tokens cannot install it. Naming remains subject to the
+  [rollout gates](processing.md#context-naming).
 - **status**: `GET /status`. `pendant` (`connection`, `recording`, `recordingKnownAt`, `batteryPercent`, `charging`,
   `knownAt`), `phoneHeartbeat` (the phone's last report, `backlog.pages` among it), `pipeline` (where audio and
   summaries are, `docs/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and

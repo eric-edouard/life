@@ -11,15 +11,13 @@ import {
   voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { and, eq, gte, inArray, isNull } from "drizzle-orm";
-import { z } from "zod";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { NAMING, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import {
   boundNamingInputs,
   isNamingGate,
   type NamingInput,
-  namingBacklogClass,
   namingPolicyHash,
   namingPromptHash,
   namingWorkHash,
@@ -29,9 +27,17 @@ import {
 } from "./inferred-speakers";
 import { resolveLifePerson } from "./life-people";
 import type { MacSocket } from "./mac-socket";
-import { assignmentsByJob, speakerOf, uncleanTurn } from "./people";
+import {
+  finishNamingPilot,
+  namingPilotPace,
+  namingQuota,
+  type Rollout,
+  rolloutWhere,
+} from "./naming-rollout";
+import { type NamingWork, namingSelection } from "./naming-selection";
+import { assignmentsByJob, speakerOf } from "./people";
 import { type ModelReply, macProvider, type Provider } from "./providers";
-import { loadTranscript, modelKey } from "./recognized-rows";
+import { modelKey } from "./recognized-rows";
 import { readProfiles, reconcileNaming } from "./speaker-recognition";
 import { NO_PROFILES } from "./speakers";
 import { subscriptions } from "./subscriptions";
@@ -42,23 +48,17 @@ interface NamingRequest {
   engine?: string;
   mode: NamingMode;
 }
-type Rollout = typeof namingRollout.$inferSelect;
+
 export type NamingMode = "evaluation" | "pilot" | "archive" | "arrivals";
 type Attempt = typeof namingAttempts.$inferSelect;
-export interface NamingWork {
-  arrivedAt: number;
-  attempt: Attempt | null;
-  backlogClass: number;
-  conversationId: string;
-  input: NamingInput;
-  isFresh: boolean;
-}
+const inputOffsets = new WeakMap<NamingInput, number>();
 
 // An owner/direct-voice name is context, never an inferred or nearby-derived name.
-export function readNamingInputs(
+function* readNamingWindows(
   db: Db,
-  conversationId: string
-): NamingInput[] {
+  conversationId: string,
+  fromOffset = 0
+): Generator<NamingInput | null> {
   const conversation = db
     .select()
     .from(conversations)
@@ -68,127 +68,171 @@ export function readNamingInputs(
     .get();
   const snapshot = db.select().from(lifePeopleSnapshot).get();
   if (!(conversation && snapshot)) {
-    return [];
+    return;
   }
-  const loaded = loadTurns(db, conversationId)?.turns ?? [];
-  const jobIds = [...new Set(loaded.map((t) => t.ref.jobId))];
-  if (!jobIds.length) {
-    return [];
-  }
-  const rows = db
-    .select()
-    .from(speakerAssignments)
-    .where(inArray(speakerAssignments.jobId, jobIds))
-    .all();
-  const byJob = Map.groupBy(rows, (r) => r.jobId);
-  const localPeople = db.select().from(people).all();
-  const confirmed = new Set(
-    [
-      ...db
-        .select({ id: speakerAssignments.personId })
-        .from(speakerAssignments)
-        .where(eq(speakerAssignments.source, "owner"))
-        .all(),
-      ...db.select({ id: voiceProfiles.personId }).from(voiceProfiles).all(),
-    ].flatMap((p) => p.id ?? [])
-  );
-  const candidates = new Map(
-    localPeople
-      .filter((p) => p.nameSource === "owner" || confirmed.has(p.id))
-      .map((p) => [
-        p.id,
-        {
-          aliases: p.aliases,
-          canonicalRef: p.lifeRef ?? `lifelog:${p.id}`,
-          name: p.name,
-          personId: p.id,
-        },
-      ])
-  );
-  for (const p of snapshot.people) {
-    const linked = localPeople.find(
-      (l) => l.lifeRef === p.ref || l.id === p.personId
-    );
-    const id = linked?.id ?? `life:${p.ref}`;
-    candidates.set(id, {
-      aliases: linked?.nameSource === "owner" ? linked.aliases : p.aliases,
-      canonicalRef: p.ref,
-      name: linked?.name ?? p.name,
-      personId: id,
+  for (let offset: number | null = fromOffset; offset !== null; ) {
+    const currentOffset = offset;
+    const view = loadTurns(db, conversationId, {
+      limit: NAMING.contextMaxTurns,
+      offset,
     });
-  }
-  const profiles = readProfiles(db);
-  const samples = db
-    .select()
-    .from(voiceSamples)
-    .where(inArray(voiceSamples.jobId, jobIds))
-    .all();
-  const turns = loaded.flatMap((t) => {
-    if (!t.speakerLabel) {
-      return [];
+    offset = view?.nextOffset ?? null;
+    const loaded = view?.turns ?? [];
+    const jobIds = [...new Set(loaded.map((t) => t.ref.jobId))];
+    if (!jobIds.length) {
+      yield null;
+      continue;
     }
-    const row = speakerOf(
-      byJob.get(t.ref.jobId),
-      t.speakerLabel,
-      t.ref.turnIndex
+    const refs = loaded.map((t) => `${t.ref.jobId}/${t.ref.turnIndex}`);
+    const rows = db
+      .select({
+        candidates: speakerAssignments.candidates,
+        jobId: speakerAssignments.jobId,
+        margin: speakerAssignments.margin,
+        mixed: speakerAssignments.mixed,
+        personId: speakerAssignments.personId,
+        score: speakerAssignments.score,
+        source: speakerAssignments.source,
+        speakerLabel: speakerAssignments.speakerLabel,
+        status: speakerAssignments.status,
+        turnIndex: speakerAssignments.turnIndex,
+      })
+      .from(speakerAssignments)
+      .where(
+        and(
+          inArray(speakerAssignments.jobId, jobIds),
+          or(
+            isNull(speakerAssignments.turnIndex),
+            inArray(
+              sql`${speakerAssignments.jobId} || '/' || ${speakerAssignments.turnIndex}`,
+              refs
+            )
+          )
+        )
+      )
+      .all();
+    const byJob = Map.groupBy(rows, (r) => r.jobId);
+    const localPeople = db.select().from(people).all();
+    const confirmed = new Set(
+      [
+        ...db
+          .select({ id: speakerAssignments.personId })
+          .from(speakerAssignments)
+          .where(eq(speakerAssignments.source, "owner"))
+          .all(),
+        ...db.select({ id: voiceProfiles.personId }).from(voiceProfiles).all(),
+      ].flatMap((p) => p.id ?? [])
     );
-    return [
-      {
-        isDirectMatch:
-          row?.source === "recognized" &&
-          (row.score ?? 0) >= RECOGNITION.nearbyReference &&
-          (row.margin ?? 0) >= RECOGNITION.margin,
-        jobId: t.ref.jobId,
-        personId: row?.candidates || row?.mixed ? null : row?.personId,
-        source: row?.source,
-        speakerLabel: t.speakerLabel,
-        text: t.text,
-        turnIndex: t.ref.turnIndex,
-      },
-    ];
-  });
-  // Each unchecked turn is a scope, including turns with no embedding. No label guess fans out.
-  const targets = turns.flatMap((t) => {
-    const row = speakerOf(byJob.get(t.jobId), t.speakerLabel, t.turnIndex);
-    if (
-      row &&
-      (row.source === "owner" ||
-        row.mixed ||
-        row.status === "stranger" ||
-        row.personId)
-    ) {
-      return [];
+    const candidates = new Map(
+      localPeople
+        .filter((p) => p.nameSource === "owner" || confirmed.has(p.id))
+        .map((p) => [
+          p.id,
+          {
+            aliases: p.aliases,
+            canonicalRef: p.lifeRef ?? `lifelog:${p.id}`,
+            name: p.name,
+            personId: p.id,
+          },
+        ])
+    );
+    for (const p of snapshot.people) {
+      const linked = localPeople.find(
+        (l) => l.lifeRef === p.ref || l.id === p.personId
+      );
+      const id = linked?.id ?? `life:${p.ref}`;
+      candidates.set(id, {
+        aliases: linked?.nameSource === "owner" ? linked.aliases : p.aliases,
+        canonicalRef: p.ref,
+        name: linked?.name ?? p.name,
+        personId: id,
+      });
     }
-    const sample = samples.find(
-      (s) => s.jobId === t.jobId && s.turnIndex === t.turnIndex
-    );
-    const parsed = loadTranscript(db, t.jobId)?.parsed;
-    return [
-      {
-        candidates: row?.candidates,
-        clean: !!parsed && uncleanTurn(parsed, t.turnIndex) === null,
-        id: `${t.jobId}/${t.turnIndex}`,
-        jobId: t.jobId,
-        profiles: sample
-          ? (profiles.get(modelKey(sample)) ?? NO_PROFILES)
-          : NO_PROFILES,
-        speakerLabel: t.speakerLabel,
-        turnIndices: [t.turnIndex],
-        vector: sample?.embedding ?? null,
-      },
-    ];
-  });
-  if (!targets.length) {
-    return [];
+    const profiles = readProfiles(db);
+    const samples = db
+      .select()
+      .from(voiceSamples)
+      .where(
+        inArray(
+          sql`${voiceSamples.jobId} || '/' || ${voiceSamples.turnIndex}`,
+          refs
+        )
+      )
+      .all();
+    const turns = loaded.flatMap((t) => {
+      if (!t.speakerLabel) {
+        return [];
+      }
+      const row = speakerOf(
+        byJob.get(t.ref.jobId),
+        t.speakerLabel,
+        t.ref.turnIndex
+      );
+      return [
+        {
+          isDirectMatch:
+            row?.source === "recognized" &&
+            (row.score ?? 0) >= RECOGNITION.nearbyReference &&
+            (row.margin ?? 0) >= RECOGNITION.margin,
+          jobId: t.ref.jobId,
+          personId: row?.candidates || row?.mixed ? null : row?.personId,
+          source: row?.source,
+          speakerLabel: t.speakerLabel,
+          text: t.text,
+          turnIndex: t.ref.turnIndex,
+        },
+      ];
+    });
+    // Each unchecked turn is a scope, including turns with no embedding. No label guess fans out.
+    const targets = turns.flatMap((t) => {
+      const row = speakerOf(byJob.get(t.jobId), t.speakerLabel, t.turnIndex);
+      if (
+        row &&
+        (row.source === "owner" ||
+          row.mixed ||
+          row.status === "stranger" ||
+          row.personId)
+      ) {
+        return [];
+      }
+      const sample = samples.find(
+        (s) => s.jobId === t.jobId && s.turnIndex === t.turnIndex
+      );
+      return [
+        {
+          id: `${t.jobId}/${t.turnIndex}`,
+          jobId: t.jobId,
+          profiles: sample
+            ? (profiles.get(modelKey(sample)) ?? NO_PROFILES)
+            : NO_PROFILES,
+          speakerLabel: t.speakerLabel,
+          turnIndices: [t.turnIndex],
+          vector: sample?.embedding ?? null,
+        },
+      ];
+    });
+    for (const input of boundNamingInputs({
+      conversationId,
+      ownerId: localPeople.find((p) => p.isOwner)?.id ?? null,
+      people: [...candidates.values()],
+      snapshotHash: snapshot.hash,
+      snapshotRevision: snapshot.revision,
+      targets,
+      turns,
+    })) {
+      inputOffsets.set(input, currentOffset);
+      yield input;
+    }
+    yield null;
   }
-  return boundNamingInputs({
-    conversationId,
-    people: [...candidates.values()],
-    snapshotHash: snapshot.hash,
-    snapshotRevision: snapshot.revision,
-    targets,
-    turns,
-  });
+}
+
+export function* readNamingInputs(db: Db, conversationId: string) {
+  for (const input of readNamingWindows(db, conversationId)) {
+    if (input) {
+      yield input;
+    }
+  }
 }
 
 export function readNamingInput(
@@ -196,195 +240,28 @@ export function readNamingInput(
   conversationId: string,
   inputHash?: string
 ) {
-  return (
-    readNamingInputs(db, conversationId).find(
-      (input) => !inputHash || input.inputHash === inputHash
-    ) ?? null
-  );
+  for (const input of readNamingInputs(db, conversationId)) {
+    if (!inputHash || input.inputHash === inputHash) {
+      return input;
+    }
+  }
+  return null;
 }
 
-export function selectNamingWork(
-  work: NamingWork[],
-  now = clock().getTime(),
-  writes = false
-) {
-  return (
-    work
-      .filter(
-        (w) =>
-          !w.attempt ||
-          (writes &&
-            w.attempt.state === "named" &&
-            !(w.attempt.result as { applied?: boolean } | null)?.applied) ||
-          ((w.attempt.state === "failed" ||
-            w.attempt.state === "abstained" ||
-            w.attempt.state === "queued") &&
-            w.attempt.attempts < NAMING.retryMaxAttempts &&
-            (!w.attempt.nextEligibleAt ||
-              w.attempt.nextEligibleAt.getTime() <= now))
-      )
-      .sort(
-        (a, b) =>
-          Number(!a.isFresh) - Number(!b.isFresh) ||
-          (a.isFresh && b.isFresh ? 0 : a.backlogClass - b.backlogClass) ||
-          b.arrivedAt - a.arrivedAt ||
-          a.conversationId.localeCompare(b.conversationId)
-      )[0] ?? null
-  );
-}
-
-export function namingQuota(db: Db, now = clock().getTime()) {
-  const usage = subscriptions(db).codex;
-  if (
-    !usage ||
-    now / 1000 < usage.observedAt ||
-    now - usage.observedAt * 1000 > NAMING.quotaMaxAgeMs
-  ) {
+export function readCurrentNamingInput(db: Db, input: NamingInput) {
+  const offset = inputOffsets.get(input);
+  if (offset === undefined) {
     return null;
   }
-  return [usage.fiveHour, usage.sevenDay].every(
-    (window) =>
-      window &&
-      window.resetsAt * 1000 > now &&
-      window.usedPercent < NAMING.quotaMaxPercent
-  )
-    ? usage
-    : null;
-}
-
-function workFor(
-  db: Db,
-  provider: Provider,
-  startedAt: Date,
-  mode: NamingMode
-) {
-  const attempts = db.select().from(namingAttempts).all();
-  return db
-    .select()
-    .from(conversations)
-    .where(
-      and(
-        isNull(conversations.retiredAt),
-        mode === "arrivals"
-          ? gte(conversations.createdAt, startedAt)
-          : undefined
-      )
-    )
-    .all()
-    .flatMap((c): NamingWork[] => {
-      let inputs: NamingInput[];
-      try {
-        inputs = readNamingInputs(db, c.id);
-      } catch {
-        return [];
-      }
-      return inputs.map((input) => ({
-        arrivedAt: c.createdAt.getTime(),
-        attempt:
-          attempts.find(
-            (a) =>
-              a.conversationId === c.id &&
-              a.inputHash === namingWorkHash(input.inputHash, provider.model)
-          ) ?? null,
-        backlogClass: namingBacklogClass(input),
-        conversationId: c.id,
-        input,
-        isFresh:
-          c.createdAt >= startedAt &&
-          !attempts.some((a) => a.conversationId === c.id),
-      }));
-    });
-}
-
-// Only an offline scorer's bound receipt may open the gate; this never runs a measurement.
-export function storeNamingGate(db: Db, receipt: unknown, model: string) {
-  if (!isNamingGate(receipt, model)) {
-    throw new Error("insufficient or mismatched naming gate");
-  }
-  const policyHash = namingPolicyHash();
-  db.insert(namingRollout)
-    .values({
-      gate: receipt,
-      model,
-      policyHash,
-      promptHash: namingPromptHash(),
-    })
-    .onConflictDoUpdate({
-      set: { gate: receipt },
-      target: namingRollout.policyHash,
-    })
-    .run();
-}
-
-// Both measured subscription windows constrain sustainable archive throughput.
-export function namingPilotPace(rollout: Rollout, now = clock().getTime()) {
-  if (
-    rollout.pilotCalls !== NAMING.pilotMaxCalls ||
-    !rollout.inputTokens ||
-    !rollout.latencyMs
-  ) {
-    return null;
-  }
-  let pace = rollout.latencyMs / rollout.pilotCalls;
-  for (const raw of [rollout.shortWindow, rollout.longWindow]) {
-    const pair = z
-      .object({
-        after: z.object({ resetsAt: z.number(), usedPercent: z.number() }),
-        before: z.object({ resetsAt: z.number(), usedPercent: z.number() }),
-      })
-      .safeParse(raw).data;
-    if (
-      !pair ||
-      pair.before.resetsAt !== pair.after.resetsAt ||
-      pair.after.resetsAt * 1000 <= now ||
-      pair.after.usedPercent <= pair.before.usedPercent ||
-      pair.after.usedPercent >= NAMING.quotaMaxPercent
-    ) {
+  for (const current of readNamingWindows(db, input.conversationId, offset)) {
+    if (!current) {
       return null;
     }
-    pace = Math.max(
-      pace,
-      ((pair.after.resetsAt * 1000 - now) *
-        (pair.after.usedPercent - pair.before.usedPercent)) /
-        (rollout.pilotCalls * (NAMING.quotaMaxPercent - pair.after.usedPercent))
-    );
+    if (current.inputHash === input.inputHash) {
+      return current;
+    }
   }
-  return pace;
-}
-function finishNamingPilot(db: Db, rollout: Rollout) {
-  const usage = namingQuota(db);
-  if (!usage) {
-    return rollout;
-  }
-  const updated = {
-    ...rollout,
-    longWindow: { ...(rollout.longWindow as object), after: usage.sevenDay },
-    shortWindow: { ...(rollout.shortWindow as object), after: usage.fiveHour },
-  };
-  const calls = db
-    .select()
-    .from(namingAttempts)
-    .where(eq(namingAttempts.policyHash, rollout.policyHash))
-    .all()
-    .flatMap(
-      (a) =>
-        (a.call as { history?: { pilot: boolean; valid: boolean }[] } | null)
-          ?.history ?? []
-    )
-    .filter((c) => c.pilot);
-  updated.pilotPassed =
-    calls.length === NAMING.pilotMaxCalls &&
-    calls.some((c) => c.valid) &&
-    namingPilotPace(updated) !== null;
-  db.update(namingRollout)
-    .set({
-      longWindow: updated.longWindow,
-      pilotPassed: updated.pilotPassed,
-      shortWindow: updated.shortWindow,
-    })
-    .where(eq(namingRollout.policyHash, rollout.policyHash))
-    .run();
-  return updated;
+  return null;
 }
 
 function rolloutStatus(
@@ -423,6 +300,8 @@ function keepNamingCall(
     attemptId: string;
     input: NamingInput;
     policyHash: string;
+    model: string;
+    promptHash: string;
     pilot: boolean;
     usage: ReturnType<typeof namingQuota>;
     started: number;
@@ -492,11 +371,11 @@ function recordPilotCall(
   reply: ModelReply,
   latencyMs: number
 ) {
-  const { policyHash, usage } = context;
+  const { usage } = context;
   const progress = db
     .select()
     .from(namingRollout)
-    .where(eq(namingRollout.policyHash, policyHash))
+    .where(rolloutWhere(context))
     .get();
   const usageAfter = subscriptions(db).codex;
   db.update(namingRollout)
@@ -517,7 +396,7 @@ function recordPilotCall(
           usage?.fiveHour,
       },
     })
-    .where(eq(namingRollout.policyHash, policyHash))
+    .where(rolloutWhere(context))
     .run();
 }
 
@@ -545,8 +424,13 @@ function finishNamingWork(
   if (mode === "archive" || mode === "arrivals") {
     const changed = reconcileNaming(
       db,
-      { attemptId, calibration: NAMING.calibration, input, readings },
-      (tx) => readNamingInput(tx, work.conversationId, input.inputHash),
+      {
+        attemptId,
+        calibration: NAMING.calibration,
+        input,
+        readings,
+      },
+      (tx) => readCurrentNamingInput(tx, input),
       resolveLifePerson
     );
     const rows = assignmentsByJob(
@@ -636,7 +520,7 @@ async function executeNamingWork(
         pilotCalls: rollout.pilotCalls + 1,
         shortWindow: rollout.shortWindow ?? { before: usage?.fiveHour },
       })
-      .where(eq(namingRollout.policyHash, policyHash))
+      .where(rolloutWhere({ model: selected.model, policyHash, promptHash }))
       .run();
   }
   const keep = (reply: ModelReply) =>
@@ -646,8 +530,10 @@ async function executeNamingWork(
         attemptId,
         callNumber: attempt.attempts + 1,
         input,
+        model: selected.model,
         pilot: isPilotCall,
         policyHash,
+        promptHash,
         started,
         usage,
       },
@@ -681,12 +567,23 @@ function isNamingPaced(
   if (request.mode !== "archive" && request.mode !== "arrivals") {
     return false;
   }
-  const pace = rollout && namingPilotPace(rollout);
-  const latest = db
-    .select()
-    .from(namingAttempts)
-    .all()
-    .reduce((at, a) => Math.max(at, a.updatedAt.getTime()), 0);
+  const pace =
+    rollout &&
+    namingPilotPace(rollout, clock().getTime(), namingQuota(db) ?? undefined);
+  const latest =
+    db
+      .select({ at: sql<number | null>`max(${namingAttempts.updatedAt})` })
+      .from(namingAttempts)
+      .where(
+        rollout
+          ? and(
+              eq(namingAttempts.model, rollout.model),
+              eq(namingAttempts.promptHash, rollout.promptHash),
+              eq(namingAttempts.policyHash, rollout.policyHash)
+            )
+          : undefined
+      )
+      .get()?.at ?? 0;
   if (!pace || clock().getTime() - latest < pace) {
     return true;
   }
@@ -703,6 +600,7 @@ export function namingPass(
     () => "codex"
   )
 ) {
+  const readWork = namingSelection(db, readNamingWindows);
   let active: Promise<string> | null = null;
   async function once(request: NamingRequest) {
     if (request.engine !== "codex") {
@@ -725,7 +623,7 @@ export function namingPass(
     let rollout = db
       .select()
       .from(namingRollout)
-      .where(eq(namingRollout.policyHash, policyHash))
+      .where(rolloutWhere({ model: selected.model, policyHash, promptHash }))
       .get();
     if (!rollout) {
       return "off";
@@ -741,29 +639,23 @@ export function namingPass(
       return "paced";
     }
     // A prior process died during this work. Count already charged; never spin on it.
-    const running = db
-      .select()
-      .from(namingAttempts)
+    db.update(namingAttempts)
+      .set({
+        error: "interrupted call",
+        nextEligibleAt: new Date(clock().getTime() + NAMING.retryBackoffMs),
+        state: "failed",
+      })
       .where(eq(namingAttempts.state, "running"))
-      .all();
-    for (const a of running) {
-      db.update(namingAttempts)
-        .set({
-          error: "interrupted call",
-          nextEligibleAt: new Date(clock().getTime() + NAMING.retryBackoffMs),
-          state: "failed",
-        })
-        .where(eq(namingAttempts.id, a.id))
-        .run();
-    }
+      .run();
     const writes = request.mode === "archive" || request.mode === "arrivals";
-    const work = selectNamingWork(
-      workFor(db, selected, rollout.createdAt, request.mode),
-      clock().getTime(),
+    const work = readWork(
+      selected.model,
+      rollout.createdAt,
+      request.mode,
       writes
     );
-    if (!work) {
-      return "idle";
+    if (!work || work === "advancing") {
+      return work ?? "idle";
     }
     return await executeNamingWork(db, mac, work, selected, request, rollout);
   }
@@ -790,4 +682,3 @@ export function namingPass(
     },
   };
 }
-export type NamingPass = ReturnType<typeof namingPass>;

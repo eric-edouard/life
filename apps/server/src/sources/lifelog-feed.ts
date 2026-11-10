@@ -38,7 +38,6 @@ export const Page = z.object({
           inference: z
             .object({
               attemptId: z.string(),
-              basis: z.enum(["context", "two-person"]),
               confidence: z.number(),
               evidence: z.array(
                 z.object({

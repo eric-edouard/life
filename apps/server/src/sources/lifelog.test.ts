@@ -603,7 +603,7 @@ test("the newest turn is read without creating or changing the store: no store, 
   rmSync(dir, { force: true, recursive: true });
 });
 
-test("Life accepts inferred speaker provenance and quoted basis while older feed rows remain valid", () => {
+test("Life accepts inferred speaker provenance and quotes while older feed rows remain valid", () => {
   const at = "2026-10-14T10:00:00.000Z";
   const turn = turnFixture(0, at, JEAN, "Jean", "c1");
   const inferred = Page.parse(
@@ -615,7 +615,6 @@ test("Life accepts inferred speaker provenance and quoted basis while older feed
             ...turn.speaker,
             inference: {
               attemptId: "synthetic-attempt",
-              basis: "context",
               confidence: 0.99,
               evidence: [
                 { jobId: turn.jobId, quote: "Made-up words", turnIndex: 0 },

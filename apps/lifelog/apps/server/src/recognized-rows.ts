@@ -212,10 +212,6 @@ export function inferredRows(
     const { result, profiles } = voiceOf(scope.turnIndices);
     const person = decideInferredName(result, profiles, reading, {
       calibration: pass.calibration,
-      candidates: scope.candidates,
-      hasOnlyCleanRemainingTurns: scope.clean,
-      ownerId: profiles.people.find((p) => p.isOwner)?.personId,
-      trustedParticipants: pass.input.participants?.personIds,
     });
     if (!person) {
       continue;
@@ -251,7 +247,6 @@ export function inferredRows(
           ? null
           : {
               attemptId: pass.attemptId,
-              basis: reading.basis,
               confidence: reading.confidence,
               evidence: reading.evidence.flatMap((e) => {
                 const turn = pass.input.turns[e.turn];

@@ -32,6 +32,7 @@ import {
   recognizeJob,
   sweep,
 } from "./speaker-recognition";
+import { readInference } from "./transcript-visibility";
 
 type Assignment = typeof assignments.$inferSelect;
 
@@ -358,6 +359,7 @@ export function merge(db: Db, intoId: string, fromId: string) {
       .update(people)
       .set({
         ...mergedNameOf(into, from),
+        isOwner: into.isOwner || from.isOwner,
         lifeRef: into.lifeRef ?? from.lifeRef,
       })
       .where(eq(people.id, intoId))
@@ -477,7 +479,7 @@ export const assignmentsByJob = (db: Db, jobIds: Iterable<string>) =>
   );
 
 // Who each speaker or turn is, as the feed and the routes send it.
-export function assignmentRows(db: Db, where: SQL) {
+export function assignmentRows(db: Db, where: SQL | undefined) {
   const rows = db
     .select({ assignment: assignments, personName: people.name })
     .from(assignments)
@@ -490,7 +492,7 @@ export function assignmentRows(db: Db, where: SQL) {
     )
     .all();
   return rows.map(({ assignment: a, personName }) => ({
-    inference: a.inference,
+    inference: readInference(db, a.inference),
     jobId: a.jobId,
     personId: a.personId,
     personName,

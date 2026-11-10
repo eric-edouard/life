@@ -107,3 +107,20 @@ test("turn starts map to capture time as the phone laid the audio out", async ()
   expect(captureMillis({ ...map, separatorMs: 0 }, 1.1)).toBe(5100);
   expect(captureMillis({ ...map, separatorMs: 1000 }, 2.5)).toBe(5500);
 });
+
+test("bounded transcript windows read only their rows and retain stable progress", () => {
+  job(["a", "b", "c", "d"], min(0));
+  const id = conversation(min(0), min(4));
+  const first = loadTurns(env.db, id, { limit: 2, offset: 0 });
+  expect(first?.turns.map((t) => t.text)).toEqual(["a", "b"]);
+  expect(first?.nextOffset).toBe(2);
+  const second = loadTurns(env.db, id, {
+    limit: 2,
+    offset: first?.nextOffset ?? 0,
+  });
+  expect(second?.turns.map((t) => t.text)).toEqual(["c", "d"]);
+  expect(
+    loadTurns(env.db, id, { limit: 2, offset: second?.nextOffset ?? 0 })
+      ?.nextOffset
+  ).toBeNull();
+});

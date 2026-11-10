@@ -37,10 +37,11 @@ CREATE TABLE `naming_rollout` (
 	`output_tokens` integer DEFAULT 0 NOT NULL,
 	`pilot_calls` integer DEFAULT 0 NOT NULL,
 	`pilot_passed` integer DEFAULT false NOT NULL,
-	`policy_hash` text PRIMARY KEY NOT NULL,
+	`policy_hash` text NOT NULL,
 	`prompt_hash` text NOT NULL,
 	`short_window` text,
-	`updated_at` integer NOT NULL
+	`updated_at` integer NOT NULL,
+	PRIMARY KEY(`model`, `prompt_hash`, `policy_hash`)
 );
 --> statement-breakpoint
 ALTER TABLE `people` ADD `creation_source` text DEFAULT 'owner' NOT NULL;--> statement-breakpoint

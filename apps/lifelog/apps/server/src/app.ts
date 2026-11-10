@@ -45,6 +45,7 @@ const READS = [
 ];
 const CORRECTIONS = [
   "POST /naming-pass",
+  "POST /naming-gate",
   ...READS,
   "PUT /life/people",
   "PATCH /people/{id}",
@@ -167,7 +168,7 @@ export function createApp(s: Services) {
   app
     .route("/", healthRoutes(s))
     .route("/", lifePeopleRoutes(s))
-    .route("/", namingPassRoutes(s.naming))
+    .route("/", namingPassRoutes(s))
     .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))

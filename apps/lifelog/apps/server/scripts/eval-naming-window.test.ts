@@ -46,7 +46,7 @@ test("frozen queue receipts select their exact bounded input window", () => {
       })),
       { at: at - 600_000, ms: 600_000 }
     );
-    const input = readNamingInputs(env.db, held.id).at(1);
+    const input = [...readNamingInputs(env.db, held.id)].at(1);
     assert(input);
     const metadata = {
       calibration: {
@@ -61,7 +61,6 @@ test("frozen queue receipts select their exact bounded input window", () => {
     };
     const attemptId = "synthetic-window";
     const readings = input.scopes.map((scope) => ({
-      basis: "context",
       confidence: 0.99,
       evidence: [{ quote: "Hello Guest.", turn: 0 }],
       personId: "guest",

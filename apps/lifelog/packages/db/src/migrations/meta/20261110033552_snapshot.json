@@ -2457,7 +2457,7 @@
         "policy_hash": {
           "name": "policy_hash",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -2492,7 +2492,12 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "naming_rollout_model_prompt_hash_policy_hash_pk": {
+          "columns": ["model", "prompt_hash", "policy_hash"],
+          "name": "naming_rollout_model_prompt_hash_policy_hash_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

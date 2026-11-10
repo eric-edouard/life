@@ -5,13 +5,17 @@ import {
   diagnostics,
   people,
   speakerAssignments,
+  voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { logChange } from "./change-log";
-import { sha256Hex } from "./config";
+import { NAMING, sha256Hex } from "./config";
+import { feed } from "./feed";
 import { queueCache } from "./naming-cache";
+import { assignmentRows } from "./people";
+import { addQuietRange } from "./quiet-ranges";
 import { services } from "./services";
 import { OWNER_TOKEN, seedConversation, testConfig, testDb } from "./testing";
 
@@ -253,7 +257,7 @@ test("cached worker keeps inferred turns without embeddings visible and read-onl
   ]);
   const inference = {
     attemptId: "synthetic-attempt",
-    basis: "context" as const,
+
     confidence: 0.99,
     evidence: [{ jobId, quote: "A guest speaks.", turnIndex: 0 }],
     inputHash: "synthetic-input",
@@ -274,8 +278,17 @@ test("cached worker keeps inferred turns without embeddings visible and read-onl
   logChange(env.db, "assignment", jobId);
   const before = env.db.$client.serialize();
   const map = await ready();
-  expect(map.inferred).toHaveLength(1);
-  expect(map.inferred[0]?.inference).toEqual(inference);
+  expect(map.inferred).toEqual([
+    {
+      inference,
+      jobId,
+      personId,
+      personName: "Guest",
+      speakerLabel: "a",
+      text: "A guest speaks.",
+      turnIndex: 0,
+    },
+  ]);
   expect(map.models).toEqual([]);
   expect(env.db.$client.serialize()).toEqual(before);
   const result = await app().request(`/transcripts/${jobId}/speakers/a`, {
@@ -285,4 +298,93 @@ test("cached worker keeps inferred turns without embeddings visible and read-onl
   });
   expect(result.status).toBe(200);
   expect((await ready()).inferred).toEqual([]);
+  expect(env.db.select().from(voiceProfiles).all()).toEqual([]);
+});
+
+test("hiding a separate cited evidence turn removes its quote from feed, assignment responses and cached map", async () => {
+  const person = env.db
+    .insert(people)
+    .values({ name: "Guest" })
+    .returning()
+    .get();
+  const { jobId } = seedConversation(env.db, [
+    { end: 8, speakerId: "a", start: 0, text: "A guest speaks." },
+    { end: 16, speakerId: "b", start: 8, text: "The private evidence." },
+  ]);
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      inference: {
+        attemptId: "synthetic-attempt",
+
+        confidence: 0.99,
+        evidence: [{ jobId, quote: "The private evidence.", turnIndex: 1 }],
+        inputHash: "synthetic-input",
+        snapshotRevision: 1,
+      },
+      jobId,
+      personId: person?.id,
+      source: "inferred",
+      speakerLabel: "a",
+      status: "person",
+      turnIndex: 0,
+    })
+    .run();
+  logChange(env.db, "assignment", jobId);
+  expect((await ready()).inferred[0]?.inference?.evidence).toHaveLength(1);
+  const cited = feed(env.db, 0).turns.find((t) => t.turnIndex === 1);
+  if (!cited) {
+    throw new Error("missing cited turn");
+  }
+  const cursor = Number(feed(env.db, 0).cursor);
+  addQuietRange(env.db, {
+    endedAt: cited.endAt,
+    id: randomUUID(),
+    source: "playback",
+    startedAt: cited.startAt,
+  });
+  const current = feed(env.db, cursor);
+  expect(current.turns.find((t) => t.turnIndex === 0)).toBeDefined();
+  expect(current.turns.find((t) => t.turnIndex === 1)?.text).toBe("");
+  expect(
+    current.turns.find((t) => t.turnIndex === 0)?.speaker.inference?.evidence
+  ).toEqual([]);
+  expect(
+    assignmentRows(env.db, eq(speakerAssignments.jobId, jobId))[0]?.inference
+      ?.evidence
+  ).toEqual([]);
+  expect(queue.map()?.inferred[0]?.inference?.evidence).toEqual([]);
+  expect((await ready()).inferred[0]?.inference?.evidence).toEqual([]);
+});
+
+test("the inferred correction window is bounded newest first", async () => {
+  const person = env.db
+    .insert(people)
+    .values({ name: "Guest" })
+    .returning()
+    .get();
+  const { jobId } = seedConversation(
+    env.db,
+    Array.from({ length: NAMING.inferredMaxTurns + 1 }, (_, i) => ({
+      end: i + 1,
+      speakerId: "a",
+      start: i,
+      text: `Turn ${i}`,
+    }))
+  );
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      jobId,
+      personId: person?.id,
+      source: "inferred",
+      speakerLabel: "a",
+      status: "person",
+    })
+    .run();
+  logChange(env.db, "assignment", jobId);
+  const map = await ready();
+  expect(map.inferred).toHaveLength(NAMING.inferredMaxTurns);
+  expect(map.inferred[0]?.turnIndex).toBe(NAMING.inferredMaxTurns);
+  expect(map.inferred.at(-1)?.turnIndex).toBe(1);
 });

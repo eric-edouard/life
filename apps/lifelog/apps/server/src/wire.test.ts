@@ -198,7 +198,7 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
       .set({
         inference: {
           attemptId: "synthetic-attempt",
-          basis: "context",
+
           confidence: 0.99,
           evidence: [{ jobId: JOB, quote: "Monday at nine.", turnIndex: 1 }],
           inputHash: "synthetic-input",

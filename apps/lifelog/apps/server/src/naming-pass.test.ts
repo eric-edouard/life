@@ -11,7 +11,8 @@ import {
   transcripts,
 } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
-import { NAMING } from "./config";
+import { createApp } from "./app";
+import { NAMING, sha256Hex } from "./config";
 import {
   buildNamingInput,
   isNamingGate,
@@ -20,18 +21,19 @@ import {
   namingPromptHash,
 } from "./inferred-speakers";
 import { replaceLifePeople, resolveLifePerson } from "./life-people";
-import {
-  type NamingWork,
-  namingPass,
-  namingPilotPace,
-  namingQuota,
-  readNamingInput,
-  selectNamingWork,
-  storeNamingGate,
-} from "./naming-pass";
+import { namingPass, readNamingInput } from "./naming-pass";
+import { namingQuota, storeNamingGate } from "./naming-rollout";
+import { type NamingWork, selectNamingWork } from "./naming-selection";
 import { assign } from "./people";
 import type { ModelCall } from "./providers";
-import { fakeModel, mapJob, seedConversation, testDb } from "./testing";
+import { services } from "./services";
+import {
+  fakeModel,
+  mapJob,
+  seedConversation,
+  testConfig,
+  testDb,
+} from "./testing";
 
 const env = testDb();
 afterAll(env.drop);
@@ -90,7 +92,6 @@ const input = () =>
     snapshotRevision: 1,
     targets: [
       {
-        clean: true,
         id: "scope",
         jobId: "job",
         profiles: { people: [], strangers: [] },
@@ -176,7 +177,6 @@ function abstention(call: ModelCall) {
   const context = JSON.parse(call.user) as NamingInput;
   return {
     readings: context.scopes.map((s) => ({
-      basis: "context",
       confidence: 0,
       evidence: [],
       personId: null,
@@ -196,10 +196,10 @@ const idleMac = () => ({
   llm: () => Promise.reject(new Error("unexpected transport call")),
 });
 
-test("fresh arrivals come first, then backlog classes, newest first and stable id ties", () => {
+test("fresh arrivals come first, then stored voice evidence, newest first and stable id ties", () => {
   const oldPair = work("pair", {
-    arrivedAt: 1000,
-    backlogClass: NAMING.backlogOwnerPair,
+    arrivedAt: 3000,
+    backlogClass: NAMING.backlogVoice,
   });
   const freshContext = work("fresh", { arrivedAt: 10, isFresh: true });
   expect(selectNamingWork([oldPair, freshContext])?.conversationId).toBe(
@@ -233,7 +233,7 @@ test("future retries and capped inputs cannot block eligible work; changed input
       [
         work("retry", {
           attempt: pending,
-          backlogClass: NAMING.backlogOwnerPair,
+          backlogClass: NAMING.backlogVoice,
         }),
         work("next"),
       ],
@@ -377,6 +377,7 @@ test("failed attempts persist due time and cap, while changed transcript input c
     state: "failed",
   });
   expect(old.nextEligibleAt?.getTime()).toBeGreaterThan(clock().getTime());
+  expect(await queue.run(request)).toBe("advancing");
   expect(await queue.run(request)).toBe("idle");
   env.db
     .update(namingAttempts)
@@ -450,6 +451,7 @@ test("due failures retry only to the configured cap and then wait for input chan
     .update(namingAttempts)
     .set({ nextEligibleAt: new Date(0) })
     .run();
+  expect(await queue.run(request)).toBe("advancing");
   expect(await queue.run(request)).toBe("idle");
   expect(provider.calls).toHaveLength(NAMING.retryMaxAttempts);
 });
@@ -512,64 +514,6 @@ test("naming gates reject zero, insufficient, uncertain, leaking or mismatched m
   }
 });
 
-test("pilot pace takes the slower subscription window and rejects missing, reset or unchanged readings", () => {
-  const now = clock().getTime();
-  const shortReset = (now + 3_600_000) / 1000;
-  const longReset = (now + 86_400_000) / 1000;
-  const rollout = env.db
-    .insert(namingRollout)
-    .values({
-      inputTokens: 1000,
-      latencyMs: 50_000,
-      longWindow: {
-        after: { resetsAt: longReset, usedPercent: 40 },
-        before: { resetsAt: longReset, usedPercent: 20 },
-      },
-      model: "test-codex",
-      pilotCalls: NAMING.pilotMaxCalls,
-      policyHash: "pace",
-      promptHash: "prompt",
-      shortWindow: {
-        after: { resetsAt: shortReset, usedPercent: 20 },
-        before: { resetsAt: shortReset, usedPercent: 10 },
-      },
-    })
-    .returning()
-    .get();
-  assert(rollout);
-  const pace = namingPilotPace(rollout, now);
-  expect(pace).toBe(
-    (86_400_000 * 20) / (NAMING.pilotMaxCalls * (NAMING.quotaMaxPercent - 40))
-  );
-  for (const changed of [
-    { shortWindow: null },
-    { longWindow: null },
-    { inputTokens: 0 },
-    { latencyMs: 0 },
-    { pilotCalls: NAMING.pilotMaxCalls - 1 },
-    {
-      shortWindow: {
-        after: { resetsAt: shortReset, usedPercent: 20 },
-        before: { resetsAt: shortReset, usedPercent: 20 },
-      },
-    },
-    {
-      longWindow: {
-        after: { resetsAt: longReset + 1, usedPercent: 40 },
-        before: { resetsAt: longReset, usedPercent: 20 },
-      },
-    },
-    {
-      longWindow: {
-        after: { resetsAt: now / 1000, usedPercent: 40 },
-        before: { resetsAt: now / 1000, usedPercent: 20 },
-      },
-    },
-  ]) {
-    expect(namingPilotPace({ ...rollout, ...changed }, now)).toBeNull();
-  }
-});
-
 test("an inferred-created person confirmed by the owner remains eligible after snapshot removal", () => {
   const { jobId } = seed();
   const personId = resolveLifePerson(env.db, "life:person:aster");
@@ -603,7 +547,7 @@ test("an inferred-created person confirmed by the owner remains eligible after s
   ).toMatchObject({ name: "Aster", personId });
 });
 
-test("arrivals stay after activation while archive work requires the separate authorized mode", async () => {
+test("passed pilots resume arrivals after quota reset while archive still requires authorization", async () => {
   const old = seed();
   quota();
   const { policyHash } = calibratedGate();
@@ -637,18 +581,20 @@ test("arrivals stay after activation while archive work requires the separate au
       inputTokens: 1000,
       latencyMs: 1000,
       longWindow: {
-        after: reading.sevenDay,
+        after: { ...reading.sevenDay, resetsAt: now / 1000 - 1 },
         before: {
           ...reading.sevenDay,
+          resetsAt: now / 1000 - 1,
           usedPercent: reading.sevenDay.usedPercent - 1,
         },
       },
       pilotCalls: NAMING.pilotMaxCalls,
       pilotPassed: true,
       shortWindow: {
-        after: reading.fiveHour,
+        after: { ...reading.fiveHour, resetsAt: now / 1000 - 1 },
         before: {
           ...reading.fiveHour,
+          resetsAt: now / 1000 - 1,
           usedPercent: reading.fiveHour.usedPercent - 1,
         },
       },
@@ -669,6 +615,12 @@ test("arrivals stay after activation while archive work requires the separate au
     .update(namingAttempts)
     .set({ updatedAt: new Date(now - 1_000_000) })
     .run();
+  expect(await queue.run({ engine: "codex", mode: "arrivals" })).toBe(
+    "advancing"
+  );
+  expect(await queue.run({ engine: "codex", mode: "arrivals" })).toBe(
+    "advancing"
+  );
   expect(await queue.run({ engine: "codex", mode: "arrivals" })).toBe("idle");
   expect(
     env.db
@@ -723,6 +675,61 @@ test("an owner several-person fallback remains a candidate without becoming trus
   expect(
     context.turns.find((t) => t.speakerLabel === "mixed")?.personId
   ).toBeNull();
-  expect(context.participants).toBeNull();
+  expect(context.ownerId).toBeNull();
   expect(context.scopes.some((s) => s.speakerLabel === "mixed")).toBe(false);
+});
+
+test("an authenticated passing receipt opens the pilot for only its measured model", async () => {
+  seed();
+  quota();
+  Object.assign(NAMING, { calibration });
+  const provider = model();
+  const queue = namingPass(env.db, idleMac(), provider);
+  const app = createApp(
+    services(
+      testConfig("http://localhost:1", {
+        CORRECTIONS_TOKEN_HASH: sha256Hex("corrections"),
+        READ_TOKEN_HASH: sha256Hex("read"),
+      }),
+      env.db,
+      { intelligence: null, search: null }
+    )
+  );
+  const receipt = gateReceipt();
+  const install = (token: string, gate = receipt) =>
+    app.request("/naming-gate", {
+      body: JSON.stringify({ model: gate.model, receipt: gate }),
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+  expect(await queue.run({ engine: "codex", mode: "pilot" })).toBe(
+    "gate_required"
+  );
+  expect((await install("read")).status).toBe(403);
+  expect(
+    (await install("corrections", { ...receipt, passed: false })).status
+  ).toBe(400);
+  expect((await install("corrections")).status).toBe(200);
+  expect(await queue.run({ engine: "codex", mode: "pilot" })).toBe("abstained");
+  env.db
+    .update(namingRollout)
+    .set({ pilotCalls: NAMING.pilotMaxCalls, pilotPassed: true })
+    .where(eq(namingRollout.model, provider.model))
+    .run();
+  const other = model();
+  other.model = "model-b";
+  const otherQueue = namingPass(env.db, idleMac(), other);
+  expect(await otherQueue.run({ engine: "codex", mode: "pilot" })).toBe(
+    "gate_required"
+  );
+  expect(
+    (await install("corrections", { ...receipt, model: "model-b" })).status
+  ).toBe(200);
+  expect(await otherQueue.run({ engine: "codex", mode: "arrivals" })).toBe(
+    "pilot_required"
+  );
+  expect(other.calls).toHaveLength(0);
 });

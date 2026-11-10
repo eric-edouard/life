@@ -23,7 +23,6 @@ import {
   evaluateNamingFrozen,
   type FrozenNamingEvaluation,
   freezeNamingCase,
-  summarizeNamingUnits,
 } from "./eval-voices";
 
 const HIM = [1, 0, 0];
@@ -148,7 +147,6 @@ function frozenFixture(withSamples = false, turnCount = 2, abstain = false) {
   assert(heldCase.input);
   const raw = JSON.stringify({
     readings: heldCase.input.scopes.map((scope) => ({
-      basis: "context",
       confidence: 0.99,
       evidence: abstain ? [] : [{ quote: "I am Guest.", turn: 0 }],
       personId: abstain ? null : "guest",
@@ -440,7 +438,6 @@ function freezeVoiceCase(
     const attemptId = `synthetic-${held.jobId}`;
     const raw = JSON.stringify({
       readings: frozen.input.scopes.map((scope) => ({
-        basis: "context",
         confidence: 0,
         evidence: [],
         personId: null,
@@ -528,7 +525,6 @@ test("production nearby naming is replayed, while future profiles are removed be
       predictions: 2,
     });
     expect(report.addedContext.predictions).toBe(0);
-    expect(report.strata.twoPerson.predictions).toBe(0);
   } finally {
     env.drop();
   }
@@ -579,29 +575,6 @@ test("candidate identity proof from either evaluation partition or the future is
   } finally {
     env.drop();
   }
-});
-
-test("independent recording and call intervals need distinct audio and calls, not repeated turns", () => {
-  const independent = Array.from({ length: 200 }, (_, i) => ({
-    callId: `call-${i}`,
-    correct: true,
-    prediction: "guest",
-    recordingId: `audio-${i}`,
-  }));
-  const distinct = summarizeNamingUnits(independent);
-  expect(distinct.recordings.interval?.[0]).toBeGreaterThanOrEqual(
-    NAMING.precision
-  );
-  expect(distinct.calls.interval?.[0]).toBeGreaterThanOrEqual(NAMING.precision);
-  const repeated = summarizeNamingUnits(
-    independent.map((r) => ({
-      ...r,
-      callId: "same-call",
-      recordingId: "same-audio",
-    }))
-  );
-  expect(repeated.recordings.predictions).toBe(1);
-  expect(repeated.calls.interval?.[0]).toBeLessThan(NAMING.precision);
 });
 
 test("cached model, prompt, policy, snapshot and raw reply provenance cannot be relabeled", () => {
@@ -702,7 +675,6 @@ test("a genuine naming queue cached call freezes and replays with the production
       const input = JSON.parse(call.user) as NamingInput;
       return {
         readings: input.scopes.map((scope) => ({
-          basis: "context",
           confidence: 0.99,
           evidence: [{ quote: "I am Guest.", turn: 0 }],
           personId: "guest",
@@ -721,7 +693,12 @@ test("a genuine naming queue cached call freezes and replays with the production
       },
       provider
     );
-    const outcome = await queue.run({ engine: "codex", mode: "evaluation" });
+    let outcome = await queue.run({ engine: "codex", mode: "evaluation" });
+    while (outcome === "advancing") {
+      // biome-ignore lint/performance/noAwaitInLoops: advance bounded, synchronous fixture windows
+      outcome = await queue.run({ engine: "codex", mode: "evaluation" });
+    }
+    expect(outcome).not.toBe("advancing");
     expect(outcome).not.toBe("idle");
     expect(outcome).not.toBe("paused");
     const attempt = env.db

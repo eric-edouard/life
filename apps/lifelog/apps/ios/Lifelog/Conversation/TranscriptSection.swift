@@ -332,7 +332,7 @@ struct Passage: View {
         }
         return VStack(alignment: .leading, spacing: 6) {
             if let inference = line.speaker.inference, line.speaker.source == .inferred {
-                Text(inference.basis == .twoPerson ? "Inferred from two participants" : "Inferred from context")
+                Text("Inferred from context")
                     .font(.caption)
                     .foregroundStyle(Palette.textSecondary)
                 ForEach(inference.evidence.indices, id: \.self) { index in

@@ -68,7 +68,7 @@ function inferred(
     .values({
       inference: {
         attemptId: "attempt",
-        basis: "context",
+
         confidence: 0.99,
         evidence: [{ jobId, quote: "Hello there.", turnIndex: 0 }],
         inputHash: "input",
@@ -407,6 +407,7 @@ test("folds merge every named turn, candidates and legitimate evidence with owne
     .insert(people)
     .values({
       creationSource: "inferred",
+      isOwner: true,
       name: "Aster",
       nameSource: "inferred",
     })
@@ -461,6 +462,7 @@ test("folds merge every named turn, candidates and legitimate evidence with owne
     })
   );
   expect(countRows(env.db, people)).toBe(1);
+  expect(env.db.select().from(people).get()?.isOwner).toBe(true);
   expect(env.db.select().from(people).get()?.aliases).toEqual(["Aster"]);
   expect(env.db.select().from(voiceProfiles).get()?.personId).toBe(
     canonical.id

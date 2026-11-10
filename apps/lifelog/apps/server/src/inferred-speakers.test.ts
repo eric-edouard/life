@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { NAMING } from "./config";
 import {
   buildNamingInput,
+  namingPrompt,
   parseNamingReadings,
   readInferredSpeakers,
 } from "./inferred-speakers";
@@ -36,13 +37,12 @@ const turns = [
     personId: "owner",
     source: "owner" as const,
     speakerLabel: "s1",
-    text: "Hello. The two of us are here.",
+    text: "Hello, Leonie.",
     turnIndex: 1,
   },
 ];
 const targets = [
   {
-    clean: true,
     id: "scope",
     jobId: "job",
     profiles: NO_PROFILES,
@@ -66,7 +66,6 @@ const input = () =>
     turns,
   });
 const reading: InferredReading = {
-  basis: "context",
   confidence: 0.99,
   evidence: [{ quote: "I am Leonie.", turn: 0 }],
   personId: "person_1",
@@ -144,11 +143,6 @@ test("model readings require finite confidence, exact quotes, candidate and targ
   expect(() =>
     parseNamingReadings(JSON.stringify({ readings: [] }), input())
   ).toThrow();
-  const restricted = input();
-  const [scope] = restricted.scopes;
-  assert(scope);
-  scope.candidates = { people: ["owner"], unknown: true };
-  expect(() => parseNamingReadings(raw(), restricted)).toThrow("candidates");
 });
 
 test("oversized contexts fail before any model call and canonical candidates must be unique", () => {
@@ -170,55 +164,6 @@ test("oversized contexts fail before any model call and canonical candidates mus
       turns,
     })
   ).toThrow("canonical");
-});
-
-test("two-person rule needs independently exhaustive participants and clean remaining turns", () => {
-  expect(() =>
-    parseNamingReadings(raw({ basis: "two-person" }), input())
-  ).toThrow("premise");
-  const built = buildNamingInput({
-    conversationId: "conversation",
-    participants: {
-      evidence: [{ quote: "The two of us are here.", turn: 1 }],
-      personIds: ["owner", "person_1"],
-      source: "owner",
-    },
-    people,
-    snapshotRevision: 1,
-    targets,
-    turns,
-  });
-  const [two] = parseNamingReadings(raw({ basis: "two-person" }), built);
-  assert(two);
-  const context = {
-    calibration,
-    hasOnlyCleanRemainingTurns: true,
-    ownerId: "owner",
-    trustedParticipants: built.participants?.personIds,
-  };
-  expect(decideInferredName(unnamed, NO_PROFILES, two, context)).toBe(
-    "person_1"
-  );
-  expect(
-    decideInferredName(unnamed, NO_PROFILES, two, {
-      ...context,
-      trustedParticipants: ["owner", "person_1", "person_2"],
-    })
-  ).toBeNull();
-  expect(
-    decideInferredName(unnamed, NO_PROFILES, two, {
-      ...context,
-      hasOnlyCleanRemainingTurns: false,
-    })
-  ).toBeNull();
-  expect(
-    decideInferredName(
-      unnamed,
-      NO_PROFILES,
-      { ...two, personId: "owner" },
-      context
-    )
-  ).toBeNull();
 });
 
 test("voice decisions win; calibrated contradictions block context but absent embeddings permit it", () => {
@@ -311,4 +256,20 @@ test("semantic input hashing ignores candidate order and snapshot revision but b
       turns,
     }).inputHash
   ).not.toBe(built.inputHash);
+});
+
+test("context output contains only checked readings and confidence, never a conversation-size premise", () => {
+  expect(namingPrompt().schema.properties).toEqual({
+    readings: expect.objectContaining({
+      items: expect.objectContaining({
+        properties: {
+          confidence: expect.anything(),
+          evidence: expect.anything(),
+          personId: expect.anything(),
+          scopeId: expect.anything(),
+        },
+      }),
+    }),
+  });
+  expect(parseNamingReadings(raw(), input())[0]?.personId).toBe("person_1");
 });

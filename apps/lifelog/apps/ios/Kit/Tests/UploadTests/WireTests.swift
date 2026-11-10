@@ -72,7 +72,6 @@ private final class Reports: Sendable {
     #expect(turns[1].words == [])
     #expect(turns[0].speaker.source == .owner)
     #expect(turns[1].speaker.source == .inferred)
-    #expect(turns[1].speaker.inference?.basis == .context)
     #expect(turns[1].speaker.inference?.confidence == 0.99)
     #expect(turns[1].speaker.inference?.evidence.first?.quote == "Monday at nine.")
     #expect(try await library.chapters(of: conversation.id).map(\.title) == ["Plumber"])

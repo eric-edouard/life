@@ -257,7 +257,6 @@ export function decide(
 
 // A model reading names only its checked scope; it is never profile evidence.
 export interface InferredReading {
-  basis: "context" | "two-person";
   confidence: number;
   evidence: { quote: string; turn: number }[];
   personId: string | null;
@@ -298,9 +297,6 @@ export function decideInferredName(
   context: {
     calibration: NamingCalibration | null;
     candidates?: Candidates | null;
-    hasOnlyCleanRemainingTurns?: boolean;
-    ownerId?: string;
-    trustedParticipants?: string[];
   }
 ) {
   if (result.personId || result.isStranger) {
@@ -315,19 +311,6 @@ export function decideInferredName(
     )
   ) {
     return null;
-  }
-  if (reading.basis === "two-person") {
-    const participants = new Set(context.trustedParticipants);
-    if (
-      !context.ownerId ||
-      participants.size !== 2 ||
-      !participants.has(context.ownerId) ||
-      !participants.has(reading.personId) ||
-      reading.personId === context.ownerId ||
-      !context.hasOnlyCleanRemainingTurns
-    ) {
-      return null;
-    }
   }
   const best = result.vector
     ? rankPeople(result.vector, profiles.people)[0]

@@ -1,6 +1,6 @@
 // Quiet ranges: stretches the owner spent dictating to the Mac (its events, turned into ranges by
 // dictation.ts) or the phone played a recording out loud (`POST /quiet-ranges`). Words inside one
-// are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
+// are hidden (transcript-visibility.ts `keptWords`). The Mac also vouches for time: every dictation before its
 // watermark is already among the ranges, or the Mac is asleep.
 
 import { randomUUID } from "node:crypto";
