@@ -87,6 +87,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 ## Waiting on his word
 
+- One page holds everything below for him to answer, each already set to what the spec assumes: https://claude.ai/artifact/Tmq61RqP56MR5CpqEcRJFU (its answers are read back from its `answers` collection, then written into the spec).
 - His thirteen calls of spec section 19 (the spec assumes yes to eleven; two need his word: the pilot's model families, and ten verdicts of his to measure the judge).
 - The names of spec section 18, and the poles of the meters in his words.
 - The rules of `AGENTS.md` listed in spec section 17, rewritten with the build, on his yes.
