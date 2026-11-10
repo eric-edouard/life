@@ -33,7 +33,7 @@ export interface Embedded {
 
 // Wrong names allowed, of the names given. The winner is the first one (his rule of 10 Nov).
 export const BUDGETS = [0.01, 0.03, 0.1] as const;
-const WINNER = 0.01;
+const [WINNER] = BUDGETS;
 // A turn enters the review when this share of the models hear the same person first, and the
 // review holds this many turns of each reason at most.
 const REVIEW = { agree: 0.6, most: 250 };
@@ -160,7 +160,7 @@ function modelOf(
             isNamed: !!call && isNamed(call, at),
             margin: round(call?.margin ?? 0),
             position: (positions[i] ?? [0, 0, 0]).map(round),
-            score: round(call?.score ?? 0),
+            score: round(call?.best ? call.score : 0),
             // The score among this model's scores: how sure it is, on a scale models share.
             sureness: round(
               ((call?.best ? call.score : middle) - middle) / deviation
@@ -323,7 +323,9 @@ export function markdownOf(report: Report) {
         percent(m.macro),
         m.secondsPerClip.toFixed(3),
         // Fewer than the sample: a quick look, not to be ranked against a full run.
-        String(Object.keys(m.turns).length),
+        Object.keys(m.turns).length < report.counts.turns
+          ? `${Object.keys(m.turns).length} (quick look)`
+          : "all",
       ])
     ),
     "",
