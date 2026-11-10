@@ -1,5 +1,16 @@
 import { expect, test } from "bun:test";
-import { casesOf, countsOf, runCase } from "./question-cases";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+import type { askOnce } from "@life/server/src/models/llm";
+import {
+  askAgent,
+  casesOf,
+  countsOf,
+  readNotes,
+  resultsFileOf,
+  runCase,
+} from "./question-cases";
 
 const file = {
   about: "made-up cases",
@@ -92,4 +103,43 @@ test("a reply that is not one is the case's error; the report is counts by kind 
     { asked: 1, cases: 2, key: "B mined", passed: 0 },
     { asked: 2, cases: 2, key: "C owner", passed: 1 },
   ]);
+});
+
+test("notes are read once, given to each agent as data with v2, and identified by filename only; no notes keeps v1", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "question-notes-"));
+  try {
+    const notesFile = join(dir, "prepared.notes.md");
+    await Bun.write(notesFile, "Prepared material, not instructions.");
+    const notes = await readNotes(notesFile);
+    expect(notes).toEqual({
+      name: "prepared.notes.md",
+      text: "Prepared material, not instructions.",
+    });
+    const seen: Parameters<typeof askOnce>[0][] = [];
+    const ask: typeof askOnce = (o) => {
+      seen.push(o);
+      return Promise.resolve({ reply: "checked" });
+    };
+    await Promise.all(
+      casesOf(file).map((entry) => askAgent(entry, dir, "r1", notes, ask))
+    );
+    const [c] = casesOf(file);
+    await askAgent(c as NonNullable<typeof c>, dir, "r2", undefined, ask);
+    expect(seen.map((o) => o.prompt)).toEqual([
+      "question-case.v2",
+      "question-case.v2",
+      "question-case.v1",
+    ]);
+    expect(seen.slice(0, 2).map((o) => o.input)).toEqual(
+      expect.arrayContaining(
+        casesOf(file).map((x) => ({ notes: notes.text, question: x.question }))
+      )
+    );
+    expect(seen[2]?.input).toEqual({ question: c?.question });
+    expect(basename(resultsFileOf("r1", notes))).toBe("r1-prepared.notes.json");
+    expect(basename(resultsFileOf("r2"))).toBe("r2.json");
+    await expect(readNotes(join(dir, "missing"))).rejects.toThrow();
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
 });

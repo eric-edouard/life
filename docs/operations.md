@@ -272,7 +272,17 @@ step: [Back up and restore](use/backup.md).
   no lock; `LIFE_LLM` stays refused on his data. It prints counts only. A run spends: on Codex it is refused over
   the quota reserve, like an eval; an API engine has no such reserve, so the dry run's numbers, shown to him first,
   are the only guard on cash.
-- **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
+- **Pair counts:** `bun scripts/pair-counts.ts <person>…` prints the persona's code counts over all one-to-one
+  messages, overall and by local year, as Markdown. It writes only stdout and runs no model.
+- **Relationship history:** `bun scripts/memory-history.ts <person> [--run]` is an experiment, outside the pipeline.
+  Without `--run`, it prints outstanding calls and a conservative input-token ceiling, including the later
+  story input. With `--run`, one metered run uses the owner's main engine to read each local month's exchange
+  batches, then their summaries in order. Replies are validated (150 words and 6000 characters per batch, 600 words
+  for the story, each monthly quote checked against its input) and cached by prompt text and input under the owner's
+  data, `docs/memory-rework/history/<person-id>/`; failed replies are not cached. The derived
+  `docs/memory-rework/history/<person-id>.md` contains the story, then monthly summaries newest first.
+  Nothing enters `memory/`; stdout holds counts only.
+- **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--notes file] [--run]` asks his question cases
   (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
   it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads
   (never a tool that writes or acts). The memory under test is his own, as it stands. The agent's connector runs on
@@ -284,7 +294,9 @@ step: [Back up and restore](use/backup.md).
   points, the tools called and how much they returned) to his data, `docs/evals/question-cases/<run>.json`, and
   prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
   for the judge: show him the count of cases first. A regression case of status `scenario` may name a question case
-  as its `check`.
+  as its `check`. Optional `--notes` supplies prepared material as data alongside connector reads and selects
+  `question-case.v2`; without it the agent still uses v1. The notes file's basename is recorded in the results and
+  run log; results with notes use `<run>-<notes-base>.json` in the same folder.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits

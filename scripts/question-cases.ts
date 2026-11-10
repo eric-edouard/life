@@ -1,4 +1,4 @@
-// `bun scripts/question-cases.ts [--only id,…] [--run]`: his question cases, each asked to a headless agent whose
+// `bun scripts/question-cases.ts [--only id,…] [--notes file] [--run]`: his question cases, each asked to a headless agent whose
 // only tools are Life's connector, reads only, and its reply checked for what it must hold and must not say
 // (docs/operations.md, "Measuring"). The memory under test is his own, as it stands. Without `--run` it only counts
 // the cases. Prints counts, never a question or a reply; `--serve` is the connector over stdio, for the agent.
@@ -6,7 +6,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, parse } from "node:path";
 import { parseArgs } from "node:util";
 import { readJson, writeJson } from "@life/server/src/core/files";
 import { recentEvents } from "@life/server/src/core/log";
@@ -27,9 +27,17 @@ const CASES = join(OWNER_DATA_DIR, "docs/evals/question-cases.json");
 const RESULTS = join(OWNER_DATA_DIR, "docs/evals/question-cases");
 /** The agent that answers: Codex's main tier, the closest to his own agents (his word, 10 Nov 2026). */
 const AGENT = "codex";
-const PROMPT = "question-case.v1";
 /** What the connector's child shares of this process's state: its settings, the voice store and the search index. */
 const STATE = ["settings.json", "watch", "memory"];
+
+/** Prepared material for one run; only its filename is recorded as provenance. */
+export async function readNotes(file: string) {
+  return { name: basename(file), text: await Bun.file(file).text() };
+}
+type Notes = Awaited<ReturnType<typeof readNotes>>;
+
+export const resultsFileOf = (run: string, notes?: Notes) =>
+  join(RESULTS, `${run}${notes ? `-${parse(notes.name).name}` : ""}.json`);
 
 /**
  * A question case: one of his questions, as he asked it, with what a right reply holds and what it must not say. Its
@@ -126,15 +134,21 @@ export function countsOf(
  * state dir of its own (`linkState`): his settings, voice store and index by links, its own log. So no call of the
  * bench lands in his Life's log, and what it read is counted per case.
  */
-async function askAgent(c: Case, dir: string, run: string) {
+export async function askAgent(
+  c: Case,
+  dir: string,
+  run: string,
+  notes?: Notes,
+  ask = askOnce
+) {
   const state = await mkdtemp(join(tmpdir(), "life-question-"));
   try {
     await linkState(state, STATE);
-    const reply = await askOnce({
+    const reply = await ask({
       dir,
-      input: { question: c.question },
+      input: { question: c.question, ...(notes ? { notes: notes.text } : {}) },
       llm: llmFor("main", AGENT),
-      prompt: PROMPT,
+      prompt: notes ? "question-case.v2" : "question-case.v1",
       run,
       tools: {
         command: [
@@ -172,17 +186,17 @@ async function runAll(
   cases: Case[],
   run: string,
   dir: string,
-  keep: (rows: Row[]) => void
+  keep: (rows: Row[]) => void,
+  notes?: Notes
 ) {
   const rows: Row[] = [];
   for (const c of cases) {
     // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     await spareQuota(AGENT);
     let calls: ToolCall[] = [];
-    // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     const row = await runCase(c, {
       ask: async (x, d) => {
-        const asked = await askAgent(x, d, run);
+        const asked = await askAgent(x, d, run, notes);
         ({ calls } = asked);
         return asked.reply;
       },
@@ -205,6 +219,7 @@ async function runAll(
 if (import.meta.main) {
   const { values } = parseArgs({
     options: {
+      notes: { type: "string" },
       only: { type: "string" },
       run: { type: "boolean" },
       serve: { type: "boolean" },
@@ -213,6 +228,9 @@ if (import.meta.main) {
   if (values.serve) {
     await buildServer(true).connect(new StdioServerTransport());
   } else if (values.run) {
+    const notes =
+      values.notes === undefined ? undefined : await readNotes(values.notes);
+    const fields = notes ? { notes: notes.name } : {};
     const cases = casesOf(readJson(CASES), values.only?.split(","));
     // Nothing to ask, or no memory to ask it of (a checkout with no search index): refused before any spend.
     if (cases.length === 0 || !existsSync(INDEX)) {
@@ -222,14 +240,27 @@ if (import.meta.main) {
           : `no search index at ${INDEX}: run from the checkout Life runs from`
       );
     }
-    const rec = await metered("eval", { cases: cases.length }, AGENT);
+    const rec = await metered(
+      "eval",
+      { cases: cases.length, ...fields },
+      AGENT
+    );
     let rows: Row[] = [];
     // His words (questions, replies, points) go to his data only: the run's log line holds counts.
     await ended(rec, async () => {
-      rows = await runAll(cases, rec.run, join(OUT, "evals", rec.run), (r) =>
-        writeJson(join(RESULTS, `${rec.run}.json`), { cases: r })
+      rows = await runAll(
+        cases,
+        rec.run,
+        join(OUT, "evals", rec.run),
+        (r) =>
+          writeJson(resultsFileOf(rec.run, notes), { cases: r, ...fields }),
+        notes
       );
-      return { cases: rows.length, passed: rows.filter(isPassed).length };
+      return {
+        cases: rows.length,
+        passed: rows.filter(isPassed).length,
+        ...fields,
+      };
     });
     console.table(countsOf(rows));
   } else {
