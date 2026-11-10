@@ -6,7 +6,7 @@ import { appendJsonl } from "../core/files";
 import { setSettings, settings } from "../core/settings";
 import { Imported } from "../records/observation";
 import { importOf } from "../sources/assistants";
-import { dryRun, importExport, parseJudged } from "./imports";
+import { dryRun, importExport, parseJudged, readExport } from "./imports";
 import { IMPORTED } from "./ledger";
 
 // A made-up claude.ai export: one conversation about his life, one only code.
@@ -53,6 +53,45 @@ test("the dry run counts an export's conversations and days", () => {
     s.from,
     s.calls,
   ]).toEqual(["claude", { all: 2, kept: 1 }, 1, 1, "2026-03-02", 1]);
+});
+
+// ChatGPT's own shape: a tree of messages, his the `user` ones.
+const chatgptConversation = (id: string, text: string) => ({
+  conversation_id: id,
+  create_time: 1_772_442_900,
+  current_node: "n1",
+  mapping: {
+    n1: {
+      message: {
+        author: { role: "user" },
+        content: { content_type: "text", parts: [text] },
+        create_time: 1_772_442_900,
+        id: `${id}-m1`,
+      },
+    },
+  },
+  title: id,
+});
+
+test("a ChatGPT export split into numbered files is one export, in the files' order", () => {
+  const dir = mkdtempSync(join(tmpdir(), "export-"));
+  const [first, second] = [
+    chatgptConversation("c1", "My sister Ada moves to Lyon in May."),
+    chatgptConversation("c2", "I will visit Ada after her move."),
+  ];
+  // Written out of order, beside the export's other files.
+  writeFileSync(join(dir, "conversations-001.json"), JSON.stringify([second]));
+  writeFileSync(join(dir, "conversations-000.json"), JSON.stringify([first]));
+  writeFileSync(join(dir, "conversation_asset_file_names.json"), "{}");
+  const read = readExport(dir);
+  expect([read.source, read.all, read.conversations.map((c) => c.id)]).toEqual([
+    "chatgpt",
+    2,
+    ["c1", "c2"],
+  ]);
+  // What Life keeps is the two as one file, the same bytes on every read: a repeated import is not another export.
+  expect(JSON.parse(read.copy.toString())).toEqual([first, second]);
+  expect(readExport(dir).copy.equals(read.copy)).toBe(true);
 });
 
 test("a judging reply is checked: one line per conversation asked about", () => {
