@@ -486,6 +486,12 @@ After this spec and its second review, once his credits are back; never before.
 - **It does not prove**: his whole history; the year and story levels of his own life; a cursor per trait;
   forecasts about one person; anything in a language the sample lacks.
 - Each change of a read's wording re-reads the pilot's set: three rounds at most, counted in its budget.
+- **Its written part, sized on his data** (10 Nov, real batches, one-to-one chats and mail, all years): his father
+  at most 510,000 tokens in 58 calls per read; the close friend at most 217,000 in 27. One round of three reads over
+  both is at most 2.2 million tokens of their words, plus the prompts. At the list prices of the hosts his engine
+  routes to, a round is about two dollars at the ceiling, so three rounds are a few dollars. Everyone's one-to-one
+  history (102 people) is at most 2.4 million tokens per read. Not yet sized: recordings, group chats, the third
+  person. The table is in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-sizes.md`.
 - Then: the build (the path), and the history.
 
 ### The history, read once
