@@ -507,6 +507,13 @@ everything stands on. No model layer has read them, and none should yet.
 - **Before it starts**: the imports are in; each source's first day is known, so earlier days are "not seen"; the
   unnamed voices are named as far as they will be; the cost is counted on his data and shown to him.
 - **The pilot's last round is the first slice** of the history: those reads are kept, not paid again.
+- **Units are unchanged** (his question, 10 Nov): nothing in this rework moves a unit's shape, id or day, so the
+  imported years stand as they are and are never built again.
+- **Old years get no day's read and no episodes.** The night's steps read day by day: over fifteen years that is
+  thousands of calls that mostly pay for the prompt, to build the middle layers he said old data skips. Before the
+  day the units pipeline started (Sep 2026), every read, the claims read included, runs by exchange batch: about
+  3,300 calls for one read of everything written. The claims read keeps only what lasts there. What happened in
+  an old month comes from its summary.
 - **Order**: by year, the newest first, so stopping anywhere leaves the most useful part done. Links follow per
   subject in time order. Then the histories of those kept ahead.
 - **His assistant chats** are read for what he says of himself and of others, by the mentions read and the claims
