@@ -58,10 +58,16 @@ kept only inside an exchange the batch holds, its words found there, who and whe
 as given under the wording and the input, never asked twice; one `inputsOf` for every step's inputs digest. Dry run
 on the pilot's two people: 58 and 27 calls, at most 0.86 and 0.43 million tokens of input for this read.
 
-**Open, 10 Nov** (life PR 416, verdict pending): the benchmark's first piece, question cases
-(`scripts/question-cases.ts`): his questions asked to a headless Codex whose only tools are the connector's reads,
-the reply checked by the eval judge. His first 12 cases are in his data. Its state and next steps: `PLAN.md` in the
-worktree `bench`.
+**Done and merged, 10 Nov** (life PR 416, verdict: no debt added): question cases, the benchmark's first piece.
+`bun scripts/question-cases.ts [--only id,…] [--run]`: his question cases (`~/Life/docs/evals/question-cases.json`,
+12 so far) asked to a headless Codex whose only tools are the connector's reads (`buildServer(true)`), on a state
+dir of its own linked to the live one (`linkState`), each reply checked by the eval judge; results in his data
+(`docs/evals/question-cases/<run>.json`), counts only on screen and in the log. Run it from the main checkout (it
+refuses without a search index).
+
+**Next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
+to price a case; then the baseline over all twelve; then the conflict and mentions reads, one PR each; then the
+pilot's first round on his word, with its cost shown and the place where kept replies are committed settled.
 
 **Was next** (ticket 29): the benchmark's first piece. His cases, in his data repo, asked from an agent's side with
 only the connector, an answer checked for what it must hold; today's Life as the baseline. Then the other two
