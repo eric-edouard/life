@@ -16,6 +16,26 @@ export const ARCHIVE = join(MACHINE_DIR, "archive");
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
+/** The earliest timestamp an archive holds, without reading message bodies. */
+export function readEarliestArchived(
+  name: string,
+  table: string,
+  dir = ARCHIVE
+) {
+  const db = openReadOnly(archiveDb(name, dir));
+  try {
+    return (
+      db
+        .query<{ at: string | null }, []>(
+          `select min(at) as at from "${table.replaceAll('"', '""')}"`
+        )
+        .get()?.at ?? null
+    );
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * A store's newest items as the status snapshot shows them: `sql` gives rows newest first, each its `at`, his `words` and,
  * for a store with parts, a `label`.
@@ -84,13 +104,20 @@ export function readArchived<R extends Row>(
   sender: (raw: string) => string,
   more: (r: R) => Partial<Pick<SourceEvent, "phoneCall" | "text">> & {
     files: SourceFile[];
-  }
+  },
+  before?: Date
 ): SourceEvent[] {
   const db = openReadOnly(archiveDb(source, archive));
   try {
     return db
-      .query<R, [string]>(typeof sql === "string" ? sql : sql(db))
-      .all(since.toISOString())
+      .query<R, [string, string | null, string | null]>(
+        `select * from (${typeof sql === "string" ? sql : sql(db)}) where (? is null or at < ?)`
+      )
+      .all(
+        since.toISOString(),
+        before?.toISOString() ?? null,
+        before?.toISOString() ?? null
+      )
       .map(
         (r): SourceEvent => ({
           at: r.at,

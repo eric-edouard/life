@@ -190,7 +190,7 @@ Which conversations of the owner's claude.ai and ChatGPT exports are about the o
 <folder>` (the fast-tier model, once per conversation and prompt version, from its title and the start of the owner's pruned
 messages), append-only: `{schemaVersion: 1, conversation, keep, why, madeBy, at}`. `conversation` is
 `<source>:<id>`; the latest line per conversation wins. Every pruned message is searched; the units of a conversation
-not kept are dropped by the `not-kept` rule (`units.ts`), and the backfill reads the kept ones' days.
+not kept are dropped by the `not-kept` rule (`units.ts`), and model-free historical collection indexes the conversations' days. Searchable messages remain available even when their conversation is not kept for model reading.
 
 ## closeness.jsonl
 
@@ -439,7 +439,7 @@ phone ever named one; nothing when lifelog is set up but can't be read) differs 
 of the zone ahead when the two are on different days (`cutAt`: a local day never goes back); what came before it was
 noticed keeps the old zone. The present (`dayNow`) follows the latest line at once, even before its
 `from`. `bun life init` seeds it by the same rule. The owner's past may be appended later (their own account of where they lived) only
-before the first day memory has units of: an earlier unit's day, and so its id, would move.
+before the first day memory has units of: an earlier unit's day, and so its id, would move. Historical collection derives whole-hour offsets from the owner's sent-mail Date headers as `Etc/GMT±N` with the reversed IANA sign. Missing-mail days take the nearest known run, ties earlier, and are reported as gaps; conflicts and non-hour offsets defer their days. No city, inferred flag or extra Zone field is stored. Gap evidence can be re-derived from the headers for later model backfill; stored unit dates and ids remain unchanged.
 
 ## labels.jsonl
 

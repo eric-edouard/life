@@ -10,8 +10,8 @@ const lock = join(MACHINE_DIR, "archive.lock");
 test("one archiver per Mac: a live holder keeps the lock, a dead one's is taken over", async () => {
   mkdirSync(MACHINE_DIR, { recursive: true });
   try {
-    // Another install's archiver, alive (this test's parent process), on its own state dir.
-    writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
+    // Another install's archiver, alive (this test's process), on its own state dir.
+    writeFileSync(lock, `${process.pid}\n/elsewhere/state`);
     expect(holder("archive")).toMatchObject({ note: "/elsewhere/state" });
     expect(take(lock, LIFE_STATE_DIR)).toBe(false);
     // It crashed: its pid is gone, so the next start takes the lock with its own state dir.

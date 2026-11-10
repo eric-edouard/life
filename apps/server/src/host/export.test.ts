@@ -12,7 +12,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of } from "../core/hash";
 import { SECRETS, writeSecret } from "../core/secret";
+import { PASSAGES } from "../memory/ledger";
 import { LOCK } from "../memory/memory-lock";
+import { writePassages } from "../memory/passages";
 import { stage } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
@@ -38,6 +40,24 @@ test("an export holds everything with its checksum and counts, and never a secre
     mkdirSync(join(archive, "media"));
     writeFileSync(join(archive, "media", "photo.jpg"), "jpeg");
 
+    writePassages(
+      [
+        {
+          at: "2000-01-01T12:00:00.000Z",
+          chat: "export-note",
+          fromMe: true,
+          id: "export-note",
+          sender: "owner",
+          source: "notes",
+          text: "A made-up note for export",
+        },
+      ],
+      { from: "2000-01-01", to: "2000-01-01" },
+      [],
+      { notes: () => [] }
+    );
+    expect(existsSync(PASSAGES)).toBe(true);
+
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
     const paths = m.files.map((f) => f.path);
@@ -47,6 +67,10 @@ test("an export holds everything with its checksum and counts, and never a secre
     expect(paths).toContain("archive/media/photo.jpg");
     expect(paths.some((p) => p.startsWith("data/"))).toBe(true);
     expect(paths.filter((p) => SECRET.test(p))).toEqual([]);
+    expect(
+      paths.some((p) => p.startsWith("state/memory/passages.sqlite"))
+    ).toBe(false);
+    expect(m.counts.rows["state/memory/passages.sqlite"]).toBeUndefined();
     for (const f of m.files.slice(0, 20)) {
       // biome-ignore lint/performance/noAwaitInLoops: a few files
       expect(await sha256Of(join(dir, f.path))).toBe(f.sha256);
@@ -75,7 +99,7 @@ test("an export goes to any folder name, an apostrophe too; it is refused while 
   const base = mkdtempSync(join(tmpdir(), "life-export-"));
   const m = await stage(join(base, "Sam's export"), archive);
   expect(m.counts.rows["archive/notes.sqlite"]).toEqual({ versions: 0 });
-  writeFileSync(LOCK, String(process.ppid));
+  writeFileSync(LOCK, String(process.pid));
   try {
     await expect(stage(join(base, "held"), archive)).rejects.toThrow("lock");
   } finally {

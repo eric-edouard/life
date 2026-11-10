@@ -45,3 +45,19 @@ test("two agents may not share a wake or misheard word, whatever its case and pu
   expect(Settings.safeParse(agents(["Orbit!"])).success).toBe(false);
   expect(Settings.safeParse(agents(["or-bit"])).success).toBe(false);
 });
+
+test("the historical engine is optional and strict, independent of the ordinary engine", () => {
+  expect(
+    Settings.parse({ engine: "openrouter" }).backfillEngine
+  ).toBeUndefined();
+  expect(
+    Settings.parse({ backfillEngine: "codex", engine: "openrouter" })
+  ).toMatchObject({
+    backfillEngine: "codex",
+    engine: "openrouter",
+  });
+  expect(Settings.safeParse({ backfillEngine: "unknown" }).success).toBe(false);
+  expect(
+    Settings.safeParse({ backfillEngine: "codex", inferred: true }).success
+  ).toBe(false);
+});

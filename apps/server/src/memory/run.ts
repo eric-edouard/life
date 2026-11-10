@@ -136,9 +136,10 @@ export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
 export async function begin(
   step: string,
   tier: Tier,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  engine?: Engine
 ) {
-  const llm = llmFor(tier);
+  const llm = llmFor(tier, engine);
   const model = llmSpec(llm);
   const rec = record(`memory.${step}`, { ...fields, model });
   const { now, run } = rec;
