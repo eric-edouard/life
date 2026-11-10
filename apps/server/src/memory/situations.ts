@@ -1,7 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
-import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import { Situation, SituationLine } from "../records/situation";
@@ -16,7 +15,7 @@ import {
 } from "./ledger";
 import { readingsOf, readPersona, supportOf } from "./personas";
 import { OWNER } from "./read-truth";
-import { begin, inBatches, refContext } from "./run";
+import { begin, inBatches, inputsOf, refContext } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to
@@ -109,11 +108,7 @@ export async function situations() {
             text: l.text,
           })),
         };
-        const inputs = digest(
-          "sha256",
-          `${SITUATION_PROMPT}\n${JSON.stringify(input)}`,
-          16
-        );
+        const inputs = inputsOf(SITUATION_PROMPT, input);
         if (readSituation(t.ref)?.inputs === inputs) {
           return;
         }

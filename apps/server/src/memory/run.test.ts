@@ -1,7 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
+import { digest } from "../core/hash";
 import type { InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { begin, involvedOf, metered, phases, record, refContext } from "./run";
+import {
+  begin,
+  inputsOf,
+  involvedOf,
+  metered,
+  phases,
+  record,
+  refContext,
+} from "./run";
 import { runs } from "./run-log";
 
 /** The run as the status reads' `read_processing_runs` reads it back from the (test) log. */
@@ -187,4 +196,12 @@ test("a sweep's selected engine reaches collection, attachments, episodes and ex
     described.mockRestore();
     ready.mockRestore();
   }
+});
+
+test("a call's inputs digest is the prompt, a new line and the input as JSON: the one personas, situations and appointments kept", () => {
+  const input = { a: [1, "é"], b: null };
+  expect(inputsOf("memory-persona.v2", input)).toBe(
+    digest("sha256", `memory-persona.v2\n${JSON.stringify(input)}`, 16)
+  );
+  expect(inputsOf("p", input)).not.toBe(inputsOf("q", input));
 });

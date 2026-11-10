@@ -16,6 +16,7 @@ import {
   closenessTally,
   contextPeopleBy,
   directChats,
+  directOf,
   dueFor,
   levelsNow,
   pagedBy,
@@ -466,4 +467,28 @@ test("the read with people leaves out bulk mail and Life's own mail, for every s
   } finally {
     tables.mockRestore();
   }
+});
+
+test("the people named get their one-to-one messages, in the order given; a name that is no one's gets none", async () => {
+  const { readPeople } = await import("./who");
+  const mine = (id: string, chatName: string): SourceEvent => ({
+    at: "2026-10-01T12:00:00.000Z",
+    chat: id,
+    chatName,
+    fromMe: false,
+    id,
+    sender: id,
+    source: "whatsapp",
+    text: "x",
+  });
+  const events = [mine("a", "Test Ana"), mine("b", "Someone Else")];
+  const named = directOf(
+    ["nobody at all", "Test Ana"],
+    events,
+    await readPeople()
+  );
+  expect(named.map((n) => [n.known, n.messages.map((m) => m.id)])).toEqual([
+    [undefined, []],
+    ["test-ana", ["a"]],
+  ]);
 });

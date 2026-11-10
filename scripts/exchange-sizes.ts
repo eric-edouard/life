@@ -3,13 +3,14 @@
 // for each one's one-to-one chats and mail, in the order given.
 
 import { DAY, HOUR, MIN } from "@life/server/src/core/clock";
-import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
+import { directOf, readWithPeople } from "@life/server/src/memory/closeness";
 import {
   batchesOf,
   charsOf,
   EXCHANGE_BATCH_CHARS,
+  isLiving,
 } from "@life/server/src/memory/exchanges";
-import { meant, readPeople } from "@life/server/src/memory/who";
+import { readPeople } from "@life/server/src/memory/who";
 import { CHARS_PER_TOKEN } from "@life/server/src/models/llm";
 import { chatGroups, type SourceEvent } from "@life/server/src/records/source";
 
@@ -53,10 +54,10 @@ function quietOf(chats: SourceEvent[][]) {
 
 /** One chat's exchanges and batches added to the rows they started in. */
 function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
-  const isLiving = chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
+  const living = isLiving(chat);
   for (const batch of batchesOf(chat)) {
     const all = batch.flat();
-    if (isLiving && all[0]) {
+    if (living && all[0]) {
       const row = rowOf(all[0]);
       row.calls += 1;
       row.oversized += charsOf(all) > EXCHANGE_BATCH_CHARS ? 1 : 0;
@@ -68,7 +69,7 @@ function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
       row.messages += exchange.length;
       row.oneSided += oneSided ? 1 : 0;
       row.sizes.push(charsOf(exchange));
-      row.living += isLiving ? charsOf(exchange) : 0;
+      row.living += living ? charsOf(exchange) : 0;
     }
   }
 }
@@ -126,12 +127,10 @@ if (import.meta.main) {
   const { events, failed } = await readWithPeople(new Date(0));
   const asked = process.argv.slice(2);
   if (asked.length > 0) {
-    const people = await readPeople();
-    const direct = directChats(events, people.resolve);
-    for (const [i, who] of asked.entries()) {
-      const { known } = meant(who, people);
+    const named = directOf(asked, events, await readPeople());
+    for (const [i, { known, messages }] of named.entries()) {
       console.log(`Person ${i + 1}${known ? "" : ": no one by that name"}`);
-      console.table(sizesOf(direct.get(`person:${known}`) ?? []).rows);
+      console.table(sizesOf(messages).rows);
     }
   } else {
     const { quiet, rows } = sizesOf(events);

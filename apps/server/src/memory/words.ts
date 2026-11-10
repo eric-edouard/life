@@ -586,6 +586,29 @@ export const messageLine = (
 ) =>
   `${at} ${who}: ${text.replaceAll("\n", " ")}${deleted ? " (deleted)" : ""}`;
 
+/**
+ * An exchange batch as lines a reply can cite, and the messages they are: `[n] HH:MM who: text`, `n` counting from 0
+ * over the whole batch as the extractor's lines do, under one heading per exchange giving its local day and the
+ * number of its first line (which names it). A phone call is its call line (`textOf`).
+ */
+export function batchLines(
+  batch: SourceEvent[][],
+  who: (e: SourceEvent) => string
+) {
+  const messages = batch.flat();
+  const lines: string[] = [];
+  let n = 0;
+  for (const exchange of batch) {
+    lines.push(`## Exchange ${n} · ${localDate(exchange[0]?.at ?? "")}`);
+    for (const e of exchange) {
+      const line = messageLine(time(e.at), who(e), textOf(e), e.deleted);
+      lines.push(`[${n}] ${line}`);
+      n += 1;
+    }
+  }
+  return { lines, messages };
+}
+
 /** Where to read more of messages `read_chats` does not read (a note's versions): the units memory has (`units`) of their days. */
 function noteUnits(list: SourceEvent[], units: Set<string>) {
   const ids = [...new Set(list.map(dayUnitId))].filter((id) => units.has(id));

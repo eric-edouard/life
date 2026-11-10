@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { HOUR } from "../core/clock";
 import type { SourceEvent } from "../records/source";
-import { EXCHANGE_ENDS_AFTER, exchangesOf } from "./exchanges";
+import { EXCHANGE_ENDS_AFTER, exchangesOf, isLiving } from "./exchanges";
 
 const START = Date.parse("2026-10-01T22:00:00.000Z");
 const msg = (ms: number, fromMe = false): SourceEvent => ({
@@ -40,4 +40,10 @@ test("the persona's prompt says the quiet in words: changing one without the oth
 
 test("no message, no exchange", () => {
   expect(exchangesOf([])).toEqual([]);
+});
+
+test("a chat is living when both sides wrote in it", () => {
+  expect(isLiving([msg(0), msg(1, true)])).toBe(true);
+  expect(isLiving([msg(0), msg(1)])).toBe(false);
+  expect(isLiving([msg(0, true)])).toBe(false);
 });

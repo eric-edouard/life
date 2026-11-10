@@ -11,7 +11,7 @@ import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf, safely, tables } from "./sources";
 import { chatPerson, isLifeOutput } from "./units";
-import { type People, readPeople } from "./who";
+import { meant, type People, readPeople } from "./who";
 import { dayNow, localDate } from "./zones";
 
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
@@ -75,6 +75,22 @@ export function directChats(
     }
   }
   return byPerson;
+}
+
+/**
+ * The one-to-one messages of each person named (a name or an id, read as `read_person_page` reads it: `meant`), in
+ * the order given; `known` is undefined, and the messages none, for a name that is no one's.
+ */
+export function directOf(
+  names: string[],
+  events: SourceEvent[],
+  people: People
+) {
+  const direct = directChats(events, people.resolve);
+  return names.map((name) => {
+    const { known } = meant(name, people);
+    return { known, messages: direct.get(`person:${known}`) ?? [] };
+  });
 }
 
 /** The 1:1 chats' and mail threads' days by person (`directChats`): a group is not a measure of closeness. */

@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
@@ -174,6 +175,13 @@ export async function begin(
     today: localDate(now.toISOString()),
   };
 }
+
+/**
+ * What a call was asked, as one short digest: a result kept with it is still good while the prompt and the input are
+ * the same. `prompt` is its name where a change of wording is a new version, or its text where wording moves freely.
+ */
+export const inputsOf = (prompt: string, input: unknown) =>
+  digest("sha256", `${prompt}\n${JSON.stringify(input)}`, 16);
 
 /** A run in progress, as the step functions receive it. */
 export type Step = Awaited<ReturnType<typeof begin>>;

@@ -28,6 +28,7 @@ import type { Tables } from "./sources";
 import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
 import { embedNew } from "./vectors";
 import {
+  batchLines,
   chatsOf,
   fetchOf,
   focus,
@@ -695,4 +696,35 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holds("Dinner at the chateau de Pondres")).toBe(true);
   expect(holds("Dinner at the château")).toBe(false);
   expect(holdsAll("??")("anything")).toBe(false);
+});
+
+const CLOCK = /\d\d:\d\d/;
+test("a batch as lines: numbered from 0 across its exchanges, each under its day and first number; the messages come back in the same order", () => {
+  const at = (iso: string, fromMe: boolean, text: string): SourceEvent => ({
+    at: iso,
+    chat: "+1",
+    fromMe,
+    id: iso,
+    sender: fromMe ? "me" : "+1",
+    source: "whatsapp",
+    text,
+  });
+  const batch = [
+    [
+      at("2026-10-01T12:00:00.000Z", false, "salut\nça va"),
+      { ...at("2026-10-01T12:01:00.000Z", true, "oui"), deleted: true },
+    ],
+    [at("2026-10-03T12:00:00.000Z", true, "on se voit ?")],
+  ];
+  const { lines, messages } = batchLines(batch, (e) =>
+    e.fromMe ? "me" : "Ana"
+  );
+  expect(lines.map((l) => l.replace(CLOCK, "HH:MM"))).toEqual([
+    "## Exchange 0 · 2026-10-01",
+    "[0] HH:MM Ana: salut ça va",
+    "[1] HH:MM me: oui (deleted)",
+    "## Exchange 2 · 2026-10-03",
+    "[2] HH:MM me: on se voit ?",
+  ]);
+  expect(messages).toEqual(batch.flat());
 });

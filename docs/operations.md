@@ -258,6 +258,16 @@ step: [Back up and restore](use/backup.md).
   a batch at a time; then the quiet between messages by band. With people named, one table for each one's
   one-to-one chats and mail, in the order given. Counts only, by code, no model; it reads the sources as the night
   does and writes nothing of his. Run it before sizing a read of his history.
+- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>]` reads
+  the one-to-one chats of the people named, a batch of exchanges per call, with one of the rework's reads
+  (`connection` so far; its prompt is `prompts/memory-connection.v1.md`). Without `--run` it asks nothing: per
+  person, by position, how many calls it would make, how many are kept already, and at most how many tokens. With
+  `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by another family), refuses
+  over the quota reserve like an eval, and keeps each reply whose shape is one in his data,
+  `docs/memory-rework/pilot/<read>/<engine>/<key>.json`: the reply as given, what made it and the messages it read.
+  The key is the prompt's text and the input, so a batch is never asked twice for the same wording, and a reworded
+  prompt asks again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It
+  prints counts only. A run spends his quota: show him the dry run's numbers first.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits

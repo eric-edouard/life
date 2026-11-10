@@ -16,7 +16,7 @@ import {
   type Standing,
   stateOf,
 } from "./ledger";
-import { begin, checkedEntries } from "./run";
+import { begin, checkedEntries, inputsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 
@@ -224,11 +224,7 @@ export async function appointments() {
     here: zoneNow() ?? null,
     today: step.today,
   };
-  const inputs = digest(
-    "sha256",
-    `${APPOINTMENTS_PROMPT}\n${JSON.stringify(input)}`,
-    16
-  );
+  const inputs = inputsOf(APPOINTMENTS_PROMPT, input);
   if (last?.inputs === inputs) {
     return step.end({ appointments: held.length, read: false });
   }

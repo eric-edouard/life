@@ -34,6 +34,10 @@ export function exchangesOf(list: SourceEvent[]) {
   return exchanges;
 }
 
+/** A living chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
+export const isLiving = (chat: SourceEvent[]) =>
+  chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
+
 /**
  * A stream's exchanges in batches, each what one call reads: consecutive exchanges up to `EXCHANGE_BATCH_CHARS`. An
  * exchange is never cut, so one over the size is a batch alone.
