@@ -40,7 +40,7 @@ reverse it, change its entry here in the same commit.
   review still writes the bench's `answers.jsonl`; `bench apply` lists what differs from his answers in the archive
   now, and `--write` sends each as his own correction (`PUT /transcripts/{jobId}/speakers/{speakerLabel}`, with the
   reader's corrections token, on this Mac). The bench never opens the archive to write, and stores no "sent" mark:
-  a second run compares again. "Several people" waits for that route to take it.
+  a second run compares again. That route takes "several people" too, for a speaker or one turn: nobody's evidence.
   The bench's page stays a development tool the CLI serves on 127.0.0.1 from the bench's private folder: no token,
   no tunnel, and its only writes are an answer and a new scoring, from its own origin.
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
