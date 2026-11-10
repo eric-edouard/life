@@ -46,6 +46,15 @@ search, the phone source). Read against today's code, part of it already exists:
 unchanged result, one helper for messages by chat, and `scripts/exchange-sizes.ts`. Its numbers are in the spec,
 section 16.
 
+**Done and merged, 10 Nov** (life PR 414, verdict: debt reduced), the pilot harness's first PR: one packer
+(`packed`, `core/lists.ts`) for extraction, a day's part and exchange batches (`batchesOf`); the night's read with
+people leaves out bulk mail and Life's own output once; `CHARS_PER_TOKEN`; the sizes script counts real batches and
+shows one person at a time. The pilot's written part is sized in the spec, section 16.
+
+**Next, the read runner** (`scripts/memory-pilot.ts`): a batch as lines, a prompt and a schema per read, every quote
+checked against the batch (`locate`), a reply kept under its prompt and input so nothing is paid twice, a dry run by
+default. Then the three reads' prompts, one PR each. Still to size: recordings and group chats.
+
 So the first PR was smaller and more useful than drafted: the exchange cut in one place, and a read-only script that
 prints the numbers both reviews asked for (how many exchanges, how long, where the quiet falls, how many are
 one-sided, how they batch). The map branch is merged with `main`, so the spec now sits on today's code.
