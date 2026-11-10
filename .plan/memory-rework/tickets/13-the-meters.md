@@ -15,3 +15,10 @@ His word again (10 Nov): he has a different persona with each person (with a par
 others is closer to what he thinks), and group conversations feed each person's persona. In the architecture: every
 act names who did it, to whom and in front of whom, so every meter can be cut by counterpart; his conduct with
 someone and his view of them are two readings, never mixed, and their difference is kept.
+
+## Decided by the designer (10 Nov; spec section 9)
+
+- A meter is a rate per chance to act, in one vantage, shown as a band with its count; "too few to say" below a
+  minimum; no pull toward a typical person; how far at its strongest kept beside how often; lately against before.
+- Fifteen about a person, twelve between him and a person, listed in the spec. The poles' words need his yes.
+- They reach agents as data in the subject read.

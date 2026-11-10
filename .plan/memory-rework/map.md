@@ -17,7 +17,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   life, continuously, so a limited-context agent finds the right information easily and fast. Every layer is a
   summary of the raw, small enough to read whole, pointing down to its evidence, shaped by the questions he asks, and
   judged against what a model reading all the raw would answer.
-- Domain: Life (`AGENTS.md`, `docs/architecture.md`, `docs/SCHEMA.md`, `docs/glossary.md`). The problem statement is
+- Domain: Life (`AGENTS.md`, `docs/spec.md`, `docs/SCHEMA.md`, `docs/glossary.md`). The problem statement is
   `~/Downloads/life-memory-problem.md`; his wants are `~/Downloads/life-people-layers-wants.md`; the research is
   `~/Downloads/life-psych-research/` (read `05-merged-findings.md` first). Earlier designs (07, 09, 15, 11b, 18) and the
   pilots live in the person-readings session's scratchpad and `.claude/worktrees/person-readings/PLAN.md`.
@@ -60,8 +60,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   what it gives out (the reads the connector, the pages and the mails use). Nothing outside reaches into its files or
   its internals. Ticket 25.
 - The altitude (his word, 10 Nov): this is a rework of the memory's architecture. How information flows back to him
-  (mails, how often) is not part of it and is never a question for him. The whole shape is drafted in
-  [architecture.md](./assets/architecture.md); the tickets are filled from it.
+  (mails, how often) is not part of it and is never a question for him. The whole shape is in [spec.md](./spec.md); the tickets point at its sections.
 - How he decides (10 Nov): on the shape of the design he leaves it to the designer ("you probably know better"). So a
   shape question is decided with its reason and written down, for him to overrule; he is asked only what he alone
   knows: what he wants, what he prefers, what is true of his life.
@@ -80,6 +79,14 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 - [The exchange](./tickets/11-the-exchange.md) — cut by code at a night's silence, one channel each, never stored twice; every two-sided exchange gets the close read; measured facts, reactions and reply links beside the units; talk about someone absent is a mention inside its exchange; assistant chats are his own writing, not exchanges; in a group each act names who did it and to whom
 - [Organic memory](./tickets/10-organic-memory.md) — left to the designer (10 Nov): calendar steps per subject (month, year, the whole story), a level only where the one below is too big to read whole, sealed months read once, upper levels rebuilt from the level below and never from themselves, counts never summarized, the long-standing carried up by rule
+
+- [The spec](./spec.md) — drafted 10 Nov by the designer from all of the above: the evidence log, the codebook, subjects and vantage, his word and Life's list (what `truth/` becomes, with the interview that seeds a new Life), histories as summary and tail, the counted readings, forecasts, the write and read paths, the boundary, how it is judged, the move, the names. Tickets 05 to 27 point at its sections.
+
+## Waiting on his word
+
+- The names of spec section 16, and the poles of the meters in his words (ticket 23, 13).
+- The rules of `AGENTS.md` that `truth/` becoming Life's list changes; rewritten with the build, on his yes (ticket 18).
+- The model for each read and the backfill's cost, after the pilot (ticket 22).
 
 ## Not yet specified
 

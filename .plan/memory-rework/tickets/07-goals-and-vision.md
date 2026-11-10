@@ -21,3 +21,11 @@ observer measures his actions against it.
   recording or to a friend, is kept as "heard, not confirmed" and becomes a question an agent asks him; said for
   effect or to please, it never reorders his goals by itself. His actions are measured against the declared order,
   and the gap is written (ticket 08).
+
+## Decided by the designer (10 Nov; spec sections 7, 9)
+
+- A goal is a subject. Counted by code: hours and money per project, area and person per week, set against his
+  declared order. Read by a model: what moved it, and the meaning of the gap.
+- His vision is declared in the interview and kept current like the goals; the year level of his own history shows
+  where the years are heading against it.
+- A new Life starts with an interview: goals and objectives, and how he plans to get there (his word, 10 Nov).

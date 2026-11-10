@@ -16,14 +16,12 @@ His word is what he tells Life (a chat with an agent, "hey Life", a correction, 
 holds. Life keeps its own list of subjects (people, parts of his life, goals and their order), used at once and
 corrected by his word. What he says to other people is evidence about him, never his word. What `truth/` holds today
 stays as his word. This changes invariants of `AGENTS.md` ("only the owner writes `truth/`", "his goals live there
-only", "a new key in `truth/` lands in code first"), so it needs his yes. Detail: architecture.md, "His word, and
-Life's own list".
+only", "a new key in `truth/` lands in code first"), so it needs his yes. Detail: spec.md, section 7.
 
 ## His answer (10 Nov)
 
 He now understands `truth/`: it defined his goals and seeded the system. Some form is still required: the
 equivalent of an onboarding (what he wants out of life, how he plans to reach it), and the feedback has to keep
-coming continuously, in a good way. Designed in architecture.md, "What he wants out of life: declared, heard,
-asked": the declared side stays inside Life's list; it is kept current by what Life hears, by questions asked in
+coming continuously, in a good way. Designed in spec.md, section 7: the declared side stays inside Life's list; it is kept current by what Life hears, by questions asked in
 the context of a conversation about that subject, and by a sitting when he wants one. Questions are derived, never
 a queue.

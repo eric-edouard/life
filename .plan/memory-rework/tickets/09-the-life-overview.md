@@ -14,3 +14,8 @@ The one direct answer to "where do things stand in my life": its sections (areas
 - The overview is never sent to him unasked (his answer). And how information flows back to him is not part of the
   memory at all (his word): mails could run every hour or never, and the memory must work the same. The memory holds
   and serves the overview; any reader asks for it when it likes.
+
+## Decided by the designer (10 Nov; spec section 12)
+
+- One overview, the top of the read path: his seven areas, each line pointing at a subject, one screen per area at
+  most; built from the subjects' standings; rebuilt when a standing changed; read through one connector read.

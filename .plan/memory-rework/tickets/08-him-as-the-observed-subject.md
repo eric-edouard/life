@@ -18,3 +18,12 @@ From issue #390: how he felt over time (today the episode read forbids feelings 
 - When his actions contradict his words, Life writes the gap and what it means, plainly, with the evidence under it
   (his answer): "first goal: 4% of his time this month; by his actions it is not his first goal". One conclusion,
   written once, so two agents never tell him different things.
+
+## Decided by the designer (10 Nov; spec sections 6, 9)
+
+- His readings are the same meters as everyone's, cut by counterpart and across everyone; where he performs is the
+  difference between his conduct with someone and his view of them.
+- Counted: what he resolves against what he then does; how he says he feels over time, by person and by activity;
+  his routines.
+- A line about him is written only when counted over enough cases in more than one setting; otherwise "too few to
+  say".
