@@ -1,15 +1,11 @@
 // `bun scripts/exchange-sizes.ts`: how his chats and mail with people cut into exchanges, over every year, as counts
-// only: never a word, a name or a chat id. What the memory rework sizes its reads from before any is built: how many
-// exchanges, how long, how many with one side only, where the quiet between messages falls, and, for the chats both
-// sides wrote in (the ones a read is for), their characters and the calls a year needs when a chat's exchanges are
-// read together. Reads the sources as the night does (`readWithPeople`), writes
-// nothing.
+// only: never a word, a name or a chat id (docs/operations.md, "Measuring").
 
 import { DAY, HOUR, MIN } from "@life/server/src/core/clock";
 import { readWithPeople } from "@life/server/src/memory/closeness";
 import { exchangesOf } from "@life/server/src/memory/exchanges";
-import { chatGroups } from "@life/server/src/memory/units";
-import type { SourceEvent } from "@life/server/src/records/source";
+import { isLifeOutput } from "@life/server/src/memory/units";
+import { chatGroups, type SourceEvent } from "@life/server/src/records/source";
 
 /** The characters of exchanges one call reads when a chat's are read together. */
 const BATCH_CHARS = 30_000;
@@ -30,20 +26,23 @@ const centile = (sorted: number[], share: number) =>
 const chars = (list: SourceEvent[]) =>
   list.reduce((n, e) => n + e.text.length, 0);
 
-/** The counts of a set of messages: a row per source and year an exchange started in, and the quiet between messages. */
+interface Row {
+  calls: number;
+  living: number;
+  messages: number;
+  oneSided: number;
+  sizes: number[];
+}
+
+/**
+ * The counts of the messages with people (bulk mail and Life's own output left out, as the persona leaves them): a
+ * row per source and year an exchange started in, and the quiet between messages.
+ */
 export function sizesOf(events: SourceEvent[]) {
-  const rows = new Map<
-    string,
-    {
-      calls: number;
-      living: number;
-      messages: number;
-      oneSided: number;
-      sizes: number[];
-    }
-  >();
+  const rows = new Map<string, Row>();
   const quiet = BANDS.map(() => 0);
-  for (const chat of chatGroups(events).values()) {
+  const withPeople = events.filter((e) => !(e.bulk || isLifeOutput(e)));
+  for (const chat of chatGroups(withPeople).values()) {
     const sorted = chat.toSorted((a, b) => a.at.localeCompare(b.at));
     for (const [i, e] of sorted.slice(1).entries()) {
       const gap = Date.parse(e.at) - Date.parse((sorted[i] as SourceEvent).at);
@@ -53,7 +52,7 @@ export function sizesOf(events: SourceEvent[]) {
     // A chat both sides wrote in is read, its exchanges of one year together: its characters that year, in calls of
     // BATCH_CHARS.
     const isLiving = chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
-    const inYear = new Map<string, number>();
+    const inYear = new Map<Row, number>();
     for (const exchange of exchangesOf(chat)) {
       const [first] = exchange as [SourceEvent];
       const key = `${first.source} ${first.at.slice(0, 4)}`;
@@ -69,15 +68,12 @@ export function sizesOf(events: SourceEvent[]) {
       row.oneSided += exchange.every((e) => e.fromMe === first.fromMe) ? 1 : 0;
       row.sizes.push(chars(exchange));
       if (isLiving) {
-        inYear.set(key, (inYear.get(key) ?? 0) + chars(exchange));
+        inYear.set(row, (inYear.get(row) ?? 0) + chars(exchange));
       }
     }
-    for (const [key, n] of inYear) {
-      const row = rows.get(key);
-      if (row) {
-        row.living += n;
-        row.calls += Math.ceil(n / BATCH_CHARS);
-      }
+    for (const [row, n] of inYear) {
+      row.living += n;
+      row.calls += Math.ceil(n / BATCH_CHARS);
     }
   }
   return {

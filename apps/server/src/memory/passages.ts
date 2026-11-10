@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import { PASSAGES } from "./ledger";
 import {
   enabledSources,
@@ -13,13 +13,7 @@ import {
   type Tables,
   tables,
 } from "./sources";
-import {
-  chatGroups,
-  dayUnitId,
-  isLifeOutput,
-  normalize,
-  searchableMail,
-} from "./units";
+import { dayUnitId, isLifeOutput, normalize, searchableMail } from "./units";
 import { type DayRange, dayStart, localDate, type Window } from "./zones";
 
 // Rebuildable source text, independent of index.sqlite. Each passage belongs to its first message's unit.

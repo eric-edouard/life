@@ -31,6 +31,13 @@ test("the quiet counts from the last message, not from the exchange's start", ()
   expect(sizes([msg(0), msg(5 * HOUR), msg(10 * HOUR)])).toEqual([3]);
 });
 
+test("the persona's prompt says the quiet in words: changing one without the other fails here", async () => {
+  const prompt = await Bun.file(
+    `${import.meta.dir}/../../../../prompts/memory-persona.v2.md`
+  ).text();
+  expect(prompt).toContain(`${EXCHANGE_ENDS_AFTER / HOUR} hours`);
+});
+
 test("no message, no exchange", () => {
   expect(exchangesOf([])).toEqual([]);
 });

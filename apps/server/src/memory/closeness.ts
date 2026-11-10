@@ -4,13 +4,13 @@ import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Closeness, Level } from "../records/observation";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf, safely, tables } from "./sources";
-import { chatGroups, chatPerson } from "./units";
+import { chatPerson } from "./units";
 import { type People, readPeople } from "./who";
 import { dayNow, localDate } from "./zones";
 

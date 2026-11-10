@@ -27,6 +27,8 @@ test("sizes: a row per source and year an exchange started in; one-sided exchang
     msg(5 * HOUR, true, "c"),
     // The next day, only he writes.
     msg(30 * HOUR, true, "dddddd"),
+    // A newsletter is not a message with a person: never counted.
+    { ...msg(3 * MIN, false, "news", "list"), bulk: true, source: "mail" },
     // Another chat at the same time: never joined to the first, and never answered, so no read is sized for it.
     msg(1 * MIN, false, "ee", "+2"),
   ]);

@@ -60,3 +60,6 @@ export const SourceEvent = z
   .strict();
 
 export type SourceEvent = z.infer<typeof SourceEvent>;
+/** Messages by chat, in the order given. */
+export const chatGroups = (events: SourceEvent[]) =>
+  Map.groupBy(events, (e) => `${e.source}|${e.chat}`);

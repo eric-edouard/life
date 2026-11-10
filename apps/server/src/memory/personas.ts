@@ -9,7 +9,7 @@ import {
   PersonaLine,
   type PersonaQuote,
 } from "../records/persona";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
@@ -20,7 +20,6 @@ import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
 import {
-  chatGroups,
   clip,
   dayUnitId,
   isFrozen,

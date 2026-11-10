@@ -2,7 +2,7 @@ import { clock, DAY } from "../core/clock";
 import { fuse } from "../core/fusion";
 import { newestDays } from "../core/lists";
 import { redact } from "../core/redact";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import {
@@ -28,7 +28,6 @@ import { isDirect, kindOf, type Tables, tables } from "./sources";
 import {
   type Built,
   builtFor,
-  chatGroups,
   clip,
   dayUnitId,
   isFrozen,
