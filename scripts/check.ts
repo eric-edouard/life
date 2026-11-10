@@ -48,6 +48,7 @@ const steps: Record<string, string[]> = {
     "60000",
     `./${lifelog}/apps/server/`,
     `./${lifelog}/apps/stt-bench/`,
+    `./${lifelog}/apps/voice-bench/`,
     `./${lifelog}/packages/`,
   ],
   openapi: ["bun", `${lifelog}/apps/server/scripts/openapi.ts`, "--check"],

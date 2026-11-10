@@ -42,6 +42,7 @@ const answer = (
   jobId: `job-${conversation}`,
   personId,
   speakerLabel,
+  status: personId ? ("person" as const) : ("unknown" as const),
   turnIndex,
 });
 // His and Pat's clips in conversation a; other conversations are judged.

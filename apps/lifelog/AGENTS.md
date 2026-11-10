@@ -9,6 +9,7 @@ records and turns it into searchable, listenable conversations, with a server th
 - `apps/mac-quiet`: the Mac helper (dictation ranges, model calls) and Lifelog Host, the menu-bar app that runs it all.
 - `apps/identity`: the optional Python speaker-embedding service.
 - `apps/stt-bench`: the transcription bench, Scribe against open models on the Mac (`docs/research/transcription-bench.md`).
+- `apps/voice-bench`: the voice bench, speaker-embedding models on the owner's known voices (`docs/research/voice-bench.md`).
 - `packages/db`: the server's database (schema, migrations, `connect`).
 
 Folded into Life's repo on 24 Oct 2026 (Life's root `AGENTS.md`): one Bun workspace, one TypeScript config and one gate,

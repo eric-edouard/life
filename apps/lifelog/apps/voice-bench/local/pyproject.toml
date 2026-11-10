@@ -1,0 +1,20 @@
+[project]
+name = "lifelog-voice-bench-local"
+version = "0.1.0"
+description = "Speaker-embedding models run on the Mac for the lifelog voice bench"
+requires-python = "==3.12.*"
+dependencies = [
+  "huggingface-hub",
+  "hydra-core",
+  "numpy==2.3.4",
+  "omegaconf",
+  "pyyaml>=6.0.3",
+  "scipy",
+  "soundfile==0.14.0",
+  "speechbrain==1.1.1",
+  "torch==2.11.0",
+  "torchaudio==2.11.0",
+]
+
+[tool.uv]
+package = false

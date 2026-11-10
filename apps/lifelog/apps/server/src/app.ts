@@ -29,6 +29,7 @@ const PUBLIC_PATHS = [
   "/health",
   "/webhooks/elevenlabs",
   "/voices",
+  "/voices/cloud.js",
   "/voices/page.js",
   "/voices/plotly-4.0.0.min.js",
 ];
