@@ -51,9 +51,17 @@ section 16.
 people leaves out bulk mail and Life's own output once; `CHARS_PER_TOKEN`; the sizes script counts real batches and
 shows one person at a time. The pilot's written part is sized in the spec, section 16.
 
-**Next, the read runner** (`scripts/memory-pilot.ts`): a batch as lines, a prompt and a schema per read, every quote
-checked against the batch (`locate`), a reply kept under its prompt and input so nothing is paid twice, a dry run by
-default. Then the three reads' prompts, one PR each. Still to size: recordings and group chats.
+**Done and merged, 10 Nov** (life PR 415, verdict: no debt added, after two full verdicts): the read runner,
+`scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>]`, dry unless `--run`, and the connection
+read's first wording (`prompts/memory-connection.v1.md`). A batch as lines a reply can cite (`batchLines`); a move
+kept only inside an exchange the batch holds, its words found there, who and when from the message; a reply kept
+as given under the wording and the input, never asked twice; one `inputsOf` for every step's inputs digest. Dry run
+on the pilot's two people: 58 and 27 calls, at most 0.86 and 0.43 million tokens of input for this read.
+
+**Next** (ticket 29): the benchmark's first piece. His cases, in his data repo, asked from an agent's side with
+only the connector, an answer checked for what it must hold; today's Life as the baseline. Then the other two
+reads, one PR each. Before any paid round: its cost shown to him; and where kept replies are committed (the nightly
+commits `memory` and `truth` only). Still to size: recordings and group chats.
 
 So the first PR was smaller and more useful than drafted: the exchange cut in one place, and a read-only script that
 prints the numbers both reviews asked for (how many exchanges, how long, where the quiet falls, how many are
