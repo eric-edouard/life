@@ -85,7 +85,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 - [The path](./assets/path.md) — at his ask (10 Nov): the spec reached in about forty small PRs, never one rework. New layers beside the old, in shadow first, one reader moved at a time, then the old mechanism deleted. Code-only steps, links and histories from today's evidence come before the pilot's model work; the connector changes once, near the end.
 
-- [The benchmark](./tickets/29-the-benchmark.md) — his ask, 10 Nov: a made-up life in the repo with answers known in advance, tests from the MCP agent's side, a check that an answer holds what it must; how models and every later change are rated. Checked: nothing like it exists (the bench rates models on his own days; the demo is a made-up week of memory). It comes before the pilot on his data. Shape to settle.
+- [The benchmark](./tickets/29-the-benchmark.md) — decided 10 Nov: a personal benchmark on his real data, in his data repo, never public (a made-up life as large and real as his is not feasible). Cases say what an answer must hold; an agent with only the connector answers; truth comes from code counts, his word, then a strong reader of the raw. A failure he sees becomes a case, said in conversation. The pilot is its first run; today's Life is the baseline.
 
 ## Waiting on his word
 

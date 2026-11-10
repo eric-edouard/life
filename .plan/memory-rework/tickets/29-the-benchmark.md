@@ -37,6 +37,45 @@ in his data repo). The benchmark widens it:
 
 So no seed of raw data over years exists, none with planted answers, and nothing asks from an agent's side.
 
+## Decided (10 Nov, his third word): the benchmark is personal, on his real data
+
+He weighed it: a made-up life as large and as real as his own is not feasible, and a clean one would teach the
+wrong lessons. So the benchmark runs on his real data, lives in his data repo, and is never pushed to the public
+repo. The designer agrees, for three reasons: realism is the whole point and only his data has it; his data is
+where production runs; and the truth it needs can come from elsewhere than a script.
+
+**Where the truth comes from, strongest first**
+1. **What code counts on the raw**: who reaches out, reply delays, deletions, a payment after a promise. Exact, no
+   model.
+2. **His word**: the cases he settled, his corrections, his fact-check answers, his verdicts. Few at first, and it
+   grows every time a failure becomes a case.
+3. **A strong model reading the raw whole**, where it fits one call. Labelled as a model's truth, spot-checked by
+   him, never mixed with the first two.
+
+**What it is**
+- **Cases, in his data repo**, beside his regression cases and his question set (about 400 questions already say
+  what a right answer holds; 25 are marked failed). A case: the question in his words, what the answer must hold,
+  what it must not say, where its truth comes from.
+- **Asked from the agent's side**: an agent with only Life's connector answers each case.
+- **Checked**: a count by code where the truth is a count; a judge where the answer must hold something, the judge
+  first measured on his own verdicts.
+- **One number per cell of the grid**, his own questions apart from the mined ones.
+- **The harness is code in the repo; the cases and every result stay in his data.** As `scripts/cases-check.ts`
+  already reads his cases without holding any.
+
+**What a made-up life shrinks to**: the small made-up chats the code's own tests need, as the repo already asks.
+Not a benchmark.
+
+**What is lost, plainly**: a truth no model touched for the subtle readings, and a benchmark others could run. The
+first is covered in part by his verdicts and by two model families having to agree; the second waits until someone
+else runs Life.
+
+**What it does to the plan**: the benchmark and the pilot stop being two things. The pilot is the first run of the
+benchmark on his data. Order: the cases and the agent-side run, then today's Life as the baseline (the 25 known
+failures should fail), then each new layer against it.
+
+## The made-up life, as first proposed (kept for the record; not built)
+
 ## Why it is the right foundation
 
 - **The answers are known before any model reads.** The made-up life is written from a script of what happens: who
