@@ -180,9 +180,10 @@
       <section aria-labelledby="review-title" id="review">
         <h2 id="review-title">Review</h2>
         <p>
-          The turns where your ear helps the bench most, the likely mistakes
-          first. Your answers stay in the bench: they never change who lifelog
-          thinks spoke.
+          The voices where your ear helps the bench most: the likely wrong names
+          first, and the ones that settle the most turns. Names come closest
+          first, with how often the models hear them. Your answers stay in the
+          bench: they never change who lifelog thinks spoke.
         </p>
         <div class="card" id="review-card">
           <p class="why" id="review-why"></p>
@@ -190,7 +191,7 @@
           <p class="facts" id="review-facts"></p>
           <!-- biome-ignore lint/a11y/useMediaCaption: the clip's words are the quote above the player -->
           <audio controls id="review-player"></audio>
-          <div class="answers" id="review-heard"></div>
+          <div class="answers" id="review-names"></div>
           <div class="answers">
             <label
               >Someone else
@@ -214,7 +215,8 @@
           </div>
           <p class="facts">
             <kbd>Space</kbd>
-            plays it again. <span id="review-left"></span>
+            plays it again, <kbd>→</kbd> the voice's next clip. Your answer goes
+            to every turn on the card. <span id="review-left"></span>
           </p>
         </div>
         <p class="empty" hidden id="review-done">

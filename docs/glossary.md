@@ -19,7 +19,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | sample | A voice embedding of one clean recorded turn, with its model and revision; no extra audio. Unnamed samples are nobody's evidence. | |
 | profile | A person's owner-attributed voice evidence, represented by one exemplar per conversation of clean clips. | |
 | likeness | A voice's mean cosine to a person's closest profile exemplars; a score, not an identity or evidence. | |
-| bench answer | What the owner says of a turn in the voice bench's review: a person, nobody he knows, several voices, not a person, or a skip. Several voices and not a person leave the scoring (lifelog itself counts such a voice as nobody he knows). Kept in the bench's own file; never an assignment, never evidence for lifelog. | |
+| bench answer | What the owner says of a turn in the voice bench's review (one answer there names every turn of a voice's card): a person, nobody he knows, several voices, not a person, or a skip. Several voices and not a person leave the scoring (lifelog itself counts such a voice as nobody he knows). Kept in the bench's own file; never an assignment, never evidence for lifelog. | |
 | sender | Who wrote a message in a chat or mail. | |
 | detail | A field about someone that his map or his Contacts already holds (birthday, where they live, work, family, handles), shown on their page (`memory/details.ts`). Never stored apart from where it lives; anything else about them is a page line. | |
 

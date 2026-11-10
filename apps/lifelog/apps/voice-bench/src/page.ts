@@ -1,5 +1,5 @@
 // The bench's page, for this Mac only: the report, the clips, and the one write, his answer to a
-// reviewed turn. A development tool on loopback, never a page lifelog serves.
+// reviewed voice (one line a turn). A development tool on loopback, never a page lifelog serves.
 import { join } from "node:path";
 import { clipPath } from "./clips";
 import { ANSWER_KINDS, appendAnswer, type BenchAnswer } from "./truth";

@@ -1,6 +1,7 @@
 // Which turns the bench hears: every turn the owner answered, and a seeded draw of the others for
 // the review. The same for the same archive and seed.
 import { createHash } from "node:crypto";
+import { voiceId } from "@lifelog/server/src/people";
 
 export interface Row {
   conversationId: string;
@@ -30,7 +31,7 @@ export function draw(unanswered: Row[], count: number, seed: string): Row[] {
     .map((row) => ({ rank: rank(seed, row.id), row }))
     .sort((a, b) => a.rank.localeCompare(b.rank))
     .flatMap(({ row }) => {
-      const voice = `${row.jobId}/${row.speakerLabel}`;
+      const voice = voiceId(row.jobId, row.speakerLabel);
       const taken = perVoice.get(voice) ?? 0;
       perVoice.set(voice, taken + 1);
       return taken < PER_VOICE ? [row] : [];

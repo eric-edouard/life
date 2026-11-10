@@ -2,6 +2,7 @@
 // turns worth the owner's ear (the review). Pure: the sample, his bench answers and the embeddings in.
 import { answers } from "@lifelog/server/scripts/eval-voices";
 import { RECOGNITION } from "@lifelog/server/src/config";
+import { voiceId } from "@lifelog/server/src/people";
 import { centroid } from "@lifelog/server/src/speakers";
 import { pcaOf } from "@lifelog/server/src/voice-pca";
 import type { Vector } from "@lifelog/server/src/voice-vectors";
@@ -34,9 +35,10 @@ export interface Embedded {
 // Wrong names allowed, of the names given. The winner is the first one (his rule of 10 Nov).
 export const BUDGETS = [0.01, 0.03, 0.1] as const;
 const [WINNER] = BUDGETS;
-// A turn enters the review when this share of the models hear the same person first, and the
-// review holds this many turns of each reason at most.
-const REVIEW = { agree: 0.6, most: 250 };
+// A turn enters the review when this share of the models hear the same person first. One round of
+// review holds this many likely mistakes and this many voices to confirm at most (the next score
+// brings the next round); a card offers this many names and clips.
+const REVIEW = { agree: 0.6, clips: 3, confirm: 30, mistakes: 100, names: 5 };
 
 const mean = (xs: number[]) =>
   xs.reduce((sum, x) => sum + x, 0) / (xs.length || 1);
@@ -49,10 +51,8 @@ const combinations = <T>(all: T[], size: number): T[][] =>
       );
 
 // A speaker's turns in one job, as one vector, when they hold enough speech and one truth.
-function voicesOf(turns: Heard[], speakerOf: (id: string) => string) {
-  return [
-    ...Map.groupBy(turns, (t) => `${t.jobId}/${speakerOf(t.id)}`),
-  ].flatMap(([id, inVoice]): Heard[] => {
+function voicesOf(turns: Heard[], voiceOf: (turn: Heard) => string) {
+  return [...Map.groupBy(turns, voiceOf)].flatMap(([id, inVoice]): Heard[] => {
     const [first] = inVoice;
     const seconds = inVoice.reduce((sum, t) => sum + t.seconds, 0);
     const truths = new Set(inVoice.map((t) => JSON.stringify(t.truth)));
@@ -119,10 +119,6 @@ function modelOf(
   const vectors = heard.map((t) => t.vector);
   const positions = pcaOf(centroids.length >= 4 ? centroids : vectors, vectors);
   const callOf = new Map(calls.map((c) => [c.id, c]));
-  // A call with no profile to compare has no score.
-  const scores = calls.map((c) => c.score).filter(Number.isFinite);
-  const middle = mean(scores);
-  const deviation = Math.sqrt(mean(scores.map((x) => (x - middle) ** 2))) || 1;
   return {
     byEvidence: sharesBy(calls, at, (c) => {
       const person = personOf(c);
@@ -161,17 +157,15 @@ function modelOf(
             margin: round(call?.margin ?? 0),
             position: (positions[i] ?? [0, 0, 0]).map(round),
             score: round(call?.best ? call.score : 0),
-            // The score among this model's scores: how sure it is, on a scale models share.
-            sureness: round(
-              ((call?.best ? call.score : middle) - middle) / deviation
-            ),
           },
         ];
       })
     ),
     voices: summaryOf(
       callsOf(
-        voicesOf(heard, (id) => byId.get(id)?.speakerLabel ?? ""),
+        voicesOf(heard, (t) =>
+          voiceId(t.jobId, byId.get(t.id)?.speakerLabel ?? null)
+        ),
         heard
       )
     ),
@@ -180,19 +174,13 @@ function modelOf(
 
 const round = (x: number) => Math.round(x * 1000) / 1000;
 
-const REASONS = [
-  "unknown-sounds-known",
-  "named-sounds-other",
-  "confirm",
-] as const;
-
 // Why a turn is worth his ear, when most models hear the same person first: a "nobody I know"
 // they give to a known person, a named turn they give to someone else, or an unanswered turn
 // (one tap to confirm).
 function reasonOf(
   truth: Truth | undefined,
   personId: string
-): (typeof REASONS)[number] | undefined {
+): "unknown-sounds-known" | "named-sounds-other" | "confirm" | undefined {
   if (truth?.kind === "unknown") {
     return "unknown-sounds-known";
   }
@@ -202,44 +190,93 @@ function reasonOf(
   return "confirm";
 }
 
-// The review, the likely mistakes first (the order of REASONS), the surest of each first. What he
-// answered in the bench is out.
-function reviewOf(
-  turns: { id: string; truth: Truth | undefined }[],
-  models: ReturnType<typeof modelOf>[],
+// People by how many of these first guesses go to them, the most first.
+const sharesOf = (firsts: string[]) =>
+  [...Map.groupBy(firsts, (personId) => personId)]
+    .map(([personId, votes]) => ({
+      count: votes.length,
+      personId,
+      share: round(votes.length / firsts.length),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+type Reviewed = Pick<
+  SampledTurn,
+  "durationSeconds" | "id" | "jobId" | "speakerLabel"
+> & { truth: Truth | undefined };
+
+// The review: a card is the turns of one voice, with one answer of his, that most models give to
+// the same person. One answer names them all. The likely mistakes first, then the voices he never
+// answered; of each, the cards with the most turns first. What he answered in the bench is out.
+export function reviewOf(
+  turns: Reviewed[],
+  models: { turns: Record<string, { best: string | null } | undefined> }[],
   answered: Map<string, BenchAnswer>
 ) {
-  const needed = Math.ceil(models.length * REVIEW.agree);
   const items = turns
     .filter((t) => !answered.has(t.id) && t.truth?.kind !== "excluded")
-    .flatMap((t) => {
-      const firsts = models.flatMap((model) => {
-        const heard = model.turns[t.id];
-        return heard?.best ? [{ ...heard, best: heard.best }] : [];
-      });
-      const heard = [...Map.groupBy(firsts, (h) => h.best)]
-        .map(([personId, votes]) => ({
-          count: votes.length,
-          personId,
-          sureness: round(mean(votes.map((v) => v.sureness))),
-        }))
-        .sort((a, b) => b.count - a.count);
-      const [top] = heard;
+    .flatMap((turn) => {
+      const firsts = models.flatMap(
+        (model) => model.turns[turn.id]?.best ?? []
+      );
+      const [top] = sharesOf(firsts);
+      // Of the models that heard the turn (a quick look hears only some), two at least.
       const reason =
-        top && top.count >= needed
-          ? reasonOf(t.truth, top.personId)
+        top && firsts.length > 1 && top.count >= firsts.length * REVIEW.agree
+          ? reasonOf(turn.truth, top.personId)
           : undefined;
-      return top && reason ? [{ heard, id: t.id, reason, top }] : [];
+      return top && reason ? [{ firsts, reason, top: top.personId, turn }] : [];
+    });
+  const cards = [
+    ...Map.groupBy(items, ({ top, turn }) =>
+      JSON.stringify([voiceId(turn.jobId, turn.speakerLabel), turn.truth, top])
+    ).values(),
+  ]
+    .flatMap((group) => {
+      const [first] = group;
+      if (!first) {
+        return [];
+      }
+      // The names offered, the closest first: of every model's first guess on every turn of the
+      // card, the share that goes to each person. His own answer is always among them.
+      const all = sharesOf(group.flatMap((item) => item.firsts));
+      const said =
+        first.turn.truth?.kind === "person"
+          ? first.turn.truth.personId
+          : undefined;
+      const closest = all.slice(0, REVIEW.names);
+      const candidates =
+        said && !closest.some((c) => c.personId === said)
+          ? [
+              ...closest.slice(0, REVIEW.names - 1),
+              all.find((c) => c.personId === said) ?? {
+                personId: said,
+                share: 0,
+              },
+            ]
+          : closest;
+      const ids = group
+        .map((item) => item.turn)
+        .sort((a, b) => b.durationSeconds - a.durationSeconds)
+        .map((t) => t.id);
+      return [
+        {
+          candidates: candidates.map(({ personId, share }) => ({
+            personId,
+            share,
+          })),
+          // The longest turns, to listen to.
+          clips: ids.slice(0, REVIEW.clips),
+          reason: first.reason,
+          turns: ids,
+        },
+      ];
     })
-    .sort(
-      (a, b) => b.top.count - a.top.count || b.top.sureness - a.top.sureness
-    );
-  return REASONS.flatMap((reason) =>
-    items
-      .filter((item) => item.reason === reason)
-      .slice(0, REVIEW.most)
-      .map(({ top: _, ...item }) => item)
-  );
+    .sort((a, b) => b.turns.length - a.turns.length);
+  return [
+    ...cards.filter((c) => c.reason !== "confirm").slice(0, REVIEW.mistakes),
+    ...cards.filter((c) => c.reason === "confirm").slice(0, REVIEW.confirm),
+  ];
 }
 
 export function reportOf(

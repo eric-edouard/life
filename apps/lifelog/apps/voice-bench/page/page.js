@@ -458,74 +458,87 @@
 
   // The review -----------------------------------------------------------------------------
 
-  const queue = () => report.review.filter((r) => !answered.has(r.id));
+  // A card is answered when its first turn is: one answer goes to all of its turns.
+  const queue = () => report.review.filter((c) => !answered.has(c.turns[0]));
+  const turnOf = (id) => report.turns.find((t) => t.id === id);
+  // Which of the card's clips is playing.
+  let clip = 0;
 
-  function whyOf(item, turn) {
-    const [top] = item.heard;
-    return `${saidOf(turn)}. ${top.count} of ${report.models.length} models hear ${nameOf(top.personId)}.`;
-  }
-
-  // The people one key away: whom the models hear, and whom he said.
-  function offeredOf(item, turn) {
-    const said = turn.truth?.kind === "person" ? [turn.truth.personId] : [];
-    return [...new Set([...item.heard.map((h) => h.personId), ...said])].slice(
-      0,
-      5
-    );
+  function whyOf(card) {
+    const [closest] = card.candidates;
+    const turns =
+      card.turns.length === 1 ? "1 turn" : `${card.turns.length} turns`;
+    return `${saidOf(turnOf(card.turns[0]))}. Most models hear ${nameOf(closest.personId)} on ${turns} of this voice.`;
   }
 
   async function answer(kind, personId) {
-    const [item] = queue();
-    if (!item) {
+    const [card] = queue();
+    if (!card) {
       return;
     }
-    const response = await fetch("/answers", {
-      body: JSON.stringify({ id: item.id, kind, personId }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    if (!response.ok) {
-      status(`The answer was not kept (${response.status}).`);
+    // Each turn's answer is one line; the card stays in the queue unless all are kept.
+    const responses = await Promise.all(
+      card.turns.map((id) =>
+        fetch("/answers", {
+          body: JSON.stringify({ id, kind, personId }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        })
+      )
+    );
+    const failed = responses.find((response) => !response.ok);
+    if (failed) {
+      status(`The answer was not kept (${failed.status}).`);
       return;
     }
-    answered.add(item.id);
+    answered.add(card.turns[0]);
     status(`${answered.size} answered. Score again to count them.`);
+    clip = 0;
     drawReview(true);
+  }
+
+  function drawClip(card, isPlaying) {
+    const id = card.clips[clip % card.clips.length];
+    const turn = turnOf(id);
+    el("review-text").textContent = turn.text;
+    el("review-facts").textContent =
+      `${factsOf(turn)}, clip ${(clip % card.clips.length) + 1} of ${card.clips.length}`;
+    if (isPlaying) {
+      play(el("review-player"), id);
+    } else {
+      el("review-player").src = `/clips/${id}.wav`;
+    }
   }
 
   function drawReview(isPlaying) {
     const left = queue();
-    const [item] = left;
+    const [card] = left;
     el("review-count").textContent = left.length || "";
-    el("review-card").hidden = !item;
-    el("review-done").hidden = !!item;
-    if (!item) {
+    el("review-card").hidden = !card;
+    el("review-done").hidden = !!card;
+    if (!card) {
       return;
     }
-    const turn = report.turns.find((t) => t.id === item.id);
-    el("review-why").textContent = whyOf(item, turn);
-    el("review-text").textContent = turn.text;
-    el("review-facts").textContent = factsOf(turn);
-    el("review-left").textContent = `${left.length} to go.`;
-    el("review-heard").replaceChildren(
-      ...offeredOf(item, turn).map((personId, i) => {
-        const votes = item.heard.find((h) => h.personId === personId)?.count;
+    const said = turnOf(card.turns[0]).truth;
+    el("review-why").textContent = whyOf(card);
+    el("review-left").textContent =
+      `${left.length} voices to go, ${left.reduce((sum, c) => sum + c.turns.length, 0)} turns.`;
+    el("review-names").replaceChildren(
+      ...card.candidates.map(({ personId, share }, i) => {
         const button = node(
           "button",
           { type: "button" },
           node("kbd", {}, String(i + 1)),
-          ` ${nameOf(personId)}${votes ? ` (${votes} models)` : " (your answer)"}`
+          ` ${nameOf(personId)} `,
+          node("small", { className: "share" }, percent(share)),
+          said?.personId === personId ? " (your answer)" : ""
         );
         button.onclick = () => answer("person", personId);
         return button;
       })
     );
     el("review-other").value = "";
-    if (isPlaying) {
-      play(el("review-player"), item.id);
-    } else {
-      el("review-player").src = `/clips/${item.id}.wav`;
-    }
+    drawClip(card, isPlaying);
   }
 
   function wireReview() {
@@ -552,11 +565,11 @@
         return;
       }
       const key = event.key.toLowerCase();
-      const turn = report.turns.find((t) => t.id === item.id);
-      const person = offeredOf(item, turn)[Number(key) - 1];
-      if (key === " ") {
+      const person = item.candidates[Number(key) - 1]?.personId;
+      if (key === " " || key === "arrowright") {
         event.preventDefault();
-        play(el("review-player"), item.id);
+        clip += key === " " ? 0 : 1;
+        drawClip(item, true);
       } else if (KEYS[key]) {
         answer(KEYS[key]);
       } else if (person) {
