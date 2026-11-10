@@ -12,6 +12,11 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 
 ## Notes
 
+- Why the memory exists (his word, 10 Nov; what failed agents forgot): it is the answer to the limited context of
+  today's models. With unlimited context an agent would read all the raw data. The problem is to summarize his whole
+  life, continuously, so a limited-context agent finds the right information easily and fast. Every layer is a
+  summary of the raw, small enough to read whole, pointing down to its evidence, shaped by the questions he asks, and
+  judged against what a model reading all the raw would answer.
 - Domain: Life (`AGENTS.md`, `docs/architecture.md`, `docs/SCHEMA.md`, `docs/glossary.md`). The problem statement is
   `~/Downloads/life-memory-problem.md`; his wants are `~/Downloads/life-people-layers-wants.md`; the research is
   `~/Downloads/life-psych-research/` (read `05-merged-findings.md` first). Earlier designs (07, 09, 15, 11b, 18) and the
@@ -58,12 +63,9 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - This map lives in the code repo: nothing personal in it (no names but roles, no quotes, no numbers about his people).
   Anything of his a ticket produces goes to his data repo or a scratchpad, linked by path.
 
-## Waiting on his word
-
-- [What he wants, and where Life stands against it](./assets/00-what-he-wants.md) — draft of 10 Nov at his ask, before any more grilling: the goal as four questions about three subjects, today's memory on that grid, what worked, what didn't by cause, what the psychology research adds, and what the map lacks (the evidence layer as a whole, several of #390's items, the "direct" promise). The exchange's silence question (ticket 11) waits behind it.
-
 ## Decisions so far
 
+- [What he wants, and where Life stands against it](./assets/00-what-he-wants.md) — confirmed 10 Nov: four questions (what happened, where it stands, what keeps repeating, what comes next) about three subjects (him, each person, each part of his life), every year, on the first try, from what was done and not only said; today's memory on that grid, what worked, what didn't by cause, and why the memory exists
 - [Everything Life does for him today](./tickets/01-everything-life-does-today.md) — the feature checklist with what feeds each; two stored layers are redundant, and his old project-loop answers are a source to keep; the daily mails live in his scheduled tasks; appointments, area situations and some CLI-only features are gaps to improve
 - [Who really spoke in a recording](./tickets/04-who-really-spoke.md) — lifelog's contract gains `speaker.basis` (assigned, matched, inferred, none); only assigned and matched turns are a person's own evidence
 - [Old sources, read in once](./tickets/03-old-sources.md) — old WhatsApp from an iPhone backup (started 9 Nov) plus the father's old-number export; iMessage and Notes already complete; mail needs a filter; three networks need exports; all land before the one read
@@ -73,7 +75,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 ## Not yet specified
 
 - **How agents read all this.** The connector's shape for the overview, meters, arcs and forecasts: which reads change,
-  batched into one reconnect. Sharpens once the outputs are settled. <clears-with: 21>
+  batched into one reconnect. Sharpens once the outputs are settled; the path itself is ticket 27. <clears-with: 21, 27>
 - **Pages as views.** How the person, area and owner pages show structured readings (meters drawn as meters, a short
   summary first), and whether the pages stay Markdown. <clears-with: 13>
 - **MBTI as an interpretation.** Computed from the meters, never a source of truth, for questions like "will I get along

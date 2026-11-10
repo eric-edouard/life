@@ -1,6 +1,6 @@
 # What he wants, and where Life stands against it
 
-Draft of 10 Nov 2026, waiting on his word. Written at his ask: understand today's memory, what worked and what
+Confirmed by him on 10 Nov 2026 ("Yes, that's it"). Written at his ask: understand today's memory, what worked and what
 didn't, and define what he wants before deciding anything more. Sources: his goal sentence (map, Destination), his
 8 Nov mail to himself (an agent connected to Life failed his relationship question), issue #390 (what Life can't
 answer yet), the problem statement and his wants (his data repo, `docs/memory-rework/inputs/`), the psychology
@@ -43,12 +43,31 @@ What makes an answer right, from his words:
 Around it, already decided (map): his word beats any reading and survives every re-read; the practical answers stay
 as good; more detail near now, broader with age; lean; built to outlive a model change; every feature of today stays.
 
-Readings to confirm with him: "meta" is (a) what Life sees about him that he doesn't say and (b) the big picture
+Readings he let stand: "meta" is (a) what Life sees about him that he doesn't say and (b) the big picture
 across areas, not Life describing itself. "Knows everything" means it can answer, not that every sentence is copied
 into a layer.
 
 The working definition of done: his real questions (about 400, each with what a right answer holds) answered on the
 first try from memory.
+
+## Why the memory exists (his word, 10 Nov)
+
+What agents working on this forgot, and failed: the memory is the answer to the limited context of today's models.
+With unlimited context an agent would read all the raw data and answer anything. So the problem is how to summarize
+his whole life, continuously, so an agent with limited context finds the right information easily and fast.
+
+What follows:
+
+1. The raw data is the truth. Every layer is a summary of it, made only because the raw doesn't fit. A layer earns
+   its place when an agent answers better with it than by searching the raw.
+2. The yardstick for a right answer: what a model would say if it could read all the raw. It can be checked wherever
+   the raw does fit one call (one person, one month).
+3. Summaries are made ahead, every night, never assembled from scratch when asked.
+4. Each summary is small enough for an agent to read whole, and points down to what it summarizes, so the agent
+   zooms in only where it needs to, down to the quotes.
+5. A summary is shaped by the questions of the grid. One that answers none of them is not made.
+6. A count is the densest summary: one number over thousands of messages, by code.
+7. As models read more, layers go. Each layer says what context limit it works around.
 
 ## Today's memory, on that grid
 
