@@ -166,6 +166,9 @@ fix, "let's move on" and the reopening, the same complaint coming back, one stor
   order and links them after.
 - A link is a record: the two records, their messages, the relation, the reason. Naming the messages keeps it
   whole if a re-read shifts an id.
+- **Every open thing is offered to the linker again at least once a month**, whatever its age, so an old
+  unfinished promise is never left out by the cap alone. The pilot measures two things apart: whether the right
+  earlier record reached the call (retrieval), and whether the call judged it right.
 - **A wrong link is the dear mistake**: a false ending hides a live promise. So an item closed by a link shows
   what closed it, with the quote; "that's not done" from him removes the link for good; and links are judged on two
   marks, nothing stale left open and nothing live closed (section 15).
@@ -232,7 +235,11 @@ How each kind of his word survives a rebuild:
 | "This line of the summary is wrong" | The subject and the span | Given to the next build as an input |
 | A label, a told line, a mark | As today | As today |
 
-A "wrong" hides the record at once, as today, and also feeds the next read. It is matched by its messages and by
+**Which record counts** is one rule, applied by code before any count or summary: for each exchange and family,
+the records of its latest read by the current prompt; then his corrections on top. A corrected record stays hidden
+in every later reading where a record of the same form sits on the same messages and its quote or its words match
+the one he rejected (the quote check's comparison); only his word lifts it. The prompt being told is a help, never
+the guarantee. A "wrong" hides the record at once, as today, and also feeds the next read. It is matched by its messages and by
 what the record said: one message can hold several records, and correcting one never hides the others. Each row gets its regression case when
 it is built.
 
@@ -293,7 +300,8 @@ lets things be (the same code as taking the lead, shown once). Impulsivity: one 
 - **The Big Five profile** is these rates grouped under the five names. One cursor per name is drawn for a person
   once the two halves of that person's own evidence give the same answer (section 9) and he recognizes that person's
   rates: a stable count shows it is repeatable, not that it means the trait. It appears person by person, as their
-  evidence grows. Aesthetic openness is left out. Attachment is kept as its two behaviours (asks for
+  evidence grows. The page and the data agents receive always mark the difference: a rate ("kept 9 of 12 dated
+  promises") is an observation; a Big Five name over several rates is an interpretation, shown as one. Aesthetic openness is left out. Attachment is kept as its two behaviours (asks for
   reassurance, shares feelings) and never as a style: the research says a style cannot be read from text.
 - How accurate: counting coded moves is the route the research calls auditable. No study shows it more accurate
   than rating a trait in one go, and that reaches a stranger's level. The pilot can show stability, his agreement
@@ -346,6 +354,9 @@ above the evidence that looks at raw words.
 - A part of his life also carries one word, by code: done (ended by his word or by its last open thing); waiting on
   someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
   dormant (none for 45 covered days); drifting (falling against its own usual).
+- **Old years have no episodes** (section 16), so there matters and his own month are read from the evidence
+  itself: the claims, mentions and self-reports of the month, grouped by the same small step that groups episodes
+  near now.
 - A summary is kept under everything it read: its evidence, the prompt, his word on it. When one of those changes,
   it is rebuilt at the next build and the old version stays in the data repo's history. After an import, each
   touched summary is rebuilt once, from the bottom up.
@@ -465,6 +476,9 @@ Before anything runs, this table is filled with numbers and kept beside the resu
 | Forecasts | A sort beats its baseline | The baselines of section 12 | A better score on 50 settled cases | The sort is not shown |
 
 These numbers are the designer's starting marks, written before any run; he can move any of them, before the run.
+**"Not proven" is a result.** A code, a meter or a language with fewer than 15 positive cases, besides its
+chances, is reported as not proven, never as passing. A minimum is set before a run and never raised during it
+to make a check pass; dropping a person or a meter from a check is reported as such.
 Every comparison reports, beside its mark: unsupported claims, important omissions, and its cost in tokens and
 time. A layer that only ties a simpler one earns its place by a clear cost or retrieval advantage, or not at all.
 The first gate is better answers on his questions; meters, cursors and forecasts follow only on what passes it.
@@ -677,7 +691,12 @@ report wins, ties and losses apart, and a tie needs a cost advantage (section 15
 happens inside a conflict are counted apart (sections 5 and 10); a targeted raw re-read is allowed (section 1); a
 correction matches its claim, not every claim of its messages (section 8); open things are capped per link call and
 every run logs tokens and time (sections 6 and 16); forecasts say "based on past behaviour" (section 12). Not taken:
-separate busy-night and import experiments beyond the pilot's own runs.
+separate busy-night and import experiments beyond the pilot's own runs. A second outside read the same evening
+added five precise gaps, all taken as single lines: matters and his month in old years come from evidence
+(section 11); which record counts after a re-read, with corrections enforced by code (section 8); old open things
+offered to the linker monthly, retrieval measured apart (section 6); "not proven" as a result, minimums fixed
+before a run (section 15); observation and interpretation marked apart (section 10). After this, no more reviews
+of the spec: the experiments decide.
 
 No third review: his rule is one confirming review, then stop. Both reviews are in his data repo,
 `docs/memory-rework/experiments/`.
