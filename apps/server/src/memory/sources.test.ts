@@ -9,6 +9,7 @@ import { ARCHIVE, archiveDb } from "../sources/archived";
 import type { Descriptor } from "../sources/contract";
 import { DB } from "../sources/imessage";
 import { NOTES } from "../sources/notes";
+import { PHONE } from "../sources/phone";
 import { WHATSAPP } from "../sources/whatsapp";
 import { chatDays } from "./closeness";
 import {
@@ -27,6 +28,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "lifelog",
     "imessage",
     "whatsapp",
+    "phone",
     "line",
     "instagram",
     "telegram",
@@ -48,12 +50,12 @@ test("a new source is one descriptor: every table picks it up", () => {
     kind: "chat",
     name: "radio",
     read: () => [],
-    searchDays: 30,
   } as unknown as Descriptor;
   const t = tablesOf([...SOURCES, radio]);
   expect(Object.keys(t.CHATS)).toEqual([
     "imessage",
     "whatsapp",
+    "phone",
     "line",
     "instagram",
     "telegram",
@@ -65,6 +67,7 @@ test("a new source is one descriptor: every table picks it up", () => {
   expect(Object.keys(t.WITH_PEOPLE)).toEqual([
     "imessage",
     "whatsapp",
+    "phone",
     "line",
     "instagram",
     "telegram",
@@ -78,6 +81,7 @@ test("a new source is one descriptor: every table picks it up", () => {
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
     "whatsapp",
+    "phone",
     "line",
     "instagram",
     "telegram",
@@ -148,8 +152,32 @@ test("an archived source can't be read until the archive copied its store; other
 });
 
 test("a test run reads nothing of this computer: every store path is under its own state", () => {
-  const paths = [HOME, APP_DATA, MACHINE_DIR, ARCHIVE, DB, NOTES, WHATSAPP];
+  const paths = [
+    HOME,
+    APP_DATA,
+    MACHINE_DIR,
+    ARCHIVE,
+    DB,
+    NOTES,
+    WHATSAPP,
+    PHONE,
+  ];
   for (const p of [...paths, expand("~/Work")]) {
     expect(p.startsWith(LIFE_STATE_DIR)).toBe(true);
   }
+});
+
+test("table readers forward the exclusive storage end", () => {
+  const before = new Date("2023-01-02T00:00:00Z");
+  let received: Date | undefined;
+  const source = {
+    kind: "chat",
+    name: "imessage",
+    read: (_since: Date, end?: Date) => {
+      received = end;
+      return [];
+    },
+  } as unknown as Descriptor;
+  tablesOf([source]).CHATS.imessage?.(new Date(0), before);
+  expect(received).toBe(before);
 });

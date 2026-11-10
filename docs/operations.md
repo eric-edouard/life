@@ -74,6 +74,8 @@ A checkout runs no service on its own: run `bun life <command>` by hand, on a co
 exits (at start it hears again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask`
 records a ref and title once), the archive after its pass, and the app restarts each on the new code.
 
+`bun life archive whatsapp <folder>` copies every message and call detail from `ChatStorage.sqlite` under the archive lock; quit Life.app before running it and reopen it afterward (another running archiver makes it wait).
+
 ## The check
 
 No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
@@ -98,14 +100,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **Offline** (his model provider unreachable, `isOnline`: travelling, a VPN down): a tick runs nothing and logs
   `offline`; a run that fails while offline spends no try and sends no mail.
 - Everything looks back 7 days.
-- **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
-  `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
-  oldest first, as a sweep with facts (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
-  the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
-  subscription. Three failures of a week stop it, and the third emails him. Record the owner's zones
-  for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
-  and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
-  described; older ones stay tags.
+- **Backfill:** scheduled historical model reading is paused until prompts are frozen. The saved range stays pending;
+  collection and imports do not mark it processed. Imports and future model backfills require `backfillEngine`, with
+  no fallback to `engine`; the night and midday still use `engine`.
 - **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no midday and no backfill week, and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
@@ -116,6 +113,40 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' episodes
   wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
   leaves its files as tags until the next run) never fail the night.
+
+## Historical collection
+
+```sh
+bun life memory units --from 2025-01-01 --to 2025-12-31
+```
+
+This model-free step reads source history one owner-local month at a time under the memory lock. With no range, it
+starts at the earliest available history and stops before the nightly seven-day window. An explicit range that
+reaches that window is rejected. Voice is skipped entirely; existing voice chapters and unavailable-source units stay
+as stored. Files retain existing descriptions or tags. A failed source aborts the month's publication; retries reconcile
+the same days, including empty ones. Completion explicitly rebuilds the index. No verdict, episode, observation,
+inferred person, extraction marker or processed state is written, so pages, ratings, appointments, open items and the
+nightly new-fact count do not change.
+
+Before earlier units are created, raw Date headers from the owner's sent mail supply whole-hour offsets as
+`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day; known coverage stays.
+A day with no sent mail takes the nearest valid run (ties earlier) and is reported as a gap. Conflicting or non-hour
+offsets defer their days without rounding or guessing cities. Later model backfill re-derives gap evidence from the
+same headers and treats those days as uncertain; it never silently moves stored unit dates or ids.
+
+Search passages live in their own derived SQLite store, outside `index.sqlite`. Each belongs to the first message's
+unit and is identified by source plus first-message id. Reconciliation follows complete grouping runs across adjacent
+days and monthly batches, so midnight never cuts or duplicates a passage. Ordinary reindex reads unit metadata,
+without historical text or raw sources. To rebuild search text without changing units or zones:
+
+```sh
+bun life memory passages --from 2025-01-01 --to 2025-12-31
+```
+
+The rebuild publishes one month at a time and reports the first failed month to retry. Both paths check uncertainty
+across the complete passage run, including neighboring days outside the requested range; a run touching a deferred
+day waits whole. Boundary source reads are shared once per source and interval. Vectors are pruned only when every
+enabled source is available and collected passage coverage is complete.
 
 ## The watcher
 
@@ -184,9 +215,13 @@ Each snapshot holds one export (`stage`, `apps/server/src/host/export.ts`, the s
 everything…):
 
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);
-- `state/`: Life's state without secrets or the index, with the watcher's store and cursor;
+- `state/`: Life's state without secrets or the rebuildable index, passages and vectors, with the watcher's store and cursor;
 - `archive/`: every archive store and its media;
 - `manifest.json`: every file's sha256, what each part holds, and the secrets left out, by name.
+
+Passages (`memory/passages.sqlite`) are derived source text, rebuilt with `bun life memory passages`; vectors are
+re-embedded. Neither is an archive store or a secret. Excluding these caches also excludes their WAL/SHM sidecars;
+stores kept in the export are copied consistently with SQLite's `VACUUM INTO`.
 
 `bun life import <export>` (the app's Import an export…) brings one into a new install only: checked against its
 manifest, never over existing data, never into an existing archive. Setting up a backup and restoring one, step by
@@ -275,12 +310,13 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `search <words> [--from d --to d]`: opens with the situations of the close people it names, else his own (when no
   day bounds it), then the other situations' lines citing an episode it shows; then episodes, observations (each says who spoke when not the
   owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
-  (the best 20, each with a conversation id and a turn), chat passages (the best 10, `passagesOf`: the last 90 days,
-  or from `--from`), note versions and messages to AI assistants (any age), then mail (the last 90 days, no
-  newsletters nor Life's own, the best 5 thread-days: `searchableMail`). `--from`/`--to` bound every section. Each
+  (the best 20, each with a conversation id and a turn), chat passages (the best 10), note versions and messages to AI assistants, then mail (no newsletters nor Life's own,
+  the best 5 thread-days). These sections read collected passages of any age, never raw source scans. `--from`/`--to` bound every section. Each
   section ranks by meaning and by words (holding them all), fused (`fuse`); by words alone, said in its first line,
   when Life reads no voice source (the embedder is Lifelog Host's, `EMBEDDER_URL`) or the embedder is down. The watcher embeds what is new every 10 minutes
-  (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete: it embeds it all again).
+  (`embedNew`, into `derived/memory/vectors.sqlite`, safe to delete). Each pass takes at most 256 missing texts, newest
+  first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
+  merges bounded best candidates without loading or sorting every vector.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
   its conversation as it is now, 5 turns before it.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the

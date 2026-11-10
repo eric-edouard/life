@@ -13,20 +13,23 @@ import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   type ParsedTranscript,
+  speakerAssignments,
   transcriptionJobs,
   transcripts,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { type AudioStore, isBlockKey } from "./audio-store";
-import { type Config, EXCERPTS, RECOGNITION } from "./config";
+import { type Config, EXCERPTS } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
 import {
   holdingConversations,
+  isRejected,
   keepServerSamples,
   loadTranscript,
   recognize,
+  speakerOf,
   uncleanTurn,
 } from "./people";
 import { embedRanges, speechServiceSet } from "./speech-service";
@@ -42,17 +45,35 @@ function wantedTurns(db: Db, jobId: string, parsed: ParsedTranscript) {
       .all()
       .map((r) => r.turnIndex)
   );
+  const assignments = db
+    .select()
+    .from(speakerAssignments)
+    .where(eq(speakerAssignments.jobId, jobId))
+    .all();
   return parsed.turns
-    .flatMap((turn, index) =>
-      turn.speakerId && !sampled.has(index) && !uncleanTurn(parsed, index)
+    .flatMap((turn, index) => {
+      const assignment = speakerOf(assignments, turn.speakerId, index);
+      return turn.speakerId &&
+        !isRejected(assignment) &&
+        !sampled.has(index) &&
+        !uncleanTurn(parsed, index)
         ? [{ index, speaker: turn.speakerId, turn }]
-        : []
-    )
+        : [];
+    })
     .sort((a, b) => b.turn.end - b.turn.start - (a.turn.end - a.turn.start))
     .slice(0, EXCERPTS.maxPerJob)
     .sort((a, b) => a.index - b.index);
 }
 type Wanted = Awaited<ReturnType<typeof wantedTurns>>;
+
+// The seconds of a turn that are embedded: its first `maxSeconds`.
+export const excerptRange = (turn: {
+  end: number;
+  start: number;
+}): [number, number] => [
+  turn.start,
+  Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
+];
 
 // The bucket key of a job's audio identity may hear: a block's that no quiet range touches.
 // "never" for any other (an old job's, or one with dictation or playback in it); null when there
@@ -80,6 +101,7 @@ function audioToCut(db: Db, jobId: string) {
 // from cutting one job twice.
 export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
   const busy = new Set<string>();
+  let draining = false;
   // How the identity service last answered, for `GET /status/live`: no probe per poll.
   let lastOkAt: string | null = null;
   let lastError: string | null = null;
@@ -101,10 +123,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     const result = await embedRanges(
       config,
       ogg,
-      wanted.map(({ turn }) => [
-        turn.start,
-        Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
-      ])
+      wanted.map(({ turn }) => excerptRange(turn))
     );
     if (!("embeddings" in result)) {
       if (result.error === "identity_unavailable") {
@@ -190,6 +209,10 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     }
     busy.add(jobId);
     try {
+      db.update(transcripts)
+        .set({ excerptsAttemptedAt: clock() })
+        .where(eq(transcripts.jobId, jobId))
+        .run();
       return await cut(jobId);
     } finally {
       busy.delete(jobId);
@@ -205,32 +228,41 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
     }),
     // After a transcript is stored.
     job,
-    // Every recent job with bucket audio not cut yet (identity was down, the server restarted, a
-    // reconcile completed it), newest first. Called by the 5-minute tick.
+    // Held jobs with bucket audio not cut yet, least recently attempted first. A failed job
+    // yields to the rest on the next tick; overlapping ticks never drain the same batch.
     async pending() {
-      const rows = db
-        .select({ id: transcripts.jobId })
-        .from(transcripts)
-        .innerJoin(
-          transcriptionJobs,
-          eq(transcriptionJobs.id, transcripts.jobId)
-        )
-        .where(
-          and(
-            isNull(transcripts.excerptsAt),
-            isNotNull(transcriptionJobs.objectKey),
-            gt(
-              transcripts.createdAt,
-              new Date(clock().getTime() - RECOGNITION.keepDays * 86_400_000)
+      if (draining) {
+        return;
+      }
+      draining = true;
+      try {
+        const rows = db
+          .select({ id: transcripts.jobId })
+          .from(transcripts)
+          .innerJoin(
+            transcriptionJobs,
+            eq(transcriptionJobs.id, transcripts.jobId)
+          )
+          .where(
+            and(
+              isNull(transcripts.excerptsAt),
+              isNotNull(transcriptionJobs.objectKey),
+              sql`exists (select 1 from conversation_jobs c where c.job_id = ${transcripts.jobId})`
             )
           )
-        )
-        .orderBy(desc(transcripts.createdAt))
-        .limit(50)
-        .all();
-      for (const { id } of rows) {
-        // biome-ignore lint/performance/noAwaitInLoops: the identity service takes one job at a time
-        await job(id);
+          .orderBy(
+            asc(transcripts.excerptsAttemptedAt),
+            asc(transcripts.createdAt),
+            asc(transcripts.jobId)
+          )
+          .limit(50)
+          .all();
+        for (const { id } of rows) {
+          // biome-ignore lint/performance/noAwaitInLoops: the identity service takes one job at a time
+          await job(id);
+        }
+      } finally {
+        draining = false;
       }
     },
   };

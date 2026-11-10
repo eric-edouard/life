@@ -91,7 +91,8 @@ flowchart LR
   changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
   moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
-- **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): one per text search ranks by meaning, by its hash, so a rebuild of the index never re-embeds; the watcher adds what is new every 10 minutes (`embedNew`).
+- **The passages** (`LIFE_STATE_DIR/memory/passages.sqlite`): rebuildable source-backed search text, separate from the index. The first message's unit owns a passage, identified by source and first-message id. Reconciliation follows complete grouping runs across midnight and month boundaries; search and embeddings use these same rows, including imported assistant messages excluded from model reading. Ordinary reindex reads metadata only.
+- **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): normalized float32 vectors addressed by text hash, in partitions of at most 4,096 rows. Exact scans retain bounded best candidates per partition; an index rebuild never re-embeds. Each watcher embedding pass selects at most 256 missing hashes in SQLite, newest first, before loading their texts; arrivals precede historical backlog. Pruning compares stored hashes in SQLite, without loading the corpus. Episode search text lives in the rebuildable index.
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
 
@@ -137,20 +138,23 @@ A question like "what is my arc with this friend?" needs more than recent logist
   map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
   (`namedIn`), earlier facts' or episodes' refs (`involvedOf`). So a call stays small as the map grows by hundreds a
   year, and nothing is forgotten: replies are checked and names resolved against the whole map.
-- **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
+- **Historical collection:** `bun life memory units` collects bounded owner-local months without models, voice writes or file descriptions, ending before the nightly window. Historical zones use sent-mail Date offsets; gap rules are in [operations](operations.md#historical-collection). Imports and model backfills require the optional `backfillEngine`; scheduled model backfill is paused until prompts are frozen. Nightly and midday keep the ordinary engine.
 
-**Phone calls** are messages of their chat, never a second record: a call reads as a line of its chat-day ("(audio call
+**Phone calls** are events of their chat, including call-only chats, never a second record: a call reads as a line of its chat-day ("(audio call
 10:02–10:40, 38 min)"), and a voice lifelog heard over a phone, or nearby but not with him, reads with that prefix
 (`heardAs`, words.ts), so the episodes call joins a call to what was said in the room by time and by how voices were heard,
-never by a timing rule of Life's.
+never by a timing rule of Life's. Phone & FaceTime has its own `phone` source, read from the archive (see
+[sources](sources.md)); messaging apps retain their own calls. A completed 1:1 call from any source sets the same
+voice day as a recording in `chatDays`, once per person and local day, and never adds message weight. A call-only
+chat resolves identity through its handles, never its display name. Voice attribution remains the model's reading.
 
-Known limits: no phone or FaceTime call records (CallHistory), no Telegram calls, no unrecorded time together, no location history before lifelog's; a spoken claim about
+Known limits: no Telegram calls, no unrecorded time together, no location history before lifelog's; a spoken claim about
 someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac
 
 - The owner data dir is a local git repository with no remote: the nightly commits and never pushes.
-- The archive (deleted messages, old note versions, Screen Time's records) is the only live copy of what the apps delete or prune; it lives in
+- The archive (deleted messages, old note versions, phone call history, Screen Time's records) is the only live copy of what the apps delete or prune; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
   OpenAI through the owner's subscription's CLI, or OpenRouter and allmodels.io with his keys: `docs/operations.md`, "Model engines"). Calls run in

@@ -27,6 +27,7 @@ import {
   PAGES,
   pagePath,
   readUnits,
+  readUnitsFor,
   readVerdicts,
   type Standing,
   type Verdicts,
@@ -504,7 +505,7 @@ export async function pages(opts: PagesOptions) {
 
   const [people, units, verdicts] = await Promise.all([
     readPeople(),
-    readUnits(),
+    readUnits(daysBefore(day, OFTEN_DAYS)),
     readVerdicts(),
   ]);
   const current = await observationsNow(people);
@@ -530,7 +531,15 @@ export async function pages(opts: PagesOptions) {
     refs,
     standing: current.standing,
     step,
-    titles: new Map(units.map((u) => [u.id, u.title])),
+    titles: new Map(
+      [
+        ...units,
+        ...readUnitsFor(
+          chosen.flatMap((t) => t.observations.map((o) => o.unit)),
+          chosen.flatMap((t) => t.observations.map((o) => o.date))
+        ),
+      ].map((u) => [u.id, u.title])
+    ),
     today: day,
   };
   const built: BuiltPage[] = [];

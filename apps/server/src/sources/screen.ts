@@ -8,7 +8,7 @@ import {
   readSync,
 } from "node:fs";
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, iso, MIN } from "../core/clock";
 import { HOME } from "../core/platform";
 import { type Field, fieldsOf } from "../core/protobuf";
 import { settings } from "../core/settings";
@@ -343,19 +343,32 @@ function joined(stints: Stint[]) {
  * The stints of every device since `since`, as events: chat the device (its name the `devices` setting's), text the app
  * or website, `until` when it left.
  */
-export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
+export function readScreen(
+  since: Date,
+  dir = ARCHIVE,
+  biome = BIOME,
+  before?: Date
+) {
   const path = archiveDb("screen", dir);
   if (!existsSync(path)) {
     return [];
   }
   const db = openReadOnly(path);
+  // Join complete stints before bounding their starts: an edge can close or rejoin across either boundary.
+  // ponytail: a day of records either side of the bounds; a stint longer than a day is cut there.
   const rows = (() => {
     try {
       return db
-        .query<ScreenRecord & { device: string; stream: Stream }, [string]>(
-          "select device, stream, at, starting, bundle, domain, visit from events where at >= ? order by at"
+        .query<
+          ScreenRecord & { device: string; stream: Stream },
+          [string, string | null]
+        >(
+          "select device, stream, at, starting, bundle, domain, visit from events where at >= ?1 and (?2 is null or at < ?2) order by at"
         )
-        .all(since.toISOString());
+        .all(
+          iso(since.getTime() - DAY),
+          before ? iso(before.getTime() + DAY) : null
+        );
     } finally {
       db.close();
     }
@@ -364,6 +377,10 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
   const groups = Map.groupBy(rows, (r) => `${r.device}|${r.stream}`);
   return [...groups.values()]
     .flatMap((g) => stintsOf(g, (g[0] as (typeof g)[number]).stream))
+    .filter(
+      (s) =>
+        s.at >= since.toISOString() && (!before || s.at < before.toISOString())
+    )
     .map(
       (s): SourceEvent => ({
         at: s.at,
@@ -380,19 +397,27 @@ export function readScreen(since: Date, dir = ARCHIVE, biome = BIOME) {
     .sort((a, b) => a.at.localeCompare(b.at));
 }
 
-/** Each device's newest record (the status snapshot): one part per device. */
-export function newestScreen(dir = ARCHIVE): Newest {
-  const peers = readPeers();
+/**
+ * Each device's newest record (the status snapshot): one part per device he still uses, so a retired one turns
+ * nothing amber. A device Biome no longer syncs with is gone; of one platform (iOS, Mac), the one heard from last
+ * replaced the others.
+ */
+// ponytail: two iOS devices in use at once (an iPhone and an iPad) show as one; a setting naming retired devices then.
+export function newestScreen(dir = ARCHIVE, biome = BIOME): Newest {
+  const peers = readPeers(biome);
   const newest = newestArchived(
     "screen",
     "select max(at) as at, device as label, '' as words from events group by device order by at desc",
     dir
   );
+  const platformOf = (id: string) => peers.find((p) => p.id === id)?.platform;
+  const current = (newest.parts ?? []).filter(
+    (p, i, all) =>
+      platformOf(p.label) !== undefined &&
+      all.findIndex((q) => platformOf(q.label) === platformOf(p.label)) === i
+  );
   return {
     at: newest.at,
-    parts: newest.parts?.map((p) => ({
-      ...p,
-      label: deviceName(p.label, peers),
-    })),
+    parts: current.map((p) => ({ ...p, label: deviceName(p.label, peers) })),
   };
 }

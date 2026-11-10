@@ -1,29 +1,6 @@
-// Speaker recognition and the owner's corrections (docs/brief.md, "Speakers and people").
-//
-// - Only owner actions create people or add voice evidence. Recognition writes
-//   assignments with source "recognized" and nothing else.
-// - A match needs a likeness >= matchThreshold to a person's profile AND a lead of at least
-//   `margin` over the runner-up person. Anything else stays unknown.
-// - A turn whose own voice is nearest the owner's is his, whoever the speaker (speakers.ts).
-// - A speaker matching no profile may take a person named in another recording within
-//   `nearbyMinutes` (`nameFromNearby`): its nearest profile among the people named there, or the
-//   person of a voice that sounds the same. Only from the owner's names and profile matches,
-//   never from a voice named that way.
-// - Owner rows (source "owner") survive every later recognition run. Several people: his row holds
-//   them (`candidates`), and each sampled turn is decided among them once.
-// - A profile is one exemplar per conversation of clean evidence, clips of at least 3 s
-//   (`weighProfiles`); a voice is scored against the person's closest conversations.
-// - A voice that sounds more like the strangers (voices he answered "Not anyone I know" for: people
-//   he doesn't care about) than like its match, and as like them as an unnamed group's voices are
-//   alike (`candidateThreshold`), is a stranger too (speakers.ts `decide`): status
-//   `stranger`, never named from nearby, grouped or asked about. The strangers' clips are read from
-//   his answers (`strangerRows`) and go with the rest of the unnamed voice data after 30 days.
-// - `sweep` matches every live transcript again when profiles change, so old conversations
-//   learn names given later. `regroup` alone groups the unnamed voices, from scratch each night,
-//   and `expire` deletes voice data that is nobody's evidence after 30 days.
-// - Nothing here calls the transcription provider.
-
+// Speaker recognition and owner corrections: only owner actions create people or evidence.
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
@@ -32,13 +9,13 @@ import {
   conversationJobs,
   type ParsedTranscript,
   people,
-  transcriptionJobs,
   transcripts,
   voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import {
   and,
+  type Column,
   eq,
   gte,
   inArray,
@@ -48,23 +25,39 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { logChange } from "./change-log";
+import { logChange, turnRef } from "./change-log";
 import { ownerClock, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import { type Fields, record, recordedOn } from "./events";
 import {
+  keepOwnerWhole,
+  lastKnown,
+  type Recognition,
+  recognizedRows,
+  unchanged,
+} from "./recognized-rows";
+import {
   centroid,
-  cosine,
   decide,
   likeness,
   NO_PROFILES,
   nearbyMatch,
   type Profile,
   type Profiles,
-  type Vector,
 } from "./speakers";
+import { averageLinkage } from "./voice-linkage";
+import { cosine, type Vector } from "./voice-vectors";
 
 type Assignment = typeof assignments.$inferSelect;
+
+// Rejected for sampling or naming, not merely already named: candidates still need their clips.
+export const isRejected = (
+  assignment: Pick<Assignment, "source" | "status" | "candidates"> | undefined
+) =>
+  assignment?.status === "stranger" ||
+  (assignment?.source === "owner" &&
+    !assignment.candidates &&
+    (assignment.status === "unknown" || assignment.status === "media"));
 type Sample = typeof voiceSamples.$inferSelect;
 // What recognition reads of a sample.
 type VoiceSample = Pick<
@@ -72,12 +65,11 @@ type VoiceSample = Pick<
   "durationSeconds" | "embedding" | "modelId" | "modelRevision" | "turnIndex"
 >;
 
-// A voice is a speaker label of one job, and is named so everywhere: the naming queue, `fetch`'s
-// Speakers line, `assign_speaker`.
+// One job's speaker label: the same voice id in the queue, fetch and assign_speaker.
 export const voiceId = (jobId: string, label: string | null) =>
   `${jobId}/${label ?? ""}`;
 
-const modelKey = (s: Pick<Sample, "modelId" | "modelRevision">) =>
+export const modelKey = (s: Pick<Sample, "modelId" | "modelRevision">) =>
   `${s.modelId}@${s.modelRevision}`;
 
 // A job's transcript, null before it has one.
@@ -152,10 +144,12 @@ export const keepServerSamples = (
       .set({ excerptsAt: clock() })
       .where(eq(transcripts.jobId, jobId))
       .run();
+    if (kept.length > 0) {
+      logChange(tx, "job", jobId);
+    }
   });
 
-// A new sample becomes evidence only if the owner already assigned its turn or its speaker to a
-// person.
+// New evidence requires the owner's person assignment of the turn or its speaker.
 function evidenceForNew(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
@@ -192,12 +186,6 @@ function setEvidence(db: Db, sampleIds: string[], personId: string | null) {
 
 // ---- Recognition ------------------------------------------------------------
 
-// Who one speaker of a transcript is (`match`), with its unnamed group kept from its row before.
-type Recognition = ReturnType<typeof match> & {
-  candidateId: string | null;
-  label: string;
-};
-
 export interface EvidenceRow {
   conversationId: string;
   durationSeconds: number;
@@ -224,8 +212,7 @@ const exemplarsOf = (clips: Clip[]) =>
     centroid(c.map((r) => r.embedding))
   );
 
-// The voices recognition weighs, per embedding model (speakers.ts `Profiles`): each person's from
-// their evidence, and the strangers'.
+// Per-model profiles from each person's evidence and the strangers' references.
 export function weighProfiles(
   rows: EvidenceRow[],
   strangers: Clip[]
@@ -275,13 +262,10 @@ export const evidenceRows = (db: Db) =>
     .innerJoin(people, eq(people.id, voiceProfiles.personId))
     .all();
 
-// The voices recognition weighs, per embedding model, from his answers.
-const readProfiles = (db: Db): ProfilesByModel =>
+export const readProfiles = (db: Db): ProfilesByModel =>
   weighProfiles(evidenceRows(db), strangerRows(db));
 
-// The one read rule for who spoke: a turn's own row (the owner's correction, or one of his turns
-// moved to him by speakers.ts `decide`), else its speaker's (`turn` null: the speaker's). `rows`
-// are one job's.
+// One job's speaker: its turn's own row, else its label's row (turn null).
 export const speakerOf = <
   R extends { speakerLabel: string; turnIndex: number | null },
 >(
@@ -296,26 +280,38 @@ export const speakerOf = <
   );
 };
 
-// Its other half: a sample of a turn named on its own isn't its speaker's voice.
-// Spelled out: Drizzle leaves the table off a column inside a single-table select, and `t`'s own
-// column would answer.
-const ofItsSpeaker = sql<boolean>`not exists (select 1 from ${assignments} t
-  where t.job_id = voice_samples.job_id and t.turn_index = voice_samples.turn_index)`;
+// Turns with their own row belong to that row, never to their label's voice; SQL form: ofItsSpeaker.
+export const readOwnTurns = (
+  db: Db,
+  rows = db.select().from(assignments).all()
+) =>
+  new Set(
+    rows.flatMap((r) =>
+      r.turnIndex === null ? [] : [turnRef(r.jobId, r.turnIndex)]
+    )
+  );
 
-// The samples an owner row covers: its turn's, or for a speaker row, its turns without a row of
-// their own. His answer moves their evidence (`writeOwnerRow`); "Not anyone I know" makes them a
-// stranger's clips (`strangerRows`).
-const coveredByRow = and(
+// Same rule as readOwnTurns; explicit identifiers keep SELECT from stripping the outer table.
+export const ofItsSpeaker = (
+  job: Column,
+  turn: Column
+) => sql<boolean>`not exists (select 1 from ${assignments} t
+  where t.job_id = ${job.table}.${sql.identifier(job.name)}
+  and t.turn_index = ${turn.table}.${sql.identifier(turn.name)})`;
+
+const speakerSample = ofItsSpeaker(voiceSamples.jobId, voiceSamples.turnIndex);
+
+// An assignment covers its turn, or its speaker's turns without their own row.
+export const coveredByRow = and(
   eq(voiceSamples.jobId, assignments.jobId),
   eq(voiceSamples.speakerLabel, assignments.speakerLabel),
   or(
     eq(voiceSamples.turnIndex, assignments.turnIndex),
-    and(isNull(assignments.turnIndex), ofItsSpeaker)
+    and(isNull(assignments.turnIndex), speakerSample)
   )
 );
 
-// The clips of the voices he answered "Not anyone I know" for. They go with the rest of the unnamed voice
-// data, 30 days after they were cut (`expire`).
+// isRejected's owner unknown subset supplies negative references; media is expired instead.
 export const strangerRows = (db: Db): Clip[] =>
   db
     .select({
@@ -337,7 +333,6 @@ export const strangerRows = (db: Db): Clip[] =>
     )
     .all();
 
-// Every sample of these voices (job and speaker label).
 const samplesOf = (
   db: Db,
   voices: { jobId: string; speakerLabel: string }[]
@@ -349,7 +344,7 @@ const samplesOf = (
         .from(voiceSamples)
         .where(
           and(
-            ofItsSpeaker,
+            speakerSample,
             or(
               ...voices.map((v) =>
                 and(
@@ -362,47 +357,55 @@ const samplesOf = (
         )
         .all();
 
-// Who several unnamed voices sound like together, by the usual rule (threshold and margin):
-// a group spread over conversations often matches where none of its voices does alone. Only
-// a hint for the naming queue's cards; it never assigns anyone.
-export function voiceMatcher(db: Db) {
+// One queue build shares decoded samples and profiles between suggestions, clips and projection.
+export function readVoices(db: Db) {
   const profiles = readProfiles(db);
-  return (voices: { jobId: string; speakerLabel: string }[]) =>
-    match(samplesOf(db, voices), profiles).personId;
-}
-
-// A naming card's samples ranked by how much each sounds like the card's voice: `personId`'s
-// profile when the card asks "Is this X?", else the samples together. A turn the provider gave
-// one speaker can hold several people; it sounds unlike the voice and ranks low. Only a ranking
-// for the card's clips; it assigns nothing.
-export function sampleRanker(db: Db) {
-  const profiles = readProfiles(db);
-  return (
-    voices: { jobId: string; speakerLabel: string }[],
-    personId: string | null
-  ) => {
-    const samples = samplesOf(db, voices);
-    const [model] = [...Map.groupBy(samples, modelKey)].sort(
-      (a, b) => b[1].length - a[1].length
+  const kept = new Map<string, Sample[]>();
+  const samples = (voices: { jobId: string; speakerLabel: string }[]) => {
+    const missing = voices.filter(
+      (v) => !kept.has(voiceId(v.jobId, v.speakerLabel))
     );
-    if (!model) {
-      return [];
+    const found = Map.groupBy(samplesOf(db, missing), (s) =>
+      voiceId(s.jobId, s.speakerLabel)
+    );
+    for (const v of missing) {
+      const key = voiceId(v.jobId, v.speakerLabel);
+      kept.set(key, found.get(key) ?? []);
     }
-    const [key, same] = model;
-    const exemplars = (profiles.get(key) ?? NO_PROFILES).people.find(
-      (p) => p.personId === personId
-    )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
-    return same
-      .map((sample) => ({
-        sample,
-        score: likeness(sample.embedding, exemplars),
-      }))
-      .sort((a, b) => b.score - a.score);
+    return [
+      ...new Set(voices.map((v) => kept.get(voiceId(v.jobId, v.speakerLabel)))),
+    ].flatMap((rows) => rows ?? []);
+  };
+  return {
+    match: (voices: { jobId: string; speakerLabel: string }[]) =>
+      match(samples(voices), profiles).personId,
+    profiles,
+    rank(
+      voices: { jobId: string; speakerLabel: string }[],
+      personId: string | null
+    ) {
+      const [model] = [...Map.groupBy(samples(voices), modelKey)].sort(
+        (a, b) => b[1].length - a[1].length
+      );
+      if (!model) {
+        return [];
+      }
+      const [key, same] = model;
+      const exemplars = (profiles.get(key) ?? NO_PROFILES).people.find(
+        (p) => p.personId === personId
+      )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
+      return same
+        .map((sample) => ({
+          sample,
+          score: likeness(sample.embedding, exemplars),
+        }))
+        .sort((a, b) => b.score - a.score);
+    },
+    samples,
   };
 }
 
-// A speaker's voice: its samples of one embedding model (the first one's), and their centroid when
-// there is at least `minSpeakerSeconds` of clean speech.
+// One model's samples and their centroid once clean speech reaches minSpeakerSeconds.
 function speakerVoice(speakerSamples: VoiceSample[]) {
   const model = speakerSamples[0] ? modelKey(speakerSamples[0]) : "";
   const samples = speakerSamples.filter((s) => modelKey(s) === model);
@@ -433,22 +436,33 @@ function voicesWhere(db: Db, where: SQL | undefined) {
   const rows = db
     .select({ assignment: assignments, sample: voiceSamples })
     .from(assignments)
-    .innerJoin(
-      voiceSamples,
-      and(
-        eq(voiceSamples.jobId, assignments.jobId),
-        eq(voiceSamples.speakerLabel, assignments.speakerLabel)
-      )
-    )
-    .where(and(isNull(assignments.turnIndex), ofItsSpeaker, where))
+    .innerJoin(voiceSamples, coveredByRow)
+    .where(where)
     .all();
-  return [...Map.groupBy(rows, (r) => r.assignment.id).values()].flatMap(
-    (group) => {
-      const { model, vector } = speakerVoice(group.map((g) => g.sample));
-      const assignment = group[0]?.assignment;
-      return vector && assignment ? [{ assignment, model, vector }] : [];
-    }
-  );
+  return [
+    ...Map.groupBy(rows, (r) =>
+      r.assignment.turnIndex === null
+        ? r.assignment.id
+        : `${r.assignment.jobId}/${r.assignment.speakerLabel}/${r.assignment.candidateId ?? r.assignment.personId ?? r.assignment.id}`
+    ).values(),
+  ].flatMap((group) => {
+    const { model, vector } = speakerVoice(group.map((g) => g.sample));
+    const assignment = group[0]?.assignment;
+    return vector && assignment
+      ? [
+          {
+            assignment,
+            model,
+            rows: [
+              ...new Map(
+                group.map((g) => [g.assignment.id, g.assignment])
+              ).values(),
+            ],
+            vector,
+          },
+        ]
+      : [];
+  });
 }
 
 // Every unnamed recognized speaker (unknown or in a group) with enough clean speech.
@@ -465,45 +479,27 @@ type UnnamedVoice = ReturnType<typeof unnamedVoices>[number];
 interface NearbyVoice {
   model: string;
   personId: string;
+  source: Assignment["source"];
   vector: Vector;
 }
 
-// The voices named in other recordings within `nearbyMinutes` of a job, per person. Only the
-// owner's names and clear profile matches (`nearbyReference`) count, never a name given by
-// `nameFromNearby`: its stored score stays under the threshold, so a mistake can't spread
-// through an evening. Each recording's voices are read once and kept for the pass (`sweep`), and
-// read again once it is recognized again (`forget`).
+// Voices named in the same conversation, from owner answers and direct profile matches only.
+// Cached per job for one pass; a nearby-derived name never becomes a reference.
 export function nearbyVoices() {
-  const near = RECOGNITION.nearbyMinutes * 60_000;
   const kept = new Map<string, NearbyVoice[]>();
-  let ranges: { end: number; id: string; start: number }[] | null = null;
   return {
     forget: (jobId: string) => kept.delete(jobId),
     read(db: Db, jobId: string) {
-      ranges ??= db
-        .select({
-          end: transcriptionJobs.captureEnd,
-          id: transcriptionJobs.id,
-          start: transcriptionJobs.captureStart,
-        })
-        .from(transcriptionJobs)
-        .all()
-        .flatMap(({ end, id, start }) =>
-          start && end
-            ? [{ end: end.getTime(), id, start: start.getTime() }]
-            : []
-        );
-      const own = ranges.find((j) => j.id === jobId);
-      const ids = own
-        ? ranges
-            .filter(
-              (j) =>
-                j.id !== jobId &&
-                j.start <= own.end + near &&
-                j.end >= own.start - near
-            )
-            .map((j) => j.id)
-        : [];
+      const holders = holdingConversations(db, jobId);
+      const ids =
+        holders.length > 0
+          ? db
+              .selectDistinct({ id: conversationJobs.jobId })
+              .from(conversationJobs)
+              .where(inArray(conversationJobs.conversationId, holders))
+              .all()
+              .map((r) => r.id)
+          : [];
       const unread = ids.filter((id) => !kept.has(id));
       for (const id of unread) {
         kept.set(id, []);
@@ -531,20 +527,19 @@ export function nearbyVoices() {
         kept.get(assignment.jobId)?.push({
           model,
           personId: assignment.personId as string,
+          source: assignment.source,
           vector,
         });
       }
-      return ids.flatMap((id) => kept.get(id) ?? []);
+      return ids.flatMap((id) =>
+        (kept.get(id) ?? []).filter((v) => id !== jobId || v.source === "owner")
+      );
     },
   };
 }
 type Nearby = ReturnType<typeof nearbyVoices>;
 
-// A voice that matched no profile takes a person named minutes before or after, in another
-// recording: its nearest profile when only the people named nearby are weighed (`nearbyMatch`),
-// else the person of a voice `nearbyVoice` alike and `margin` ahead of the next person's (a
-// profile mixes many rooms, while the same evening sounds the same). Its score and margin stay
-// the profile's, so it never becomes a nearby voice itself.
+// Nearby matches keep profile scores/margins, so they never become references (docs/processing.md).
 function nameFromNearby(
   db: Db,
   jobId: string,
@@ -553,17 +548,40 @@ function nameFromNearby(
   nearby: Nearby
 ) {
   const missed = results.filter(
-    (r) => !(r.personId || r.isStranger) && r.vector
+    (r): r is Recognition & { vector: Vector } =>
+      !(r.personId || r.isStranger) && r.vector !== null
   );
   if (missed.length === 0) {
     return;
   }
-  const voices = nearby.read(db, jobId);
-  const nearbyPeople = new Set(voices.map((n) => n.personId));
+  // Freeze direct matches before assigning any nearby names: no chaining within the job.
+  const voices = [
+    ...nearby.read(db, jobId),
+    ...results.flatMap((r) =>
+      r.personId &&
+      r.vector &&
+      r.model &&
+      !r.isStranger &&
+      (r.score ?? 0) >= RECOGNITION.nearbyReference &&
+      (r.margin ?? 0) >= RECOGNITION.margin
+        ? [
+            {
+              model: r.model,
+              personId: r.personId,
+              source: "recognized" as const,
+              vector: r.vector,
+            },
+          ]
+        : []
+    ),
+  ];
   for (const r of missed) {
+    const nearbyPeople = new Set(
+      voices.filter((n) => n.model === r.model).map((n) => n.personId)
+    );
     r.personId =
       nearbyMatch(
-        r.vector ?? [],
+        r.vector,
         (profiles.get(r.model ?? "") ?? NO_PROFILES).people,
         nearbyPeople
       ) ?? nearbyPerson(r, voices);
@@ -605,75 +623,6 @@ export function recognize(db: Db, jobId: string, nearby = nearbyVoices()) {
   );
 }
 
-// A speaker whose voice data expired: what it was last recognized as.
-const lastKnown = (old: Assignment): Recognition => ({
-  candidateId: old.candidateId,
-  isStranger: old.status === "stranger",
-  label: old.speakerLabel,
-  margin: old.margin,
-  model: null,
-  personId: old.personId,
-  score: old.score,
-  turns: [],
-  vector: null,
-});
-
-// Whether `results` say what the stored rows already say (scores aside).
-const unchanged = (results: Recognition[], before: Map<string, Assignment>) =>
-  results.length === before.size &&
-  results.every((r) => {
-    const old = before.get(r.label);
-    return (
-      r.turns.length === 0 &&
-      old?.personId === r.personId &&
-      old.candidateId === groupOf(r) &&
-      old.status === statusOf(r)
-    );
-  });
-
-// A speaker that is the owner needs none of his turns moved.
-function keepOwnerWhole(results: Recognition[], ownerId: string | undefined) {
-  for (const r of results) {
-    if (r.personId && r.personId === ownerId) {
-      r.turns = [];
-    }
-  }
-}
-
-// The rows recognition writes for one transcript: a row per speaker, the turns found before
-// (`kept`, as they were) and those found now, in its speakers and its `several` voices.
-function recognizedRows(
-  jobId: string,
-  results: Recognition[],
-  kept: Assignment[],
-  several: Pick<Recognition, "label" | "turns">[]
-) {
-  return [
-    ...results.map((r) => ({
-      candidateId: groupOf(r),
-      jobId,
-      margin: r.margin,
-      personId: r.personId,
-      score: r.score,
-      source: "recognized" as const,
-      speakerLabel: r.label,
-      status: statusOf(r),
-    })),
-    ...kept.map(({ id: _, updatedAt: __, ...r }) => r),
-    ...[...results, ...several].flatMap((r) =>
-      r.turns.map((t) => ({
-        jobId,
-        personId: t.personId,
-        score: t.score,
-        source: "recognized" as const,
-        speakerLabel: r.label,
-        status: "person" as const,
-        turnIndex: t.turnIndex,
-      }))
-    ),
-  ];
-}
-
 // Writes one transcript's recognized rows, and only when they change (the phone reads every
 // row of a changed job). A speaker whose voice data expired keeps what it was last recognized
 // as; every speaker keeps its unnamed group (`regroup` redoes them each night). Whether anything
@@ -710,7 +659,7 @@ function recognizeJob(
     transcript.parsed.turns.flatMap((t) => t.speakerId ?? [])
   );
   const jobSamples = tx
-    .select({ clean: ofItsSpeaker, sample: voiceSamples })
+    .select({ clean: speakerSample, sample: voiceSamples })
     .from(voiceSamples)
     .where(eq(voiceSamples.jobId, jobId))
     .all();
@@ -720,16 +669,39 @@ function recognizeJob(
     );
   const results = [...labels]
     .filter((label) => !answered.some((r) => r.speakerLabel === label))
-    .map((label): Recognition => {
+    .flatMap((label): Recognition[] => {
       const old = before.get(label);
       if (old && !jobSamples.some((s) => s.sample.speakerLabel === label)) {
-        return lastKnown(old);
+        return [lastKnown(old)];
       }
-      return {
-        ...match(clean(label), profiles),
-        candidateId: old?.candidateId ?? null,
-        label,
-      };
+      const matched = match(clean(label), profiles);
+      const splits = [
+        ...Map.groupBy(
+          matched.turns.filter((t) => t.voice),
+          (t) => t.voice
+        ).entries(),
+      ];
+      return [
+        {
+          ...matched,
+          candidateId: old?.candidateId ?? null,
+          label,
+          turns: matched.turns.filter((t) => !t.voice),
+        },
+        ...splits.flatMap(([voice, turns]) =>
+          voice
+            ? [
+                {
+                  ...voice,
+                  candidateId: randomUUID(),
+                  label,
+                  model: matched.model,
+                  turnIndices: turns.map((t) => t.turnIndex),
+                },
+              ]
+            : []
+        ),
+      ];
     });
   const several = answered.flatMap((r) =>
     r.candidates
@@ -768,25 +740,11 @@ function recognizeJob(
   return true;
 }
 
-// A named voice or a stranger is in no unnamed group.
-const groupOf = (r: Recognition) =>
-  r.personId || r.isStranger ? null : r.candidateId;
-
-const statusOf = (r: Recognition) => {
-  if (r.personId) {
-    return "person" as const;
-  }
-  if (r.isStranger) {
-    return "stranger" as const;
-  }
-  return r.candidateId ? ("candidate" as const) : ("unknown" as const);
-};
-
 // ---- Upkeep -----------------------------------------------------------------
 
 // Matches every live transcript again against today's profiles, then rebuilds the unnamed
 // groups. Owner rows are never touched; only rows whose result changes are rewritten.
-export function sweep(db: Db) {
+export async function sweep(db: Db) {
   const profiles = readProfiles(db);
   // Only transcripts with voice samples: before that there is nothing to match, and rows written
   // then ("unknown", no score) let summaries start before recognition (Oct 14: 34 jobs). The
@@ -808,170 +766,96 @@ export function sweep(db: Db) {
     );
     changed += done ? 1 : 0;
   }
-  return { changed, jobs: jobs.length, regrouped: regroup(db) };
-}
-
-// Indices of `vectors` in groups of two or more, by average linkage: the two groups whose
-// voices are most alike on average merge, while that average is at least `threshold`. Of equal
-// pairs, the last (by first group, then second) merges. Each group keeps its best later group
-// (`Best`), so a merge searches again only the rows it touched.
-// ponytail: O(n²) memory and O(n³) at worst on the unnamed voices of 30 days (a few thousand).
-export function averageLinkage(vectors: Vector[], threshold: number) {
-  const groups: (number[] | null)[] = vectors.map((_, i) => [i]);
-  // sum[a][b]: the summed cosines between the voices of groups a and b.
-  const sum = vectors.map((x) => vectors.map((y) => cosine(x, y)));
-  const average = (a: number, b: number) =>
-    (sum[a]?.[b] ?? 0) / ((groups[a]?.length ?? 1) * (groups[b]?.length ?? 1));
-  const best = groups.map((_, a) => bestOf(groups, average, a));
-  for (let a = nextMerge(best, groups, threshold); a >= 0; ) {
-    const b = best[a]?.b ?? -1;
-    groups[a]?.push(...(groups[b] ?? []));
-    groups[b] = null;
-    for (const [k, row] of sum.entries()) {
-      const merged = (sum[a]?.[k] ?? 0) + (sum[b]?.[k] ?? 0);
-      row[a] = merged;
-      (sum[a] ?? [])[k] = merged;
-    }
-    afterMerge(best, groups, average, [a, b]);
-    a = nextMerge(best, groups, threshold);
-  }
-  return groups.filter((g): g is number[] => !!g && g.length > 1);
-}
-
-// A group's most alike later group, the last of equals; -1 for none.
-interface Best {
-  b: number;
-  score: number;
-}
-
-function bestOf(
-  groups: unknown[],
-  average: (a: number, b: number) => number,
-  a: number
-) {
-  let best: Best = { b: -1, score: Number.NEGATIVE_INFINITY };
-  for (let b = a + 1; b < groups.length; b += 1) {
-    const score = average(a, b);
-    if (groups[b] && score >= best.score) {
-      best = { b, score };
-    }
-  }
-  return best;
-}
-
-// The group whose best pair merges next: the most alike at `threshold` or more, the last of equals;
-// -1 for none.
-function nextMerge(best: Best[], groups: unknown[], threshold: number) {
-  let pick = -1;
-  let score = threshold;
-  for (const [a, { b, score: alike }] of best.entries()) {
-    if (groups[a] && b >= 0 && alike >= score) {
-      pick = a;
-      score = alike;
-    }
-  }
-  return pick;
-}
-
-// After group `b` merged into `a`: the rows whose best was either, and `a`'s own, are searched
-// again; a row before `a` takes `a` if it is now as alike as its best. Rows after `b` only reach
-// groups after it: unchanged.
-function afterMerge(
-  best: Best[],
-  groups: unknown[],
-  average: (a: number, b: number) => number,
-  [a, b]: [number, number]
-) {
-  for (let k = 0; k <= b; k += 1) {
-    const row = best[k];
-    if (!(row && groups[k])) {
-      continue;
-    }
-    if (k === a || row.b === a || row.b === b) {
-      best[k] = bestOf(groups, average, k);
-    } else if (k < a) {
-      const score = average(k, a);
-      if (score > row.score || (score === row.score && a > row.b)) {
-        best[k] = { b: a, score };
-      }
-    }
-  }
+  return { changed, jobs: jobs.length, regrouped: await regroup(db) };
 }
 
 // The groups of `voices` (one model), each with an id: the one most of its voices already
 // had, unless a bigger group took it, else a new one.
-function groupIds(voices: UnnamedVoice[]) {
+async function groupIds(voices: UnnamedVoice[]) {
   const used = new Set<string>();
-  return averageLinkage(
+  const grouped = await averageLinkage(
     voices.map((v) => v.vector),
     RECOGNITION.candidateThreshold
-  ).map((indices) => {
-    const members = indices.flatMap((i) => voices[i] ?? []);
-    const [kept] = [
-      ...Map.groupBy(
-        members.flatMap((m) => m.assignment.candidateId ?? []),
-        (x) => x
-      ).entries(),
-    ]
-      .filter(([existing]) => !used.has(existing))
-      .sort((x, y) => y[1].length - x[1].length);
-    const id = kept?.[0] ?? randomUUID();
-    used.add(id);
-    return [id, members] as const;
-  });
+  );
+  return grouped
+    .filter((indices) => indices.length > 1)
+    .map((indices) => {
+      const members = indices.flatMap((i) => voices[i] ?? []);
+      const [kept] = [
+        ...Map.groupBy(
+          members.flatMap((m) => m.assignment.candidateId ?? []),
+          (x) => x
+        ).entries(),
+      ]
+        .filter(([existing]) => !used.has(existing))
+        .sort((x, y) => y[1].length - x[1].length);
+      const id = kept?.[0] ?? randomUUID();
+      used.add(id);
+      return [id, members] as const;
+    });
 }
 
 // Rebuilds every unnamed group from scratch (`averageLinkage`), so groups that drifted come
 // apart. A group keeps the id most of its voices already had. Returns the rows it changed.
-export function regroup(db: Db) {
-  return db.transaction((tx) => {
-    const voices = unnamedVoices(tx);
-    const wanted = new Map<string, string | null>(
-      voices.map((v) => [v.assignment.id, null])
-    );
-    for (const sameModel of Map.groupBy(voices, (v) => v.model).values()) {
-      for (const [id, members] of groupIds(sameModel)) {
-        for (const v of members) {
-          wanted.set(v.assignment.id, id);
+export async function regroup(db: Db) {
+  const voices = unnamedVoices(db);
+  const wanted = new Map<string, string | null>(
+    voices.flatMap((v) =>
+      v.rows.map(
+        (r) => [r.id, r.turnIndex === null ? null : r.candidateId] as const
+      )
+    )
+  );
+  for (const sameModel of Map.groupBy(voices, (v) => v.model).values()) {
+    for (const [id, members] of await groupIds(sameModel)) {
+      for (const v of members) {
+        for (const row of v.rows) {
+          wanted.set(row.id, id);
         }
       }
     }
-    const changes = voices.filter(
-      (v) => v.assignment.candidateId !== wanted.get(v.assignment.id)
-    );
+  }
+  // A correction or new sample while grouping yielded makes this snapshot obsolete.
+  if (!isDeepStrictEqual(voices, unnamedVoices(db))) {
+    return 0;
+  }
+  const changes = voices
+    .flatMap((v) => v.rows)
+    .filter((r) => r.candidateId !== wanted.get(r.id));
+  return db.transaction((tx) => {
     for (const v of changes) {
-      const candidateId = wanted.get(v.assignment.id) ?? null;
+      const candidateId = wanted.get(v.id) ?? null;
       tx.update(assignments)
         .set({ candidateId, status: candidateId ? "candidate" : "unknown" })
-        .where(eq(assignments.id, v.assignment.id))
+        .where(eq(assignments.id, v.id))
         .run();
     }
     logChange(
       tx,
       "assignment",
-      changes.map((v) => v.assignment.jobId)
+      changes.map((v) => v.jobId)
     );
     return changes.length;
   });
 }
 
-// Deletes voice data (embeddings only; never audio or transcripts) that is nobody's evidence:
-// a speaker the owner marked as media at once, a retired job's after a day, everything else
-// after `keepDays`. Recognized labels stay as they were (recognizeJob keeps them).
+// Deletes non-evidence embeddings: effective owner media rows now, retired jobs after a day.
+// Other samples and recognized labels stay; audio and transcripts are never removed.
 export function expire(db: Db) {
   const days = (n: number) => clock().getTime() - n * 86_400_000;
   const removed = db.all<{ id: string }>(sql`
     delete from ${voiceSamples} as s
     where not exists (select 1 from ${voiceProfiles} p where p.sample_id = s.id)
       and (
-        s.created_at < ${days(RECOGNITION.keepDays)}
-        or (s.created_at < ${days(1)}
+        (s.created_at < ${days(1)}
           and not exists (select 1 from ${conversationJobs} j where j.job_id = s.job_id))
         or exists (
           select 1 from ${assignments} a
           where a.job_id = s.job_id and a.speaker_label = s.speaker_label
-            and a.source = 'owner' and a.status = 'media'
-            and (a.turn_index is null or a.turn_index = s.turn_index))
+            and a.source = 'owner' and a.status = 'media' and a.candidates is null
+            and (a.turn_index = s.turn_index or (a.turn_index is null
+              and not exists (select 1 from ${assignments} t
+                where t.job_id = s.job_id and t.turn_index = s.turn_index))))
       )
     returning id`);
   return removed.length;
@@ -980,22 +864,26 @@ export function expire(db: Db) {
 const UPKEEP_HOUR = 3;
 const AFTER_CORRECTION_MS = 60_000;
 
-// Voice upkeep, synchronous so one run at a time: every night after 03:00 in the owner's zone the
+// Voice upkeep, guarded so one run at a time: every night after 03:00 in the owner's zone the
 // sweep, then expiry; a minute after the owner's last correction, the sweep alone, so a name given
 // today reaches old conversations without waiting for the night.
 // ponytail: in-process state and timer; assumes one server replica, like the other loops.
 export function voiceUpkeep(db: Db) {
   let lastNight = "";
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const run = (work: () => Fields | null) => {
-    try {
-      const fields = work();
-      if (fields) {
-        record(db, "voices.upkeep", fields);
+  let running = Promise.resolve();
+  const run = (work: () => Promise<Fields | null>) => {
+    running = running.then(async () => {
+      try {
+        const fields = await work();
+        if (fields) {
+          record(db, "voices.upkeep", fields);
+        }
+      } catch (error: unknown) {
+        reportError(db, "voice upkeep", error);
       }
-    } catch (error: unknown) {
-      reportError(db, "voice upkeep", error);
-    }
+    });
+    return running;
   };
   return {
     nightly(at = clock()) {
@@ -1005,10 +893,10 @@ export function voiceUpkeep(db: Db) {
       }
       lastNight = date;
       // Once a day across restarts too: a deploy after 03:00 finds the night's event.
-      return run(() =>
+      return run(async () =>
         recordedOn(db, "voices.upkeep", date)
           ? null
-          : { ...sweep(db), day: date, expired: expire(db) }
+          : { ...(await sweep(db)), day: date, expired: expire(db) }
       );
     },
     soon() {

@@ -24,9 +24,13 @@ export const ApiError = z
   .object({ error: z.enum(errorCodes), message: z.string() })
   .openapi("Error");
 
+export interface ApiEnv {
+  Variables: { isMapToken: boolean };
+}
+
 // Each domain's routes, answering invalid input in the routes' error shape.
 export const router = () =>
-  new OpenAPIHono({
+  new OpenAPIHono<ApiEnv>({
     defaultHook: (result, c) =>
       result.success
         ? undefined

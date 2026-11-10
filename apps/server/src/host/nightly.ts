@@ -4,7 +4,9 @@ import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
+import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
+import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
 import { readBirthdaysNear } from "../memory/details";
@@ -39,6 +41,7 @@ import {
   recordBackfill,
   recordMidday,
   recordState,
+  spareQuota,
   turnOf,
 } from "../memory/schedule";
 import { situations } from "../memory/situations";
@@ -152,7 +155,8 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const states = () => ({
-    backfill: readBackfill(),
+    // Historical model work waits for frozen prompts; collection uses `memory units`.
+    backfill: undefined,
     backup: readState("backup"),
     bridges: readState("bridges"),
     midday: readMidday(),
@@ -261,13 +265,21 @@ export async function midday(now = clock(), force = false) {
  * nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
  */
 async function backfilled(day: string) {
+  const engine = settings().backfillEngine;
+  if (!engine) {
+    return 0;
+  }
+  await spareQuota(engine);
   const code = await locked(async () => {
     const b = readBackfill();
     const week = backfillWeek(b, day, readState());
     if (!(b && week)) {
       return 0;
     }
-    const failure = await sweep("memory.backfill", week, { extract: true });
+    const failure = await sweep("memory.backfill", week, {
+      engine,
+      extract: true,
+    });
     if (await isOfflineFailure(failure)) {
       return 1;
     }
@@ -295,12 +307,18 @@ async function backfilled(day: string) {
  * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
  * caller holds the lock.
  */
-async function sweep(name: string, window: Window, o: { extract: boolean }) {
-  const rec = await metered(name, { ...window });
+async function sweep(
+  name: string,
+  window: Window,
+  o: { engine?: Engine; extract: boolean }
+) {
+  const rec = await metered(name, { ...window }, o.engine);
   const phase = phases(rec);
   try {
     phase.at = "gather";
-    const evidence = await gather(window, await readPeople());
+    const evidence = await gather(window, await readPeople(), {
+      engine: o.engine,
+    });
     const found = await phase.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
     if (o.extract) {

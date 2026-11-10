@@ -35,6 +35,50 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
+- **The voice bench keeps its own answers and its own page (owner's choice, 10 Nov 2026).** What the owner answers
+  in the bench's review goes to the bench's `answers.jsonl`, never to the archive: the bench reads the archive
+  read-only, and his naming changes only in the app. Its page is a development tool the CLI serves on 127.0.0.1
+  from the bench's private folder, not a page lifelog serves: no token, no tunnel, and its only writes are an
+  answer and a new scoring, from its own origin.
+- **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
+  a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
+  the queue’s existing audio and answer routes, and per-turn naming PUT only for (job, label, turn) triples
+  in the current cached map's clips. Missing turn indices and triples outside it receive 403; device and corrections
+  tokens retain their existing scope. The map reads the queue’s
+  cards and words in their order, with the same likeness ranking as recognition; easy targets are cards above the
+  candidate threshold.
+  PCA projects people and queued unnamed group centroids separately for each embedding model and revision,
+  cached for each incremental queue build. Named clouds read currently named turn samples through the shared
+  assignment resolver, including owner evidence (solid) and recognition matches (hollow). Each person and model
+  shows at most 400 samples, chosen by deterministic stride across recording time (sample creation time for legacy
+  rows), on those same centroid-fitted axes. Point kinds are explicit; vectors never leave the server.
+  Sidebar checkboxes toggle each person and unnamed voices, with All/None controls.
+  Likeness is not a calibrated probability. Naming uses the queue’s answer route or scoped per-turn PUT.
+  `bun run voices` keeps the map token in the Mac Keychain (`lifelog-map-token`), activates its hash in Host’s
+  owner-only `server.env` and restarts its verified supervised server child only when that hash changes.
+  Its restart probe requests the nil transcript UUID's audio and expects 404 without building the map.
+  It opens a loopback link with the token in the fragment, never a query. The map routes are also
+  reachable through the public tunnel with that token; the static shell contains no personal data.
+  Life’s separate server still serves no page.
+  Queue and map builds share linkage, clips, profiles and decoded samples. One read-only Bun Worker owns the
+  incremental queue and projection, with revision and rows in one transaction: even shared builds exceeded the
+  200 ms request-thread budget. Phone queue reads and the morning digest await that same snapshot through their
+  request-start revision; speaker scope selects phone cards. Host compiles the worker, unreferenced and closed on exit.
+  Map GET returns a shallow copy of the last completed snapshot while refreshing (`building`), or 202 initially.
+  Completed snapshots publish despite concurrent writes; the next read refreshes, avoiding starvation. Polling
+  preserves a Several people edit. Failed workers report diagnostics and settle waiting readers; phone queue reads
+  reject snapshots behind the requested revision. A failed revision retries only after 30 seconds or a revision
+  change. Scoped PUT checks the displayed map's clips. The worker never writes the archive.
+  Synthetic fixture: 40,150 samples, 192 dimensions, 30 people, 2,000 cards and 2,575 points; timings bound this fixture.
+  Timings (Bun 1.4.2): queue 17,795 → 3,251 ms; shared map 10,799 → 678 ms; worker cold/warm 4,106/~3,200 ms; maximum stall 10,804 → 39 ms.
+
+- **Split mixed voices by turn before asking (owner's decision, 9 Nov 2026).** Recognition groups a label's sampled
+  turns after removing the owner's turns. Distinct groups with enough speech get recognized turn rows; a split
+  supplies neither a name nor evidence. Matching and nearby naming apply to every group. The largest group stays
+  the label's only phone card; the map lists the others and names their turns through the existing PUT. The map also
+  offers the phone's "Several people" answer: name clips first, then submit the existing answer. No phone change.
+  A turn containing two voices needs re-cutting within the turn and is outside this change.
+
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The
   phone's library is a cache, and the owner's edits travel as intents (`docs/sync.md`). Two owners of the same fact
@@ -122,11 +166,31 @@ reverse it, change its entry here in the same commit.
   reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
   runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
-- **One list of voices to name**, rebuilt nightly by average likeness and asked one voice at a time; strangers and
-  media are never asked about. Voice data that is nobody's evidence goes after 30 days.
-- **"Not anyone I know" is a stranger he doesn't care about** (his words, 3 Nov 2026). A voice that sounds more like
-  those than like anyone he named is a stranger too (status `stranger`): never named, grouped or asked about, for as
-  long as the strangers' clips are kept (30 days).
+- One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses
+  group vector sums and counts instead of an all-pairs matrix before the sample set grows. Cards with playback come
+  first, then by the words a name unlocks; overheard groups with at least 300 words are eligible. Brief strangers and
+  media are left out. Clips are built only for returned cards (`docs/processing.md`, "Speakers").
+- Unnamed samples no longer expire by age (owner's decision, 9 Nov 2026). This replaces the previous promise to delete
+  voice data that was nobody's evidence after a month. Samples stay until named or rejected; strangers' samples
+  remain negative references. An unnamed or several-person voice is still nobody's evidence. Only clips attributed
+  by the owner become person evidence; retention grants no permission to send embeddings outside the server.
+- Old voices recover through the existing sampler (owner's decision, 9 Nov 2026). One database migration reopens
+  conversation-held jobs with stored audio. The sampler alone decides eligibility, preserves existing samples and
+  owner assignments, retries least recently attempted jobs first and permits only one pending pass at a time.
+  Dictation and unsafe old audio remain excluded; recovery never transcribes again.
+- Split voices use the existing nearby naming path (owner's decision, 9 Nov 2026). References cover the whole
+  conversation and the job's own direct matches, with the measured thresholds unchanged. No chaining, automatic
+  person merge or new evidence: the owner's assignments win. For a lone profile, `rankPeople` scores the missing runner at 0.6 (confirming review, 9 Nov);
+  no caller bypasses it. A 0.65 voice fails ordinary, candidate and nearby profile naming; a 0.55 owner
+  short turn fails its margin. Owner turns at 0.65 still match through the existing 0.6 owner threshold.
+  Current `origin/main` (30d9002d) uses zero and names the 0.62 borderline case; its null regression
+  expectation and incident comment were restored from the last review commit's parent (3741c5f3).
+  Offline `bun apps/lifelog/apps/server/scripts/eval-voices.ts --check` passed: 4,146 turns, all baseline
+  counts unchanged; no answers or baseline rewritten. This replay excludes nearby naming and candidate sets,
+  which are covered by synthetic regressions.
+- **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
+  sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
+  recovered or asked about. Its samples remain negative references.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the

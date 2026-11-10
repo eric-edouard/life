@@ -1426,118 +1426,126 @@
         },
         "required": ["packs"]
       },
-      "SpeakerAssignment": {
+      "VoiceMap": {
         "type": "object",
         "properties": {
-          "jobId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "personId": {
-            "type": ["string", "null"],
-            "format": "uuid"
-          },
-          "personName": {
-            "type": ["string", "null"]
-          },
-          "speakerLabel": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["person", "unknown", "candidate", "media", "stranger"]
-          },
-          "turnIndex": {
-            "type": ["integer", "null"]
-          }
-        },
-        "required": [
-          "jobId",
-          "personId",
-          "personName",
-          "speakerLabel",
-          "status",
-          "turnIndex"
-        ]
-      },
-      "SpeakerTarget": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["person"]
-              },
-              "personId": {
-                "type": "string",
-                "format": "uuid"
-              }
-            },
-            "required": ["kind", "personId"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "kind": {
-                "type": "string",
-                "enum": ["new"]
-              },
-              "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              }
-            },
-            "required": ["id", "kind", "name"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["unknown"]
-              }
-            },
-            "required": ["kind"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["media"]
-              }
-            },
-            "required": ["kind"]
-          }
-        ]
-      },
-      "Person": {
-        "type": "object",
-        "properties": {
-          "aliases": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "isOwner": {
+          "building": {
             "type": "boolean"
           },
-          "name": {
-            "type": "string"
+          "candidateThreshold": {
+            "type": "number"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceMapCard"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "basis": {
+                        "type": ["string", "null"],
+                        "enum": ["owner", "recognized", null]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": ["centroid", "sample", "unnamed"]
+                      },
+                      "personId": {
+                        "type": ["string", "null"],
+                        "format": "uuid"
+                      },
+                      "position": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
+                      },
+                      "ranking": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "margin": {
+                              "type": "number"
+                            },
+                            "personId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "score": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["margin", "personId", "score"]
+                        }
+                      },
+                      "words": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "basis",
+                      "id",
+                      "kind",
+                      "personId",
+                      "position",
+                      "ranking",
+                      "words"
+                    ]
+                  }
+                }
+              },
+              "required": ["model", "points"]
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            }
           }
         },
-        "required": ["aliases", "id", "isOwner", "name"]
+        "required": ["candidateThreshold", "cards", "models", "people"]
+      },
+      "VoiceMapCard": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/QueueItem"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": ["speaker", "turns"]
+              }
+            },
+            "required": ["scope"]
+          }
+        ]
       },
       "QueueItem": {
         "type": "object",
@@ -1672,6 +1680,9 @@
               },
               "required": ["conversationId", "jobId", "speakerLabel"]
             }
+          },
+          "words": {
+            "type": "integer"
           }
         },
         "required": [
@@ -1684,7 +1695,8 @@
           "name",
           "personId",
           "seconds",
-          "voices"
+          "voices",
+          "words"
         ]
       },
       "TimedWords": {
@@ -1704,6 +1716,119 @@
           ]
         },
         "description": "Each word: start and end in ms from the passage's start, and its UTF-16 length in the text with the spacing before it (none before the first)"
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isOwner": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["aliases", "id", "isOwner", "name"]
+      },
+      "SpeakerAssignment": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "personName": {
+            "type": ["string", "null"]
+          },
+          "speakerLabel": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["person", "unknown", "candidate", "media", "stranger"]
+          },
+          "turnIndex": {
+            "type": ["integer", "null"]
+          }
+        },
+        "required": [
+          "jobId",
+          "personId",
+          "personName",
+          "speakerLabel",
+          "status",
+          "turnIndex"
+        ]
+      },
+      "SpeakerTarget": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["person"]
+              },
+              "personId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": ["kind", "personId"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["new"]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": ["id", "kind", "name"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["unknown"]
+              }
+            },
+            "required": ["kind"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["media"]
+              }
+            },
+            "required": ["kind"]
+          }
+        ]
       },
       "Capabilities": {
         "type": "object",
@@ -4414,6 +4539,40 @@
         }
       }
     },
+    "/speakers/map": {
+      "get": {
+        "description": "The naming queue, split cards and likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; a read-only worker rebuilds after changes. Serves the last built map while refreshing, or 202 initially. Likeness is not a calibrated probability.",
+        "responses": {
+          "200": {
+            "description": "Voices and people",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceMap"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "First map is building; retry shortly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "building": {
+                      "type": "boolean",
+                      "enum": [true]
+                    }
+                  },
+                  "required": ["building"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/transcripts/{jobId}/audio": {
       "get": {
         "description": "The Ogg Opus audio of a job, as kept in the bucket: the file a queue clip's `audio` points into (seconds from its start). Honors one `Range: bytes=` header. 404 for a job from before the bucket.",
@@ -4520,6 +4679,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Map token: this turn is outside the current cached map"
           },
           "404": {
             "description": "No such job or transcript",
@@ -4655,7 +4817,7 @@
     },
     "/naming-queue": {
       "get": {
-        "description": "The voices to name: unnamed voices of the last 30 days that talked with the owner (at least 10 turns traded and a minute of talk), one item per voice across conversations and days, the most back-and-forth first, each with clean clips of its voice and the name the summaries heard or who it sounds like.",
+        "description": "The voices to name: unnamed voices with at least 10 turns traded and a minute of talk with the owner, or at least 300 words even when overheard, across the whole archive. One item per voice across conversations and days, playable first then most words, each with clean clips of its voice and the name the summaries heard or who it sounds like.",
         "responses": {
           "200": {
             "description": "Voices to name",

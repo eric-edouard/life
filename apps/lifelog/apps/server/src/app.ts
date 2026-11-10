@@ -7,6 +7,7 @@ import { HTTPException } from "hono/http-exception";
 import { type Config, sha256Hex } from "./config";
 import { storeServerError } from "./diagnostics";
 import { backupRoutes } from "./routes/backup";
+import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
 import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
@@ -19,9 +20,17 @@ import { switchRoutes } from "./routes/switches";
 import { MAC_SOCKET_PATH, syncRoutes } from "./routes/sync";
 import { timelineRoutes } from "./routes/timeline";
 import { transcriptionRoutes } from "./routes/transcription";
+import { voicePageRoutes } from "./routes/voice-page";
 import type { Services } from "./services";
 
-const PUBLIC_PATHS = ["/health", "/webhooks/elevenlabs"];
+const PUBLIC_PATHS = [
+  "/health",
+  "/webhooks/elevenlabs",
+  "/voices",
+  "/voices/cloud.js",
+  "/voices/page.js",
+  "/voices/plotly-4.0.0.min.js",
+];
 // What a reader's token opens (docs/voice-source.md); the device token opens every route.
 const READS = [
   "GET /capabilities",
@@ -39,6 +48,12 @@ const CORRECTIONS = [
   "POST /people/{id}/merge",
   "PUT /conversations/{id}/title",
   "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
+];
+const MAP = [
+  "PUT /transcripts/{jobId}/speakers/{speakerLabel}",
+  "GET /speakers/map",
+  "GET /transcripts/{jobId}/audio",
+  "POST /naming-queue/answer",
 ];
 const opening = (routes: string[]) => {
   const patterns = routes.map(
@@ -64,9 +79,10 @@ export function createApp(s: Services) {
   const tokens = [
     [config.DEVICE_TOKEN_HASH, null],
     [config.READ_TOKEN_HASH, opening(READS)],
+    [config.MAP_TOKEN_HASH, opening(MAP)],
     [config.CORRECTIONS_TOKEN_HASH, opening(CORRECTIONS)],
   ] as const;
-  const app = new OpenAPIHono();
+  const app = new OpenAPIHono<ApiEnv>();
   // A route that throws: logged, kept as a `server_error` diagnostic (never the request body),
   // and answered in the routes' error shape. Hono's own refusals (401, malformed JSON) pass.
   app.onError((error, c) => {
@@ -112,6 +128,10 @@ export function createApp(s: Services) {
               message: "This token doesn't open this route.",
             });
           }
+          c.set(
+            "isMapToken",
+            found !== undefined && found[0] === config.MAP_TOKEN_HASH
+          );
           return found !== undefined;
         },
       })
@@ -143,6 +163,7 @@ export function createApp(s: Services) {
 
   app
     .route("/", healthRoutes(s))
+    .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
     .route("/", pageRoutes(s))
@@ -159,7 +180,7 @@ export function createApp(s: Services) {
   return app;
 }
 
-export const openApiDocument = (app: OpenAPIHono, config: Config) =>
+export const openApiDocument = (app: OpenAPIHono<ApiEnv>, config: Config) =>
   app.getOpenAPI31Document({
     info: { title: "lifelog", version: "1" },
     openapi: "3.1.0",

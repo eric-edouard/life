@@ -54,3 +54,12 @@ test("incoming: the messages Messages stored from a row on, with readImessage's 
   );
   expect(incomingImessage(fresh.end, db).rows).toEqual([]);
 });
+
+test("a source range excludes its end instant", () => {
+  const path = imessageFixture("hello");
+  const [event] = readImessage(new Date(0), path, new Map());
+  expect(event).toBeDefined();
+  expect(
+    readImessage(new Date(0), path, new Map(), new Date(event?.at ?? ""))
+  ).toEqual([]);
+});

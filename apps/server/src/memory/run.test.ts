@@ -1,7 +1,7 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
-import { involvedOf, phases, record, refContext } from "./run";
+import { begin, involvedOf, metered, phases, record, refContext } from "./run";
 import { runs } from "./run-log";
 
 /** The run as the status reads' `read_processing_runs` reads it back from the (test) log. */
@@ -126,4 +126,65 @@ test("the map shows each person once: an inferred id folded into another is left
     "person:ann",
     "person:inf_dee",
   ]);
+});
+
+test("a step uses its explicit engine without changing the ordinary engine", async () => {
+  const step = await begin("test-engine", "fast", {}, "codex");
+  expect(step.llm.engine).toBe("codex");
+  expect(step.end({}).model).toContain("codex/");
+});
+
+test("a metered run reads only its explicit engine quota at start and end", async () => {
+  const models = await import("../models/llm");
+  const quota = spyOn(models, "quota").mockResolvedValue(undefined);
+  try {
+    const rec = await metered("memory.test-metered", {}, "codex");
+    await rec.end({ outcome: "ok" });
+    expect(quota.mock.calls).toEqual([["codex"], ["codex"]]);
+  } finally {
+    quota.mockRestore();
+  }
+});
+
+test("a sweep's selected engine reaches collection, attachments, episodes and extraction", async () => {
+  const sources = await import("./sources");
+  const files = await import("./message-files");
+  const steps = await import("./run");
+  const { gather } = await import("./units");
+  const { episodes } = await import("./episodes");
+  const { extract } = await import("./extract");
+  const { readPeople } = await import("./who");
+  const ready = spyOn(sources, "readySources").mockReturnValue([]);
+  const described = spyOn(files, "describeFiles").mockResolvedValue({
+    calls: 0,
+    copied: 0,
+    described: 0,
+    failed: 0,
+    missing: [],
+    model: "codex/test",
+    ms: 0,
+    read: 0,
+    run: "test",
+  });
+  const stopped = new Error("engine inspected before model work");
+  const started = spyOn(steps, "begin").mockRejectedValue(stopped);
+  try {
+    const evidence = await gather(
+      { from: "2025-03-01", to: "2025-03-01" },
+      await readPeople(),
+      { engine: "codex" }
+    );
+    expect(described.mock.calls.at(0)?.[1]).toBe("codex");
+    expect(evidence.engine).toBe("codex");
+    await expect(episodes(evidence)).rejects.toThrow(stopped);
+    await expect(extract(evidence)).rejects.toThrow(stopped);
+    expect(started.mock.calls.map((args) => [args[0], args[3]])).toEqual([
+      ["episodes", "codex"],
+      ["extract", "codex"],
+    ]);
+  } finally {
+    started.mockRestore();
+    described.mockRestore();
+    ready.mockRestore();
+  }
 });

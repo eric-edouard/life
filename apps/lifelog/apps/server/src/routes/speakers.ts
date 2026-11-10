@@ -3,11 +3,13 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { people, speakerStatuses, suggestionKinds } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
 import { answerVoices } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
+import { VOICE_SCOPES } from "../voice-map";
 import {
   ApiError,
   IdParam,
@@ -107,6 +109,7 @@ const QueueItem = z
     personId: z.uuid().nullable(),
     seconds: z.number(),
     voices: z.array(Voice),
+    words: z.int(),
   })
   .openapi("QueueItem");
 
@@ -119,6 +122,66 @@ export function speakerRoutes({
   voices,
 }: Pick<Services, "audio" | "db" | "queue" | "voices">) {
   return router()
+    .openapi(
+      createRoute({
+        description:
+          "The naming queue, split cards and likeness rankings, with group centroids and currently named turn samples (owner evidence solid, recognition matches hollow), capped at 400 per person and model by deterministic stride across recording time (sample creation time for legacy rows), projected into three PCA dimensions per embedding model, fit on centroids only. Read-only; a read-only worker rebuilds after changes. Serves the last built map while refreshing, or 202 initially. Likeness is not a calibrated probability.",
+        method: "get",
+        path: "/speakers/map",
+        responses: {
+          200: json(
+            z
+              .object({
+                building: z.boolean().optional(),
+                candidateThreshold: z.number(),
+                cards: z.array(
+                  z
+                    .intersection(
+                      QueueItem,
+                      z.object({ scope: z.enum(VOICE_SCOPES) })
+                    )
+                    .openapi("VoiceMapCard")
+                ),
+                models: z.array(
+                  z.object({
+                    model: z.string(),
+                    points: z.array(
+                      z.object({
+                        basis: z.enum(["owner", "recognized"]).nullable(),
+                        id: z.string(),
+                        kind: z.enum(["centroid", "sample", "unnamed"]),
+                        personId: z.uuid().nullable(),
+                        position: z.tuple([z.number(), z.number(), z.number()]),
+                        ranking: z.array(
+                          z.object({
+                            margin: z.number(),
+                            personId: z.uuid(),
+                            score: z.number(),
+                          })
+                        ),
+                        words: z.int(),
+                      })
+                    ),
+                  })
+                ),
+                people: z.array(Person),
+              })
+              .openapi("VoiceMap"),
+            "Voices and people"
+          ),
+          202: json(
+            z.object({ building: z.literal(true) }),
+            "First map is building; retry shortly"
+          ),
+        },
+      }),
+      (c) => {
+        const map = queue.map();
+        return map
+          ? c.json(map, 200)
+          : c.json({ building: true as const }, 202);
+      }
+    )
     .openapi(
       createRoute({
         description:
@@ -205,12 +268,33 @@ export function speakerRoutes({
         },
         responses: {
           200: json(z.array(SpeakerAssignment), "Assignments after the change"),
+          403: {
+            description:
+              "Map token: this turn is outside the current cached map",
+          },
           404: notFound,
         },
       }),
       (c) => {
         const { jobId, speakerLabel } = c.req.valid("param");
         const { target, turnIndex } = c.req.valid("json");
+        if (
+          c.get("isMapToken") &&
+          !queue
+            .map()
+            ?.cards.some((card) =>
+              card.clips.some(
+                (clip) =>
+                  clip.jobId === jobId &&
+                  clip.speakerLabel === speakerLabel &&
+                  clip.turnIndex === turnIndex
+              )
+            )
+        ) {
+          throw new HTTPException(403, {
+            message: "This turn is outside the current voice map.",
+          });
+        }
         const result = assign(db, {
           jobId,
           speakerLabel,
@@ -311,15 +395,16 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "The voices to name: unnamed voices of the last 30 days that talked with the owner " +
-          "(at least 10 turns traded and a minute of talk), one item per voice across " +
-          "conversations and days, the most back-and-forth first, each with clean clips of its " +
+          "The voices to name: unnamed voices with at least 10 turns traded and a minute of talk " +
+          "with the owner, or at least 300 words even when overheard, across the whole archive. " +
+          "One item per voice across conversations and days, playable first then most words, " +
+          "each with clean clips of its " +
           "voice and the name the summaries heard or who it sounds like.",
         method: "get",
         path: "/naming-queue",
         responses: { 200: json(z.array(QueueItem), "Voices to name") },
       }),
-      (c) => c.json(queue.items(), 200)
+      async (c) => c.json(await queue.items(), 200)
     )
     .openapi(
       createRoute({

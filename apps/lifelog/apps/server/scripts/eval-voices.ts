@@ -44,16 +44,16 @@ type Outcome = (typeof OUTCOMES)[number];
 
 const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
 
-// Who he said spoke a sampled turn, by the one read rule (`speakerOf`): his answer for the turn,
-// else for its voice. A row of several people names a fallback, not who spoke. A null answer is
-// "Not anyone I know" or media: nobody he knows.
-function answers(data: Export) {
+// His answer for a sampled turn, by the one read rule (`speakerOf`): for the turn, else for its
+// voice; none when he never answered. A row of several people names a fallback, not who spoke. A
+// row without a person is "Not anyone I know" or media (its `status`): nobody he knows.
+export function answers(data: Pick<Export, "assignments">) {
   const byJob = Map.groupBy(
     data.assignments.filter((a) => !a.candidates),
     (a) => a.jobId
   );
-  return (s: Sample) =>
-    speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex)?.personId;
+  return (s: Pick<Sample, "jobId" | "speakerLabel" | "turnIndex">) =>
+    speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex);
 }
 
 function outcome(
@@ -105,23 +105,30 @@ function scoreVoice(
   };
 }
 
+// Profiles rebuilt without the evidence of `conversations`. A job is judged without any conversation
+// its samples were cut in: a sample keeps the conversation it was cut for, and a job's can differ.
+export const profilesWithout = (
+  { evidence, strangers }: Pick<Export, "evidence" | "strangers">,
+  conversations: Set<string>
+) =>
+  weighProfiles(
+    evidence.filter((e) => !conversations.has(e.conversationId)),
+    strangers.filter((e) => !conversations.has(e.conversationId))
+  );
+
 // Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
-  const truthOf = answers(data);
-  const { strangers, evidence } = data;
-  // A job is judged without the evidence of any conversation its samples were cut in: a sample
-  // keeps the conversation it was cut for, and a job's can differ.
+  const answerOf = answers(data);
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
-      const own = new Set(inJob.map((s) => s.conversationId));
-      const profiles = weighProfiles(
-        evidence.filter((e) => !own.has(e.conversationId)),
-        strangers.filter((e) => !own.has(e.conversationId))
+      const profiles = profilesWithout(
+        data,
+        new Set(inJob.map((s) => s.conversationId))
       );
       return [...Map.groupBy(inJob, voiceOf).values()].flatMap((voice) => {
         const judged = voice.flatMap((s) => {
-          const truth = truthOf(s);
-          return truth === undefined ? [] : [{ s, truth }];
+          const answer = answerOf(s);
+          return answer ? [{ s, truth: answer.personId }] : [];
         });
         return judged.length > 0
           ? [scoreVoice(data.owner, judged, voice, profiles)]
@@ -176,6 +183,7 @@ export function exportVoices(db: Db) {
           jobId: speakerAssignments.jobId,
           personId: speakerAssignments.personId,
           speakerLabel: speakerAssignments.speakerLabel,
+          status: speakerAssignments.status,
           turnIndex: speakerAssignments.turnIndex,
         })
         .from(speakerAssignments)

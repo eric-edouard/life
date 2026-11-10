@@ -1,5 +1,5 @@
 import { INFERRED_USE_AT } from "../records/observation";
-import { readUnits, readUnresolved } from "./ledger";
+import { readUnitsFor, readUnresolved } from "./ledger";
 import { clip, normalize } from "./units";
 import { observationsNow, readPeople } from "./who";
 
@@ -12,14 +12,14 @@ const EXAMPLE_MAX = 80;
  * `bun life memory correct`.
  */
 export async function unresolved(top = 25) {
-  const [rows, units, people] = await Promise.all([
-    readUnresolved(),
-    readUnits(),
-    readPeople(),
-  ]);
+  const [rows, people] = await Promise.all([readUnresolved(), readPeople()]);
   const { inferred, resolve } = people;
-  const byId = new Map(units.map((u) => [u.id, u]));
   const open = rows.filter((r) => !resolve(r.surface));
+  const units = readUnitsFor(
+    open.map((r) => r.unit),
+    open.map((r) => r.date)
+  );
+  const byId = new Map(units.map((u) => [u.id, u]));
   const resolved = rows.length - open.length;
   const names = Map.groupBy(open, (r) => normalize(r.surface));
   const lines = [...names.values()]

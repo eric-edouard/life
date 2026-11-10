@@ -21,6 +21,23 @@ export const fromAppleNs = (ns: number | bigint) =>
 export const fromAppleS = (s: number) => new Date((s + APPLE_EPOCH_S) * 1000);
 export const toAppleS = (ms: number) => ms / 1000 - APPLE_EPOCH_S;
 
+/** The first message's timestamp, without loading its text or attachments. */
+export function readEarliestImessage(path = DB) {
+  const db = openReadOnly(path);
+  try {
+    const at = db
+      .query<{ at: number | bigint | null }, []>(
+        "select min(date) as at from message where item_type = 0"
+      )
+      .get()?.at;
+    return at === null || at === undefined
+      ? null
+      : fromAppleNs(at).toISOString();
+  } finally {
+    db.close();
+  }
+}
+
 /** Newer messages keep their text only in an archived NSAttributedString; pull the first string out of it. */
 export function textFromAttributedBody(blob: Uint8Array | null): string {
   if (!blob) {
@@ -65,12 +82,13 @@ export const handleOf = (key: string) => (HANDLE.test(key) ? key : undefined);
 export function readImessage(
   since: Date,
   path = DB,
-  names: Map<string, string> = readContacts()
+  names: Map<string, string> = readContacts(),
+  before?: Date
 ): SourceEvent[] {
   const db = openReadOnly(path);
   try {
     const rows = db
-      .query<Row, [bigint]>(
+      .query<Row, [bigint, bigint | null, bigint | null]>(
         `select m.guid, m.date, m.is_from_me as fromMe, m.text, m.attributedBody,
                 h.id as sender, c.chat_identifier as chat, c.display_name as chatName,
                 (select json_group_array(json_object('ref', 'imessage:' || a.guid, 'mime', a.mime_type,
@@ -81,10 +99,14 @@ export function readImessage(
            left join handle h on h.ROWID = m.handle_id
            left join chat_message_join cmj on cmj.message_id = m.ROWID
            left join chat c on c.ROWID = cmj.chat_id
-          where m.date >= ? and m.item_type = 0
+          where m.date >= ? and (? is null or m.date < ?) and m.item_type = 0
           order by m.date`
       )
-      .all(toAppleNs(since));
+      .all(
+        toAppleNs(since),
+        before ? toAppleNs(before) : null,
+        before ? toAppleNs(before) : null
+      );
     return rows.map((r) => {
       // A chat Messages names (an empty name is none), else, for a 1:1 chat (its identifier a handle, a group's is
       // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.

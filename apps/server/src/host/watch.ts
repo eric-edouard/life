@@ -14,8 +14,8 @@ import {
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { listening } from "../memory/sources";
-import { syncLifelogUnits } from "../memory/units";
-import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";
+import { syncLifelogUnits } from "../memory/unit-writer";
+import { embedderNow, embedNew } from "../memory/vectors";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
@@ -71,11 +71,7 @@ async function embedSearched() {
   }
   embedding = true;
   try {
-    const { isWhole, texts } = await readSearchedTexts();
-    if (isWhole) {
-      pruneVectors(embedder, texts);
-    }
-    await embedNew(embedder, texts);
+    await embedNew(embedder, readSearchedTexts);
   } finally {
     embedding = false;
   }

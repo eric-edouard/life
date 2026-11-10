@@ -8,7 +8,7 @@ agents that act for him. This page says what it protects and what it does not.
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
   no remote. The nightly refuses to commit to a repository that has one.
 - Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
-  keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone and old note
+  keeps is the archive (`~/Library/Application Support/Life/archive/`): phone call history, messages deleted for everyone and old note
   versions.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
@@ -41,7 +41,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
-  prompts (`docs/operations.md`, "Model engines").
+  prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
+  call lines do (who, when, how long; no content), so nothing new leaves the Mac.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac.
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, the appointments (`appointments` setting, his request of 8 Nov 2026),

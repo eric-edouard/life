@@ -204,8 +204,14 @@ go to `apps/identity` once (`POST /embed-ranges`), which returns one embedding p
 samples of source `server`, and the server recognizes. Identity gets the whole Ogg, so a block whose map touches a
 quiet range (dictation, playback) is never cut, nor is an old job's audio the phone sent again (`PUT /jobs/{id}/audio`):
 it may hold dictation from before the Mac kept quiet ranges. A turn the phone sampled before the rebuild keeps that
-sample. A job whose cut failed (identity away, transcription switched off) is tried again by the 5-minute tick, within
-30 days. The phone sends no voice samples.
+sample. The 5-minute tick retries unfinished jobs held by a live conversation, with no age limit. Each job keeps its
+last attempt time; least recently attempted goes first, so an identity outage on one job cannot starve the rest.
+Only one pending pass runs at a time. A one-time database migration reopens every conversation-held job with stored
+audio, including jobs whose samples expired; the same sampler decides which clean turns still need samples.
+Recovery can add evidence for an existing owner assignment through `evidenceForNew`, but never changes that
+assignment. The phone sends no voice samples.
+Only owner actions create people or add person evidence. Recognition writes `recognized` assignments, preserves
+owner rows and never adds evidence; nearby matches never add evidence or propagate inferred names.
 Recognition never sends audio for transcription.
 
 Who spoke each turn (`speakers.ts`, measured against the owner's answers: `eval:voices` replays `match` alone on a
@@ -225,25 +231,36 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   name, no turn moved to anyone, not named from nearby, in no unnamed group and never in "Who's this?". Measured on
   his answers: 16 fewer turns credited to him and 2 to someone else that weren't theirs, no right name lost; this
   holds for new recognition (turns already moved to him stay). A reader's `to: "unknown"` counts the same. Never
-  among his candidates. The strangers' clips go with the rest of the unnamed voice data, 30 days after they were cut.
+  among the owner's candidates. The strangers' samples stay as negative references, outside recovery and cards.
 - An answer (the phone's, "Who's this?", or a reader's correction) writes the owner's row and moves its
   evidence, nothing more; a minute later the sweep matches every transcript again, that one included.
 - Who a turn is: its own row (the owner's correction of it, or a turn moved to him), else its speaker's. One rule
   (`people.ts` `speakerOf`) for the feed, summaries, readers and new evidence, and a turn named on its own is never a
   sample of its speaker's voice (`ofItsSpeaker`).
-- A voice that matches no profile can take a person named in another recording within 45 minutes. When it cleared 0.6
-  but was too close to a runner-up, it takes its nearest person if that person was named there and leads everyone else
-  named there by 0.15: two people who sound alike are rarely both around. Else it takes the name of a voice there that
-  sounds 0.70 alike and leads the next person by 0.1. Only voices the owner named or that matched a profile at 0.65
-  count as references; a voice named this way never names another.
-- A provider speaker can hold several people. Only the owner says so ("Several people" in "Who's this?"): he names
-  each clip in place, its turn alone (one of his people, someone new, or "don't know"), then Done says who: those he
-  named, himself, and "unknown too" if a clip was "don't know". His row on the voice holds them (`candidates`) and
-  names nobody, unless one person besides him is picked without "unknown too": the turns no voice decides fall back on
-  them. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next, and at
-  0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
+- A voice that matches no profile can take a person named in the same conversation, across jobs or within its own
+  job. When it cleared 0.6 but was too close to a runner-up, it takes its nearest person if that person was named
+  there and leads everyone else named there by 0.15. Else it takes the name of a voice there that sounds 0.70 alike
+  and leads the next person by 0.1. Only voices the owner named or that matched a profile at 0.65 count as references;
+  references are fixed before nearby naming, so a voice named this way never names another or becomes evidence.
+  For a lone profile, `rankPeople` scores the missing runner at 0.6, in every caller: ordinary and
+  candidate matches need a 0.1 lead over it; nearby profile naming needs 0.15. Closed choices do not bypass
+  this margin. Owner turns at 0.6 still match without a margin; weaker short turns need the same 0.1 lead.
+- A provider speaker can hold several people. After the owner's turns leave it, recognition groups its remaining
+  clean sampled turns within the job, label and embedding model by exact average linkage. It splits only when every
+  group has at least two sampled turns and `minSpeakerSeconds` of speech, and every pair of group centroids
+  has cosine at most `notThem` (0.2). Failing the grouping threshold alone does not establish another person. The largest
+  group keeps the label's row; other groups get recognized turn rows and go through ordinary matching and nearby
+  naming. A split supplies no name or evidence; unsampled turns stay with the label, owner rows win and written turn
+  rows are kept. The phone keeps one card for the label's main group; the map lists split groups and names each
+  group's turns through the per-turn route. Regroup can join them again.
+- "Several people" in "Who's this?" or on the map lets the owner name each clip in place, its turn alone (one of the
+  owner's people, someone new, or "don't know"), then Done says who: those the owner named, the owner, and
+  "unknown too" if a clip was "don't know". The owner's row on the voice holds them (`candidates`)
+  and names nobody, unless one other person is picked without "unknown too": the turns no voice decides fall back on
+  that person. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next,
+  and at 0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
   answer. A turn's row, once written, is kept. The voice is nobody's evidence and never a
-  nearby reference; the clips he named are his rows, and so evidence. The phone then asks Generate for its
+  nearby reference; the clips the owner named are owner rows, and so evidence. The phone then asks Generate for its
   conversations; nothing else re-runs.
 - Before the multi-select, "several people" named nobody and marked the speaker `mixed`. Those voices come
   back in "Who's this?", each on its own card (kind `several`, past the stranger and media checks) that opens with
@@ -252,15 +269,23 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   `assign_speaker` tools and "Who's this?" find people by them, so a nickname never creates a duplicate. Only the
   owner sets them, on the person's page, and a merged person's name becomes an alias. An answer never learns the name
   the summaries heard: at a table it is often someone else's (a sister's name became another sister's alias, 18 Oct).
-- Unnamed voices are grouped across conversations by how alike they sound (0.6, average linkage), each night and a
-  minute after the owner's answers (`regroup`, with the sweep); a new voice is its own card until then. The queue asks
-  about each group once. A queue card's clips come from the voice's samples, best first, else from its turns with the
+- Unnamed voices are grouped across conversations by how alike they sound (0.6, exact average linkage), each night and
+  a minute after the owner's answers (`regroup`, with the sweep); a new voice is its own card until then. Group vector
+  sums and counts replace the all-pairs matrix, with the same scoring and ties. Computation yields outside database
+  transactions; only changed assignments are committed together. The queue asks about each group once across the
+  whole history, including overheard groups with at least `NAMING.minWords` (300) words. Brief strangers, media and
+  announcements still get no card. A queue card's clips come from the voice's samples, best first, else from its turns with the
   most words. A clip is its turn's words begun in the first 20 s, from the first to the end of the last; a clip of a job with stored audio
   names the job and the turn's start and end in that file (`GET /transcripts/{jobId}/audio`, Ogg Opus, `Range`
   honored), so every card has clips. A job from before the audio store has none, and the phone plays its own recording;
-  cards with a clip to play come first. A card's id is its unnamed group, or its one voice's `jobId/speaker_0`, the
-  id `fetch` and `assign_speaker` use too.
-  Voice data that is nobody's evidence is deleted after 30 days.
+  cards with a clip to play come first, then by the words a name unlocks, counting each turn once. Clips are built
+  only for returned cards. A card's id is its unnamed group, or its one voice's `jobId/speaker_0`, the id `fetch` and
+  `assign_speaker` use too.
+
+On 9 Nov 2026 the owner replaced the age-based deletion promise: unnamed samples stay available until named or
+rejected, and rejected strangers remain negative references. The full retention rules are in
+[providers.md](providers.md#speaker-recognition-our-own-service-no-third-party). Keeping an unnamed sample longer
+does not make it anyone's evidence or allow external transmission; only owner-attributed clips become person evidence.
 
 ### Summaries
 

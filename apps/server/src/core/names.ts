@@ -26,6 +26,7 @@ export const SourceName = z.enum([
   "telegram",
   "whatsapp",
   "imessage",
+  "phone",
   "mail",
   "git",
   "screen",

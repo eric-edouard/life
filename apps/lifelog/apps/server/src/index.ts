@@ -10,6 +10,7 @@ import { logged, refreshOwnerTimeZone, reportError } from "./diagnostics";
 import { runCommand } from "./export";
 import { regroupDirty } from "./grouping";
 import { askForUploads, TICK_MS } from "./latency";
+import { queueCache } from "./naming-cache";
 import { searchFor } from "./search";
 import { services } from "./services";
 import { loadSwitches } from "./switches";
@@ -43,8 +44,11 @@ db.update(intelligenceRuns)
   .set({ error: "cut off by a restart", state: "waiting" })
   .where(eq(intelligenceRuns.state, "running"))
   .run();
+const queue = queueCache(db);
+process.on("exit", () => queue.close());
 const s = services(config, db, {
   audio: audioStore(config),
+  queue,
   search: searchFor(db),
 });
 const {

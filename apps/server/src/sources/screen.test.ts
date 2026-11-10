@@ -4,7 +4,13 @@ import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toAppleS } from "./imessage";
-import { copyScreen, parseSegb, readScreen, stintsOf } from "./screen";
+import {
+  copyScreen,
+  newestScreen,
+  parseSegb,
+  readScreen,
+  stintsOf,
+} from "./screen";
 
 // Made-up Biome files: protobuf records in a SEGB v2 file, as Biome writes them.
 
@@ -241,4 +247,76 @@ test("a record written into a file of the same size and time is still copied", (
   );
   utimesSync(full, then, then);
   expect(copyScreen(root, archive)).toBe(1);
+});
+
+test("the card counts only devices still in use: a retired phone and one Biome no longer syncs turn nothing amber", () => {
+  const { archive, root } = biomeFixture({
+    "App.InFocus/remote/GONE-1/1": segb([
+      { data: phoneApp(-900, "com.example.chat", true) },
+    ]),
+    "App.InFocus/remote/OLD-PHONE/1": segb([
+      { data: phoneApp(-600, "com.example.chat", true) },
+    ]),
+    [`App.InFocus/remote/${PHONE}/1`]: segb([
+      { data: phoneApp(-5, "com.example.chat", true) },
+    ]),
+    "ScreenTime.AppUsage/local/1": segb([
+      { data: macApp(-30, "com.example.editor", true) },
+    ]),
+  });
+  const db = new Database(join(root, "sync/sync.db"));
+  db.run("insert into DevicePeer values ('OLD-PHONE', 0, 2)");
+  db.close();
+  copyScreen(root, archive);
+  expect(newestScreen(archive, root).parts).toEqual([
+    { at: new Date(at(-5)).toISOString(), label: "iOS device" },
+    { at: new Date(at(-30)).toISOString(), label: "Mac" },
+  ]);
+});
+
+test("month-end app and website stints retain joined context and belong only to their start month", () => {
+  const boundary = Date.parse("2026-04-01T00:00:00Z");
+  const min = (boundary - T0) / 60_000;
+  const { archive, root } = biomeFixture({
+    "App.WebUsage/local/1": segb([
+      { data: visit(min - 5, "boundary", "example.org", true) },
+      { data: visit(min + 5, "boundary", "example.org", false) },
+      { data: visit(min + 6, "next", "example.org", true) },
+      { data: visit(min + 10, "next", "example.org", false) },
+    ]),
+    "ScreenTime.AppUsage/local/1": segb([
+      { data: macApp(min - 5, "com.example.editor", true) },
+      { data: macApp(min + 5, "com.example.editor", false) },
+      { data: macApp(min + 6, "com.example.editor", true) },
+      { data: macApp(min + 10, "com.example.editor", false) },
+      { data: macApp(min + 30, "com.example.chat", true) },
+      { data: macApp(min + 40, "com.example.chat", false) },
+    ]),
+  });
+  copyScreen(root, archive);
+  const march = readScreen(
+    new Date("2026-03-01"),
+    archive,
+    root,
+    new Date(boundary)
+  );
+  expect(march.map((e) => [e.text, e.at, e.until])).toEqual([
+    [
+      "com.example.editor",
+      "2026-03-31T23:55:00.000Z",
+      "2026-04-01T00:10:00.000Z",
+    ],
+    [
+      "web: example.org",
+      "2026-03-31T23:55:00.000Z",
+      "2026-04-01T00:10:00.000Z",
+    ],
+  ]);
+  const april = readScreen(
+    new Date(boundary),
+    archive,
+    root,
+    new Date("2026-05-01")
+  );
+  expect(april.map((e) => e.text)).toEqual(["com.example.chat"]);
 });

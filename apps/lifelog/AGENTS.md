@@ -9,6 +9,7 @@ records and turns it into searchable, listenable conversations, with a server th
 - `apps/mac-quiet`: the Mac helper (dictation ranges, model calls) and Lifelog Host, the menu-bar app that runs it all.
 - `apps/identity`: the optional Python speaker-embedding service.
 - `apps/stt-bench`: the transcription bench, Scribe against open models on the Mac (`docs/research/transcription-bench.md`).
+- `apps/voice-bench`: the voice bench, speaker-embedding models on the owner's known voices (`docs/research/voice-bench.md`).
 - `packages/db`: the server's database (schema, migrations, `connect`).
 
 Folded into Life's repo on 24 Oct 2026 (Life's root `AGENTS.md`): one Bun workspace, one TypeScript config and one gate,
@@ -72,6 +73,7 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   alias, phone, email, handle or chat id from the owner's `truth/` (Life's `scripts/scrub-check.ts`; it skips
   without his data); first
   names, places and git history are on you.
+- lifelog serves one local page, the voice map (9 Nov, `docs/decisions.md`), behind its scoped map token; its map routes are also reachable through the public tunnel with that token.
 - **One process writes the archive.** The server holds `<file>.lock`; scripts open it read-only. Read production
   with `sqlite3 -readonly`, never write it.
 

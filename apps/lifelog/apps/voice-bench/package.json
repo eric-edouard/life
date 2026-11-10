@@ -1,0 +1,18 @@
+{
+  "name": "@lifelog/voice-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/bench.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@life/server": "workspace:*",
+    "@lifelog/db": "workspace:*",
+    "@lifelog/server": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

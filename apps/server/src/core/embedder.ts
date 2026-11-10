@@ -95,9 +95,18 @@ export const textHashOf = (model: string, text: string) =>
 export const bytesOf = (vector: readonly number[]) =>
   new Uint8Array(new Float32Array(vector).buffer);
 export const vectorOf = (bytes: Uint8Array) =>
-  new Float32Array(
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-  );
+  bytes.byteOffset % Float32Array.BYTES_PER_ELEMENT === 0
+    ? new Float32Array(
+        bytes.buffer,
+        bytes.byteOffset,
+        bytes.byteLength / Float32Array.BYTES_PER_ELEMENT
+      )
+    : new Float32Array(
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength
+        )
+      );
 
 const BATCH = 32;
 /** Every text embedded as a passage, one batch at a time (the embedder runs one at a time anyway). */
@@ -120,30 +129,39 @@ export const CANDIDATES = 200;
 const MIN_SIMILARITY = 0.25;
 
 function cosine(a: Float32Array, b: Float32Array) {
-  let [dot, aa, bb] = [0, 0, 0];
+  let [dot, bb] = [0, 0];
   for (let i = 0; i < a.length; i += 1) {
     const [x, y] = [a[i] ?? 0, b[i] ?? 0];
     dot += x * y;
-    aa += x * x;
     bb += y * y;
   }
-  return dot / Math.sqrt(aa * bb);
+  return dot / Math.sqrt(bb);
 }
 
-/**
- * The ids of `items` nearest `query` in meaning, best first: at least `MIN_SIMILARITY`, `CANDIDATES` at most.
- * ponytail: every item is scored in JS (about 25k × 768 floats is a few hundred ms); a vector index (sqlite-vec) when
- * an archive nears 250k.
- */
+/** The ids nearest `query`: at least `MIN_SIMILARITY`, keeping only `CANDIDATES` scores in memory. */
 export function nearest(
   query: readonly number[],
   items: Iterable<readonly [string, Float32Array]>
 ) {
-  const q = Float32Array.from(query);
-  return [...items]
-    .map(([id, v]) => [id, cosine(q, v)] as const)
-    .filter(([, similarity]) => similarity >= MIN_SIMILARITY)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, CANDIDATES)
-    .map(([id]) => id);
+  const length = Math.hypot(...query);
+  const q = Float32Array.from(query, (n) => n / length);
+  const best: { id: string; similarity: number }[] = [];
+  for (const [id, vector] of items) {
+    const similarity = cosine(q, vector);
+    if (!(similarity >= MIN_SIMILARITY)) {
+      continue;
+    }
+    const before = best.findIndex((b) => b.similarity < similarity);
+    if (before < 0) {
+      if (best.length < CANDIDATES) {
+        best.push({ id, similarity });
+      }
+    } else {
+      best.splice(before, 0, { id, similarity });
+      if (best.length > CANDIDATES) {
+        best.pop();
+      }
+    }
+  }
+  return best.map((b) => b.id);
 }

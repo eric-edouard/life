@@ -1,3 +1,4 @@
+import { type QueueCache, queueCache } from "./naming-cache";
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
@@ -21,12 +22,7 @@ import { reportError } from "./diagnostics";
 import { type ExcerptSampler, excerptSampler } from "./excerpts";
 import { type JobWorker, jobWorker } from "./jobs";
 import { type MacSocket, macSocket } from "./mac-socket";
-import {
-  type MorningPush,
-  morningPush,
-  type QueueCache,
-  queueCache,
-} from "./naming-queue";
+import { type MorningPush, morningPush } from "./naming-queue";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
 import { macProvider, type Provider } from "./providers";

@@ -71,6 +71,13 @@
       "when": 1793882688988,
       "tag": "20261105124448_drop_embedding_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794225727810,
+      "tag": "20261109120207_reopen_voice_samples",
+      "breakpoints": true
     }
   ]
 }

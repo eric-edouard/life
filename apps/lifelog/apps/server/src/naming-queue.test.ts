@@ -16,12 +16,8 @@ import { eq as is } from "drizzle-orm";
 import type { PushRequest } from "./apns";
 import { createApp } from "./app";
 import { setOwnerTimeZone } from "./config";
-import {
-  answerVoices,
-  cardClips,
-  morningPush,
-  queueCache,
-} from "./naming-queue";
+import { cardClips } from "./naming-clips";
+import { answerVoices, morningPush, namingQueue } from "./naming-queue";
 import { assign, sweep } from "./people";
 import { services } from "./services";
 import { PROMPT_VERSION } from "./summary-calls";
@@ -51,8 +47,8 @@ beforeEach(() => {
 // Oct 10 at noon in the tests' zone (Asia/Jakarta, set below), and the next morning at 9.
 const NOON = Date.parse("2026-10-10T05:00:00Z");
 const NEXT_MORNING = new Date("2026-10-11T02:00:00Z");
-// The queue as of the next morning.
-const queued = () => queueCache(env.db, () => NEXT_MORNING).items();
+// The whole naming queue.
+const queued = () => namingQueue(env.db).items();
 
 // Conversations seeded in this test: each one starts an hour after the one before, so their
 // words never overlap.
@@ -157,7 +153,6 @@ test("a voice that talked with the owner is queued with the name heard; others a
   // People nearby talking among themselves, between the owner's turns.
   conversation(me, talk(8), [identity({ withOwner: false })]);
 
-  // Only Hervé's voice: the others are strangers or media.
   const items = queued();
   expect(items[0]?.clips.length).toBeGreaterThan(0);
   expect(items).toEqual([
@@ -184,6 +179,7 @@ test("a voice that talked with the owner is queued with the name heard; others a
           speakerLabel: "speaker_1",
         },
       ],
+      words: 8,
     },
   ]);
 });
@@ -210,7 +206,7 @@ test("the morning pushes the queue's length once, the number the badge shows", a
   twoCards();
   env.db.insert(alertPushToken).values({ pushToken: "abcdef" }).run();
   const sent: PushRequest[] = [];
-  const queue = queueCache(env.db, () => NEXT_MORNING);
+  const queue = namingQueue(env.db);
   const digest = morningPush(
     env.db,
     (request) => {
@@ -248,14 +244,14 @@ test("no voice waiting, no push", async () => {
       return Promise.resolve({ body: "", status: 200 });
     },
     "app",
-    queueCache(env.db, () => NEXT_MORNING)
+    namingQueue(env.db)
   );
   expect(await digest.morning(NEXT_MORNING)).toEqual({ count: 0 });
   expect(sent).toBe(0);
 });
 
-test("the kept queue is always the one built afresh", () => {
-  const queue = queueCache(env.db, () => NEXT_MORNING);
+test("the kept queue is always the one built afresh", async () => {
+  const queue = namingQueue(env.db);
   twoCards();
   expect(queue.items()).toEqual(queued());
   const [first] = queue.items();
@@ -266,7 +262,7 @@ test("the kept queue is always the one built afresh", () => {
   conversation(me?.id ?? "", talk(8), [identity({ name: "Zoé" })]);
   expect(queue.items()).toHaveLength(2);
   expect(queue.items()).toEqual(queued());
-  sweep(env.db);
+  await sweep(env.db);
   expect(queue.items()).toEqual(queued());
 });
 
@@ -403,13 +399,12 @@ test("the queue holds a voice once across days, and loses it once answered", () 
   const day = 86_400_000;
   const first = conversation(me, talk(4), [identity({ name: "Hervé" })]);
   const second = conversation(me, talk(4), [], [], NOON + day);
-  // Too old: past the queue's 30 days.
-  conversation(me, talk(8), [], [], NOON - 40 * day);
+  const old = conversation(me, talk(4), [], [], NOON - 40 * day);
   const group = randomUUID();
   env.db
     .insert(speakerAssignments)
     .values(
-      [first, second].map(({ jobId }) => ({
+      [first, second, old].map(({ jobId }) => ({
         candidateId: group,
         jobId,
         source: "recognized" as const,
@@ -418,25 +413,24 @@ test("the queue holds a voice once across days, and loses it once answered", () 
       }))
     )
     .run();
-  const at = new Date(NOON + 2 * day);
-  // Neither day alone has enough back-and-forth for a card; together they do.
-  const [item, ...rest] = queueCache(env.db, () => at).items();
+  // No conversation alone has enough back-and-forth for a card; together they do.
+  const [item, ...rest] = namingQueue(env.db).items();
   expect(rest).toEqual([]);
   expect(item).toMatchObject({
-    conversations: 2,
+    conversations: 3,
     id: group,
     kind: "new_person",
     name: "Hervé",
   });
   expect(item?.voices.map((v) => v.jobId).sort()).toEqual(
-    [first.jobId, second.jobId].sort()
+    [first.jobId, second.jobId, old.jobId].sort()
   );
 
   answerVoices(env.db, item?.voices ?? [], {
     kind: "confirm",
     name: "Hervé",
   });
-  expect(queueCache(env.db, () => at).items()).toEqual([]);
+  expect(namingQueue(env.db).items()).toEqual([]);
 });
 
 test("a voice that sounds like a stranger is never asked about", () => {
@@ -794,7 +788,7 @@ test("several people: passages named in place, then who; the one to fall back on
   expect(queued()).toEqual([]);
 });
 
-test("a voice marked several people before the multi-select comes back on its own until answered", () => {
+test("a voice marked several people before the multi-select comes back on its own until answered", async () => {
   const me = owner();
   const talked = conversation(me, ["speaker_0", "speaker_1"]);
   env.db
@@ -809,7 +803,7 @@ test("a voice marked several people before the multi-select comes back on its ow
     })
     .run();
   // Recognition leaves it as it is.
-  sweep(env.db);
+  await sweep(env.db);
   const [card, ...rest] = queued();
   expect(rest).toEqual([]);
   expect(card).toMatchObject({

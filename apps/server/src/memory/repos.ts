@@ -15,7 +15,7 @@ import { topTopics } from "./episodes";
 import {
   REPOS_INFERRED,
   readInferredRepos,
-  readUnits,
+  readUnitsOf,
   readVerdicts,
   type Verdicts,
   verdictOf,
@@ -221,7 +221,7 @@ export async function codeOn(day: string) {
   const [truth, inferredRepos, units, verdicts] = await Promise.all([
     loadTruth(),
     readInferredRepos(),
-    readUnits(),
+    readUnitsOf([day]),
     readVerdicts(),
   ]);
   return codeRows(
