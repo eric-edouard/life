@@ -19,14 +19,7 @@ import { locate } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
-import {
-  clip,
-  dayUnitId,
-  isFrozen,
-  isLifeOutput,
-  speakerOf,
-  textOf,
-} from "./units";
+import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "./units";
 import { type People, readPeople, unitNow } from "./who";
 import { messageLine, spokenLines } from "./words";
 import { localDate, time } from "./zones";
@@ -495,14 +488,13 @@ export async function personas({ events, failed, since }: WithPeople) {
   }
   const people = await readPeople();
   const paged = await pagedNow(people);
-  const kept = events.filter((e) => !(isLifeOutput(e) || e.bulk));
-  const direct = directChats(kept, people.resolve);
+  const direct = directChats(events, people.resolve);
   const said = new Map(
-    kept.map((e) => [e, speakerOf(kindOf(e.source), e, people.resolve)])
+    events.map((e) => [e, speakerOf(kindOf(e.source), e, people.resolve)])
   );
   const named = (ref: string) => (ref === OWNER ? "him" : people.nameOf(ref));
   const whoOf = (e: SourceEvent) => named(said.get(e) ?? OWNER);
-  const groupDays = groupDaysOf(kept, said);
+  const groupDays = groupDaysOf(events, said);
   const groupsWith = (refs: Set<string>) =>
     shownDaysOf(
       groupDays.flatMap((list) =>

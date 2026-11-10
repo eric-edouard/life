@@ -10,7 +10,7 @@ import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf, safely, tables } from "./sources";
-import { chatPerson } from "./units";
+import { chatPerson, isLifeOutput } from "./units";
 import { type People, readPeople } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -347,8 +347,9 @@ export async function waitingOf(
 }
 
 /**
- * His chats and mail with people since `since` (`WITH_PEOPLE`); `failed`, the sources that could not be read. The
- * night reads the last YEARS years, once, for closeness and personas, and nothing older.
+ * His chats and mail with people since `since` (`WITH_PEOPLE`), bulk mail and Life's own output left out; `failed`,
+ * the sources that could not be read. The night reads the last YEARS years, once, for closeness and personas, and
+ * nothing older.
  */
 export async function readWithPeople(
   since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`)
@@ -360,7 +361,9 @@ export async function readWithPeople(
         safely(name, () => read(since), failed)
       )
     )
-  ).flat();
+  )
+    .flat()
+    .filter((e) => !(e.bulk || isLifeOutput(e)));
   return { events, failed, since };
 }
 export type WithPeople = Awaited<ReturnType<typeof readWithPeople>>;

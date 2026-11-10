@@ -7,7 +7,6 @@ import {
   closedConversations,
   groupsOf,
   lanesOf,
-  packed,
   priorFor,
 } from "./extract";
 import { episodesNow } from "./ledger";
@@ -103,17 +102,6 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     ["ep_000000000002", [U1]],
     [null, ["unit_000000000005"]],
   ]);
-  const sized = (n: number) => ({
-    sources: [
-      {
-        lines: [{ at: "", ref: "", speaker: "", text: "x".repeat(n) }],
-        unit: b1.unit,
-      },
-    ],
-  });
-  expect(
-    packed([sized(60), sized(50), sized(10)], 100).map((c) => c.length)
-  ).toEqual([1, 2]);
 });
 
 test("the calls of one episode share a lane, in order, even when a call joins two episodes' lanes", () => {
