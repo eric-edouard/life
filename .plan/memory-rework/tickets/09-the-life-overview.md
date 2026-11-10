@@ -15,7 +15,7 @@ The one direct answer to "where do things stand in my life": its sections (areas
   memory at all (his word): mails could run every hour or never, and the memory must work the same. The memory holds
   and serves the overview; any reader asks for it when it likes.
 
-## Decided by the designer (10 Nov; spec section 12)
+## Where it is decided
 
-- One overview, the top of the read path: his seven areas, each line pointing at a subject, one screen per area at
-  most; built from the subjects' standings; rebuilt when a standing changed; read through one connector read.
+The spec, second draft (after the review of 10 Nov): section 13 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

@@ -12,7 +12,7 @@ the levels it reads from the top down (the life overview, a subject, a span of t
 the size each level may have so it is read whole, how each points down, how a question about a relationship reaches
 the relationship and never the logistics (his 8 Nov mail), and what the connector says to steer an agent there.
 
-## Decided by the designer (10 Nov; spec section 12)
+## Where it is decided
 
-- Five steps down (overview, subject, span, evidence, raw), each read whole; a subject read ordered by the kind of
-  question; search over every level; three connector reads added in one batch.
+The spec, second draft (after the review of 10 Nov): section 13 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

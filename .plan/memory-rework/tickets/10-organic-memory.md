@@ -34,3 +34,10 @@ He left the shape to the designer ("I really don't know. You probably know bette
   what was opened and never closed.
 - **Near now**: the open month and "where it stands" (today's situation, widened to every subject) are the detailed
   end; the coded acts and measured facts under them cover every age, as evidence an agent reaches only by zooming in.
+
+## Changed by the spec's second draft (after the review of 10 Nov)
+
+Section 11 of [spec.md](../spec.md) holds this now. What moved: a month is read from its own evidence only, with no
+story as context (a hidden input broke its key); a changed summary is rebuilt at the next build and its old version
+stays in the data repo's history, so nothing is "sealed for ever"; a history is built when first asked for, not for
+everyone every month; the story is rebuilt at a year's end or a turning point.

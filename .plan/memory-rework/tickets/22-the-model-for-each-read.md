@@ -9,7 +9,7 @@ blocked_by: [12, 16, 20]
 
 Which model and provider each read uses, on the evidence of the pilot's checks, with the cost of the backfill shown. Needs his yes.
 
-## Decided so far (10 Nov; spec section 17)
+## Where it is decided
 
-- Decided on the pilot's evidence with the backfill's cost shown, on his yes. Backfills on Codex; the old WhatsApp
-  history on OpenRouter's DeepSeek after an estimate he approves.
+The spec, second draft (after the review of 10 Nov): sections 16, 19 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

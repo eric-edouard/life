@@ -22,10 +22,7 @@ observer measures his actions against it.
   effect or to please, it never reorders his goals by itself. His actions are measured against the declared order,
   and the gap is written (ticket 08).
 
-## Decided by the designer (10 Nov; spec sections 7, 9)
+## Where it is decided
 
-- A goal is a subject. Counted by code: hours and money per project, area and person per week, set against his
-  declared order. Read by a model: what moved it, and the meaning of the gap.
-- His vision is declared in the interview and kept current like the goals; the year level of his own history shows
-  where the years are heading against it.
-- A new Life starts with an interview: goals and objectives, and how he plans to get there (his word, 10 Nov).
+The spec, second draft (after the review of 10 Nov): sections 8, 10 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

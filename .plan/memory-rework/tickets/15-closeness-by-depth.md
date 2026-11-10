@@ -17,9 +17,7 @@ What he confides to someone about third parties and his own life (talk about abs
 close read covering every two-sided exchange is coverage, not closeness; the measured facts per exchange (who started,
 reply delays, shares) are evidence for meters, never a closeness score by themselves.
 
-## Decided by the designer (10 Nov; spec section 9)
+## Where it is decided
 
-- Closeness is depth, counted: what is confided each way, support exchanged, the personal against the practical,
-  years known; personal and work apart; his word above it.
-- It gates nothing: everyone has a history as deep as their evidence. It ranks who shows in the overview and in a
-  call's context.
+The spec, second draft (after the review of 10 Nov): section 10 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

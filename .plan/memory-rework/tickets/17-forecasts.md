@@ -15,7 +15,7 @@ His word (10 Nov): forecasting always improves itself from the predictions that 
 and that adjusts the persona. In the architecture: what happened is evidence, so the counts move; each kind is
 recalibrated from its score; a run of misses reopens the subject's reading and marks a possible turning point.
 
-## Decided by the designer (10 Nov; spec section 10)
+## Where it is decided
 
-- A forecast is a record with its check day and score; kinds, horizons, base rates first, the backtest gate, free
-  questions scored apart, and the loop that closes by itself: all in the spec.
+The spec, second draft (after the review of 10 Nov): section 12 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

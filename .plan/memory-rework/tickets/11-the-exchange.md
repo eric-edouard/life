@@ -53,3 +53,10 @@ Also (his ask, 9 Nov): the passages where he or the other person talks about som
   did it and to whom, so a person's conduct toward others ("with others") is kept apart from their conduct with him.
   A sitting is read when he speaks in it, or when the group is small and someone who also talks with him one to one
   speaks in it (the family group, a project's group). "Big" is set from his data at the pilot.
+
+## Changed by the spec's second draft (after the review of 10 Nov)
+
+Section 3 of [spec.md](../spec.md) holds this now. What moved: "messages nobody answered" are skipped only in a chat
+where nobody ever answered; in a living chat an ignored message is read, since it is the evidence for who goes
+silent. An exchange may cross midnight and belongs to the day it starts in. People are never written into a record.
+Deletions are measured. Routing (a focused read only where the day's read flags it) waits on his word.

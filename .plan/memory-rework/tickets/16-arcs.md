@@ -11,7 +11,7 @@ The story over months and years of a relationship, a project, a period of his li
 
 An arc of B includes what he and others said about B when B was absent, each with its listener.
 
-## Decided by the designer (10 Nov; spec section 8)
+## Where it is decided
 
-- An arc is a subject's history read at the year and story levels, with its turning points and named periods as a
-  view. Sealed months give "as things stood then". His reading of the pilot pages happens at the pilot.
+The spec, second draft (after the review of 10 Nov): section 11 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

@@ -17,8 +17,7 @@ From issue #390, held nowhere else on the map: how each promise or wait ended (k
 a choice with its why and what he expected; routines (the same place, person or hour again and again); ties between
 other people (who knows whom, from shared episodes and groups); health lines that don't age out.
 
-## Decided by the designer (10 Nov; spec section 4)
+## Where it is decided
 
-- One append-only log with eight kinds (what happened, what was said, how it ended, what was done, what was told
-  about someone, what someone says of themselves, what code measured, his word); ids from the place in the raw;
-  each family its own read; lasting families at every age.
+The spec, second draft (after the review of 10 Nov): sections 4, 6 of [spec.md](../spec.md). The spec is the one
+place that says it; this ticket keeps only his own words above.

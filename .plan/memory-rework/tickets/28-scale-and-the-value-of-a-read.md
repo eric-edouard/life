@@ -43,4 +43,8 @@ levels, by re-reads, by cascades), what bounds each, and how is a read spent whe
   stop at any point leaves the most useful part done.
 - The cost of each layer over the whole history is counted and shown to him before any backfill.
 
-To fold into the spec together with the review's findings.
+## Where it is decided
+
+Section 14 of [spec.md](../spec.md), corrected by the review: the first analysis above claimed "every read is of new
+text, once" and "no read grows with the years"; both were false as drafted (the story, the situation's tail,
+backtests). The reviewer's count for the first draft: about 12 to 23 times the raw text a year, none of it measured.

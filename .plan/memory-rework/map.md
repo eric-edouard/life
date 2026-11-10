@@ -80,13 +80,16 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [The exchange](./tickets/11-the-exchange.md) — cut by code at a night's silence, one channel each, never stored twice; every two-sided exchange gets the close read; measured facts, reactions and reply links beside the units; talk about someone absent is a mention inside its exchange; assistant chats are his own writing, not exchanges; in a group each act names who did it and to whom
 - [Organic memory](./tickets/10-organic-memory.md) — left to the designer (10 Nov): calendar steps per subject (month, year, the whole story), a level only where the one below is too big to read whole, sealed months read once, upper levels rebuilt from the level below and never from themselves, counts never summarized, the long-standing carried up by rule
 
-- [The spec](./spec.md) — drafted 10 Nov by the designer from all of the above: the evidence log, the codebook, subjects and vantage, his word and Life's list (what `truth/` becomes, with the interview that seeds a new Life), histories as summary and tail, the counted readings, forecasts, the write and read paths, the boundary, how it is judged, the move, the names. Tickets 05 to 27 point at its sections.
+- [The spec](./spec.md) — second draft, 10 Nov. The first draft was reviewed the same day by a fresh reviewer (38 out of 100 as ready for a pilot; the review is in his data repo, `docs/memory-rework/experiments/2026-11-10-spec-review-1.md`). The second draft answers it: a count is defined (the exchange as the unit, the chance recorded, one rate per meter, a table from codes to readings), links tie a promise to its ending, the pilot has four pieces with claims, baselines and pass marks, his word has a row per kind, histories are built when first asked, and scale is bounded (section 14). Tickets 05 to 28 point at its sections.
+- [Scale, and the value of a read](./tickets/28-scale-and-the-value-of-a-read.md) — his word, 10 Nov: no exponential reads; scale reasonably while maximizing information value. Spec section 14.
 
 ## Waiting on his word
 
-- The names of spec section 16, and the poles of the meters in his words (ticket 23, 13).
-- The rules of `AGENTS.md` that `truth/` becoming Life's list changes; rewritten with the build, on his yes (ticket 18).
-- The model for each read and the backfill's cost, after the pilot (ticket 22).
+- His six calls of spec section 19: routing; a third person in the pilot; one whole-thread read as a comparison; doubtful codes asked to him in conversation; a forecast leaning on everyone's rate when a count is tiny; the price of reading moves over the whole history. The spec assumes yes to the first five.
+- The names of spec section 18, and the poles of the meters in his words.
+- The rules of `AGENTS.md` listed in spec section 17, rewritten with the build, on his yes.
+- The model for each read and the backfill's cost, after the pilot.
+- A confirming second review of the spec, then stop reviewing.
 
 ## Not yet specified
 
