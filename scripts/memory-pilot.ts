@@ -35,7 +35,7 @@ import { z } from "zod";
 
 /** The reads the pilot knows, each by its prompt. */
 const READS: Record<string, { prompt: string }> = {
-  connection: { prompt: "memory-connection.v1" },
+  connection: { prompt: "memory-connection.v2" },
 };
 /** Where a reply is kept, by read and engine: his data, outside `memory/`, so no lock and no nightly step reads it. */
 const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
