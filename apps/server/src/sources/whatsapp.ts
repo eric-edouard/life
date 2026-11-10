@@ -98,7 +98,8 @@ export const phoneOf = (jid: string) =>
 export function readWhatsapp(
   since: Date,
   archive = ARCHIVE,
-  whatsapp = WHATSAPP
+  whatsapp = WHATSAPP,
+  before?: Date
 ): SourceEvent[] {
   const phones = phonesOfLids(whatsapp);
   return readArchived<
@@ -123,7 +124,8 @@ export function readWhatsapp(
               }),
             ]
           : [],
-    })
+    }),
+    before
   );
 }
 
@@ -176,14 +178,15 @@ const open = (dir: string) =>
 export function copyWhatsapp(
   source = WHATSAPP,
   dir = ARCHIVE,
-  now = clock().getTime()
+  now = clock().getTime(),
+  isFull = false
 ): number {
   const archive = open(dir);
   const whatsapp = openReadOnly(join(source, "ChatStorage.sqlite"));
   try {
     const empty = !archive.query("select 1 from messages limit 1").get();
-    // The first run copies all history; later runs only the last week, where anything can still change.
-    const since = empty ? 0 : toAppleS(now) - WINDOW_S;
+    // The first run and an explicit full copy keep all history; routine passes only need the last week.
+    const since = isFull || empty ? 0 : toAppleS(now) - WINDOW_S;
     const rows = whatsapp
       .query<StoreRow, [number]>(
         `select coalesce(m.ZSTANZAID, 'pk:' || m.Z_PK) as id, m.ZMESSAGETYPE as type, m.ZISFROMME as fromMe,
@@ -197,14 +200,21 @@ export function copyWhatsapp(
           where m.ZMESSAGEDATE > ?`
       )
       .all(since);
+    const phones = phonesOfLids(
+      existsSync(join(source, "ContactsV2.sqlite")) ? source : WHATSAPP
+    );
     const seenAt = new Date(now).toISOString();
     // Every call WhatsApp still holds on the table's first copy (its chats keep them for years), later the window.
-    const callsSince = archive.query("select 1 from phone_calls limit 1").get()
-      ? toAppleS(now) - WINDOW_S
-      : 0;
+    const callsSince =
+      !isFull && archive.query("select 1 from phone_calls limit 1").get()
+        ? toAppleS(now) - WINDOW_S
+        : 0;
     insertAll(
       archive,
-      "insert or ignore into phone_calls (chat, id, details, seenAt) values (?, ?, ?, ?)",
+      `with incoming (chat, id, details, seenAt) as (values (?, ?, ?, ?))
+       insert or ignore into phone_calls select * from incoming
+       where not exists (select 1 from phone_calls c where c.chat is incoming.chat
+         and c.id = incoming.id and c.details = incoming.details)`,
       whatsapp
         .query<
           { chat: string | null; details: Uint8Array; id: string },
@@ -221,10 +231,21 @@ export function copyWhatsapp(
     );
     const added = insertAll(
       archive,
-      `insert or ignore into messages (id, chat, chatName, sender, senderName, fromMe, at, type, text, media, seenAt)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      // Match the existing unique keys with null-safe chats: SQLite's unique constraint allows repeated nulls.
+      `with incoming (id, chat, chatName, sender, senderName, fromMe, at, type, text, media, seenAt)
+         as (values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+       insert or ignore into messages select * from incoming
+       where not exists (select 1 from messages m where m.chat is incoming.chat
+         and m.id = incoming.id and m.type = incoming.type and m.text = incoming.text and m.media = incoming.media)`,
       rows.map((r) => [
-        ...[r.id, r.chat, r.chatName, r.sender, r.senderName, r.fromMe],
+        ...[
+          r.id,
+          r.chat,
+          r.chatName,
+          phones.get(r.sender ?? "") ?? r.sender,
+          r.senderName,
+          r.fromMe,
+        ],
         fromAppleS(r.at).toISOString(),
         ...[r.type, r.text, r.media, seenAt],
       ])

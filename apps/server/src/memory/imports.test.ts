@@ -1,9 +1,13 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { appendJsonl } from "../core/files";
+import { setSettings, settings } from "../core/settings";
+import { Imported } from "../records/observation";
 import { importOf } from "../sources/assistants";
 import { dryRun, importExport, parseJudged } from "./imports";
+import { IMPORTED } from "./ledger";
 
 // A made-up claude.ai export: one conversation about his life, one only code.
 const exportOf = (text: string) => [
@@ -80,4 +84,120 @@ test("another export of the same assistant is refused before any model call", as
   await expect(
     importExport(folderWith(exportOf("A newer one.")))
   ).rejects.toThrow("holds another Claude export already");
+});
+
+test("an import without a historical engine stops before copying or any model work", async () => {
+  const folder = folderWith(exportOf("An older export."));
+  const before = settings().backfillEngine;
+  try {
+    setSettings({ backfillEngine: null });
+    await expect(importExport(folder)).rejects.toThrow("set backfillEngine");
+    expect(dryRun(folder).source).toBe("claude");
+  } finally {
+    setSettings({ backfillEngine: before ?? null });
+  }
+});
+
+test("imports route quota and calls to the historical engine and keep import.v1 judgments across engines", async () => {
+  const json = exportOf("My sister Ada moves to Lyon in May.");
+  const first = json.at(0);
+  if (!first) {
+    throw new Error("missing fixture conversation");
+  }
+  first.uuid = "already";
+  const next = {
+    ...first,
+    chat_messages: [
+      {
+        created_at: "2026-03-02T10:15:00.000Z",
+        sender: "human",
+        text: "I will visit Ada after her move.",
+        uuid: "next",
+      },
+    ],
+    uuid: "remaining",
+  };
+  json.push(next, {
+    ...first,
+    chat_messages: [
+      {
+        created_at: "2001-01-01T23:30:00.000Z",
+        sender: "human",
+        text: "Explain these general design options.",
+        uuid: "old-message",
+      },
+    ],
+    uuid: "ancient-unkept",
+  });
+  const folder = folderWith(json);
+  writeFileSync(importOf("claude"), JSON.stringify(json));
+  appendJsonl(IMPORTED, Imported, [
+    {
+      at: "2026-03-04T00:00:00Z",
+      conversation: "claude:ancient-unkept",
+      keep: false,
+      madeBy: {
+        engine: "claude",
+        model: "old",
+        prompt: "import.v1",
+        run: "old",
+      },
+      schemaVersion: 1,
+      why: "General work, still searchable.",
+    },
+    {
+      at: "2026-03-04T00:00:00Z",
+      conversation: "claude:already",
+      keep: true,
+      madeBy: {
+        engine: "claude",
+        model: "old",
+        prompt: "import.v1",
+        run: "old",
+      },
+      schemaVersion: 1,
+      why: "About family.",
+    },
+  ]);
+  const before = settings().backfillEngine;
+  const schedule = await import("./schedule");
+  const models = await import("../models/llm");
+  const zones = await import("./zones");
+  const localDay = spyOn(zones, "localDate").mockImplementation(
+    (at) => zones.wall(at, "Pacific/Kiritimati").day
+  );
+  const quota = spyOn(schedule, "spareQuota").mockResolvedValue();
+  const ask = spyOn(models, "askOnce")
+    .mockRejectedValueOnce(new Error("Codex unavailable"))
+    .mockResolvedValue({
+      conversations: [{ id: "remaining", keep: true, why: "About family." }],
+    });
+  try {
+    setSettings({ backfillEngine: "codex" });
+    const deferred = await importExport(folder);
+    expect(deferred).toMatchObject({ asked: 1, failed: 1, unjudged: 1 });
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(ask.mock.calls[0]?.[0].llm.engine).toBe("codex");
+    const result = await importExport(folder);
+    expect(quota).toHaveBeenCalledWith("codex");
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(ask.mock.calls[1]?.[0].llm.engine).toBe("codex");
+    expect(result).toMatchObject({
+      asked: 1,
+      failed: 0,
+      kept: 2,
+      units: { days: 2, from: "2001-01-01", to: "2026-03-02" },
+      unjudged: 0,
+    });
+    expect(result.read.from).toBe("2001-01-02");
+    expect(result.read.to).toBe("2026-03-03");
+    const again = await importExport(folder);
+    expect(again.asked).toBe(0);
+    expect(ask).toHaveBeenCalledTimes(2);
+  } finally {
+    ask.mockRestore();
+    quota.mockRestore();
+    localDay.mockRestore();
+    setSettings({ backfillEngine: before ?? null });
+  }
 });

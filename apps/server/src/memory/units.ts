@@ -1,12 +1,12 @@
-import { join } from "node:path";
 import { clock, daysBefore, MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
+import type { Engine } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import type { Person } from "../records/truth";
-import { Unit } from "../records/unit";
+import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
@@ -25,16 +25,15 @@ import {
   readFiles,
   readInferredRepos,
   readUnits,
-  readUnitsOf,
-  UNITS,
 } from "./ledger";
 import { describeFiles, showFiles } from "./message-files";
-import { loadTruth, OWNER, ownerIn, type Truth } from "./read-truth";
+import { OWNER, ownerIn, type Truth } from "./read-truth";
 import {
   enabledSources,
   isDirect,
   kindOf,
   readySources,
+  SOURCES,
   safely,
   sourceOf,
 } from "./sources";
@@ -603,8 +602,12 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
 /** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
-const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
-  s.kind === "repo" ? s.read(since, map) : s.read(since);
+const readOf = (
+  s: Read,
+  since: Date,
+  map: { me: Person; repos: RepoMap },
+  before?: Date
+) => (s.kind === "repo" ? s.read(since, map, before) : s.read(since, before));
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -621,9 +624,12 @@ export function builtFor(
     return;
   }
   const events = showFiles(
-    readOf(source, new Date(unit.start), { me, repos }).filter(
-      (e) => e.chat === unit.key && e.at <= unit.end
-    ),
+    readOf(
+      source,
+      new Date(unit.start),
+      { me, repos },
+      new Date(Date.parse(unit.end) + 1)
+    ).filter((e) => e.chat === unit.key && e.at <= unit.end),
     readFiles()
   );
   if (events.length > 0) {
@@ -657,17 +663,19 @@ export const DAYS = 7;
  */
 export async function gather(
   window: Window,
-  { resolve, truth }: { resolve: Resolve; truth: Truth }
+  { resolve, truth }: { resolve: Resolve; truth: Truth },
+  options: { engine?: Engine; historical?: boolean } = {}
 ) {
-  // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
-  // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
+  const before = dayStart(daysBefore(window.to, -1));
   const failed: string[] = [];
   const repos = repoMap(truth, await readInferredRepos());
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
   // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
-  const sources = readySources();
+  const sources = readySources().filter(
+    (s) => !options.historical || s.kind !== "voice"
+  );
   const skipped = enabledSources().filter((s) => !sources.includes(s));
   for (const s of skipped) {
     log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
@@ -692,15 +700,22 @@ export async function gather(
     sources
       .flatMap((s) => (s.kind === "voice" ? [] : [s]))
       .map(async (s) => ({
-        events: await safely(s.name, () => readOf(s, since, ctx), failed),
+        events: await safely(
+          s.name,
+          () => readOf(s, since, ctx, before),
+          failed
+        ),
         s,
       }))
   );
   // The recent messages' files are described, then every message's shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
-  const files = await describeFiles(
-    read.flatMap(({ events }) => events).filter((e) => e.at >= recent)
-  );
+  const files = options.historical
+    ? undefined
+    : await describeFiles(
+        read.flatMap(({ events }) => events).filter((e) => e.at >= recent),
+        options.engine
+      );
   const known = readFiles();
   const shown = read.map(({ events, s }) => ({
     events: showFiles(events, known),
@@ -721,6 +736,8 @@ export async function gather(
   return {
     built,
     conversations: lifelog,
+    engine: options.engine,
+    events: shown.flatMap(({ events }) => events),
     failed,
     files,
     read: {
@@ -731,39 +748,15 @@ export async function gather(
     },
     repos,
     /** Sources he turned on that can't be read now: their units stay as they were. */
-    skipped: skipped.map((s) => s.name),
+    skipped: (options.historical
+      ? SOURCES.filter((s) => !sources.includes(s))
+      : skipped
+    ).map((s) => s.name),
     truth,
     window,
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
-
-/**
- * Writes memory/units/<date>.jsonl for each of `dates`: that day's units, sorted by start, with the units already there
- * that `keep` keeps (those of a source this write did not read).
- */
-export async function writeUnits(
-  dates: string[],
-  fresh: Unit[],
-  keep: (u: Unit) => boolean = () => false
-) {
-  const ids = new Set(fresh.map((u) => u.id));
-  const units = [
-    ...fresh,
-    ...readUnitsOf(dates).filter((u) => keep(u) && !ids.has(u.id)),
-  ];
-  await Promise.all(
-    dates.map(async (date) => {
-      const lines = units
-        .filter((u) => u.date === date)
-        .sort(
-          (a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id)
-        )
-        .map((u) => JSON.stringify(Unit.parse(u)));
-      await Bun.write(join(UNITS, `${date}.jsonl`), `${lines.join("\n")}\n`);
-    })
-  );
-}
 
 /**
  * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations
@@ -788,58 +781,5 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
     chapters,
     conversations,
     have,
-  };
-}
-
-/**
- * Makes the lifelog units in memory/units/ from `since` on the ones the store gives (what the watcher does after a page,
- * `since` where the page touched: `apply`); a chapter unit stays as stored while its conversation is live
- * (`frozenUnits`), and goes with it. A day's file is rewritten only when its lifelog units differ; other units in it
- * stay. Returns how many units were built, changed and removed, the units written (`written`), and whether a unit went
- * or a code rule dropped or took one back (`hasGoneOrBack`: the observations on it go or come back).
- * ponytail: `gather` (episodes) and this apply the `duplicate` rule within what they read, so a lifelog unit repeating
- * one from before may flip between the two writers; one writer settles it. A unit id that comes back (a conversation
- * regrouped onto a day it had left) counts as new: its old observations stay gone until the next full rebuild (the
- * night's); compare ids against the index's observations if that day matters.
- */
-export async function syncLifelogUnits(store: Store, since: Date) {
-  const { built, chapters, have } = await voiceUnits(
-    store,
-    since,
-    await loadTruth()
-  );
-  const want = [
-    ...chapters,
-    ...applyRules(built).map((b) => Unit.parse(b.unit)),
-  ];
-  const json = (units: Unit[]) =>
-    new Map(units.map((u) => [u.id, JSON.stringify(u)]));
-  const [had, wants] = [json(have), json(want)];
-  const added = want.filter((u) => !had.has(u.id));
-  const changed = want.filter(
-    (u) => had.has(u.id) && had.get(u.id) !== wants.get(u.id)
-  );
-  const removed = have.filter((u) => !wants.has(u.id));
-  // A unit that changed its day leaves the old day's file too.
-  const dates = new Set(
-    [...want, ...have]
-      .filter((u) => had.get(u.id) !== wants.get(u.id))
-      .map((u) => u.date)
-  );
-  // Every voice unit on those days that this sync did not read stays.
-  const read = new Set(had.keys());
-  await writeUnits(
-    [...dates],
-    want,
-    (u) => kindOf(u.source) !== "voice" || !read.has(u.id)
-  );
-  const dropOf = new Map(have.map((u) => [u.id, !!u.drop]));
-  return {
-    added: added.length,
-    changed: changed.length,
-    hasGoneOrBack:
-      removed.length > 0 || changed.some((u) => dropOf.get(u.id) !== !!u.drop),
-    removed: removed.length,
-    written: [...added, ...changed],
   };
 }

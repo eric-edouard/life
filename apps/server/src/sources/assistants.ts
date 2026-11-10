@@ -249,7 +249,7 @@ export function conversationsOf(source: Assistant, path = importOf(source)) {
  */
 export const readAssistant =
   (source: Assistant) =>
-  (since: Date, path = importOf(source)): SourceEvent[] =>
+  (since: Date, path = importOf(source), before?: Date): SourceEvent[] =>
     conversationsOf(source, path)
       .flatMap((c) =>
         c.messages.map(
@@ -265,8 +265,18 @@ export const readAssistant =
           })
         )
       )
-      .filter((e) => e.at >= since.toISOString())
+      .filter(
+        (e) =>
+          e.at >= since.toISOString() &&
+          (!before || e.at < before.toISOString())
+      )
       .sort((a, b) => a.at.localeCompare(b.at));
+
+/** The first imported message's timestamp, using the export's read-once cache. */
+export const readEarliestAssistant = (source: Assistant) =>
+  conversationsOf(source)
+    .flatMap((c) => c.messages.map((m) => m.at))
+    .sort()[0] ?? null;
 
 /** The status snapshot's card: when his newest imported message was, and how many conversations were imported. */
 export function newestAssistant(source: Assistant): Newest {

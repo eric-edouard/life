@@ -19,26 +19,69 @@ import {
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import { passagesOf, writePassages } from "./passages";
 import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
+import type { Tables } from "./sources";
 import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
 import { embedNew } from "./vectors";
 import {
-  chatHits,
   chatsOf,
   fetchOf,
   focus,
   holdsAll,
-  mailHits,
-  passagesOf,
-  readChatTexts,
   spokenLines,
+  chatHits as storedChatHits,
+  mailHits as storedMailHits,
   transcripts,
   voiceLines,
   voiceText,
 } from "./words";
-import { localTime, time } from "./zones";
+import { type DayRange, localTime, time } from "./zones";
+
+const seedPassages = (sources: Partial<Tables["SEARCHED"]>) => {
+  const all: Partial<Tables["SEARCHED"]> = {
+    imessage: () => [],
+    line: () => [],
+    mail: () => [],
+    notes: () => [],
+    whatsapp: () => [],
+    ...sources,
+  };
+  const events = Object.values(all).flatMap(
+    (read) => read?.(new Date(0)) ?? []
+  );
+  writePassages(events, { from: "1970-01-02", to: "2099-01-01" }, [], all);
+  return events;
+};
+const chatHits = (
+  query: string,
+  range: DayRange,
+  sources: Partial<Tables["SEARCHED"]>,
+  vector?: number[]
+) => {
+  seedPassages(sources);
+  return storedChatHits(query, range, vector);
+};
+const mailHits = (
+  query: string,
+  range: DayRange,
+  sources: Partial<Tables["SEARCHED_MAIL"]>,
+  vector?: number[]
+) => {
+  try {
+    seedPassages(sources);
+  } catch {
+    return Promise.resolve(["(could not read: mail)", "(nothing found)"]);
+  }
+  return storedMailHits(query, range, vector);
+};
+const searchTexts = (sources: Partial<Tables["SEARCHED"]>) =>
+  passagesOf(seedPassages(sources)).map((p) => ({
+    at: p.at(-1)?.at ?? "",
+    text: p.map((e) => e.text).join("\n"),
+  }));
 
 const words = ["Allo", "Salut", "", "Fin"];
 const server = lifelogServer({
@@ -334,7 +377,7 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
   expect(found.slice(1).map((l, i) => l.endsWith(ends[i] ?? "?"))).toEqual(
     ends.map(() => true)
   );
-  expect(found[1]).toStartWith("- (no unit) ");
+  expect(found[1]).toStartWith("- unit_");
   expect(found.join("\n")).not.toContain("sale");
   expect(found.join("\n")).not.toContain("nightly");
   // His agent's report, from Life's own address, is kept; Life's nightly is not.
@@ -413,7 +456,7 @@ test("search's chats: past the best 10 passages the cut is said; a passage found
       texts.map((t) => (t.includes("window") ? [1, 0] : [0, 1])),
     model: EMBEDDER_MODEL,
   };
-  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  await embedNew(embedder, searchTexts(sources));
   const near = (await chatHits("glass", {}, sources, [1, 0])).join("\n");
   expect(near).toContain(": the window broke");
   expect(near).not.toContain("vitre");
@@ -440,7 +483,7 @@ test("a passage across a range's edge is found by meaning as the watcher embedde
       texts.map((t) => (t.includes("cracked") ? [1, 0] : [0, 1])),
     model: EMBEDDER_MODEL,
   };
-  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  await embedNew(embedder, searchTexts(sources));
   const found = (
     await chatHits("glass", { from: at(1) }, sources, [1, 0])
   ).join("\n");
@@ -482,7 +525,7 @@ test("chats never read Life's own chat with the bot", async () => {
   expect(out).not.toContain("Life's own answer");
 });
 
-test("search finds a note of any age by any of its words, a long one shown by its lines holding them; a chat goes back 90 days", async () => {
+test("search finds a note of any age by any of its words, a long one shown by its lines holding them; a chat of any age too", async () => {
   const { dir, now, save, source } = notesFixture();
   const year = 365 * 86_400;
   save(1, noteData(`Plumber\n${"filler ".repeat(2000)}\nvitre 80 x 120`), {
@@ -517,13 +560,13 @@ test("search finds a note of any age by any of its words, a long one shown by it
   expect(found).toContain(
     `${localTime(new Date(now - 10 * year * 1000).toISOString())} me: vitre 80 x 120`
   );
-  expect(found).toContain("## Note 1 (notes, no unit in memory)");
+  expect(found.join("\n")).toContain("## Note 1 (notes, fetch unit_");
   // A line holding the word but longer than a hit is cut to it.
   const repairs = found.find((l) => l.includes(" me: vitre long")) ?? "";
   expect(repairs.endsWith("…")).toBe(true);
   expect(repairs.length).toBeLessThan(1100);
   expect(found.join("\n")).toContain(`la vitre ${89 * 86_400}`);
-  expect(found.join("\n")).not.toContain(`la vitre ${91 * 86_400}`);
+  expect(found.join("\n")).toContain(`la vitre ${91 * 86_400}`);
   // --from bounds the notes too.
   const recent = (await hits(new Date(now - 90 * DAY).toISOString())).join(
     "\n"

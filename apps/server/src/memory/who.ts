@@ -14,7 +14,7 @@ import {
   readInferred,
   readObservations,
   readStanding,
-  readUnits,
+  readUnitsFor,
   readUnresolved,
   shownOf,
 } from "./ledger";
@@ -396,14 +396,22 @@ export async function observationsNow({
   truth,
 }: People) {
   const read = readObservations();
-  const [all, standing, unresolved, units] = await Promise.all([
+  const [all, standing, unresolved] = await Promise.all([
     read,
     readStanding(corrections, read),
     readUnresolved(),
-    readUnits(),
   ]);
+  const shown = shownOf(all, standing);
+  const needingHandles = shown.filter(
+    (o) =>
+      !o.speakerFrom && o.speaker !== OWNER && !o.speaker.startsWith(UNKNOWN)
+  );
+  const units = readUnitsFor(
+    needingHandles.map((o) => o.unit),
+    needingHandles.map((o) => o.date)
+  );
   const observations = aboutNow(
-    shownOf(all, standing),
+    shown,
     unresolved,
     truth.people,
     inferred,

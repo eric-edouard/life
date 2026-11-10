@@ -10,14 +10,12 @@ import {
   episodeTextNow,
   LIMIT,
   line,
-  OBSERVATION_TEXT,
   type Row,
-  UNIT_TEXT,
   type UnitRow,
   unitLine,
   withIndex,
 } from "./index-rows";
-import { episodesWhere } from "./ledger";
+import { episodesWhere, readIndex } from "./ledger";
 import { OWNER } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
@@ -94,7 +92,7 @@ export function matches(
       .slice(0, LIMIT + 1)
       .map(([id]) => id);
   const texts = (sql: string, args: string[]) => () =>
-    db.query<{ id: string; text: string }, string[]>(sql).all(...args);
+    db.query<{ id: string; hash: string }, string[]>(sql).all(...args);
   const observations = rowsFor<Row>(
     db,
     `select ${COLUMNS} from observations o where o.id in (select value from json_each(?))`,
@@ -102,7 +100,7 @@ export function matches(
       readNearest(
         vector,
         texts(
-          `select o.id, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}${o.sql}`,
+          `select o.id, h.hash from observations o join search_hashes h on h.id = o.id where ${CURRENT}${o.sql}`,
           o.args
         )
       ),
@@ -120,7 +118,7 @@ export function matches(
       readNearest(
         vector,
         texts(
-          `select s.id, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id where 1${u.sql}`,
+          `select u.id, h.hash from units u join search_hashes h on h.id = u.id where 1${u.sql}`,
           u.args
         )
       ),
@@ -171,14 +169,22 @@ export async function search(words: string, o: DayRange = {}) {
   const holds = holdsAll(words);
   const [voice, chats, mail, all] = await Promise.all([
     voiceHits(words, range),
-    chatHits(words, range, undefined, vector),
-    mailHits(words, range, undefined, vector),
+    chatHits(words, range, vector),
+    mailHits(words, range, vector),
     episodesWhere(() => true),
   ]);
   const inside = all.filter(inDays(o));
   const ranked = fuse([
-    readNearest(vector, () =>
-      inside.map((m) => ({ id: m.id, text: episodeTextNow(m) }))
+    readNearest(
+      vector,
+      () =>
+        readIndex((db) =>
+          db
+            .query<{ id: string; hash: string }, [string]>(
+              "select id, hash from search_hashes where id in (select value from json_each(?))"
+            )
+            .all(JSON.stringify(inside.map((m) => m.id)))
+        ) ?? []
     ),
     inside
       .filter((m) => holds(episodeTextNow(m)))

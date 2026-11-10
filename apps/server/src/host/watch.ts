@@ -14,7 +14,7 @@ import {
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { listening } from "../memory/sources";
-import { syncLifelogUnits } from "../memory/units";
+import { syncLifelogUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew, pruneVectors } from "../memory/vectors";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";

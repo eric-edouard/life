@@ -52,7 +52,7 @@ export interface Night {
   /** The importance-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
   facts: { id: string; page: string; text: string }[];
   /** The files the night read (`describeFiles`): its failed calls and missing tools never fail the night. */
-  files: Result<typeof describeFiles>;
+  files?: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
   /** Each unit holding his words to Life (its marks), read since the last night, and what the memory holds of it (`whatIsNew`). */
@@ -159,7 +159,11 @@ export function successReport(day: string, ms: number, n: Night) {
         }`,
         `Lifelog: ${watcherLine()}`,
         `Read ${when(n.from).date}–${date}: ${n.episodes.units} units, ${count(n.episodes.episodes, "episode")} on ${count(n.episodes.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.episodes.people.length} people inferred`,
-        `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
+        ...(n.files
+          ? [
+              `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
+            ]
+          : []),
         n.archive,
         n.backup,
         ...(n.quota ? [n.quota] : []),

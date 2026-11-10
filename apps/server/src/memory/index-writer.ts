@@ -1,7 +1,9 @@
 import { Database } from "bun:sqlite";
 import { clock } from "../core/clock";
+import { EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { newestIn } from "../core/files";
 import { openReadOnly } from "../core/sqlite";
+import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit, Verdict } from "../records/unit";
 import {
@@ -23,10 +25,10 @@ import {
   type Verdicts,
   verdictOf,
 } from "./ledger";
+import { readPassageTexts } from "./passages";
 import { TRUTH } from "./read-truth";
 import type { Searched } from "./vectors";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
-import { readChatTexts } from "./words";
 
 // derived/memory/index.sqlite: the one writer of the index the read path reads (`buildIndex`, `reindex`,
 // `reindexUnits`), when it is stale (`readStaleness`), and every text `search` ranks by meaning (`readSearchedTexts`).
@@ -46,6 +48,7 @@ create virtual table unit_search using fts5(id unindexed, title, summary, topics
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
 create index unit_topics_topic on unit_topics (topic);
+create table search_hashes (id text primary key, hash text not null);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`stateOf`). */
@@ -95,6 +98,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
   const unitText = insertInto(db, "unit_search", 4);
   const unitTopic = insertInto(db, "unit_topics", 2);
   const unitPerson = insertInto(db, "unit_people", 2);
+  const hash = insertInto(db, "search_hashes", 2);
   for (const { unit: u, verdict: v } of units) {
     const tags = v?.topics ?? [];
     unitRow.run(
@@ -108,6 +112,13 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
       tags.join(", ")
     );
     unitText.run(u.id, u.title, u.summary ?? "", tags.join(" "));
+    hash.run(
+      u.id,
+      textHashOf(
+        EMBEDDER_MODEL,
+        `${u.title}\n${u.summary ?? ""}\n${tags.join(" ")}`
+      )
+    );
     for (const t of tags) {
       unitTopic.run(u.id, t);
     }
@@ -127,7 +138,8 @@ export function buildIndex(
   path: string,
   standing: Standing,
   units: IndexedUnit[] = [],
-  builtAt = clock()
+  builtAt = clock(),
+  episodes: Episode[] = []
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -142,6 +154,10 @@ export function buildIndex(
     const row = insertInto(db, "observations", 17);
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "links", 2);
+    const hash = insertInto(db, "search_hashes", 2);
+    for (const episode of episodes) {
+      hash.run(episode.id, textHashOf(EMBEDDER_MODEL, episodeTextNow(episode)));
+    }
     for (const o of unique.values()) {
       const retired = retirement(o, standing);
       row.run(
@@ -164,6 +180,7 @@ export function buildIndex(
         retired?.by ?? null
       );
       text.run(o.id, o.text, o.quote);
+      hash.run(o.id, textHashOf(EMBEDDER_MODEL, `${o.text}\n${o.quote}`));
       for (const e of o.entities) {
         link.run(o.id, e);
       }
@@ -185,18 +202,18 @@ export async function readSearchedTexts(): Promise<{
   const indexed = readIndex((db) => [
     ...db
       .query<Searched, []>(
-        `select o.date as at, ${OBSERVATION_TEXT} as text from observations o where ${CURRENT}`
+        `select o.date as at, h.hash, ${OBSERVATION_TEXT} as text from observations o join search_hashes h on h.id = o.id where ${CURRENT}`
       )
       .all(),
     ...db
       .query<Searched, []>(
-        `select u.date as at, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id`
+        `select u.date as at, h.hash, ${UNIT_TEXT} as text from unit_search s join units u on u.id = s.id join search_hashes h on h.id = u.id`
       )
       .all(),
   ]);
-  const chats = readChatTexts();
+  const chats = readPassageTexts();
   return {
-    isWhole: indexed !== null && chats.failed.length === 0,
+    isWhole: indexed !== null && chats.isWhole,
     texts: [
       ...(indexed ?? []),
       ...episodes.map((m) => ({ at: daysOf(m)[0], text: episodeTextNow(m) })),
@@ -211,7 +228,14 @@ export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = indexedOf(await readUnits(), people, verdicts);
   const { observations, standing } = await observationsNow(people);
-  const n = buildIndex(observations, INDEX, standing, units, at);
+  const n = buildIndex(
+    observations,
+    INDEX,
+    standing,
+    units,
+    at,
+    await episodesWhere(() => true)
+  );
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
@@ -232,6 +256,7 @@ export async function reindexUnits(units: Unit[], path = INDEX) {
       ["unit_search", "id"],
       ["unit_topics", "unit"],
       ["unit_people", "unit"],
+      ["search_hashes", "id"],
     ]) {
       db.run(
         `delete from ${table} where ${id} in (select value from json_each(?))`,
@@ -256,6 +281,8 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       rebuilt = db
         .query<{ at: string }, []>("select at from rebuilt")
         .get()?.at;
+      // A pre-hash index must rebuild even when none of its source files changed.
+      db.query("select id from search_hashes limit 0").all();
     } finally {
       db.close();
     }

@@ -56,6 +56,25 @@ export function listRepos(root = work()): Repo[] {
   return [...repos.values()];
 }
 
+/** The earliest author timestamp across local repos, without subjects or file changes. */
+export function readEarliestCommit(root = work()) {
+  const times = listRepos(root).flatMap(({ path }) => {
+    const out = git(path, ["log", "--all", "--no-merges", "--format=%aI"]);
+    if (out.exitCode !== 0) {
+      throw new Error(out.stderr.toString().trim());
+    }
+    return out.stdout
+      .toString()
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map(Date.parse);
+  });
+  return times.length > 0
+    ? new Date(times.reduce((a, b) => Math.min(a, b))).toISOString()
+    : null;
+}
+
 /** The newest commit in any repo, and how many repos had one in the last day (the status snapshot). */
 export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   const all = await Promise.all(
@@ -142,7 +161,8 @@ export function parseLog(
   key: string,
   since: Date,
   me: Person,
-  seen = new Set<string>()
+  seen = new Set<string>(),
+  before?: Date
 ): SourceEvent[] {
   return out
     .split(RS)
@@ -151,7 +171,11 @@ export function parseLog(
       const [head = "", ...stat] = chunk.split("\n");
       const [sha = "", at = "", email = "", name = "", subject = ""] =
         head.split(US);
-      if (seen.has(sha) || new Date(at) < since) {
+      if (
+        seen.has(sha) ||
+        new Date(at) < since ||
+        (before && new Date(at) >= before)
+      ) {
         return [];
       }
       seen.add(sha);
@@ -196,7 +220,8 @@ export function readGit(
   since: Date,
   repos: RepoMap,
   me: Person,
-  root = work()
+  root = work(),
+  before?: Date
 ): SourceEvent[] {
   const seen = new Set<string>();
   const mapped = (key: string) => Boolean(repos.get(key)?.project);
@@ -212,6 +237,7 @@ export function readGit(
       "--no-merges",
       ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
+      ...(before ? [`--until=${before.toISOString()}`] : []),
       "--numstat",
       `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,
     ]);
@@ -223,6 +249,6 @@ export function readGit(
       });
       return [];
     }
-    return parseLog(out.stdout.toString(), key, since, me, seen);
+    return parseLog(out.stdout.toString(), key, since, me, seen, before);
   });
 }

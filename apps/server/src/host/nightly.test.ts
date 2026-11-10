@@ -9,7 +9,6 @@ import {
 import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
-import { MACHINE_DIR } from "../core/platform";
 import { latestExtractions, OUT } from "../memory/ledger";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
@@ -54,9 +53,12 @@ test("each marked unit is listed once read since the last night, with the observ
 });
 
 test("while another install's watcher runs on this Mac, a tick does nothing", async () => {
-  mkdirSync(MACHINE_DIR, { recursive: true });
-  const lock = join(MACHINE_DIR, "watch.lock");
-  writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
+  const locks = await import("../core/lock");
+  const live = spyOn(locks, "holder").mockReturnValue({
+    note: "/elsewhere/state",
+    pid: String(process.pid),
+    since: new Date("2026-11-01T00:00:00Z"),
+  });
   const said = spyOn(console, "log");
   try {
     expect(await nightly(7)).toBe(0);
@@ -65,7 +67,7 @@ test("while another install's watcher runs on this Mac, a tick does nothing", as
     );
   } finally {
     said.mockRestore();
-    rmSync(lock, { force: true });
+    live.mockRestore();
   }
 });
 
@@ -113,5 +115,39 @@ test("the night drops run and eval folders past 30 days and log days past a year
     rmSync(join(OUT, "runs"), { force: true, recursive: true });
     rmSync(join(OUT, "evals"), { force: true, recursive: true });
     rmSync(join(LOG_DIR, "2025-11-05.jsonl"), { force: true });
+  }
+});
+
+test("a queued historical backfill is withheld from the scheduler until prompts are ready", async () => {
+  const locks = await import("../core/lock");
+  const models = await import("../models/llm");
+  const zones = await import("../memory/zones");
+  const schedule = await import("../memory/schedule");
+  const stopped = new Error("schedule inspected");
+  const live = spyOn(locks, "holder").mockReturnValue(null);
+  const online = spyOn(models, "isOnline").mockResolvedValue(true);
+  const quota = spyOn(models, "quota").mockResolvedValue(undefined);
+  const here = spyOn(zones, "readZoneHere").mockResolvedValue(undefined);
+  const queued = spyOn(schedule, "readBackfill").mockReturnValue({
+    failures: 0,
+    next: "2025-01-01",
+    to: "2025-12-31",
+  });
+  const turn = spyOn(schedule, "turnOf").mockImplementation(() => {
+    throw stopped;
+  });
+  try {
+    await expect(nightly(7)).rejects.toThrow(stopped);
+    const states = turn.mock.calls.at(0)?.[2];
+    expect(states).toBeDefined();
+    expect(states?.backfill).toBeUndefined();
+    expect(queued).not.toHaveBeenCalled();
+  } finally {
+    turn.mockRestore();
+    queued.mockRestore();
+    here.mockRestore();
+    quota.mockRestore();
+    online.mockRestore();
+    live.mockRestore();
   }
 });

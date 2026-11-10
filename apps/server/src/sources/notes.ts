@@ -245,7 +245,11 @@ function changes(after: string[], before?: string[]) {
  * attachments it added. Two days with the same change (a tick undone and redone) hash the same: the second is a
  * duplicate.
  */
-export function readNotes(since: Date, archive = ARCHIVE): SourceEvent[] {
+export function readNotes(
+  since: Date,
+  archive = ARCHIVE,
+  before?: Date
+): SourceEvent[] {
   return readArchived<
     Row & {
       before: string | null;
@@ -253,29 +257,37 @@ export function readNotes(since: Date, archive = ARCHIVE): SourceEvent[] {
       filesBefore: string | null;
       restored: number | null;
     }
-  >("notes", SQL, since, archive, String, (r) => {
-    const files: NoteFile[] = JSON.parse(r.files);
-    const had: NoteFile[] = JSON.parse(r.filesBefore ?? "[]");
-    const ids = new Set(had.map((f) => f.id));
-    return {
-      files: files
-        .filter((f) => f.path && !ids.has(f.id))
-        .map((f) =>
-          sourceFile({ name: f.name, path: f.path, ref: `notes:${f.id}` })
-        ),
-      text: r.deleted
-        ? `[deleted the note ${r.chatName ?? r.chat}]`
-        : [
-            ...(r.restored
-              ? [`[restored the note ${r.chatName ?? r.chat}]`]
-              : []),
-            ...changes(
-              linesOf(r.text, files),
-              r.before === null ? undefined : linesOf(r.before, had)
-            ),
-          ].join("\n"),
-    };
-  });
+  >(
+    "notes",
+    SQL,
+    since,
+    archive,
+    String,
+    (r) => {
+      const files: NoteFile[] = JSON.parse(r.files);
+      const had: NoteFile[] = JSON.parse(r.filesBefore ?? "[]");
+      const ids = new Set(had.map((f) => f.id));
+      return {
+        files: files
+          .filter((f) => f.path && !ids.has(f.id))
+          .map((f) =>
+            sourceFile({ name: f.name, path: f.path, ref: `notes:${f.id}` })
+          ),
+        text: r.deleted
+          ? `[deleted the note ${r.chatName ?? r.chat}]`
+          : [
+              ...(r.restored
+                ? [`[restored the note ${r.chatName ?? r.chat}]`]
+                : []),
+              ...changes(
+                linesOf(r.text, files),
+                r.before === null ? undefined : linesOf(r.before, had)
+              ),
+            ].join("\n"),
+      };
+    },
+    before
+  );
 }
 
 /** The newest note version the archive kept (the status snapshot). */

@@ -475,7 +475,8 @@ const SINCE_CUTOVER = `${LATEST_VERSIONS}
 export function readBridged(
   { callOf, name: bridge }: Network,
   since: Date,
-  archive = ARCHIVE
+  archive = ARCHIVE,
+  before?: Date
 ): SourceEvent[] {
   const notices = new Map<string, CallNotice>();
   const events = readArchived<Row & { files: string | null; type: string }>(
@@ -509,7 +510,8 @@ export function readBridged(
           })
         ),
       };
-    }
+    },
+    before
   );
   return notices.size ? withCalls(events, notices) : events;
 }
@@ -709,8 +711,7 @@ export const bridgedSource = (network: Network): Descriptor => {
         name,
         "select at, coalesce(chatName, '?') || ': ' || text as words from messages order by at desc limit 1"
       ),
-    read: (since) => readBridged(network, since),
-    searchDays: 90,
+    read: (since, before) => readBridged(network, since, undefined, before),
     silentAfter: 72 * HOUR,
     store: {
       // Beeper's store gets new messages only while Beeper runs; the bridges' one job keeps a bridge running.

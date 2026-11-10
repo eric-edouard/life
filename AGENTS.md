@@ -130,6 +130,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
+- **Historical collection is model-free.** `memory units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. Scheduled model backfill stays paused until prompts are frozen.
+- **Historical zones come from sent-mail Date offsets**, model-free, as `Etc/GMT±N` (reversed sign). Append only before the first stored unit day; never move stored units. Missing-mail days use the nearest known run (ties earlier), reported as gaps for later model review; conflicting or non-hour offsets defer their days. No city guesses or new Zone fields.
+- **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision

@@ -29,6 +29,7 @@ import {
   readRatings,
   readStanding,
   readUnit,
+  readUnitsFor,
   recordRating,
   retiredBy,
   STATEMENTS,
@@ -439,14 +440,22 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
   expect(facts.get(old)?.outdated).toBe(true);
 });
 
-test("a unit by id is read from its day (the index says which), or from every day when the index doesn't hold it; a standing from origins is the standing from observations", async () => {
-  const indexed = unitFixture({ date: "2026-10-20", id: "unit_00000000000a" });
+test("unit references read only indexed or cited days; a missing index entry checks only recent days; origins preserve standing", async () => {
+  const indexed = unitFixture({ date: "2001-10-20", id: "unit_00000000000a" });
   const newer = unitFixture({ date: "2026-10-21", id: "unit_00000000000b" });
   mkdirSync(UNITS, { recursive: true });
   mkdirSync(dirname(INDEX), { recursive: true });
   try {
     for (const u of [indexed, newer]) {
       writeFileSync(join(UNITS, `${u.date}.jsonl`), `${JSON.stringify(u)}\n`);
+    }
+    // Historical files unrelated to a reference must never be opened, including for a missing id.
+    writeFileSync(join(UNITS, "1999-01-01.jsonl"), "not JSON\n");
+    for (let day = 1; day <= 7; day += 1) {
+      writeFileSync(
+        join(UNITS, `2026-10-${String(day + 10).padStart(2, "0")}.jsonl`),
+        "\n"
+      );
     }
     const standing = {
       corrections: [],
@@ -455,9 +464,14 @@ test("a unit by id is read from its day (the index says which), or from every da
       retired: new Map(),
     };
     buildIndex([], INDEX, standing, [{ unit: indexed }]);
+    expect(
+      readUnitsFor([indexed.id, newer.id], [newer.date, newer.date])
+    ).toEqual([indexed, newer]);
+    expect(readUnitsFor(["unit_00000000000c"])).toEqual([]);
     expect(await readUnit(indexed.id)).toEqual(indexed);
     expect(await readUnit(newer.id)).toEqual(newer);
     expect(await readUnit("unit_00000000000c")).toBeUndefined();
+    rmSync(join(UNITS, "1999-01-01.jsonl"));
     const fact = (id: string, unitId: string): Observation => ({
       area: null,
       at: "2026-10-20T10:00:00.000Z",

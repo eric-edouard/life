@@ -10,6 +10,7 @@ import {
   mailRoot,
   ownWordsOf,
   readMail,
+  readSentMailDates,
 } from "./mail";
 
 const emlx = (message: string) => {
@@ -154,6 +155,22 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "1001.emlx"), emlx(ALTERNATIVE));
+  const sentDir = join(
+    root,
+    acct,
+    "[Gmail].mbox",
+    "All Mail.mbox",
+    "STORE",
+    "Data",
+    "1",
+    "Messages"
+  );
+  mkdirSync(sentDir, { recursive: true });
+  writeFileSync(
+    join(sentDir, "1003.emlx"),
+    emlx("Date: Fri, 9 Oct 2026 15:01:00 +0700\n\n")
+  );
+
   writeFileSync(join(dir, "1006.emlx"), emlx(WITH_FILES));
   writeFileSync(join(dir, "1007.partial.emlx"), emlx(HTML_ONLY));
   const saved = join(dir, "..", "Attachments", "1006", "3");
@@ -173,6 +190,38 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
     new Map([["ana@example.com", "Ana"]])
   );
   expect(events.at(-1)?.text).toBe("Big prize\nPaid & done\nThanks");
+  expect(
+    readMail(
+      new Date("2026-10-08T00:00:00Z"),
+      root,
+      join(base, "none.sqlite"),
+      new Map(),
+      new Date("2026-10-09T08:03:00Z")
+    )
+  ).toHaveLength(2);
+  expect(
+    readSentMailDates(
+      new Date("2026-10-08T00:00:00Z"),
+      new Date("2026-10-09T08:03:00Z"),
+      root,
+      join(base, "none.sqlite")
+    )
+  ).toEqual([
+    { at: "2026-10-09T08:01:00.000Z", date: "Fri, 9 Oct 2026 15:01:00 +0700" },
+  ]);
+  writeFileSync(
+    join(sentDir, "1003.emlx"),
+    emlx("Date: Fri, 9 Oct 2026 10:01:00 +0200\n\n")
+  );
+  expect(
+    readSentMailDates(
+      new Date("2026-10-08T00:00:00Z"),
+      new Date("2026-10-09T08:03:00Z"),
+      root,
+      join(base, "none.sqlite")
+    )[0]?.date
+  ).toBe("Fri, 9 Oct 2026 15:01:00 +0700");
+
   expect(events.slice(0, -1)).toEqual([
     {
       at: "2026-10-09T08:00:00.000Z",

@@ -20,6 +20,12 @@ const done = () =>
       : [];
   });
 
+/** The earliest completed task's timestamp, using the ledger's read-once cache. */
+export const readEarliestAgent = () =>
+  done()
+    .map(({ last }) => last.at)
+    .sort()[0] ?? null;
+
 /** The status snapshot's card: when the agent last closed a task done. */
 export const newestAgent = (): Newest => ({
   at:
@@ -30,9 +36,12 @@ export const newestAgent = (): Newest => ({
 });
 
 /** The tasks the agent closed done since `since`. */
-export function readAgent(since: Date): SourceEvent[] {
+export function readAgent(since: Date, before?: Date): SourceEvent[] {
   return done().flatMap(({ ask, last }) => {
-    if (Date.parse(last.at) < since.getTime()) {
+    if (
+      Date.parse(last.at) < since.getTime() ||
+      (before && Date.parse(last.at) >= before.getTime())
+    ) {
       return [];
     }
     const quote = ask.instruction.quote.replaceAll("\n", " ");

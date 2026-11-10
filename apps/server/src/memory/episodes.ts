@@ -29,7 +29,7 @@ import {
   isRereadSince,
   readEpisodes,
   readLabels,
-  readUnits,
+  readUnitsFor,
   readUnitsOf,
   readVerdicts,
   rereadAt,
@@ -44,14 +44,8 @@ import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, involvedOf, refContext } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
-import {
-  type Built,
-  type Evidence,
-  isFrozen,
-  type Resolve,
-  UNKNOWN,
-  writeUnits,
-} from "./units";
+import { publishUnits } from "./unit-writer";
+import { type Built, type Evidence, type Resolve, UNKNOWN } from "./units";
 import { episodeNow, namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
 import { localTime } from "./zones";
@@ -303,7 +297,7 @@ export function parseDay(
       const p = personOf(ref, ctx);
       return p ? [{ ref: p, role }] : [];
     });
-    const key = [ctx.day, m.start ?? "", ...units.toSorted()];
+    const key = [ctx.day, m.start || "", ...units.toSorted()];
     const isReused = ctx.earlier.has(m.id);
     // Taken: by an episode of this reply, or, unless the model reused it, by one he hid (read again, it stands on the same units).
     const isTaken = (x: string) =>
@@ -435,10 +429,15 @@ export function dayPartOf(units: Built[], chars: number) {
 
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
 export async function episodes(evidence: Evidence) {
-  const step = await begin("episodes", "deep", {
-    prompt: EPISODES_PROMPT,
-    ...evidence.window,
-  });
+  const step = await begin(
+    "episodes",
+    "deep",
+    {
+      prompt: EPISODES_PROMPT,
+      ...evidence.window,
+    },
+    evidence.engine
+  );
   const { built: all, failed, read: sources, repos, skipped, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
@@ -446,11 +445,7 @@ export async function episodes(evidence: Evidence) {
   // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: AGENTS.md; kept even
   // when lifelog isn't read); not when a source failed: the files would lose that source's units.
   if (failed.length === 0) {
-    await writeUnits(
-      days,
-      all.map((b) => b.unit),
-      (u) => skipped.includes(u.source) || isFrozen(u)
-    );
+    await publishUnits(evidence);
   }
   let verdicts = readVerdicts();
   const { canon, corrections, inferred, refOf, resolve } = await readPeople();
@@ -651,10 +646,13 @@ export async function episodes(evidence: Evidence) {
       }
     }
   }
+  const labels = await readLabels();
   return step.end({
     agreement: agreement(
-      await readLabels(),
-      new Map((await readUnits()).map((u) => [u.id, u])),
+      labels,
+      new Map(
+        (await readUnitsFor(labels.map((l) => l.unitId))).map((u) => [u.id, u])
+      ),
       readVerdicts()
     ),
     days: days.length,

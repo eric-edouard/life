@@ -1,15 +1,29 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { log } from "../core/log";
-import { WINDOWS } from "../core/platform";
+import { MACHINE_DIR, WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
+import { ARCHIVE } from "../sources/archived";
 import { toAppleS } from "../sources/imessage";
+import { whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp } from "../sources/whatsapp";
-import { appsToOpen, archiveFailing, openIncidents } from "./archive";
+import {
+  appsToOpen,
+  archiveCommand,
+  archiveFailing,
+  openIncidents,
+} from "./archive";
 import { archiveLine } from "./nightly";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
@@ -105,4 +119,36 @@ test("only the stores of the sources he turned on are copied and kept open", () 
   expect(keptStores([])).toEqual([]);
   // A bridged network has no app to open.
   expect(appsToOpen([], 1e12, new Map(), keptStores(["line"]))).toEqual([]);
+});
+
+test("archive whatsapp validates its folder, holds the archive lock and copies once in full", async () => {
+  expect(await archiveCommand(["whatsapp"])).toBe(2);
+  const { add, now, source, wa } = whatsappFixture();
+  expect(await archiveCommand(["whatsapp", source, "extra"])).toBe(2);
+  expect(await archiveCommand(["whatsapp", join(source, "missing")])).toBe(2);
+  expect(existsSync(join(MACHINE_DIR, "archive.lock"))).toBe(false);
+  add(1, "seed", 0, "already archived");
+  copyWhatsapp(source, ARCHIVE, now);
+  add(2, "ancient", 0, "older history", 4000 * 86_400);
+  try {
+    expect(await archiveCommand(["whatsapp", source])).toBe(0);
+    expect(
+      readFileSync(join(MACHINE_DIR, "archive.lock"), "utf8").split("\n")[0]
+    ).toBe(String(process.pid));
+    const db = new Database(join(ARCHIVE, "whatsapp.sqlite"), {
+      readonly: true,
+    });
+    try {
+      expect(db.query("select id from messages order by id").all()).toEqual([
+        { id: "ancient" },
+        { id: "seed" },
+      ]);
+    } finally {
+      db.close();
+    }
+  } finally {
+    rmSync(join(MACHINE_DIR, "archive.lock"), { force: true });
+    rmSync(ARCHIVE, { force: true, recursive: true });
+    wa.close();
+  }
 });

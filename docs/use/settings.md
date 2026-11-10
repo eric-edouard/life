@@ -46,21 +46,28 @@ bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"i
 
 ## Older months
 
-Each night reads the last 7 days. To read further back, set a range; Life reads it a week at a time, oldest first, at
-most four weeks a day, in the half-hourly checks once the night is done:
-
 ```sh
-bun life memory backfill --from 2026-01-01 --to 2026-09-30
+bun life memory units --from 2026-01-01 --to 2026-09-30
 ```
+
+Each night reads the last 7 days. Older history can be collected for search without model calls, one month at a time;
+its end must be before those 7 days. Omit the dates to collect the available history. Collection reports unavailable
+sources and uncertain time zones. Historical model backfill is paused until its prompts are ready.
 
 ## Your claude.ai and ChatGPT history
 
-Download your data from claude.ai or ChatGPT, unzip it, and import the folder once:
-
 ```sh
-bun life import ~/Downloads/chatgpt-export
+bun life settings set '{"backfillEngine":"codex"}'
+bun life import ~/Downloads/claude-export --dry
+bun life import ~/Downloads/claude-export
 ```
 
-Life keeps only the conversations about your life. Set a backfill over their dates (above) to read them.
+Download your data from claude.ai or ChatGPT and unzip it first. The optional `backfillEngine` selects the runner for
+imports and historical model backfills; without it those jobs are off. Codex uses your subscription quota, while an
+API engine uses its paid credits. This setting leaves the nightly and midday runner unchanged.
+
+The dry run copies nothing and calls no model. The real import judges conversations in batches of ten, resumes missing
+judgments when repeated, and refuses a different export of the same assistant. A failed Codex call waits for a retry.
+Once judging finishes, Life collects the older messages and updates search without reading them for facts.
 
 Next: [back up and restore](backup.md).
