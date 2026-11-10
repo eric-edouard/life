@@ -516,6 +516,14 @@ test("a single-turn correction moves exactly that turn's evidence", async () => 
   expect(evidenceOf("Clara")).toEqual([0]);
   expect(evidenceOf("Bob")).toEqual([2]);
 
+  // Several people speak in turn 0: it is nobody's evidence, and no stranger's voice.
+  await assign(clara.jobId, "speaker_0", {
+    target: { kind: "several", people: [], unknown: true },
+    turnIndex: 0,
+  });
+  expect(evidenceOf("Clara")).toEqual([]);
+  expect(strangerRows(env.db)).toEqual([]);
+
   // Later the whole speaker is set to unknown: Bob keeps the corrected turn.
   await assign(clara.jobId, "speaker_0", { target: { kind: "unknown" } });
   expect(evidenceOf("Clara")).toEqual([]);

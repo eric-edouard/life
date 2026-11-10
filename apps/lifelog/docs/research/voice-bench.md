@@ -58,8 +58,25 @@ Seconds a clip were measured while the Mac was short on memory: read them agains
   of every stored voice sample yet.
 - The next step is his review of the voices where the models agree against the name. Once answered, `bench score`
   shows whether the wall was the names (the numbers jump for every model) or the voices (they stay).
-- If it was the names, lifelog's own naming has the same wrong names in its profiles: correcting them there is his
-  to do in the app, and would lift ECAPA too.
+- If it was the names, lifelog's own naming has the same wrong names in its profiles: correcting them there would
+  lift ECAPA too.
+
+## After his review (10 Nov 2026)
+
+He answered three rounds of the review (1,280 turns). It was the names: of the turns he had already answered, he
+changed 16% (708 turns in 181 voices), most from one person he knows to another.
+
+| Model | First guess right, before | After |
+|---|---|---|
+| MECT-B2 | 75.0% | 88.5% |
+| ReDimNet2-B6 | 74.0% | 87.9% |
+| ECAPA, what lifelog runs | 68.7% | 80.6% |
+
+- Taking a speaker's turns in a recording as one voice, at 1 wrong name in 100: MECT-B2 names 52.5% of the known
+  voices, ECAPA 10.0%. Turn by turn the rule is still far: MECT-B2 3.3%, ECAPA 0.6%.
+- On 1,500 turns only, ReDimNet2+ (12.9%), MECT-B2 Causal (10.9%) and MECT-B2 blended with ReDimNet2-B6 with
+  Chinese data (22.1%) lead turn by turn at 1 in 100: full runs would tell.
+- His answers now reach lifelog (`bench apply`, `docs/decisions.md`), so its profiles lose the wrong names too.
 
 ## Left out
 

@@ -5,11 +5,14 @@
 //   bun run bench embed [model…]         the models over every clip (embeddings/), all by default
 //   bun run bench score                  every model and blend against his answers (report.json, report.md)
 //   bun run bench page                   the report, the cloud and the review, on this Mac only
+//   bun run bench apply [--write] [person id to leave out…]  his review answers that differ from the archive,
+//                                        listed, or sent to lifelog's server (PORT, LIFELOG_TOKEN)
 //   bun run bench all                    clips, embed, score, in order (after a first `sample`)
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { readSample, type Sample } from "./archive";
+import { send, writesOf } from "./apply";
+import { readNames, readSample, type Sample } from "./archive";
 import { cutClips } from "./clips";
 import { serve } from "./page";
 import { type Embedded, markdownOf, reportOf } from "./report";
@@ -107,12 +110,43 @@ async function score() {
   );
 }
 
+async function apply(...args: string[]) {
+  const { left, writes } = writesOf(
+    (await readDrawn()).turns,
+    await readAnswers(ANSWERS),
+    ...readNames(),
+    args.filter((a) => a !== "--write")
+  );
+  const counts = Map.groupBy(
+    writes,
+    (w) =>
+      `${w.turnIndex === undefined ? "whole voice" : "one turn"}, ${w.kind}`
+  );
+  for (const [what, group] of [...counts].sort()) {
+    console.log(`${group.length}\t${what}`);
+  }
+  console.log(`${writes.length} to write, ${left} answers left out`);
+  if (!args.includes("--write")) {
+    return;
+  }
+  const { LIFELOG_TOKEN: token, PORT: port } = process.env;
+  if (!(token && port)) {
+    throw new Error("set PORT (server.env) and LIFELOG_TOKEN (Life's .env)");
+  }
+  for (const write of writes) {
+    // biome-ignore lint/performance/noAwaitInLoops: one writer, in order
+    await send(`http://127.0.0.1:${port}`, token, write);
+  }
+  console.log("written: run `sample` then `score`");
+}
+
 const STEPS: Record<string, (...args: string[]) => Promise<unknown>> = {
   all: async () => {
     await clips();
     await embed();
     await score();
   },
+  apply,
   clips,
   embed,
   page: () => serve(DIR, ANSWERS, score),

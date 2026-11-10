@@ -347,7 +347,7 @@ export function markdownOf(report: Report) {
   return [
     "# Voice bench",
     "",
-    `${report.counts.turns} turns: ${report.counts.known} of a known voice, ${report.counts.unknown} of nobody he knows, ${report.counts.excluded} left out (media, several voices), the rest unanswered.`,
+    `${report.counts.turns} turns: ${report.counts.known} of a known voice, ${report.counts.unknown} of nobody he knows, ${report.counts.excluded} left out (media, several people), the rest unanswered.`,
     "",
     head,
     ...report.models.map((m) =>

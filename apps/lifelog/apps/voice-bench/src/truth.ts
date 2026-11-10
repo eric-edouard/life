@@ -1,10 +1,10 @@
 // Who spoke a turn, for the bench: the owner's answer in the bench's review (`answers.jsonl`, the
-// bench's own file, which never reaches the archive), else his answer in the archive.
+// bench's own file; `apply.ts` sends it to lifelog's server), else his answer in the archive.
 import { appendFile } from "node:fs/promises";
 import { clock } from "@life/server/src/core/clock";
 
 // `unknown` is "nobody I know": mostly a voice he doesn't care about. `media` (a video, TV, noise)
-// and `several` (more than one voice in the clip) leave the scoring. `skipped` only leaves the
+// and `several` (several people in the clip) leave the scoring. `skipped` only leaves the
 // review's queue.
 export const ANSWER_KINDS = [
   "person",
