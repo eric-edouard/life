@@ -193,16 +193,64 @@ By code, from the evidence, at any span, when read. Never stored as a verdict.
 - A role is named when it explains the reading (a parent directing a child, a client).
 - A trait reads the person's own conduct, never what they demand of others.
 
-**About a person** (their conduct; poles need his words)
-Outgoing or reserved. Takes the lead or goes along. Warm or matter-of-fact. Tactful or blunt when disagreeing. Fair
-or takes more than gives. Even-tempered or quick to anger. Does what they said or drops it. Planned or improvised.
-Curious or practical. Sure of the bond or needs reassurance. Shares feelings or keeps them private. Owns a fault or
-blames. Lets the past go or keeps it. Acts on impulse or weighs it. Needs control or lets things be.
+**A persona** (today's word, kept) is what a person is like, as a view over these readings: their trait meters,
+their conduct lines, their patterns, what they want and offer, how they write, and a short gist. His own persona is
+the same, cut by counterpart.
 
-**Between him and a person** (each direction)
-Bids met or ignored. Attuned or dismissive when something is shared. Warmth each way. Who steers. Who reaches out.
-Who carries the effort. How personal each gets. How often it turns tense, and how. Who presses and who pulls back.
-How fast it mends, who mends first, whether it holds. Mixed tone. Growing closer or drifting.
+**Trait meters about a person**: the Big Five at the level of its ten aspects, plus Honesty-Humility. Each is counted
+from coded acts, never rated in one go.
+
+| Meter (poles need his words) | Accepted construct | How well text carries it |
+|---|---|---|
+| Outgoing or reserved | Extraversion: enthusiasm | Well |
+| Takes the lead or goes along | Extraversion: assertiveness | Well |
+| Warm or matter-of-fact | Agreeableness: compassion | Well |
+| Tactful or blunt when disagreeing | Agreeableness: politeness | Fairly; needs disagreements |
+| Does what they said or drops it | Conscientiousness: industriousness | Well; checkable later |
+| Planned or improvised | Conscientiousness: orderliness | Fairly; own conduct only |
+| Even-tempered or quick to anger | Neuroticism: volatility | Fairly |
+| Worries aloud or not | Neuroticism: withdrawal | Poorly: an inner state, shown only as what is said |
+| Curious for ideas or practical | Openness: intellect | Fairly to well |
+| Drawn to beauty and novelty or not | Openness: openness | Poorly from chats; shown when evidence allows |
+| Fair or takes more than gives | HEXACO Honesty-Humility | Fairly; counts and quotes only |
+| Sure of the bond or needs reassurance | Attachment anxiety, as behaviour only | Poorly to fairly |
+| Shares feelings or keeps them private | Attachment avoidance, as behaviour only | Fairly |
+
+- **The Big Five profile of a person can be drawn**: five scales, each from its two aspects, with the Honesty line
+  beside it. Where an aspect is poorly seen the scale says so instead of guessing.
+- Honest about accuracy: a model rating a trait straight from text agrees with the person's own questionnaire about
+  as well as a stranger would. Counting many coded acts is the route the research backs, and the pilot measures what
+  it reaches. And each person is seen mostly through him: a reading "with him" is partly about the two of them.
+
+**Conduct lines about a person**: what he asked for by name, kept as counted acts with quotes, never as a trait
+score, because no validated meter exists for them: defensive or engages when faulted; blames or owns a fault; an
+apology's parts; whether a mending holds (the same complaint coming back); lets the past go or reopens it; needs
+control or lets things be. Impulsivity is his ask and the research did not cover it: one short research note before
+the pilot (the accepted model has several distinct parts), until then a conduct line (acts then reverses, sends then
+deletes, how fast it escalates).
+
+**How each writes** (today's communication style) stays in the persona: how he writes to them and they to him, with
+quotes, for an agent drafting for him. It is read from a sample of their messages and rebuilt rarely: the one read
+above the evidence that looks at raw words, because style is in the words.
+
+**The dynamics between him and a person**, each direction, his part always:
+
+| Meter | Accepted construct |
+|---|---|
+| Bids met or ignored | Bids and turning toward (Gottman) |
+| Attuned or dismissive when something is shared | Perceived responsiveness; responses to good news |
+| Warmth each way, and whether it is returned | The interpersonal circle: affiliation |
+| Who steers | The interpersonal circle: control; a role is named when it explains it |
+| Who reaches out | Initiation, counted |
+| Who carries the effort | Shares and delays against the pair's own usual |
+| How personal each gets | The intimacy process: disclosure |
+| How often it turns tense, and how | Conflict moves |
+| Who presses and who pulls back | Demand and withdraw, inside conflicts only |
+| How fast it mends, who mends first, whether it holds | Repair |
+| Mixed tone | Ambivalence, for family mostly |
+| Growing closer or drifting | The trend of contact and of the personal share |
+
+Every one can be read for a span (how it was in a given year), lately against before, and by channel.
 
 **Patterns**: a sequence that repeats (blames, then denies it; he apologises within minutes), with its count, its
 first and last time, when it happens, and quotes. Each later case is tallied: held or broke.
@@ -226,6 +274,13 @@ practical, years known; personal and work kept apart; his word above it. It rank
 call's context. It gates nothing.
 
 **Ties between other people**: who appears with whom, from shared episodes and groups.
+
+**Where this departs from the research, by his decisions**
+- The research shrinks a thin reading toward a typical person. He decided a meter is never pulled to the middle.
+  So nothing is shrunk: a thin reading says "too few to say", and a meter shows how far at its strongest.
+- The research wants about two hundred exchanges labelled by him as the yardstick for the codes. He labels no single
+  exchange. The codes are checked against a stronger model and by forecasts, and the meters by his blind ratings.
+  What that leaves open: a mistake both models share stays invisible. It is written here so nobody forgets it.
 
 ## 10. Forecasts
 
@@ -319,7 +374,7 @@ Each layer states what it claims and what would refute it, before anything runs.
 | Observations | Stay: what was said; endings recorded; stored ids kept |
 | Pages (a model rewriting prose nightly) | A view drawn from a subject's history |
 | Situations (30 days, close people) | The standing, for every subject |
-| Personas (three years of raw, re-read weekly) | Counted readings and the story; the re-read goes |
+| Personas (three years of raw, re-read weekly) | Stay, as a view over the counted readings and the story; the weekly re-read goes, how each writes stays |
 | Closeness by volume | Depth, counted; a rank, not a gate |
 | `truth/` | Life's list and his word |
 | Fact checks | The questions Life has for him |
@@ -348,6 +403,7 @@ Each with what it is and is not. Today's words are kept where they fit.
 | history | A subject's summaries in time: month, year, story | A page (the view) |
 | tail | The evidence that came after the last summary | A summary |
 | situation | Where a subject stands now (today's word, widened to every subject) | A page section |
+| persona | What a person is like, as a view over the counted readings (today's word) | A page, a stored verdict |
 | meter | A counted rate between two poles, in one vantage | A score, a type |
 | vantage | Whose conduct toward whom, or whose telling, a reading rests on | A source |
 | pattern | A sequence that repeats, with its count | A trait |

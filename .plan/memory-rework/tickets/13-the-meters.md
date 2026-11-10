@@ -22,3 +22,10 @@ someone and his view of them are two readings, never mixed, and their difference
   minimum; no pull toward a typical person; how far at its strongest kept beside how often; lately against before.
 - Fifteen about a person, twelve between him and a person, listed in the spec. The poles' words need his yes.
 - They reach agents as data in the subject read.
+
+His questions (10 Nov): is the spec grounded in the psychology research, can he draw a trait profile (Big Five), can
+he analyse his dynamics with people. Spec section 9 now names the accepted construct behind every meter (the Big
+Five's ten aspects, Honesty-Humility, attachment as behaviour only; the twelve dyad meters of research 02), says how
+well text carries each, keeps the word persona for the view, keeps how each writes, and states the two places it
+departs from the research by his decisions (no shrinking; no exchanges labelled by him). Open: one research note on
+impulsivity before the pilot.
