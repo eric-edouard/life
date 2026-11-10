@@ -19,13 +19,17 @@ agents that act for him. This page says what it protects and what it does not.
 ## Models
 
 Model calls that read his data run with no tools and no instruction files, and return JSON checked by schemas, with
-every quote checked against its source. The text goes to the provider the owner chose (his subscriptions, or
+every quote checked against its source. One call is given tools, and only when a developer runs it: the question
+cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on his subscription with Life's connector
+as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
+recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
 OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data).
 
 ## Agents
 
 Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
-secrets (his OK, 3 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
+secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
+above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). An agent sends as him only on his yes on the exact text, its own rule:
 that is policy, not enforcement, and the risk is his, accepted.
 
@@ -43,7 +47,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac.
-- To an assistant he connected, and to his agents: what they read through the connector or on the Mac.
+- To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
+  cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
+  subscription (his word, 10 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, the appointments (`appointments` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.

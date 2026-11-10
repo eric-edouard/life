@@ -95,7 +95,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never made again (the copy counts its event numbers) (his OK of the
   new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
-  instruction files (`apps/server/src/models/llm.ts`). An agent reads what it pulls through the connector as data
+  instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
+  (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
+  nothing else. An agent reads what it pulls through the connector as data
   (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
@@ -103,7 +105,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
 - **Life starts no agent**, except an agent's own `onAsk` command (its setting), once per new ask, detached and with no
-  words (his OK, 3 Nov 2026). Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
+  words (his OK, 3 Nov 2026), and the one headless agent a developer's script starts to measure Life, the question
+  cases' (his word, 10 Nov 2026): nothing Life runs by itself starts it. Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
@@ -137,7 +140,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
-  of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data
+  of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
   (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
@@ -197,6 +200,7 @@ Before adding a helper, use the one that exists:
 | Messages by chat | `chatGroups` (`records/source.ts`) |
 | Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input |
 | The one-to-one messages of people named on a command line | `directOf` (`closeness.ts`) |
+| A reply checked for the points it must hold and must not say | `judge` then `tally` (`memory/tally.ts`): the points as true and false facts, the reply as the one claim; a misgrade becomes a judge case |
 | Packing items into calls by size | `packed` (`core/lists.ts`): in order, an item never split; a step passes its own size |
 | Tokens from characters | `CHARS_PER_TOKEN` (`models/llm.ts`), a low bound: a count made with it is a ceiling |
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, lifelog's search and Life's alike |

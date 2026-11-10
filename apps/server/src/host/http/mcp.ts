@@ -42,6 +42,7 @@ import { text } from "./http";
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
 // chat changes his Reminders (`change_todo_item`, through `act`); nothing else. An agent pulls its asks (`read_agent_asks`).
+// Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
@@ -222,6 +223,9 @@ const unchecked = (s: z.ZodObject) => ({
   "~standard": { ...s["~standard"], validate: (value: unknown) => ({ value }) },
 });
 
+/** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
+const READERS = new WeakSet<McpServer>();
+
 /** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error. */
 function tool<S extends z.ZodObject>(
   server: McpServer,
@@ -231,6 +235,9 @@ function tool<S extends z.ZodObject>(
   run: Tool<S>,
   annotations = READ_ONLY
 ) {
+  if (READERS.has(server) && annotations !== READ_ONLY) {
+    return;
+  }
   server.registerTool(
     name,
     {
@@ -264,9 +271,12 @@ function tool<S extends z.ZodObject>(
   );
 }
 
-/** The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
-export function buildServer() {
-  // Over stdio (the bench) there may be no public origin, and no icons.
+/**
+ * The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the question cases' agent
+ * gets it over stdio with `readsOnly`: then only the tools that read are registered, none that writes or acts.
+ */
+export function buildServer(readsOnly = false) {
+  // Over stdio (the question cases' agent) there may be no public origin, and no icons.
   const origin = settings().connector?.origin;
   const server = new McpServer(
     {
@@ -290,6 +300,9 @@ export function buildServer() {
     },
     { instructions: instructions() }
   );
+  if (readsOnly) {
+    READERS.add(server);
+  }
   tool(
     server,
     "search",
@@ -553,7 +566,7 @@ export function createMcp(verify: Verify, issuer: string) {
   const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
   // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
-  const handler = createMcpHandler(buildServer, {
+  const handler = createMcpHandler(() => buildServer(), {
     onerror: (e) =>
       log("mcp.call", { error: true, refused: clip(e.message, 300) }),
   });

@@ -202,6 +202,7 @@ late with harm), or spoken asks above about one a day for a month.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `apps/server/src/models/llm.ts` runs them in an empty temp folder.
+  The one exception is the question cases' agent (Measuring, below): Codex, given Life's connector, reads only.
 - The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, an API engine's as its routes), only
   on a copy of the data; `LIFE_LLM` is refused on the live data.
 
@@ -271,6 +272,19 @@ step: [Back up and restore](use/backup.md).
   no lock; `LIFE_LLM` stays refused on his data. It prints counts only. A run spends: on Codex it is refused over
   the quota reserve, like an eval; an API engine has no such reserve, so the dry run's numbers, shown to him first,
   are the only guard on cash.
+- **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
+  (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
+  it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads
+  (never a tool that writes or acts). The memory under test is his own, as it stands. The agent's connector runs on
+  a state dir of its own, with his settings, voice store and search index by links and its own log, so nothing it
+  does lands in his Life's log. A reply is checked by the eval judge, his engine's main tier: each point graded
+  stated or not, the case passing when it states all it must and none it must not; a misgrade becomes a judge case.
+  Without `--run` it only counts the cases. A run is metered like an eval, refused over the Codex reserve before
+  each case, keeps what the agent and the judge read under the run's folder, writes its results (each reply, its
+  points, the tools called and how much they returned) to his data, `docs/evals/question-cases/<run>.json`, and
+  prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
+  for the judge: show him the count of cases first. A regression case of status `scenario` may name a question case
+  as its `check`.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits

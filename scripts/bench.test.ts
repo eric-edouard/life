@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
+import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "@life/server/src/core/paths";
 import { git } from "@life/server/src/core/proc";
-import { checkout, factTable } from "./bench";
+import { checkout, factTable, linkState } from "./bench";
 
 const counts = (held: number) => ({
   both: 1,
@@ -84,3 +85,15 @@ test("a bench worktree runs its own code: its workspace packages resolve inside 
     rmSync(tmp, { force: true, recursive: true });
   }
 }, 60_000);
+
+test("a linked state dir is the live state's by links: removing it leaves the live files and folders whole", async () => {
+  await mkdir(join(LIFE_STATE_DIR, "kept"), { recursive: true });
+  await writeFile(join(LIFE_STATE_DIR, "kept", "a.txt"), "live");
+  await writeFile(join(LIFE_STATE_DIR, "kept.json"), "{}");
+  const to = join(await mkdtemp(join(tmpdir(), "life-link-")), "state");
+  await linkState(to, ["kept", "kept.json"]);
+  expect((await readdir(to)).sort()).toEqual(["kept", "kept.json"]);
+  await rm(to, { force: true, recursive: true });
+  expect(await readdir(join(LIFE_STATE_DIR, "kept"))).toEqual(["a.txt"]);
+  expect(await Bun.file(join(LIFE_STATE_DIR, "kept.json")).exists()).toBe(true);
+});

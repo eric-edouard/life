@@ -184,11 +184,19 @@ export async function checkout(dir: string, state: string[]) {
   await execOk(["bun", "install", "--frozen-lockfile", "--ignore-scripts"], {
     cwd: dir,
   });
-  await mkdir(join(dir, "derived"), { recursive: true });
   await symlink(join(mainCheckout(), ".env"), join(dir, ".env"));
+  await linkState(join(dir, "derived"), state);
+}
+
+/**
+ * A state dir at `to` that is this process's (`LIFE_STATE_DIR`) for the entries named, by links, and its own for the
+ * rest: what a child run there logs or writes as state never lands in this process's.
+ */
+export async function linkState(to: string, state: string[]) {
+  await mkdir(to, { recursive: true });
   for (const p of state) {
     // biome-ignore lint/performance/noAwaitInLoops: a few links
-    await symlink(join(LIFE_STATE_DIR, p), join(dir, "derived", p));
+    await symlink(join(LIFE_STATE_DIR, p), join(to, p));
   }
 }
 

@@ -63,12 +63,18 @@ export const imageBlock = async (path: string) => ({
 });
 
 /** One call as a runner gets it. */
+/** An MCP server over stdio: the only tools a call may have (the question cases' agent gets Life's connector, reads only). */
+export interface Tools {
+  command: string[];
+  env: Record<string, string>;
+}
 export interface ModelCall {
   dir: string;
   images: string[];
   input: unknown;
   llm: Llm;
   system: string;
+  tools?: Tools;
 }
 /**
  * A runner's reply: its text, and what the log records of the call besides the time. `refusal`: it answered, but the

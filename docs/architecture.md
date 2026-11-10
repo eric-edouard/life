@@ -159,7 +159,7 @@ someone else is capped at 0.6 confidence.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
   OpenAI through the owner's subscription's CLI, or OpenRouter and allmodels.io with his keys: `docs/operations.md`, "Model engines"). Calls run in
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
-  the prompt.
+  the prompt. (A developer's benchmark, the question cases, gives one Codex call Life's connector, reads only.)
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
 - The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind Life's OAuth.
   The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes

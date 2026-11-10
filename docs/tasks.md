@@ -14,7 +14,8 @@ its work: the agent keeps its own list.
   no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
 - **How asks reach it:** the agent pulls its own with `read_agent_asks` (`cursor`, `limit`; it returns `asks`, `cursor`,
-  `remaining`), and keeps its own list; Life tracks no state of an ask past its line. Life starts no agent, except the
+  `remaining`), and keeps its own list; Life tracks no state of an ask past its line. Life starts no agent (beside the question cases' headless agent,
+  a developer's benchmark: `docs/operations.md`, "Measuring"), except the
   agent's own `onAsk` command (`agents.<name>.onAsk` in the settings), once per new ask, detached, with no argument: it
   only tells the agent to pull. Two asks close together start it twice, so the command takes its own lock. Each ask has
   its `id`, `at` (recorded), `spoke`, `quote` and `confidence`. The cursor counts ledger lines, so an ask recorded late
