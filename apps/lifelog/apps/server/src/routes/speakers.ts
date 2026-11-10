@@ -308,10 +308,7 @@ export function speakerRoutes({
           owned.kind === "several" &&
           owned.candidates.people.length < new Set(target.people).size
         ) {
-          return c.json(
-            { error: "not_found" as const, message: "no such person" },
-            404
-          );
+          return c.json(noPerson, 404);
         }
         const result = assign(db, {
           jobId,
