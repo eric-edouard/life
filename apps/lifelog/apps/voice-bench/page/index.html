@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <meta content="no-referrer" name="referrer">
+    <title>Voice bench · lifelog</title>
+    <link href="./page.css" rel="stylesheet">
+    <script defer src="./plotly.js"></script>
+    <script defer src="./cloud.js"></script>
+    <script defer src="./page.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <p class="kicker">Voice bench</p>
+      <h1 id="verdict">Reading the report…</h1>
+      <p id="counts"></p>
+      <nav aria-label="Sections">
+        <a href="#cloud">The cloud</a>
+        <a href="#board">Models</a>
+        <a href="#curve">Right against wrong</a>
+        <a href="#weak">Where it is weak</a>
+        <a href="#pairs">Two together</a>
+        <a href="#review">Review <span id="review-count"></span></a>
+      </nav>
+    </header>
+
+    <main>
+      <section aria-labelledby="cloud-title" id="cloud">
+        <div class="section-head">
+          <h2 id="cloud-title">Every turn, as this model hears it</h2>
+          <div class="tabs" id="models"></div>
+        </div>
+        <div class="stage">
+          <aside aria-label="People shown" class="people">
+            <div class="row">
+              <button id="show-all" type="button">Show all</button>
+              <button id="show-none" type="button">Hide all</button>
+            </div>
+            <div id="people"></div>
+          </aside>
+          <div class="plot-wrap">
+            <div
+              aria-label="3D cloud of voice turns"
+              id="plot"
+              role="img"
+            ></div>
+            <p class="legend">
+              <span><i class="dot"></i>first guess right</span>
+              <span><i class="ring"></i>no name to judge by</span>
+              <span><i class="cross">×</i>first guess wrong</span>
+              <span
+                >Drag to turn, scroll to zoom, click a turn to hear it.</span
+              >
+            </p>
+          </div>
+          <aside aria-live="polite" class="listen" id="listen">
+            <p class="empty" id="listen-empty">
+              Click a turn in the cloud to hear it and see what each model makes
+              of it.
+            </p>
+            <div hidden id="listen-body">
+              <p class="said" id="listen-truth"></p>
+              <blockquote id="listen-text"></blockquote>
+              <p class="facts" id="listen-facts"></p>
+              <!-- biome-ignore lint/a11y/useMediaCaption: the clip's words are the quote above the player -->
+              <audio controls id="player"></audio>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Hears</th>
+                    <th class="num">Likeness</th>
+                    <th class="num">Lead</th>
+                  </tr>
+                </thead>
+                <tbody id="listen-models"></tbody>
+              </table>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section aria-labelledby="board-title" id="board">
+        <h2 id="board-title">Known voices named right</h2>
+        <p>
+          Of the turns you gave a name to, the share each model names right when
+          it may be wrong on at most 1 name in 100. A name given to a voice you
+          said is nobody you know counts as wrong. Each turn is judged without
+          the evidence of its own conversation.
+        </p>
+        <div class="scroll">
+          <table id="board-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>At 1% wrong</th>
+                <th class="num">At 3%</th>
+                <th class="num">At 10%</th>
+                <th
+                  class="num"
+                  title="No threshold: is the person it finds most alike the right one?"
+                >
+                  First guess right
+                </th>
+                <th
+                  class="num"
+                  title="A speaker's turns in one recording, as one voice"
+                >
+                  Whole voices
+                </th>
+                <th
+                  class="num"
+                  title="Every person counts once, however much they talk"
+                >
+                  Each person once
+                </th>
+                <th
+                  class="num"
+                  title="Where it misses a known voice as often as it takes another for one. Lower is better."
+                >
+                  Equal error
+                </th>
+                <th class="num" title="One CPU thread">Seconds a clip</th>
+              </tr>
+            </thead>
+            <tbody id="board-models"></tbody>
+            <tbody id="board-blends"></tbody>
+          </table>
+        </div>
+        <button id="more-blends" type="button">Show every blend</button>
+      </section>
+
+      <section aria-labelledby="curve-title" id="curve">
+        <h2 id="curve-title">Right names against wrong names</h2>
+        <p>
+          Each line is a model as it gets bolder: more known voices named, more
+          wrong names. The line that climbs highest before the 1% mark wins.
+        </p>
+        <div id="curve-plot"></div>
+      </section>
+
+      <section aria-labelledby="weak-title" id="weak">
+        <h2 id="weak-title">Where <span id="weak-model"></span> is weak</h2>
+        <p>
+          Known voices whose first guess is right, by what the turn is. The
+          model is the one picked above the cloud.
+        </p>
+        <div class="grid">
+          <div>
+            <h3>By length</h3>
+            <div id="by-length"></div>
+          </div>
+          <div>
+            <h3>By language</h3>
+            <div id="by-language"></div>
+          </div>
+          <div>
+            <h3>By how much you named them</h3>
+            <div id="by-evidence"></div>
+          </div>
+          <div class="wide">
+            <h3>By person</h3>
+            <div class="columns" id="by-person"></div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="pairs-title" id="pairs">
+        <h2 id="pairs-title">Two models together</h2>
+        <p>
+          Each cell is the first guess right of two models blended; the diagonal
+          is a model alone. Under it, how often the two give a turn to the same
+          person: models that agree less have more to add to each other.
+        </p>
+        <div class="scroll"><table id="pairs-table"></table></div>
+        <p id="triple"></p>
+      </section>
+
+      <section aria-labelledby="review-title" id="review">
+        <h2 id="review-title">Review</h2>
+        <p>
+          The turns where your ear helps the bench most, the likely mistakes
+          first. Your answers stay in the bench: they never change who lifelog
+          thinks spoke.
+        </p>
+        <div class="card" id="review-card">
+          <p class="why" id="review-why"></p>
+          <blockquote id="review-text"></blockquote>
+          <p class="facts" id="review-facts"></p>
+          <!-- biome-ignore lint/a11y/useMediaCaption: the clip's words are the quote above the player -->
+          <audio controls id="review-player"></audio>
+          <div class="answers" id="review-heard"></div>
+          <div class="answers">
+            <label
+              >Someone else
+              <select id="review-other">
+                <option value="">Choose a person</option>
+              </select>
+            </label>
+            <button data-kind="unknown" type="button">
+              <kbd>N</kbd>
+              Nobody I know
+            </button>
+            <button data-kind="several" type="button">
+              <kbd>V</kbd>
+              Several voices
+            </button>
+            <button data-kind="media" type="button">
+              <kbd>M</kbd>
+              Not a person (video, noise)
+            </button>
+            <button data-kind="skipped" type="button"><kbd>S</kbd> Skip</button>
+          </div>
+          <p class="facts">
+            <kbd>Space</kbd>
+            plays it again. <span id="review-left"></span>
+          </p>
+        </div>
+        <p class="empty" hidden id="review-done">
+          Nothing left to review. Score again to find new ones.
+        </p>
+        <div class="row">
+          <button id="rescore" type="button">
+            Score again with my answers
+          </button>
+          <span aria-live="polite" id="status"></span>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

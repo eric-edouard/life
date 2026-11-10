@@ -6,9 +6,10 @@
     "assets/**/*.css",
     "apps/edge/*.ts",
     "apps/lifelog/apps/server/fixtures/fake-restic.ts",
-    "apps/lifelog/scripts/*.ts"
+    "apps/lifelog/scripts/*.ts",
+    "apps/lifelog/apps/voice-bench/page/index.html"
   ],
-  "ignoreUnresolvedImports": ["./tokens.css"],
+  "ignoreUnresolvedImports": ["./tokens.css", "./cloud.js", "./plotly.js"],
   "ignoreDependencies": ["@openai/codex", "fallow", "ultracite"],
   "ignorePatterns": [".claude/**"],
   "health": {
