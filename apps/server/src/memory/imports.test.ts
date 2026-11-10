@@ -79,9 +79,9 @@ test("a ChatGPT export split into numbered files is one export, in the files' or
     chatgptConversation("c1", "My sister Ada moves to Lyon in May."),
     chatgptConversation("c2", "I will visit Ada after her move."),
   ];
-  // Written out of order, beside the export's other files.
-  writeFileSync(join(dir, "conversations-001.json"), JSON.stringify([second]));
-  writeFileSync(join(dir, "conversations-000.json"), JSON.stringify([first]));
+  // Written out of order, beside the export's other files; 1000 comes after 999, by number and not by letters.
+  writeFileSync(join(dir, "conversations-1000.json"), JSON.stringify([second]));
+  writeFileSync(join(dir, "conversations-999.json"), JSON.stringify([first]));
   writeFileSync(join(dir, "conversation_asset_file_names.json"), "{}");
   const read = readExport(dir);
   expect([read.source, read.all, read.conversations.map((c) => c.id)]).toEqual([

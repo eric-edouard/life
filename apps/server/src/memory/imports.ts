@@ -42,7 +42,7 @@ const PART = /^conversations-\d+\.json$/;
 
 /**
  * An export folder's conversations: which assistant's they are, pruned, and the one file kept of them (`copy`).
- * A large ChatGPT export comes in parts (`PART`): read in their order and joined.
+ * A large ChatGPT export has no `conversations.json` but parts (`PART`): read by their number and joined.
  */
 export function readExport(folder: string) {
   const whole = join(folder, "conversations.json");
@@ -50,7 +50,7 @@ export function readExport(folder: string) {
     ? []
     : readdirSync(folder)
         .filter((f) => PART.test(f))
-        .sort();
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const read = (file: string): unknown =>
     JSON.parse(readFileSync(file, "utf8"));
   const json = parts.length
