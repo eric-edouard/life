@@ -114,3 +114,10 @@ failures should fail), then each new layer against it.
 
 Before the pilot. The reads are iterated on the benchmark, where the truth is known and no verdict of his is
 needed; the pilot on his data then checks that it holds on a real life.
+
+## Decided (10 Nov, his word): no cutoff
+
+The benchmark asks every case against his memory as it is today. A case states what is true today, in words that do
+not depend on when it is asked (a month and year, never "last month"); when the truth changes, he corrects the case.
+A knowledge cutoff (the memory as it would have been on a date) would mean rebuilding the memory per date; where it
+matters, predictions, it is built with the forecasts (spec section 12), from dated records, by code.
