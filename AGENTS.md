@@ -13,7 +13,8 @@ reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions), `docs/operations.md` (schedule, locks,
-backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/releasing.md`,
+backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/rethinking-memory.md` (read first when a stronger model
+reopens the memory's layers), `docs/releasing.md`,
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`.
 
 ## Commands
