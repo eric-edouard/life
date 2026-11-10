@@ -82,7 +82,11 @@ no endings (A11), performance not told apart from view (C1).
 **Pilot round 1, 10 Nov** (his yes; the connection read, both people, all years): 85 of 85 calls ok, 8,091 moves
 kept, 1.6% dropped by the quote check, about $1.55 (output, thinking included, was about 36,000 tokens a call:
 three times the estimate). Counts by side in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-round-1.md`.
-Next for the pilot: the checking pass by another family on a sample, then his look at the counts.
+Then (his idea) two lighter people, read by DeepSeek and by Codex as the check: 379 exchanges,
+tension flag agreement 93%; thanks, invites, asking about the other, affection hold across families (kappa 0.7 to
+1.0); disclosure (0.25 to 0.49), sharing, asking for and giving by the other side, refusing and exploring do not.
+Next for the pilot: round 2 rewords those codes with examples, checked the same way; then recordings and group
+chats, so people mostly heard in person are read in full.
 
 **Was next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
 to price a case; then the baseline over all twelve; then the conflict and mentions reads, one PR each; then the
