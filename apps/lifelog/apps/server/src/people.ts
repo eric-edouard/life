@@ -11,12 +11,13 @@ import {
   namingAttempts,
   type ParsedTranscript,
   people,
+  turns as storedTurns,
   transcripts,
   voiceProfiles,
   voiceSamples,
 } from "@lifelog/db/schema";
 import { and, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
-import { logChange } from "./change-log";
+import { logChange, logPlacedIn } from "./change-log";
 import { ownerClock, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import { type Fields, record, recordedOn } from "./events";
@@ -193,6 +194,23 @@ export function assign(
     });
     invalidateNamingAttempts(tx, [jobId], "owner corrected a speaker");
     cleanupInferredPeople(tx);
+    logPlacedIn(
+      tx,
+      tx
+        .select({ end: storedTurns.endAt, start: storedTurns.startAt })
+        .from(storedTurns)
+        .where(
+          and(
+            eq(storedTurns.jobId, jobId),
+            eq(storedTurns.speakerLabel, speakerLabel),
+            turnIndex === null
+              ? undefined
+              : eq(storedTurns.turnIndex, turnIndex)
+          )
+        )
+        .all()
+        .map((t) => [t.start, t.end])
+    );
     logChange(tx, "assignment", jobId);
     if (personId && target.kind === "new") {
       logChange(tx, "person", personId);

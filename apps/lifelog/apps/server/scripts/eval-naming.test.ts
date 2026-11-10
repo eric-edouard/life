@@ -12,17 +12,18 @@ import {
 } from "@lifelog/db/schema";
 import { NAMING } from "../src/config";
 import {
+  isNamingGate,
   type NamingInput,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
   namingWorkHash,
 } from "../src/inferred-speakers";
 import { namingPass } from "../src/naming-pass";
 import { fakeModel, seedConversation, testDb } from "../src/testing";
 import {
-  evaluateNamingFrozen,
   type FrozenNamingEvaluation,
   freezeNamingCase,
+  readNamingEvaluation,
 } from "./eval-voices";
 
 const HIM = [1, 0, 0];
@@ -33,8 +34,12 @@ const calibration = {
   contradictionMargin: 0.15,
   contradictionScore: 0.65,
 };
-function frozenFixture(withSamples = false, turnCount = 2, abstain = false) {
-  const env = testDb();
+function frozenFixture(
+  withSamples = false,
+  turnCount = 2,
+  abstain = false,
+  env = testDb()
+) {
   const at = clock().getTime() + 86_400_000;
   env.db
     .insert(people)
@@ -49,7 +54,12 @@ function frozenFixture(withSamples = false, turnCount = 2, abstain = false) {
       folds: {},
       hash: "synthetic",
       people: [
-        { aliases: [], name: "Guest", personId: "guest", ref: "person:guest" },
+        {
+          aliases: [],
+          name: "Guest",
+          personId: "guest",
+          ref: "person:guest",
+        },
       ],
       revision: 1,
     })
@@ -105,7 +115,7 @@ function frozenFixture(withSamples = false, turnCount = 2, abstain = false) {
   const metadata = {
     calibration,
     model: "synthetic-codex",
-    policyHash: namingPolicyHash(),
+    policyHash: namingPolicyHashOf(),
     promptHash: namingPromptHash(),
     snapshots: {},
   };
@@ -183,12 +193,11 @@ function frozenFixture(withSamples = false, turnCount = 2, abstain = false) {
   };
   return { ...env, at, data, held };
 }
-
 test("frozen naming replays production decisions and reconciliation, reports context-only/short strata and never writes its source", () => {
   const env = frozenFixture();
   try {
     const before = env.db.$client.serialize();
-    const report = evaluateNamingFrozen(env.data);
+    const report = readNamingEvaluation(env.data);
     expect(report.overall).toMatchObject({
       correct: 2,
       coverage: 1,
@@ -199,8 +208,10 @@ test("frozen naming replays production decisions and reconciliation, reports con
     expect(report.baseline.predictions).toBe(0);
     expect(report.strata.contextOnly.predictions).toBe(2);
     expect(report.strata.short.turns).toBe(2);
-    expect(report.receipt.inputHashes).toHaveLength(1);
-    expect(report.receipt.datasetHash).toHaveLength(64);
+    expect([
+      report.receipt.inputHashes.length,
+      report.receipt.datasetHash.length,
+    ]).toEqual([1, 64]);
     expect(report.receipt.lowerBound).toBeLessThan(0.98);
     expect(report.receipt.passed).toBe(false);
     expect(env.db.$client.serialize()).toEqual(before);
@@ -208,11 +219,10 @@ test("frozen naming replays production decisions and reconciliation, reports con
     env.drop();
   }
 });
-
 test("held-out owner answers and same-recording profile evidence never supply identity or presence", () => {
   const env = frozenFixture(true);
   try {
-    const report = evaluateNamingFrozen(env.data);
+    const report = readNamingEvaluation(env.data);
     expect(report.baseline.predictions).toBe(0);
     expect(report.addedContext).toMatchObject({ correct: 2, predictions: 2 });
     expect(report.strata.contextOnly.turns).toBe(0);
@@ -220,17 +230,16 @@ test("held-out owner answers and same-recording profile evidence never supply id
     env.drop();
   }
 });
-
 test("zero predictions, overlapping partitions, stale metadata and changed cached input cannot authorize writes", () => {
   const env = frozenFixture();
   try {
     const abstained = frozenFixture(false, 2, true);
-    const empty = evaluateNamingFrozen(abstained.data);
+    const empty = readNamingEvaluation(abstained.data);
     abstained.drop();
     expect(empty.receipt.predictions).toBe(0);
     expect(empty.receipt.precision).toBeNull();
     expect(empty.receipt.passed).toBe(false);
-    const overlap = evaluateNamingFrozen({
+    const overlap = readNamingEvaluation({
       ...env.data,
       cases: env.data.cases.map((c) => ({
         ...c,
@@ -243,11 +252,11 @@ test("zero predictions, overlapping partitions, stale metadata and changed cache
     expect(overlap.reasons).toContain(
       "calibration and held-out recordings or conversations overlap"
     );
-    const stale = evaluateNamingFrozen({ ...env.data, promptHash: "old" });
+    const stale = readNamingEvaluation({ ...env.data, promptHash: "old" });
     expect(stale.reasons).toContain(
       "model policy, prompt or calibrated cutoffs differ"
     );
-    const changed = evaluateNamingFrozen({
+    const changed = readNamingEvaluation({
       ...env.data,
       cases: env.data.cases.map((c) =>
         c.partition === "held-out" ? { ...c, inputHash: "changed" } : c
@@ -260,7 +269,6 @@ test("zero predictions, overlapping partitions, stale metadata and changed cache
     env.drop();
   }
 });
-
 test("future voice evidence and future candidate snapshots are refused before frozen reads are scored", () => {
   const env = frozenFixture(true);
   try {
@@ -296,7 +304,6 @@ test("future voice evidence and future candidate snapshots are refused before fr
     env.drop();
   }
 });
-
 test("many turns from only four calls cannot pass the independent Wilson gate", () => {
   const previous = NAMING.calibration;
   Object.assign(NAMING, { calibration });
@@ -307,7 +314,7 @@ test("many turns from only four calls cannot pass the independent Wilson gate", 
     }
     const [first] = fixtures;
     assert(first);
-    const report = evaluateNamingFrozen({
+    const report = readNamingEvaluation({
       ...first.data,
       cases: fixtures.flatMap((f) => f.data.cases),
       snapshots: Object.assign({}, ...fixtures.map((f) => f.data.snapshots)),
@@ -475,7 +482,6 @@ function freezeVoiceCase(
     },
   };
 }
-
 test("frozen replay exercises production split scopes and owner candidate constraints", () => {
   for (const several of [false, true]) {
     const env = freezeVoiceCase(
@@ -485,7 +491,7 @@ test("frozen replay exercises production split scopes and owner candidate constr
       several
     );
     try {
-      const report = evaluateNamingFrozen(env.replay);
+      const report = readNamingEvaluation(env.replay);
       expect(report.baseline).toMatchObject({
         correct: 4,
         precision: 1,
@@ -497,7 +503,6 @@ test("frozen replay exercises production split scopes and owner candidate constr
     }
   }
 });
-
 test("production nearby naming is replayed, while future profiles are removed before ranking", () => {
   const vector = (x: number, y: number, z = 0) => {
     const norm = Math.hypot(x, y, z);
@@ -518,7 +523,7 @@ test("production nearby naming is replayed, while future profiles are removed be
     true
   );
   try {
-    const report = evaluateNamingFrozen(env.replay);
+    const report = readNamingEvaluation(env.replay);
     expect(report.baseline).toMatchObject({
       correct: 2,
       precision: 1,
@@ -536,12 +541,11 @@ test("production nearby naming is replayed, while future profiles are removed be
     true
   );
   try {
-    expect(evaluateNamingFrozen(future.replay).baseline.predictions).toBe(0);
+    expect(readNamingEvaluation(future.replay).baseline.predictions).toBe(0);
   } finally {
     future.drop();
   }
 });
-
 test("candidate identity proof from either evaluation partition or the future is excluded", () => {
   const env = frozenFixture();
   try {
@@ -558,10 +562,10 @@ test("candidate identity proof from either evaluation partition or the future is
           : e
       ),
     }));
-    const report = evaluateNamingFrozen({ ...env.data, cases: excluded });
+    const report = readNamingEvaluation({ ...env.data, cases: excluded });
     expect(report.receipt.passed).toBe(false);
     expect(report.receipt.predictions).toBe(0);
-    const future = evaluateNamingFrozen({
+    const future = readNamingEvaluation({
       ...env.data,
       cases: env.data.cases.map((c) => ({
         ...c,
@@ -576,7 +580,6 @@ test("candidate identity proof from either evaluation partition or the future is
     env.drop();
   }
 });
-
 test("cached model, prompt, policy, snapshot and raw reply provenance cannot be relabeled", () => {
   const env = frozenFixture();
   try {
@@ -591,13 +594,13 @@ test("cached model, prompt, policy, snapshot and raw reply provenance cannot be 
       const cases = env.data.cases.map((c) =>
         c.call ? { ...c, call: { ...c.call, ...change } } : c
       );
-      const report = evaluateNamingFrozen({ ...env.data, cases });
+      const report = readNamingEvaluation({ ...env.data, cases });
       expect(report.receipt.passed).toBe(false);
       expect(
         report.reasons.some((r) => r.includes("call provenance mismatch"))
       ).toBe(true);
     }
-    const forged = evaluateNamingFrozen({
+    const forged = readNamingEvaluation({
       ...env.data,
       cases: env.data.cases.map((c) => ({
         ...c,
@@ -615,7 +618,6 @@ test("cached model, prompt, policy, snapshot and raw reply provenance cannot be 
     env.drop();
   }
 });
-
 test("the same semantic snapshot at a higher transport revision reuses the original frozen call", () => {
   const env = frozenFixture();
   try {
@@ -630,7 +632,7 @@ test("the same semantic snapshot at a higher transport revision reuses the origi
     expect(later.inputHash).toBe(held.inputHash);
     expect(later.input?.snapshotRevision).toBe(2);
     expect(later.call?.snapshotRevision).toBe(1);
-    const report = evaluateNamingFrozen({
+    const report = readNamingEvaluation({
       ...env.data,
       cases: [
         ...env.data.cases.filter((c) => c.partition === "calibration"),
@@ -642,7 +644,6 @@ test("the same semantic snapshot at a higher transport revision reuses the origi
     env.drop();
   }
 });
-
 test("a genuine naming queue cached call freezes and replays with the production work key", async () => {
   const env = frozenFixture();
   try {
@@ -717,7 +718,7 @@ test("a genuine naming queue cached call freezes and replays with the production
       archiveHash: undefined,
       attemptId: attempt.id,
     });
-    const replayed = evaluateNamingFrozen({
+    const replayed = readNamingEvaluation({
       ...env.data,
       cases: [
         ...env.data.cases.filter((c) => c.partition === "calibration"),
@@ -725,7 +726,7 @@ test("a genuine naming queue cached call freezes and replays with the production
       ],
     });
     expect(replayed.overall).toMatchObject({ correct: 2, predictions: 2 });
-    const missing = evaluateNamingFrozen({
+    const missing = readNamingEvaluation({
       ...env.data,
       cases: [
         ...env.data.cases.filter((c) => c.partition === "calibration"),
@@ -739,7 +740,6 @@ test("a genuine naming queue cached call freezes and replays with the production
     env.drop();
   }
 });
-
 test("frozen cases share one immutable snapshot entry and reuse its reference", () => {
   const env = frozenFixture();
   try {
@@ -757,5 +757,39 @@ test("frozen cases share one immutable snapshot entry and reuse its reference", 
     expect(again.call).toEqual(held.call);
   } finally {
     env.drop();
+  }
+});
+test("a passing mixed context and voice-only evaluation produces an installable receipt", () => {
+  const original = NAMING.calibration;
+  Object.assign(NAMING, { calibration });
+  const source = testDb();
+  const data: FrozenNamingEvaluation[] = [];
+  const voice = freezeVoiceCase([HIM, HIM], ["s", "s"], ["guest", "guest"]);
+  try {
+    for (let i = 0; i < 200; i += 1) {
+      source.reset();
+      data.push(frozenFixture(false, 1, false, source).data);
+    }
+    const [first] = data;
+    assert(first);
+    const report = readNamingEvaluation({
+      ...first,
+      cases: [...data.flatMap((f) => f.cases), ...voice.replay.cases],
+      snapshots: Object.assign(
+        {},
+        ...data.map((f) => f.snapshots),
+        voice.replay.snapshots
+      ),
+    });
+    expect(report).toMatchObject({
+      baseline: { predictions: 2 },
+      reasons: [],
+      receipt: { callPredictions: 200, passed: true },
+    });
+    expect(isNamingGate(report.receipt, first.model)).toBe(true);
+  } finally {
+    voice.drop();
+    source.drop();
+    Object.assign(NAMING, { calibration: original });
   }
 });

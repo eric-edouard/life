@@ -1,18 +1,15 @@
 import { expect, test } from "bun:test";
 import assert from "node:assert/strict";
-import { NAMING } from "./config";
+import { NAMING, RECOGNITION } from "./config";
 import {
   buildNamingInput,
+  namingPolicyHashOf,
   namingPrompt,
   parseNamingReadings,
   readInferredSpeakers,
 } from "./inferred-speakers";
 import type { Provider } from "./providers";
-import {
-  decideInferredName,
-  type InferredReading,
-  NO_PROFILES,
-} from "./speakers";
+import { type InferredReading, inferredNameOf, NO_PROFILES } from "./speakers";
 
 const people = [
   { aliases: [], canonicalRef: "owner", name: "Owner", personId: "owner" },
@@ -167,45 +164,36 @@ test("oversized contexts fail before any model call and canonical candidates mus
 });
 
 test("voice decisions win; calibrated contradictions block context but absent embeddings permit it", () => {
+  expect(inferredNameOf(unnamed, NO_PROFILES, reading, { calibration })).toBe(
+    "person_1"
+  );
   expect(
-    decideInferredName(unnamed, NO_PROFILES, reading, { calibration })
-  ).toBe("person_1");
-  expect(
-    decideInferredName(unnamed, NO_PROFILES, reading, { calibration: null })
+    inferredNameOf(unnamed, NO_PROFILES, reading, { calibration: null })
   ).toBeNull();
   expect(
-    decideInferredName(
-      { ...unnamed, personId: "owner" },
-      NO_PROFILES,
-      reading,
-      { calibration }
-    )
+    inferredNameOf({ ...unnamed, personId: "owner" }, NO_PROFILES, reading, {
+      calibration,
+    })
   ).toBe("owner");
   expect(
-    decideInferredName({ ...unnamed, isStranger: true }, NO_PROFILES, reading, {
+    inferredNameOf({ ...unnamed, isStranger: true }, NO_PROFILES, reading, {
       calibration,
     })
   ).toBeNull();
   expect(
-    decideInferredName(
+    inferredNameOf(
       unnamed,
       NO_PROFILES,
       { ...reading, confidence: 0.9 },
       { calibration }
     )
   ).toBeNull();
-  expect(
-    decideInferredName(unnamed, NO_PROFILES, reading, {
-      calibration,
-      candidates: { people: ["owner"], unknown: true },
-    })
-  ).toBeNull();
   const profiles = {
     people: [{ exemplars: [[1, 0]], isOwner: true, personId: "owner" }],
     strangers: [],
   };
   expect(
-    decideInferredName({ ...unnamed, vector: [1, 0] }, profiles, reading, {
+    inferredNameOf({ ...unnamed, vector: [1, 0] }, profiles, reading, {
       calibration,
     })
   ).toBeNull();
@@ -272,4 +260,15 @@ test("context output contains only checked readings and confidence, never a conv
     }),
   });
   expect(parseNamingReadings(raw(), input())[0]?.personId).toBe("person_1");
+});
+
+test("the gate policy binds recognition thresholds as well as naming calibration", () => {
+  const before = namingPolicyHashOf();
+  const threshold = RECOGNITION.matchThreshold;
+  try {
+    Object.assign(RECOGNITION, { matchThreshold: threshold + 0.01 });
+    expect(namingPolicyHashOf()).not.toBe(before);
+  } finally {
+    Object.assign(RECOGNITION, { matchThreshold: threshold });
+  }
 });

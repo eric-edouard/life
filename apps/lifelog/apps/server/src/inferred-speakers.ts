@@ -1,7 +1,7 @@
 // A bounded, quote-checked reading of transcript data; no embeddings leave the server.
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { NAMING } from "./config";
+import { NAMING, RECOGNITION } from "./config";
 import type { ModelReply, Provider } from "./providers";
 import { type InferredReading, type Profiles, rankPeople } from "./speakers";
 import type { Vector } from "./voice-vectors";
@@ -182,9 +182,15 @@ function namingTargetsOf(input: Parameters<typeof buildNamingInput>[0]) {
 }
 
 // One bounded view of this conversation; the queue returns for the remaining unchecked scopes.
-export function boundNamingInput(
+export function boundedNamingInputOf(
   input: Parameters<typeof buildNamingInput>[0]
 ): NamingInput | null {
+  if (
+    !input.people.length ||
+    (input.ownerId && !input.people.some((p) => p.personId === input.ownerId))
+  ) {
+    return null;
+  }
   const { positionsOf, targets: available } = namingTargetsOf(input);
   const targets = available.slice(0, NAMING.contextMaxScopes);
   const requiredTurns = () => new Set(targets.flatMap(positionsOf));
@@ -301,10 +307,7 @@ export function boundNamingInput(
   };
   while (targets.length) {
     const required = requiredPeople();
-    const selected = new Set(people.map((p) => p.personId));
-    const hasCandidates =
-      people.length > 0 && [...required].every((id) => selected.has(id));
-    const built = hasCandidates ? tryBuild() : null;
+    const built = tryBuild();
     if (built) {
       return built;
     }
@@ -319,7 +322,7 @@ export function boundNamingInput(
       continue;
     }
     const removable = people.findLastIndex((p) => !required.has(p.personId));
-    if (hasCandidates && people.length > 1 && removable !== -1) {
+    if (people.length > 1 && removable !== -1) {
       people.splice(removable, 1);
       continue;
     }
@@ -330,12 +333,15 @@ export function boundNamingInput(
   return null;
 }
 // Windows share this conversation's queue and persisted per-input attempts; none can hide the next.
-export function* boundNamingInputs(
+export function* boundedNamingInputsOf(
   input: Parameters<typeof buildNamingInput>[0]
 ): Generator<NamingInput> {
+  if (!input.people.length) {
+    return;
+  }
   let remaining = namingTargetsOf(input).targets;
   while (remaining.length) {
-    const bounded = boundNamingInput({ ...input, targets: remaining });
+    const bounded = boundedNamingInputOf({ ...input, targets: remaining });
     if (!bounded) {
       remaining.shift();
       continue;
@@ -451,13 +457,13 @@ export const namingPrompt = () => ({
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-export const namingPolicyHash = () => hash(NAMING);
+export const namingPolicyHashOf = () => hash([NAMING, RECOGNITION]);
 export const namingPromptHash = () => hash(namingPrompt());
 export const namingWorkHash = (
   inputHash: string,
   model: string,
   promptHash = namingPromptHash(),
-  policyHash = namingPolicyHash()
+  policyHash = namingPolicyHashOf()
 ) => hash([inputHash, model, promptHash, policyHash]);
 export function isNamingGate(receipt: unknown, model: string) {
   const r = NamingGate.safeParse(receipt).data;
@@ -465,7 +471,7 @@ export function isNamingGate(receipt: unknown, model: string) {
     !!r &&
     r.model === model &&
     r.promptHash === namingPromptHash() &&
-    r.policyHash === namingPolicyHash() &&
+    r.policyHash === namingPolicyHashOf() &&
     r.calibration.confidence === NAMING.calibration?.confidence &&
     r.calibration.contradictionScore ===
       NAMING.calibration?.contradictionScore &&

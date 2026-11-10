@@ -4,7 +4,6 @@ import type { Db } from "@lifelog/db";
 import {
   speakerAssignments as assignments,
   people,
-  quietRanges,
   turns,
   voiceSamples,
 } from "@lifelog/db/schema";
@@ -14,13 +13,12 @@ import {
   RECOGNITION,
   VOICE_MAP_POINTS_PER_PERSON_MODEL,
 } from "./config";
-import { textOf } from "./elevenlabs";
 import type { Card } from "./naming-queue";
 import { personRow } from "./people";
 import { coveredByRow, modelKey, ofItsSpeaker } from "./recognized-rows";
 import { readProfiles } from "./speaker-recognition";
 import { centroid, rankPeople } from "./speakers";
-import { keptWords, readInference } from "./transcript-visibility";
+import { readInference, readTurnText } from "./transcript-visibility";
 import { pcaOf } from "./voice-pca";
 import type { Vector } from "./voice-vectors";
 
@@ -165,11 +163,6 @@ export function readVoiceProjection(
       }),
     };
   });
-  const quiet = db
-    .select()
-    .from(quietRanges)
-    .all()
-    .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
   return {
     candidateThreshold: RECOGNITION.candidateThreshold,
     cards: shown.map(({ card }) => card),
@@ -180,7 +173,6 @@ export function readVoiceProjection(
         personId: people.id,
         personName: people.name,
         speakerLabel: assignments.speakerLabel,
-        turn: turns,
         turnIndex: turns.turnIndex,
       })
       .from(turns)
@@ -203,17 +195,17 @@ export function readVoiceProjection(
       .orderBy(desc(turns.startAt), turns.jobId, turns.turnIndex)
       .limit(NAMING.inferredMaxTurns)
       .all()
-      .flatMap(({ turn, ...inferred }) => {
-        const kept = keptWords(turn.words, turn.startAt.getTime(), quiet);
-        return kept
-          ? [
+      .flatMap((inferred) => {
+        const text = readTurnText(db, inferred.jobId, inferred.turnIndex);
+        return text === null
+          ? []
+          : [
               {
                 ...inferred,
                 inference: readInference(db, inferred.inference),
-                text: kept === turn.words ? turn.text : textOf(kept),
+                text,
               },
-            ]
-          : [];
+            ];
       }),
     models,
     people: db.select().from(people).all().map(personRow),

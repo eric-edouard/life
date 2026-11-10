@@ -23,17 +23,22 @@ export function namingCounts(
     turns: rows.length,
   };
 }
-export function summarizeNamingUnits(
+export function namingUnitsOf(
   rows: {
     prediction: string | null;
     correct: boolean;
     recordingId: string;
-    callId: string;
+    callId: string | null;
   }[]
 ) {
   const units = (key: "recordingId" | "callId") =>
     namingCounts(
-      [...Map.groupBy(rows, (r) => r[key]).values()].map((group) => ({
+      [
+        ...Map.groupBy(
+          rows.filter((r) => r[key] !== null),
+          (r) => r[key]
+        ).values(),
+      ].map((group) => ({
         correct: group.every((r) => r.prediction === null || r.correct),
         prediction: group.some((r) => r.prediction !== null) ? "named" : null,
       }))

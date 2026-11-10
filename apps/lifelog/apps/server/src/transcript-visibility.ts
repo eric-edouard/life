@@ -19,44 +19,50 @@ export function readInference(
   }
   return {
     ...inference,
-    evidence: inference.evidence.filter((e) => {
-      const turn = db
-        .select()
-        .from(turns)
-        .where(and(eq(turns.jobId, e.jobId), eq(turns.turnIndex, e.turnIndex)))
-        .get();
-      if (!turn) {
-        return false;
-      }
-      const assigned = db
-        .select()
-        .from(speakerAssignments)
-        .where(eq(speakerAssignments.jobId, e.jobId))
-        .all();
-      if (
-        speakerOf(assigned, turn.speakerLabel, turn.turnIndex)?.status ===
-        "media"
-      ) {
-        return false;
-      }
-      const quiet = db
-        .select()
-        .from(quietRanges)
-        .where(
-          and(
-            lt(quietRanges.startedAt, turn.endAt),
-            gt(quietRanges.endedAt, turn.startAt)
-          )
-        )
-        .all()
-        .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
-      const kept = keptWords(turn.words, turn.startAt.getTime(), quiet);
-      return (
-        kept !== null &&
-        (kept === turn.words ? turn.text : textOf(kept)).includes(e.quote)
-      );
-    }),
+    evidence: inference.evidence.filter((e) =>
+      readTurnText(db, e.jobId, e.turnIndex)?.includes(e.quote)
+    ),
   };
+}
+
+// Current visible words of a stored turn, including media corrections.
+export function readTurnText(
+  db: Pick<Db, "select">,
+  jobId: string,
+  turnIndex: number
+) {
+  const turn = db
+    .select()
+    .from(turns)
+    .where(and(eq(turns.jobId, jobId), eq(turns.turnIndex, turnIndex)))
+    .get();
+  if (!turn) {
+    return null;
+  }
+  const assigned = db
+    .select()
+    .from(speakerAssignments)
+    .where(eq(speakerAssignments.jobId, jobId))
+    .all();
+  if (speakerOf(assigned, turn.speakerLabel, turnIndex)?.status === "media") {
+    return null;
+  }
+  const quiet = db
+    .select()
+    .from(quietRanges)
+    .where(
+      and(
+        lt(quietRanges.startedAt, turn.endAt),
+        gt(quietRanges.endedAt, turn.startAt)
+      )
+    )
+    .all()
+    .map((q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const);
+  const kept = keptWords(turn.words, turn.startAt.getTime(), quiet);
+  if (kept === null) {
+    return null;
+  }
+  return kept === turn.words ? turn.text : textOf(kept);
 }
 
 // The one hiding rule (summaries, search, the feed): a word that starts inside a quiet

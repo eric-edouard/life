@@ -18,13 +18,18 @@ import {
 import { eq, gt, inArray, or } from "drizzle-orm";
 import { NAMING, RECOGNITION } from "../src/config";
 import {
+  isNamingGate,
   type NamingInput,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
   namingWorkHash,
   parseNamingReadings,
 } from "../src/inferred-speakers";
-import { resolveLifePerson } from "../src/life-people";
+import {
+  canonicalOf,
+  readLifePeople,
+  resolveLifePerson,
+} from "../src/life-people";
 import { readNamingInput, readNamingInputs } from "../src/naming-pass";
 import { speakerOf } from "../src/people";
 import { loadTranscript, voiceId } from "../src/recognized-rows";
@@ -45,7 +50,7 @@ import {
   installNamingGate,
   lowerBoundOf,
   namingCounts,
-  summarizeNamingUnits,
+  namingUnitsOf,
 } from "./naming-evaluation";
 export type Export = ReturnType<typeof exportVoices> & {
   naming?: FrozenNamingEvaluation;
@@ -378,12 +383,33 @@ function removeNamingLeakage(
     .run();
   return samples;
 }
-function namingReplay(
+// Frozen answers and newly created replay people share their canonical Life identity.
+function identitiesOf(
+  rows: { id: string; lifeRef: string | null }[],
+  snapshot: ReturnType<typeof readLifePeople>
+) {
+  const links = new Map([
+    ...(snapshot?.people ?? []).flatMap((p) =>
+      p.personId ? [[p.personId, p.ref] as const] : []
+    ),
+    ...rows.flatMap((p) => (p.lifeRef ? [[p.id, p.lifeRef] as const] : [])),
+  ]);
+  return (id: string | null | undefined) => {
+    if (!id) {
+      return null;
+    }
+    const ref = links.get(id) ?? (id.startsWith("life:") ? id.slice(5) : null);
+    return ref ? `life:${canonicalOf(snapshot?.folds ?? {}, ref)}` : id;
+  };
+}
+function readNamingReplay(
   data: FrozenNamingEvaluation,
   item: FrozenNamingCase & { attemptId?: string },
   isFreezing = false
 ) {
   return withFrozenVoiceSnapshot(data.snapshots, item.archiveHash, (db) => {
+    const originalPeople = db.select().from(people).all();
+    const snapshot = readLifePeople(db);
     const samples = removeNamingLeakage(db, data, item);
     const profiles = readProfiles(db);
     const nearby = nearbyVoices();
@@ -455,6 +481,10 @@ function namingReplay(
       .from(speakerAssignments)
       .where(inArray(speakerAssignments.jobId, jobs))
       .all();
+    const identityOf = identitiesOf(
+      [...originalPeople, ...db.select().from(people).all()],
+      snapshot
+    );
     return {
       input,
       rows: item.answers.map((a) => {
@@ -473,12 +503,13 @@ function namingReplay(
         );
         const parsed = loadTranscript(db, a.jobId)?.parsed.turns[a.turnIndex];
         return {
-          baselineCorrect: (before?.personId ?? null) === a.personId,
+          baselineCorrect:
+            identityOf(before?.personId) === identityOf(a.personId),
           baselinePrediction: before?.personId ?? null,
-          callId: item.call?.attemptId ?? `voice:${item.conversationId}`,
+          callId: item.call?.inputHash ?? null,
           context: after?.source === "inferred" && !before?.personId,
           contextOnly: !sample,
-          correct: after?.personId === a.personId,
+          correct: identityOf(after?.personId) === identityOf(a.personId),
           group: item.answers
             .filter((other) => other.jobId === a.jobId)
             .some((other) => other.personId !== a.personId),
@@ -568,7 +599,7 @@ export function freezeNamingCase(
     inputHash: null,
     recordings: readFrozenRecordings(db),
   };
-  const prepared = namingReplay(
+  const prepared = readNamingReplay(
     { ...data, cases: [...(data.cases ?? []), frozen] },
     frozen,
     true
@@ -588,16 +619,16 @@ export function freezeNamingCase(
     inputHash: prepared.input?.inputHash ?? null,
   };
 }
-type NamingScoreRow = ReturnType<typeof namingReplay>["rows"][number];
-function namingRows(data: FrozenNamingEvaluation, reasons: string[]) {
+type NamingScoreRow = ReturnType<typeof readNamingReplay>["rows"][number];
+function readNamingRows(data: FrozenNamingEvaluation, reasons: string[]) {
   const rows: NamingScoreRow[] = [];
   const inputHashes: string[] = [];
   for (const item of data.cases.filter((c) => c.partition === "held-out")) {
     try {
-      const replayed = namingReplay(data, item);
+      const replayed = readNamingReplay(data, item);
       rows.push(...replayed.rows);
-      if (replayed.input) {
-        inputHashes.push(replayed.input.inputHash);
+      if (item.call) {
+        inputHashes.push(item.call.inputHash);
       }
     } catch (error) {
       reasons.push(
@@ -607,7 +638,7 @@ function namingRows(data: FrozenNamingEvaluation, reasons: string[]) {
   }
   return { inputHashes, rows };
 }
-export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
+export function readNamingEvaluation(data: FrozenNamingEvaluation) {
   const reasons: string[] = [];
   const calibrationRecordingIds = recordingIds(data.cases, "calibration");
   const heldOutRecordingIds = recordingIds(data.cases, "held-out");
@@ -633,22 +664,20 @@ export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
   }
   if (
     data.promptHash !== namingPromptHash() ||
-    data.policyHash !== namingPolicyHash() ||
+    data.policyHash !== namingPolicyHashOf() ||
     hashOf(data.calibration) !== hashOf(NAMING.calibration)
   ) {
     reasons.push("model policy, prompt or calibrated cutoffs differ");
   }
-  const { rows, inputHashes } = namingRows(data, reasons);
+  const { rows, inputHashes } = readNamingRows(data, reasons);
   const overall = namingCounts(rows);
   const addedContext = namingCounts(
     rows
       .filter((r) => r.potentialContext)
       .map((r) => ({ ...r, prediction: r.context ? r.prediction : null }))
   );
-  const independent = summarizeNamingUnits(rows);
-  const contextIndependent = summarizeNamingUnits(
-    rows.filter((r) => r.context)
-  );
+  const independent = namingUnitsOf(rows);
+  const contextIndependent = namingUnitsOf(rows.filter((r) => r.context));
   const lowerBound = lowerBoundOf(
     overall,
     independent.recordings,
@@ -659,19 +688,32 @@ export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
     contextIndependent.recordings,
     contextIndependent.calls
   );
-  if (
-    Math.min(
-      independent.recordings.predictions,
-      independent.calls.predictions,
-      contextIndependent.recordings.predictions,
-      contextIndependent.calls.predictions
-    ) < NAMING.minimumGatePredictions ||
-    lowerBound < NAMING.precision ||
-    contextLowerBound < NAMING.addedContextPrecision ||
-    !inputHashes.length
-  ) {
+  const receipt = {
+    calibration: data.calibration,
+    calibrationRecordingIds,
+    callPredictions: independent.calls.predictions,
+    contextCallPredictions: contextIndependent.calls.predictions,
+    contextCorrect: addedContext.correct,
+    contextLowerBound,
+    contextPredictions: addedContext.predictions,
+    contextRecordingPredictions: contextIndependent.recordings.predictions,
+    correct: overall.correct,
+    datasetHash: hashOf(data),
+    heldOutRecordingIds,
+    inputHashes: [...new Set(inputHashes)].sort(),
+    lowerBound,
+    model: data.model,
+    passed: reasons.length === 0,
+    policyHash: data.policyHash,
+    precision: overall.precision,
+    predictions: overall.predictions,
+    promptHash: data.promptHash,
+    recordingPredictions: independent.recordings.predictions,
+  };
+  if (!isNamingGate(receipt, data.model)) {
     reasons.push("insufficient held-out precision or predictions");
   }
+  receipt.passed = reasons.length === 0;
 
   return {
     addedContext,
@@ -686,28 +728,7 @@ export function evaluateNamingFrozen(data: FrozenNamingEvaluation) {
     independent,
     overall,
     reasons,
-    receipt: {
-      calibration: data.calibration,
-      calibrationRecordingIds,
-      callPredictions: independent.calls.predictions,
-      contextCallPredictions: contextIndependent.calls.predictions,
-      contextCorrect: addedContext.correct,
-      contextLowerBound,
-      contextPredictions: addedContext.predictions,
-      contextRecordingPredictions: contextIndependent.recordings.predictions,
-      correct: overall.correct,
-      datasetHash: hashOf(data),
-      heldOutRecordingIds,
-      inputHashes: [...new Set(inputHashes)].sort(),
-      lowerBound,
-      model: data.model,
-      passed: reasons.length === 0,
-      policyHash: data.policyHash,
-      precision: overall.precision,
-      predictions: overall.predictions,
-      promptHash: data.promptHash,
-      recordingPredictions: independent.recordings.predictions,
-    },
+    receipt,
     strata: {
       contextOnly: namingCounts(rows.filter((r) => r.contextOnly)),
       group: namingCounts(rows.filter((r) => r.group)),
@@ -738,7 +759,7 @@ if (import.meta.main) {
     if (!frozen.naming) {
       throw new Error("no frozen naming corpus; model reads use naming-pass");
     }
-    const report = evaluateNamingFrozen(frozen.naming);
+    const report = readNamingEvaluation(frozen.naming);
     console.log(JSON.stringify(report, null, 2));
     if (Bun.argv.includes("--install")) {
       await installNamingGate(report.receipt);

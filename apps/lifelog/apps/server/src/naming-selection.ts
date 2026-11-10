@@ -13,7 +13,7 @@ import { reportError } from "./diagnostics";
 import {
   type NamingInput,
   namingBacklogClass,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
   namingWorkHash,
 } from "./inferred-speakers";
@@ -62,26 +62,7 @@ function orderOf(
   );
 }
 
-export function selectNamingWork(
-  work: NamingWork[],
-  now = clock().getTime(),
-  writes = false
-) {
-  return (
-    work
-      .filter((w) =>
-        isEligible(
-          w.attempt,
-          now,
-          writes,
-          !!(w.attempt?.result as { applied?: boolean } | null)?.applied
-        )
-      )
-      .sort(orderOf)[0] ?? null
-  );
-}
-
-export function namingSelection(
+export function namingSelectionOf(
   db: Db,
   readInputs: (db: Db, id: string) => Iterable<NamingInput | null>
 ) {
@@ -105,7 +86,7 @@ export function namingSelection(
     const next = JSON.stringify([
       model,
       namingPromptHash(),
-      namingPolicyHash(),
+      namingPolicyHashOf(),
       db.select().from(lifePeopleSnapshot).get()?.hash,
       global,
     ]);
@@ -137,7 +118,7 @@ export function namingSelection(
       .select({
         arrivedAt: conversations.createdAt,
         conversationId: conversations.id,
-        hasVoice: sql<boolean>`exists (select 1 from voice_samples v where v.conversation_id = ${conversations.id})`,
+        hasVoice: sql<boolean>`exists (select 1 from voice_samples v where v.conversation_id = ${conversations}.id)`,
       })
       .from(conversations)
       .where(

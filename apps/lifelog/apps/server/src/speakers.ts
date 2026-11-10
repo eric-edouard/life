@@ -270,8 +270,7 @@ export interface NamingCalibration {
 
 function isSupportedReading(
   reading: InferredReading,
-  cutoff: NamingCalibration,
-  candidates?: Candidates | null
+  cutoff: NamingCalibration
 ) {
   return (
     Object.values(cutoff).every(Number.isFinite) &&
@@ -279,14 +278,12 @@ function isSupportedReading(
     reading.confidence >= 0 &&
     reading.confidence >= cutoff.confidence &&
     reading.confidence <= 1 &&
-    reading.evidence.length > 0 &&
-    (!candidates ||
-      (!!reading.personId && candidates.people.includes(reading.personId)))
+    reading.evidence.length > 0
   );
 }
 
 // Applied after the ordinary voice and nearby decisions, with the owner's fixed turns removed.
-export function decideInferredName(
+export function inferredNameOf(
   result: {
     isStranger: boolean;
     personId: string | null;
@@ -296,20 +293,13 @@ export function decideInferredName(
   reading: InferredReading,
   context: {
     calibration: NamingCalibration | null;
-    candidates?: Candidates | null;
   }
 ) {
   if (result.personId || result.isStranger) {
     return result.personId;
   }
   const cutoff = context.calibration;
-  if (
-    !(
-      cutoff &&
-      reading.personId &&
-      isSupportedReading(reading, cutoff, context.candidates)
-    )
-  ) {
+  if (!(cutoff && reading.personId && isSupportedReading(reading, cutoff))) {
     return null;
   }
   const best = result.vector

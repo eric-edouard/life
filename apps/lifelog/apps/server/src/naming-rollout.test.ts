@@ -1,9 +1,13 @@
 import { afterAll, beforeEach, expect, test } from "bun:test";
 import assert from "node:assert/strict";
 import { clock } from "@life/server/src/core/clock";
-import { namingRollout } from "@lifelog/db/schema";
+import {
+  namingAttempts,
+  namingRollout,
+  subscriptionUsage,
+} from "@lifelog/db/schema";
 import { NAMING } from "./config";
-import { namingPilotPace } from "./naming-rollout";
+import { finishNamingPilot, namingPilotPace } from "./naming-rollout";
 import { testDb } from "./testing";
 
 const env = testDb();
@@ -120,4 +124,68 @@ test("model and prompt changes cannot inherit another model's rollout", () => {
       .all()
       .map((r) => r.pilotPassed)
   ).toEqual([true, false, false]);
+});
+
+test("pilot waits for quota observed after its final accounted completion and retains that observation", () => {
+  const now = clock().getTime();
+  const completedAt = now - 1000;
+  const short = { resetsAt: (now + 3_600_000) / 1000, usedPercent: 10 };
+  const long = { resetsAt: (now + 86_400_000) / 1000, usedPercent: 20 };
+  const rollout = env.db
+    .insert(namingRollout)
+    .values({
+      inputTokens: 1000,
+      latencyMs: 1000,
+      longWindow: { before: { ...long, usedPercent: 2 } },
+      model: "synthetic",
+      pilotCalls: NAMING.pilotMaxCalls,
+      policyHash: "policy",
+      promptHash: "prompt",
+      shortWindow: { before: { ...short, usedPercent: 1 } },
+    })
+    .returning()
+    .get();
+  env.db
+    .insert(namingAttempts)
+    .values({
+      call: {
+        history: Array.from({ length: NAMING.pilotMaxCalls }, () => ({
+          completedAt,
+          pilot: true,
+          valid: true,
+        })),
+      },
+      conversationId: "synthetic",
+      inputHash: "input",
+      model: "synthetic",
+      policyHash: "policy",
+      promptHash: "prompt",
+      snapshotRevision: 1,
+    })
+    .run();
+  const usage = {
+    fiveHour: short,
+    observedAt: (completedAt - 59_000) / 1000,
+    sevenDay: long,
+  };
+  env.db
+    .insert(subscriptionUsage)
+    .values({ engine: "codex", reading: usage })
+    .run();
+  expect(finishNamingPilot(env.db, rollout).pilotPassed).toBe(false);
+  env.db
+    .update(subscriptionUsage)
+    .set({ reading: { ...usage, observedAt: now / 1000 } })
+    .run();
+  const passed = finishNamingPilot(env.db, rollout);
+  expect(passed.pilotPassed).toBe(true);
+  expect(passed.shortWindow).toMatchObject({
+    after: { observedAt: now / 1000 },
+  });
+  expect(passed.longWindow).toMatchObject({
+    after: { observedAt: now / 1000 },
+  });
+  expect(env.db.select().from(namingRollout).get()?.shortWindow).toEqual(
+    passed.shortWindow
+  );
 });

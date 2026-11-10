@@ -6,7 +6,7 @@ import { latestSeq } from "./change-log";
 import { reportError } from "./diagnostics";
 import type { Card, readVoiceMap } from "./naming-queue";
 
-import { readInference } from "./transcript-visibility";
+import { readInference, readTurnText } from "./transcript-visibility";
 import type { VoiceScope } from "./voice-map";
 
 export const MAP_RETRY_DELAY = MIN / 2;
@@ -91,10 +91,18 @@ export function queueCache(db: Db) {
       ? {
           ...map,
           building: pending !== null,
-          inferred: map.inferred.map((turn) => ({
-            ...turn,
-            inference: readInference(db, turn.inference),
-          })),
+          inferred: map.inferred.flatMap((turn) => {
+            const text = readTurnText(db, turn.jobId, turn.turnIndex);
+            return text === null
+              ? []
+              : [
+                  {
+                    ...turn,
+                    inference: readInference(db, turn.inference),
+                    text,
+                  },
+                ];
+          }),
         }
       : null;
   };

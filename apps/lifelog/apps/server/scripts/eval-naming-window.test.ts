@@ -1,25 +1,21 @@
 import { expect, test } from "bun:test";
 import assert from "node:assert/strict";
 import { clock } from "@life/server/src/core/clock";
-import { lifePeopleSnapshot, namingAttempts, people } from "@lifelog/db/schema";
+import { lifePeopleSnapshot, namingAttempts } from "@lifelog/db/schema";
 import { NAMING } from "../src/config";
 import {
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
   namingWorkHash,
 } from "../src/inferred-speakers";
 import { readNamingInputs } from "../src/naming-pass";
 import { seedConversation, testDb } from "../src/testing";
-import { evaluateNamingFrozen, freezeNamingCase } from "./eval-voices";
+import { freezeNamingCase, readNamingEvaluation } from "./eval-voices";
 
-test("frozen queue receipts select their exact bounded input window", () => {
+test("frozen queue receipts select exact windows and score newly created canonical Life identities", () => {
   const env = testDb();
   try {
     const at = clock().getTime() + 86_400_000;
-    env.db
-      .insert(people)
-      .values({ id: "guest", lifeRef: "person:guest", name: "Guest" })
-      .run();
     env.db
       .insert(lifePeopleSnapshot)
       .values({
@@ -29,7 +25,7 @@ test("frozen queue receipts select their exact bounded input window", () => {
           {
             aliases: [],
             name: "Guest",
-            personId: "guest",
+            personId: null,
             ref: "person:guest",
           },
         ],
@@ -55,7 +51,7 @@ test("frozen queue receipts select their exact bounded input window", () => {
         contradictionScore: 0.65,
       },
       model: "synthetic-codex",
-      policyHash: namingPolicyHash(),
+      policyHash: namingPolicyHashOf(),
       promptHash: namingPromptHash(),
       snapshots: {},
     };
@@ -63,7 +59,7 @@ test("frozen queue receipts select their exact bounded input window", () => {
     const readings = input.scopes.map((scope) => ({
       confidence: 0.99,
       evidence: [{ quote: "Hello Guest.", turn: 0 }],
-      personId: "guest",
+      personId: "life:person:guest",
       scopeId: scope.id,
     }));
     env.db
@@ -88,7 +84,7 @@ test("frozen queue receipts select their exact bounded input window", () => {
       answers: input.scopes.flatMap((scope) =>
         scope.turnIndices.map((turnIndex) => ({
           jobId: scope.jobId,
-          personId: "guest",
+          personId: "life:person:guest",
           speakerLabel: scope.speakerLabel,
           turnIndex,
         }))
@@ -97,13 +93,13 @@ test("frozen queue receipts select their exact bounded input window", () => {
       attemptId,
       conversationId: held.id,
       identityEvidence: [
-        { at: at - 1_000_000, personId: "guest", recordingIds: [] },
+        { at: at - 1_000_000, personId: "life:person:guest", recordingIds: [] },
       ],
       partition: "held-out",
     });
     expect(frozen.inputHash).toBe(input.inputHash);
     expect(frozen.input?.scopes).toEqual(input.scopes);
-    const report = evaluateNamingFrozen({
+    const report = readNamingEvaluation({
       ...metadata,
       calibration: {
         confidence: 0.98,
@@ -112,6 +108,9 @@ test("frozen queue receipts select their exact bounded input window", () => {
       },
       cases: [frozen],
     });
+    expect(
+      readNamingEvaluation({ ...metadata, cases: [frozen] }).overall
+    ).toEqual(report.overall);
     expect(report.overall).toMatchObject({
       correct: input.scopes.length,
       predictions: input.scopes.length,

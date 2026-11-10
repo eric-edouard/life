@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import assert from "node:assert/strict";
 import { NAMING } from "./config";
 import {
-  boundNamingInput,
-  boundNamingInputs,
+  boundedNamingInputOf,
+  boundedNamingInputsOf,
   buildNamingInput,
   namingBacklogClass,
 } from "./inferred-speakers";
 import { NO_PROFILES } from "./speakers";
 
-type Construction = Parameters<typeof boundNamingInput>[0];
+type Construction = Parameters<typeof boundedNamingInputOf>[0];
 const person = (index: number) => ({
   aliases: [],
   canonicalRef: `person:${String(index).padStart(4, "0")}`,
@@ -43,12 +43,12 @@ function construction(people = 1, turns = 81): Construction {
 
 test("ordinary conversations with 81 unchecked scopes make progress through one bounded input at a time", () => {
   const source = construction();
-  const first = boundNamingInput(source);
+  const first = boundedNamingInputOf(source);
   assert(first);
   expect(first.scopes).toHaveLength(NAMING.contextMaxScopes);
   expect(first.scopes.some((s) => s.turnIndices.includes(80))).toBe(false);
   const selected = new Set(first.scopes.map((s) => s.id));
-  const remaining = boundNamingInput({
+  const remaining = boundedNamingInputOf({
     ...source,
     targets: source.targets.filter((s) => !selected.has(s.id)),
   });
@@ -82,7 +82,7 @@ test("large candidate sets and 400-plus turns prioritize the owner, trusted iden
   mentioned.aliases = ["Exact Alias"];
   spoken.text = "I met Exact Alias.";
   Object.assign(trusted, { personId: "person-147", source: "owner" });
-  const built = boundNamingInput(source);
+  const built = boundedNamingInputOf(source);
   assert(built);
   expect(built.turns.length).toBeLessThanOrEqual(NAMING.contextMaxTurns);
   expect(built.people).toHaveLength(NAMING.contextMaxPeople);
@@ -100,7 +100,7 @@ test("large candidate sets and 400-plus turns prioritize the owner, trusted iden
   );
   expect(JSON.stringify(built)).not.toContain('"vector"');
   expect(JSON.stringify(built)).not.toContain('"exemplars"');
-  const reordered = boundNamingInput({
+  const reordered = boundedNamingInputOf({
     ...source,
     people: [...source.people].reverse(),
     snapshotRevision: 2,
@@ -122,7 +122,7 @@ test("full payload bounds shrink non-target context before the candidate tail an
     ...p,
     aliases: ["Long candidate alias. ".repeat(100)],
   }));
-  const built = boundNamingInput(source);
+  const built = boundedNamingInputOf(source);
   assert(built);
   expect(built.turns.map((t) => t.text)).toEqual([spoken.text]);
   expect(built.people.length).toBeGreaterThan(0);
@@ -135,7 +135,7 @@ test("full payload bounds shrink non-target context before the candidate tail an
 test("a single oversized target is ineligible without truncating its quote", () => {
   const source = construction(1, 1);
   source.turns = [{ ...turn(0), text: "x".repeat(NAMING.contextMaxChars + 1) }];
-  expect(boundNamingInput(source)).toBeNull();
+  expect(boundedNamingInputOf(source)).toBeNull();
 });
 
 test("mention selection uses whole names and aliases rather than partial-name presence", () => {
@@ -150,7 +150,7 @@ test("mention selection uses whole names and aliases rather than partial-name pr
     }
   );
   source.turns = [{ ...turn(0), text: "Anne is mentioned in a story." }];
-  const built = boundNamingInput(source);
+  const built = boundedNamingInputOf(source);
   assert(built);
   expect(built.people.some((p) => p.personId === "anne")).toBe(true);
   expect(built.people.some((p) => p.personId === "ann")).toBe(false);
@@ -164,7 +164,7 @@ test("the strict constructor rejects oversized callers instead of silently trunc
 
 test("all disjoint windows are selectable so a capped first window cannot hide scope 81", () => {
   const source = construction();
-  const windows = [...boundNamingInputs(source)];
+  const windows = [...boundedNamingInputsOf(source)];
   expect(windows.map((window) => window.scopes.length)).toEqual([
     NAMING.contextMaxScopes,
     1,
@@ -181,7 +181,7 @@ test("all disjoint windows are selectable so a capped first window cannot hide s
   ).toBe(true);
   expect(
     [
-      ...boundNamingInputs({
+      ...boundedNamingInputsOf({
         ...source,
         targets: [...source.targets].reverse(),
       }),
@@ -196,7 +196,7 @@ test("an oversized first target is skipped while other scopes keep their exact t
       ? { ...t, text: "x".repeat(NAMING.contextMaxChars + 1) }
       : t
   );
-  const windows = [...boundNamingInputs(source)];
+  const windows = [...boundedNamingInputsOf(source)];
   expect(
     windows.flatMap((window) => window.scopes.map((scope) => scope.id))
   ).toEqual(["scope-1", "scope-2"]);
@@ -207,7 +207,7 @@ test("an oversized first target is skipped while other scopes keep their exact t
 });
 
 test("backlog classification keeps trusted voice and context ordering in the existing queue", () => {
-  const [context] = boundNamingInputs(construction(2, 1));
+  const [context] = boundedNamingInputsOf(construction(2, 1));
   assert(context);
   expect(namingBacklogClass(context)).toBe(NAMING.backlogContext);
   expect(
@@ -225,4 +225,19 @@ test("backlog classification keeps trusted voice and context ordering in the exi
       })),
     })
   ).toBe(NAMING.backlogVoice);
+});
+
+test("absent candidates return before inspecting or shrinking 400 turns", () => {
+  const source = construction(0, 400);
+  let inspected = 0;
+  const { targets } = source;
+  Object.defineProperty(source, "targets", {
+    get() {
+      inspected += 1;
+      return targets;
+    },
+  });
+  expect(boundedNamingInputOf(source)).toBeNull();
+  expect([...boundedNamingInputsOf(source)]).toEqual([]);
+  expect(inspected).toBe(0);
 });

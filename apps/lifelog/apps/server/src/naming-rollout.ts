@@ -6,7 +6,7 @@ import { z } from "zod";
 import { NAMING } from "./config";
 import {
   isNamingGate,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
 } from "./inferred-speakers";
 import { subscriptions } from "./subscriptions";
@@ -22,9 +22,9 @@ export const rolloutWhere = (
 // Only an offline scorer's bound receipt may open the gate; this never runs a measurement.
 export function storeNamingGate(db: Db, receipt: unknown, model: string) {
   if (!isNamingGate(receipt, model)) {
-    throw new Error("insufficient or mismatched naming gate");
+    return false;
   }
-  const policyHash = namingPolicyHash();
+  const policyHash = namingPolicyHashOf();
   db.insert(namingRollout)
     .values({
       gate: receipt,
@@ -41,6 +41,7 @@ export function storeNamingGate(db: Db, receipt: unknown, model: string) {
       ],
     })
     .run();
+  return true;
 }
 
 // Both measured subscription windows constrain sustainable archive throughput.
@@ -94,11 +95,6 @@ export function finishNamingPilot(db: Db, rollout: Rollout) {
   if (!usage) {
     return rollout;
   }
-  const updated = {
-    ...rollout,
-    longWindow: { ...(rollout.longWindow as object), after: usage.sevenDay },
-    shortWindow: { ...(rollout.shortWindow as object), after: usage.fiveHour },
-  };
   const calls = db
     .select()
     .from(namingAttempts)
@@ -112,10 +108,33 @@ export function finishNamingPilot(db: Db, rollout: Rollout) {
     .all()
     .flatMap(
       (a) =>
-        (a.call as { history?: { pilot: boolean; valid: boolean }[] } | null)
-          ?.history ?? []
+        (
+          a.call as {
+            history?: { pilot: boolean; valid: boolean; completedAt: number }[];
+          } | null
+        )?.history ?? []
     )
     .filter((c) => c.pilot);
+  if (
+    calls.some(
+      (c) =>
+        !Number.isFinite(c.completedAt) ||
+        usage.observedAt * 1000 <= c.completedAt
+    )
+  ) {
+    return rollout;
+  }
+  const updated = {
+    ...rollout,
+    longWindow: {
+      ...(rollout.longWindow as object),
+      after: { ...usage.sevenDay, observedAt: usage.observedAt },
+    },
+    shortWindow: {
+      ...(rollout.shortWindow as object),
+      after: { ...usage.fiveHour, observedAt: usage.observedAt },
+    },
+  };
   updated.pilotPassed =
     calls.length === NAMING.pilotMaxCalls &&
     calls.some((c) => c.valid) &&

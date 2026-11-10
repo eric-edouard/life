@@ -248,6 +248,3 @@ export function adopt(input: Input, tokens: SpeakerToken[] | undefined): Input {
     unnamed: new Map([...input.unnamed].map(([t, v]) => [to(t), v])),
   };
 }
-
-// Who the model says each unnamed speaker is. A name counts only with turns that show it,
-// and only turns of this conversation; a known person only when the owner has one by that name

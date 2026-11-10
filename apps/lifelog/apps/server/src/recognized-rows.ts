@@ -11,7 +11,7 @@ import { turnRef } from "./change-log";
 import type { NamingInput, ScopeReading } from "./inferred-speakers";
 import {
   type decide,
-  decideInferredName,
+  inferredNameOf,
   type NamingCalibration,
   type Profiles,
 } from "./speakers";
@@ -210,7 +210,7 @@ export function inferredRows(
       continue;
     }
     const { result, profiles } = voiceOf(scope.turnIndices);
-    const person = decideInferredName(result, profiles, reading, {
+    const person = inferredNameOf(result, profiles, reading, {
       calibration: pass.calibration,
     });
     if (!person) {

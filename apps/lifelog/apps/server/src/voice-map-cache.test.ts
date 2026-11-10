@@ -14,7 +14,7 @@ import { logChange } from "./change-log";
 import { NAMING, sha256Hex } from "./config";
 import { feed } from "./feed";
 import { queueCache } from "./naming-cache";
-import { assignmentRows } from "./people";
+import { assign, assignmentRows } from "./people";
 import { addQuietRange } from "./quiet-ranges";
 import { services } from "./services";
 import { OWNER_TOKEN, seedConversation, testConfig, testDb } from "./testing";
@@ -301,61 +301,136 @@ test("cached worker keeps inferred turns without embeddings visible and read-onl
   expect(env.db.select().from(voiceProfiles).all()).toEqual([]);
 });
 
-test("hiding a separate cited evidence turn removes its quote from feed, assignment responses and cached map", async () => {
-  const person = env.db
-    .insert(people)
-    .values({ name: "Guest" })
-    .returning()
-    .get();
-  const { jobId } = seedConversation(env.db, [
-    { end: 8, speakerId: "a", start: 0, text: "A guest speaks." },
-    { end: 16, speakerId: "b", start: 8, text: "The private evidence." },
-  ]);
-  env.db
-    .insert(speakerAssignments)
-    .values({
-      inference: {
-        attemptId: "synthetic-attempt",
+for (const hiding of ["quiet", "media"] as const) {
+  test(`hiding ${hiding} evidence and displayed turns refreshes the feed and delayed cached map`, async () => {
+    const person = env.db
+      .insert(people)
+      .values({ name: "Guest" })
+      .returning()
+      .get();
+    const { jobId } = seedConversation(
+      env.db,
+      [{ end: 8, speakerId: "a", start: 0, text: "A guest speaks." }],
+      {
+        words: [
+          {
+            end: 2,
+            logprob: null,
+            spacing: "",
+            speakerId: "a",
+            start: 0,
+            text: "A guest",
+          },
+          {
+            end: 7,
+            logprob: null,
+            spacing: " ",
+            speakerId: "a",
+            start: 3,
+            text: "speaks.",
+          },
+        ],
+      }
+    );
+    const evidence = seedConversation(
+      env.db,
+      [{ end: 8, speakerId: "b", start: 0, text: "The private evidence." }],
+      { at: Date.parse("2026-10-02T02:00:00Z") }
+    );
+    env.db
+      .insert(speakerAssignments)
+      .values({
+        inference: {
+          attemptId: "synthetic-attempt",
 
-        confidence: 0.99,
-        evidence: [{ jobId, quote: "The private evidence.", turnIndex: 1 }],
-        inputHash: "synthetic-input",
-        snapshotRevision: 1,
-      },
-      jobId,
-      personId: person?.id,
-      source: "inferred",
-      speakerLabel: "a",
-      status: "person",
-      turnIndex: 0,
-    })
-    .run();
-  logChange(env.db, "assignment", jobId);
-  expect((await ready()).inferred[0]?.inference?.evidence).toHaveLength(1);
-  const cited = feed(env.db, 0).turns.find((t) => t.turnIndex === 1);
-  if (!cited) {
-    throw new Error("missing cited turn");
-  }
-  const cursor = Number(feed(env.db, 0).cursor);
-  addQuietRange(env.db, {
-    endedAt: cited.endAt,
-    id: randomUUID(),
-    source: "playback",
-    startedAt: cited.startAt,
+          confidence: 0.99,
+          evidence: [
+            {
+              jobId: evidence.jobId,
+              quote: "The private evidence.",
+              turnIndex: 0,
+            },
+          ],
+          inputHash: "synthetic-input",
+          snapshotRevision: 1,
+        },
+        jobId,
+        personId: person?.id,
+        source: "inferred",
+        speakerLabel: "a",
+        status: "person",
+        turnIndex: 0,
+      })
+      .run();
+    logChange(env.db, "assignment", jobId);
+    expect((await ready()).inferred[0]?.inference?.evidence).toHaveLength(1);
+    const cited = feed(env.db, 0).turns.find((t) => t.jobId === evidence.jobId);
+    if (!cited) {
+      throw new Error("missing cited turn");
+    }
+    const cursor = Number(feed(env.db, 0).cursor);
+    if (hiding === "quiet") {
+      addQuietRange(env.db, {
+        endedAt: cited.endAt,
+        id: randomUUID(),
+        source: "playback",
+        startedAt: cited.startAt,
+      });
+    } else {
+      assign(env.db, {
+        jobId: evidence.jobId,
+        speakerLabel: "b",
+        target: { kind: "media" },
+        turnIndex: 0,
+      });
+    }
+    const current = feed(env.db, cursor);
+    expect(current.turns.find((t) => t.jobId === jobId)).toBeDefined();
+    expect(current.turns.find((t) => t.jobId === evidence.jobId)?.text).toBe(
+      ""
+    );
+    expect(
+      current.turns.find((t) => t.jobId === jobId)?.speaker.inference?.evidence
+    ).toEqual([]);
+    expect(
+      assignmentRows(env.db, eq(speakerAssignments.jobId, jobId))[0]?.inference
+        ?.evidence
+    ).toEqual([]);
+    expect(queue.map()?.inferred[0]?.inference?.evidence).toEqual([]);
+    expect((await ready()).inferred[0]?.inference?.evidence).toEqual([]);
+    const displayed = feed(env.db, 0).turns.find((t) => t.jobId === jobId);
+    if (!displayed) {
+      throw new Error("missing displayed turn");
+    }
+    addQuietRange(env.db, {
+      endedAt: new Date(Date.parse(displayed.startAt) + 2500).toISOString(),
+      id: randomUUID(),
+      source: "playback",
+      startedAt: displayed.startAt,
+    });
+    expect(queue.map()?.building).toBe(true);
+    expect(queue.map()?.inferred[0]?.text).toBe("speaks.");
+    await ready();
+    if (hiding === "quiet") {
+      addQuietRange(env.db, {
+        endedAt: displayed.endAt,
+        id: randomUUID(),
+        source: "playback",
+        startedAt: displayed.startAt,
+      });
+    } else {
+      assign(env.db, {
+        jobId,
+        speakerLabel: "a",
+        target: { kind: "media" },
+        turnIndex: 0,
+      });
+    }
+    expect(queue.map()?.building).toBe(true);
+    expect(queue.map()?.inferred).toEqual([]);
+    expect((await ready()).inferred).toEqual([]);
   });
-  const current = feed(env.db, cursor);
-  expect(current.turns.find((t) => t.turnIndex === 0)).toBeDefined();
-  expect(current.turns.find((t) => t.turnIndex === 1)?.text).toBe("");
-  expect(
-    current.turns.find((t) => t.turnIndex === 0)?.speaker.inference?.evidence
-  ).toEqual([]);
-  expect(
-    assignmentRows(env.db, eq(speakerAssignments.jobId, jobId))[0]?.inference
-      ?.evidence
-  ).toEqual([]);
-  expect(queue.map()?.inferred[0]?.inference?.evidence).toEqual([]);
-  expect((await ready()).inferred[0]?.inference?.evidence).toEqual([]);
-});
+}
 
 test("the inferred correction window is bounded newest first", async () => {
   const person = env.db

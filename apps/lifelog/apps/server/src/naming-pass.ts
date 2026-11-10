@@ -15,10 +15,10 @@ import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { NAMING, RECOGNITION } from "./config";
 import { reportError } from "./diagnostics";
 import {
-  boundNamingInputs,
+  boundedNamingInputsOf,
   isNamingGate,
   type NamingInput,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
   namingWorkHash,
   parseNamingReadings,
@@ -34,7 +34,7 @@ import {
   type Rollout,
   rolloutWhere,
 } from "./naming-rollout";
-import { type NamingWork, namingSelection } from "./naming-selection";
+import { type NamingWork, namingSelectionOf } from "./naming-selection";
 import { assignmentsByJob, speakerOf } from "./people";
 import { type ModelReply, macProvider, type Provider } from "./providers";
 import { modelKey } from "./recognized-rows";
@@ -211,7 +211,7 @@ function* readNamingWindows(
         },
       ];
     });
-    for (const input of boundNamingInputs({
+    for (const input of boundedNamingInputsOf({
       conversationId,
       ownerId: localPeople.find((p) => p.isOwner)?.id ?? null,
       people: [...candidates.values()],
@@ -346,6 +346,7 @@ function keepNamingCall(
         history: [
           ...history,
           {
+            completedAt: clock().getTime(),
             inputTokens: reply.inputTokens,
             latencyMs,
             number: callNumber,
@@ -463,7 +464,7 @@ async function executeNamingWork(
   request: NamingRequest,
   rollout: Rollout
 ) {
-  const policyHash = namingPolicyHash();
+  const policyHash = namingPolicyHashOf();
   const promptHash = namingPromptHash();
   const cached = (
     work.attempt?.result as { readings?: unknown; applied?: boolean } | null
@@ -600,7 +601,7 @@ export function namingPass(
     () => "codex"
   )
 ) {
-  const readWork = namingSelection(db, readNamingWindows);
+  const readWork = namingSelectionOf(db, readNamingWindows);
   let active: Promise<string> | null = null;
   async function once(request: NamingRequest) {
     if (request.engine !== "codex") {
@@ -614,7 +615,7 @@ export function namingPass(
     ) {
       return "paused";
     }
-    const policyHash = namingPolicyHash();
+    const policyHash = namingPolicyHashOf();
     const promptHash = namingPromptHash();
     db.insert(namingRollout)
       .values({ model: selected.model, policyHash, promptHash })

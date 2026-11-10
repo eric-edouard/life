@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { NAMING } from "../src/config";
-import { namingPolicyHash, namingPromptHash } from "../src/inferred-speakers";
-import { installNamingGate, summarizeNamingUnits } from "./naming-evaluation";
+import { namingPolicyHashOf, namingPromptHash } from "../src/inferred-speakers";
+import { installNamingGate, namingUnitsOf } from "./naming-evaluation";
 
 const original = NAMING.calibration;
 afterEach(() => Object.assign(NAMING, { calibration: original }));
@@ -28,7 +28,7 @@ function receipt() {
     lowerBound: 0.981,
     model: "synthetic",
     passed: true,
-    policyHash: namingPolicyHash(),
+    policyHash: namingPolicyHashOf(),
     precision: 1,
     predictions: 200,
     promptHash: namingPromptHash(),
@@ -75,12 +75,12 @@ test("independent recording and call intervals need distinct audio and calls, no
     prediction: "guest",
     recordingId: `audio-${i}`,
   }));
-  const distinct = summarizeNamingUnits(independent);
+  const distinct = namingUnitsOf(independent);
   expect(distinct.recordings.interval?.[0]).toBeGreaterThanOrEqual(
     NAMING.precision
   );
   expect(distinct.calls.interval?.[0]).toBeGreaterThanOrEqual(NAMING.precision);
-  const repeated = summarizeNamingUnits(
+  const repeated = namingUnitsOf(
     independent.map((r) => ({
       ...r,
       callId: "same-call",

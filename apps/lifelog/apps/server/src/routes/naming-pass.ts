@@ -1,5 +1,4 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { isNamingGate } from "../inferred-speakers";
 import { storeNamingGate } from "../naming-rollout";
 import type { Services } from "../services";
 import { ApiError, json, router } from "./common";
@@ -31,7 +30,7 @@ export function namingPassRoutes({
       }),
       (c) => {
         const { model, receipt } = c.req.valid("json");
-        if (!isNamingGate(receipt, model)) {
+        if (!storeNamingGate(db, receipt, model)) {
           return c.json(
             {
               error: "invalid_state" as const,
@@ -40,7 +39,6 @@ export function namingPassRoutes({
             400
           );
         }
-        storeNamingGate(db, receipt, model);
         return c.json({ installed: true as const }, 200);
       }
     )

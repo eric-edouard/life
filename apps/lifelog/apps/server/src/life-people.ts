@@ -30,7 +30,7 @@ type Snapshot = z.infer<typeof LifePeopleInput>;
 export class SnapshotConflict extends Error {}
 
 // A fold is an identity retargeting, not a second eligible person.
-function canonicalOf(folds: Record<string, string>, ref: string) {
+export function canonicalOf(folds: Record<string, string>, ref: string) {
   const seen = new Set<string>();
   let current = ref;
   while (Object.hasOwn(folds, current)) {

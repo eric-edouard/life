@@ -14,16 +14,14 @@ import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { NAMING, sha256Hex } from "./config";
 import {
-  buildNamingInput,
   isNamingGate,
   type NamingInput,
-  namingPolicyHash,
+  namingPolicyHashOf,
   namingPromptHash,
 } from "./inferred-speakers";
 import { replaceLifePeople, resolveLifePerson } from "./life-people";
 import { namingPass, readNamingInput } from "./naming-pass";
 import { namingQuota, storeNamingGate } from "./naming-rollout";
-import { type NamingWork, selectNamingWork } from "./naming-selection";
 import { assign } from "./people";
 import type { ModelCall } from "./providers";
 import { services } from "./services";
@@ -64,7 +62,7 @@ function gateReceipt() {
     lowerBound: 0.981_154_673_6,
     model: "test-codex",
     passed: true,
-    policyHash: namingPolicyHash(),
+    policyHash: namingPolicyHashOf(),
     precision: 1,
     predictions: 200,
     promptHash: namingPromptHash(),
@@ -78,63 +76,6 @@ function calibratedGate() {
   return receipt;
 }
 const request = { engine: "codex", mode: "evaluation" as const };
-const input = () =>
-  buildNamingInput({
-    conversationId: "test",
-    people: [
-      {
-        aliases: [],
-        canonicalRef: "person:aster",
-        name: "Aster",
-        personId: "life:person:aster",
-      },
-    ],
-    snapshotRevision: 1,
-    targets: [
-      {
-        id: "scope",
-        jobId: "job",
-        profiles: { people: [], strangers: [] },
-        speakerLabel: "s",
-        turnIndices: [0],
-        vector: null,
-      },
-    ],
-    turns: [
-      { jobId: "job", speakerLabel: "s", text: "Hello Aster.", turnIndex: 0 },
-    ],
-  });
-function attempt(fields: Partial<typeof namingAttempts.$inferInsert> = {}) {
-  const made = env.db
-    .insert(namingAttempts)
-    .values({
-      conversationId: "test",
-      inputHash: "input",
-      model: "test-codex",
-      policyHash: "policy",
-      promptHash: "prompt",
-      snapshotRevision: 1,
-      ...fields,
-    })
-    .returning()
-    .get();
-  assert(made);
-  return made;
-}
-function work(
-  conversationId: string,
-  fields: Partial<NamingWork> = {}
-): NamingWork {
-  return {
-    arrivedAt: 100,
-    attempt: null,
-    backlogClass: NAMING.backlogContext,
-    conversationId,
-    input: input(),
-    isFresh: false,
-    ...fields,
-  };
-}
 function quota(age = 0) {
   const now = clock().getTime();
   env.db
@@ -194,78 +135,6 @@ const idleMac = () => ({
   able: () => true,
   idle: () => true,
   llm: () => Promise.reject(new Error("unexpected transport call")),
-});
-
-test("fresh arrivals come first, then stored voice evidence, newest first and stable id ties", () => {
-  const oldPair = work("pair", {
-    arrivedAt: 3000,
-    backlogClass: NAMING.backlogVoice,
-  });
-  const freshContext = work("fresh", { arrivedAt: 10, isFresh: true });
-  expect(selectNamingWork([oldPair, freshContext])?.conversationId).toBe(
-    "fresh"
-  );
-  const voice = work("voice", {
-    arrivedAt: 2000,
-    backlogClass: NAMING.backlogVoice,
-  });
-  const context = work("context", { arrivedAt: 3000 });
-  expect(selectNamingWork([context, voice, oldPair])?.conversationId).toBe(
-    "pair"
-  );
-  expect(selectNamingWork([context, voice])?.conversationId).toBe("voice");
-  expect(selectNamingWork([work("b"), work("a")])?.conversationId).toBe("a");
-  expect(
-    selectNamingWork([work("older"), work("newer", { arrivedAt: 101 })])
-      ?.conversationId
-  ).toBe("newer");
-});
-
-test("future retries and capped inputs cannot block eligible work; changed input starts without attempts", () => {
-  const now = clock().getTime();
-  const pending = attempt({
-    attempts: 1,
-    nextEligibleAt: new Date(now + NAMING.retryBackoffMs),
-    state: "failed",
-  });
-  expect(
-    selectNamingWork(
-      [
-        work("retry", {
-          attempt: pending,
-          backlogClass: NAMING.backlogVoice,
-        }),
-        work("next"),
-      ],
-      now
-    )?.conversationId
-  ).toBe("next");
-  expect(
-    selectNamingWork(
-      [work("retry", { attempt: pending })],
-      now + NAMING.retryBackoffMs
-    )?.conversationId
-  ).toBe("retry");
-  expect(
-    selectNamingWork(
-      [
-        work("capped", {
-          attempt: {
-            ...pending,
-            attempts: NAMING.retryMaxAttempts,
-            nextEligibleAt: null,
-          },
-        }),
-      ],
-      now
-    )
-  ).toBeNull();
-  expect(
-    selectNamingWork(
-      [work("changed", { input: { ...input(), inputHash: "new" } })],
-      now
-    )?.attempt
-  ).toBeNull();
 });
 
 test("missing or stale quota, missing engine and non-Codex all pause without a call", async () => {
@@ -508,9 +377,9 @@ test("naming gates reject zero, insufficient, uncertain, leaking or mismatched m
     { calibration: { ...calibration, confidence: 0.5 } },
   ]) {
     expect(isNamingGate({ ...valid, ...changed }, "test-codex")).toBe(false);
-    expect(() =>
+    expect(
       storeNamingGate(env.db, { ...valid, ...changed }, "test-codex")
-    ).toThrow("insufficient");
+    ).toBe(false);
   }
 });
 
