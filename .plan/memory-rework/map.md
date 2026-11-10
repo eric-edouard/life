@@ -59,6 +59,9 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   repo. So it has one boundary: what it takes in (units and his word, through a contract), what it owns on disk, and
   what it gives out (the reads the connector, the pages and the mails use). Nothing outside reaches into its files or
   its internals. Ticket 25.
+- The altitude (his word, 10 Nov): this is a rework of the memory's architecture. How information flows back to him
+  (mails, how often) is not part of it and is never a question for him. The whole shape is drafted in
+  [architecture.md](./assets/architecture.md); the tickets are filled from it.
 - How he decides (10 Nov): on the shape of the design he leaves it to the designer ("you probably know better"). So a
   shape question is decided with its reason and written down, for him to overrule; he is asked only what he alone
   knows: what he wants, what he prefers, what is true of his life.
