@@ -1,0 +1,1 @@
+ALTER TABLE `speaker_assignments` ADD `rechecked` integer DEFAULT false NOT NULL;

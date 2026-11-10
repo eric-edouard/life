@@ -35,6 +35,12 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
+- **Recheck a named voice once (owner's ask, 10 Nov 2026).** Without that voice's conversations, at least half
+  its sampled turns must first guess another person; the named person must still have a profile.
+  The most frequent other person is suggested. The only stored fact is `speaker_assignments.rechecked`, set
+  when an owner answer replaces an owner row of the same scope; recognition never sets it.
+  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone shows them later.
+
 - **The voice bench's answers reach the archive through the server (owner's decision, 10 Nov 2026, reversing his
   "bench only" of that morning).** His review found many of his past names wrong, so they belong in lifelog. The
   review still writes the bench's `answers.jsonl`; `bench apply` lists what differs from his answers in the archive

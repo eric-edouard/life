@@ -111,6 +111,7 @@ const QueueItem = z
     // The name the summaries heard; null when none, or when it is already the known person's
     // name or alias.
     name: z.string().nullable(),
+    namedPersonId: z.uuid().nullable(),
     // Who it sounds like, for a known person.
     personId: z.uuid().nullable(),
     seconds: z.number(),
@@ -420,6 +421,16 @@ export function speakerRoutes({
         responses: { 200: json(z.array(QueueItem), "Voices to name") },
       }),
       async (c) => c.json(await queue.items(), 200)
+    )
+    .openapi(
+      createRoute({
+        description:
+          "Owner-named voices that sound like another person without their own conversations, offered once more. Highest other-person share first.",
+        method: "get",
+        path: "/naming-queue/rechecks",
+        responses: { 200: json(z.array(QueueItem), "Voices to recheck") },
+      }),
+      async (c) => c.json(await queue.rechecks(), 200)
     )
     .openapi(
       createRoute({

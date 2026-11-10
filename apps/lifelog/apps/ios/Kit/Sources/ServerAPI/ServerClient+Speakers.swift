@@ -9,7 +9,7 @@ extension ServerClient {
     /// overheard voices with enough words, with clean clips of it and who it may be.
     public struct NamingItem: Sendable, Codable, Equatable, Identifiable {
         public enum Kind: String, Sendable, UnknownTolerant, Encodable {
-            case newPerson = "new_person", knownPerson = "known_person", several, unknown
+            case newPerson = "new_person", knownPerson = "known_person", recheck, several, unknown
         }
         /// A turn where its name was said.
         public struct Quote: Sendable, Codable, Equatable {

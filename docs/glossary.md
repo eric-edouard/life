@@ -16,6 +16,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
 | split group | Clean sampled turns separated from a job's speaker label by voice; recognized turn rows keep the group, which supplies no identity or evidence. | |
+| recheck | A voice the owner named as a person that lifelog, judging without that voice's own conversations, hears as another person on at least half of its sampled turns. Offered once more in the naming flow; his next answer for that voice (the same name or another) settles it for good. | |
 | sample | A voice embedding of one clean recorded turn, with its model and revision; no extra audio. Unnamed samples are nobody's evidence. | |
 | profile | A person's owner-attributed voice evidence, represented by one exemplar per conversation of clean clips. | |
 | likeness | A voice's mean cosine to a person's closest profile exemplars; a score, not an identity or evidence. | |
