@@ -12,6 +12,10 @@ properly only when it moves the score. The bet most at risk: that stored summari
    for personas). Test: does C1's "he reaches out first" pass once an agent can see them.
 3. **One history by hand** for his father and his close friend (month, year, story, from facts Life holds), served
    to the agent beside the connector. Test: C1, C4, C19 and the new arc cases, with and without it.
+   **Done 10 Nov, night** (`docs/memory-rework/experiments/2026-11-10-prove-first-1.md` in his data): points held,
+   of 40, none 22, counts 23, history 24, both 24. Counts fixed "who reaches out" (C1); a history fixed the friend
+   over the years (C19). Nothing else moved; the mined cases ask for exact dated facts and may be narrower than a
+   fair answer. Not proved, not disproved; one run per way.
 4. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
    enough until a layer consumes the codes).
 
