@@ -46,6 +46,8 @@ proves every layer at once: the people layers, the arcs, his life overview and a
   B, B's arc), about him and A (what he confides in A is depth), and about him (his honest view, filtered by the
   listener). B is often never named ("elle", "lui"): who is meant is worked out from the whole conversation and what
   Life already knows (who he is seeing now), and shown as a reading when it is a guess.
+- The first layer above the units is built to outlive model migrations (his point, 10 Nov): it extracts as much as the
+  raw holds, close to the evidence and light on interpretation; interpretation lives in the layers above, cheap to rebuild.
 - All backfilling runs on Codex (his subscription), never a cash provider (his word, 10 Nov).
 - Models: the strongest model for grilling and design tickets; cheaper ones for research reading and file work.
 - This map lives in the code repo: nothing personal in it (no names but roles, no quotes, no numbers about his people).
