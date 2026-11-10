@@ -6,6 +6,7 @@
       "name": "life",
       "dependencies": {
         "@life/server": "workspace:*",
+        "@modelcontextprotocol/server": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {

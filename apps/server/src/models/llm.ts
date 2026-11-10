@@ -1,5 +1,7 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
 // engine (`claude -p` or `codex exec` on his subscriptions, or an API router: OpenRouter, allmodels); and how full his Codex quota is.
+// The one call with tools is the question cases' agent (scripts/question-cases.ts): Codex, given Life's connector,
+// reads only, and nothing else (his word, 10 Nov 2026).
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +23,7 @@ import {
   NONE,
   type Tier,
   type Tokens,
+  type Tools,
 } from "./model-call";
 import {
   askRoutes,
@@ -57,6 +60,13 @@ const CODEX_EFFORT: Record<Tier, string> = {
 };
 // Everything codex could call besides the model itself: recorded speech gets no tools, plugins or memory.
 const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
+// The question cases' agent reaches MCP tools only through code mode's `exec` (a V8 isolate with no file system or
+// network), so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its
+// nested `clock__curr_time` reads the real time, which is the time its questions are asked at (verified 21 Oct 2026 on
+// codex 0.162.1 against a fake provider, no quota spent).
+const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
+/** The name a call's one MCP server goes by. */
+const SERVER = "life";
 const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
@@ -271,7 +281,7 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
   };
 }
 
-async function askCodex({ dir, images, input, llm, system }: ModelCall) {
+async function askCodex({ dir, images, input, llm, system, tools }: ModelCall) {
   if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
     // codex refuses a CODEX_HOME that doesn't exist, even to log in.
     await mkdir(CODEX_HOME, { recursive: true });
@@ -283,7 +293,8 @@ async function askCodex({ dir, images, input, llm, system }: ModelCall) {
   const events = await cli(
     "codex",
     (cwd) => [
-      // The pinned binary, read-only, and none of the extras (CODEX_OFF).
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With `tools`, its MCP calls are approved by
+      // config.
       ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
@@ -295,8 +306,22 @@ async function askCodex({ dir, images, input, llm, system }: ModelCall) {
         'web_search="disabled"',
         "skills.bundled.enabled=false",
         "skills.include_instructions=false",
+        ...(tools
+          ? [
+              `mcp_servers.${SERVER}.command=${toml(tools.command[0] ?? "")}`,
+              `mcp_servers.${SERVER}.args=[${tools.command.slice(1).map(toml).join(",")}]`,
+              `mcp_servers.${SERVER}.env={${Object.entries(tools.env)
+                .map(([k, v]) => `${k}=${toml(v)}`)
+                .join(",")}}`,
+              `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
+              "features.view_image=false",
+            ]
+          : []),
       ].flatMap((c) => ["-c", c]),
-      ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
+      ...(tools ? CODEX_AGENT_OFF : CODEX_TOOLS).flatMap((f) => [
+        "--disable",
+        f,
+      ]),
       ...["--json", "-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
@@ -395,6 +420,8 @@ interface Provider {
   keys: string[];
   models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
+  /** Whether a call of it may be given tools (`Tools`): Codex only, the question cases' agent. */
+  tools?: true;
 }
 /** An API engine: its calls go through its routes, which name its host and keys. */
 function apiEngine(
@@ -436,6 +463,7 @@ const PROVIDERS: Record<Engine, Provider> = {
     keys: [],
     models: SOL,
     quota: codexQuota,
+    tools: true,
   },
   openrouter: apiEngine("openrouter", OPENROUTER_MODELS, 1_048_576),
 };
@@ -479,7 +507,7 @@ export const hasQuota = (engine?: Engine) =>
   PROVIDERS[llmFor("main", engine).engine].quota !== undefined;
 
 /**
- * One shot with no tools, no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
+ * One shot with no tools (but `tools`, the question cases' agent's one MCP server), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
@@ -494,8 +522,13 @@ export async function askOnce(opts: {
   llm: Llm;
   prompt: string;
   run: string;
+  /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
+  tools?: Tools;
 }) {
   const { dir, llm } = opts;
+  if (opts.tools && !PROVIDERS[llm.engine].tools) {
+    throw new Error(`${llm.engine} runs no tools: only Codex is given any`);
+  }
   const context =
     opts.context === undefined
       ? ""
@@ -514,6 +547,7 @@ export async function askOnce(opts: {
       input: opts.input,
       llm,
       system,
+      tools: opts.tools,
     });
     ({ fields } = answer);
     if (answer.refusal) {

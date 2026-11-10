@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
+import { createMcpHandler } from "@modelcontextprotocol/server";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -28,7 +29,7 @@ import {
 } from "../../sources/store-fixtures";
 import { ask } from "../asks";
 import { ownerTokens } from "./auth";
-import { correct, createMcp } from "./mcp";
+import { buildServer, correct, createMcp } from "./mcp";
 
 const { metadata, origin, resource: RESOURCE } = settingsOf();
 const ISSUER = `${origin}/auth`;
@@ -616,4 +617,29 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
     source: "told",
     text: "In Lyon, until 12.",
   });
+});
+
+test("built to serve reads only (the question cases' agent), the connector registers no tool that writes or acts", async () => {
+  const handler = createMcpHandler(() => buildServer(true));
+  const res = await handler.fetch(
+    new Request(RESOURCE, {
+      body: JSON.stringify({ id: 1, jsonrpc: "2.0", method: "tools/list" }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  const body = await res.text();
+  const data = body.split("\n").find((l) => l.startsWith("data:"));
+  const tools: { annotations: Record<string, boolean>; name: string }[] =
+    JSON.parse(data ? data.slice(5) : body).result.tools;
+  const names = tools.map((t) => t.name);
+  expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
+  for (const writes of ["correct_memory", "change_todo_item", "tell_life"]) {
+    expect(names).not.toContain(writes);
+  }
+  expect(names).toContain("read_person_page");
+  expect(names).toContain("search");
 });

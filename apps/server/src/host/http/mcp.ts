@@ -222,6 +222,9 @@ const unchecked = (s: z.ZodObject) => ({
   "~standard": { ...s["~standard"], validate: (value: unknown) => ({ value }) },
 });
 
+/** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
+const READS_ONLY = new WeakSet<McpServer>();
+
 /** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error. */
 function tool<S extends z.ZodObject>(
   server: McpServer,
@@ -231,6 +234,9 @@ function tool<S extends z.ZodObject>(
   run: Tool<S>,
   annotations = READ_ONLY
 ) {
+  if (READS_ONLY.has(server) && annotations !== READ_ONLY) {
+    return;
+  }
   server.registerTool(
     name,
     {
@@ -264,8 +270,11 @@ function tool<S extends z.ZodObject>(
   );
 }
 
-/** The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
-export function buildServer() {
+/**
+ * The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the question cases' agent
+ * gets it over stdio with `readsOnly`: then only the tools that read are registered, none that writes or acts.
+ */
+export function buildServer(readsOnly = false) {
   // Over stdio (the bench) there may be no public origin, and no icons.
   const origin = settings().connector?.origin;
   const server = new McpServer(
@@ -290,6 +299,9 @@ export function buildServer() {
     },
     { instructions: instructions() }
   );
+  if (readsOnly) {
+    READS_ONLY.add(server);
+  }
   tool(
     server,
     "search",
@@ -553,7 +565,7 @@ export function createMcp(verify: Verify, issuer: string) {
   const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
   // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
-  const handler = createMcpHandler(buildServer, {
+  const handler = createMcpHandler(() => buildServer(), {
     onerror: (e) =>
       log("mcp.call", { error: true, refused: clip(e.message, 300) }),
   });
