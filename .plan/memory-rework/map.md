@@ -75,6 +75,7 @@ proves every layer at once: the people layers, the arcs, his life overview and a
 - [The questions he asks Life](./tickets/02-the-questions-he-asks.md) — 102 questions in his data repo, 25 failed; prediction, arcs and himself are thin, so the set grows from his old chats and assistant exports
 - [Naming the unnamed voices](./tickets/24-naming-the-unnamed-voices.md) — lifelog re-fingerprints old voices, joins split voices, keeps unnamed fingerprints until named, and asks about voices that say a lot near him, ranked by words; fixed before the pilot
 
+- [The exchange](./tickets/11-the-exchange.md) — cut by code at a night's silence, one channel each, never stored twice; every two-sided exchange gets the close read; measured facts, reactions and reply links beside the units; talk about someone absent is a mention inside its exchange; assistant chats are his own writing, not exchanges; in a group each act names who did it and to whom
 - [Organic memory](./tickets/10-organic-memory.md) — left to the designer (10 Nov): calendar steps per subject (month, year, the whole story), a level only where the one below is too big to read whole, sealed months read once, upper levels rebuilt from the level below and never from themselves, counts never summarized, the long-standing carried up by rule
 
 ## Not yet specified
