@@ -30,7 +30,7 @@ const YEARS = 3;
 
 /**
  * One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a
- * recording.
+ * recording or a completed 1:1 call.
  */
 interface Day {
   chat: { got: number; sent: number };
@@ -88,9 +88,15 @@ export function chatDays(
 ) {
   for (const [who, list] of directChats(events, resolve)) {
     for (const e of list) {
-      const d = dayOf(days, who, localDate(e.at))[
-        kindOf(e.source) === "mail" ? "mail" : "chat"
-      ];
+      if (e.phoneCall && !((e.phoneCall.seconds ?? 0) > 0)) {
+        continue;
+      }
+      const day = dayOf(days, who, localDate(e.at));
+      if (e.phoneCall) {
+        day.voice = true;
+        continue;
+      }
+      const d = day[kindOf(e.source) === "mail" ? "mail" : "chat"];
       if (e.fromMe) {
         d.sent += 1;
       } else {
