@@ -42,7 +42,11 @@ search, the phone source). Read against today's code, part of it already exists:
 | 0.4 Coverage | A person's page says what Life holds by source and month (`coverageLines`) | A record of days a source was not captured |
 | 0.5 Hours | Nothing | As drafted; low value until an episode names a project |
 
-So the first PR is smaller and more useful than drafted: the exchange cut in one place, and a read-only script that
+**Done, 10 Nov** (life PR 412): `exchangesOf` in `memory/exchanges.ts`, the persona's counts over it with an
+unchanged result, one helper for messages by chat, and `scripts/exchange-sizes.ts`. Its numbers are in the spec,
+section 16.
+
+So the first PR was smaller and more useful than drafted: the exchange cut in one place, and a read-only script that
 prints the numbers both reviews asked for (how many exchanges, how long, where the quiet falls, how many are
 one-sided, how they batch). The map branch is merged with `main`, so the spec now sits on today's code.
 

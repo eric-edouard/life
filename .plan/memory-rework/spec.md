@@ -52,8 +52,7 @@ forecasts. Each part works without the ones after it.
 - Units keep their shape and day cut.
 - An exchange is one sitting of talk, cut by code, never stored twice: a slice over units' messages. It can cross
   midnight and so two units. It belongs to the day, and the month, it starts in.
-  - A chat or a mail thread: until a long silence (several hours; the number is set from his message gaps at the
-    pilot). A next-day answer opens a new exchange, marked by code as an answer, read with the lines before it as
+  - A chat or a mail thread: until 6 hours with no message (measured on his data: section 16). A next-day answer opens a new exchange, marked by code as an answer, read with the lines before it as
     context.
   - A recording: lifelog's conversation, with lifelog's edges. Only assigned and matched turns are a person's own
     evidence.
@@ -508,9 +507,21 @@ everything stands on. No model layer has read them, and none should yet.
   read; the passages where he reacts to Life's own readings are set apart as his word about them.
 - **Engines**: Codex, his subscription; the old WhatsApp years on OpenRouter's DeepSeek after an estimate he
   approves (his words). The checking model is from another family.
-- **The size, from the second review's count of his data**: all his stored two-sided chats are about 4 million
-  tokens, before the new imports; recordings are about 100,000 tokens a day since September. So the whole history is
-  tens of millions of tokens, a matter of days of reading, not months. To be measured, not trusted.
+- **The size, measured on his data** (10 Nov, `bun scripts/exchange-sizes.ts`, counts only, every source read):
+  - What a read would see, all years: about 16 million characters, some 4.7 million tokens. Chats both sides wrote
+    in: 11 million characters (WhatsApp since 2011, iMessage since 2015, and two small networks). Mail threads both
+    sides wrote in: 5.4 million.
+  - Mail is 327 million characters in all, and 98.6% of it is one-sided. The rule "only threads he wrote in" is
+    what makes mail small: it keeps 1.6% of the text.
+  - Chats: 24,300 exchanges, and 44 in 100 have one side only. So reading the one-sided sittings of a living chat
+    matters: it is nearly half of them.
+  - Read together by chat and year, in calls of 30,000 characters: about 3,300 calls for one read of everything,
+    against 133,000 if each exchange were its own call.
+  - The quiet: 89 in 100 gaps between messages are under 6 hours, and beyond that the rate is flat. Six hours, the
+    number the persona's counts already use, stands.
+  - So the whole written history is a few million tokens: one read of it is hours, not weeks. What grows is
+    recordings, about 100,000 tokens a day. The full table is in his data repo,
+    `docs/memory-rework/experiments/2026-11-10-exchange-sizes.md`.
 
 ## 17. From today to this
 
