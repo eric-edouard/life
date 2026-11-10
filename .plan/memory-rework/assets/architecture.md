@@ -65,8 +65,42 @@ Rules:
   re-read does not orphan what cites it.
 - Nothing is retired by deleting: a claim stops holding when a later record says so (as today), an act never stops
   having happened.
-- His word (a correction, a rating, a told line, `truth/`) is evidence of its own kind, pinned to the raw messages
-  and the subject it is about, not to a model-made id. Every build reads it and it beats any reading.
+- His word is evidence of its own kind (next section), pinned to the raw messages and the subject it is about, not
+  to a model-made id. Every build reads it and it beats any reading.
+
+## His word, and Life's own list (replaces `truth/`; waiting on his yes)
+
+Today `truth/` is a folder of files (who people are, his areas, his projects, his goals) that "only he writes". He
+never wrote a line of it: agents typed in what he said, on his yes, 51 times. He does not know what it is (his
+words, 10 Nov). It is a step nobody needs.
+
+- **His word is what he tells Life**: in a chat with an agent, with "hey Life" in a recording, in a correction or an
+  answer to a fact check. Said once, it holds: dated, kept in his words, the strongest evidence there is. No file,
+  no extra yes.
+- **What he says to other people is not his word.** It is evidence about him, through the listener, and can be a
+  performance (next section).
+- **Life keeps its own list of subjects**: the people, the parts of his life, his goals and their order. It names
+  and fills them from the evidence, uses them at once, and his word corrects them. Nothing waits to be "made true".
+- The fields code computes with (a person's handles, a project's repos, a birthday) are entries of that list.
+- His goals and their order are the latest he told Life. Each change is dated, so "my goals as they stood that
+  month" has an answer. What he says about his goals elsewhere is evidence set against them, never a change.
+- What `truth/` holds today is kept as his word, dated when it was written.
+
+## Who acts, toward whom, in front of whom
+
+He is not one person in the data: with a parent he may play a role and agree to keep the peace; what he tells
+friends about that parent is far closer to what he thinks. The same holds for everyone. So:
+
+- Every act names who did it, to whom, and who else was there. Every mention names who is meant, who tells it and
+  who listens. A group conversation gives each person's acts toward each other person, not only toward him.
+- So any counted reading can be cut by counterpart: he with his father, he with a friend, he across everyone; his
+  father with him, his father with others (the builders' group).
+- **How he acts with someone and what he thinks of them are two readings, never mixed**: his conduct with them, from
+  what passes between them; his view of them, from what he tells others, what he tells Life and what he writes for
+  himself. What he says to their face is never read as his view.
+- The difference between the two is itself kept: where he performs, with whom, about what.
+- A view told to a listener carries that listener's pull; it is shown with who it was told to, and counts more when
+  several listeners heard the same.
 
 ## Subjects
 
@@ -76,7 +110,7 @@ Three kinds: he himself, a person, a part of his life (an area, a project, a goa
   summary. A parent: every level. So no gate decides who gets one, and closeness stops being a filter.
 - **A part of his life he never declared** (a dispute, a purchase, a trip being planned, a health matter) is named by
   the day's read, kept in a model-owned list, used at once and corrected later, like unknown people today. He can
-  make it a project in `truth/`. Without this, things that run for months have no home and no owner.
+  rename it, merge it or drop it by telling Life. Without this, things that run for months have no home and no owner.
 - **His own history** is built from his evidence (what he says of himself, his acts across everyone, what code
   measured) and from the other subjects' summaries for the same span. His month is the period of his life.
 - A record can belong to several subjects (him, a person, a project). It is stored once.
@@ -111,6 +145,15 @@ A forecast is a record: what is expected, as of when, checked when, then scored.
 on the evidence; a model adjusts it only for the kinds where backtests showed a gain. The same code run "as of" a
 past date is the backtest. A kind of forecast is shown only once it beat its base rate.
 
+The loop closes by itself (his word, 10 Nov: forecasting always improves from what came true and what did not):
+- What really happened is new evidence, so every count and pattern it touches moves with no extra step. A pattern
+  keeps its tally: held, broke.
+- Each kind of forecast is recalibrated from its own score.
+- A run of misses about one subject says the reading of it is off or the person changed: its standing is rebuilt
+  and the moment is kept as a possible turning point.
+- Guarded: a forecast he acted on is marked, since acting changes the outcome; and a forecast is never evidence of
+  itself, only what happened is.
+
 ## The write path
 
 - **Every night** (cost follows the day's text, never the years): new units; the evidence reads for what is new;
@@ -141,9 +184,9 @@ An agent with limited context reads down, each step small enough to read whole:
 
 The memory is one module, built so it could leave this repo one day.
 
-- **In**: units and a way to read their words; his word; the map he writes in `truth/`; a clock and his time zone; a
+- **In**: units and a way to read their words; his word; a clock and his time zone; a
   model call with its cache; the embedder.
-- **Owns**: the evidence log, the histories, the forecasts, the overview, the search index.
+- **Owns**: the evidence log, its list of subjects, the histories, the forecasts, the overview, the search index.
 - **Out**: the reads above, and the events agents wait for.
 - **Outside it**: capture (sources, the archive, lifelog, the bridges), acting (asks, the to-do list, the ledger),
   the host (the schedule, the connector's server, the app, the mails).
