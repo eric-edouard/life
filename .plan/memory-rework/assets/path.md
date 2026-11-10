@@ -71,6 +71,14 @@ on his engine of about 600 input and 200 to 1,700 output tokens, a fraction of a
 `docs/evals/question-cases/2026-11-10T08-46-05.632Z.json`. These three are facts Life already holds; the baseline
 must include the hard ones (relationships, arcs).
 
+**Baseline, 10 Nov** (today's Life, 12 cases): 8 passed. Failed: C1 (his father: hostile and blaming found;
+"father reaches out first" missed; "he yields to keep the peace" contradicted: the answer read him as distant, not
+yielding), C4 (his close friend's topics: one read of the person page, which holds the recent agency work, not the years of
+philosophy), A11 (no end state for old bugs: "not confirmed"), D1 (graded on old wrong points; reworded since).
+Passed but heavy: C2 read 1.3 million characters in about 60 calls (no layer holds blames over a year: the agent
+read raw chats one by one). These match the spec's diagnosis: no counts (who reaches out), no long story (C4),
+no endings (A11), performance not told apart from view (C1).
+
 **Was next**: the first paid run of three cases, on his word (his Codex plan for the agent, his engine for the judge),
 to price a case; then the baseline over all twelve; then the conflict and mentions reads, one PR each; then the
 pilot's first round on his word, with its cost shown and the place where kept replies are committed settled.
