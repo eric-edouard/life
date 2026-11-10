@@ -519,7 +519,11 @@ export function readBridged(
 /** Beeper Desktop's folder: its store (`index.db`) and its cached media, both only read. */
 const BEEPER = join(APP_DATA, "BeeperTexts");
 
-/** Beeper's chats of a network: its account ids are `local-<network>_<id>` (a bridge on the Mac), `<network>.<id>` or `<network>`. */
+/**
+ * Beeper's chats of a network: its account ids are `local-<network>_<id>` (a bridge on the Mac), `<network>.<id>` or
+ * `<network>`. Unknown (undefined) while Beeper is closed: it takes its store's `-shm` with it, and macOS's SQLite
+ * opens no such store read-only.
+ */
 function beeperChats(network: string, beeper: string) {
   const path = join(beeper, "index.db");
   if (!existsSync(path)) {
@@ -535,6 +539,11 @@ function beeperChats(network: string, beeper: string) {
       .all()
       .filter((t) => account.test(t.account))
       .map((t) => t.chat);
+  } catch (e) {
+    if ((e as { code?: string }).code === "SQLITE_CANTOPEN") {
+      return;
+    }
+    throw e;
   } finally {
     db.close();
   }
@@ -548,7 +557,8 @@ export function copierOf(network: string, beeper = BEEPER) {
   if (isBridgeAdded(network)) {
     return "bridge" as const;
   }
-  return beeperChats(network, beeper).length > 0
+  // Unknown counts as Beeper's: the archive opens it (`store.app`), and the next pass knows.
+  return (beeperChats(network, beeper)?.length ?? 1) > 0
     ? ("beeper" as const)
     : undefined;
 }
@@ -616,7 +626,7 @@ export function copyBeeper(
   synapse = SYNAPSE
 ): number {
   const chats = beeperChats(network, beeper);
-  if (chats.length === 0) {
+  if (!chats?.length) {
     return 0;
   }
   const archive = openBridged(network, dir);

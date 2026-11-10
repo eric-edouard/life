@@ -259,3 +259,17 @@ test("LINE without its bridge is copied from Beeper: only after the bridge's new
     ["a chat Beeper dropped", undefined, false],
   ]);
 });
+
+test("Beeper closed: its store can't be read, so the network stays Beeper's (the archive opens it) and nothing is copied", () => {
+  // A closed Beeper leaves a WAL store with no `-shm`: macOS's SQLite refuses to open it read-only.
+  const closed = beeperStore(
+    [[1, Date.now(), "the heater is in", 0]],
+    "local-telegram_u0"
+  );
+  const store = new Database(join(closed, "index.db"));
+  store.run("pragma journal_mode = wal");
+  store.close();
+  expect(copierOf("telegram", closed)).toBe("beeper");
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  expect(() => copyBeeper("telegram", archive, closed)).not.toThrow();
+});
