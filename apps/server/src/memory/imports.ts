@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
+import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
@@ -17,13 +18,13 @@ import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { spareQuota } from "./schedule";
 import { clip } from "./units";
-import { localDate } from "./zones";
+import { localDate, wall } from "./zones";
 
 // `bun life import <folder> [--dry]`: his claude.ai or ChatGPT export, once (~/Life/docs/
 // claude-import-scope-2026-10-21.md). The export is pruned by code (`pruned`), copied into his data, and each
 // conversation is judged once by the fast model from the start of his messages: about his life, or only work with the
-// assistant (memory/imported.jsonl). The kept ones are a source like any other (`sources/assistants.ts`): the backfill
-// reads their days with every other channel's, through the one episodes and extract path.
+// assistant (memory/imported.jsonl). The kept ones are a source like any other (`sources/assistants.ts`): collection
+// makes their older days searchable without historical model work.
 
 const IMPORT_PROMPT = "import.v1";
 const PER_CALL = 10;
@@ -112,10 +113,19 @@ export async function importExport(folder: string) {
       `${to} holds another ${FORMATS[source].label} export already`
     );
   }
-  await spareQuota();
+  const engine = settings().backfillEngine;
+  if (!engine) {
+    throw new Error("imports are off: set backfillEngine in settings first");
+  }
+  await spareQuota(engine);
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(file, to);
-  const step = await begin("import", "fast", { prompt: IMPORT_PROMPT, source });
+  const step = await begin(
+    "import",
+    "fast",
+    { prompt: IMPORT_PROMPT, source },
+    engine
+  );
   const unjudged = () => {
     const judged = new Set(
       rowsOf(IMPORTED, Imported)
@@ -154,21 +164,26 @@ export async function importExport(folder: string) {
       invalid += checked.invalid;
     })
   );
-  // Every kept one, this run's and earlier runs': their days are read by the backfill (`bun life memory backfill
-  // --from <from> --to <to>`), under the quota guard.
+  // Model eligibility counts kept conversations; search collects every pruned owner message.
   const kept = keptConversations();
   const days = summaryOf(
     all,
     conversations.filter((c) => kept.has(`${source}:${c.id}`))
   );
+  const read = summaryOf(all, conversations);
+  const utcDays = [
+    ...new Set(
+      conversations.flatMap((c) => c.messages.map((m) => wall(m.at, "UTC").day))
+    ),
+  ].sort();
   return step.end({
     asked: due.length,
-    backfill: { days: days.days, from: days.from, to: days.to },
     invalid,
     kept: days.conversations.kept,
-    read: summaryOf(all, conversations),
+    read,
     source,
-    // A conversation a failed call left unjudged reads as not kept: run the import again until none is, then backfill.
+    units: { days: utcDays.length, from: utcDays[0], to: utcDays.at(-1) },
+    // A conversation a failed call left unjudged reads as not kept: the same import retries it.
     unjudged: unjudged().length,
   });
 }

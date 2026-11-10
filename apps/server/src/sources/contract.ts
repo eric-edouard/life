@@ -68,8 +68,8 @@ export type Descriptor = {
   name: SourceName;
   /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
-  /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
-  searchDays?: number;
+  /** Earliest stored instant, read from source metadata without reading message text. */
+  earliest?: () => string | null;
   /** How long it may stay silent before its card turns amber (`toneOf`, snapshot.ts). */
   silentAfter: number;
 } & (
@@ -81,12 +81,16 @@ export type Descriptor = {
        */
       kind: "agent" | "chat" | "mail" | "own_writing" | "screen";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
-      read: (since: Date) => SourceEvent[];
+      read: (since: Date, before?: Date) => SourceEvent[];
     }
   /** His commits (whose repos are whose and who he is from his map): one unit per repo and day, never extracted. */
   | {
       kind: "repo";
-      read: (since: Date, map: { me: Person; repos: RepoMap }) => SourceEvent[];
+      read: (
+        since: Date,
+        map: { me: Person; repos: RepoMap },
+        before?: Date
+      ) => SourceEvent[];
     }
   /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
   | { kind: "voice" }

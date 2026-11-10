@@ -58,6 +58,8 @@ export const Settings = z
       .object({ account: z.string(), calendar: z.string() })
       .strict()
       .optional(),
+    /** The model runner for imports and historical model backfills; absent means off. */
+    backfillEngine: Engine.optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
       .object({ password: z.string(), repository: z.string() })

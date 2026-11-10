@@ -39,6 +39,23 @@ export function mailRoot(base = MAIL): string {
 const openIndex = (root: string) =>
   openReadOnly(join(root, "MailData", "Envelope Index"));
 
+/** The earliest timestamp in Mail's index; no message file or body is opened. */
+export function readEarliestMail(root = mailRoot()) {
+  const db = openIndex(root);
+  try {
+    const at = db
+      .query<{ at: number | null }, []>(
+        "select min(date_received) as at from messages"
+      )
+      .get()?.at;
+    return at === null || at === undefined
+      ? null
+      : new Date(at * 1000).toISOString();
+  } finally {
+    db.close();
+  }
+}
+
 /** The newest message in Mail's store, its sender and subject (the status snapshot). */
 export function newestMail(): Newest {
   const db = openIndex(mailRoot());
@@ -490,7 +507,7 @@ export function incomingMail(
 }
 
 /** Messages received at or after `since`, oldest first, with where each is stored. */
-function messagesSince(since: Date, root = mailRoot()): Row[] {
+function messagesSince(since: Date, root = mailRoot(), before?: Date): Row[] {
   const db = openIndex(root);
   try {
     // Mail's own sorting, on a Mac that sorts mail: category 1 is `SourceEvent.transaction`.
@@ -500,7 +517,7 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
       )
       .get();
     return db
-      .query<Row, [number]>(
+      .query<Row, [number, number | null, number | null]>(
         `select m.ROWID as rowid, m.global_message_id as globalId, m.date_received as received,
                 m.conversation_id as conversation, m.subject_prefix as prefix,
                 s.subject, a.address as sender, mb.url as mailbox, g.message_id_header as header,
@@ -513,10 +530,14 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
            left join subjects s on s.ROWID = m.subject
            left join addresses a on a.ROWID = m.sender
            left join message_global_data g on g.ROWID = m.global_message_id
-          where m.date_received >= ? and m.deleted = 0
+          where m.date_received >= ? and (? is null or m.date_received < ?) and m.deleted = 0
           order by m.date_received`
       )
-      .all(Math.floor(since.getTime() / 1000));
+      .all(
+        since.getTime() / 1000,
+        before ? before.getTime() / 1000 : null,
+        before ? before.getTime() / 1000 : null
+      );
   } finally {
     db.close();
   }
@@ -529,10 +550,14 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
  * process. ponytail: keeps every message read (whole: 110 MB of text over the nightly's three years, 9 Nov 2026) for the process's life: the nightly's three years
  * for closeness, and in the server every mail any search's `from` reached; prune it if memory matters.
  */
-const parsed = new Map<string, { files: SourceFile[]; words: string }>();
+const parsed = new Map<
+  string,
+  { date: string | undefined; files: SourceFile[]; words: string }
+>();
 function parse(path: string, id: string) {
   const message = splitPart(rfc822(readFileSync(path)));
   const read = {
+    date: message.headers.get("date"),
     files: filesOf(message, path, id),
     words: wordsOf(message),
   };
@@ -558,12 +583,13 @@ export function readMail(
   since: Date,
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB,
-  contacts: Map<string, string> = readContacts()
+  contacts: Map<string, string> = readContacts(),
+  before?: Date
 ): SourceEvent[] {
   const mine = new Set(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
-  const rows = messagesSince(since, root);
+  const rows = messagesSince(since, root, before);
   // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
   const seen = new Set(
     rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
@@ -598,4 +624,37 @@ export function readMail(
     });
   }
   return events;
+}
+
+/** Raw Date headers of the owner's sent mail, sharing the read-once message cache. Missing headers remain explicit. */
+export function readSentMailDates(
+  since: Date,
+  before: Date,
+  root = mailRoot(),
+  accountsDb = ACCOUNTS_DB
+) {
+  const mine = new Set(
+    mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
+  );
+  const rows = messagesSince(since, root, before);
+  const skipped = new Set(
+    rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
+  );
+  const seen = new Set<string>();
+  return rows.flatMap((r) => {
+    const id = idOf(r);
+    if (
+      skipped.has(id) ||
+      seen.has(id) ||
+      !mine.has((r.sender ?? "").toLowerCase())
+    ) {
+      return [];
+    }
+    seen.add(id);
+    const path = emlxPath(root, r.mailbox, r.rowid);
+    const read = path ? (parsed.get(path) ?? parse(path, id)) : undefined;
+    return [
+      { at: new Date(r.received * 1000).toISOString(), date: read?.date },
+    ];
+  });
 }

@@ -43,6 +43,7 @@ import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import { normalizeTopics } from "./tags";
+import { syncLifelogUnits, writeUnits } from "./unit-writer";
 import {
   applyRules,
   gather,
@@ -53,9 +54,7 @@ import {
   messageUnits,
   oneToOne,
   speakerOf,
-  syncLifelogUnits,
   unitId,
-  writeUnits,
 } from "./units";
 import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";

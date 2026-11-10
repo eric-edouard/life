@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { daysBefore } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
@@ -11,10 +12,13 @@ import {
   setSettings,
   settings,
 } from "../core/settings";
+import { collectHistory } from "../memory/history";
 import { dryRun, importExport } from "../memory/imports";
+import { reindex } from "../memory/index-writer";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
-import { dayRange } from "../memory/zones";
+import { DAYS } from "../memory/units";
+import { dayNow, dayRange } from "../memory/zones";
 import { engineKeys, readEngine } from "../models/llm";
 import { entryLine } from "../records/ledger-entry";
 import { checks } from "../todo-list/backend";
@@ -123,7 +127,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     );
     return 0;
   },
-  /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
+  /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`, `archive whatsapp <folder>`. */
   archive: () => archiveCommand(process.argv.slice(3)),
   /**
    * Hands work to an agent from a Claude session: `ask [<agent>] '<his words>'` records an ask, which the agent
@@ -275,7 +279,23 @@ const commands: Record<string, () => number | Promise<number>> = {
       );
       return 2;
     }
-    return step(() => importExport(dir))({}, []);
+    return step(async () => {
+      const result = await importExport(dir);
+      if (result.failed > 0 || result.unjudged > 0) {
+        return result;
+      }
+      const cutoff = daysBefore(dayNow(), DAYS);
+      if (result.units?.from && daysBefore(result.units.from, 1) <= cutoff) {
+        // UTC days padded on each side include every local day before historical zones are installed.
+        const collection = await collectHistory({
+          from: daysBefore(result.units.from, 1),
+          to: [daysBefore(result.units.to ?? cutoff, -1), cutoff].sort()[0],
+        });
+        return { ...result, collection, failed: collection.failed };
+      }
+      await reindex();
+      return result;
+    })({}, []);
   },
   /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
   async init() {

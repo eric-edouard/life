@@ -103,6 +103,8 @@ export const readUnitsOf = (dates: string[]) =>
 
 /** The search index (`buildIndex`, index-writer.ts). */
 export const INDEX = join(OUT, "index.sqlite");
+/** Rebuildable source-backed search passages, independent of the index (`passages.ts`). */
+export const PASSAGES = join(OUT, "passages.sqlite");
 /** Search by meaning's vectors, by text (`vectors.ts`): apart from the index, which every rebuild drops whole. */
 export const VECTORS = join(OUT, "vectors.sqlite");
 
@@ -124,21 +126,36 @@ export function readIndex<T>(
   }
 }
 
-/** One unit by id: its day's file, the day from the index; every unit read when the index doesn't hold it (yet). */
-export async function readUnit(id: string) {
-  const date = readIndex(
-    (db) =>
+/** Units named by their references: the index supplies their days, with source dates for units not indexed yet. */
+export function readUnitsFor(ids: string[], dates: string[] = []) {
+  if (ids.length === 0) {
+    return [];
+  }
+  const wanted = new Set(ids);
+  const indexed =
+    readIndex((db) =>
       db
         .query<{ date: string }, [string]>(
-          "select date from units where id = ?"
+          "select distinct date from units where id in (select value from json_each(?))"
         )
-        .get(id)?.date
+        .all(JSON.stringify(ids))
+        .map((r) => r.date)
+    ) ?? [];
+  return readUnitsOf([...new Set([...indexed, ...dates])]).filter((u) =>
+    wanted.has(u.id)
   );
-  const isMe = (u: Unit) => u.id === id;
-  return (
-    (date ? readUnitsOf([date]).find(isMe) : undefined) ??
-    (await readUnits()).find(isMe)
-  );
+}
+
+/** One unit by id: its indexed day, else the latest seven stored days awaiting an index rebuild. */
+export async function readUnit(id: string) {
+  const [indexed] = readUnitsFor([id]);
+  if (indexed) {
+    return indexed;
+  }
+  const recent = (await filesIn(UNITS))
+    .slice(-7)
+    .map((name) => name.slice(0, -6));
+  return readUnitsOf(recent).find((u) => u.id === id);
 }
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);

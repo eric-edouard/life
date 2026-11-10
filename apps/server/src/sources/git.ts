@@ -56,6 +56,25 @@ export function listRepos(root = work()): Repo[] {
   return [...repos.values()];
 }
 
+/** The earliest author timestamp across local repos, without subjects or file changes. */
+export function readEarliestCommit(root = work()) {
+  const times = listRepos(root).flatMap(({ path }) => {
+    const out = git(path, ["log", "--all", "--no-merges", "--format=%aI"]);
+    if (out.exitCode !== 0) {
+      throw new Error(out.stderr.toString().trim());
+    }
+    return out.stdout
+      .toString()
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map(Date.parse);
+  });
+  return times.length > 0
+    ? new Date(times.reduce((a, b) => Math.min(a, b))).toISOString()
+    : null;
+}
+
 /** The newest commit in any repo, and how many repos had one in the last day (the status snapshot). */
 export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   const all = await Promise.all(
@@ -142,7 +161,8 @@ export function parseLog(
   key: string,
   since: Date,
   me: Person,
-  seen = new Set<string>()
+  seen = new Set<string>(),
+  before?: Date
 ): SourceEvent[] {
   return out
     .split(RS)
@@ -151,7 +171,11 @@ export function parseLog(
       const [head = "", ...stat] = chunk.split("\n");
       const [sha = "", at = "", email = "", name = "", subject = ""] =
         head.split(US);
-      if (seen.has(sha) || new Date(at) < since) {
+      if (
+        seen.has(sha) ||
+        new Date(at) < since ||
+        (before && new Date(at) >= before)
+      ) {
         return [];
       }
       seen.add(sha);
@@ -196,7 +220,8 @@ export function readGit(
   since: Date,
   repos: RepoMap,
   me: Person,
-  root = work()
+  root = work(),
+  before?: Date
 ): SourceEvent[] {
   const seen = new Set<string>();
   const mapped = (key: string) => Boolean(repos.get(key)?.project);
@@ -205,16 +230,34 @@ export function readGit(
       Number(mapped(b.key)) - Number(mapped(a.key)) ||
       a.key.localeCompare(b.key)
   );
+  const format = `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`;
   return ordered.flatMap(({ key, path }) => {
-    const out = git(path, [
+    // The commits first, then the lines of the wanted ones only: a month of old history never pays for the diffs of
+    // every commit since (minutes in a large repo). No --until: git's dates are the committer's, the window the author's.
+    const listed = git(path, [
       "log",
       "--all",
       "--no-merges",
       ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
-      "--numstat",
-      `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,
+      format,
     ]);
+    const wanted = parseLog(
+      listed.stdout.toString(),
+      key,
+      since,
+      me,
+      new Set(seen),
+      before
+    ).map((e) => e.id.slice(e.id.lastIndexOf("/") + 1));
+    const out =
+      listed.exitCode === 0 && wanted.length > 0
+        ? git(
+            path,
+            ["log", "--no-walk=unsorted", "--stdin", "--numstat", format],
+            wanted.join("\n")
+          )
+        : listed;
     if (out.exitCode !== 0) {
       log("run.error", {
         error: out.stderr.toString().trim(),
@@ -223,6 +266,6 @@ export function readGit(
       });
       return [];
     }
-    return parseLog(out.stdout.toString(), key, since, me, seen);
+    return parseLog(out.stdout.toString(), key, since, me, seen, before);
   });
 }

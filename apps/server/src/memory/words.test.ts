@@ -19,43 +19,83 @@ import {
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import { readSearchedTexts } from "./index-writer";
+import { passagesOf, writePassages } from "./passages";
 import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
+import type { Tables } from "./sources";
 import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
 import { embedNew } from "./vectors";
 import {
-  chatHits,
   chatsOf,
   fetchOf,
   focus,
   holdsAll,
-  mailHits,
-  passagesOf,
-  readChatTexts,
   spokenLines,
+  chatHits as storedChatHits,
+  mailHits as storedMailHits,
   transcripts,
   voiceLines,
   voiceText,
 } from "./words";
-import { localTime, time } from "./zones";
+import { type DayRange, localTime, time } from "./zones";
 
+const seedPassages = (sources: Partial<Tables["SEARCHED"]>) => {
+  const all: Partial<Tables["SEARCHED"]> = {
+    imessage: () => [],
+    line: () => [],
+    mail: () => [],
+    notes: () => [],
+    whatsapp: () => [],
+    ...sources,
+  };
+  const events = Object.values(all).flatMap(
+    (read) => read?.(new Date(0)) ?? []
+  );
+  writePassages(events, { from: "1970-01-02", to: "2099-01-01" }, [], all);
+  return events;
+};
+const chatHits = (
+  query: string,
+  range: DayRange,
+  sources: Partial<Tables["SEARCHED"]>,
+  vector?: number[]
+) => {
+  seedPassages(sources);
+  return storedChatHits(query, range, vector);
+};
+const mailHits = (
+  query: string,
+  range: DayRange,
+  sources: Partial<Tables["SEARCHED_MAIL"]>,
+  vector?: number[]
+) => {
+  seedPassages(sources);
+  return storedMailHits(query, range, vector);
+};
 const words = ["Allo", "Salut", "", "Fin"];
-const server = lifelogServer({
-  "/transcription-jobs/job-0/transcript": () => ({
-    turns: Array.from({ length: 8 }, (_, n) => ({
-      speakerId: null,
-      text: `Earlier ${n}`,
-    })),
-  }),
-  "/transcription-jobs/job-1/transcript": () => ({
-    turns: words.map((text) => ({ speakerId: "speaker_0", text })),
-  }),
-});
-afterAll(() => server.close());
+let server: ReturnType<typeof lifelogServer> | undefined;
+afterAll(() => server?.close());
+
+const serverOf = () => {
+  server ??= lifelogServer({
+    "/transcription-jobs/job-0/transcript": () => ({
+      turns: Array.from({ length: 8 }, (_, n) => ({
+        speakerId: null,
+        text: `Earlier ${n}`,
+      })),
+    }),
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: words.map((text) => ({ speakerId: "speaker_0", text })),
+    }),
+  });
+  return server;
+};
 
 /** A fresh store: four turns of conversation c1 (one named, one with no words). */
 const open = () => {
+  serverOf();
   const store = lifelogStore();
   apply(
     store,
@@ -87,7 +127,9 @@ test("fetch: who spoke and when come from the store, the words from lifelog, a p
   expect(last).toContain("4–4 of 4");
   expect(last).toContain("unknown:speaker_0: Fin");
   expect(last).not.toContain("more:");
-  expect(server.seen.every((r) => r.auth === "Bearer test-token")).toBe(true);
+  expect(serverOf().seen.every((r) => r.auth === "Bearer test-token")).toBe(
+    true
+  );
   expect(await fetchOf("nope", 0, 200, open)).toContain("(nothing found)");
   expect(await fetchOf("unit_000000000000")).toContain(
     "(no unit unit_000000000000)"
@@ -171,6 +213,7 @@ test("a chapter unit's words while lifelog holds its turns, the ones in its span
 });
 
 test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {
+  serverOf();
   const of = (jobId: string) =>
     transcripts([{ jobId }] as Parameters<typeof transcripts>[0]);
   expect((await of("job-gone")).get("job-gone")).toEqual([]);
@@ -334,7 +377,7 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
   expect(found.slice(1).map((l, i) => l.endsWith(ends[i] ?? "?"))).toEqual(
     ends.map(() => true)
   );
-  expect(found[1]).toStartWith("- (no unit) ");
+  expect(found[1]).toStartWith("- unit_");
   expect(found.join("\n")).not.toContain("sale");
   expect(found.join("\n")).not.toContain("nightly");
   // His agent's report, from Life's own address, is kept; Life's nightly is not.
@@ -346,9 +389,11 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
   expect(await hits("vitre glazier")).toEqual([
     expect.stringContaining('"Subject 0" the glazier and the vitre'),
   ]);
-  // A mail store that can't be read is said, and nothing found.
-  expect(
-    await mailHits(
+  // A failed refresh leaves the production reader's last published passages searchable.
+  const cached = await storedMailHits("vitre", {});
+  expect(cached.join("\n")).toContain("vitre");
+  expect(() =>
+    mailHits(
       "vitre",
       {},
       {
@@ -357,7 +402,8 @@ test("search's mail: a line per thread-day, the newest 5 holding all the words, 
         },
       }
     )
-  ).toEqual(["(could not read: mail)", "(nothing found)"]);
+  ).toThrow("locked");
+  expect(await storedMailHits("vitre", {})).toEqual(cached);
 });
 
 test("a chat's passages cut at 30 minutes of silence, 12 messages or 700 characters; a note's version is one alone", () => {
@@ -413,10 +459,25 @@ test("search's chats: past the best 10 passages the cut is said; a passage found
       texts.map((t) => (t.includes("window") ? [1, 0] : [0, 1])),
     model: EMBEDDER_MODEL,
   };
-  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  seedPassages(sources);
+  await embedNew(embedder, readSearchedTexts);
   const near = (await chatHits("glass", {}, sources, [1, 0])).join("\n");
   expect(near).toContain(": the window broke");
   expect(near).not.toContain("vitre");
+  const before = settings().sources;
+  try {
+    setSettings({ sources: before.filter((s) => s !== "whatsapp") });
+    expect(await storedChatHits("vitre", {})).toEqual(["(nothing found)"]);
+    expect(await storedChatHits("glass", {}, [1, 0])).toEqual([
+      "(nothing found)",
+    ]);
+    setSettings({ sources: before });
+    expect((await storedChatHits("glass", {}, [1, 0])).join("\n")).toContain(
+      ": the window broke"
+    );
+  } finally {
+    setSettings({ sources: before });
+  }
 });
 
 test("a passage across a range's edge is found by meaning as the watcher embedded it", async () => {
@@ -440,7 +501,8 @@ test("a passage across a range's edge is found by meaning as the watcher embedde
       texts.map((t) => (t.includes("cracked") ? [1, 0] : [0, 1])),
     model: EMBEDDER_MODEL,
   };
-  await embedNew(embedder, readChatTexts(sources, {}).texts);
+  seedPassages(sources);
+  await embedNew(embedder, readSearchedTexts);
   const found = (
     await chatHits("glass", { from: at(1) }, sources, [1, 0])
   ).join("\n");
@@ -482,7 +544,7 @@ test("chats never read Life's own chat with the bot", async () => {
   expect(out).not.toContain("Life's own answer");
 });
 
-test("search finds a note of any age by any of its words, a long one shown by its lines holding them; a chat goes back 90 days", async () => {
+test("search finds a note of any age by any of its words, a long one shown by its lines holding them; a chat of any age too", async () => {
   const { dir, now, save, source } = notesFixture();
   const year = 365 * 86_400;
   save(1, noteData(`Plumber\n${"filler ".repeat(2000)}\nvitre 80 x 120`), {
@@ -517,13 +579,13 @@ test("search finds a note of any age by any of its words, a long one shown by it
   expect(found).toContain(
     `${localTime(new Date(now - 10 * year * 1000).toISOString())} me: vitre 80 x 120`
   );
-  expect(found).toContain("## Note 1 (notes, no unit in memory)");
+  expect(found.join("\n")).toContain("## Note 1 (notes, fetch unit_");
   // A line holding the word but longer than a hit is cut to it.
   const repairs = found.find((l) => l.includes(" me: vitre long")) ?? "";
   expect(repairs.endsWith("…")).toBe(true);
   expect(repairs.length).toBeLessThan(1100);
   expect(found.join("\n")).toContain(`la vitre ${89 * 86_400}`);
-  expect(found.join("\n")).not.toContain(`la vitre ${91 * 86_400}`);
+  expect(found.join("\n")).toContain(`la vitre ${91 * 86_400}`);
   // --from bounds the notes too.
   const recent = (await hits(new Date(now - 90 * DAY).toISOString())).join(
     "\n"

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
+import type { Engine } from "../core/names";
 import { exec } from "../core/proc";
 import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
@@ -179,8 +180,8 @@ const Reply = z.object({
  * ponytail: unlike the other steps, a failed call does not fail the night (one photo a model refuses would fail every
  * night for a week); the nightly email counts it.
  */
-export async function describeFiles(events: SourceEvent[]) {
-  const step = await begin("files", "fast", { prompt: FILES_PROMPT });
+export async function describeFiles(events: SourceEvent[], engine?: Engine) {
+  const step = await begin("files", "fast", { prompt: FILES_PROMPT }, engine);
   const { copies, fresh } = await triage(
     events,
     [...readFiles().values()].filter(

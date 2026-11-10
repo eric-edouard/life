@@ -8,6 +8,7 @@ import { codeAt, exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
+import { copyWhatsapp } from "../sources/whatsapp";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges (or Beeper)
 // hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -167,11 +168,29 @@ function copyAll(failing: Set<string>) {
 
 /**
  * `archive` runs until a commit changes the code (the app starts it again), `archive --once` once,
- * `archive deleted [days]` prints deleted messages.
+ * `archive deleted [days]` prints deleted messages; `archive whatsapp <folder>` copies a full older store once.
  */
 export async function archiveCommand(args: string[]): Promise<number> {
   if (args[0] === "deleted") {
     printDeleted(Number(args[1] ?? 7));
+    return 0;
+  }
+  if (args[0] === "whatsapp") {
+    const [, folder] = args;
+    if (
+      args.length !== 2 ||
+      !folder ||
+      !existsSync(join(folder, "ChatStorage.sqlite"))
+    ) {
+      console.error(
+        "usage: bun life archive whatsapp <folder containing ChatStorage.sqlite>"
+      );
+      return 2;
+    }
+    await hold("archive");
+    console.log(
+      `${copyWhatsapp(folder, ARCHIVE, clock().getTime(), true)} new WhatsApp message versions`
+    );
     return 0;
   }
   const running = codeAt(LIFE_CODE_DIR);

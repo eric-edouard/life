@@ -114,10 +114,11 @@ export async function firstLine(
   }
 }
 
-/** One git command in the repo at `path`, synchronously. */
-export const git = (path: string, args: string[]) =>
+/** One git command in the repo at `path`, synchronously, `stdin` on its input. */
+export const git = (path: string, args: string[], stdin?: string) =>
   Bun.spawnSync(["git", "-C", path, ...args], {
     stderr: "pipe",
+    stdin: stdin === undefined ? undefined : Buffer.from(stdin),
     stdout: "pipe",
   });
 

@@ -5,26 +5,38 @@ import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import { archiveDb, incomingArchived } from "../sources/archived";
+import {
+  archiveDb,
+  incomingArchived,
+  readEarliestArchived,
+} from "../sources/archived";
 import {
   FORMATS,
   importOf,
   newestAssistant,
   readAssistant,
+  readEarliestAssistant,
 } from "../sources/assistants";
 import { bridgedSource, NETWORKS } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
-import { newestCommit, readGit } from "../sources/git";
+import { newestCommit, readEarliestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
   incomingImessage,
   isImessageGroup,
   newestImessage,
+  readEarliestImessage,
   readImessage,
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
-import { incomingMail, mailRoot, newestMail, readMail } from "../sources/mail";
+import {
+  incomingMail,
+  mailRoot,
+  newestMail,
+  readEarliestMail,
+  readMail,
+} from "../sources/mail";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyPhone,
@@ -40,10 +52,10 @@ import {
   phoneOf,
   readWhatsapp,
 } from "../sources/whatsapp";
-import { newestAgent, readAgent } from "./agent-source";
+import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
 import { readFiles } from "./ledger";
 import { showFiles } from "./message-files";
-import { newestTold, readTold } from "./told";
+import { newestTold, readEarliestTold, readTold } from "./told";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, below).
@@ -72,6 +84,7 @@ const LISTED: Descriptor[] = [
   },
   {
     chatDays: 7,
+    earliest: readEarliestImessage,
     group: isImessageGroup,
     handleOf,
     incoming: incomingImessage,
@@ -81,8 +94,7 @@ const LISTED: Descriptor[] = [
     missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
-    read: readImessage,
-    searchDays: 90,
+    read: (since, before) => readImessage(since, undefined, undefined, before),
     silentAfter: 24 * HOUR,
   },
   {
@@ -95,8 +107,7 @@ const LISTED: Descriptor[] = [
     macOnly: true,
     name: "whatsapp",
     newest: newestWhatsapp,
-    read: readWhatsapp,
-    searchDays: 90,
+    read: (since, before) => readWhatsapp(since, undefined, undefined, before),
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",
@@ -113,13 +124,13 @@ const LISTED: Descriptor[] = [
     macOnly: true,
     name: "phone",
     newest: newestPhone,
-    read: readPhone,
-    searchDays: 90,
+    read: (since, before) => readPhone(since, undefined, undefined, before),
     silentAfter: 72 * HOUR,
     store: { copies: "calls", copy: copyPhone },
   },
   ...NETWORKS.map(bridgedSource),
   {
+    earliest: readEarliestMail,
     incoming: incomingMail,
     kind: "mail",
     label: "Mail",
@@ -133,8 +144,8 @@ const LISTED: Descriptor[] = [
     },
     name: "mail",
     newest: newestMail,
-    read: readMail,
-    searchDays: 90,
+    read: (since, before) =>
+      readMail(since, undefined, undefined, undefined, before),
     silentAfter: 12 * HOUR,
   },
   {
@@ -143,10 +154,7 @@ const LISTED: Descriptor[] = [
     macOnly: true,
     name: "notes",
     newest: newestNote,
-    read: readNotes,
-    // ponytail: each search reads every note version (1,500 in 15 ms, a whole search 150 ms, Oct 2026); index their
-    // text in index.sqlite if that grows slow.
-    searchDays: Number.POSITIVE_INFINITY,
+    read: (since, before) => readNotes(since, undefined, before),
     silentAfter: 7 * 24 * HOUR,
     store: {
       app: "Notes",
@@ -156,33 +164,33 @@ const LISTED: Descriptor[] = [
     },
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
-  // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
-  // every sweep included); index them in index.sqlite if that grows slow.
+  // amber; its newest is his newest imported message.
   ...(["claude", "chatgpt"] as const).map(
     (name): Descriptor => ({
+      earliest: () => readEarliestAssistant(name),
       imported: true,
       kind: "own_writing",
       label: FORMATS[name].label,
       missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
-      read: readAssistant(name),
-      searchDays: Number.POSITIVE_INFINITY,
+      read: (since, before) => readAssistant(name)(since, undefined, before),
       silentAfter: Number.POSITIVE_INFINITY,
     })
   ),
   // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
   {
+    earliest: readEarliestTold,
     kind: "chat",
     label: "Told Life",
     name: "told",
     newest: newestTold,
     read: readTold,
-    searchDays: Number.POSITIVE_INFINITY,
     silentAfter: Number.POSITIVE_INFINITY,
   },
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
+    earliest: readEarliestAgent,
     kind: "agent",
     label: "Agents",
     name: AGENT_WORD,
@@ -191,12 +199,14 @@ const LISTED: Descriptor[] = [
     silentAfter: Number.POSITIVE_INFINITY,
   },
   {
+    earliest: readEarliestCommit,
     kind: "repo",
     label: "Git",
     missing: () => (settings().repos ? undefined : "no repos folder set"),
     name: "git",
     newest: newestCommit,
-    read: (since, { me, repos }) => readGit(since, repos, me),
+    read: (since, { me, repos }, before) =>
+      readGit(since, repos, me, undefined, before),
     silentAfter: 72 * HOUR,
   },
   // His time in each app and website (Biome), on the Mac and the iOS devices that sync to it. The system writes it, so
@@ -207,7 +217,7 @@ const LISTED: Descriptor[] = [
     macOnly: true,
     name: "screen",
     newest: newestScreen,
-    read: (since) => readScreen(since),
+    read: (since, before) => readScreen(since, undefined, undefined, before),
     silentAfter: 24 * HOUR,
     store: { copies: "events", copy: () => copyScreen() },
   },
@@ -221,9 +231,11 @@ export const SOURCES = LISTED.map((s): Descriptor => {
     return { ...s, missing: () => "macOS only" };
   }
   // An archived source is there once the archive has copied its store.
-  return s.store
+  const { store } = s;
+  return store
     ? {
         ...s,
+        earliest: () => readEarliestArchived(s.name, store.copies),
         missing: () =>
           unreadable(archiveDb(s.name), `${s.label} not archived yet`),
       }
@@ -269,9 +281,9 @@ export const isDirect = (name: SourceName, chat: string, others: number) => {
 
 /** A source whose events show their files as lines, as the ledger has them now. */
 const withFiles =
-  (read: (since: Date) => SourceEvent[]) =>
-  (since: Date): SourceEvent[] =>
-    showFiles(read(since), readFiles());
+  (read: (since: Date, before?: Date) => SourceEvent[]) =>
+  (since: Date, before?: Date): SourceEvent[] =>
+    showFiles(read(since, before), readFiles());
 
 /**
  * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
@@ -294,11 +306,9 @@ export function tablesOf(sources: Descriptor[]) {
     /** His own writing (his notes, his imported assistant chats), as days of his persona: read by personas only. */
     OWN_WRITING: readers((s) => s.kind === "own_writing"),
     /** What `search` reads chat messages and notes from: the sources it has a window for. */
-    SEARCHED: readers((s) => s.kind !== "mail" && s.searchDays !== undefined),
+    SEARCHED: readers((s) => s.kind === "chat" || s.kind === "own_writing"),
     /** The mail `search` reads, in a section of its own. */
-    SEARCHED_MAIL: readers(
-      (s) => s.kind === "mail" && s.searchDays !== undefined
-    ),
+    SEARCHED_MAIL: readers((s) => s.kind === "mail"),
     /**
      * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. Read over years once a
      * night (`readWithPeople`, closeness.ts), the one read of sources outside `gather`: closeness counts its 1:1 days and

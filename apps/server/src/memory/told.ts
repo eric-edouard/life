@@ -51,10 +51,19 @@ const readAll = () =>
 /** The status snapshot's card: when he last told Life something. */
 export const newestTold = (): Newest => ({ at: readAll().at(-1)?.at ?? null });
 
+/** The first timestamp in the read-once told cache. */
+export const readEarliestTold = () =>
+  readAll()
+    .map((t) => t.at)
+    .sort()[0] ?? null;
+
 /** What he told Life since `since`: his words marked, each question as the assistant's line just before. */
-export function readTold(since: Date): SourceEvent[] {
+export function readTold(since: Date, before?: Date): SourceEvent[] {
   return readAll().flatMap((t): SourceEvent[] => {
-    if (Date.parse(t.at) < since.getTime()) {
+    if (
+      Date.parse(t.at) < since.getTime() ||
+      (before && Date.parse(t.at) >= before.getTime())
+    ) {
       return [];
     }
     const base = { at: t.at, chat: "told", chatName: "Told Life" };
