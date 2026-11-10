@@ -197,7 +197,9 @@ test("sidebar toggles whole clouds independently, keeps choices on refresh and p
     owner,
     owner,
   ]);
-  expect(traces[0].marker.size).toEqual([9, 3, 3]);
+  expect(traces[0].marker.size).toEqual([9, 4, 4]);
+  // A hollow sample's ring is its person's colour, never the default white.
+  expect(traces[0].marker.line.color).toBe(traces[0].marker.color);
   expect(traces[0].marker.symbol).toEqual(["circle", "circle", "circle-open"]);
   expect(traces.find((t) => t.customdata[0] === guest)?.customdata).toEqual([
     guest,

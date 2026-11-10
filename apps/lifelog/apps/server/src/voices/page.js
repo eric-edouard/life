@@ -300,7 +300,9 @@
     const traces = people.map((personId) => {
       const same = points.filter((p) => p.personId === personId);
       const color = personId
-        ? colors[data.people.findIndex((p) => p.id === personId) % colors.length]
+        ? colors[
+            data.people.findIndex((p) => p.id === personId) % colors.length
+          ]
         : "#8a837d";
       return {
         customdata: same.map((p) => p.personId ?? p.id),
