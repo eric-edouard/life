@@ -86,9 +86,10 @@ test("a reply that is not one is the case's error; the report is counts by kind 
       { asker: "owner", id: "C1", passed: true },
       { asker: "owner", id: "C2", passed: false },
       { asker: "mined", id: "B2" },
+      { asker: "mined", error: "timed out", id: "B3" },
     ])
   ).toEqual([
-    { asked: 0, cases: 1, key: "B mined", passed: 0 },
+    { asked: 1, cases: 2, key: "B mined", passed: 0 },
     { asked: 2, cases: 2, key: "C owner", passed: 1 },
   ]);
 });

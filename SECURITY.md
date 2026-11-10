@@ -28,7 +28,8 @@ OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRoute
 ## Agents
 
 Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
-secrets (his OK, 3 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
+secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
+above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). An agent sends as him only on his yes on the exact text, its own rule:
 that is policy, not enforcement, and the risk is his, accepted.
 

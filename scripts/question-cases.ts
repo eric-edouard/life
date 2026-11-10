@@ -3,6 +3,7 @@
 // (docs/operations.md, "Measuring"). The memory under test is his own, as it stands. Without `--run` it only counts
 // the cases. Prints counts, never a question or a reply; `--serve` is the connector over stdio, for the agent.
 
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ import { readJson, writeJson } from "@life/server/src/core/files";
 import { recentEvents } from "@life/server/src/core/log";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { buildServer } from "@life/server/src/host/http/mcp";
-import { OUT } from "@life/server/src/memory/ledger";
+import { INDEX, OUT } from "@life/server/src/memory/ledger";
 import { ended, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { judge, tally } from "@life/server/src/memory/tally";
@@ -98,13 +99,21 @@ export async function runCase(
   };
 }
 
-/** How the cases did, as counts: by kind (the id's letter) and asker, passed of asked. Nothing of his. */
+/**
+ * How the cases did, as counts: by kind (the id's letter) and asker, passed of asked. A case not run has neither
+ * `passed` nor `error`; one that failed to run is asked and not passed. Nothing of his.
+ */
 export function countsOf(
-  rows: { asker: Case["asker"]; id: string; passed?: boolean }[]
+  rows: {
+    asker: Case["asker"];
+    error?: string;
+    id: string;
+    passed?: boolean;
+  }[]
 ) {
   return [...Map.groupBy(rows, (r) => `${r.id[0]} ${r.asker}`)]
     .map(([key, list]) => ({
-      asked: list.filter((r) => r.passed !== undefined).length,
+      asked: list.filter((r) => r.passed !== undefined || r.error).length,
       cases: list.length,
       key,
       passed: list.filter((r) => r.passed).length,
@@ -153,12 +162,20 @@ type Row = (
   | Awaited<ReturnType<typeof runCase>>
   | { error: string; id: string }
 ) & { asker: Case["asker"]; chars: number; tools: string[] };
+const isPassed = (r: Row) => "passed" in r && r.passed;
 
-/** Every case in order, each asked and checked. A case that fails is its row, never the end of the run. */
-async function runAll(cases: Case[], run: string, dir: string) {
+/**
+ * Every case in order, each asked and checked, each row handed to `keep` as soon as it is done. A case that fails is
+ * its row, never the end of the run; the Codex reserve, read before each case, ends it, after what was paid is kept.
+ */
+async function runAll(
+  cases: Case[],
+  run: string,
+  dir: string,
+  keep: (rows: Row[]) => void
+) {
   const rows: Row[] = [];
   for (const c of cases) {
-    // One at a time: the Codex reserve is read before each case.
     // biome-ignore lint/performance/noAwaitInLoops: cases run in order
     await spareQuota(AGENT);
     let calls: ToolCall[] = [];
@@ -180,6 +197,7 @@ async function runAll(cases: Case[], run: string, dir: string) {
       chars: calls.reduce((n, k) => n + (k.chars ?? 0), 0),
       tools: calls.flatMap((k) => (k.tool ? [k.tool] : [])),
     });
+    keep(rows);
   }
   return rows;
 }
@@ -196,17 +214,24 @@ if (import.meta.main) {
     await buildServer(true).connect(new StdioServerTransport());
   } else if (values.run) {
     const cases = casesOf(readJson(CASES), values.only?.split(","));
+    // Nothing to ask, or no memory to ask it of (a checkout with no search index): refused before any spend.
+    if (cases.length === 0 || !existsSync(INDEX)) {
+      throw new Error(
+        cases.length === 0
+          ? "no question case matches --only"
+          : `no search index at ${INDEX}: run from the checkout Life runs from`
+      );
+    }
     const rec = await metered("eval", { cases: cases.length }, AGENT);
-    const { rows } = await ended(rec, async () => {
-      const done = await runAll(cases, rec.run, join(OUT, "evals", rec.run));
-      writeJson(join(RESULTS, `${rec.run}.json`), { cases: done });
-      return { rows: done };
+    let rows: Row[] = [];
+    // His words (questions, replies, points) go to his data only: the run's log line holds counts.
+    await ended(rec, async () => {
+      rows = await runAll(cases, rec.run, join(OUT, "evals", rec.run), (r) =>
+        writeJson(join(RESULTS, `${rec.run}.json`), { cases: r })
+      );
+      return { cases: rows.length, passed: rows.filter(isPassed).length };
     });
-    console.table(
-      countsOf(
-        rows.map((r) => ({ ...r, passed: "passed" in r ? r.passed : false }))
-      )
-    );
+    console.table(countsOf(rows));
   } else {
     console.table(countsOf(casesOf(readJson(CASES), values.only?.split(","))));
   }
