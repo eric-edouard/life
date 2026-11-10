@@ -6,6 +6,7 @@ import { readJson, writeJson } from "@life/server/src/core/files";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { directOf, readWithPeople } from "@life/server/src/memory/closeness";
 import { batchesOf, charsOf } from "@life/server/src/memory/exchanges";
+import { locate } from "@life/server/src/memory/observe";
 import {
   ended,
   inBatches,
@@ -74,17 +75,17 @@ function readKept<T>(dir: string, key: string, schema: z.ZodType<T>) {
   return checked.success ? checked.data : undefined;
 }
 
+// A quote is checked as every quote in Life is (`locate`: accents, case, quote marks and spacing aside); one too
+// short to check, or a phrase in quotation marks that is no quote, does not fail the month.
 const monthSchemaOf = (c: Call) =>
   Month.extend({ month: z.literal(c.input.month) }).refine(({ summary }) => {
     const quotes = [...summary.matchAll(QUOTES)].map((m) => m[1] ?? m[2] ?? "");
-    return (
-      quotes.length >= 1 &&
-      quotes.length <= 3 &&
-      quotes.every((quote) =>
-        c.input.lines.some((line) => line.includes(quote))
-      )
+    return quotes.some((quote) =>
+      quote.length >= 8
+        ? locate(quote, c.input.lines) !== null
+        : c.input.lines.some((line) => line.includes(quote))
     );
-  }, "summary needs 1 to 3 quotes copied from the month's lines");
+  }, "summary needs at least one quote found in the month's lines");
 
 /** Several batches of one month stay in their original order, joined into that month's summary. */
 function storyInputOf(calls: Call[], replies: Month[]) {
@@ -182,13 +183,14 @@ export async function readHistory(
       failed += 1;
     }
   });
-  // Settle every paid call before ending its meter; successful months remain available after a failure.
-  if (failed > 0) {
+  // The story is told from the months that passed; the ones that did not are counted, and asked again next run.
+  const kept = calls.filter((c) => replies.has(c.key));
+  if (kept.length === 0) {
     throw new Error(`${failed} month calls failed`);
   }
   const storyInput = storyInputOf(
-    calls,
-    calls.map((c) => replies.get(c.key) as Month)
+    kept,
+    kept.map((c) => replies.get(c.key) as Month)
   );
   const { story } = await readReply(
     STORY_PROMPT,

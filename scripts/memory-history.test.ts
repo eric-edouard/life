@@ -147,7 +147,7 @@ test("dry run only counts; replies are cached by wording and input, joined in or
   }
 });
 
-test("a failed month waits for the other calls and keeps their replies before the run ends", async () => {
+test("a failed month waits for the other calls; the story is told from the months that passed, and the failed one is asked again next run", async () => {
   const dir = await mkdtemp(join(tmpdir(), "history-partial-"));
   const calls = historyCallsOf(
     [
@@ -159,7 +159,10 @@ test("a failed month waits for the other calls and keeps their replies before th
   );
   let completed = 0;
   const ask: typeof askOnce = async (o) => {
-    const input = o.input as { month: string };
+    const input = o.input as { month?: string; months?: unknown };
+    if (input.months) {
+      return { story: "The story so far." };
+    }
     if (input.month === "2026-10") {
       throw new Error("fake failure");
     }
@@ -168,14 +171,13 @@ test("a failed month waits for the other calls and keeps their replies before th
     return { month: input.month, summary: 'On 2026-11-02 they said "hello".' };
   };
   try {
-    await expect(
-      readHistory(calls, wording, {
-        ask,
-        dir,
-        llm: { engine: "codex", model: "test" },
-        run: "r1",
-      })
-    ).rejects.toThrow("1 month calls failed");
+    const markdown = await readHistory(calls, wording, {
+      ask,
+      dir,
+      llm: { engine: "codex", model: "test" },
+      run: "r1",
+    });
+    expect(String(markdown)).toContain("The story so far.");
     expect(completed).toBe(1);
     expect(countsOf(calls, wording, dir).calls).toBe(2);
   } finally {
