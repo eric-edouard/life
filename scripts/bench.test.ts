@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
+import { LIFE_CODE_DIR, LIFE_STATE_DIR } from "@life/server/src/core/paths";
 import { git } from "@life/server/src/core/proc";
 import { checkout, factTable, linkState } from "./bench";
 
@@ -86,12 +87,6 @@ test("a bench worktree runs its own code: its workspace packages resolve inside 
 }, 60_000);
 
 test("a linked state dir is the live state's by links: removing it leaves the live files and folders whole", async () => {
-  const { mkdtemp, mkdir, readdir, rm, writeFile } = await import(
-    "node:fs/promises"
-  );
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const { LIFE_STATE_DIR } = await import("@life/server/src/core/paths");
   await mkdir(join(LIFE_STATE_DIR, "kept"), { recursive: true });
   await writeFile(join(LIFE_STATE_DIR, "kept", "a.txt"), "live");
   await writeFile(join(LIFE_STATE_DIR, "kept.json"), "{}");
