@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { writesOf } from "./apply";
+import { send, writesOf } from "./apply";
 import type { BenchAnswer } from "./truth";
 
 const turn = (speakerLabel: string, turnIndex: number) => ({
@@ -68,6 +68,14 @@ test("his bench answers become the fewest writes, and none once the archive hold
   ).toEqual([]);
   // A person the archive no longer has, or one left out for now, is left, never written.
   expect(
+    writesOf(turns, answers, { assignments: before, samples }, new Set()).left
+  ).toBe(3);
+  // A turn whose sample is gone from the archive is left alone.
+  expect(
+    writesOf(turns, answers, { assignments: before, samples: [] }, people)
+      .writes
+  ).toEqual([]);
+  expect(
     writesOf(turns, answers, { assignments: before, samples }, people, ["bo"])
   ).toEqual({
     left: 3,
@@ -75,4 +83,29 @@ test("his bench answers become the fewest writes, and none once the archive hold
       { jobId: "job", kind: "several", speakerLabel: "s3", turnIndex: 4 },
     ],
   });
+});
+
+test("a write is the owner's correction on the server's route: a whole speaker carries no turn", async () => {
+  const fetched = globalThis.fetch;
+  const seen: [string, RequestInit][] = [];
+  globalThis.fetch = ((url: string, init: RequestInit) => {
+    seen.push([url, init]);
+    return Promise.resolve(new Response("[]", { status: 404 }));
+  }) as unknown as typeof fetch;
+  try {
+    const status = await send("http://127.0.0.1:1", "t", {
+      jobId: "job",
+      kind: "several",
+      speakerLabel: "speaker 1",
+    });
+    expect(status).toBe(404);
+    expect(seen[0]?.[0]).toBe(
+      "http://127.0.0.1:1/transcripts/job/speakers/speaker%201"
+    );
+    expect(JSON.parse(String(seen[0]?.[1].body))).toEqual({
+      target: { kind: "several", people: [], unknown: true },
+    });
+  } finally {
+    globalThis.fetch = fetched;
+  }
 });

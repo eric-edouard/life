@@ -111,20 +111,27 @@ async function score() {
 }
 
 async function apply(...args: string[]) {
+  const [archive, people] = readNames();
+  const except = args.filter((a) => a !== "--write");
+  const stranger = except.find((id) => !people.has(id));
+  if (stranger) {
+    throw new Error(`no person ${stranger} in the archive`);
+  }
   const { left, writes } = writesOf(
     (await readDrawn()).turns,
     await readAnswers(ANSWERS),
-    ...readNames(),
-    args.filter((a) => a !== "--write")
+    archive,
+    people,
+    except
   );
-  const counts = Map.groupBy(
-    writes,
-    (w) =>
-      `${w.turnIndex === undefined ? "whole voice" : "one turn"}, ${w.kind}`
-  );
-  for (const [what, group] of [...counts].sort()) {
-    console.log(`${group.length}\t${what}`);
-  }
+  const scopeOf = (w: (typeof writes)[number]) =>
+    `${w.turnIndex === undefined ? "whole voice" : "one turn"}, ${w.kind}`;
+  const print = (counts: Map<string, unknown[]>) => {
+    for (const [what, group] of [...counts].sort()) {
+      console.log(`${group.length}\t${what}`);
+    }
+  };
+  print(Map.groupBy(writes, scopeOf));
   console.log(`${writes.length} to write, ${left} answers left out`);
   if (!args.includes("--write")) {
     return;
@@ -133,14 +140,20 @@ async function apply(...args: string[]) {
   if (!(token && port)) {
     throw new Error("set PORT (server.env) and LIFELOG_TOKEN (Life's .env)");
   }
-  // Several people last: the route refuses it until the server takes it for a turn.
-  for (const write of writes.toSorted(
-    (a, b) => Number(a.kind === "several") - Number(b.kind === "several")
-  )) {
+  const refused: [number, string][] = [];
+  for (const write of writes) {
     // biome-ignore lint/performance/noAwaitInLoops: one writer, in order
-    await send(`http://127.0.0.1:${port}`, token, write);
+    const status = await send(`http://127.0.0.1:${port}`, token, write);
+    if (status !== 200) {
+      refused.push([status, scopeOf(write)]);
+    }
   }
-  console.log("written: run `sample` then `score`");
+  console.log(`${writes.length - refused.length} written`);
+  if (refused.length) {
+    console.log("refused by lifelog, still to write:");
+    print(Map.groupBy(refused, ([status, what]) => `${status}: ${what}`));
+    process.exitCode = 1;
+  }
 }
 
 const STEPS: Record<string, (...args: string[]) => Promise<unknown>> = {

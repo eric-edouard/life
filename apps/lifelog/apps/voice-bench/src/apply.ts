@@ -2,13 +2,10 @@
 // what differs from his answer in the archive now. Nothing is marked as sent: a second run compares
 // again and finds nothing.
 import type { Export } from "@lifelog/server/scripts/eval-voices";
-import type { BenchAnswer } from "./truth";
+import { speakerOf } from "@lifelog/server/src/people";
+import { type BenchAnswer, type Name, nameOf } from "./truth";
 
 type Row = Export["assignments"][number];
-interface Name {
-  kind: "person" | "unknown" | "media" | "several";
-  personId?: string;
-}
 interface Turn {
   id: string;
   jobId: string;
@@ -22,17 +19,6 @@ export interface Write extends Name {
   turnIndex?: number;
 }
 
-const nameOf = (row: Row | undefined): Name | undefined => {
-  if (!row) {
-    return;
-  }
-  if (row.candidates) {
-    return { kind: "several" };
-  }
-  return row.personId
-    ? { kind: "person", personId: row.personId }
-    : { kind: row.status === "media" ? "media" : "unknown" };
-};
 const same = (a: Name | undefined, b: Name | undefined) =>
   a?.kind === b?.kind && a?.personId === b?.personId;
 const turnKey = (t: Omit<Turn, "id">) =>
@@ -74,10 +60,17 @@ export function writesOf(
   people: Set<string>,
   except: string[] = []
 ) {
-  const { left, wanted } = wantedOf(turns, answers, people, except);
   const samples = Map.groupBy(
     archive.samples,
     (s) => `${s.jobId}/${s.speakerLabel}`
+  );
+  // A turn the archive has no sample of any more is left alone: its index may be another turn now.
+  const held = new Set(archive.samples.map(turnKey));
+  const { left, wanted } = wantedOf(
+    turns.filter((t) => held.has(turnKey(t))),
+    answers,
+    people,
+    except
   );
   const rows = Map.groupBy(
     archive.assignments,
@@ -105,8 +98,9 @@ export function writesOf(
     }
     for (const turn of mine) {
       const name = wanted.get(turnKey(turn));
-      const row = own.find((r) => r.turnIndex === turn.turnIndex);
-      if (name && !same(row ? nameOf(row) : whole, name)) {
+      const row = speakerOf(own, speakerLabel, turn.turnIndex);
+      const now = row && row.turnIndex !== null ? nameOf(row) : whole;
+      if (name && !same(now, name)) {
         writes.push({
           ...name,
           jobId,
@@ -119,7 +113,7 @@ export function writesOf(
   return { left, writes };
 }
 
-// One write, through the route the phone's own corrections take.
+// One write, through the route the phone's own corrections take. Returns the server's status.
 export async function send(url: string, token: string, write: Write) {
   const { jobId, kind, personId, speakerLabel, turnIndex } = write;
   const target =
@@ -128,7 +122,7 @@ export async function send(url: string, token: string, write: Write) {
         { kind, people: [], unknown: true }
       : { kind, personId };
   const res = await fetch(
-    `${url}/transcripts/${jobId}/speakers/${encodeURIComponent(speakerLabel)}`,
+    `${url}/transcripts/${encodeURIComponent(jobId)}/speakers/${encodeURIComponent(speakerLabel)}`,
     {
       body: JSON.stringify({ target, turnIndex }),
       headers: {
@@ -138,9 +132,5 @@ export async function send(url: string, token: string, write: Write) {
       method: "PUT",
     }
   );
-  if (!res.ok) {
-    throw new Error(
-      `lifelog answered ${res.status} for ${kind} on ${jobId}/${speakerLabel}/${turnIndex ?? "whole"}`
-    );
-  }
+  return res.status;
 }

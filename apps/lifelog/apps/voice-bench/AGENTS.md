@@ -43,7 +43,8 @@ wrong. What it found: `docs/research/voice-bench.md`.
 - The review's answers go to `answers.jsonl` in the bench's folder, append-only, the latest per turn. `bench apply`
   lists those that differ from his answers in the archive now; `bench apply --write` sends them to lifelog's server
   as his corrections (`src/apply.ts`, `docs/decisions.md`): a whole speaker when every sample it has got the same
-  answer, else turn by turn. It needs `PORT` and `LIFELOG_TOKEN` (the reader's token) in the environment. A person
+  answer (samples only: a speaker with one sampled turn is named whole), else turn by turn; what the server refuses
+  is listed and tried again at the next run. It needs `PORT` and Life's `LIFELOG_TOKEN` in the environment. A person
   id after it is left out. Then `sample` and `score` again.
 - The cloud is drawn by the server's `src/voices/cloud.js`, shared with lifelog's voice map; its positions are the
   server's `pcaOf`.

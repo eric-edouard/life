@@ -47,26 +47,40 @@ export const appendAnswer = (path: string, answer: Omit<BenchAnswer, "at">) =>
     `${JSON.stringify({ ...answer, at: clock().toISOString() })}\n`
   );
 
-// His answer in the archive (eval-voices `answers`): none when he never answered.
-type ArchiveAnswer = { personId: string | null; status: string } | undefined;
+// An answer of his, the bench's or the archive's, as one shape.
+export type Name = Pick<BenchAnswer, "personId"> & {
+  kind: Exclude<BenchAnswer["kind"], "skipped">;
+};
+
+// His answer in the archive, read from its owner row: none when he never answered.
+export const nameOf = (
+  row:
+    | { candidates?: unknown; personId: string | null; status: string }
+    | undefined
+): Name | undefined => {
+  if (!row) {
+    return;
+  }
+  if (row.candidates) {
+    return { kind: "several" };
+  }
+  return row.personId
+    ? { kind: "person", personId: row.personId }
+    : { kind: row.status === "media" ? "media" : "unknown" };
+};
 
 export function truthOf(
   bench: BenchAnswer | undefined,
-  archive: ArchiveAnswer
+  archive: Parameters<typeof nameOf>[0]
 ): Truth | undefined {
-  if (bench && bench.kind !== "skipped") {
-    if (bench.kind === "person") {
-      return bench.personId
-        ? { kind: "person", personId: bench.personId }
-        : undefined;
-    }
-    return { kind: bench.kind === "unknown" ? "unknown" : "excluded" };
-  }
-  if (!archive) {
+  const name = bench && bench.kind !== "skipped" ? bench : nameOf(archive);
+  if (!name) {
     return;
   }
-  if (archive.personId) {
-    return { kind: "person", personId: archive.personId };
+  if (name.kind === "person") {
+    return name.personId
+      ? { kind: "person", personId: name.personId }
+      : undefined;
   }
-  return { kind: archive.status === "media" ? "excluded" : "unknown" };
+  return { kind: name.kind === "unknown" ? "unknown" : "excluded" };
 }
