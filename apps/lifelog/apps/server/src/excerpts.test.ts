@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { migrateDb } from "@lifelog/db";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { MIGRATIONS, migrateDb } from "@lifelog/db";
 import {
   conversations,
   people,
@@ -341,14 +343,17 @@ test("the one-time reopen recovers expired samples, preserves owner rows, and su
     turnIndex: null,
   });
   const ownerRows = env.db.select().from(speakerAssignments).all();
-  // Restore the schema and journal as they were before this migration, on this disposable DB only.
+  // Restore the schema as it was before this migration and run its file again, on this disposable DB only (later
+  // migrations stand after it in the journal, so the journal can't be rewound to it).
   env.db.$client.run(
     "alter table transcripts drop column excerpts_attempted_at"
   );
-  env.db.$client.run(
-    "delete from __drizzle_migrations where created_at = (select max(created_at) from __drizzle_migrations)"
+  env.db.$client.exec(
+    readFileSync(
+      join(MIGRATIONS, "20261109120207_reopen_voice_samples.sql"),
+      "utf8"
+    )
   );
-  migrateDb(env.db);
   expect(cutAt(held)).toBeNull();
   expect(cutAt(ungrouped)).toEqual(new Date("2026-01-01"));
   expect(cutAt(noAudio)).toEqual(new Date("2026-01-01"));
