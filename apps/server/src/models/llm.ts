@@ -440,12 +440,18 @@ const PROVIDERS: Record<Engine, Provider> = {
 };
 
 /**
+ * The fewest characters a token holds, a low bound on purpose: a text of n characters is at most n / CHARS_PER_TOKEN
+ * tokens. So what is sized by it fits, and a count of tokens made with it is a ceiling.
+ */
+export const CHARS_PER_TOKEN = 3;
+
+/**
  * Characters of input one call of `llm` can take: its context less room for the answer (the API engines' cap, taken
- * for the CLI engines too), at 3 characters a token (a margin that covers the prompt). What a step reads whole is
- * held to it, never to a number of its own.
+ * for the CLI engines too), at `CHARS_PER_TOKEN` (a margin that covers the prompt). What a step reads whole is held
+ * to it, never to a number of its own.
  */
 export const callCharsOf = (llm: Llm) =>
-  (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * 3;
+  (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * CHARS_PER_TOKEN;
 
 /**
  * Whether Life is online: his main engine's provider answers at all (any HTTP status) within 5 s. Offline (travelling,

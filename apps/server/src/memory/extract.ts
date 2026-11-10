@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
+import { packed } from "../core/lists";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import {
@@ -141,29 +142,9 @@ export function groupsOf(
   return { copies: pending.filter((b) => copied.has(b.unit.id)), groups };
 }
 
-/** Groups packed into calls of at most `budget` characters of lines; a group is never split. */
-export function packed<T extends { sources: Source[] }>(
-  groups: T[],
-  budget = BUDGET
-) {
-  const out: T[][] = [];
-  let current: T[] = [];
-  let chars = 0;
-  for (const g of groups) {
-    const n = g.sources.reduce((k, x) => k + size(x), 0);
-    if (current.length > 0 && chars + n > budget) {
-      out.push(current);
-      current = [];
-      chars = 0;
-    }
-    current.push(g);
-    chars += n;
-  }
-  if (current.length > 0) {
-    out.push(current);
-  }
-  return out;
-}
+/** The characters of a group's lines: what a call of groups is packed by (`packed`). */
+const groupSize = (g: { sources: Source[] }) =>
+  g.sources.reduce((n, x) => n + size(x), 0);
 
 /**
  * A group cut between its days into runs that fit the budget (a day is never cut): an episode over the budget alone, a
@@ -176,7 +157,8 @@ export function byDays<T extends Group & { sources: Source[] }>(
   const days = Map.groupBy(group.sources, (s) => s.unit.date).values();
   return packed(
     [...days].map((sources) => ({ sources })),
-    budget
+    budget,
+    groupSize
   ).map((run) => {
     const sources = run.flatMap((d) => d.sources);
     const ids = new Set(sources.map((s) => s.unit.id));
@@ -409,7 +391,9 @@ export async function extract(evidence: Evidence) {
       // In time order: a call sees the facts its lane's calls and the lanes before wrote (`lanesOf`).
       .toSorted((a, b) =>
         (a.units[0]?.unit.date ?? "").localeCompare(b.units[0]?.unit.date ?? "")
-      )
+      ),
+    BUDGET,
+    groupSize
   );
   const lanes = lanesOf(calls);
 

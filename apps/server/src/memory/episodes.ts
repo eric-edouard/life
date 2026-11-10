@@ -4,7 +4,7 @@ import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { within as fitting } from "../core/lists";
+import { packed } from "../core/lists";
 import { callCharsOf, stamp } from "../models/llm";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
@@ -423,8 +423,7 @@ export function dayPartOf(units: Built[], chars: number) {
   const sorted = units.toSorted((a, b) =>
     a.unit.start.localeCompare(b.unit.start)
   );
-  const fit = fitting(sorted, chars, (b) => b.text.length);
-  return fit.length > 0 ? fit : sorted.slice(0, 1);
+  return packed(sorted, chars, (b) => b.text.length)[0] ?? [];
 }
 
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
