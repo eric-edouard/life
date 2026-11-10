@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DAY, daysBefore, HOUR, MIN } from "../core/clock";
+import { DAY, daysBefore, MIN } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { callCharsOf, stamp } from "../models/llm";
@@ -13,12 +13,14 @@ import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
+import { exchangesOf } from "./exchanges";
 import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
 import { locate } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, meContext } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
 import {
+  chatGroups,
   clip,
   dayUnitId,
   isFrozen,
@@ -49,9 +51,6 @@ const REBUILD_AFTER = 7 * DAY;
 const SOLID_DAYS = 3;
 const OLD_AFTER_DAYS = 365;
 
-/** A quiet this long before a message makes its writer the one who opened the exchange. */
-const OPENS_AFTER = 6 * HOUR;
-
 /** What code counts between him and one person over their 1:1 messages (`directChats`), for their persona. */
 export interface PairCounts {
   /** Local days with a message. */
@@ -59,9 +58,9 @@ export interface PairCounts {
   /** Messages each way, and how many of them their writer deleted. */
   got: number;
   gotDeleted: number;
-  /** Median minutes from the other's message to an answer (under OPENS_AFTER), each way; null when none. */
+  /** Median minutes from the other's message to an answer inside one exchange, each way; null when none. */
   heAnswersIn: number | null;
-  /** Who wrote first after OPENS_AFTER of quiet. */
+  /** Who opened an exchange (`exchangesOf`). */
   heOpened: number;
   sent: number;
   sentDeleted: number;
@@ -84,30 +83,31 @@ export function pairCountsOf(list: SourceEvent[]): PairCounts {
     theyOpened: 0,
   };
   const waits = { him: [] as number[], them: [] as number[] };
-  const sorted = list.toSorted((a, b) => a.at.localeCompare(b.at));
-  let last: SourceEvent | undefined;
-  for (const e of sorted) {
-    const deleted = e.deleted ? 1 : 0;
-    const gap = last
-      ? Date.parse(e.at) - Date.parse(last.at)
-      : Number.POSITIVE_INFINITY;
-    if (e.fromMe) {
-      c.sent += 1;
-      c.sentDeleted += deleted;
-      c.heOpened += gap >= OPENS_AFTER ? 1 : 0;
-    } else {
-      c.got += 1;
-      c.gotDeleted += deleted;
-      c.theyOpened += gap >= OPENS_AFTER ? 1 : 0;
+  for (const exchange of exchangesOf(list)) {
+    let last: SourceEvent | undefined;
+    for (const e of exchange) {
+      const deleted = e.deleted ? 1 : 0;
+      const opened = last ? 0 : 1;
+      if (e.fromMe) {
+        c.sent += 1;
+        c.sentDeleted += deleted;
+        c.heOpened += opened;
+      } else {
+        c.got += 1;
+        c.gotDeleted += deleted;
+        c.theyOpened += opened;
+      }
+      if (last && last.fromMe !== e.fromMe) {
+        (e.fromMe ? waits.him : waits.them).push(
+          (Date.parse(e.at) - Date.parse(last.at)) / MIN
+        );
+      }
+      last = e;
     }
-    if (last && gap < OPENS_AFTER && last.fromMe !== e.fromMe) {
-      (e.fromMe ? waits.him : waits.them).push(gap / MIN);
-    }
-    last = e;
   }
   return {
     ...c,
-    days: new Set(sorted.map((e) => localDate(e.at))).size,
+    days: new Set(list.map((e) => localDate(e.at))).size,
     heAnswersIn: median(waits.him),
     theyAnswerIn: median(waits.them),
   };
@@ -392,9 +392,8 @@ export function groupDaysOf(
   events: SourceEvent[],
   said: Map<SourceEvent, string>
 ) {
-  const chats = Map.groupBy(
-    events.filter((e) => kindOf(e.source) === "chat"),
-    (e) => `${e.source}|${e.chat}`
+  const chats = chatGroups(
+    events.filter((e) => kindOf(e.source) === "chat")
   ).values();
   const groups = [...chats].flatMap((list) => {
     const [first] = list;

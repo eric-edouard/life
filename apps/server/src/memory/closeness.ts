@@ -10,7 +10,7 @@ import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf, safely, tables } from "./sources";
-import { chatPerson } from "./units";
+import { chatGroups, chatPerson } from "./units";
 import { type People, readPeople } from "./who";
 import { dayNow, localDate } from "./zones";
 
@@ -63,10 +63,7 @@ export function directChats(
 ) {
   const byPerson = new Map<string, SourceEvent[]>();
   const one = events.filter((e) => !e.bulk);
-  for (const list of Map.groupBy(
-    one,
-    (e) => `${e.source}|${e.chat}`
-  ).values()) {
+  for (const list of chatGroups(one).values()) {
     const who = chatPerson(list, resolve);
     if (who && who !== OWNER) {
       const theirs = byPerson.get(who) ?? [];
@@ -350,11 +347,12 @@ export async function waitingOf(
 }
 
 /**
- * His chats and mail with people over the last YEARS years (`WITH_PEOPLE`), read once a night for closeness and
- * personas; `failed`, the sources that could not be read. Nothing older is ever read.
+ * His chats and mail with people since `since` (`WITH_PEOPLE`); `failed`, the sources that could not be read. The
+ * night reads the last YEARS years, once, for closeness and personas, and nothing older.
  */
-export async function readWithPeople() {
-  const since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
+export async function readWithPeople(
+  since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`)
+) {
   const failed: string[] = [];
   const events = (
     await Promise.all(

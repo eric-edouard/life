@@ -28,6 +28,7 @@ import { isDirect, kindOf, type Tables, tables } from "./sources";
 import {
   type Built,
   builtFor,
+  chatGroups,
   clip,
   dayUnitId,
   isFrozen,
@@ -348,10 +349,6 @@ function needlesOf(who: string, people: People) {
     .map(normalize)
     .filter(Boolean);
 }
-
-/** Messages by chat, in the order given. */
-const chatGroups = (events: SourceEvent[]) =>
-  Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
 
 /** Whether a text holds every word of `query`, case and accents ignored; a query with no word holds nothing. */
 export const holdsAll = (query: string) => {

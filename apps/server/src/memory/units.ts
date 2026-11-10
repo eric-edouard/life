@@ -86,6 +86,9 @@ export const unitId = (...parts: string[]) =>
 /** The id of the chat-day (thread-day, note-day, repo-day) an event is in. */
 export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
+/** Messages by chat, in the order given. */
+export const chatGroups = (events: SourceEvent[]) =>
+  Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
 const contentHash = (s: string) => digest("sha256", s, 16);
 
 /** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
