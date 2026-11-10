@@ -252,6 +252,10 @@ step: [Back up and restore](use/backup.md).
   timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
+- **Exchange sizes:** `bun scripts/exchange-sizes.ts` counts how his chats and mail with people cut into exchanges,
+  over every year, by source and year: messages, exchanges, their size, how many have one side only, the characters
+  and calls of the chats both sides wrote in, and the quiet between messages by band. Counts only, by code, no model;
+  it reads the sources as the night does and writes nothing of his. Run it before sizing a read of his history.
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
 
 ## Audits

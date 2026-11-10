@@ -1,5 +1,5 @@
 import { DAY } from "../core/clock";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
@@ -166,10 +166,7 @@ export function owed(
   direct: (e: SourceEvent, others: number) => boolean
 ) {
   const out: SourceEvent[] = [];
-  for (const list of Map.groupBy(
-    events,
-    (e) => `${e.source}:${e.chat}`
-  ).values()) {
+  for (const list of chatGroups(events).values()) {
     // A file alone (a photo, a voice note) is a word too.
     const said = list.filter((e) => e.text.trim() || e.files?.length);
     const last = said.at(-1);

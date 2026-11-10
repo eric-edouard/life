@@ -2,7 +2,7 @@ import { clock, DAY } from "../core/clock";
 import { fuse } from "../core/fusion";
 import { newestDays } from "../core/lists";
 import { redact } from "../core/redact";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import {
@@ -348,10 +348,6 @@ function needlesOf(who: string, people: People) {
     .map(normalize)
     .filter(Boolean);
 }
-
-/** Messages by chat, in the order given. */
-const chatGroups = (events: SourceEvent[]) =>
-  Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
 
 /** Whether a text holds every word of `query`, case and accents ignored; a query with no word holds nothing. */
 export const holdsAll = (query: string) => {

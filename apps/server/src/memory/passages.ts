@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 import { PASSAGES } from "./ledger";
 import {
   enabledSources,
@@ -28,7 +28,7 @@ create table if not exists coverage (source text, start text, end text, primary 
 /** A chat's consecutive messages, anchored after a natural silence; writing a neighboring day keeps the same cuts. */
 export function passagesOf(events: SourceEvent[]) {
   const passages: SourceEvent[][] = [];
-  const chats = Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
+  const chats = chatGroups(events);
   for (const list of chats.values()) {
     let open: SourceEvent[] = [];
     let chars = 0;
@@ -135,10 +135,7 @@ function readEdges(
   readers: Readers
 ) {
   const out = new Map(events.map((e) => [`${e.source}|${e.id}`, e]));
-  const chats = Map.groupBy(
-    events.filter((e) => kindOf(e.source) === "chat"),
-    (e) => `${e.source}|${e.chat}`
-  );
+  const chats = chatGroups(events.filter((e) => kindOf(e.source) === "chat"));
   for (const list of chats.values()) {
     const first = list[0] as SourceEvent;
     const read = readers[first.source];
@@ -165,10 +162,7 @@ function readEdges(
 /** Natural run bounds are computed once, independently of the size-based passage cuts. */
 function runBoundsOf(events: SourceEvent[]) {
   const bounds = new Map<string, { start: string; end: string }>();
-  for (const list of Map.groupBy(
-    events,
-    (e) => `${e.source}|${e.chat}`
-  ).values()) {
+  for (const list of chatGroups(events).values()) {
     let run: { start: string; end: string } | undefined;
     let last: SourceEvent | undefined;
     for (const e of list.toSorted(
@@ -351,10 +345,7 @@ export function preparePassages(
             );
           }
         }
-        for (const list of Map.groupBy(
-          expanded,
-          (e) => `${e.source}|${e.chat}`
-        ).values()) {
+        for (const list of chatGroups(expanded).values()) {
           const ordered = list.toSorted((a, b) => a.at.localeCompare(b.at));
           const first = ordered[0] as SourceEvent;
           db.query(
