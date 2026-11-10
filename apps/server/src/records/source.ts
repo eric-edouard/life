@@ -40,7 +40,7 @@ export const SourceEvent = z
     // His words to Life, to keep (a mark): mail he sent only to himself, a `tell_life` line. Set by its reader; a
     // self-chat's messages are marked by `chatDay` (units.ts), which knows whose a chat is.
     marked: z.literal(true).optional(),
-    // A phone call through the chat's network, a message of its chat: its length once it ended (0: not picked up),
+    // A phone call event of its chat (including call-only chats): its length once it ended (0: not picked up),
     // none when no end was seen. Its text is the line Life writes for it (`callLine`, units.ts).
     phoneCall: z
       .object({ seconds: z.int().min(0).optional(), video: z.boolean() })

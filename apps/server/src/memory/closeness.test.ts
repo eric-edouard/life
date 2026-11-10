@@ -351,3 +351,53 @@ test("a person's 1:1 chats on two apps are theirs together; a group, a mailing l
     "t1:2026-10-02T10:00:00.000Z",
   ]);
 });
+
+test("completed 1:1 calls of every source are voice days, never messages or extra recording days", () => {
+  const at = "2026-10-01T10:00:00.000Z";
+  const call = {
+    ...msg("+1", at, false),
+    phoneCall: { seconds: 60, video: false },
+  };
+  const days = chatDays(
+    [
+      call,
+      { ...call, source: "phone" },
+      { ...call, source: "line" },
+      {
+        ...call,
+        at: "2026-10-02T10:00:00.000Z",
+        phoneCall: { seconds: 0, video: false },
+      },
+      { ...call, at: "2026-10-03T10:00:00.000Z", phoneCall: { video: true } },
+      { ...call, at: "2026-10-04T10:00:00.000Z", chat: "120@g.us" },
+    ],
+    (s) => (s === "+1" ? "person:ann" : null)
+  );
+  const of = days.get("person:ann");
+  expect(of?.size).toBe(1);
+  expect(of?.values().next().value).toEqual({
+    chat: { got: 0, sent: 0 },
+    mail: { got: 0, sent: 0 },
+    voice: true,
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("c1")],
+      turns: [turnFixture(0, at, "s1", "Ann")],
+    })
+  );
+  voiceDays(
+    store,
+    (s) => (s === "s1" ? "person:ann" : null),
+    new Date(at),
+    days
+  );
+  expect(closenessTally(of ?? new Map(), "2026-10-01")).toMatchObject({
+    recent: 2,
+    twoWay: 0,
+    voice: 1,
+  });
+  store.db.close();
+});
