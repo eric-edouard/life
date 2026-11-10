@@ -14,3 +14,10 @@ From issue #390: hours per project, area and person per week, counted by code fr
 From the architecture (10 Nov): his vision, goals in order and the plan for each are the declared side of Life's
 list, seeded by an onboarding and kept current by what Life hears and by questions asked in conversation; the
 observer measures his actions against it.
+
+## Decided so far (10 Nov)
+
+- His declared goals and their order move only when he tells Life (his answer). A remark heard in passing, in a
+  recording or to a friend, is kept as "heard, not confirmed" and becomes a question an agent asks him; said for
+  effect or to please, it never reorders his goals by itself. His actions are measured against the declared order,
+  and the gap is written (ticket 08).
