@@ -15,7 +15,6 @@ import {
   exportVoices,
 } from "@lifelog/server/scripts/eval-voices";
 import { excerptRange } from "@lifelog/server/src/excerpts";
-import { type Model, reembedListing } from "@lifelog/server/src/reembed";
 import { eq, inArray } from "drizzle-orm";
 import { draw, type Row } from "./sample";
 
@@ -129,16 +128,6 @@ export function readSample(count: number, seed: string) {
         ];
       }),
     };
-  } finally {
-    db.$client.close(true);
-  }
-}
-
-// The owner's one-off (11 Nov 2026): the samples not yet on `model`, with where their audio is.
-export function listReembed(model: Model) {
-  const db = connect(env("DATABASE_PATH"), { readonly: true });
-  try {
-    return reembedListing(db, model);
   } finally {
     db.$client.close(true);
   }
