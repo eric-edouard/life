@@ -1,19 +1,19 @@
 {
-  "answered": "380a362adc839aab131eaca3daab8132ee52365dd95cbdaf39ea982591cb6535",
+  "answered": "57a47e82a145c753347d1cda9123d80b07a7ac7dcced51726e445549d6baea38",
   "clusters": {
-    "creditedWithAnother": 9,
-    "holdingHim": 121,
-    "holdingHimAndAnother": 29
+    "creditedWithAnother": 11,
+    "holdingHim": 137,
+    "holdingHimAndAnother": 34
   },
   "counts": {
-    "ownerRight": 406,
-    "ownerMissed": 22,
-    "otherRight": 1804,
-    "nobodyRight": 519,
-    "falseOwner": 75,
-    "wrongPerson": 35,
-    "leftUnnamed": 706
+    "ownerRight": 415,
+    "ownerMissed": 27,
+    "otherRight": 1848,
+    "nobodyRight": 1843,
+    "falseOwner": 113,
+    "wrongPerson": 44,
+    "leftUnnamed": 720
   },
-  "rechecks": 24,
-  "turns": 3567
+  "rechecks": 7,
+  "turns": 5010
 }

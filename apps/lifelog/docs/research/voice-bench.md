@@ -95,3 +95,41 @@ before blocks were dropped, with 447 evidence clips of 15 people. The recognitio
 vectors and stayed where they were. The voice eval on his answers, before and after: turns named right 2,231 of
 4,100 to 2,210 of 3,567 (54% to 62%), wrong names 162 to 110 (6.8% to 4.7%), left unnamed 1,102 to 706. In the
 archive, whole voices carrying a recognized name went from 6,625 to 7,249 (707 gained, 83 lost, 5 changed person).
+
+## After his listening round (12 Nov 2026)
+
+He answered every voice in the naming queue and the rechecks (about 130 answers), and 346 voices of videos and films
+were marked as media. The voice eval on his answers, frozen again: 5,010 judged turns (3,567 before); 2,263 named
+right, 157 wrong (6.5% of the names given, 4.7% before), 720 left unnamed. His new answers were on voices already
+flagged as doubtful, so the rate over everything is lower than on this sample.
+
+- **The thresholds stay.** Replayed on these answers: `matchThreshold` 0.55 or `margin` 0.05 give more wrong names
+  than right ones; `margin` 0.15 loses 331 right names for 45 wrong ones; `minSpeakerSeconds` down to 1.5 moves 23
+  judged turns (20 right), too few to decide on, since he is never asked about voices that short.
+- **A voice is already decided whole** (`match`: the centroid of its turns). The one per-turn rule gives single
+  turns to him: of the 107 judged turns it moves, 57 are his and 50 are not, and 113 of the 157 wrong names are
+  turns given to him. Five stricter versions were replayed (a lead asked of every such turn, none in a voice named
+  as someone else, higher bars): each removes about as many wrong names as it adds turns of his missed or left under
+  another name. These are recordings where one speaker label holds him and another person: a splitting problem, not
+  a naming one.
+
+### Naming from what is said (measured, not built)
+
+One call per voice to Life's main model, on 117 whole voices he had answered (77 people he knows, 40 he does not),
+each shown unnamed with its conversation, the day's other records and the voice's three nearest people (profiles
+built without its conversations). About 9,600 input tokens a voice.
+
+| | Known voices named | Right | Strangers given a name (of 40) |
+|---|---|---|---|
+| The voice alone, likeness 0.6 or more | 68 | 68 | 6 |
+| The reading alone | 70 | 65 | 4 |
+| Both agree (likeness 0.6 or more) | 60 | 60 | 1 |
+
+- Where the reading and a strong voice match disagree (3 voices), the voice was right each time.
+- Of the 9 known voices with no strong voice match, the reading named 7, 5 right.
+- The reading called 29 of the 40 strangers "not relevant" and 1 of the 77 known voices.
+- So on voices long enough to match, the reading adds little to the names and mostly removes wrong ones (strangers
+  named 6 to 1, at the price of 8 right names); its use is on voices too short to match and to spare him questions.
+  The same voices on the ECAPA vectors: agreement at 0.6 named 59, all right.
+- It belongs in Life's per-exchange read (a model-owned reading, never written to lifelog), where the conversation
+  is already being read: agreement is used at once, the reading alone is a suggestion for his naming, never a name.
