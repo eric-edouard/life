@@ -38,7 +38,11 @@ backfill over his history) waits.
 | History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos merged and on (about 2,940 photo-days, 2003 to 2026). Assistant replies stay out of memory (his answer, 11 Nov: no) |
 
 Taken into the path: naming unknown voices from the day's context goes into the per-exchange read (a model-owned
-layer, never lifelog), once the naming session's numbers are in. To check when Photos merges: its read cost in the
+layer, never lifelog), once the naming session's numbers are in. **The numbers (11 Nov, 120 voices he had
+answered, old voice model):** the reading alone names 72 of 80 known voices, 66 right; where it agrees with the
+voice model's first guess at 0.8 or more, 50 named, 50 right, and none of 40 strangers named. So: agreement is used
+at once, as Life's reading; the reading alone is a suggestion for his naming queue, never a name. To measure again
+on MECT-B2, and on a per-exchange call (the test paid one call per voice). To check when Photos merges: its read cost in the
 watcher's 5-minute sync of today. Once Photos is on: a new baseline of the question cases, and a few cases only
 photos can answer (an old trip, who was there), from his own words.
 
