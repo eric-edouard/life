@@ -150,9 +150,7 @@ test("a failed later month preserves its files and reindexes the already publish
         runs: [],
       })
     );
-    expect(result.failed).toBe(1);
-    expect(result.months).toBe(1);
-    expect(result.reasons).toContain("sources failed: told");
+    expect(result).toMatchObject({ failed: 1, months: 1, sources: ["told"] });
     const [unit] = readUnitsOf([date]);
     expect(unit).toBeDefined();
     expect(

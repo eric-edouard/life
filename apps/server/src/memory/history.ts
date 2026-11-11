@@ -59,7 +59,6 @@ export async function collectHistory(
       failed: 0,
       gaps: [],
       months: 0,
-      reasons: [],
       units: 0,
     };
   }
@@ -93,7 +92,6 @@ export async function collectHistory(
           failed: evidence.failed.length,
           gaps: zones.gaps,
           months: coverage.length,
-          reasons: [`sources failed: ${evidence.failed.join(", ")}`],
           sources: evidence.failed,
           units,
         };
@@ -165,7 +163,6 @@ export async function collectHistory(
     failed: 0,
     gaps: zones.gaps,
     months: coverage.length,
-    reasons: [],
     units,
   };
 }

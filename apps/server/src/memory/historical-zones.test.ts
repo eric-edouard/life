@@ -6,8 +6,9 @@ import {
   historicalZonesOf,
   mailEvidenceOf,
   photoEvidenceOf,
-  pinnedDays,
   prepareHistoricalZones,
+  readEvidence,
+  settledDays,
   supersedingRuns,
 } from "./historical-zones";
 import { EPISODES, MEMORY, UNITS, ZONES } from "./ledger";
@@ -192,7 +193,7 @@ test("supersedes by appending at each change, a later line at the same `from` wi
   ).toHaveLength(1);
 });
 
-test("a pinned day keeps its stored zone", () => {
+test("a settled day keeps its stored zone", () => {
   const stored = [
     {
       from: Date.parse("2023-01-01T00:00:00Z"),
@@ -215,7 +216,7 @@ test("a pinned day keeps its stored zone", () => {
   ]);
 });
 
-test("the pinned days: those a record cites, those from the first episode, and deferred ones holding units, each with one neighbour", async () => {
+test("the settled days: those a record cites, those from the first episode, and deferred ones holding units, each with one neighbour", async () => {
   const cited = join(MEMORY, "cited-test.jsonl");
   const episode = join(EPISODES, "2018-01-20.jsonl");
   mkdirSync(UNITS, { recursive: true });
@@ -232,11 +233,12 @@ test("the pinned days: those a record cites, those from the first episode, and d
   writeFileSync(cited, '{"unit":"unit_bbbbbbbbbbbb"}\n');
   writeFileSync(episode, "");
   try {
-    const pinned = await pinnedDays({ from: "2018-01-01", to: "2018-01-22" }, [
-      "2018-01-10",
-      "2018-01-05",
-    ]);
-    expect([...pinned].sort()).toEqual([
+    const settled = await settledDays(
+      { from: "2018-01-01", to: "2018-01-22" },
+      ["2018-01-10", "2018-01-05"],
+      new Set(["2018-01-02", "2018-01-10", "2018-01-12"])
+    );
+    expect([...settled].sort()).toEqual([
       "2018-01-09",
       "2018-01-10",
       "2018-01-11",
@@ -317,4 +319,8 @@ test("a day a record cites keeps its zone, and so its units", async () => {
     rmSync(join(UNITS, "2018-01-06.jsonl"));
     writeFileSync(ZONES, was);
   }
+});
+
+test("a source that is not ready gives no evidence, and its store is not read", () => {
+  expect(readEvidence()).toEqual({ mail: [], photos: [] });
 });

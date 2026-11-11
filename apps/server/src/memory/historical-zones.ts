@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, daysBefore, MIN } from "../core/clock";
 import { filesIn } from "../core/files";
+import { slashed } from "../core/platform";
 import { isTimeZone } from "../core/time-zone";
+import { UNIT_ID } from "../records/fields";
 import type { Zone } from "../records/unit";
 import { readSentMailDates } from "../sources/mail";
 import { readPhotoOffsets } from "../sources/photos";
@@ -24,19 +26,15 @@ import {
 // (`historicalZonesOf`) over both. Stored zones are corrected only by appended lines (`supersedingRuns`).
 
 /** What one source says of one local day: a zone, or null for an offset no zone here can say (a quarter hour). */
-export interface DayZone {
+interface DayZone {
   day: string;
   zone: string | null;
 }
-export interface ZoneEvidence {
+interface ZoneEvidence {
   mail: DayZone[];
   photos: DayZone[];
 }
-interface Run {
-  from: string;
-  source: NonNullable<Zone["source"]>;
-  tz: string;
-}
+type Run = Required<Pick<Zone, "source" | "tz">> & { from: string };
 
 /**
  * The zone of a UTC offset in minutes: a whole hour is `Etc/GMT±N` (IANA's sign is reversed); a quarter hour (+5:30,
@@ -125,12 +123,8 @@ export function historicalZonesOf(
       return photo && { source: "photos" as const, tz: photo };
     }
     const sent = mail.get(day);
-    return (
-      sent &&
-      (agreed(sent)
-        ? { source: "mail" as const, tz: agreed(sent) as string }
-        : null)
-    );
+    const tz = agreed(sent);
+    return sent && (tz ? { source: "mail" as const, tz } : null);
   };
   const known = [...new Set([...photos.keys(), ...mail.keys()])]
     .sort()
@@ -142,6 +136,10 @@ export function historicalZonesOf(
   const deferred: string[] = [];
   const runs: Run[] = [];
   let previous: string | undefined;
+  // The days go up, so the nearest known day only moves forward, and stays the earlier one on a tie.
+  const apart = (a: string, b: string) =>
+    Math.abs(Date.parse(a) - Date.parse(b));
+  let nearest = 0;
   for (let day = window.from; day <= window.to; day = daysBefore(day, -1)) {
     const verdict = verdictOf(day);
     if (verdict === null) {
@@ -151,7 +149,14 @@ export function historicalZonesOf(
     if (!verdict) {
       gaps.push(day);
     }
-    const closest = nearestKnownDay(day, known);
+    while (
+      nearest + 1 < known.length &&
+      apart((known[nearest + 1] as { day: string }).day, day) <
+        apart((known[nearest] as { day: string }).day, day)
+    ) {
+      nearest += 1;
+    }
+    const closest = known[nearest];
     if (
       !closest ||
       (eraFrom &&
@@ -173,23 +178,8 @@ export function historicalZonesOf(
   return { deferred, gaps, runs };
 }
 
-/** Nearest known day, taking the earlier day on a tie. */
-function nearestKnownDay<T extends { day: string }>(day: string, known: T[]) {
-  let closest: T | undefined;
-  for (const candidate of known) {
-    if (
-      !closest ||
-      Math.abs(Date.parse(candidate.day) - Date.parse(day)) <
-        Math.abs(Date.parse(closest.day) - Date.parse(day))
-    ) {
-      closest = candidate;
-    }
-  }
-  return closest;
-}
-
 /** The evidence of the sources that can be read now: one off or unreadable gives none. */
-function readEvidence(): ZoneEvidence {
+export function readEvidence(): ZoneEvidence {
   const ready = new Set(readySources().map((s) => s.kind));
   const [since, before] = [new Date(0), clock()];
   return {
@@ -213,13 +203,14 @@ function derivedEraEnd() {
 }
 
 /** Re-derives the zones of the days of `window` that are in the derived era, without writing anything. */
-export function readHistoricalZones(window: Window, read = readEvidence) {
-  const era = derivedEraEnd();
+export function readHistoricalZones(
+  window: Window,
+  read = readEvidence,
+  era = derivedEraEnd()
+) {
   const to = [window.to, era.lastDay ?? window.to].sort()[0] as string;
   return historicalZonesOf(read(), { from: window.from, to }, era.from);
 }
-
-const UNIT_IDS = /unit_[0-9a-f]{12}/g;
 
 /** The days among `days` whose units a record outside units/ names by id: what other records now rest on. */
 function citedUnitDays(days: string[]) {
@@ -228,10 +219,10 @@ function citedUnitDays(days: string[]) {
     encoding: "utf8",
     recursive: true,
   })) {
-    if (file !== "units" && !file.startsWith("units/")) {
+    if (file !== "units" && !slashed(file).startsWith("units/")) {
       try {
         for (const id of readFileSync(join(MEMORY, file), "utf8").match(
-          UNIT_IDS
+          UNIT_ID
         ) ?? []) {
           cited.add(id);
         }
@@ -243,14 +234,12 @@ function citedUnitDays(days: string[]) {
   return new Set(
     cited.size === 0
       ? []
-      : days.filter((day) => {
-          try {
-            const text = readFileSync(join(UNITS, `${day}.jsonl`), "utf8");
-            return (text.match(UNIT_IDS) ?? []).some((id) => cited.has(id));
-          } catch {
-            return false;
-          }
-        })
+      : days.filter((day) =>
+          (
+            readFileSync(join(UNITS, `${day}.jsonl`), "utf8").match(UNIT_ID) ??
+            []
+          ).some((id) => cited.has(id))
+        )
   );
 }
 
@@ -258,12 +247,15 @@ function citedUnitDays(days: string[]) {
  * The days that keep their stored zone, and so their units and ids, with one neighbour each side: a day a record
  * cites, a day on or after the first episode (the live path's days), and a day the derivation now defers that holds units.
  */
-export async function pinnedDays(window: Window, deferred: string[]) {
+export async function settledDays(
+  window: Window,
+  deferred: string[],
+  holding: ReadonlySet<string>
+) {
   const [first] = (await filesIn(EPISODES)).map((f) => f.slice(0, 10));
-  const holding = new Set((await filesIn(UNITS)).map((f) => f.slice(0, 10)));
   const days = unitDays(window);
   const cited = citedUnitDays(days.filter((d) => holding.has(d)));
-  const pinned = new Set<string>();
+  const settled = new Set<string>();
   for (const day of days) {
     if (
       cited.has(day) ||
@@ -271,31 +263,31 @@ export async function pinnedDays(window: Window, deferred: string[]) {
       (holding.has(day) && deferred.includes(day))
     ) {
       for (const d of [daysBefore(day, 1), day, daysBefore(day, -1)]) {
-        pinned.add(d);
+        settled.add(d);
       }
     }
   }
-  return pinned;
+  return settled;
 }
 
 /**
  * The lines to append so the stored zones come to equal the derived runs from the first run until `until` (the first
  * recorded zone), one at each instant either list changes where they differ: a later line at the same `from` replaces an
- * earlier one, so no stored line is rewritten or dropped. A pinned day keeps its stored zone. Appends nothing when the
+ * earlier one, so no stored line is rewritten or dropped. A settled day keeps its stored zone. Appends nothing when the
  * stored zones already agree.
  */
 export function supersedingRuns(
   stored: ZoneLine[],
   derived: Run[],
-  pinned: ReadonlySet<string>,
+  settled: ReadonlySet<string>,
   until = Number.POSITIVE_INFINITY
 ) {
   const runs = derived.map((r) => ({ ...r, at: Date.parse(r.from) }));
   const storedAt = (t: number) => stored.findLast((z) => z.from <= t);
   const storedTz = (t: number) => (storedAt(t) ?? stored[0])?.tz as string;
-  const isPinned = (t: number) =>
-    pinned.has(wall(new Date(t).toISOString(), storedTz(t)).day);
-  const edges = [...pinned].flatMap((day) => {
+  const isSettled = (t: number) =>
+    settled.has(wall(new Date(t).toISOString(), storedTz(t)).day);
+  const edges = [...settled].flatMap((day) => {
     const tz = storedTz(Date.parse(`${day}T12:00:00Z`));
     return [day, daysBefore(day, -1)].map((d) => dayStart(d, tz).getTime());
   });
@@ -308,17 +300,17 @@ export function supersedingRuns(
   ]
     .filter((t) => t >= (runs[0]?.at ?? until) && t < until)
     .sort((a, b) => a - b);
-  const lines: { at: number; source: Run["source"]; tz: string }[] = [];
+  const lines: { at: number; source?: Run["source"]; tz: string }[] = [];
   for (const t of boundaries) {
     const run = runs.findLast((r) => r.at <= t) as (typeof runs)[number];
-    const want = isPinned(t) ? storedTz(t) : run.tz;
+    const want = isSettled(t) ? (storedAt(t) ?? stored[0] ?? run) : run;
     const last = lines.at(-1);
     const was =
       last && last.at >= (storedAt(t)?.from ?? Number.NEGATIVE_INFINITY)
         ? last.tz
         : storedTz(t);
-    if (was !== want) {
-      lines.push({ at: t, source: run.source, tz: want });
+    if (was !== want.tz) {
+      lines.push({ at: t, source: want.source, tz: want.tz });
     }
   }
   return lines.map((l) => ({
@@ -330,26 +322,30 @@ export function supersedingRuns(
 
 /**
  * Appends the lines that make the stored zones follow the derivation, only when `window` covers the whole derived era
- * (from the first stored unit day or earlier, to the era's last day): a narrower one is read-only, so no edge ever
+ * (from the first stored unit day or earlier, to the era's last day): a narrower one appends nothing, so no edge ever
  * moves hours into a day the collection does not re-cut.
  */
 export async function prepareHistoricalZones(
   window: Window,
   read = readEvidence
 ) {
-  const report = readHistoricalZones(window, read);
   const era = derivedEraEnd();
-  const [firstUnit] = await filesIn(UNITS);
+  const report = readHistoricalZones(window, read, era);
+  const files = (await filesIn(UNITS)).map((f) => f.slice(0, 10));
   if (
     window.to >= (era.lastDay ?? window.to) &&
-    window.from <= (firstUnit?.slice(0, 10) ?? window.from)
+    window.from <= (files[0] ?? window.from)
   ) {
     const to = era.lastDay ?? window.to;
     noteZones(
       supersedingRuns(
         zones(),
         report.runs,
-        await pinnedDays({ from: window.from, to }, report.deferred),
+        await settledDays(
+          { from: window.from, to },
+          report.deferred,
+          new Set(files)
+        ),
         era.from ? Date.parse(era.from) : undefined
       )
     );
