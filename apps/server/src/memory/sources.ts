@@ -6,6 +6,11 @@ import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import {
+  earliestAppleHealth,
+  newestAppleHealth,
+  readAppleHealth,
+} from "../sources/apple-health";
+import {
   archiveDb,
   incomingArchived,
   readEarliestArchived,
@@ -220,6 +225,16 @@ const LISTED: Descriptor[] = [
     read: (since, before) => readScreen(since, undefined, undefined, before),
     silentAfter: 24 * HOUR,
     store: { copies: "events", copy: () => copyScreen() },
+  },
+  {
+    earliest: earliestAppleHealth,
+    kind: "physical",
+    label: "Apple Health",
+    missing: lifelogMissing,
+    name: "apple-health",
+    newest: newestAppleHealth,
+    read: readAppleHealth,
+    silentAfter: 48 * HOUR,
   },
 ];
 

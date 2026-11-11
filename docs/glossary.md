@@ -52,11 +52,15 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `phone`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `claude`, `chatgpt`, and the agent's. | |
-| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `agent`. | |
-| activity | What his devices record he did, never anyone's words: the `repo` and `screen` kinds (`isActivity`). Never extracted, importance 1 at most. | |
+| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `phone`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `apple-health`, `claude`, `chatgpt`, and the agent's. | |
+| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `physical`, `agent`. | |
+| activity | What his devices record he did, never anyone's words: the `repo`, `screen` and `physical` kinds (`isActivity`). Never extracted, importance 1 at most. | |
 | stint | One stretch of time in one app or website on one device, from Screen Time; the same one back within 2 minutes is one stint. Not a Claude session. | |
 | device-day | A Screen Time unit: one device's stints on one local day, its time by app and website and its stints of 5 minutes or more. The device is named by the `devices` setting. | |
+| apple-health | The Apple Health source, read through lifelog's REST contract into a derived copy. Off until enabled in `sources`. | |
+| measurement | One Apple Health record: a sleep segment, an hour's steps, a workout, resting heart rate, heart rate variability or weight. Instants only. | |
+| physical | The source kind for what devices measure of the owner's body; an activity kind. | |
+| measurement-day | One local day's Apple Health measurements; a sleep counts on its wake day. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
@@ -74,7 +78,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
+| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day, a measurement-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | episode | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Called moment before Nov 2026. Id `ep_…`. | |
 | part | The new units of a day that fit one call, in time order (`dayPartOf`); a day too long for one call is read in parts, each seeing the episodes the one before wrote. | |

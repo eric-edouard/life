@@ -163,6 +163,7 @@ enabled source is available and collected passage coverage is complete.
 - The minute pass (`tick`, `watch.ts`) runs on its own one-minute timer beside the hearing loop, never awaited by it
   (a lifelog outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
   log). The report's Actions section lists every ask.
+- When `apple-health` is ready, the minute timer syncs lifelog's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a

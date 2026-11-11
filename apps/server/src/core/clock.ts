@@ -13,3 +13,11 @@ export const daysBefore = (today: string, days: number) => {
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
 };
+
+/** "1 h 38 min", "12 min". */
+export function minutes(ms: number) {
+  const m = Math.round(ms / MIN);
+  return m < 60
+    ? `${m} min`
+    : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
+}

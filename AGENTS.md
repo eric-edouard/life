@@ -193,6 +193,7 @@ Before adding a helper, use the one that exists:
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
+| An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
