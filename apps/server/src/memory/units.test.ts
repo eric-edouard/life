@@ -1119,9 +1119,8 @@ test("a source turned on that can't be read now is skipped, by name, never a fai
 
 test("his pruned messages are read; only the conversations the import kept become memory", () => {
   const dir = mkdtempSync(join(tmpdir(), "assistants-"));
-  const path = join(dir, "conversations.json");
-  writeFileSync(path, JSON.stringify(claudeExport));
-  const events = readAssistant("claude")(new Date(0), path);
+  writeFileSync(join(dir, "conversations.json"), JSON.stringify(claudeExport));
+  const events = readAssistant("claude")(new Date(0), dir);
   // c2 was all code: pruned before anything judged it.
   expect(
     events.map((e) => [e.id, e.chat, e.chatName, e.fromMe, e.sender])
@@ -1130,7 +1129,7 @@ test("his pruned messages are read; only the conversations the import kept becom
     ["claude:c1/m3", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
   ]);
   expect(
-    readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), path).length
+    readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), dir).length
   ).toBe(1);
   // One unit per conversation and local day, dropped until the import keeps it.
   const unit = () =>

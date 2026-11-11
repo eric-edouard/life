@@ -1,4 +1,4 @@
-import { closeSync, existsSync, openSync } from "node:fs";
+import { closeSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
@@ -16,8 +16,8 @@ import {
   readEarliestArchived,
 } from "../sources/archived";
 import {
+  exportCopiesOf,
   FORMATS,
-  importOf,
   newestAssistant,
   readAssistant,
   readEarliestAssistant,
@@ -168,15 +168,15 @@ const LISTED: Descriptor[] = [
       deleted: {},
     },
   },
-  // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
-  // amber; its newest is his newest imported message.
+  // His claude.ai and ChatGPT history, imported from their exports (memory/imports.ts): it gets new items only when he
+  // imports a newer export, so its card is never amber; its newest is his newest imported message.
   ...(["claude", "chatgpt"] as const).map(
     (name): Descriptor => ({
       earliest: () => readEarliestAssistant(name),
       imported: true,
       kind: "own_writing",
       label: FORMATS[name].label,
-      missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
+      missing: () => (exportCopiesOf(name).length ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
       read: (since, before) => readAssistant(name)(since, undefined, before),

@@ -242,7 +242,8 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
-   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   * install, checked before and counted after), or his claude.ai or ChatGPT export (a newer one lands beside the older;
+   * `--dry` only counts).
    */
   async import() {
     const { positionals, values } = parseArgs({

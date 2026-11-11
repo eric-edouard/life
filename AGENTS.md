@@ -88,6 +88,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating), `told.jsonl` (what he told Life, one synchronous append: `recordTold`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
+- **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
+  copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
+  export lands as a copy of its own, and a conversation reads from the copy holding its latest version.
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
