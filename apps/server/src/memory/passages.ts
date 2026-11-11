@@ -458,7 +458,7 @@ export function readPassages(
   }
 }
 
-/** Coverage must span every source without a gap before absent hashes can safely be pruned. */
+/** The collected windows must span every source without a gap before absent hashes can safely be pruned. */
 export function readPassageTexts(db: Database): boolean {
   if (!existsSync(PASSAGES)) {
     db.run(

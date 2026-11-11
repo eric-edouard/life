@@ -96,7 +96,7 @@ const total = (rows: { n: number }[]) => rows.reduce((a, r) => a + r.n, 0);
  * What Life holds about someone, by source and by month, and what it can't hold, so a short answer never reads as
  * "nothing happened". `timeline`: everything the person's answer pages through.
  */
-export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
+export function heldLines(db: Database, ref: string, timeline: Dated[]) {
   const start = db
     .query<{ d: string | null }, []>("select min(date) as d from units")
     .get()?.d;
@@ -250,7 +250,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...history.block,
               ...entity(db, found?.text ?? null, obsLines),
               "",
-              ...coverageLines(db, ref, timeline),
+              ...heldLines(db, ref, timeline),
             ]),
         ...section("Earlier months between them and him:", lines("month")),
         ...section("Episodes with them:", lines("episode")),

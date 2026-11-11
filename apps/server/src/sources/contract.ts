@@ -52,6 +52,11 @@ export type Descriptor = {
    * message. Without it, the source has no events.
    */
   incoming?: (from?: number) => { end: number; rows: NewRow[] };
+  /**
+   * It records without him doing anything (a chat archive, mail, the pendant): only such a source covers a day
+   * (`memory/coverage.ts`). One that records only when he acts (a photo, a commit, a note) covers nothing.
+   */
+  capturesOnItsOwn?: true;
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
   /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
