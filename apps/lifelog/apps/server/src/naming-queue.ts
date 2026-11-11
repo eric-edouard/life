@@ -548,7 +548,10 @@ function cardsOf(
     .sort(
       (a, b) =>
         Number(b.card.clips.some((c) => c.audio || c.at)) -
-          Number(a.card.clips.some((c) => c.audio || c.at)) || b.words - a.words
+          Number(a.card.clips.some((c) => c.audio || c.at)) ||
+        // A voice with no samples has no names to offer first and teaches no profile: last.
+        Number(b.card.likely.length > 0) - Number(a.card.likely.length > 0) ||
+        b.words - a.words
     )
     .map(({ card, words }) => ({ ...card, words }));
 }
