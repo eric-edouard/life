@@ -136,10 +136,10 @@ const embedder = join(resources, "embedder");
 await mkdir(embedder);
 await bundleLlama(
   llama,
+  join(embedder, "llama.cpp-LICENSE"),
   join(root, ".build/host-downloads"),
   (file) => $`codesign --force --sign ${identity} ${hardened} ${file}`
 );
-await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
 await cp(await fetched(TOOLS.embedder), join(embedder, "model.gguf"));
 await writeFile(
   join(embedder, "NOTICE"),
