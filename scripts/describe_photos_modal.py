@@ -16,7 +16,11 @@ REVISION = "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
 BATCH = 256
 
 app = modal.App("life-photo-descriptions")
-image = modal.Image.debian_slim(python_version="3.12").pip_install("vllm>=0.17")
+# A CUDA toolkit image, not a slim one: vllm and FlashInfer compile kernels for this model at start and need nvcc
+# (on debian_slim the engine failed with "Could not find nvcc" and Modal restarted the container until stopped).
+image = modal.Image.from_registry(
+    "nvidia/cuda:12.8.1-devel-ubuntu22.04", add_python="3.12"
+).pip_install("vllm>=0.17")
 
 
 @app.cls(image=image, gpu="H100", timeout=3600)
