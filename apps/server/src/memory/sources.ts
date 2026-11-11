@@ -49,6 +49,12 @@ import {
   newestPhone,
   readPhone,
 } from "../sources/phone";
+import {
+  earliestPhoto,
+  newestPhoto,
+  PHOTOS_DB,
+  readPhotos,
+} from "../sources/photos";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
 import {
   copyWhatsapp,
@@ -235,6 +241,18 @@ const LISTED: Descriptor[] = [
     newest: newestAppleHealth,
     read: readAppleHealth,
     silentAfter: 48 * HOUR,
+  },
+  // His photo library, read in place from Photos' own store: Photos keeps its history, so nothing is copied.
+  {
+    earliest: earliestPhoto,
+    kind: "photos",
+    label: "Photos",
+    macOnly: true,
+    missing: () => unreadable(PHOTOS_DB, FULL_DISK),
+    name: "photos",
+    newest: newestPhoto,
+    read: readPhotos,
+    silentAfter: 7 * 24 * HOUR,
   },
 ];
 

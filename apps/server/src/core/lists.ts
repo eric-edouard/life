@@ -1,4 +1,8 @@
-// Lists cut to a size: by a budget, or a page by whole keys.
+// Lists cut to a size: by a budget, or a page by whole keys; and a size said in words.
+
+/** "1 commit", "2 commits". */
+export const count = (n: number, noun: string) =>
+  `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /** The first items of `list` whose sizes add up to `budget` at most. */
 export function within<T>(list: T[], budget: number, size: (x: T) => number) {
