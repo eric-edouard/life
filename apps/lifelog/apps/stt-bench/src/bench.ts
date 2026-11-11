@@ -7,9 +7,6 @@
 //   bun run bench score           text, language and speakers of each model against Scribe (report.md)
 //   bun run bench context [fit]   the server's router on real blocks the speech service hears again
 //                                 (context/report.md); `fit` fits its weights (context.ts)
-//   bun run bench rediarize       the owner's one-off (11 Nov 2026): each Scribe job's turns from
-//                                 local/modal_speakers.py (resplit/) to the server, which relabels
-//                                 its speakers (LIFELOG_URL, LIFELOG_DEVICE_TOKEN)
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -330,43 +327,11 @@ async function score() {
   console.log(report);
 }
 
-// Every diarized Scribe job to the server, one at a time; a job with no turns keeps Scribe's speakers.
-async function rediarize() {
-  const dir = join(DIR, "resplit");
-  const outcomes: Record<string, number> = {};
-  for (const name of await readdir(dir)) {
-    // biome-ignore lint/performance/noAwaitInLoops: one job at a time, the server's one writer
-    const { turns } = (await Bun.file(join(dir, name)).json()) as {
-      turns?: unknown[];
-    };
-    const status = turns?.length
-      ? await fetch(
-          `${process.env.LIFELOG_URL}/transcription-jobs/${name.replace(".json", "")}/speakers`,
-          {
-            body: JSON.stringify({ turns }),
-            headers: {
-              authorization: `Bearer ${process.env.LIFELOG_DEVICE_TOKEN}`,
-              "content-type": "application/json",
-            },
-            method: "POST",
-          }
-        ).then(async (r) =>
-          r.ok
-            ? ((await r.json()) as { outcome: string }).outcome
-            : `http ${r.status}`
-        )
-      : "no turns";
-    outcomes[status] = (outcomes[status] ?? 0) + 1;
-  }
-  console.log(outcomes);
-}
-
 const [command, ...params] = process.argv.slice(2);
 const commands: Record<string, () => Promise<void>> = {
   clips,
   context: () => (params[0] === "fit" ? fit(DIR) : context(DIR)),
   jobs,
-  rediarize,
   run: () => models(params),
   sample: () => draw(params[0]),
   score,
