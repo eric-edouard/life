@@ -57,7 +57,7 @@ export const isRejected = (
   assignment?.status === "stranger" ||
   (assignment?.source === "owner" &&
     !assignment.candidates &&
-    (assignment.status === "unknown" || assignment.status === "media"));
+    ["unknown", "media", "not_relevant"].includes(assignment.status));
 type Sample = typeof voiceSamples.$inferSelect;
 // What recognition reads of a sample.
 type VoiceSample = Pick<
@@ -150,7 +150,7 @@ export const keepServerSamples = (
   });
 
 // A sample is evidence only of the one person the owner's answer for its turn or speaker names.
-export function evidenceFromAnswer(tx: Db, sample: Sample) {
+function evidenceFromAnswer(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
       .select()
@@ -909,6 +909,7 @@ export type Target =
   | { id: string; kind: "new"; name: string }
   | { kind: "unknown" }
   | { kind: "media" }
+  | { kind: "not_relevant" }
   // Several people (who exist), and the one to fall back on.
   | { candidates: Candidates; kind: "several"; personId: string | null };
 
@@ -946,8 +947,8 @@ export function assign(
     writeOwnerRow(tx, {
       ...input,
       candidates: target.kind === "several" ? target.candidates : null,
-      media: target.kind === "media",
       personId,
+      status: statusOf(target, personId),
     });
     logChange(tx, "assignment", jobId);
     if (personId && target.kind === "new") {
@@ -964,13 +965,13 @@ function writeOwnerRow(
   scope: {
     candidates: Candidates | null;
     jobId: string;
-    media: boolean;
     personId: string | null;
     speakerLabel: string;
+    status: ReturnType<typeof statusOf>;
     turnIndex: number | null;
   }
 ) {
-  const { candidates, jobId, media, personId, speakerLabel, turnIndex } = scope;
+  const { jobId, personId, speakerLabel, status, turnIndex } = scope;
   const scoped = and(
     eq(assignments.jobId, jobId),
     eq(assignments.speakerLabel, speakerLabel),
@@ -983,13 +984,13 @@ function writeOwnerRow(
   const [row] = tx
     .insert(assignments)
     .values({
-      candidates,
+      candidates: scope.candidates,
       jobId,
       personId,
       rechecked: previous?.source === "owner",
       source: "owner",
       speakerLabel,
-      status: ownerStatus(personId, media),
+      status,
       turnIndex,
     })
     .returning({ id: assignments.id })
@@ -1003,27 +1004,23 @@ function writeOwnerRow(
   setEvidence(
     tx,
     samples.map((s) => s.id),
-    candidates ? null : personId
+    scope.candidates ? null : personId
   );
-  if (candidates) {
+  if (scope.candidates) {
     // Its turns decided among them now, before the summaries the phone asks for.
     recognizeJob(tx, jobId, readProfiles(tx));
   }
 }
 
-const ownerStatus = (personId: string | null, media: boolean) => {
-  if (personId) {
-    return "person" as const;
-  }
-  return media ? ("media" as const) : ("unknown" as const);
+// His answer's status: a person's, else which kind of nobody.
+const statusOf = ({ kind }: Target, personId: string | null) => {
+  const nobody = kind === "media" || kind === "not_relevant" ? kind : "unknown";
+  return personId ? ("person" as const) : nobody;
 };
 
-// The person a target names (created for kind "new"), null for unknown or media,
+// The person a target names (created for kind "new"), null for nobody,
 // undefined if the person doesn't exist.
 function resolveTarget(db: Db, target: Target) {
-  if (target.kind === "unknown" || target.kind === "media") {
-    return null;
-  }
   if (target.kind === "several") {
     return target.personId;
   }
@@ -1033,6 +1030,9 @@ function resolveTarget(db: Db, target: Target) {
       .from(people)
       .where(eq(people.id, target.personId))
       .get()?.id;
+  }
+  if (target.kind !== "new") {
+    return null;
   }
   // The phone chose the id: a replay finds the person made the first time.
   db.insert(people)

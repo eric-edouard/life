@@ -245,6 +245,14 @@ function cut(list: SourceEvent[], resolve: Resolve) {
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => cut(list, resolve));
 
+/**
+ * The units of every source but lifelog, from their events with files shown (`showFiles`), the code rules applied: the
+ * night's (`gather`) and the watcher's today (`buildTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
+ * meet these, so the `duplicate` rule is the same either way.
+ */
+export const sourceUnitsOf = (shown: SourceEvent[], resolve: Resolve) =>
+  applyRules(messageUnits(shown, resolve), keptConversations());
+
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
   first.chatName ??
@@ -651,9 +659,7 @@ export async function gather(
 ) {
   const since = dayStart(window.from);
   const before = dayStart(daysBefore(window.to, -1));
-  const failed: string[] = [];
-  const repos = repoMap(truth, await readInferredRepos());
-  const ctx = { me: ownerIn(truth.people), repos };
+  const { failed, read, repos } = await readSourceEvents(since, before, truth);
   // Lifelog's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
   // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
   const sources = readySources().filter(
@@ -679,18 +685,6 @@ export async function gather(
         failed
       )
     : [];
-  const read = await Promise.all(
-    sources
-      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
-      .map(async (s) => ({
-        events: await safely(
-          s.name,
-          () => readOf(s, since, ctx, before),
-          failed
-        ),
-        s,
-      }))
-  );
   // The recent messages' files are described, then every message's shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = options.historical
@@ -706,12 +700,10 @@ export async function gather(
   }));
   const built = [
     ...chapters.map(frozen),
-    ...applyRules(
-      [
-        ...voice,
-        ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
-      ],
-      keptConversations()
+    ...applyRules(voice, keptConversations()),
+    ...sourceUnitsOf(
+      shown.flatMap(({ events }) => events),
+      resolve
     ),
   ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
@@ -740,6 +732,35 @@ export async function gather(
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
+
+/**
+ * Every readable source's events but lifelog's, from `since` to `before`, in the registry's order, each read through
+ * `guard`: `safely` logs every read (a sweep's), `quietly` only a failure (the watcher's, every few minutes). A source
+ * that throws is named in `failed` and gives no rows.
+ */
+export async function readSourceEvents(
+  since: Date,
+  before: Date | undefined,
+  truth: Truth,
+  guard: typeof safely = safely
+) {
+  const failed: string[] = [];
+  const repos = repoMap(truth, await readInferredRepos());
+  const ctx = { me: ownerIn(truth.people), repos };
+  const read = await Promise.all(
+    readySources()
+      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
+      .map(async (s) => ({
+        events: await guard(
+          s.name,
+          () => readOf(s, since, ctx, before),
+          failed
+        ),
+        s,
+      }))
+  );
+  return { failed, read, repos };
+}
 
 /**
  * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations

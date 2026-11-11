@@ -48,7 +48,7 @@ test("a failure is the run's error, and its end says it failed", async () => {
 });
 
 test("a sweep fails at the phase whose step failed anything, its errors and sub-steps' under its run", async () => {
-  const step = "memory.midday";
+  const step = "memory.backfill";
   const rec = record(step, {});
   const phase = phases(rec);
   await phase.step("triage", async () => ({ failed: 0 }));

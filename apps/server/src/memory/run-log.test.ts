@@ -23,7 +23,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   const night = "2026-10-15T00:31:00.000Z";
   const triage = "2026-10-15T00:31:05.000Z";
   const extract = "2026-10-14T11:00:00.000Z";
-  const midday = "2026-10-14T17:00:00.000Z";
+  const backfill = "2026-10-14T17:00:00.000Z";
   const now = "2026-10-15T12:00:00.000Z";
   const events = [
     ev("run.start", "memory.nightly", night, { days: 7, run: id(night) }),
@@ -46,7 +46,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
       failed: 2,
       run: id(extract),
     }),
-    ev("run.start", "memory.midday", midday, { run: id(midday) }),
+    ev("run.start", "memory.backfill", backfill, { run: id(backfill) }),
     ev("run.error", "memory.nightly", "2026-10-13T01:00:00.000Z", {
       error: "triage: 1 failed",
     }),
@@ -55,7 +55,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   ];
   const steps = new Set([
     "memory.nightly",
-    "memory.midday",
+    "memory.backfill",
     "memory.episodes",
     "memory.extract",
     "memory.pages",
@@ -76,7 +76,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
     window: { from: "2026-10-09" },
   });
   expect(by("memory.extract")?.outcome).toBe("failed");
-  expect(by("memory.midday")?.outcome).toBe("unfinished");
+  expect(by("memory.backfill")?.outcome).toBe("unfinished");
   expect(by("memory.pages")?.outcome).toBe("running");
   expect(list.find((r) => r.startedAt === null)).toMatchObject({
     endedAt: "2026-10-13T01:00:00.000Z",
@@ -300,7 +300,7 @@ test("spend lines: every run of the window that called a model, oldest first, a 
       }),
       runOf("memory.nightly/n", "2026-10-28T01:00:00.000Z", { use: t(3000) }),
       runOf("memory.files/q", "2026-10-28T02:00:00.000Z", { use: null }),
-      runOf("memory.midday/old", "2026-10-26T13:00:00.000Z"),
+      runOf("memory.backfill/old", "2026-10-26T13:00:00.000Z"),
     ],
     "2026-10-27T09:30:00.000Z",
     { id: "memory.nightly/n", quota: undefined }

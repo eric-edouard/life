@@ -346,14 +346,17 @@ export type Tables = ReturnType<typeof tablesOf>;
 export async function safely<T>(
   source: string,
   read: () => T[] | Promise<T[]>,
-  failed: string[]
+  failed: string[],
+  isEveryReadLogged = true
 ): Promise<T[]> {
   const started = performance.now();
   const ms = () => Math.round(performance.now() - started);
   try {
     // ponytail: no timeout, every reader is synchronous (a timer could not fire); a hung source holds the run.
     const rows = await read();
-    log("source.read", { count: rows.length, ms: ms(), ok: true, source });
+    if (isEveryReadLogged) {
+      log("source.read", { count: rows.length, ms: ms(), ok: true, source });
+    }
     return rows;
   } catch (e) {
     log("source.read", {
@@ -366,3 +369,7 @@ export async function safely<T>(
     return [];
   }
 }
+
+/** `safely`, logging only a failure: a read repeated every few minutes (the watcher's sync of today). */
+export const quietly: typeof safely = (source, read, failed) =>
+  safely(source, read, failed, false);

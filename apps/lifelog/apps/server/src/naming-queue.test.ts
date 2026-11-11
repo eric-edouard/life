@@ -151,7 +151,6 @@ test("a voice that talked with the owner is queued with the name heard; others a
   ]);
   // People nearby talking among themselves, between the owner's turns.
   conversation(me, talk(8), [identity({ withOwner: false })]);
-
   const items = queued();
   expect(items[0]?.clips.length).toBeGreaterThan(0);
   expect(items).toEqual([
@@ -168,6 +167,7 @@ test("a voice that talked with the owner is queued with the name heard; others a
       exchanges: 15,
       id: `${herve.jobId}/speaker_1`,
       kind: "new_person",
+      likely: [],
       name: "Hervé",
       namedPersonId: null,
       personId: null,
