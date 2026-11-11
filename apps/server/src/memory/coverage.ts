@@ -7,7 +7,7 @@ import { Published } from "../records/publication";
 import type { Recorded } from "../sources/lifelog-recorded";
 import { PUBLICATIONS, UNITS } from "./ledger";
 import { enabledSources } from "./sources";
-import { dayNow, localDate } from "./zones";
+import { dayNow, dayRange, localDate } from "./zones";
 
 // Coverage (docs/glossary.md): whether a source that captures on its own (`capturesOnItsOwn`) was captured on a local
 // day. A day is captured only when something says so: a unit of the source that day, or a publication of units that
@@ -41,12 +41,13 @@ interface Known {
 }
 
 /**
- * The pendant on a day Life holds nothing of, from what lifelog says it recorded (null: it could not be asked): a
- * recording is capture, with or without speech; none since lifelog can tell is the pendant off or out of reach; before
+ * The pendant on a day Life holds nothing of, from what lifelog says it recorded over a range holding the day (null:
+ * it could not be asked): a stretch in the day is capture, with or without speech; none since lifelog can tell is the pendant off or out of reach; before
  * that, or unasked, nobody can tell.
  */
 export function recordingOf(recorded: Recorded | null, day: string): Verdict {
-  if (recorded?.hasRecording) {
+  const { from = "", to } = dayRange(day, day);
+  if (recorded?.stretches.some((s) => s.endAt > from && s.startAt < to)) {
     return { state: "captured" };
   }
   const since = recorded?.since && localDate(recorded.since);

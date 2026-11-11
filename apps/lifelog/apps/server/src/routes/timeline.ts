@@ -1,7 +1,9 @@
 // What the phone sends for grouping (rebuild contract): each source's timeline facts and
 // heard-through and the owner's grouping edits. All idempotent; a write that can move a boundary
 // regroups after it commits (grouping.ts).
+
 import { createRoute, z } from "@hono/zod-openapi";
+import { DAY } from "@life/server/src/core/clock";
 import { hasRawPages, sources } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
 import { record } from "../events";
@@ -64,15 +66,27 @@ export function timelineRoutes({
     .openapi(
       createRoute({
         description:
-          "Whether a Pendant recorded between `from` and `to` (a day: the reader's own bounds of it), and " +
-          "`since`, the start of the first recording held: before it, no recording says nothing.",
+          "The stretches a Pendant recorded that overlap `from`..`to` (at most 31 days; a day is the reader's own " +
+          "bounds of it), oldest first, whole, pauses under a minute joined; and `since`, the start of the first " +
+          "recording held: before it, no stretch says nothing.",
         method: "get",
         path: "/recorded",
-        request: { query: z.object({ from: Instant, to: Instant }) },
+        request: {
+          query: z
+            .object({ from: Instant, to: Instant })
+            .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 31 * DAY, {
+              message: "at most 31 days: page a longer read",
+            }),
+        },
         responses: {
           200: json(
             z
-              .object({ hasRecording: z.boolean(), since: Instant.nullable() })
+              .object({
+                since: Instant.nullable(),
+                stretches: z.array(
+                  z.object({ endAt: Instant, startAt: Instant })
+                ),
+              })
               .openapi("Recorded"),
             "Recorded"
           ),

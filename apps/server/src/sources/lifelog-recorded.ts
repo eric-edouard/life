@@ -5,12 +5,12 @@ import { call } from "./lifelog";
 // nothing of (memory/coverage.ts).
 
 export const Recorded = z.object({
-  hasRecording: z.boolean(),
   since: z.string().nullable(),
+  stretches: z.array(z.object({ endAt: z.string(), startAt: z.string() })),
 });
 export type Recorded = z.infer<typeof Recorded>;
 
-/** Whether the pendant recorded between two instants (a day: `dayRange`), and `since` when lifelog can tell. */
+/** The stretches the pendant recorded between two instants (at most 31 days; a day: `dayRange`), and `since` when lifelog can tell. */
 export async function readRecorded(from: string, to: string) {
   return Recorded.parse(
     await call(`/recorded?${new URLSearchParams({ from, to })}`)

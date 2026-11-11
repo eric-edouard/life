@@ -3358,15 +3358,29 @@
       "Recorded": {
         "type": "object",
         "properties": {
-          "hasRecording": {
-            "type": "boolean"
-          },
           "since": {
             "type": ["string", "null"],
             "format": "date-time"
+          },
+          "stretches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": ["endAt", "startAt"]
+            }
           }
         },
-        "required": ["hasRecording", "since"]
+        "required": ["since", "stretches"]
       },
       "Timeline": {
         "type": "object",
@@ -5822,7 +5836,7 @@
     },
     "/recorded": {
       "get": {
-        "description": "Whether a Pendant recorded between `from` and `to` (a day: the reader's own bounds of it), and `since`, the start of the first recording held: before it, no recording says nothing.",
+        "description": "The stretches a Pendant recorded that overlap `from`..`to` (at most 31 days; a day is the reader's own bounds of it), oldest first, whole, pauses under a minute joined; and `since`, the start of the first recording held: before it, no stretch says nothing.",
         "parameters": [
           {
             "schema": {

@@ -69,15 +69,20 @@ test("the pendant with nothing held: what lifelog says it recorded, never the re
       lines: [line("2026-11-07", "2026-11-13", ["lifelog"])],
       sources: [source("lifelog", { recording: recordingOf(recorded, day) })],
     }).lifelog;
-  // Recording with nobody speaking is capture; no recording is the pendant off, not a quiet day.
-  expect(pendant({ hasRecording: true, since }, "2026-11-10")).toBe("captured");
-  expect(pendant({ hasRecording: false, since }, "2026-11-10")).toBe(
+  // The answer for a range holding the day: a stretch the day before, one at midday (any zone's 10 Nov).
+  const stretches = [
+    { endAt: "2026-11-09T07:00:00.000Z", startAt: "2026-11-09T06:00:00.000Z" },
+    { endAt: "2026-11-10T07:00:00.000Z", startAt: "2026-11-10T06:00:00.000Z" },
+  ];
+  // Recording with nobody speaking is capture; no stretch in the day is the pendant off, not a quiet day.
+  expect(pendant({ since, stretches }, "2026-11-10")).toBe("captured");
+  expect(pendant({ since, stretches }, "2026-11-11")).toBe(
     "not_seen: the pendant recorded nothing this day"
   );
-  expect(pendant({ hasRecording: false, since }, "2026-10-01")).toBe(
+  expect(pendant({ since, stretches: [] }, "2026-10-01")).toBe(
     "unknown: nothing held; lifelog cannot tell whether it was recording before 2026-10-08"
   );
-  expect(pendant({ hasRecording: false, since: null }, "2026-11-10")).toBe(
+  expect(pendant({ since: null, stretches: [] }, "2026-11-10")).toBe(
     "unknown: nothing held; lifelog cannot tell whether it was recording before now"
   );
   expect(pendant(null, "2026-11-10")).toBe(
