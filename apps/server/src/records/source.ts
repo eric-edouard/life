@@ -20,6 +20,14 @@ export const SourceFile = z
   .strict();
 
 export type SourceFile = z.infer<typeof SourceFile>;
+/** The Apple Health measurements that are one number (a sleep and a workout are spans with their own fields). */
+export const QUANTITY_KINDS = [
+  "steps",
+  "resting_heart_rate",
+  "heart_rate_variability",
+  "weight",
+] as const;
+export type QuantityKind = (typeof QUANTITY_KINDS)[number];
 /** A normalized source event. Ids are stable per source, so syncing twice never duplicates. */
 export const SourceEvent = z
   .object({
@@ -58,12 +66,7 @@ export const SourceEvent = z
           .strict(),
         z
           .object({
-            kind: z.enum([
-              "steps",
-              "resting_heart_rate",
-              "heart_rate_variability",
-              "weight",
-            ]),
+            kind: z.enum(QUANTITY_KINDS),
             value: z.number().nonnegative(),
           })
           .strict(),

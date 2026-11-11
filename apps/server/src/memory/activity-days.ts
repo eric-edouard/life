@@ -1,5 +1,6 @@
 import { MIN, minutes } from "../core/clock";
-import type { SourceEvent } from "../records/source";
+import type { QuantityKind, SourceEvent } from "../records/source";
+import { quantityText } from "../sources/apple-health";
 import { WEB } from "../sources/screen";
 import { time } from "./zones";
 
@@ -29,24 +30,19 @@ export function deviceDayText(list: SourceEvent[]) {
 /** A measurement-day's totals, then sleep, workouts and weight; each night counts on its wake day. */
 export function measurementDayText(list: SourceEvent[]) {
   const sorted = list.toSorted((a, b) => a.at.localeCompare(b.at));
-  const values = (
-    kind: "steps" | "resting_heart_rate" | "heart_rate_variability"
-  ) =>
-    sorted.flatMap((e) =>
+  const sum = (ns: number[]) => ns.reduce((n, v) => n + v, 0);
+  const total = (kind: QuantityKind, fold: (ns: number[]) => number) => {
+    const values = sorted.flatMap((e) =>
       e.measured?.kind === kind ? [e.measured.value] : []
     );
-  const steps = values("steps");
-  const resting = values("resting_heart_rate");
-  const hrv = values("heart_rate_variability");
-  const sum = (ns: number[]) => ns.reduce((n, v) => n + v, 0);
-  const mean = (ns: number[]) => Math.round(sum(ns) / ns.length);
-  const stepText = steps.length
-    ? `${sum(steps).toLocaleString("en-US")} steps`
-    : "";
+    return values.length ? quantityText(kind, fold(values)) : "";
+  };
+  const mean = (ns: number[]) => sum(ns) / ns.length;
+  const stepText = total("steps", sum);
   const totals = [
     stepText,
-    resting.length ? `resting heart rate ${mean(resting)} bpm` : "",
-    hrv.length ? `HRV ${mean(hrv)} ms` : "",
+    total("resting_heart_rate", mean),
+    total("heart_rate_variability", mean),
   ].filter(Boolean);
   const lines = sorted.filter(
     (e) =>

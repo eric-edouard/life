@@ -2,14 +2,12 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { z } from "zod";
 import { HOUR, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { SourceEvent } from "../records/source";
 import {
-  AppleHealthPage,
   earliestAppleHealth,
-  Measurement,
+  type Measurement,
   newestAppleHealth,
   nightsOf,
   readAppleHealth,
@@ -94,7 +92,7 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
               activity: "running",
               endAt: "2026-10-10T06:42:00Z",
               id: "run",
-              kcal: 315,
+              kcal: 315.4,
               kind: "workout",
               seq: 5,
               startAt: "2026-10-10T06:00:00Z",
@@ -105,7 +103,7 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
               kind: "weight",
               seq: 6,
               startAt: "2026-10-10T07:00:00Z",
-              value: 68.2,
+              value: 68.24,
             },
             {
               endAt: "2026-10-10T08:00:00Z",
@@ -121,7 +119,7 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
               kind: "heart_rate_variability",
               seq: 8,
               startAt: "2026-10-10T09:00:00Z",
-              value: 41,
+              value: 41.3,
             },
           ],
         })
@@ -146,7 +144,10 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     expect(cursors).toEqual([0, 1, 1, 3]);
     const read = () => readAppleHealth(new Date(0), undefined, dir);
     expect(read()).toHaveLength(1);
-    expect(read()[0]?.measured).toEqual({ kind: "steps", value: 280 });
+    expect(read()[0]).toMatchObject({
+      measured: { kind: "steps", value: 280 },
+      text: "280 steps",
+    });
     expect(earliestAppleHealth(dir)).toBe(base.startAt);
     expect(newestAppleHealth(dir)).toEqual({ at: base.startAt });
     expect(readAppleHealth(new Date(0), new Date(base.startAt), dir)).toEqual(
@@ -181,8 +182,8 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
       "woke: 1 h 10 min asleep",
       "running, 315 kcal",
       "weight 68.2 kg",
-      "",
-      "",
+      "resting heart rate 57 bpm",
+      "HRV 41 ms",
     ]);
     hasBadCursor = true;
     await expect(syncAppleHealth(dir)).rejects.toThrow("cursor");
@@ -198,91 +199,5 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
       process.env.LIFELOG_TOKEN = token;
     }
     rmSync(dir, { force: true, recursive: true });
-  }
-});
-
-interface Json {
-  $ref?: string;
-  allOf?: Json[];
-  anyOf?: Json[];
-  enum?: unknown[];
-  format?: string;
-  items?: Json;
-  oneOf?: Json[];
-  properties?: Record<string, Json>;
-  required?: string[];
-  type?: string | string[];
-}
-
-/** Contract fixtures exercise each union branch, missing optional field and allowed null. */
-function examplesOf(schema: Json, defs: Record<string, Json>): unknown[] {
-  if (schema.$ref) {
-    const target = defs[schema.$ref.split("/").at(-1) ?? ""];
-    if (!target) {
-      throw new Error(`Missing contract definition ${schema.$ref}`);
-    }
-    return examplesOf(target, defs);
-  }
-  const union = schema.oneOf ?? schema.anyOf;
-  if (union) {
-    return union.flatMap((s) => examplesOf(s, defs));
-  }
-  if (schema.allOf) {
-    return schema.allOf.reduce<object[]>(
-      (held, s) =>
-        held.flatMap((h) =>
-          examplesOf(s, defs).map((v) => ({ ...h, ...(v as object) }))
-        ),
-      [{}]
-    );
-  }
-  if (schema.enum) {
-    return schema.enum;
-  }
-  if (schema.type === "object") {
-    return Object.entries(schema.properties ?? {}).reduce<object[]>(
-      (held, [key, s]) =>
-        held.flatMap((h) => [
-          ...(schema.required?.includes(key) ? [] : [h]),
-          ...examplesOf(s, defs).map((value) => ({ ...h, [key]: value })),
-        ]),
-      [{}]
-    );
-  }
-  if (schema.type === "array") {
-    return [[], examplesOf(schema.items ?? {}, defs)];
-  }
-  const types = [schema.type].flat();
-  return types.map((type) => {
-    if (type === "null") {
-      return null;
-    }
-    if (type === "string") {
-      return schema.format === "date-time"
-        ? "2024-02-02T07:00:00.000Z"
-        : "running";
-    }
-    return 1;
-  });
-}
-
-test("Life's Apple Health shapes accept the published contract's variants, optional fields and nulls", async () => {
-  const api = await Bun.file(
-    join(import.meta.dir, "../../../lifelog/apps/server/openapi.json")
-  ).json();
-  const route = api.paths["/apple-health"];
-  const defs = api.components.schemas;
-  const response = (method: string) =>
-    route[method].responses["200"].content["application/json"].schema;
-  for (const [ours, theirs] of [
-    [AppleHealthPage, response("get")],
-    [
-      z.object({ measurements: z.array(Measurement) }),
-      route.post.requestBody.content["application/json"].schema,
-    ],
-  ] as const) {
-    for (const fixture of examplesOf(theirs, defs)) {
-      expect(ours.safeParse(fixture).success).toBe(true);
-    }
   }
 });

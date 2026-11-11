@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { AppleHealthPage } from "./apple-health";
 import {
   apply,
   ConversationAnswer,
@@ -386,14 +387,48 @@ const CONTRACT = join(
 
 interface Json {
   $ref?: string;
+  allOf?: Json[];
   anyOf?: Json[];
+  const?: unknown;
+  enum?: unknown[];
   items?: Json;
+  oneOf?: Json[];
   properties?: Record<string, Json>;
   required?: string[];
   type?: string | string[];
 }
 
-/** Where Life's schema would refuse what the contract allows: a null it does not take, a field it needs that may be absent. */
+/** A schema's alternatives as plain schemas: refs followed, each `oneOf` branch apart, `allOf` parts merged into each. */
+function branchesOf(s: Json, defs: Record<string, Json>): Json[] {
+  if (s.$ref) {
+    const target = defs[s.$ref.split("/").at(-1) ?? ""] ?? {};
+    return branchesOf(target, defs);
+  }
+  if (s.oneOf) {
+    return s.oneOf.flatMap((b) => branchesOf(b, defs));
+  }
+  return s.allOf
+    ? s.allOf.reduce<Json[]>(
+        (held, part) =>
+          held.flatMap((h) =>
+            branchesOf(part, defs).map((b) => ({
+              ...h,
+              ...b,
+              properties: { ...h.properties, ...b.properties },
+              required: [...(h.required ?? []), ...(b.required ?? [])],
+            }))
+          ),
+        [{}]
+      )
+    : [s];
+}
+const valuesOf = (s?: Json) =>
+  s?.enum ?? (s && "const" in s ? [s.const] : undefined);
+
+/**
+ * Where Life's schema would refuse what the contract allows: a null it does not take, a field it needs that may be
+ * absent, a value it does not list, a kind of a union (told apart by `kind`) none of its branches reads.
+ */
 function drift(
   life: Json,
   theirs: Json,
@@ -404,13 +439,36 @@ function drift(
     [s.type].flat().includes("null") ||
     !!s.anyOf?.some((x) => x.type === "null");
   const nonNull = (s: Json) => s.anyOf?.find((x) => x.type !== "null") ?? s;
-  const u = nonNull(theirs);
-  const t = u.$ref ? (defs[u.$ref.split("/").at(-1) ?? ""] ?? {}) : u;
+  const kinds = branchesOf(nonNull(theirs), defs);
+  const [t = {}] = kinds;
   const l = nonNull(life);
   const out =
     (nullable(theirs) || nullable(t)) && life.type && !nullable(life)
       ? [`${at}: null`]
       : [];
+  if (kinds.length > 1) {
+    const mine = branchesOf(l, {});
+    return [
+      ...out,
+      ...kinds.flatMap((theirKind) => {
+        const [kind] = valuesOf(theirKind.properties?.kind) ?? [];
+        const reader = mine.find((b) =>
+          valuesOf(b.properties?.kind)?.includes(kind)
+        );
+        return reader
+          ? drift(reader, theirKind, defs, `${at}(${kind})`)
+          : [`${at}: ${kind} not read`];
+      }),
+    ];
+  }
+  const read = valuesOf(l);
+  if (read) {
+    out.push(
+      ...(valuesOf(t) ?? ["any value"])
+        .filter((v) => !read.includes(v))
+        .map((v) => `${at}: ${v} not read`)
+    );
+  }
   for (const [k, v] of Object.entries(l.properties ?? {})) {
     const theirsK = t.properties?.[k];
     if (!theirsK) {
@@ -451,6 +509,12 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
     ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
+    ...drift(
+      ours(AppleHealthPage),
+      answer("/apple-health", "get"),
+      defs,
+      "apple-health"
+    ),
     // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
     // optional and nullable (tested below) and there is nothing to compare.
   ]).toEqual([]);

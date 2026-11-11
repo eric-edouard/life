@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { z } from "zod";
 import { DAY, HOUR, minutes } from "../core/clock";
 import { openReadOnly } from "../core/sqlite";
-import type { SourceEvent } from "../records/source";
+import {
+  QUANTITY_KINDS,
+  type QuantityKind,
+  type SourceEvent,
+} from "../records/source";
 import { isWithin } from "./contract";
 import { call, WATCH } from "./lifelog";
 
@@ -28,12 +32,7 @@ export const Measurement = z.discriminatedUnion("kind", [
   }),
   z.object({
     ...span,
-    kind: z.enum([
-      "steps",
-      "resting_heart_rate",
-      "heart_rate_variability",
-      "weight",
-    ]),
+    kind: z.enum(QUANTITY_KINDS),
     value: z.number(),
   }),
 ]);
@@ -94,6 +93,17 @@ export async function syncAppleHealth(dir = WATCH) {
     db.close();
   }
 }
+
+const whole = (n: number) => Math.round(n).toLocaleString("en-US");
+const QUANTITY_TEXT: Record<QuantityKind, (value: number) => string> = {
+  heart_rate_variability: (v) => `HRV ${whole(v)} ms`,
+  resting_heart_rate: (v) => `resting heart rate ${whole(v)} bpm`,
+  steps: (v) => `${whole(v)} steps`,
+  weight: (v) => `weight ${Math.round(v * 10) / 10} kg`,
+};
+/** A quantity as Life writes it, an event's or a day's total: whole numbers, weight to 0.1 kg. */
+export const quantityText = (kind: QuantityKind, value: number) =>
+  QUANTITY_TEXT[kind](value);
 
 type Sleep = Extract<Measurement, { kind: "sleep" }>;
 
@@ -210,7 +220,7 @@ export function readAppleHealth(
               ...eventOf(
                 m.id,
                 m.startAt,
-                `${m.activity.replaceAll("_", " ")}${m.kcal === undefined ? "" : `, ${m.kcal} kcal`}`,
+                `${m.activity.replaceAll("_", " ")}${m.kcal === undefined ? "" : `, ${whole(m.kcal)} kcal`}`,
                 {
                   activity: m.activity,
                   ...(m.kcal === undefined ? {} : { kcal: m.kcal }),
@@ -222,12 +232,10 @@ export function readAppleHealth(
           ];
         }
         return [
-          eventOf(
-            m.id,
-            m.startAt,
-            m.kind === "weight" ? `weight ${m.value} kg` : "",
-            { kind: m.kind, value: m.value }
-          ),
+          eventOf(m.id, m.startAt, quantityText(m.kind, m.value), {
+            kind: m.kind,
+            value: m.value,
+          }),
         ];
       }),
     ]

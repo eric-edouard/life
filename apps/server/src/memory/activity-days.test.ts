@@ -57,7 +57,7 @@ test("measurement-day totals precede its sleep, workouts and weight; only presen
     weight,
     workout,
     woke,
-    event("steps-1", "10:00", "", { kind: "steps", value: 4200 }),
+    event("steps-1", "10:00", "4,200 steps", { kind: "steps", value: 4200 }),
     event("steps-2", "11:00", "", { kind: "steps", value: 4212 }),
     event("rest", "10:00", "", { kind: "resting_heart_rate", value: 57 }),
     event("hrv-1", "10:00", "", { kind: "heart_rate_variability", value: 38 }),
@@ -84,9 +84,9 @@ test("measurement-day totals precede its sleep, workouts and weight; only presen
     headline: "4,200 steps",
     lines: [],
   });
-  expect(messageUnits(list.slice(3, 4), () => null)[0]?.text).toContain(
-    "Totals: 4,200 steps"
-  );
+  const [stepsDay] = messageUnits(list.slice(3, 4), () => null);
+  expect(stepsDay?.text).toContain("Totals: 4,200 steps");
+  expect(stepsDay?.messages.map((m) => m.text)).toEqual(["4,200 steps"]);
   expect(measurementDayText([weight]).body).toBe("10:00 weight 68.2 kg");
   expect(
     applyRules(messageUnits(list.slice(3, 4), () => null))[0]?.unit.drop
