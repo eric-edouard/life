@@ -75,10 +75,7 @@ export const excerptRange = (turn: {
   Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
 ];
 
-// The bucket key of a job's audio identity may hear: a block's that no quiet range touches.
-// "never" for any other (an old job's, or one with dictation or playback in it); null when there
-// is nothing to cut (no audio, or cut already).
-// Whether identity may hear a job's audio.
+// Whether identity may hear a job's audio: a block's that no quiet range touches.
 export const mayHear = (
   db: Db,
   job: {

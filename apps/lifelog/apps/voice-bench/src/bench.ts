@@ -178,6 +178,17 @@ async function reembed(step = "", modelId = "", modelRevision = "") {
   }
   const out = join(DIR, "reembed/out");
   const files = (await readdir(out)).filter((f) => f.endsWith(".json"));
+  const post = async (body: object) => {
+    const res = await fetch(url, {
+      body: JSON.stringify(body),
+      headers,
+      method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status} ${await res.text()}`);
+    }
+    return (await res.json()) as { written: number };
+  };
   let written = 0;
   let model = { modelId, modelRevision };
   for (const file of files) {
@@ -189,23 +200,21 @@ async function reembed(step = "", modelId = "", modelRevision = "") {
     }>(join(out, file));
     if (vectors?.length) {
       model = its;
-      const res = await fetch(url, {
-        body: JSON.stringify({ ...its, vectors }),
-        headers,
-        method: "POST",
-      });
-      written += ((await res.json()) as { written: number }).written;
+      written += (await post({ ...its, vectors })).written;
     }
   }
+  // Finishing drops what is left on the old model: never while a listed job has no answer yet.
+  const unheard = listReembed(model).filter(
+    (j) =>
+      !files.includes(
+        `${new Bun.CryptoHasher("sha256").update(j.key).digest("hex")}.json`
+      )
+  );
+  if (step === "finish" && unheard.length > 0) {
+    throw new Error(`${unheard.length} listed jobs have no vectors yet`);
+  }
   const finished =
-    step === "finish" &&
-    (await (
-      await fetch(url, {
-        body: JSON.stringify({ ...model, finish: true, vectors: [] }),
-        headers,
-        method: "POST",
-      })
-    ).json());
+    step === "finish" && (await post({ ...model, finish: true, vectors: [] }));
   console.log({ finished, written });
 }
 

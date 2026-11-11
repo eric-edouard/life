@@ -112,6 +112,7 @@ def antspeaker_path() -> str:
 
 def download(names=tuple(MODELS)):
     import tarfile
+    import tempfile
     import urllib.request
 
     from huggingface_hub import snapshot_download
@@ -122,8 +123,10 @@ def download(names=tuple(MODELS)):
     if "mect-b2" in names and not os.path.exists(antspeaker_path()):
         repo, commit = ANTSPEAKER
         with urllib.request.urlopen(f"https://github.com/{repo}/archive/{commit}.tar.gz") as archive:
-            # The archive's one folder is AntSpeaker-<commit>.
-            tarfile.open(fileobj=archive, mode="r|gz").extractall(model_path("mect-b2"), filter="data")
+            # The archive's one folder is AntSpeaker-<commit>; renamed into place, so a cut download is fetched again.
+            with tempfile.TemporaryDirectory(dir=model_path("mect-b2")) as part:
+                tarfile.open(fileobj=archive, mode="r|gz").extractall(part, filter="data")
+                os.rename(os.path.join(part, os.path.basename(antspeaker_path())), antspeaker_path())
 
 
 def speaker_model():

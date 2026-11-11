@@ -445,7 +445,12 @@ export function speakerRoutes({
         },
         responses: {
           200: json(
-            z.object({ dropped: z.int(), written: z.int() }),
+            z.object({
+              dropped: z.int(),
+              // Evidence clips each person lost, by person id.
+              lost: z.record(z.string(), z.int()),
+              written: z.int(),
+            }),
             "What was written"
           ),
         },
@@ -453,9 +458,11 @@ export function speakerRoutes({
       (c) => {
         const { finish, vectors, ...model } = c.req.valid("json");
         const written = reembed(db, model, vectors);
-        const dropped = finish ? dropOtherModels(db, model) : 0;
+        const { dropped, lost } = finish
+          ? dropOtherModels(db, model)
+          : { dropped: 0, lost: {} };
         voices.soon();
-        return c.json({ dropped, written }, 200);
+        return c.json({ dropped, lost, written }, 200);
       }
     )
     .openapi(

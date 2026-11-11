@@ -3,7 +3,7 @@ speaker model (apps/identity/app.py `speaker_model`, `read_audio`, `clips_of`, `
 
     modal run apps/lifelog/apps/voice-bench/local/modal_embed.py --listing <listing.json> --audio <AUDIO_DIR> --out <dir>
 
-The listing is the server's (GET /voice-samples/reembed: jobs of {key, samples: [{id, range}]}). Writes one file
+The listing is `bun run bench reembed list`'s (jobs of {key, samples: [{id, range}]}). Writes one file
 per job in <out>: {modelId, modelRevision, vectors: [{id, embedding}]}. Audio goes up in each call and lives only
 in the container's memory; nothing is kept on Modal but the model. Removed after its run.
 """
@@ -89,6 +89,9 @@ def main(listing: str, audio: str, out: str):
     failed = 0
     for result in Voices().embed.map(batches(), order_outputs=False):
         for job, value in result.items():
-            failed += "error" in value
-            json.dump(value, open(f"{out}/{job}.json", "w"))
+            if "error" in value:  # no file: the next run tries it again
+                failed += 1
+                print(job, value["error"])
+            else:
+                json.dump(value, open(f"{out}/{job}.json", "w"))
     print(f"done, {failed} failed")

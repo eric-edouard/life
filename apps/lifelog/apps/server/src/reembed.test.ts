@@ -104,7 +104,8 @@ test("samples take the new model's vectors by id; the ones whose audio may not b
   ).toBe(2);
   expect(reembedListing(env.db, NEW)).toEqual([]);
 
-  expect(dropOtherModels(env.db, NEW)).toBe(2);
+  const gone = dropOtherModels(env.db, NEW);
+  expect([gone.dropped, Object.values(gone.lost)]).toEqual([2, [1]]);
   const left = env.db.select().from(voiceSamples).all();
   expect(left.map((s) => [s.jobId, s.modelId, s.embedding[7]])).toEqual([
     [block, "test/new", 1],

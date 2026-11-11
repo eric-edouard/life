@@ -5101,11 +5101,17 @@
                     "dropped": {
                       "type": "integer"
                     },
+                    "lost": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    },
                     "written": {
                       "type": "integer"
                     }
                   },
-                  "required": ["dropped", "written"]
+                  "required": ["dropped", "lost", "written"]
                 }
               }
             }

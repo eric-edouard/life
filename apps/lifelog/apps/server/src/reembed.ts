@@ -65,25 +65,22 @@ export const reembed = (
   vectors: { embedding: number[]; id: string }[]
 ) =>
   db.transaction((tx) => {
-    const jobs = new Set(
-      vectors.flatMap(({ embedding, id }) =>
-        tx
-          .update(voiceSamples)
-          .set({ embedding, ...model })
-          .where(eq(voiceSamples.id, id))
-          .returning({ jobId: voiceSamples.jobId })
-          .all()
-          .map((r) => r.jobId)
-      )
+    const rows = vectors.flatMap(({ embedding, id }) =>
+      tx
+        .update(voiceSamples)
+        .set({ embedding, ...model })
+        .where(eq(voiceSamples.id, id))
+        .returning({ jobId: voiceSamples.jobId })
+        .all()
     );
-    for (const jobId of jobs) {
+    for (const jobId of new Set(rows.map((r) => r.jobId))) {
       logChange(tx, "job", jobId);
     }
-    return vectors.length;
+    return rows.length;
   });
 
 // The samples left on another model go, with the evidence they were: their audio may not be heard
-// again, and a voice is judged in one model. The number removed.
+// again, and a voice is judged in one model. The number removed, and the evidence clips each person lost.
 export const dropOtherModels = (db: Db, model: Model) =>
   db.transaction((tx) => {
     const left = tx
@@ -91,16 +88,21 @@ export const dropOtherModels = (db: Db, model: Model) =>
       .from(voiceSamples)
       .where(onAnother(model))
       .all();
+    const lost: Record<string, number> = {};
     // ponytail: SQLite's variable limit; a few thousand rows once.
     for (let i = 0; i < left.length; i += 500) {
       const ids = left.slice(i, i + 500).map((s) => s.id);
-      tx.delete(voiceProfiles)
+      for (const { personId } of tx
+        .delete(voiceProfiles)
         .where(inArray(voiceProfiles.sampleId, ids))
-        .run();
+        .returning({ personId: voiceProfiles.personId })
+        .all()) {
+        lost[personId] = (lost[personId] ?? 0) + 1;
+      }
       tx.delete(voiceSamples).where(inArray(voiceSamples.id, ids)).run();
     }
     for (const jobId of new Set(left.map((s) => s.jobId))) {
       logChange(tx, "job", jobId);
     }
-    return left.length;
+    return { dropped: left.length, lost };
   });
