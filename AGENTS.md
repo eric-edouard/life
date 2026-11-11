@@ -186,6 +186,7 @@ Before adding a helper, use the one that exists:
 | What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
+| What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |

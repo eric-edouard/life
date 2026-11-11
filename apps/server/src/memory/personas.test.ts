@@ -15,7 +15,6 @@ import {
   betweenOf,
   groupDaysOf,
   isDue,
-  pairCountsOf,
   personaBlock,
   personaLines,
   readingsOf,
@@ -158,27 +157,6 @@ test("a line is solid on 3 days, thin on fewer, old when its newest quote is ove
   expect(
     supportOf([q("2024-01-01"), q("2024-02-01"), q("2025-01-01")], today)
   ).toBe("old");
-});
-
-test("counts: messages and deletions each way, who opens after 6 hours of quiet, median answer minutes", () => {
-  const c = pairCountsOf([
-    msg("2026-10-01", 0, false, "a"),
-    msg("2026-10-01", 10, true, "b"),
-    msg("2026-10-01", 12, false, "c", { deleted: true }),
-    msg("2026-10-01", 600, true, "d"),
-    msg("2026-10-02", 0, true, "e"),
-  ]);
-  expect(c).toEqual({
-    days: 2,
-    got: 2,
-    gotDeleted: 1,
-    heAnswersIn: 10,
-    heOpened: 2,
-    sent: 3,
-    sentDeleted: 0,
-    theyAnswerIn: 2,
-    theyOpened: 1,
-  });
 });
 
 test("a persona is rebuilt when there is none, or a week old with new messages", () => {

@@ -1,9 +1,15 @@
 import type { Database } from "bun:sqlite";
-import { clock } from "../core/clock";
+import { clock, HOUR } from "../core/clock";
 import { newestDays } from "../core/lists";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
 import { detailsBlock, readDetailsOf } from "./details";
+import {
+  type ExchangeCounts,
+  pairCountsOf,
+  readExchangeCounts,
+} from "./exchange-counts";
+import { EXCHANGE_ENDS_AFTER } from "./exchanges";
 import {
   CURRENT,
   entity,
@@ -130,7 +136,8 @@ export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
 }
 
 /**
- * A person: their page, whole, and what Life holds about them by source and month; then their observations (every
+ * A person: their page, whole, with what code counted between them and him (`pairCountsBlock`) and what Life holds
+ * about them by source and month; then their observations (every
  * one linked to them, whatever page it lives on) and the episodes with them, newest first by whole days, and their
  * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
  * two people go by lists them, then shows the first; a name on no page nor map is looked for among lifelog's
@@ -166,6 +173,8 @@ export async function person(name?: string, o: { before?: string } = {}) {
   );
   // What may be open with them besides the observations (someone Life knows, first page only), read before the index
   // opens (nothing awaits while it is).
+  // What code counted between them, first page only, read before the index opens too.
+  const counted = before || !known ? null : readExchangeCounts();
   const more =
     before || !known
       ? []
@@ -227,6 +236,9 @@ export async function person(name?: string, o: { before?: string } = {}) {
               }),
               ...situationBlock("Situation", readSituationNow(ref, live)),
               ...personaBlock(readPersona(ref), dayNow()),
+              ...pairCountsBlock(
+                counted && { ...counted, rows: counted.people[ref] ?? [] }
+              ),
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
@@ -240,6 +252,33 @@ export async function person(name?: string, o: { before?: string } = {}) {
       ];
     })
   );
+}
+
+/**
+ * What code counts between him and one person (`exchange-counts.ts`): all years, then each year an exchange started
+ * in, newest first. Nothing when none was counted (no file yet, or no one-to-one exchange with them): never zeros.
+ */
+export function pairCountsBlock(
+  counted: { built: string; rows: ExchangeCounts[]; sources: string[] } | null
+) {
+  if (!counted || counted.rows.length === 0) {
+    return [];
+  }
+  const answer = (minutes: number | null) =>
+    minutes === null ? "none" : `${minutes} min`;
+  const counts = (label: string, rows: ExchangeCounts[]) => {
+    const c = pairCountsOf(rows);
+    return `- ${label}: messages on ${c.days} days; he sent ${c.sent} (${c.sentDeleted} deleted), they sent ${c.got} (${c.gotDeleted} deleted); exchanges opened: he ${c.heOpened}, they ${c.theyOpened}; median answer: he ${answer(c.heAnswersIn)}, they ${answer(c.theyAnswerIn)}`;
+  };
+  const years = [
+    ...Map.groupBy(counted.rows, (r) => localDate(r.start).slice(0, 4)),
+  ].sort(([a], [b]) => b.localeCompare(a));
+  return [
+    `Counted by code between them and him, through ${localDate(counted.built)} (their one-to-one chats and mail threads: ${counted.sources.join(", ")}; not groups nor recordings; a call counts as a message; an exchange lasts until ${EXCHANGE_ENDS_AFTER / HOUR} hours of quiet and is opened by whoever writes first):`,
+    counts("all years", counted.rows),
+    ...years.map(([year, rows]) => counts(year, rows)),
+    "",
+  ];
 }
 
 /** `heard`: the lifelog speakers a name on no page nor map was found among. */
