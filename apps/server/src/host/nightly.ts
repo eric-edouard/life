@@ -124,7 +124,7 @@ export async function archiveLine(since: string) {
 /**
  * Repo map, episodes (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
- * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
+ * minutes; unless `force`, a start does nothing before 05:00, once the day is ok, or after 3 failures (schedule.ts), and
  * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else a backfill week,
  * not over the Codex quota's reserve (`reserved`), read each tick. Today, before its night, is the watcher's
  * (`buildTodayUnits`): its units, raw, no episodes or facts until the night (his decision, 11 Nov 2026). Then the daily backup, when it is due
