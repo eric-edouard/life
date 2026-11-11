@@ -175,7 +175,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
     m.people.some((p) => refOf(p.ref) === ref)
   );
   // Their history, read before the index opens: its newest months on the first page, the earlier ones in the timeline.
-  const history = historyOf(known ? readHistory(ref) : null);
+  const history = historyOf(readHistory(ref));
   // What may be open with them besides the observations (someone Life knows, first page only), read before the index
   // opens (nothing awaits while it is).
   // What code counted between them, first page only, read before the index opens too.
@@ -272,8 +272,8 @@ const NEWEST_MONTHS = 12;
  * the years, the newest months, newest first), and `earlier`, every month before those as a dated entry of the
  * timeline, on its last day. Nothing when no month was read yet.
  */
-export function historyOf(history: History | null) {
-  const months = (history?.months ?? []).toReversed();
+export function historyOf(history: History) {
+  const months = history.months.toReversed();
   const shown = (m: History["months"][number]) => {
     const quotes = m.parts
       .flatMap((p) => p.quotes)
@@ -283,7 +283,7 @@ export function historyOf(history: History | null) {
       );
     return `- ${m.month}: ${m.parts.map((p) => p.summary).join(" ")}${quotes.length > 0 ? ` Their words: ${quotes.join(", ")}` : ""}`;
   };
-  const story = history?.story;
+  const { story } = history;
   return {
     block:
       months.length > 0
@@ -298,9 +298,9 @@ export function historyOf(history: History | null) {
         : [],
     earlier: months.slice(NEWEST_MONTHS).map(
       (m): Dated => ({
-        day:
-          monthsOf({ from: `${m.month}-01`, to: `${m.month}-31` })[0]?.to ??
-          `${m.month}-28`,
+        // The month's last day: `monthsOf` ends a month's window there.
+        day: monthsOf({ from: `${m.month}-01`, to: `${m.month}-31` })[0]
+          ?.to as string,
         kind: "month",
         line: shown(m),
       })

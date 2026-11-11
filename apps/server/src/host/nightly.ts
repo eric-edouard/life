@@ -239,7 +239,7 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   const { history } = settings();
-  // In shadow: a failure is logged and the night goes on without its months.
+  // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
   const pending = history
     ? await readHistoryWork(everyYear, people, {
         from: history.from,
@@ -463,7 +463,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     phase.at = "personas";
     await personas(withPeople);
-    // The histories' months not read yet, in shadow: a failure is logged and never stops the night.
+    // The histories' months not read yet: a failure is logged and never stops the night.
     if (pending) {
       phase.at = "histories";
       await histories(pending).catch((e: Error) =>

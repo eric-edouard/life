@@ -266,5 +266,13 @@ test("the person read shows the story and the newest 12 months; every earlier mo
       line: "- 2025-01: What passed in 2025-01.",
     },
   ]);
-  expect(historyOf(null)).toEqual({ block: [], earlier: [] });
+  // A short month ends on its own last day (a wrong one would break the paging).
+  const leap = { ...months[0], month: "2024-02" } as History["months"][number];
+  expect(
+    historyOf({ ...history, months: [leap, ...months] }).earlier.at(-1)?.day
+  ).toBe("2024-02-29");
+  expect(historyOf({ months: [], schemaVersion: 1, story: null })).toEqual({
+    block: [],
+    earlier: [],
+  });
 });
