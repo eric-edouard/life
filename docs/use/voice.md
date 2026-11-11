@@ -23,8 +23,8 @@ With voice on, Life also gets:
 3. Fill in **lifelog address** (for example `https://lifelog.your-tailnet.ts.net`) and **lifelog token**, then press
    **Save**. The token goes to the Keychain, and Life restarts its services to read the new settings.
 
-Open the status window: the **Watcher** card says when Life last heard from lifelog. Conversations show up in answers
-after the next pass: their episodes at 13:00, 19:00 or overnight, their facts overnight.
+Open the status window: the **Watcher** card says when Life last heard from lifelog. A conversation's words are
+searchable within minutes; its episodes and facts come after the night's run.
 
 ## From a checkout
 

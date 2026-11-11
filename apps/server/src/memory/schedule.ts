@@ -94,7 +94,10 @@ const at = (from: Date, plusDays: number, hour: number) => {
 /** When the next nightly may start, and why then (`decide`'s rules, read forward). */
 export function nextNight(now: Date, day: string, state: JobState | undefined) {
   if (now.getHours() < FIRST_HOUR) {
-    return windowAt(at(now, 0, FIRST_HOUR), "waits for 05:00");
+    return windowAt(
+      at(now, 0, FIRST_HOUR),
+      `waits for ${String(FIRST_HOUR).padStart(2, "0")}:00`
+    );
   }
   if (decide(now.getHours(), day, state) === "run") {
     return windowAt(

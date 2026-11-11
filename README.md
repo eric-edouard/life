@@ -92,7 +92,7 @@ What each source reads, exactly: [sources](docs/sources.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
-  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, personas and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
+  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, personas and search. The archive runs every 5 seconds, today's messages become searchable every 5 minutes, vectors every 10 minutes, the nightly after 5:00.">
 </picture>
 
 A model reads your life the way you'd tell it: a day at a time, every channel together. The voice note, the WhatsApp
@@ -120,8 +120,8 @@ Who gets a page is judged from what code counts in the sources (two-way chats, t
 never from what a model wrote about someone. You correct anything by saying so to your assistant; your word is kept and wins over the
 memory.
 
-Nothing is ready to ask on day one. Tonight, after 2:00, Life reads your last 7 days; then every night, plus the day
-so far at 13:00 and 19:00. Older months come in through a [backfill](docs/use/settings.md#older-months).
+Nothing is ready to ask on day one. Tonight, after 5:00, Life reads your last 7 days; then every night. Today's
+messages are searchable within minutes, as they are; what happened and the facts come with the night. Older months come in through a [backfill](docs/use/settings.md#older-months).
 
 How the pipeline is built, and why: [architecture](docs/architecture.md). Every word Life uses:
 [glossary](docs/glossary.md).
@@ -187,8 +187,8 @@ turn on the sources you want, and press **Open Full Disk Access** to allow Life 
 so it starts with the Mac.
 
 The cost is your model usage, nothing else: each night makes about one call per day it reads, then more for the facts
-and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips the
-13:00 and 19:00 passes and the backfill once your Codex quota is 75% used; the nightly always runs.
+and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips
+the backfill once your Codex quota is 75% used; the nightly always runs.
 
 ## Where your data goes
 
