@@ -5,13 +5,14 @@ import {
   people,
   transcripts,
   turns as turnRows,
+  voiceProfiles,
   voiceSamples,
   type Word,
 } from "@lifelog/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { parseTranscript } from "./elevenlabs";
-import { rediarize } from "./rediarize";
-import { mapJob, seedTranscript, testDb } from "./testing";
+import { movedRows, rediarize } from "./rediarize";
+import { seedConversation, testDb } from "./testing";
 
 const { db, drop, reset } = testDb();
 afterAll(drop);
@@ -59,7 +60,10 @@ function seed() {
   if (!(guest && owner)) {
     throw new Error("no people");
   }
-  const jobId = seedTranscript(db, TURNS, WORDS);
+  const { id: conversationId, jobId } = seedConversation(db, TURNS, {
+    ms: 16_000,
+    words: WORDS,
+  });
   db.update(transcripts)
     .set({
       raw: {
@@ -76,7 +80,6 @@ function seed() {
     })
     .where(eq(transcripts.jobId, jobId))
     .run();
-  mapJob(db, jobId, [[1_000_000, 1_016_000]]);
   db.insert(assignments)
     .values([
       {
@@ -95,9 +98,10 @@ function seed() {
       },
     ])
     .run();
-  db.insert(voiceSamples)
+  const sample = db
+    .insert(voiceSamples)
     .values({
-      conversationId: crypto.randomUUID(),
+      conversationId,
       durationSeconds: 4,
       embedding: [1, 0],
       jobId,
@@ -106,8 +110,15 @@ function seed() {
       speakerLabel: "speaker_0",
       turnIndex: 2,
     })
-    .run();
-  return { guest: guest.id, jobId, owner: owner.id };
+    .returning()
+    .get();
+  return {
+    conversationId,
+    guest: guest.id,
+    jobId,
+    owner: owner.id,
+    sample: sample.id,
+  };
 }
 
 const ownerRows = (jobId: string) =>
@@ -172,6 +183,53 @@ test("an answer stays whole only on its own turns; the split-off turn is left to
   ]);
 });
 
+test("a sample split off its answered voice stops being that person's evidence", () => {
+  const { guest, jobId, sample } = seed();
+  db.insert(voiceProfiles).values({ personId: guest, sampleId: sample }).run();
+  rediarize(db, jobId, DIARIZED);
+  expect(db.select().from(voiceProfiles).all()).toEqual([]);
+});
+
+test("a several-people answer moves whole and leaves recognition's turn rows", () => {
+  const row = {
+    candidateId: null,
+    candidates: null,
+    id: "r",
+    jobId: "j",
+    margin: null,
+    mixed: false,
+    personId: "p",
+    rechecked: false,
+    score: null,
+    source: "recognized" as const,
+    speakerLabel: "speaker_1",
+    status: "person" as const,
+    turnIndex: 1,
+    updatedAt: new Date(0),
+  };
+  const several = {
+    ...row,
+    candidates: { people: ["p", "q"], unknown: false },
+    id: "s",
+    personId: null,
+    source: "owner" as const,
+    turnIndex: null,
+  };
+  const moved = movedRows(
+    [several, row],
+    TURNS.map((t) => t.speakerId),
+    ["speaker_0", "speaker_1", "speaker_1", "speaker_1"],
+    new Map([
+      ["speaker_0", "speaker_0"],
+      ["speaker_1", "speaker_1"],
+    ])
+  );
+  expect(moved.map((r) => [r.id, r.speakerLabel, r.turnIndex])).toEqual([
+    ["s", "speaker_1", null],
+    ["r", "speaker_1", 1],
+  ]);
+});
+
 test("a turn's own answer keeps its turn", () => {
   const { jobId, owner } = seed();
   db.insert(assignments)
@@ -188,11 +246,11 @@ test("a turn's own answer keeps its turn", () => {
   expect(ownerRows(jobId)).toContainEqual(["speaker_1", 2, owner]);
 });
 
-test("a summary run's guess follows its voice", () => {
-  const { jobId } = seed();
+test("a summary run's guess and token follow their voice", () => {
+  const { conversationId, jobId } = seed();
   db.insert(intelligenceRuns)
     .values({
-      conversationId: crypto.randomUUID(),
+      conversationId,
       model: "m",
       promptVersion: 1,
       provider: "codex",
@@ -200,6 +258,7 @@ test("a summary run's guess follows its voice", () => {
         speakerIdentities: [
           { jobId, name: "Guest", speakerLabel: "speaker_1" },
         ],
+        speakerTokens: [{ jobId, speakerLabel: "speaker_1", token: "S1" }],
       },
       state: "valid",
       turns: [],
@@ -213,8 +272,10 @@ test("a summary run's guess follows its voice", () => {
   ]);
   const result = db.select().from(intelligenceRuns).get()?.result as {
     speakerIdentities: { speakerLabel: string }[];
+    speakerTokens: { speakerLabel: string }[];
   };
   expect(result.speakerIdentities[0]?.speakerLabel).toBe("speaker_0");
+  expect(result.speakerTokens[0]?.speakerLabel).toBe("speaker_0");
 });
 
 test("refused without turns or for a job Scribe did not transcribe", () => {

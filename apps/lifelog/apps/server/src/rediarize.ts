@@ -15,9 +15,9 @@ import {
   transcripts,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { logChange } from "./change-log";
-import { recognize } from "./people";
+import { evidenceFromAnswer, holdingConversations, recognize } from "./people";
 import { turnAt } from "./route-turns";
 import { ownWords } from "./transcript";
 import { rebuildTurnsIn } from "./turns";
@@ -112,10 +112,11 @@ export function relabeled(
 }
 
 // The job's assignment rows under the new labels. A turn's row keeps its turn. A whole voice's
-// owner answer (or old "several people" mark) stays whole on its new label when every turn there
-// came from that voice; otherwise it answers, turn by turn, its own turns that landed there. Turns
-// that left the voice get no answer: that is the split. A recognized name moves by the map, the
-// one from the voice with most seconds there; recognition redoes those after.
+// owner answer stays whole on its new label when every turn there came from that voice; otherwise
+// it answers, turn by turn, its own turns that landed there. Turns that left the voice get no
+// answer: that is the split. A "several people" answer or a mixed mark moves whole, for recognition
+// to decide again. A recognized name moves by the map, the one from the voice with most turns
+// there; recognition redoes those after.
 export function movedRows(
   rows: Assignment[],
   oldLabels: (string | null)[],
@@ -150,7 +151,7 @@ export function movedRows(
     const clean = labels.every(
       (l, i) => l !== next || oldLabels[i] === r.speakerLabel
     );
-    if (clean) {
+    if (clean || r.candidates || r.mixed) {
       put({ ...r, speakerLabel: next, updatedAt: now });
       continue;
     }
@@ -171,13 +172,13 @@ export function movedRows(
       updatedAt: now,
     });
   }
-  const seconds = (old: string, next: string) => turnsOf(old, next).length;
+  const turnCount = (old: string, next: string) => turnsOf(old, next).length;
   const recognized = rows
     .filter((r) => r.turnIndex === null && !held(r) && map.has(r.speakerLabel))
     .sort((a, b) => {
       const na = map.get(a.speakerLabel) ?? "";
       const nb = map.get(b.speakerLabel) ?? "";
-      return seconds(b.speakerLabel, nb) - seconds(a.speakerLabel, na);
+      return turnCount(b.speakerLabel, nb) - turnCount(a.speakerLabel, na);
     });
   for (const r of recognized) {
     put({
@@ -228,19 +229,6 @@ export function rediarize(
     );
     tx.update(transcripts).set(next).where(eq(transcripts.jobId, jobId)).run();
     rebuildTurnsIn(tx, jobId);
-    for (const s of tx
-      .select()
-      .from(voiceSamples)
-      .where(eq(voiceSamples.jobId, jobId))
-      .all()) {
-      const label = labels[s.turnIndex];
-      if (label && label !== s.speakerLabel) {
-        tx.update(voiceSamples)
-          .set({ speakerLabel: label })
-          .where(eq(voiceSamples.id, s.id))
-          .run();
-      }
-    }
     const rows = tx
       .select()
       .from(assignments)
@@ -251,26 +239,51 @@ export function rediarize(
     if (moved.length > 0) {
       tx.insert(assignments).values(moved).run();
     }
-    // The summary runs' guesses of who an unnamed voice is follow their voice.
-    const runs = tx
+    // A sample takes its turn's new label, and is evidence only of what the moved answers now say.
+    for (const sample of tx
+      .select()
+      .from(voiceSamples)
+      .where(eq(voiceSamples.jobId, jobId))
+      .all()) {
+      const speakerLabel = labels[sample.turnIndex] ?? sample.speakerLabel;
+      tx.update(voiceSamples)
+        .set({ speakerLabel })
+        .where(eq(voiceSamples.id, sample.id))
+        .run();
+      evidenceFromAnswer(tx, { ...sample, speakerLabel });
+    }
+    // The summary runs' guesses of who an unnamed voice is, and its tokens, follow their voice.
+    const moveLabel = <T extends { jobId: string; speakerLabel: string }>(
+      s: T
+    ) =>
+      s.jobId === jobId
+        ? { ...s, speakerLabel: map.get(s.speakerLabel) ?? s.speakerLabel }
+        : s;
+    const conversations = holdingConversations(tx, jobId);
+    for (const run of tx
       .select({ id: intelligenceRuns.id, result: intelligenceRuns.result })
       .from(intelligenceRuns)
-      .where(sql`instr(${intelligenceRuns.result}, ${jobId}) > 0`)
-      .all();
-    for (const run of runs) {
+      .where(inArray(intelligenceRuns.conversationId, conversations))
+      .all()) {
       const result = run.result as {
         speakerIdentities?: { jobId: string; speakerLabel: string }[];
+        speakerTokens?: { jobId: string; speakerLabel: string }[];
       } | null;
-      if (!result?.speakerIdentities?.some((s) => s.jobId === jobId)) {
+      if (!(result?.speakerIdentities || result?.speakerTokens)) {
         continue;
       }
-      const speakerIdentities = result.speakerIdentities.map((s) =>
-        s.jobId === jobId
-          ? { ...s, speakerLabel: map.get(s.speakerLabel) ?? s.speakerLabel }
-          : s
-      );
       tx.update(intelligenceRuns)
-        .set({ result: { ...result, speakerIdentities } })
+        .set({
+          result: {
+            ...result,
+            ...(result.speakerIdentities && {
+              speakerIdentities: result.speakerIdentities.map(moveLabel),
+            }),
+            ...(result.speakerTokens && {
+              speakerTokens: result.speakerTokens.map(moveLabel),
+            }),
+          },
+        })
         .where(eq(intelligenceRuns.id, run.id))
         .run();
     }
