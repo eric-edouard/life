@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 
 extension AppleHealthMeasurement {
-    /// Only the six requested kinds, in the units the server's contract names.
+    /// Only sleep and workouts, in the units the server's contract names.
     public init?(_ sample: HKSample) {
         let content: Content
         if let sleep = sample as? HKCategorySample,
@@ -24,16 +24,6 @@ extension AppleHealthMeasurement {
                 activity: Self.activityOf(workout.workoutActivityType),
                 kcal: workout.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(
                     for: .kilocalorie()))
-        } else if let quantity = sample as? HKQuantitySample {
-            switch quantity.quantityType {
-            case HKQuantityType(.restingHeartRate):
-                content = .restingHeartRate(quantity.quantity.doubleValue(for: .count().unitDivided(by: .minute())))
-            case HKQuantityType(.heartRateVariabilitySDNN):
-                content = .heartRateVariability(quantity.quantity.doubleValue(for: .secondUnit(with: .milli)))
-            case HKQuantityType(.bodyMass):
-                content = .weight(quantity.quantity.doubleValue(for: .gramUnit(with: .kilo)))
-            default: return nil
-            }
         } else {
             return nil
         }

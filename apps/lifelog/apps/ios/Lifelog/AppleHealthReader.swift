@@ -13,8 +13,6 @@ final class AppleHealthReader {
 
     private static let types: [(AppleHealthMeasurement.Kind, HKSampleType)] = [
         (.sleep, HKCategoryType(.sleepAnalysis)), (.workout, HKWorkoutType.workoutType()),
-        (.steps, HKQuantityType(.stepCount)), (.restingHeartRate, HKQuantityType(.restingHeartRate)),
-        (.heartRateVariability, HKQuantityType(.heartRateVariabilitySDNN)), (.weight, HKQuantityType(.bodyMass)),
     ]
 
     static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
@@ -75,7 +73,6 @@ final class AppleHealthReader {
     }
 
     private func readMeasurements(type: HKSampleType, from: Date?) async throws -> [AppleHealthMeasurement] {
-        if type == HKQuantityType(.stepCount) { return try await readSteps(from: from) }
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
@@ -88,42 +85,6 @@ final class AppleHealthReader {
                 } else {
                     continuation.resume(returning: (samples ?? []).compactMap(AppleHealthMeasurement.init))
                 }
-            }
-            store.execute(query)
-        }
-    }
-
-    private func readSteps(from: Date?) async throws -> [AppleHealthMeasurement] {
-        // With no cursor, the earliest sample bounds the hourly collection without inventing a history cutoff.
-        let first = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Date?, any Error>) in
-            let query = HKSampleQuery(
-                sampleType: HKQuantityType(.stepCount),
-                predicate: HKQuery.predicateForSamples(withStart: from, end: nil), limit: 1,
-                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
-            ) { _, samples, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: samples?.first?.startDate)
-                }
-            }
-            store.execute(query)
-        }
-        guard let first else { return [] }
-        // UTC hours keep steps:<startMs> stable when the phone changes zone.
-        let start = Date(timeIntervalSince1970: floor(first.timeIntervalSince1970 / 3600) * 3600)
-        return try await withCheckedThrowingContinuation { continuation in
-            let query = HKStatisticsCollectionQuery(
-                quantityType: HKQuantityType(.stepCount),
-                quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: nil),
-                options: .cumulativeSum, anchorDate: start, intervalComponents: DateComponents(hour: 1))
-            query.initialResultsHandler = { _, collection, error in
-                if let error { continuation.resume(throwing: error); return }
-                let measurements = (collection?.statistics() ?? []).compactMap { hour -> AppleHealthMeasurement? in
-                    guard let value = hour.sumQuantity()?.doubleValue(for: .count()), value > 0 else { return nil }
-                    return AppleHealthMeasurement.stepsOf(startAt: hour.startDate, endAt: hour.endDate, value: value)
-                }
-                continuation.resume(returning: measurements)
             }
             store.execute(query)
         }

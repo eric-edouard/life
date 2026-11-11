@@ -4,9 +4,7 @@ import Library
 /// One Apple Health measurement; each kind has its own unit and fields on the wire.
 public struct AppleHealthMeasurement: Encodable, Sendable {
     public enum Kind: String, UnknownTolerant, Sendable {
-        case sleep, workout, steps, weight, unknown
-        case restingHeartRate = "resting_heart_rate"
-        case heartRateVariability = "heart_rate_variability"
+        case sleep, workout, unknown
     }
 
     public enum Stage: String, UnknownTolerant, Encodable, Sendable {
@@ -17,10 +15,6 @@ public struct AppleHealthMeasurement: Encodable, Sendable {
     public enum Content: Sendable {
         case sleep(Stage)
         case workout(activity: String, kcal: Double?)
-        case steps(Double)
-        case restingHeartRate(Double)
-        case heartRateVariability(Double)
-        case weight(Double)
     }
 
     public let id: String
@@ -39,14 +33,10 @@ public struct AppleHealthMeasurement: Encodable, Sendable {
         switch content {
         case .sleep: .sleep
         case .workout: .workout
-        case .steps: .steps
-        case .restingHeartRate: .restingHeartRate
-        case .heartRateVariability: .heartRateVariability
-        case .weight: .weight
         }
     }
 
-    enum CodingKeys: CodingKey { case id, kind, startAt, endAt, stage, activity, kcal, value }
+    enum CodingKeys: CodingKey { case id, kind, startAt, endAt, stage, activity, kcal }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -59,8 +49,6 @@ public struct AppleHealthMeasurement: Encodable, Sendable {
         case .workout(let activity, let kcal):
             try container.encode(activity, forKey: .activity)
             try container.encodeIfPresent(kcal, forKey: .kcal)
-        case .steps(let value), .restingHeartRate(let value), .heartRateVariability(let value), .weight(let value):
-            try container.encode(value, forKey: .value)
         }
     }
 
@@ -75,11 +63,5 @@ public struct AppleHealthMeasurement: Encodable, Sendable {
         return stride(from: 0, to: ordered.count, by: 1000).map {
             Array(ordered[$0..<min($0 + 1000, ordered.count)])
         }
-    }
-
-    public static func stepsOf(startAt: Date, endAt: Date, value: Double) -> AppleHealthMeasurement {
-        AppleHealthMeasurement(
-            id: "steps:\(Int64(startAt.timeIntervalSince1970 * 1000))", startAt: startAt, endAt: endAt,
-            content: .steps(value))
     }
 }

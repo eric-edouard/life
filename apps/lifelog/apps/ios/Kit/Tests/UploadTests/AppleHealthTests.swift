@@ -12,7 +12,6 @@ private func wire(_ measurement: AppleHealthMeasurement) throws -> [String: Any]
 @Test func appleHealthEncodesOnlyEachKindsFields() throws {
     let contents: [AppleHealthMeasurement.Content] = [
         .sleep(.rem), .workout(activity: "running", kcal: 123), .workout(activity: "yoga", kcal: nil),
-        .steps(42), .restingHeartRate(60), .heartRateVariability(35), .weight(65),
     ]
     for content in contents {
         let measurement = AppleHealthMeasurement(id: "made-up", startAt: start, endAt: start, content: content)
@@ -30,9 +29,6 @@ private func wire(_ measurement: AppleHealthMeasurement) throws -> [String: Any]
             #expect(fields == (kcal == nil ? ["activity"] : ["activity", "kcal"]))
             #expect(encoded["activity"] as? String == activity)
             #expect(encoded["kcal"] as? Double == kcal)
-        case .steps(let value), .restingHeartRate(let value), .heartRateVariability(let value), .weight(let value):
-            #expect(fields == ["value"])
-            #expect(encoded["value"] as? Double == value)
         }
     }
 }
@@ -51,20 +47,20 @@ private func wire(_ measurement: AppleHealthMeasurement) throws -> [String: Any]
     ] {
         let sample = HKQuantitySample(
             type: type, quantity: HKQuantity(unit: unit, doubleValue: value), start: start, end: start)
-        #expect(try wire(#require(AppleHealthMeasurement(sample)))["value"] as? Double == value)
+        #expect(AppleHealthMeasurement(sample) == nil)
     }
     #expect(AppleHealthMeasurement.activityOf(.traditionalStrengthTraining) == "strength_training")
     #expect(AppleHealthMeasurement.activityOf(.highIntensityIntervalTraining) == "hiit")
     #expect(AppleHealthMeasurement.activityOf(.other) == "other")
     #expect(AppleHealthMeasurement.queryStartOf(syncedThrough: nil) == nil)
     let measurements = (0..<2001).reversed().map {
-        AppleHealthMeasurement.stepsOf(
-            startAt: start.addingTimeInterval(Double($0) * 3600),
-            endAt: start.addingTimeInterval(Double($0 + 1) * 3600), value: Double($0))
+        AppleHealthMeasurement(
+            id: "sleep-\($0)", startAt: start.addingTimeInterval(Double($0) * 3600),
+            endAt: start.addingTimeInterval(Double($0 + 1) * 3600), content: .sleep(.asleep))
     }
     let chunks = AppleHealthMeasurement.chunksOf(measurements)
     #expect(chunks.map(\.count) == [1000, 1000, 1])
-    #expect(chunks[0][0].id == "steps:1700000000000")
+    #expect(chunks[0][0].id == "sleep-0")
     let acknowledged = try #require(chunks[0].last?.endAt)
     let queryStart = AppleHealthMeasurement.queryStartOf(syncedThrough: acknowledged)
     #expect(queryStart == acknowledged.addingTimeInterval(-604800))
