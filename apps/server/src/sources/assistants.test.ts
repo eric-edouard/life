@@ -315,4 +315,5 @@ test("a file with no name in an export reads, and whether a copy is kept never p
   // A copy that does not parse is still found by its file: the source reads it, and fails, inside the night's guard.
   putCopy("claude", "conversations.json", "not an export");
   expect(hasExportCopy("claude")).toBe(true);
+  rmSync(exportsDir("claude"), { force: true, recursive: true });
 });
