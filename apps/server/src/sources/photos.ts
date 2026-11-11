@@ -308,6 +308,38 @@ export function readPhotos(
   }
 }
 
+/** `ZIMPORTEDBY` of a photo his own devices took (1, 2): a Mac's import (5) dates its photos by the Mac's clock, not where he stood. */
+const OWN_CAMERA = "(1, 2)";
+
+/**
+ * Where his photos place him: the taken-at instant and Photos' offset from UTC in minutes, for the photos his own devices
+ * took or that carry coordinates, from `since` on (before `before`). A shown photo without that is no evidence of a place.
+ */
+export function readPhotoOffsets(since: Date, before: Date, library = LIBRARY) {
+  const db = openReadOnly(join(library, STORE));
+  try {
+    return db
+      .query<{ date: number; offset: number }, [number, number, number]>(
+        `select a.ZDATECREATED as date, x.ZTIMEZONEOFFSET as offset
+           from ZASSET a join ZADDITIONALASSETATTRIBUTES x on x.ZASSET = a.Z_PK
+          where ${WINDOW} and ${SHOWN} and x.ZTIMEZONEOFFSET is not null
+            and (x.ZIMPORTEDBY in ${OWN_CAMERA} or a.ZLATITUDE != ${NO_COORDINATE})
+          order by a.ZDATECREATED`
+      )
+      .all(
+        toAppleS(since.getTime()),
+        toAppleS(before.getTime()),
+        toAppleS(before.getTime())
+      )
+      .map((r) => ({
+        at: iso(fromAppleS(r.date).getTime()),
+        offset: Math.round(r.offset / 60),
+      }));
+  } finally {
+    db.close();
+  }
+}
+
 /** The first photo's time, without reading anything else. */
 export function earliestPhoto(library = LIBRARY) {
   return edge("min", library);

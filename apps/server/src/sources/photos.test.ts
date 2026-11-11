@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { SourceEvent } from "../records/source";
 import type { Contact } from "./contacts";
 import { toAppleS } from "./imessage";
-import { earliestPhoto, newestPhoto, readPhotos } from "./photos";
+import {
+  earliestPhoto,
+  newestPhoto,
+  readPhotoOffsets,
+  readPhotos,
+} from "./photos";
 
 // A made-up Photos library: the tables and columns read only, as Photos and its search index name them.
 
@@ -25,6 +30,7 @@ interface Asset {
   date?: string;
   favorite?: number;
   hidden?: number;
+  importedBy?: number;
   kind?: number;
   lat?: number;
   lexemes?: number[];
@@ -45,7 +51,7 @@ function library(assets: Asset[], faces: [string, number][] = []) {
     ZLATITUDE real, ZLONGITUDE real, ZMOMENT integer, ZTRASHEDSTATE integer, ZHIDDEN integer,
     ZISDETECTEDSCREENSHOT integer, ZVISIBILITYSTATE integer)`);
   db.run(
-    "create table ZADDITIONALASSETATTRIBUTES (Z_PK integer primary key, ZASSET integer, ZTIMEZONENAME text, ZTIMEZONEOFFSET integer, ZREVERSELOCATIONDATA blob, ZTITLE text)"
+    "create table ZADDITIONALASSETATTRIBUTES (Z_PK integer primary key, ZASSET integer, ZTIMEZONENAME text, ZTIMEZONEOFFSET integer, ZREVERSELOCATIONDATA blob, ZTITLE text, ZIMPORTEDBY integer)"
   );
   db.run(
     "create table ZASSETDESCRIPTION (ZASSETATTRIBUTES integer, ZLONGDESCRIPTION text)"
@@ -85,8 +91,15 @@ function library(assets: Asset[], faces: [string, number][] = []) {
       a.burst ? 2 : 0,
     ]);
     db.run(
-      "insert into ZADDITIONALASSETATTRIBUTES values (?, ?, ?, ?, ?, null)",
-      [pk, pk, a.zone ?? "Europe/Paris", a.offset ?? 7200, a.address ?? null]
+      "insert into ZADDITIONALASSETATTRIBUTES values (?, ?, ?, ?, ?, null, ?)",
+      [
+        pk,
+        pk,
+        a.zone ?? "Europe/Paris",
+        a.offset ?? 7200,
+        a.address ?? null,
+        a.importedBy ?? 1,
+      ]
     );
     if (a.caption) {
       db.run("insert into ZASSETDESCRIPTION values (?, ?)", [pk, a.caption]);
@@ -189,6 +202,21 @@ test("trashed, hidden, screenshots, unpicked burst frames and undated photos are
   expect(read()).toEqual(["photos:keep", "photos:after-window"]);
   expect(earliestPhoto(dir)).toBe("2026-09-30T23:59:00.000Z");
   expect(newestPhoto(dir).at).toBe("2026-10-20T00:00:00.000Z");
+});
+
+test("offsets come only from photos that place him: his own devices' or with coordinates, in minutes", () => {
+  const dir = library([
+    { offset: 3600, uuid: "camera" },
+    { importedBy: 5, offset: 7200, uuid: "mac-import" },
+    { importedBy: 5, lat: 10, lon: 20, offset: -18_000, uuid: "located" },
+    { importedBy: 2, offset: 19_800, uuid: "half-hour" },
+    { trashed: 1, uuid: "trashed" },
+  ]);
+  expect(
+    readPhotoOffsets(since, new Date("2026-10-20T00:00:00Z"), dir).map(
+      (r) => r.offset
+    )
+  ).toEqual([60, -300, 330]);
 });
 
 test("two people with one name stay two, and a library without a search index is still read", () => {
