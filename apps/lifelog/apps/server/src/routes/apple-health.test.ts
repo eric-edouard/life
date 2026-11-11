@@ -41,19 +41,20 @@ const page = async (after = 0, limit = 1000) => {
 };
 
 test("identical values keep their cursor; changed rows move after it; pages follow seq", async () => {
-  const steps = {
+  const workout = {
+    activity: "running",
     endAt,
-    id: "steps:1767261600000",
-    kind: "steps",
+    id: "run-one",
+    kcal: 42,
+    kind: "workout",
     startAt,
-    value: 42,
   };
-  const weight = {
+  const walk = {
+    activity: "walking",
     endAt,
-    id: "weight-one",
-    kind: "weight",
+    id: "walk-one",
+    kind: "workout",
     startAt,
-    value: 65,
   };
   const sleep = {
     endAt,
@@ -62,7 +63,7 @@ test("identical values keep their cursor; changed rows move after it; pages foll
     stage: "deep",
     startAt,
   };
-  expect(await (await send([steps, weight, sleep])).json()).toEqual({
+  expect(await (await send([workout, walk, sleep])).json()).toEqual({
     stored: 3,
   });
   const seqOf = async (after: number) =>
@@ -71,8 +72,8 @@ test("identical values keep their cursor; changed rows move after it; pages foll
   const second = await seqOf(first);
   const cursor = await seqOf(second);
   expect((await page()).measurements).toEqual([
-    { ...steps, seq: first },
-    { ...weight, seq: second },
+    { ...workout, seq: first },
+    { ...walk, seq: second },
     { ...sleep, seq: cursor },
   ]);
   expect([first, second, cursor]).toEqual(
@@ -81,28 +82,28 @@ test("identical values keep their cursor; changed rows move after it; pages foll
   expect(
     await (
       await send([
-        { ...steps, startAt: "2026-01-01T11:00:00+01:00", value: 42.0 },
-        weight,
+        { ...workout, kcal: 42.0, startAt: "2026-01-01T11:00:00+01:00" },
+        walk,
         sleep,
       ])
     ).json()
   ).toEqual({ stored: 0 });
   expect(await page(cursor)).toEqual({ measurements: [] });
-  expect(await (await send([{ ...steps, value: 56 }])).json()).toEqual({
+  expect(await (await send([{ ...workout, kcal: 56 }])).json()).toEqual({
     stored: 1,
   });
   const changed = (await page(cursor)).measurements;
-  expect(changed).toEqual([{ ...steps, seq: changed[0].seq, value: 56 }]);
+  expect(changed).toEqual([{ ...workout, kcal: 56, seq: changed[0].seq }]);
   expect(changed[0].seq).toBeGreaterThan(cursor);
   expect((await page()).measurements.map((m: { id: string }) => m.id)).toEqual([
-    weight.id,
+    walk.id,
     sleep.id,
-    steps.id,
+    workout.id,
   ]);
   expect(countRows(env.db, changeLog)).toBe(0);
 });
 
-test("all six kinds round trip; invalid unions, bounds and oversized batches are refused", async () => {
+test("only sleep and workouts round trip; invalid unions, bounds and oversized batches are refused", async () => {
   const measurements = [
     {
       activity: "strength_training",
@@ -112,16 +113,9 @@ test("all six kinds round trip; invalid unions, bounds and oversized batches are
       kind: "workout",
       startAt,
     },
-    { endAt, id: "heart-one", kind: "resting_heart_rate", startAt, value: 60 },
-    {
-      endAt,
-      id: "hrv-one",
-      kind: "heart_rate_variability",
-      startAt,
-      value: 35,
-    },
+    { endAt, id: "sleep-two", kind: "sleep", stage: "rem", startAt },
   ];
-  expect(await (await send(measurements)).json()).toEqual({ stored: 3 });
+  expect(await (await send(measurements)).json()).toEqual({ stored: 2 });
   const all = await page();
   for (const m of measurements) {
     expect(all.measurements).toContainEqual(expect.objectContaining(m));
@@ -129,8 +123,14 @@ test("all six kinds round trip; invalid unions, bounds and oversized batches are
   const refused = await Promise.all(
     [
       { endAt, id: "bad", kind: "sleep", stage: "future", startAt },
-      { endAt: startAt, id: "bad", kind: "steps", startAt: endAt, value: 1 },
-      { endAt, id: "bad", kind: "weight", startAt },
+      { ...measurements[0], endAt: startAt, startAt: endAt },
+      { endAt, id: "bad", kind: "workout", startAt },
+      ...[
+        "steps",
+        "weight",
+        "resting_heart_rate",
+        "heart_rate_variability",
+      ].map((kind) => ({ endAt, id: "bad", kind, startAt, value: 1 })),
     ].map((bad) => send([bad]))
   );
   for (const res of refused) {

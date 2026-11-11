@@ -12,5 +12,4 @@ export const appleHealth = sqliteTable("apple_health", {
   seq: integer("seq").primaryKey({ autoIncrement: true }),
   stage: text("stage"),
   startAt: instant("start_at").notNull(),
-  value: real("value"),
 });

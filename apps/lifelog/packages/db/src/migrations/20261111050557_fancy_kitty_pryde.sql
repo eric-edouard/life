@@ -1,0 +1,1 @@
+ALTER TABLE `apple_health` DROP COLUMN `value`;
