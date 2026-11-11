@@ -53,7 +53,8 @@ export const afterNightDue = (
  * Above this share of his Codex plan, the runs that can wait do (middays, backfill weeks, evals), so the night keeps
  * the rest: a re-read night takes about 12 to 14% of a week (the 21 Oct review, gap 6).
  */
-const RESERVE = 75;
+// ponytail: an experiment branch only: a run may name its own reserve (LIFE_CODEX_RESERVE), never merged.
+const RESERVE = Number(process.env.LIFE_CODEX_RESERVE ?? 75);
 
 /** True while `q` is over the reserve, until its window resets; an unread quota holds nothing. */
 export const reserved = (
