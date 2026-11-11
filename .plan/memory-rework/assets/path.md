@@ -28,6 +28,12 @@ properly only when it moves the score. The bet most at risk: that stored summari
 
 ## Before the full rebuild: the data sessions (11 Nov, evening)
 
+**12 Nov, 01:40: the data is in.** The history import session handed off and closed: 8,674 day files; Photos on
+(2,998 photo-days since 2003) and Apple Health on (796 days since 2022); photo zones applied, 10 days still undated
+(travel days; life#453); photo descriptions from 7 Sep 2026 only (older ones parked, life#451); the voice model switch
+done. Nothing in the data blocks the rebuild any more. Open on that side: life#435, #451, #452, #453, #455. The voice
+naming session still has its phone side. A hand-run `life memory units` must load LIFELOG_TOKEN.
+
 Three other sessions prepare the data. The code work of the path starts now, in shadow; only the full rebuild (the
 backfill over his history) waits.
 
