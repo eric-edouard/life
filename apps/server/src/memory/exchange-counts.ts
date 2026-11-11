@@ -131,7 +131,8 @@ const Stored = z
 
 /**
  * Counts every exchange of everyone from a read of all his years (`readWithPeople(new Date(0))`) and rewrites the file
- * whole. Nothing is written when a source could not be read: the last file stands, never a count that misses a source.
+ * whole. Nothing is written when a source could not be read, or when counting throws (a message with a time no one can
+ * read): it is logged, `failed` says so and the last file stands, never a count that misses a source nor a failed night.
  * ponytail: every year is read and counted again each night (about a minute and a half, old mail mostly); keep the rows older than
  * the night's window and read old years only on a first build if that ever costs.
  */
@@ -139,28 +140,32 @@ export function writeExchangeCounts(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   resolve: (s: string) => string | null
 ) {
-  if (failed.length > 0) {
+  try {
+    if (failed.length > 0) {
+      throw new Error(`sources failed: ${failed.join(", ")}`);
+    }
+    const people = Object.fromEntries(
+      [...directChats(events, resolve)].map(([ref, list]) => [
+        ref,
+        exchangeCountsOf(list),
+      ])
+    );
+    writeJson(
+      EXCHANGE_COUNTS,
+      Stored.parse({
+        built: clock().toISOString(),
+        people,
+        sources: Object.keys(tables().WITH_PEOPLE),
+      })
+    );
+    return { exchanges: Object.values(people).flat().length, failed: 0 };
+  } catch (e) {
     log("run.error", {
-      error: `sources failed: ${failed.join(", ")}`,
+      error: (e as Error).message,
       step: "memory.exchange-counts",
     });
-    return { exchanges: 0, failed: failed.length };
+    return { exchanges: 0, failed: 1 };
   }
-  const people = Object.fromEntries(
-    [...directChats(events, resolve)].map(([ref, list]) => [
-      ref,
-      exchangeCountsOf(list),
-    ])
-  );
-  writeJson(
-    EXCHANGE_COUNTS,
-    Stored.parse({
-      built: clock().toISOString(),
-      people,
-      sources: Object.keys(tables().WITH_PEOPLE),
-    })
-  );
-  return { exchanges: Object.values(people).flat().length, failed: 0 };
 }
 
 /**

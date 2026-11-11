@@ -136,7 +136,7 @@ export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
 }
 
 /**
- * A person: their page, whole, with what code counted between them and him (`pairCountsBlock`) and what Life holds
+ * A person: their page, whole, with what code counted between them and him (`exchangeCountsBlock`) and what Life holds
  * about them by source and month; then their observations (every
  * one linked to them, whatever page it lives on) and the episodes with them, newest first by whole days, and their
  * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
@@ -236,7 +236,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
               }),
               ...situationBlock("Situation", readSituationNow(ref, live)),
               ...personaBlock(readPersona(ref), dayNow()),
-              ...pairCountsBlock(
+              ...exchangeCountsBlock(
                 counted && { ...counted, rows: counted.people[ref] ?? [] }
               ),
               ...entity(db, found?.text ?? null, obsLines),
@@ -258,7 +258,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
  * What code counts between him and one person (`exchange-counts.ts`): all years, then each year an exchange started
  * in, newest first. Nothing when none was counted (no file yet, or no one-to-one exchange with them): never zeros.
  */
-export function pairCountsBlock(
+export function exchangeCountsBlock(
   counted: { built: string; rows: ExchangeCounts[]; sources: string[] } | null
 ) {
   if (!counted || counted.rows.length === 0) {

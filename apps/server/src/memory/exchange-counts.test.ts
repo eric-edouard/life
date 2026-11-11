@@ -9,7 +9,7 @@ import {
   writeExchangeCounts,
 } from "./exchange-counts";
 import { EXCHANGE_COUNTS } from "./ledger";
-import { pairCountsBlock } from "./read-person-page";
+import { exchangeCountsBlock } from "./read-person-page";
 
 const msg = (
   day: string,
@@ -93,7 +93,7 @@ test("the last years of a longer read are what a read from there gives", () => {
   expect(lastYearsOf(all).since.getTime()).toBeGreaterThan(Date.parse(old.at));
 });
 
-test("the file is rewritten whole; a failed source leaves the last one; another shape reads as none", () => {
+test("the file is rewritten whole; a failed source or an unreadable message leaves the last one; another shape reads as none", () => {
   try {
     expect(readExchangeCounts()).toBeNull();
     expect(
@@ -105,6 +105,14 @@ test("the file is rewritten whole; a failed source leaves the last one; another 
     // A source that could not be read: nothing is written, the counts never miss a source.
     expect(
       writeExchangeCounts({ events: [], failed: ["mail"] }, resolve)
+    ).toEqual({ exchanges: 0, failed: 1 });
+    expect(readExchangeCounts()).toEqual(first);
+    // A message whose time no one can read: logged, never thrown (the night goes on), and the last file stands.
+    expect(
+      writeExchangeCounts(
+        { events: [{ ...msg("2026-10-03", 0, true), at: "soon" }], failed: [] },
+        resolve
+      )
     ).toEqual({ exchanges: 0, failed: 1 });
     expect(readExchangeCounts()).toEqual(first);
     writeFileSync(EXCHANGE_COUNTS, JSON.stringify({ people: {} }));
@@ -125,7 +133,7 @@ test("the person read shows all years then each year, newest first; nothing when
     rows,
     sources: ["whatsapp", "mail"],
   };
-  const block = pairCountsBlock(counted);
+  const block = exchangeCountsBlock(counted);
   expect(block[0]).toStartWith(
     "Counted by code between them and him, through 2026-11-1"
   );
@@ -137,6 +145,6 @@ test("the person read shows all years then each year, newest first; nothing when
     "- 2025: messages on 1 days; he sent 1 (0 deleted), they sent 1 (0 deleted); exchanges opened: he 1, they 0; median answer: he none, they 30 min",
     "",
   ]);
-  expect(pairCountsBlock({ ...counted, rows: [] })).toEqual([]);
-  expect(pairCountsBlock(null)).toEqual([]);
+  expect(exchangeCountsBlock({ ...counted, rows: [] })).toEqual([]);
+  expect(exchangeCountsBlock(null)).toEqual([]);
 });
