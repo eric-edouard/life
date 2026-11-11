@@ -19,7 +19,8 @@ struct VoicePage: View {
     @State private var draft = ""
     @FocusState private var typing: Bool
     /// "Several people": who says each clip, by its index; `nil` until asked.
-    @State private var picks: [Int: WhoPills.Pick]?
+    /// "Several people": who says each clip, one or more.
+    @State private var picks: [Int: [WhoPills.Pick]]?
     /// "Several people": who is in it, ticked without naming a clip.
     @State private var among: Set<UUID> = []
 
@@ -122,7 +123,7 @@ struct VoicePage: View {
     private var why: String? {
         if picks != nil {
             return (item.kind == .several ? "You said so before. " : "")
-                + "Tick who is in it, or name each passage; the others go to whoever they sound like among them."
+                + "Tick who is in it, or under each passage everyone who speaks in it; the others go to whoever they sound like among them."
         }
         let called = heard.map { name in
             item.evidence.first.map { "someone called it “\(name)”: “\($0.text)”" } ?? "someone called it “\(name)”"
@@ -204,7 +205,7 @@ struct VoicePage: View {
                 .accessibilityLabel("Who’s in it")
                 Button {
                     // The owner is among them, as in nearly every conversation he records.
-                    let chosen = picks.values.compactMap { pick -> UUID? in
+                    let chosen = picks.values.joined().compactMap { pick -> UUID? in
                         switch pick.target {
                         case .person(let id), .new(_, let id): id
                         default: nil
@@ -215,7 +216,7 @@ struct VoicePage: View {
                         .several(
                             people: Array(among.union(chosen + [owner].compactMap(\.self))),
                             // Someone unknown too when a clip says so; a video is nobody.
-                            unknown: picks.values.contains(WhoPills.unknown)
+                            unknown: picks.values.joined().contains(WhoPills.unknown)
                         ))
                 } label: {
                     Text("Done").frame(maxWidth: .infinity)
@@ -253,13 +254,15 @@ struct VoicePage: View {
         let shown = [people.first(where: \.isOwner), known].compactMap { $0.map(WhoPills.pick) }
         // One tap for a clip that is nobody to name, last (11 Nov: they were hidden in "Someone else").
         let nobody = [WhoPills.unknown, WhoPills.media]
-        let suggested = (picks ?? [:]).sorted { $0.key < $1.key }.reduce(into: shown) { all, pick in
-            if !all.contains(pick.value), !nobody.contains(pick.value) { all.append(pick.value) }
+        let suggested = (picks ?? [:]).sorted { $0.key < $1.key }.flatMap(\.value).reduce(into: shown) { all, pick in
+            if !all.contains(pick), !nobody.contains(pick) { all.append(pick) }
         }
-        return WhoPills(people: people, suggested: suggested + nobody, picked: picks?[index]) { choose($0, for: index) }
-            // Under the clip's words, past its play button.
-            .padding(.leading, 62)
-            .padding(.bottom, 8)
+        return WhoPills(people: people, suggested: suggested + nobody, picked: picks?[index] ?? []) {
+            choose($0, for: index)
+        }
+        // Under the clip's words, past its play button.
+        .padding(.leading, 62)
+        .padding(.bottom, 8)
     }
 
     /// A new name: the main answer when nobody is suggested.
@@ -310,15 +313,26 @@ struct VoicePage: View {
         typing = false
         picks = voice.clips.indices.reduce(into: [:]) { picks, index in
             let reads = voice.clips[index].item.personId
-            picks[index] = people.first { $0.id == reads }.map(WhoPills.pick)
+            picks[index] = people.first { $0.id == reads }.map { [WhoPills.pick($0)] }
         }
     }
 
-    /// Clip `index` is `pick`'s: its turn is the owner's answer now.
+    /// Clip `index` is said by `pick` too, or no longer: its turn is the owner's answer now. People add up (a clip
+    /// several of them speak in); "Don't know", a video or someone new stand alone.
     private func choose(_ pick: WhoPills.Pick, for index: Int) {
-        guard picks?[index] != pick else { return }
-        picks?[index] = pick
-        name(voice.clips[index], pick.target)
+        let ids = { (picks: [WhoPills.Pick]) in
+            picks.compactMap { if case .person(let id) = $0.target { id } else { nil } }
+        }
+        var said = picks?[index] ?? []
+        if case .person = pick.target, ids(said).count == said.count {
+            if let at = said.firstIndex(of: pick) { said.remove(at: at) } else { said.append(pick) }
+        } else {
+            said = [pick]
+        }
+        // The last name can't be unticked: a turn he named stays named.
+        guard !said.isEmpty, said != picks?[index] else { return }
+        picks?[index] = said
+        name(voice.clips[index], said.count == 1 ? said[0].target : .several(people: ids(said), unknown: false))
     }
 
     private var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }

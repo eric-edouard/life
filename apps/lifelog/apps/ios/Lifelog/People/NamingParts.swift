@@ -14,7 +14,8 @@ struct WhoPills: View {
 
     let people: [CachedPerson]
     let suggested: [Pick]
-    let picked: Pick?
+    /// Ticked: one where a passage has one speaker, several under a clip of a several-people voice.
+    let picked: [Pick]
     /// Every passage of the voice rather than this one; `nil` where only the passage can be named.
     var everywhere: Binding<Bool>?
     /// Splits the conversation at the passage; `nil` where it can't be.
@@ -28,7 +29,7 @@ struct WhoPills: View {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         FlowLayout(spacing: 8) {
             ForEach(suggested, id: \.name) { pick in
-                Self.pill(pick.name, pick == picked) { choose(pick) }
+                Self.pill(pick.name, picked.contains(pick)) { choose(pick) }
             }
             Menu("Someone else") {
                 ForEach(people.filter { person in !suggested.contains { $0.target == .person(person.id) } }) {

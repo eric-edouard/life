@@ -1037,6 +1037,10 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
         try JSONDecoder().decode(
             ServerClient.NamingAnswer.self, from: JSONEncoder().encode(ServerClient.NamingAnswer.notRelevant))
             == .notRelevant, "Not relevant survives the outbox as itself")
+    let both = ServerClient.SpeakerTarget.several(people: [UUID(), UUID()], unknown: false)
+    #expect(
+        try JSONDecoder().decode(ServerClient.SpeakerTarget.self, from: JSONEncoder().encode(both)) == both,
+        "a clip two people speak in survives the outbox as itself, never Don't know")
     #expect(pending.namedVoices.count == 2 && pending.people.count == 1)
     let mira = CachedPerson(id: UUID(), name: "Mira")
     let renamed = PendingEdits([

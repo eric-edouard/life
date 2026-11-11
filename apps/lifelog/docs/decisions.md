@@ -220,6 +220,8 @@ reverse it, change its entry here in the same commit.
 - **The phone's names follow the voice** (11 Nov 2026): the name pills are ordered by the card's `likely` (his people with a voice profile, the most like the voice first), then by
   name. "Several people" is answered by ticking who is in it; naming a clip stays the precise path and adds to the
   ticks. With a tick, nobody unknown is sent.
+  Under a clip, people add up: a clip several of them speak in is sent as that turn's `several` (the owner, 11 Nov:
+  "within cards I can't select several people"); "Don't know", a video or someone new stand alone.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the

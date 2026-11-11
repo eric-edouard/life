@@ -149,8 +149,10 @@ extension ServerClient {
         case unknown
         /// A video, TV or radio playing: hidden from summaries and search, never a voice profile.
         case media
+        /// Several people say it, and maybe someone he doesn't know: nobody's evidence.
+        case several(people: [UUID], unknown: Bool)
 
-        private enum Keys: String, CodingKey { case kind, personId, name, id }
+        private enum Keys: String, CodingKey { case kind, personId, name, id, people, unknown }
 
         public func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: Keys.self)
@@ -164,12 +166,20 @@ extension ServerClient {
                 try container.encode(id.uuidString.lowercased(), forKey: .id)
             case .unknown: try container.encode("unknown", forKey: .kind)
             case .media: try container.encode("media", forKey: .kind)
+            case .several(let people, let unknown):
+                try container.encode("several", forKey: .kind)
+                try container.encode(people.map { $0.uuidString.lowercased() }, forKey: .people)
+                try container.encode(unknown, forKey: .unknown)
             }
         }
 
         public init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: Keys.self)
             switch try container.decode(String.self, forKey: .kind) {
+            case "several":
+                self = .several(
+                    people: try container.decode([UUID].self, forKey: .people),
+                    unknown: try container.decode(Bool.self, forKey: .unknown))
             case "person": self = .person(try container.decode(UUID.self, forKey: .personId))
             case "new":
                 self = .new(
