@@ -256,6 +256,17 @@ test("the existing answer settles either name, through the worker; push and map 
     ).toBe(false);
   }
   expect(await queue.rechecks()).toEqual([]);
+  const quiet = voice(null, [THIRD, THIRD]);
+  const dismissed = await app.request("/naming-queue/answer", {
+    body: JSON.stringify({
+      answer: { kind: "not_relevant" },
+      voices: [{ jobId: quiet.jobId, speakerLabel: "voice" }],
+    }),
+    headers,
+    method: "POST",
+  });
+  expect(dismissed.status).toBe(200);
+  expect(rowOf(quiet.jobId)?.status).toBe("not_relevant");
 });
 
 test("only owner replacement of the same scope sets the mark; recognition never does", () => {

@@ -26,6 +26,7 @@ export function recheckOf(
 }
 
 // Everyone, the most like the speaker first; none when it is too short to judge.
+// Only an order for his names, so its own conversations count (a recheck judges without them).
 export function likelyOf(
   samples: Parameters<typeof speakerVoice>[0],
   profiles: ProfilesByModel

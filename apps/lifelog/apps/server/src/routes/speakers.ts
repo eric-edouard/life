@@ -439,7 +439,7 @@ export function speakerRoutes({
         description:
           "The owner's answer for a queue item's voices: a new person (name), a person " +
           "(personId), nobody they know (ignore), a video or TV playing (media), someone not worth naming " +
-          "(not_relevant: never asked again, not a stranger), or several people " +
+          "(not_relevant: these voices are not asked again, and are no stranger), or several people " +
           "(several: who; each turn is decided among them), then the rest of their turns as they read " +
           "(rest). Each voice becomes the owner's correction of " +
           "that speaker, so voice evidence moves with it; answered voices leave the queue.",
