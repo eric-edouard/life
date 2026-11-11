@@ -134,11 +134,18 @@ the same days, including empty ones. Completion explicitly rebuilds the index. N
 inferred person, extraction marker or processed state is written, so pages, ratings, appointments, open items and the
 nightly new-fact count do not change.
 
-Before earlier units are created, raw Date headers from the owner's sent mail supply whole-hour offsets as
-`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day and his first zone record; mail sets, defers or gaps only the days before the mail era ends (the first zone record not derived from mail), so a day his recorded zones cover is never deferred by mail.
-A day with no sent mail takes the nearest valid run (ties earlier) and is reported as a gap. Conflicting or non-hour
-offsets defer their days without rounding or guessing cities. Later model backfill re-derives gap evidence from the
-same headers and treats those days as uncertain; it never silently moves stored unit dates or ids.
+Before earlier units are created, each day's zone is derived from its own evidence as `Etc/GMT±N`, with IANA's reversed
+sign, read for the sources that are on and readable (`historicalZonesOf`). Photos that agree on one offset decide the day
+(`source: "photos"`; only photos that place him: his own devices' or with coordinates, not a Mac's import). Photos that
+split fall back to mail, since the phone recorded a move. Else sent mail's Date headers agree on one offset (`source: "mail"`);
+mail that conflicts, has no usable header or a quarter hour (+5:30) defers the day, and so does a quarter-hour photo. A
+noise offset (+2:01) is ignored. A day with no evidence takes the nearest day that has some (ties earlier) and is
+reported as a gap. Only the days before the derived era ends (the first zone record without `source`) are set, so a day his
+recorded zones cover is never deferred, and the era's last day is deferred when it would end after that record begins.
+Stored zones are corrected only by appended lines (`supersedingRuns`), and only when the window covers the whole derived
+era; a narrower one appends nothing. A settled day (a day a record cites by a unit id, a day on or after the first episode,
+a deferred day that holds units, each with one neighbour) keeps its stored zone, so no cited unit moves. Later
+model backfill re-derives gap evidence and treats those days as uncertain.
 
 Search passages live in their own derived SQLite store, outside `index.sqlite`. Each belongs to the first message's
 unit and is identified by source plus first-message id. Reconciliation follows complete grouping runs across adjacent
@@ -170,7 +177,7 @@ enabled source is available and collected passage coverage is complete.
   (a lifelog outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
   log). The report's Actions section lists every ask.
 - When `apple-health` is ready, the minute timer syncs lifelog's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
-- With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet settled (60 a pass,
+- With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet handled (60 a pass,
   newest first) with a local model: Qwen3.5-9B under llama.cpp, started for the pass and stopped after, downloaded once to `MACHINE_DIR/models`
   (pinned sizes and hashes, `core/pinned.ts`). Progress is the photos source card (Described n of m, No image, Last failure) and the log kind `photos.describe`.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.

@@ -7,7 +7,7 @@ import { clock, DAY } from "../core/clock";
 import {
   PHOTOS_PROMPT,
   readDescriptions,
-  readSettled,
+  readHandled,
   writeDescriptions,
 } from "./photo-descriptions";
 
@@ -24,7 +24,7 @@ const row = (uuid: string, over = {}) => ({
 test("a store not made yet reads as empty", () => {
   const path = store();
   expect(readDescriptions(["A"], path).size).toBe(0);
-  expect(readSettled(path).size).toBe(0);
+  expect(readHandled(path).size).toBe(0);
 });
 
 test("a described photo is never written over; a failed one or one with no image is, by the next try", () => {
@@ -74,7 +74,7 @@ test("a photo is settled when described, failed less than a day ago, or without 
     `update descriptions set at = '${new Date(clock().getTime() - 3 * DAY).toISOString()}' where uuid in ('none')`
   );
   db.close();
-  expect(readSettled(path)).toEqual(new Set(["done", "fresh", "none"]));
+  expect(readHandled(path)).toEqual(new Set(["done", "fresh", "none"]));
 });
 
 test("rows of another prompt are not read", () => {

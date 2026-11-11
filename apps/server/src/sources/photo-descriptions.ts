@@ -72,7 +72,7 @@ export function readDescriptions(uuids: string[], path = DESCRIPTIONS) {
  * The photos with nothing left to try: described, or failed or without an image within their retry time. Every other
  * photo is waiting.
  */
-export function readSettled(path = DESCRIPTIONS) {
+export function readHandled(path = DESCRIPTIONS) {
   const since = (ms: number) => new Date(clock().getTime() - ms).toISOString();
   return readRows(
     (db) =>
