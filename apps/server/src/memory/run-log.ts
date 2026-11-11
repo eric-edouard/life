@@ -14,11 +14,7 @@ import { lastDays, localDate, localTime } from "./zones";
 // --- runs ----------------------------------------------------------------------------------------------------------
 
 /** The sweeps: one launchd start that runs several steps. */
-export const SWEEPS = new Set([
-  "memory.nightly",
-  "memory.midday",
-  "memory.backfill",
-]);
+export const SWEEPS = new Set(["memory.nightly", "memory.backfill"]);
 /** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
 export const STEPS = [
   "memory.repos",

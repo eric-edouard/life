@@ -92,7 +92,7 @@ export async function ended<T extends Record<string, unknown>>(
 }
 
 /**
- * A sweep's phases (the nightly's, the midday's): `at` is the one running. `step` runs a step, which fails the sweep if
+ * A sweep's phases (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the sweep if
  * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
  */
 export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {

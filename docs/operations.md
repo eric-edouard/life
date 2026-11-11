@@ -87,9 +87,12 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes and the index. Facts wait for the night, which reads each unit once its day is done. No commit or email; a failure only logs (the next slot and the night read the day again).
-  The nightly commits and its report counts what the midday runs found.
-- **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
+- **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
+  (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
+  embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
+  night reads the day (his decision, 11 Nov 2026: the midday runs read each day three times for about 11% of the
+  tokens). A source that fails keeps its units and is retried 5 minutes later (`watch.today` in the log).
+- **A day read again** (the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
   with one new message is new as a whole (ponytail: per message would need a record of what was read).
@@ -102,8 +105,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Everything looks back 7 days.
 - **Backfill:** scheduled historical model reading is paused until prompts are frozen. The saved range stays pending;
   collection and imports do not mark it processed. Imports and future model backfills require `backfillEngine`, with
-  no fallback to `engine`; the night and midday still use `engine`.
-- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no midday and no backfill week, and
+  no fallback to `engine`; the night still uses `engine`.
+- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no backfill week, and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
   each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent

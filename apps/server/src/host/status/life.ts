@@ -1,21 +1,17 @@
 import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
-import { recentEvents } from "../../core/log";
 import { systemZone } from "../../core/platform";
 import { INDEX } from "../../memory/ledger";
 import { lockedSince } from "../../memory/memory-lock";
 import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
 import {
   MAX_ATTEMPTS,
-  nextMidday,
   nextNight,
   readBackfill,
-  readMidday,
   readState,
 } from "../../memory/schedule";
 import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
-import type { Quota } from "../../models/llm";
 import { lastCopied } from "../archive";
 import { polling, readHealth } from "../health";
 
@@ -55,9 +51,6 @@ export async function lifeStatus(now = clock()) {
   const health = readHealth();
   const lock = lockedSince();
   const night = readState();
-  const middaySlot = readMidday();
-  // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
-  const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = await latestRuns(STATUS_DAYS, lock);
   const running = list.filter((r) => r.outcome === "running");
   let watcher: Record<string, unknown> = { state: "unknown" };
@@ -84,11 +77,6 @@ export async function lifeStatus(now = clock()) {
     extraction: lastOf(list, "memory.extract"),
     indexBuiltAt: dbTime(INDEX),
     lookbackDays: STATUS_DAYS,
-    midday: {
-      ...lastOf(list, "memory.midday"),
-      next: nextMidday(now, middaySlot, quota),
-      slotSpentAt: middaySlot ?? null,
-    },
     nightly: {
       ...lastOf(list, "memory.nightly"),
       maxAttempts: MAX_ATTEMPTS,

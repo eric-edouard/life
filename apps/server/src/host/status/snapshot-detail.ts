@@ -52,7 +52,6 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
 /** The sweeps, whose history is their runs. */
 const RUN_CARDS: Record<string, string> = {
   backfill: "memory.backfill",
-  midday: "memory.midday",
   nightly: "memory.nightly",
 };
 
