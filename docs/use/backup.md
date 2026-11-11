@@ -35,7 +35,7 @@ The app has no screen for this yet, so it takes a few commands in Terminal and a
 
 4. Quit Life from its menu and open it again, so it reads the new setting.
 
-Life backs up once a day, after the night's run or from 06:00, and keeps snapshots as
+Life backs up once a day, after the night's run or from 09:00, and keeps snapshots as
 [Operations](../operations.md#backups-and-exports) describes.
 The nightly report's Last backup line, and the Backup card in the status window, say when the last one finished.
 
