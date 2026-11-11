@@ -162,7 +162,7 @@ bun life memory passages --from 2025-01-01 --to 2025-12-31
 The rebuild publishes one month at a time and reports the first failed month to retry. Both paths check uncertainty
 across the complete passage run, including neighboring days outside the requested range; a run touching a deferred
 day waits whole. Boundary source reads are shared once per source and interval. Vectors are pruned only when every
-enabled source is available and collected passage coverage is complete.
+enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
@@ -331,7 +331,7 @@ case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
   6. **Stages:** each stage letter (below) pass, fail (proven), fail (inferred) or unknown (a gap), with evidence.
   7. **Hypotheses,** and the counterexamples that killed them.
   8. **Cause:** proven, or the observability that is missing. Never one dressed as the other.
-  9. **Coverage:** the tools used, the caps hit, what was unavailable. What an agent read is its `mcp.call` lines in
+  9. **Tools used:** the tools used, the caps hit, what was unavailable. What an agent read is its `mcp.call` lines in
      the log; what a report listed is its run's `listed` (`read_processing_runs`).
   10. **Adversarial pass:** what it found and how each point was settled.
   11. **Proposal:** a bounded fix, its regression case, success criteria.

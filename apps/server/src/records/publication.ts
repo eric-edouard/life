@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SourceName } from "../core/names";
 import { isoDateTime } from "./fields";
 
-// Memory's record of what it read (memory/coverage.jsonl, docs/SCHEMA.md).
+// Memory's record of what it read (memory/publications.jsonl, docs/SCHEMA.md).
 
 const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 

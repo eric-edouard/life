@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { readAppended } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
-import { COVERAGE, UNITS } from "./ledger";
+import { PUBLICATIONS, UNITS } from "./ledger";
 import { enabledSources } from "./sources";
 import { dayNow, localDate } from "./zones";
 
 // Coverage (docs/glossary.md): whether a source that captures on its own (`capturesOnItsOwn`) was captured on a local
 // day. A day is captured only when something says so: a unit of the source that day, or a publication of units that
-// read the source for that day (memory/coverage.jsonl, appended by `publishUnits`). Absence is never read as quiet:
+// read the source for that day (memory/publications.jsonl, appended by `publishUnits`). Absence is never read as quiet:
 // it is "not seen" when Life knows it did not look, "unknown" when it cannot tell. Nothing is stored per day.
 
 export type Covered = "captured" | "not_seen" | "unknown";
@@ -113,7 +113,7 @@ export function coverageOf(
 
 const readPublished = () =>
   readAppended(
-    COVERAGE,
+    PUBLICATIONS,
     Published,
     (last?: Published[]) => [...(last ?? [])],
     (all, line) => {

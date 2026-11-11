@@ -226,7 +226,7 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 Historical: Life's old fact checks and what he answered on its decisions page, and his loops' decisions. Nothing reads or
 writes it any more; it stays on disk.
 
-## coverage.jsonl
+## publications.jsonl
 
 What each publication of units read (`publishUnits`: a night's 7 days, a historical month), one line each,
 append-only: `at`, `from` and `to` (local days, both included), `sources` (the names of the sources it read for those

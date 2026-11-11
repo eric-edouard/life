@@ -6,9 +6,9 @@ import { readSettings, setSettings } from "../core/settings";
 import { collectHistorical, historicalWindow } from "./historical-collection";
 import { reindex } from "./index-writer";
 import {
-  COVERAGE,
   INDEX,
   MEMORY,
+  PUBLICATIONS,
   readIndex,
   readUnitsOf,
   UNITS,
@@ -97,14 +97,16 @@ test("historical collection has no voice/files model step; failed publication le
     ).rejects.toThrow("sources failed");
     expect(readFileSync(path, "utf8")).toBe(stored);
     // Nothing was published: the record of what was read gains no line.
-    expect(existsSync(COVERAGE)).toBe(false);
+    expect(existsSync(PUBLICATIONS)).toBe(false);
     await publishUnits({ ...evidence, skipped: ["whatsapp", "lifelog"] });
     // One line per publication: its days and the sources it read, nothing else.
-    expect(JSON.parse(readFileSync(COVERAGE, "utf8").trim())).toMatchObject({
-      from: date,
-      sources: Object.keys(evidence.read),
-      to: date,
-    });
+    expect(JSON.parse(readFileSync(PUBLICATIONS, "utf8").trim())).toMatchObject(
+      {
+        from: date,
+        sources: Object.keys(evidence.read),
+        to: date,
+      }
+    );
     expect(readUnitsOf([date]).map((u) => u.id)).toEqual([voice.id, chat.id]);
     await publishUnits({ ...evidence, skipped: ["lifelog"] });
     expect(readUnitsOf([date])).toEqual([voice]);
@@ -113,7 +115,7 @@ test("historical collection has no voice/files model step; failed publication le
     expect(snapshot()).toEqual(before);
   } finally {
     setSettings({ sources });
-    rmSync(COVERAGE, { force: true });
+    rmSync(PUBLICATIONS, { force: true });
     if (had) {
       await Bun.write(path, had);
     } else {

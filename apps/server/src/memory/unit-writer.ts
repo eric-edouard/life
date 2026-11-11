@@ -6,7 +6,7 @@ import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { COVERAGE, readFiles, readUnitsOf, UNITS } from "./ledger";
+import { PUBLICATIONS, readFiles, readUnitsOf, UNITS } from "./ledger";
 import { showFiles } from "./message-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";
@@ -49,7 +49,7 @@ export async function publishUnits(evidence: Evidence, passages?: () => void) {
     (u) => evidence.skipped.includes(u.source) || isFrozen(u)
   );
   // What was read, for whoever asks later whether a day was seen (`coverage.ts`): the days and the sources, no content.
-  appendJsonl(COVERAGE, Published, [
+  appendJsonl(PUBLICATIONS, Published, [
     {
       at: clock().toISOString(),
       from: evidence.window.from,
