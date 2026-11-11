@@ -2,12 +2,8 @@ import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { callCharsOf, stamp } from "../models/llm";
-import {
-  GIST_MAX,
-  Persona,
-  PersonaLine,
-  type PersonaQuote,
-} from "../records/persona";
+import { type FoundQuote, QUOTE_CHARS } from "../records/fields";
+import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
@@ -18,7 +14,7 @@ import {
   pairCountsOf,
 } from "./exchange-counts";
 import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
-import { locate } from "./observe";
+import { foundQuotes } from "./observe";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, inputsOf, meContext } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
@@ -53,7 +49,7 @@ export const readPersona = (ref: string) => {
 };
 
 /** How well a line is backed, from its quotes' days: a pattern seen once is a guess, one not seen for a year may be over. */
-export function supportOf(quotes: PersonaQuote[], today: string) {
+export function supportOf(quotes: FoundQuote[], today: string) {
   const days = [...new Set(quotes.map((q) => localDate(q.at)))].sort();
   const newest = days.at(-1);
   if (newest && newest < daysBefore(today, OLD_AFTER_DAYS)) {
@@ -62,7 +58,7 @@ export function supportOf(quotes: PersonaQuote[], today: string) {
   return days.length >= SOLID_DAYS ? ("solid" as const) : ("thin" as const);
 }
 
-const quoted = (quotes: PersonaQuote[]) =>
+const quoted = (quotes: FoundQuote[]) =>
   quotes.length > 0
     ? ` E.g. ${quotes.map((q) => `"${q.text}" (${localDate(q.at)})`).join(", ")}`
     : "";
@@ -374,12 +370,10 @@ export function personaLines(reply: unknown, days: ShownDay[]) {
       r.data.facet === "writes"
         ? direct.filter((m) => m.fromMe === (r.data.writer === "owner"))
         : quotable;
-    const texts = pool.map((m) => m.text);
-    const quotes = r.data.quotes.flatMap((q) => {
-      const found = locate(q, texts);
-      const m = found ? pool[found.line] : undefined;
-      return found && m ? [{ at: m.at, text: clip(found.verbatim, 200) }] : [];
-    });
+    const quotes = foundQuotes(r.data.quotes, pool).map((q) => ({
+      at: q.message.at,
+      text: clip(q.text, QUOTE_CHARS),
+    }));
     const { facet, kind, source, text, writer } = r.data;
     const l = PersonaLine.safeParse({
       facet,

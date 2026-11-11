@@ -1,16 +1,10 @@
 import { z } from "zod";
 import { SourceName } from "../core/names";
-import { isoDateTime, MadeBy } from "./fields";
+import { FoundQuote, MadeBy } from "./fields";
 
 // Memory's personas (memory/personas/, docs/SCHEMA.md).
 
-/** Words found verbatim in a message the persona call was shown (`locate`), with that message's time. */
-export const PersonaQuote = z
-  .object({ at: isoDateTime, text: z.string().min(1).max(200) })
-  .strict();
-export type PersonaQuote = z.infer<typeof PersonaQuote>;
-
-const quotes = z.array(PersonaQuote).max(4);
+const quotes = z.array(FoundQuote).max(4);
 
 /** A reading of the person or of what is between them and him, backed by quotes from both sides' messages. */
 const ReadingLine = z

@@ -40,3 +40,11 @@ export const MadeBy = z
   .strict();
 
 export type MadeBy = z.infer<typeof MadeBy>;
+
+/** The most characters a kept quote holds. */
+export const QUOTE_CHARS = 200;
+/** Words found verbatim in a message a model call was shown (`foundQuotes`), with that message's time. */
+export const FoundQuote = z
+  .object({ at: isoDateTime, text: z.string().min(1).max(QUOTE_CHARS) })
+  .strict();
+export type FoundQuote = z.infer<typeof FoundQuote>;

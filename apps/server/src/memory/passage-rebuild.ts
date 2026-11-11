@@ -1,11 +1,10 @@
 import { clock, daysBefore } from "../core/clock";
 import { filesIn } from "../core/files";
 import { readEvidence, readHistoricalZones } from "./historical-zones";
-import { historyMonths } from "./history";
 import { UNITS } from "./ledger";
 import { preparePassages } from "./passages";
 import { type Tables, tables } from "./sources";
-import { dayNow, dayStart, isDay, type Window } from "./zones";
+import { dayNow, dayStart, isDay, monthsOf, type Window } from "./zones";
 
 /** Explicit model-free passage rebuilding, one month per transaction; repeating completed months is safe. */
 export async function rebuildPassages(
@@ -38,7 +37,7 @@ export async function rebuildPassages(
   }
   let months = 0;
   let messages = 0;
-  for (const window of historyMonths({ from, to })) {
+  for (const window of monthsOf({ from, to })) {
     const readers = read.sources();
     const start = dayStart(window.from);
     const end = new Date(

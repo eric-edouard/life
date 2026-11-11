@@ -63,6 +63,10 @@ export const situationPath = (ref: string) =>
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>
   join(PERSONAS, `${ref.slice("person:".length)}.json`);
+/** Each person's past months with him, summarised once, and their story (`memory/histories.ts`), one file per person. */
+export const HISTORIES = join(MEMORY, "histories");
+export const historyPath = (ref: string) =>
+  join(HISTORIES, `${ref.slice("person:".length)}.json`);
 export const EPISODES = join(MEMORY, "episodes");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");

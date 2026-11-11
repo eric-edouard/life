@@ -216,3 +216,18 @@ export function noteZones(
     runs.map((r) => ({ ...r, schemaVersion: 1 as const }))
   );
 }
+
+/** The calendar months of a window of local days, each bounded by the window's own first and last day. */
+export function monthsOf(window: Window) {
+  const months: Window[] = [];
+  let { from } = window;
+  while (from <= window.to) {
+    const year = Number(from.slice(0, 4));
+    const month = Number(from.slice(5, 7));
+    const next = `${year + Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, "0")}-01`;
+    const to = [daysBefore(next, 1), window.to].sort()[0] as string;
+    months.push({ from, to });
+    from = daysBefore(to, -1);
+  }
+  return months;
+}
