@@ -16,13 +16,13 @@ import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
 import {
-  COPY,
   type Conversation,
   copyOf,
   exportCopiesOf,
   exportsDir,
   FORMATS,
   formatOf,
+  hasExportCopy,
   kept,
   latestVersions,
   parsedExport,
@@ -251,7 +251,7 @@ export async function importExport(folder: string) {
   if (!plan.have) {
     const dir = exportsDir(source);
     mkdirSync(dir, { recursive: true });
-    const name = readdirSync(dir).some((f) => COPY.test(f))
+    const name = hasExportCopy(source, dir)
       ? `conversations.${digest("sha256", copy, 12)}.json`
       : "conversations.json";
     writeFileSync(join(dir, `${name}.tmp`), copy);

@@ -52,7 +52,9 @@ const ClaudeExport = z.array(
           )
           .nullish(),
         created_at: z.string(),
-        files: z.array(z.looseObject({ file_name: z.string() })).nullish(),
+        files: z
+          .array(z.looseObject({ file_name: z.string().nullish() }))
+          .nullish(),
         sender: z.string(),
         text: z.string().nullish(),
         uuid: z.string(),
@@ -64,6 +66,14 @@ const ClaudeExport = z.array(
   })
 );
 
+/** A message's files as tags, a file with no name left out. */
+const tagsOf = (files?: { file_name?: string | null }[] | null) => {
+  const tags = (files ?? []).flatMap((f) =>
+    f.file_name ? [`[file ${f.file_name}]`] : []
+  );
+  return tags.length ? { tags } : {};
+};
+
 /** claude.ai's `conversations.json`: an array of conversations, each its `chat_messages` (`sender` human or assistant). */
 function parseClaude(json: unknown): Conversation[] {
   return ClaudeExport.parse(json).map((c) => {
@@ -72,9 +82,7 @@ function parseClaude(json: unknown): Conversation[] {
         at: iso(m.created_at),
         fromMe: m.sender === "human",
         id: m.uuid,
-        ...(m.files?.length
-          ? { tags: m.files.map((f) => `[file ${f.file_name}]`) }
-          : {}),
+        ...tagsOf(m.files),
         // Newer exports carry the text in `content` blocks too; `text` is the whole message.
         text: (
           m.text ||
@@ -268,7 +276,11 @@ export const exportsDir = (source: Assistant, data = OWNER_DATA_DIR) =>
   join(data, "imports", source);
 
 /** An export copy's file: `conversations.json`, or `conversations.<12 hex of its bytes>.json` for a later one. */
-export const COPY = /^conversations(\.[0-9a-f]{12})?\.json$/;
+const COPY = /^conversations(\.[0-9a-f]{12})?\.json$/;
+
+/** Whether an export copy is kept, from its file alone: a check that never parses an export, so it never throws. */
+export const hasExportCopy = (source: Assistant, dir = exportsDir(source)) =>
+  existsSync(dir) && readdirSync(dir).some((f) => COPY.test(f));
 
 export interface Copy {
   conversations: Conversation[];
