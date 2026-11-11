@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { download } from "@life/server/src/core/pinned";
 import { execOk } from "@life/server/src/core/proc";
 
 // Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
@@ -34,15 +34,7 @@ async function sparkle() {
   if (existsSync(join(FRAMEWORKS, "Sparkle.xcframework"))) {
     return;
   }
-  const zip = join(out, "sparkle.zip");
-  await mkdir(out, { recursive: true });
-  await run(["curl", "-sSL", "--max-time", "300", "-o", zip, SPARKLE.url]);
-  const sum = createHash("sha256")
-    .update(await Bun.file(zip).bytes())
-    .digest("hex");
-  if (sum !== SPARKLE.sha256) {
-    throw new Error(`Sparkle's download does not match its checksum (${sum})`);
-  }
+  const zip = await download(SPARKLE, join(out, "sparkle.zip"));
   await mkdir(FRAMEWORKS, { recursive: true });
   await run(["ditto", "-x", "-k", zip, FRAMEWORKS]);
 }

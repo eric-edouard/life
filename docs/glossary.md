@@ -67,6 +67,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | photo-day | A Photos unit: one local day of his library, its photos grouped by half hour and place, each line with Apple's place, scenes, who is pictured and his captions. Never an image. | |
 | pictured | Who Apple's People names on a photo's faces, by name and, when Apple links a Contacts card, its handle. Not a unit's `people` (refs). | |
 | scene | A label Apple's photo analysis gives a photo (beach, sunset), from its search index. Not a topic (a verdict's tag). | |
+| description | Life's reading of an image, in a sentence or two: a photo's (`sources/photo-descriptions.ts`), written on the Mac by the describer, or a message file's (`what` in `files.jsonl`, written by his provider's fast model, shown as "described by Life"). One concept in two stores; `what` becomes `description` in a later migration. Not a caption (his), not an episode's `what`. | `what` of a message file |
+| describer | The local model that writes a photo's description (`models/describer.ts`): Qwen3.5-9B under llama.cpp, started by the watcher only while photos wait. Not the embedder, not Lifelog Host's children. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
