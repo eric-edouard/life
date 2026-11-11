@@ -89,7 +89,10 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`); closeness and the
-  personas take its last three years.
+  personas take its last three years. With his `history` setting on, the same read gives the histories their
+  months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
+  costs its month only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
+  prints the people, months, calls and a token ceiling, with no model.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the

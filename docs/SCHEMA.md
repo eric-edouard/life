@@ -332,6 +332,19 @@ and it is a week old; removed when the person has no page or nothing passed betw
 chat-day, no recording). Nothing is
 written or removed on a night a source can't be read.
 
+## histories/<id>.json
+
+The past months between the owner and someone with a page (`pagedNow`), written by `histories.ts` from their
+one-to-one chats and mail threads (`directChats`), while his `history` setting is on: `months` (oldest first; each
+`month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
+no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call
+was shown, none when nothing was long enough to find; `inputs`, a hash of the prompt version and the lines shown;
+`built`, `madeBy`), `story` (null until one is told: `text`, `through` the last closed year it covers, `inputs` a hash
+of the prompt version and those months, `built`, `madeBy`), `schemaVersion`. Only closed months, from the setting's
+`from` on; a month of calls only has none. A month is replaced whole when read again (its inputs changed: a late
+backup, a late mail), the story when its months changed and none still waits; the last version stays in the data
+repo's history. A file is never removed. Nothing is read on a night a source can't be read.
+
 ## communication-styles/<id>.json
 
 Written until 8 Nov 2026 by `communication-styles.ts`, now part of the persona (its `writes` lines); kept, never read.

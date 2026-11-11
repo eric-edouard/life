@@ -24,10 +24,13 @@ export const STEPS = [
   "memory.closeness",
   "memory.pages",
 ];
-/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval. */
+/** Every run that can call a model: the sweeps, their steps (also run by hand), the night's readings of people, an import, the eval. */
 export const SPENDING = [
   ...SWEEPS,
   ...STEPS,
+  "memory.situation",
+  "memory.persona",
+  "memory.history",
   "memory.import",
   "memory.pilot",
   "eval",

@@ -1,12 +1,14 @@
 import { parseArgs } from "node:util";
 import { clock } from "../core/clock";
+import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { changeFeed, claim } from "../memory/changes";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
-import { collectHistory } from "../memory/history";
+import { collectHistorical } from "../memory/historical-collection";
+import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
@@ -27,7 +29,7 @@ import { drawDoubtful } from "../memory/statements";
 import { DAYS, gather } from "../memory/units";
 import { readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
-import { firstZoneDay, isDay, lastDays } from "../memory/zones";
+import { dayNow, firstZoneDay, isDay, lastDays } from "../memory/zones";
 import { Rating } from "../records/statement";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
@@ -179,6 +181,25 @@ const HANDLERS: Record<string, Handler> = {
     printed(
       id ? fetchOf(id, count(values["from-turn"]), count(values.limit)) : null
     ),
+  /**
+   * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
+   * with no model; `--force` reads it, as the night does once his `history` setting is on.
+   */
+  histories: step(async (v) => {
+    const from = v.from ?? settings().history?.from;
+    if (!from) {
+      throw new Error("histories needs --from YYYY-MM, or his history setting");
+    }
+    const pending = await readHistoryWork(
+      await readWithPeople(new Date(0)),
+      await readPeople(),
+      { from, today: dayNow() }
+    );
+    if (!pending) {
+      return { failed: 1 };
+    }
+    return v.force ? histories(pending) : { ...pending.counts, failed: 0 };
+  }),
   async index() {
     await reindex();
     return 0;
@@ -226,7 +247,7 @@ const HANDLERS: Record<string, Handler> = {
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
-  units: step((v) => collectHistory(v)),
+  units: step((v) => collectHistorical(v)),
   async unresolved() {
     console.log(await unresolved());
     return 0;
@@ -235,7 +256,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | histories [--from YYYY-MM] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
