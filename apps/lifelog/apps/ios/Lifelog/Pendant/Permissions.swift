@@ -3,12 +3,13 @@ import Observation
 import SwiftUI
 import UserNotifications
 
-/// Notifications and location, the two permissions the owner grants from here. Bluetooth's states show in the status
+/// Notifications, location and Apple Health, granted from here. Bluetooth's states show in the status
 /// sentence. Read fresh whenever the screen comes forward.
 @Observable
 final class PermissionsStore {
     enum Access: Equatable {
         case allowed
+        case asked
         case limited(String)
         case notAsked
         case denied
@@ -17,6 +18,7 @@ final class PermissionsStore {
 
     private(set) var notifications = Access.allowed
     private(set) var location = Access.allowed
+    private(set) var appleHealth = Access.notAsked
     /// Kept alive so its authorization prompt stays up.
     @ObservationIgnored private let locationManager = CLLocationManager()
 
@@ -26,6 +28,11 @@ final class PermissionsStore {
     }
 
     func refresh() async {
+        if AppleHealthReader.isAvailable {
+            do { appleHealth = try await AppleHealthReader.hasAsked() ? .asked : .notAsked } catch { _ = report(error) }
+        } else {
+            appleHealth = .restricted
+        }
         notifications =
             switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
             case .authorized: .allowed
@@ -48,6 +55,13 @@ final class PermissionsStore {
     func askLocation() {
         locationManager.requestAlwaysAuthorization()
     }
+
+    func askAppleHealth() async {
+        do {
+            try await AppleHealthReader.claim()
+            await refresh()
+        } catch { _ = report(error) }
+    }
 }
 
 /// One permission on one compact row: its state, the one thing to do about it, and why lifelog wants it.
@@ -69,7 +83,7 @@ struct PermissionRow: View {
                 }
                 Spacer(minLength: 8)
                 switch state {
-                case .allowed:
+                case .allowed, .asked:
                     EmptyView()
                 case .notAsked:
                     Button("Allow", action: ask).buttonStyle(.glass)
@@ -97,6 +111,7 @@ struct PermissionRow: View {
     private var status: String {
         switch state {
         case .allowed: "Allowed"
+        case .asked: "Asked"
         case .limited(let detail): detail
         case .notAsked: "Not asked yet"
         case .denied: "Off"

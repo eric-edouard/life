@@ -75,6 +75,7 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: lifelog notes where you were every few minutes so a conversation can show where it happened.
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: lifelog notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: lifelog shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: lifelog reads your sleep, steps, workouts, resting heart rate, heart rate variability and weight to send them to your own server for Life.
     info:
       path: Lifelog/Info.plist
       properties:
@@ -100,6 +101,7 @@ targets:
         com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
         # The server's silent push. Builds are development-signed, so APNs is the sandbox (APNS_ENVIRONMENT).
         aps-environment: development
+        com.apple.developer.healthkit: true
   # Launches the demo library offline and checks the Library shows rows: `bun run check:offline`.
   LifelogUITests:
     type: bundle.ui-testing

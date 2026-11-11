@@ -16,6 +16,7 @@ struct SettingsView: View {
 
     @Environment(SyncStore.self) private var sync
     @Environment(CaptureStore.self) private var capture
+    @Environment(AppleHealthReader.self) private var appleHealth
     @Bindable private var settings = Settings.shared
     @State private var showsSpending = false
 
@@ -103,6 +104,18 @@ struct SettingsView: View {
                     SpendingSheet()
                 }
                 SettingsGroup("Your data") {
+                    if AppleHealthReader.isAvailable {
+                        PermissionRow(
+                            name: "Apple Health", state: permissions.appleHealth,
+                            explanation:
+                                "Reads sleep, steps, workouts, resting heart rate, heart rate variability and weight, and sends them to your server. Health keeps your choice of what to share private.",
+                            ask: {
+                                Task {
+                                    await permissions.askAppleHealth()
+                                    await appleHealth.sync()
+                                }
+                            })
+                    }
                     PermissionRow(
                         name: "Location", state: permissions.location,
                         explanation:

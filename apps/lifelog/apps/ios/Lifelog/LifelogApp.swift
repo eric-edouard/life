@@ -30,6 +30,7 @@ struct LifelogApp: App {
         .environment(appDelegate.naming)
         .environment(appDelegate.playback)
         .environment(appDelegate.buttons)
+        .environment(appDelegate.appleHealth)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
@@ -52,6 +53,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// The one processing driver: uploads, the outbox, the feed, the status every tab shows.
     lazy var sync = SyncStore(capture: capture, library: library)
     private let location = LocationRecorder()
+    let appleHealth = AppleHealthReader()
     /// The voices to name, read by the Library, People and "Who's this?".
     lazy var naming = NamingQueue(library: library, sync: sync)
     /// The Pendant's button: built at launch, so a press that wakes the app in the background is answered.
@@ -112,6 +114,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         capture.start()
         appEvent("app.launch", launch)
         startLocation()
+        appleHealth.start()
         Task { [sync] in await sync.followNetwork() }
         application.registerForRemoteNotifications()
         // Handlers must be registered before launch ends. `.main` delivers the task on the main actor.
@@ -136,6 +139,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     /// Holds Always location once a Pendant is paired: at launch and whenever the app comes forward.
     func claimLocation() {
         if capture.hasKnownPendant { location.claim() }
+    }
+
+    func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
+        Task { await appleHealth.sync() }
     }
 
     /// Kept for the runs to send (`PushToken`) until the paired server has it.
