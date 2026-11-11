@@ -108,7 +108,7 @@ struct SettingsView: View {
                         PermissionRow(
                             name: "Apple Health", state: permissions.appleHealth,
                             explanation:
-                                "Reads sleep, steps, workouts, resting heart rate, heart rate variability and weight, and sends them to your server. Health keeps your choice of what to share private.",
+                                "Reads sleep and workouts, and sends them to your server. Health keeps your choice of what to share private.",
                             ask: {
                                 Task {
                                     await permissions.askAppleHealth()

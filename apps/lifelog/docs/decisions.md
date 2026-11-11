@@ -244,7 +244,7 @@ reverse it, change its entry here in the same commit.
 - Apple Health has its own sequence cursor in `apple_health`, outside `change_log`. A day's hundreds of
   measurements must not wake the phone's voice long poll or Life's voice watcher. Only the device token opens
   `GET /apple-health` and `POST /apple-health`.
-- The phone reads six kinds from Health, never writes to it, and keeps one acknowledged end per kind. Health is
+- The phone reads sleep and workouts from Health, never writes to it, and keeps one acknowledged end per kind. Health is
   its durable store; a failed chunk is read again. The seven-day overlap catches recent changes, not deletions or
   measurements arriving more than seven days late.
 

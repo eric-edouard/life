@@ -16,7 +16,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | Push alerts' text (the voices-to-name count, "open lifelog", Life's "heard you" notices; never what was said) | Apple's push service, on its way to the phone | Apple's terms; silent pushes carry no text |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
 
-The phone reads sleep, steps, workouts, resting heart rate, heart rate variability and weight from Apple Health
+The phone reads sleep and workouts from Apple Health
 only after the Settings permission request. It writes nothing to Health. Measurements go to the paired server,
 whose device token alone opens `/apple-health`; reader and corrections tokens cannot read them. Life reads them
 with the device token only when its Apple Health source is enabled.

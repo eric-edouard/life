@@ -4,11 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { DAY, HOUR, minutes } from "../core/clock";
 import { openReadOnly } from "../core/sqlite";
-import {
-  QUANTITY_KINDS,
-  type QuantityKind,
-  type SourceEvent,
-} from "../records/source";
+import type { SourceEvent } from "../records/source";
 import { isWithin } from "./contract";
 import { call, WATCH } from "./lifelog";
 
@@ -16,7 +12,7 @@ const instant = z.iso.datetime({ offset: true });
 const span = { endAt: instant, id: z.string(), startAt: instant };
 /**
  * The measurements in lifelog's REST contract, never its database. lifelog checks what it stores (ids, activity
- * names, positive values); Life reads only what it uses, so a stricter reader can never stall the copy.
+ * names); Life reads only what it uses, so a stricter reader can never stall the copy.
  */
 export const Measurement = z.discriminatedUnion("kind", [
   z.object({
@@ -29,11 +25,6 @@ export const Measurement = z.discriminatedUnion("kind", [
     activity: z.string(),
     kcal: z.number().optional(),
     kind: z.literal("workout"),
-  }),
-  z.object({
-    ...span,
-    kind: z.enum(QUANTITY_KINDS),
-    value: z.number(),
   }),
 ]);
 export type Measurement = z.infer<typeof Measurement>;
@@ -95,16 +86,6 @@ export async function syncAppleHealth(dir = WATCH) {
 }
 
 const whole = (n: number) => Math.round(n).toLocaleString("en-US");
-const QUANTITY_TEXT: Record<QuantityKind, (value: number) => string> = {
-  heart_rate_variability: (v) => `HRV ${whole(v)} ms`,
-  resting_heart_rate: (v) => `resting heart rate ${whole(v)} bpm`,
-  steps: (v) => `${whole(v)} steps`,
-  weight: (v) => `weight ${Math.round(v * 10) / 10} kg`,
-};
-/** A quantity as Life writes it, an event's or a day's total: whole numbers, weight to 0.1 kg. */
-export const quantityText = (kind: QuantityKind, value: number) =>
-  QUANTITY_TEXT[kind](value);
-
 type Sleep = Extract<Measurement, { kind: "sleep" }>;
 
 /** The union of intervals, so two devices never count the same time twice. */
@@ -124,18 +105,18 @@ function durationOf(segments: Sleep[]) {
 const eventOf = (
   id: string,
   at: string,
-  text: string,
-  measured?: SourceEvent["measured"]
+  until: string,
+  text: string
 ): SourceEvent => ({
   at: new Date(at).toISOString(),
   chat: "apple-health",
   chatName: "Apple Health",
   fromMe: true,
   id: `apple-health:${id}`,
-  ...(measured ? { measured } : {}),
   sender: "me",
   source: "apple-health",
   text,
+  until: new Date(until).toISOString(),
 });
 
 /** Sleep segments less than an hour apart form one sleep, including naps; only asleep stages set its edges. */
@@ -174,12 +155,11 @@ export function nightsOf(segments: Sleep[]): SourceEvent[] {
     });
     const awake = durationOf(group.filter((s) => s.stage === "awake"));
     return [
-      eventOf(`${first.id}/sleep`, first.startAt, "fell asleep"),
       eventOf(
-        `${first.id}/wake`,
+        `${first.id}/sleep`,
+        first.startAt,
         until,
-        `woke: ${minutes(asleepMs)} asleep${stages.length ? ` (${stages.join(", ")})` : ""}${awake ? `, awake ${minutes(awake)}` : ""}`,
-        { asleepMs, kind: "sleep" }
+        `slept ${minutes(asleepMs)}${stages.length ? ` (${stages.join(", ")})` : ""}${awake ? `, awake ${minutes(awake)}` : ""}`
       ),
     ];
   });
@@ -214,28 +194,13 @@ export function readAppleHealth(
         if (m.kind === "sleep") {
           return [];
         }
-        if (m.kind === "workout") {
-          return [
-            {
-              ...eventOf(
-                m.id,
-                m.startAt,
-                `${m.activity.replaceAll("_", " ")}${m.kcal === undefined ? "" : `, ${whole(m.kcal)} kcal`}`,
-                {
-                  activity: m.activity,
-                  ...(m.kcal === undefined ? {} : { kcal: m.kcal }),
-                  kind: "workout",
-                }
-              ),
-              until: new Date(m.endAt).toISOString(),
-            },
-          ];
-        }
         return [
-          eventOf(m.id, m.startAt, quantityText(m.kind, m.value), {
-            kind: m.kind,
-            value: m.value,
-          }),
+          eventOf(
+            m.id,
+            m.startAt,
+            m.endAt,
+            `${m.activity.replaceAll("_", " ")}${m.kcal === undefined ? "" : `, ${whole(m.kcal)} kcal`}`
+          ),
         ];
       }),
     ]

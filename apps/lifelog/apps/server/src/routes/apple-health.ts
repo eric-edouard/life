@@ -28,34 +28,6 @@ const Measurement = z
         kind: z.literal("workout"),
       })
       .openapi("WorkoutMeasurement"),
-    z
-      .object({
-        ...bounds,
-        kind: z.literal("steps"),
-        value: z.number().nonnegative().describe("Step count"),
-      })
-      .openapi("StepsMeasurement"),
-    z
-      .object({
-        ...bounds,
-        kind: z.literal("resting_heart_rate"),
-        value: z.number().positive().describe("Beats per minute"),
-      })
-      .openapi("RestingHeartRateMeasurement"),
-    z
-      .object({
-        ...bounds,
-        kind: z.literal("heart_rate_variability"),
-        value: z.number().nonnegative().describe("SDNN in milliseconds"),
-      })
-      .openapi("HeartRateVariabilityMeasurement"),
-    z
-      .object({
-        ...bounds,
-        kind: z.literal("weight"),
-        value: z.number().positive().describe("Kilograms"),
-      })
-      .openapi("WeightMeasurement"),
   ])
   .refine((m) => Date.parse(m.endAt) >= Date.parse(m.startAt), {
     message: "endAt precedes startAt",
@@ -75,7 +47,6 @@ const measurementRowOf = (m: z.infer<typeof Measurement>) => ({
   kind: m.kind,
   stage: "stage" in m ? m.stage : null,
   startAt: new Date(m.startAt),
-  value: "value" in m ? m.value : null,
 });
 
 export function appleHealthRoutes({ db }: Pick<Services, "db">) {

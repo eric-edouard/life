@@ -19,86 +19,45 @@ const stint = (from: number, until: number, text: string): SourceEvent => ({
   until: iso(Date.parse("2026-10-09T10:00:00.000Z") + until * MIN),
 });
 
-test("measurement-day totals precede its sleep, workouts and weight; only present quantities appear", () => {
-  const event = (
-    id: string,
-    at: string,
-    text: string,
-    measured?: SourceEvent["measured"],
-    until?: string
-  ): SourceEvent => ({
-    at: `2026-10-09T${at}:00.000Z`,
+test("a measurement-day keeps every night and workout as a timed span, in order", () => {
+  const [night] = nightsOf([
+    {
+      endAt: "2026-10-09T05:00:00Z",
+      id: "night",
+      kind: "sleep",
+      stage: "asleep",
+      startAt: "2026-10-09T00:00:00Z",
+    },
+  ]) as [SourceEvent];
+  const workout: SourceEvent = {
+    at: "2026-10-09T07:00:00.000Z",
     chat: "apple-health",
     chatName: "Apple Health",
     fromMe: true,
-    id: `apple-health:${id}`,
-    ...(measured ? { measured } : {}),
+    id: "apple-health:run",
     sender: "me",
     source: "apple-health",
-    text,
-    ...(until ? { until: `2026-10-09T${until}:00.000Z` } : {}),
-  });
-  const woke = event("wake", "05:00", "woke: 7 h 5 min asleep", {
-    asleepMs: 425 * MIN,
-    kind: "sleep",
-  });
-  const workout = event(
-    "run",
-    "07:00",
-    "running, 315 kcal",
-    { activity: "running", kcal: 315, kind: "workout" },
-    "07:42"
-  );
-  const weight = event("weight", "08:00", "weight 68.2 kg", {
-    kind: "weight",
-    value: 68.2,
-  });
-  const list = [
-    weight,
-    workout,
-    woke,
-    event("steps-1", "10:00", "4,200 steps", { kind: "steps", value: 4200 }),
-    event("steps-2", "11:00", "", { kind: "steps", value: 4212 }),
-    event("rest", "10:00", "", { kind: "resting_heart_rate", value: 57 }),
-    event("hrv-1", "10:00", "", { kind: "heart_rate_variability", value: 38 }),
-    event("hrv-2", "11:00", "", { kind: "heart_rate_variability", value: 44 }),
-  ];
+    text: "running, 315 kcal",
+    until: "2026-10-09T07:42:00.000Z",
+  };
+  const list = [workout, night];
   const result = measurementDayText(list);
   expect(result).toEqual({
-    body: "Totals: 8,412 steps, resting heart rate 57 bpm, HRV 41 ms\n07:00 woke: 7 h 5 min asleep\n09:00–09:42 running, 315 kcal\n10:00 weight 68.2 kg",
-    headline: "slept 7 h 5 min, 8,412 steps, running 42 min",
-    lines: [woke, workout, weight],
+    body: "02:00–07:00 slept 5 h\n09:00–09:42 running, 315 kcal",
+    headline: "slept 5 h; running, 315 kcal",
+    lines: [night, workout],
   });
-  expect(list[0]).toBe(weight);
+  expect(list[0]).toBe(workout);
   const [day] = messageUnits(list, () => null);
   expect(day?.unit.title).toBe(`Apple Health: ${result.headline}`);
   expect(day?.unit.summary).toBe(result.body.split("\n")[0]);
-  expect(day?.messages.map((m) => m.id)).toEqual([
-    woke.id,
-    workout.id,
-    weight.id,
-  ]);
-  const onlySteps = measurementDayText(list.slice(3, 4));
-  expect(onlySteps).toEqual({
-    body: "Totals: 4,200 steps",
-    headline: "4,200 steps",
-    lines: [],
-  });
-  const [stepsDay] = messageUnits(list.slice(3, 4), () => null);
-  expect(stepsDay?.text).toContain("Totals: 4,200 steps");
-  expect(stepsDay?.messages.map((m) => m.text)).toEqual(["4,200 steps"]);
-  expect(measurementDayText([weight]).body).toBe("10:00 weight 68.2 kg");
+  expect(day?.messages.map((m) => m.id)).toEqual([night.id, workout.id]);
   expect(
-    applyRules(messageUnits(list.slice(3, 4), () => null))[0]?.unit.drop
-  ).toBeUndefined();
-  expect(
-    applyRules(
-      messageUnits([event("sleep", "21:00", "fell asleep")], () => null)
-    )[0]?.unit.drop
+    applyRules(messageUnits(list, () => null))[0]?.unit.drop
   ).toBeUndefined();
 });
 
-test("a night across a non-UTC midnight carries its sleep on the wake day's measurement-day", () => {
+test("a night across a non-UTC midnight is one span on the day it began", () => {
   // The fixture is in Europe/Berlin: both instants are on the same UTC date.
   const events = nightsOf([
     {
@@ -109,18 +68,15 @@ test("a night across a non-UTC midnight carries its sleep on the wake day's meas
       startAt: "2026-10-09T21:30:00Z",
     },
   ]);
-  expect(events.map((e) => localDate(e.at))).toEqual([
-    "2026-10-09",
-    "2026-10-10",
-  ]);
+  expect(events.map((e) => localDate(e.at))).toEqual(["2026-10-09"]);
   const days = messageUnits(events, () => null);
   expect(days.map((d) => [d.unit.date, d.text])).toEqual([
-    ["2026-10-09", "Apple Health: fell asleep\n23:30 fell asleep"],
     [
-      "2026-10-10",
-      "Apple Health: slept 1 h 10 min\n00:40 woke: 1 h 10 min asleep",
+      "2026-10-09",
+      "Apple Health: slept 1 h 10 min\n23:30–00:40 slept 1 h 10 min",
     ],
   ]);
+  expect(days[0]?.unit.end).toBe("2026-10-09T22:40:00.000Z");
 });
 
 test("device-day text keeps totals, ordered long stints and stored content without sorting its input", () => {

@@ -74,7 +74,7 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   without his data); first
   names, places and git history are on you.
 - lifelog serves one local page, the voice map (9 Nov, `docs/decisions.md`), behind its scoped map token; its map routes are also reachable through the public tunnel with that token.
-- **Apple Health is read-only on the phone.** Settings alone asks for its six kinds; uploads go to `/apple-health`,
+- **Apple Health is read-only on the phone.** Settings alone asks for sleep and workouts; uploads go to `/apple-health`,
   device-token only, with their own sequence cursor, never `change_log` (`docs/decisions.md`).
 - **One process writes the archive.** The server holds `<file>.lock`; scripts open it read-only. Read production
   with `sqlite3 -readonly`, never write it.

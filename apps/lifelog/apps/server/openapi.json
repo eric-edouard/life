@@ -1077,29 +1077,13 @@
           },
           {
             "$ref": "#/components/schemas/WorkoutMeasurement"
-          },
-          {
-            "$ref": "#/components/schemas/StepsMeasurement"
-          },
-          {
-            "$ref": "#/components/schemas/RestingHeartRateMeasurement"
-          },
-          {
-            "$ref": "#/components/schemas/HeartRateVariabilityMeasurement"
-          },
-          {
-            "$ref": "#/components/schemas/WeightMeasurement"
           }
         ],
         "discriminator": {
           "propertyName": "kind",
           "mapping": {
             "sleep": "#/components/schemas/SleepMeasurement",
-            "workout": "#/components/schemas/WorkoutMeasurement",
-            "steps": "#/components/schemas/StepsMeasurement",
-            "resting_heart_rate": "#/components/schemas/RestingHeartRateMeasurement",
-            "heart_rate_variability": "#/components/schemas/HeartRateVariabilityMeasurement",
-            "weight": "#/components/schemas/WeightMeasurement"
+            "workout": "#/components/schemas/WorkoutMeasurement"
           }
         }
       },
@@ -1164,118 +1148,6 @@
           }
         },
         "required": ["endAt", "id", "startAt", "activity", "kind"]
-      },
-      "StepsMeasurement": {
-        "type": "object",
-        "properties": {
-          "endAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "startAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["steps"]
-          },
-          "value": {
-            "type": "number",
-            "minimum": 0,
-            "description": "Step count"
-          }
-        },
-        "required": ["endAt", "id", "startAt", "kind", "value"]
-      },
-      "RestingHeartRateMeasurement": {
-        "type": "object",
-        "properties": {
-          "endAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "startAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["resting_heart_rate"]
-          },
-          "value": {
-            "type": "number",
-            "exclusiveMinimum": 0,
-            "description": "Beats per minute"
-          }
-        },
-        "required": ["endAt", "id", "startAt", "kind", "value"]
-      },
-      "HeartRateVariabilityMeasurement": {
-        "type": "object",
-        "properties": {
-          "endAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "startAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["heart_rate_variability"]
-          },
-          "value": {
-            "type": "number",
-            "minimum": 0,
-            "description": "SDNN in milliseconds"
-          }
-        },
-        "required": ["endAt", "id", "startAt", "kind", "value"]
-      },
-      "WeightMeasurement": {
-        "type": "object",
-        "properties": {
-          "endAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "startAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["weight"]
-          },
-          "value": {
-            "type": "number",
-            "exclusiveMinimum": 0,
-            "description": "Kilograms"
-          }
-        },
-        "required": ["endAt", "id", "startAt", "kind", "value"]
       },
       "StoredMeasurement": {
         "allOf": [
