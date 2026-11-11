@@ -181,8 +181,11 @@ reverse it, change its entry here in the same commit.
 
 ## People, places and search
 
-- **Speaker recognition is self-hosted.** SpeechBrain ECAPA on a small CPU service, so voices and embeddings never
-  reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
+- **Speaker recognition is self-hosted.** MECT-B2 (AntSpeaker) on a small CPU service, so voices and embeddings never
+  reach a third party. It replaced SpeechBrain ECAPA on 11 Nov 2026: on the owner's known voices its first guess was
+  right more often than any other model's (`docs/research/voice-bench.md`). Its licence is CC BY-NC-SA: fine for a
+  personal install, to settle before lifelog is sold. The stored samples were embedded again once, on Modal CPUs
+  (his yes of 11 Nov; the audio in memory only), except those on audio from before blocks, which were dropped. Only the owner creates people and adds evidence; a match needs a score and a lead over the
   runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
 - One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses

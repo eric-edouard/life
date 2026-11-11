@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Config } from "./config";
 import { switches } from "./switches";
 
-const EMBEDDING_DIMENSIONS = 192;
+export const EMBEDDING_DIMENSIONS = 192;
 
 // Why a call can't be answered now.
 type Unanswered =
@@ -116,6 +116,10 @@ async function answerOf<T>(
       };
 }
 
+// The ranges one call carries: the speaker model takes up to 4 s for a 30 s clip (0.7 s for a usual
+// one, measured on the Mac, 11 Nov 2026), and a call must end within the service's 120 s.
+const RANGES_PER_CALL = 25;
+
 // One embedding per `[start, end]` range (seconds) of an Ogg Opus file, in order; null for a range
 // the service could not use (past the end of the audio, or under half a second).
 export async function embedRanges(
@@ -123,14 +127,19 @@ export async function embedRanges(
   ogg: Uint8Array,
   ranges: [number, number][]
 ): Promise<{ embeddings: (Embedding | null)[] } | Unanswered> {
-  const said = await post(config, "/embed-ranges", ogg, Ranges, {
-    "X-Ranges": JSON.stringify(ranges),
-  });
-  if (!("answer" in said)) {
-    return said;
+  const embeddings: (Embedding | null)[] = [];
+  for (let i = 0; i < ranges.length; i += RANGES_PER_CALL) {
+    // biome-ignore lint/performance/noAwaitInLoops: the service has one worker
+    const said = await post(config, "/embed-ranges", ogg, Ranges, {
+      "X-Ranges": JSON.stringify(ranges.slice(i, i + RANGES_PER_CALL)),
+    });
+    if (!("answer" in said)) {
+      return said;
+    }
+    const { embeddings: some, ...model } = said.answer;
+    embeddings.push(...some.map((e) => e && { ...e, ...model }));
   }
-  const { embeddings, ...model } = said.answer;
-  return { embeddings: embeddings.map((e) => e && { ...e, ...model }) };
+  return { embeddings };
 }
 
 // A block's turns, languages and words (route-turns.ts decides what goes to Scribe).
