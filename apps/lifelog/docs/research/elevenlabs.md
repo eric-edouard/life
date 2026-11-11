@@ -132,7 +132,7 @@ Scribe v3 (10 Nov 2026) claims 27% fewer word errors than v2 over 102 languages 
    - Avoid fragments under about 20 s: diarization and language detection get weak, and the 20 s keyterm minimum applies.
    - Link speakers across chunks with local embeddings.
 6. **Keyterms:** at most about 50–100 owner-curated proper nouns (people, places, Thai names in Thai script plus romanized forms). Stay at or under 100 to avoid the 20 s minimum, and A/B test for false insertions before enabling by default. That adds about 23% to the base cost.
-7. **Expected cost:** $0.22 per cleaned speech-hour, or $0.27 with keyterms. Enforce the monthly hours cap server-side using `audio_duration_secs` from each response.
+7. **Expected cost:** $0.20 per cleaned speech-hour, or $0.25 with keyterms. Enforce the monthly hours cap server-side using `audio_duration_secs` from each response.
 
 ## 10. Unverified or contradictory (verify empirically)
 
