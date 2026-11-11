@@ -12,7 +12,7 @@ const instant = z.iso.datetime({ offset: true });
 const span = { endAt: instant, id: z.string(), startAt: instant };
 /**
  * The measurements in lifelog's REST contract, never its database. lifelog checks what it stores (ids, activity
- * names, positive values); Life reads only what it uses, so a stricter reader can never stall the copy.
+ * names); Life reads only what it uses, so a stricter reader can never stall the copy.
  */
 export const Measurement = z.discriminatedUnion("kind", [
   z.object({

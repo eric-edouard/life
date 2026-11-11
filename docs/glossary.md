@@ -58,7 +58,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | stint | One stretch of time in one app or website on one device, from Screen Time; the same one back within 2 minutes is one stint. Not a Claude session. | |
 | device-day | A Screen Time unit: one device's stints on one local day, its time by app and website and its stints of 5 minutes or more. The device is named by the `devices` setting. | |
 | apple-health | The Apple Health source, read through lifelog's REST contract into a derived copy. Off until enabled in `sources`. | |
-| measurement | One Apple Health record: a sleep segment or a workout. Instants only; each night and workout makes an episode, never extracted facts. | |
+| measurement | One Apple Health record: a sleep segment or a workout. Instants only; a night (its segments together) and a workout each make an episode, never extracted facts. | |
 | physical | The source kind for what devices measure of the owner's body; an activity kind. | |
 | measurement-day | One local day's Apple Health nights and workouts, each as a timed span; a night belongs to the day it began. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |

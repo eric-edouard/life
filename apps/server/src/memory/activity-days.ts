@@ -32,5 +32,5 @@ export function measurementDayText(list: SourceEvent[]) {
   const body = lines
     .map((e) => `${time(e.at)}–${time(e.until ?? e.at)} ${e.text}`)
     .join("\n");
-  return { body, headline: lines.map((e) => e.text).join(", "), lines };
+  return { body, headline: lines.map((e) => e.text).join("; "), lines };
 }

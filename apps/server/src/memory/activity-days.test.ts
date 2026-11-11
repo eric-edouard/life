@@ -44,7 +44,7 @@ test("a measurement-day keeps every night and workout as a timed span, in order"
   const result = measurementDayText(list);
   expect(result).toEqual({
     body: "02:00–07:00 slept 5 h\n09:00–09:42 running, 315 kcal",
-    headline: "slept 5 h, running, 315 kcal",
+    headline: "slept 5 h; running, 315 kcal",
     lines: [night, workout],
   });
   expect(list[0]).toBe(workout);
