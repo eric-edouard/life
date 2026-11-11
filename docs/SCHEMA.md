@@ -440,7 +440,7 @@ retirement stands only while `by` is current: a replacement re-read away retires
 
 ## zones.jsonl
 
-Where the owner was, as an IANA time zone, append-only: `{schemaVersion: 1, from, tz}`, the zone from `from` on,
+Where the owner was, as an IANA time zone, append-only: `{schemaVersion: 1, from, tz, source?}`, the zone from `from` on,
 read in `from` order (the earliest also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
 `apps/server/src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
 read again from another country. The nightly tick (every 30 minutes) appends a line when where he is (`readZoneHere`:
@@ -448,8 +448,8 @@ the phone's zone from its newest heartbeat, whatever its age; the Mac's own zone
 phone ever named one; nothing when lifelog is set up but can't be read) differs from the latest one, taking effect at once, or at the next midnight
 of the zone ahead when the two are on different days (`cutAt`: a local day never goes back); what came before it was
 noticed keeps the old zone. The present (`dayNow`) follows the latest line at once, even before its
-`from`. `bun life init` seeds it by the same rule. The owner's past may be appended later (their own account of where they lived) only
-before the first day memory has units of: an earlier unit's day, and so its id, would move. Historical collection derives whole-hour offsets from the owner's sent-mail Date headers as `Etc/GMT±N` with the reversed IANA sign. Missing-mail days take the nearest known run, ties earlier, and are reported as gaps; conflicts and non-hour offsets defer their days. No city, inferred flag or extra Zone field is stored. Gap evidence can be re-derived from the headers for later model backfill; stored unit dates and ids remain unchanged.
+`from`. `bun life init` seeds it by the same rule (both through `noteZones`, the one writer). The owner's past may be appended later (their own account of where they lived) only
+before the first day memory has units of: an earlier unit's day, and so its id, would move. Historical collection derives whole-hour offsets from the owner's sent-mail Date headers as `Etc/GMT±N` with the reversed IANA sign. Missing-mail days take the nearest known run, ties earlier, and are reported as gaps; conflicts and non-hour offsets defer their days. Such a run says `source: "mail"`; a line without it is a record of where he was, and the first of those ends the mail era: only the days before it are set, deferred or gapped by mail, so a day a recorded zone covers is never deferred. No city or inferred flag is stored. Gap evidence can be re-derived from the headers for later model backfill; stored unit dates and ids remain unchanged.
 
 ## labels.jsonl
 
