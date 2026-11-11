@@ -1,38 +1,70 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { UNITS, ZONES } from "./ledger";
 import {
+  fixedZoneOf,
   historicalZonesOf,
-  parseMailZone,
+  mailEvidenceOf,
+  photoEvidenceOf,
+  pinnedDays,
   prepareHistoricalZones,
-  readHistoricalZones,
-  zoneAt,
-} from "./zones";
+  supersedingRuns,
+} from "./historical-zones";
+import { EPISODES, MEMORY, UNITS, ZONES } from "./ledger";
+import { zoneAt, zones } from "./zones";
 
 const sent = (day: string, offset: string) => ({
   at: `${day}T12:00:00Z`,
   date: `${day} 12:00:00 ${offset}`,
 });
+const photo = (day: string, offset: number) => ({
+  at: `${day}T12:00:00Z`,
+  offset,
+});
+const evidenceOf = (
+  mail: Parameters<typeof mailEvidenceOf>[0] = [],
+  photos: Parameters<typeof photoEvidenceOf>[0] = []
+) => ({ mail: mailEvidenceOf(mail), photos: photoEvidenceOf(photos) });
 
-test("sent-mail offsets retain the IANA sign and reject unknown or non-hour offsets", () => {
-  expect(parseMailZone("Mon, 2 Jan 2023 12:00:00 +0700")).toBe("Etc/GMT-7");
-  expect(parseMailZone("Mon, 2 Jan 2023 12:00:00 -0500")).toBe("Etc/GMT+5");
-  expect(parseMailZone("Mon, 2 Jan 2023 12:00:00 +0000")).toBe("Etc/GMT");
-  expect(parseMailZone("Mon, 2 Jan 2023 12:00:00 -0000")).toBeUndefined();
-  expect(parseMailZone("Mon, 2 Jan 2023 12:00:00 +0530")).toBeUndefined();
-  expect(parseMailZone(undefined)).toBeUndefined();
+const line = (from: string, tz: string, source?: "mail" | "photos") =>
+  JSON.stringify({ from, schemaVersion: 1, source, tz });
+const unitLine = (day: string) =>
+  `${JSON.stringify({ date: day, end: `${day}T12:00:00Z`, hash: "a".repeat(16), id: "unit_aaaaaaaaaaaa", key: "test", people: [], refs: ["test"], schemaVersion: 1, source: "imessage", start: `${day}T12:00:00Z`, stats: { chars: 20, fromMe: 1, items: 1 }, title: "Example" })}\n`;
+
+test("an offset is a whole-hour zone, a quarter hour that defers, or noise that says nothing", () => {
+  expect(fixedZoneOf(420)).toBe("Etc/GMT-7");
+  expect(fixedZoneOf(-300)).toBe("Etc/GMT+5");
+  expect(fixedZoneOf(0)).toBe("Etc/GMT");
+  expect(fixedZoneOf(330)).toBeNull();
+  expect(fixedZoneOf(345)).toBeNull();
+  expect(fixedZoneOf(121)).toBeUndefined();
+  expect(fixedZoneOf(900)).toBeUndefined();
 });
 
-test("historical runs use nearest evidence for gaps, ties earlier, and defer conflicting/non-hour days", () => {
+test("sent mail: -0000 and a missing header defer the day, a noise offset says nothing; the day is the sender's", () => {
+  expect(
+    mailEvidenceOf([
+      sent("2023-01-02", "-0000"),
+      { at: "2023-01-03T09:00:00Z" },
+      sent("2023-01-04", "+0201"),
+      { at: "2023-01-01T19:00:00Z", date: "2 Jan 2023 00:30:00 +0530" },
+    ])
+  ).toEqual([
+    { day: "2023-01-02", zone: null },
+    { day: "2023-01-03", zone: null },
+    { day: "2023-01-02", zone: null },
+  ]);
+});
+
+test("runs use the nearest evidence for gaps, ties earlier, and defer conflicting and quarter-hour days", () => {
   const report = historicalZonesOf(
-    [
+    evidenceOf([
       sent("2023-01-02", "+0700"),
       sent("2023-01-06", "-0500"),
       sent("2023-01-07", "+0530"),
       sent("2023-01-08", "+0700"),
       sent("2023-01-08", "-0500"),
-    ],
+    ]),
     { from: "2023-01-01", to: "2023-01-09" }
   );
   expect(report.gaps).toEqual([
@@ -44,209 +76,245 @@ test("historical runs use nearest evidence for gaps, ties earlier, and defer con
   ]);
   expect(report.deferred).toEqual(["2023-01-07", "2023-01-08"]);
   expect(report.runs).toEqual([
-    { from: "2022-12-31T17:00:00.000Z", tz: "Etc/GMT-7" },
-    { from: "2023-01-05T05:00:00.000Z", tz: "Etc/GMT+5" },
+    { from: "2022-12-31T17:00:00.000Z", source: "mail", tz: "Etc/GMT-7" },
+    { from: "2023-01-05T05:00:00.000Z", source: "mail", tz: "Etc/GMT+5" },
   ]);
 });
 
-test("a non-hour offset near midnight defers its sent local day, not its received UTC day", () => {
+test("photos that agree beat mail and open runs of their own; photos that split fall back to mail", () => {
   const report = historicalZonesOf(
-    [
-      { at: "2023-01-01T19:00:00Z", date: "2 Jan 2023 00:30:00 +0530" },
-      sent("2023-01-01", "+0700"),
-    ],
-    { from: "2023-01-01", to: "2023-01-02" }
+    evidenceOf(
+      [
+        sent("2023-01-01", "+0700"),
+        sent("2023-01-02", "+0700"),
+        sent("2023-01-03", "+0700"),
+      ],
+      [
+        photo("2023-01-02", -300),
+        photo("2023-01-03", -300),
+        photo("2023-01-03", 420),
+      ]
+    ),
+    { from: "2023-01-01", to: "2023-01-03" }
+  );
+  expect(report.runs).toEqual([
+    { from: "2022-12-31T17:00:00.000Z", source: "mail", tz: "Etc/GMT-7" },
+    { from: "2023-01-02T05:00:00.000Z", source: "photos", tz: "Etc/GMT+5" },
+    { from: "2023-01-02T17:00:00.000Z", source: "mail", tz: "Etc/GMT-7" },
+  ]);
+  expect(report.deferred).toEqual([]);
+});
+
+test("a photo's quarter hour defers its day; a noise offset is ignored, so mail decides", () => {
+  const report = historicalZonesOf(
+    evidenceOf(
+      [
+        sent("2023-01-01", "+0700"),
+        sent("2023-01-02", "+0700"),
+        sent("2023-01-03", "+0700"),
+      ],
+      [photo("2023-01-02", 330), photo("2023-01-03", 121)]
+    ),
+    { from: "2023-01-01", to: "2023-01-03" }
   );
   expect(report.deferred).toEqual(["2023-01-02"]);
-});
-
-test("zone preparation retains gaps but appends no zones on or after existing coverage", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  let reads = 0;
-  try {
-    const result = await prepareHistoricalZones(
-      { from: "2026-01-01", to: "2026-01-03" },
-      () => {
-        reads += 1;
-        return [sent("2026-01-01", "+0700")];
-      }
-    );
-    expect(result.runs).toEqual([]);
-    expect(reads).toBe(1);
-    expect(readFileSync(ZONES, "utf8")).toBe(was);
-  } finally {
-    writeFileSync(ZONES, was);
-  }
-});
-
-test("past zone runs stop strictly before the first day containing units, including retries", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  const path = join(UNITS, "2018-01-02.jsonl");
-  mkdirSync(UNITS, { recursive: true });
-  writeFileSync(
-    path,
-    `${JSON.stringify({ date: "2018-01-02", end: "2018-01-02T12:00:00Z", hash: "a".repeat(16), id: "unit_aaaaaaaaaaaa", key: "test", people: [], refs: ["test"], schemaVersion: 1, source: "imessage", start: "2018-01-02T12:00:00Z", stats: { chars: 20, fromMe: 1, items: 1 }, title: "Example" })}\n`
-  );
-  try {
-    writeFileSync(
-      ZONES,
-      `${JSON.stringify({ from: "2018-01-02T05:00:00Z", schemaVersion: 1, tz: "Etc/GMT+5" })}\n`
-    );
-    const report = await prepareHistoricalZones(
-      { from: "2018-01-01", to: "2018-01-03" },
-      () => [sent("2018-01-01", "+0700"), sent("2018-01-02", "-0500")]
-    );
-    expect(report.runs).toEqual([
-      { from: "2017-12-31T17:00:00.000Z", tz: "Etc/GMT-7" },
-    ]);
-    const after = readFileSync(ZONES, "utf8");
-    await prepareHistoricalZones(
-      { from: "2018-01-01", to: "2018-01-03" },
-      () => [sent("2018-01-01", "+0700"), sent("2018-01-02", "-0500")]
-    );
-    expect(readFileSync(ZONES, "utf8")).toBe(after);
-  } finally {
-    rmSync(path);
-    writeFileSync(ZONES, was);
-  }
+  expect(report.runs).toHaveLength(1);
 });
 
 test("a date-line offset jump cannot publish decreasing run boundaries", () => {
   const report = historicalZonesOf(
-    [sent("2023-01-01", "-1200"), sent("2023-01-02", "+1400")],
+    evidenceOf([sent("2023-01-01", "-1200"), sent("2023-01-02", "+1400")]),
     { from: "2023-01-01", to: "2023-01-02" }
   );
   expect(report.deferred).toEqual(["2023-01-02"]);
   expect(report.runs).toHaveLength(1);
 });
 
-test("repeated preparation keeps conflicting and non-hour days deferred after runs were appended", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  const read = () => [
-    sent("2017-01-01", "+0700"),
-    sent("2017-01-02", "+0700"),
-    sent("2017-01-02", "-0500"),
-    sent("2017-01-03", "+0530"),
-  ];
-  try {
-    const window = { from: "2017-01-01", to: "2017-01-04" };
-    const first = await prepareHistoricalZones(window, read);
-    const next = await prepareHistoricalZones(window, read);
-    expect(next.deferred).toEqual(first.deferred);
-    expect(next.gaps).toEqual(first.gaps);
-    expect(next.runs).toEqual([]);
-    expect(next.deferred).toEqual(["2017-01-02", "2017-01-03"]);
-  } finally {
-    writeFileSync(ZONES, was);
-  }
+test("the last day of the era is deferred when it would end after the first recorded zone begins", () => {
+  const evidence = evidenceOf([sent("2023-01-01", "+0700")]);
+  const window = { from: "2023-01-01", to: "2023-01-02" };
+  expect(
+    historicalZonesOf(evidence, window, "2023-01-02T17:00:00.000Z").deferred
+  ).toEqual([]);
+  expect(
+    historicalZonesOf(evidence, window, "2023-01-02T16:00:00.000Z").deferred
+  ).toEqual(["2023-01-02"]);
 });
 
-test("mail never defers a day a recorded zone covers, and the mail era stays put after a run was appended", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  const read = () => [
-    sent("2019-01-06", "+0700"),
-    sent("2019-01-08", "+0700"),
-    sent("2019-01-08", "-0500"),
-    sent("2019-01-12", "+0700"),
-    sent("2019-01-12", "-0500"),
+test("supersedes by appending at each change, a later line at the same `from` wins, and a second pass appends nothing", () => {
+  const stored = [
+    {
+      from: Date.parse("2023-01-01T00:00:00Z"),
+      source: "mail" as const,
+      tz: "Etc/GMT",
+    },
+    {
+      from: Date.parse("2023-01-03T00:00:00Z"),
+      source: "mail" as const,
+      tz: "Etc/GMT-1",
+    },
   ];
+  const derived = [
+    {
+      from: "2022-12-31T17:00:00.000Z",
+      source: "photos" as const,
+      tz: "Etc/GMT-7",
+    },
+    {
+      from: "2023-01-03T00:00:00.000Z",
+      source: "mail" as const,
+      tz: "Etc/GMT-1",
+    },
+    {
+      from: "2023-01-04T00:00:00.000Z",
+      source: "mail" as const,
+      tz: "Etc/GMT-2",
+    },
+  ];
+  const lines = supersedingRuns(stored, derived, new Set());
+  expect(lines).toEqual([
+    { from: "2022-12-31T17:00:00.000Z", source: "photos", tz: "Etc/GMT-7" },
+    { from: "2023-01-01T00:00:00.000Z", source: "photos", tz: "Etc/GMT-7" },
+    { from: "2023-01-04T00:00:00.000Z", source: "mail", tz: "Etc/GMT-2" },
+  ]);
+  const next = [
+    ...stored,
+    ...lines.map((l) => ({ ...l, from: Date.parse(l.from) })),
+  ].toSorted((a, b) => a.from - b.from);
+  expect(supersedingRuns(next, derived, new Set())).toEqual([]);
+  expect(
+    supersedingRuns(
+      stored,
+      derived,
+      new Set(),
+      Date.parse("2022-12-31T18:00:00Z")
+    )
+  ).toHaveLength(1);
+});
+
+test("a pinned day keeps its stored zone", () => {
+  const stored = [
+    {
+      from: Date.parse("2023-01-01T00:00:00Z"),
+      source: "mail" as const,
+      tz: "Etc/GMT",
+    },
+  ];
+  const derived = [
+    {
+      from: "2023-01-01T00:00:00.000Z",
+      source: "mail" as const,
+      tz: "Etc/GMT-1",
+    },
+  ];
+  const lines = supersedingRuns(stored, derived, new Set(["2023-01-02"]));
+  expect(lines.map((l) => [l.from, l.tz])).toEqual([
+    ["2023-01-01T00:00:00.000Z", "Etc/GMT-1"],
+    ["2023-01-02T00:00:00.000Z", "Etc/GMT"],
+    ["2023-01-03T00:00:00.000Z", "Etc/GMT-1"],
+  ]);
+});
+
+test("the pinned days: those a record cites, those from the first episode, and deferred ones holding units, each with one neighbour", async () => {
+  const cited = join(MEMORY, "cited-test.jsonl");
+  const episode = join(EPISODES, "2018-01-20.jsonl");
+  mkdirSync(UNITS, { recursive: true });
+  mkdirSync(EPISODES, { recursive: true });
+  writeFileSync(join(UNITS, "2018-01-02.jsonl"), unitLine("2018-01-02"));
+  writeFileSync(join(UNITS, "2018-01-10.jsonl"), unitLine("2018-01-10"));
+  writeFileSync(
+    join(UNITS, "2018-01-12.jsonl"),
+    `${unitLine("2018-01-12")}`.replace(
+      "unit_aaaaaaaaaaaa",
+      "unit_bbbbbbbbbbbb"
+    )
+  );
+  writeFileSync(cited, '{"unit":"unit_bbbbbbbbbbbb"}\n');
+  writeFileSync(episode, "");
   try {
-    writeFileSync(
-      ZONES,
-      `${JSON.stringify({ from: "2019-01-10T00:00:00Z", schemaVersion: 1, tz: "Etc/GMT" })}\n`
-    );
-    const window = { from: "2019-01-06", to: "2019-01-12" };
-    const first = await prepareHistoricalZones(window, read);
-    expect(first.deferred).toEqual(["2019-01-08"]);
-    expect(first.gaps).toEqual(["2019-01-07", "2019-01-09"]);
-    expect(first.runs).toEqual([
-      { from: "2019-01-05T17:00:00.000Z", tz: "Etc/GMT-7" },
+    const pinned = await pinnedDays({ from: "2018-01-01", to: "2018-01-22" }, [
+      "2018-01-10",
+      "2018-01-05",
     ]);
-    const after = readFileSync(ZONES, "utf8");
-    const next = await prepareHistoricalZones(window, read);
-    expect(next.deferred).toEqual(first.deferred);
-    expect(next.runs).toEqual([]);
-    expect(readFileSync(ZONES, "utf8")).toBe(after);
+    expect([...pinned].sort()).toEqual([
+      "2018-01-09",
+      "2018-01-10",
+      "2018-01-11",
+      "2018-01-12",
+      "2018-01-13",
+      ...["19", "20", "21", "22", "23"].map((d) => `2018-01-${d}`),
+    ]);
   } finally {
-    writeFileSync(ZONES, was);
+    for (const f of [
+      cited,
+      episode,
+      join(UNITS, "2018-01-02.jsonl"),
+      join(UNITS, "2018-01-10.jsonl"),
+      join(UNITS, "2018-01-12.jsonl"),
+    ]) {
+      rmSync(f);
+    }
   }
 });
 
-test("a window entirely after the mail era has no deferrals, gaps or runs", async () => {
-  const report = await prepareHistoricalZones(
-    { from: "2020-01-01", to: "2020-01-02" },
-    () => [sent("2020-01-01", "+0530"), sent("2020-01-02", "+0700")]
-  );
-  expect(report.deferred).toEqual([]);
-  expect(report.gaps).toEqual([]);
-  expect(report.runs).toEqual([]);
-});
-
-test("prepending a zone never extends a new offset into already stored units", async () => {
+test("zones follow the derivation over the whole era only: a narrower window appends nothing, and a pass twice changes nothing", async () => {
   const was = readFileSync(ZONES, "utf8");
-  const path = join(UNITS, "2018-01-02.jsonl");
-  mkdirSync(UNITS, { recursive: true });
-  writeFileSync(
-    path,
-    `${JSON.stringify({ date: "2018-01-02", end: "2018-01-02T12:00:00Z", hash: "a".repeat(16), id: "unit_aaaaaaaaaaaa", key: "test", people: [], refs: ["test"], schemaVersion: 1, source: "imessage", start: "2018-01-02T12:00:00Z", stats: { chars: 20, fromMe: 1, items: 1 }, title: "Example" })}\n`
-  );
-  try {
-    const before = zoneAt("2018-01-02T12:00:00Z");
-    const report = await prepareHistoricalZones(
-      { from: "2018-01-01", to: "2018-01-01" },
-      () => [sent("2018-01-01", "+0700")]
+  const evidence = () =>
+    evidenceOf(
+      [sent("2018-01-01", "+0700"), sent("2018-01-10", "+0700")],
+      [photo("2018-01-05", -300)]
     );
-    expect(report.runs).toEqual([]);
-    expect(report.reasons).toHaveLength(1);
-    expect(zoneAt("2018-01-02T12:00:00Z")).toBe(before);
-    expect(readFileSync(ZONES, "utf8")).toBe(was);
-  } finally {
-    rmSync(path);
-    writeFileSync(ZONES, was);
-  }
-});
-
-test("read-only historical uncertainty survives an earlier zone append without writing anything", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  const read = () => [sent("2017-01-01", "+0700"), sent("2017-01-02", "+0530")];
-  try {
-    const window = { from: "2017-01-01", to: "2017-01-03" };
-    await prepareHistoricalZones(window, read);
-    const after = readFileSync(ZONES, "utf8");
-    const report = await readHistoricalZones(window, read);
-    expect(report.deferred).toEqual(["2017-01-02"]);
-    expect(report.gaps).toEqual(["2017-01-03"]);
-    expect(readFileSync(ZONES, "utf8")).toBe(after);
-  } finally {
-    writeFileSync(ZONES, was);
-  }
-});
-
-test("a midday initial zone protects stored units earlier on that same day", async () => {
-  const was = readFileSync(ZONES, "utf8");
-  const path = join(UNITS, "2018-01-02.jsonl");
-  mkdirSync(UNITS, { recursive: true });
-  const instant = "2018-01-02T00:30:00Z";
-  writeFileSync(
-    path,
-    `${JSON.stringify({ date: "2018-01-02", end: instant, hash: "a".repeat(16), id: "unit_aaaaaaaaaaaa", key: "test", people: [], refs: ["test"], schemaVersion: 1, source: "imessage", start: instant, stats: { chars: 20, fromMe: 1, items: 1 }, title: "Example" })}\n`
-  );
+  const whole = { from: "2018-01-01", to: "2018-01-31" };
   try {
     writeFileSync(
       ZONES,
-      `${JSON.stringify({ from: "2018-01-02T12:00:00Z", schemaVersion: 1, tz: "Etc/GMT" })}\n`
+      `${line("2018-01-01T00:00:00Z", "Etc/GMT", "mail")}\n${line("2018-02-01T00:00:00Z", "Etc/GMT")}\n`
     );
     const initial = readFileSync(ZONES, "utf8");
-    const report = await prepareHistoricalZones(
-      { from: "2018-01-01", to: "2018-01-01" },
-      () => [sent("2018-01-01", "-0500")]
+    await prepareHistoricalZones(
+      { from: "2018-01-03", to: "2018-01-20" },
+      evidence
     );
-    expect(report.runs).toEqual([]);
-    expect(report.reasons).toHaveLength(1);
-    expect(zoneAt(instant)).toBe("Etc/GMT");
     expect(readFileSync(ZONES, "utf8")).toBe(initial);
+    await prepareHistoricalZones(whole, evidence);
+    expect(zones().filter((z) => z.source === "photos").length).toBeGreaterThan(
+      0
+    );
+    expect(zoneAt("2018-01-02T12:00:00Z")).toBe("Etc/GMT-7");
+    expect(zoneAt("2018-01-06T12:00:00Z")).toBe("Etc/GMT+5");
+    expect(zoneAt("2018-01-20T12:00:00Z")).toBe("Etc/GMT-7");
+    expect(zoneAt("2018-02-01T12:00:00Z")).toBe("Etc/GMT");
+    const after = readFileSync(ZONES, "utf8");
+    await prepareHistoricalZones(whole, evidence);
+    expect(readFileSync(ZONES, "utf8")).toBe(after);
   } finally {
-    rmSync(path);
+    writeFileSync(ZONES, was);
+  }
+});
+
+test("a day a record cites keeps its zone, and so its units", async () => {
+  const was = readFileSync(ZONES, "utf8");
+  const cited = join(MEMORY, "cited-test.jsonl");
+  mkdirSync(UNITS, { recursive: true });
+  writeFileSync(join(UNITS, "2018-01-06.jsonl"), unitLine("2018-01-06"));
+  writeFileSync(cited, '{"unit":"unit_aaaaaaaaaaaa"}\n');
+  try {
+    writeFileSync(
+      ZONES,
+      `${line("2018-01-01T00:00:00Z", "Etc/GMT", "mail")}\n${line("2018-02-01T00:00:00Z", "Etc/GMT")}\n`
+    );
+    await prepareHistoricalZones({ from: "2018-01-01", to: "2018-01-31" }, () =>
+      evidenceOf(
+        [sent("2018-01-01", "+0700")],
+        [photo("2018-01-02", -300), photo("2018-01-20", -300)]
+      )
+    );
+    expect(zoneAt("2018-01-03T12:00:00Z")).toBe("Etc/GMT+5");
+    expect(zoneAt("2018-01-06T12:00:00Z")).toBe("Etc/GMT");
+    expect(zoneAt("2018-01-15T12:00:00Z")).toBe("Etc/GMT+5");
+  } finally {
+    rmSync(cited);
+    rmSync(join(UNITS, "2018-01-06.jsonl"));
     writeFileSync(ZONES, was);
   }
 });

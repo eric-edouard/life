@@ -131,11 +131,18 @@ the same days, including empty ones. Completion explicitly rebuilds the index. N
 inferred person, extraction marker or processed state is written, so pages, ratings, appointments, open items and the
 nightly new-fact count do not change.
 
-Before earlier units are created, raw Date headers from the owner's sent mail supply whole-hour offsets as
-`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day and his first zone record; mail sets, defers or gaps only the days before the mail era ends (the first zone record not derived from mail), so a day his recorded zones cover is never deferred by mail.
-A day with no sent mail takes the nearest valid run (ties earlier) and is reported as a gap. Conflicting or non-hour
-offsets defer their days without rounding or guessing cities. Later model backfill re-derives gap evidence from the
-same headers and treats those days as uncertain; it never silently moves stored unit dates or ids.
+Before earlier units are created, each day's zone is derived from its own evidence as `Etc/GMT±N`, with IANA's reversed
+sign, read for the sources that are on and readable (`historicalZonesOf`). Photos that agree on one offset decide the day
+(`source: "photos"`; only photos that place him: his own devices' or with coordinates, not a Mac's import). Photos that
+split fall back to mail, since the phone recorded a move. Else sent mail's Date headers agree on one offset (`source: "mail"`);
+mail that conflicts, has no usable header or a quarter hour (+5:30) defers the day, and so does a quarter-hour photo. A
+noise offset (+2:01) is ignored. A day with no evidence takes the nearest day that has some (ties earlier) and is
+reported as a gap. Only the days before the derived era ends (the first zone record without `source`) are set, so a day his
+recorded zones cover is never deferred, and the era's last day is deferred when it would end after that record begins.
+Stored zones are corrected only by appended lines (`supersedingRuns`), and only when the window covers the whole derived
+era; a narrower one reads and writes nothing. A day a record cites by a unit id, a day on or after the first episode
+and a deferred day that holds units keep their stored zone, with one neighbour each side, so no stored unit moves. Later
+model backfill re-derives gap evidence and treats those days as uncertain.
 
 Search passages live in their own derived SQLite store, outside `index.sqlite`. Each belongs to the first message's
 unit and is identified by source plus first-message id. Reconciliation follows complete grouping runs across adjacent

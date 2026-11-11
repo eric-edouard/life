@@ -1,19 +1,15 @@
 import { daysBefore } from "../core/clock";
+import {
+  prepareHistoricalZones,
+  readHistoricalZones,
+} from "./historical-zones";
 import { reindex } from "./index-writer";
 import { preparePassages } from "./passages";
 import { readySources } from "./sources";
 import { publishUnits, unitDays } from "./unit-writer";
 import { DAYS, gather } from "./units";
 import { readPeople } from "./who";
-import {
-  dayNow,
-  isDay,
-  localDate,
-  prepareHistoricalZones,
-  readHistoricalZones,
-  type Window,
-  wall,
-} from "./zones";
+import { dayNow, isDay, localDate, type Window, wall } from "./zones";
 
 /** A requested historical range ends before the nightly's seven local days. */
 export function historyWindow(from: string, to = daysBefore(dayNow(), DAYS)) {
@@ -97,10 +93,7 @@ export async function collectHistory(
           failed: evidence.failed.length,
           gaps: zones.gaps,
           months: coverage.length,
-          reasons: [
-            ...zones.reasons,
-            `sources failed: ${evidence.failed.join(", ")}`,
-          ],
+          reasons: [`sources failed: ${evidence.failed.join(", ")}`],
           sources: evidence.failed,
           units,
         };
@@ -116,44 +109,39 @@ export async function collectHistory(
           ranges.push({ from: day, to: day });
         }
       }
-      const publications = await Promise.all(
-        ranges.map(async (range) => {
-          const collected = {
-            ...evidence,
-            built: evidence.built.filter(
-              (b) => b.unit.date >= range.from && b.unit.date <= range.to
-            ),
-            events: evidence.events.filter((e) => {
-              const date = localDate(e.at);
-              return date >= range.from && date <= range.to;
-            }),
-            window: range,
-          };
-          const prepared = preparePassages(
-            collected.events,
-            range,
-            collected.skipped,
-            undefined,
-            undefined,
-            deferred
-          );
-          const expanded =
-            prepared.window.from < window.from || prepared.window.to > window.to
-              ? await readZones(prepared.window)
-              : zones;
-          if (expanded !== zones) {
-            zones.deferred = [
-              ...new Set([...zones.deferred, ...expanded.deferred]),
-            ].sort();
-            zones.gaps = [...new Set([...zones.gaps, ...expanded.gaps])].sort();
-            zones.reasons = [
-              ...new Set([...zones.reasons, ...expanded.reasons]),
-            ];
-          }
-          const excluded = new Set([...deferred, ...expanded.deferred]);
-          return { collected, passages: () => prepared(excluded) };
-        })
-      );
+      const publications = ranges.map((range) => {
+        const collected = {
+          ...evidence,
+          built: evidence.built.filter(
+            (b) => b.unit.date >= range.from && b.unit.date <= range.to
+          ),
+          events: evidence.events.filter((e) => {
+            const date = localDate(e.at);
+            return date >= range.from && date <= range.to;
+          }),
+          window: range,
+        };
+        const prepared = preparePassages(
+          collected.events,
+          range,
+          collected.skipped,
+          undefined,
+          undefined,
+          deferred
+        );
+        const expanded =
+          prepared.window.from < window.from || prepared.window.to > window.to
+            ? readZones(prepared.window)
+            : zones;
+        if (expanded !== zones) {
+          zones.deferred = [
+            ...new Set([...zones.deferred, ...expanded.deferred]),
+          ].sort();
+          zones.gaps = [...new Set([...zones.gaps, ...expanded.gaps])].sort();
+        }
+        const excluded = new Set([...deferred, ...expanded.deferred]);
+        return { collected, passages: () => prepared(excluded) };
+      });
       for (const { collected, passages } of publications) {
         // biome-ignore lint/performance/noAwaitInLoops: all source reads succeeded before this month's first publication
         await publishUnits(collected, passages);
@@ -177,7 +165,7 @@ export async function collectHistory(
     failed: 0,
     gaps: zones.gaps,
     months: coverage.length,
-    reasons: zones.reasons,
+    reasons: [],
     units,
   };
 }

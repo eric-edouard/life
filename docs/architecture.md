@@ -140,7 +140,7 @@ A question like "what is my arc with this friend?" needs more than recent logist
   map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
   (`namedIn`), earlier facts' or episodes' refs (`involvedOf`). So a call stays small as the map grows by hundreds a
   year, and nothing is forgotten: replies are checked and names resolved against the whole map.
-- **Historical collection:** `bun life memory units` collects bounded owner-local months without models, voice writes or file descriptions, ending before the nightly window. Historical zones use sent-mail Date offsets; gap rules are in [operations](operations.md#historical-collection). Imports and model backfills require the optional `backfillEngine`; scheduled model backfill is paused until prompts are frozen. The night keeps the ordinary engine.
+- **Historical collection:** `bun life memory units` collects bounded owner-local months without models, voice writes or file descriptions, ending before the nightly window. Historical zones use the offsets of photos that place him and of sent mail; gap rules are in [operations](operations.md#historical-collection). Imports and model backfills require the optional `backfillEngine`; scheduled model backfill is paused until prompts are frozen. The night keeps the ordinary engine.
 
 **Phone calls** are events of their chat, including call-only chats, never a second record: a call reads as a line of its chat-day ("(audio call
 10:02–10:40, 38 min)"), and a voice lifelog heard over a phone, or nearby but not with him, reads with that prefix
