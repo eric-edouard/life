@@ -39,7 +39,8 @@ backfill over his history) waits.
 
 Taken into the path: naming unknown voices from the day's context goes into the per-exchange read (a model-owned
 layer, never lifelog), once the naming session's numbers are in. To check when Photos merges: its read cost in the
-watcher's 5-minute sync of today.
+watcher's 5-minute sync of today. Once Photos is on: a new baseline of the question cases, and a few cases only
+photos can answer (an old trip, who was there), from his own words.
 
 
 Draft of 10 Nov 2026, at his ask: reach the whole [spec](../spec.md) iteratively, never break the working state,
@@ -149,8 +150,8 @@ one-sided, how they batch). The map branch is merged with `main`, so the spec no
 |---|---|---|---|
 | 0.1 | The exchange: a function cutting a chat's messages into sittings. Nothing stored | Tests on made-up chats | None alone; everything after uses it |
 | 0.2 | Sources carry reactions, reply links and deletions (one source per PR). Kept out of the unit's hash | Tests per source | Models reading a day see a heart as an answer |
-| 0.3 | Measures per exchange (who started, delays, shares, last word, unanswered) | Same numbers as today's pair counts on the same chats | Deletes the persona's own counting code |
-| 0.4 | Coverage per source and day, from today's source health | A known outage shows as "not seen" | `read_day` and the pages stop calling a dead week quiet |
+| 0.3 | Measures per exchange (who started, delays, shares, last word, unanswered); per day, sleep, workouts and who was pictured with him once those sources are on (spec 4) | Same numbers as today's pair counts on the same chats | Deletes the persona's own counting code |
+| 0.4 | Coverage per source and day, from today's source health; a source that records only when he acts (photos, workouts) covers nothing (spec 4) | A known outage shows as "not seen" | `read_day` and the pages stop calling a dead week quiet |
 | 0.5 | The hour rule: hours per project and person per week | One checked week | A first true line of "time against goals" on his page |
 
 ### Stage 1. Links (the practical failures first)
@@ -171,7 +172,7 @@ where an answer failed (spec 1).
 
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
-| 2.1 | A month's summary for a subject, built when asked, shadow | Against the raw read whole for one person and one month | None yet |
+| 2.1 | A month's summary for a subject, built when asked, shadow; an old month reads its photo-days too (spec 11) | Against the raw read whole for one person and one month | None yet |
 | 2.2 | The situation reads summary plus what came since, in place of the page plus 30 days | Today's situations side by side | The 30-day window goes |
 | 2.3 | Situations for parts of his life | A project he knows well | New: where each area stands |
 | 2.4 | Year and story; the persona's gist written with the story | His arc questions | Arcs have an answer for the first time |
@@ -199,7 +200,7 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 | Step | What ships | Value / deletes |
 |---|---|---|
 | 5.1 | The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
-| 5.2 | The person read gains its counts beside today's prose persona, same name and arguments | First meters an agent can use as data |
+| 5.2 | The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
 | 5.3 | Patterns and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
 | 5.5 | The persona's traits and patterns come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |

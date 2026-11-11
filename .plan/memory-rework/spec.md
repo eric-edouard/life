@@ -72,8 +72,14 @@ forecasts. Each part works without the ones after it.
   guess, marked as a guess, made with the people in his life then given as context. Who a handle or a voice is, is
   worked out when read: merging two people, or naming a voice, relabels the focused reads' records with no re-read,
   since they are kept under the words and the voices, not the names. A voice still unnamed has its moves recorded.
+  A third surface, from Photos: who Apple's People names in a picture, with the Contacts card Apple links. It is
+  Apple's guess, worked out when read like a handle, corrected by his word; it is never a speaker.
   Today's day and claims reads keep today's rule: a voice named late re-reads its days. That cost is counted.
-- His chats with an assistant are not exchanges: his own writing. A passage where he reacts to Life's own reading
+- What his devices recorded is not an exchange either: a photo-day, a night's sleep, a workout, a day of commits or
+  of Screen Time (today's "activity" units). No focused read runs on them: they say where he was, with whom and
+  doing what, and they are read as evidence by the day's read near now and by the month's summary in old years.
+- His chats with an assistant are not exchanges: his own writing. The assistant's replies never enter the memory
+  (his answer, 11 Nov 2026). A passage where he reacts to Life's own reading
   of someone is his word about that reading, never fresh evidence about the person.
 - Not read: his coding sessions (work chatter), mail threads he never wrote in, except what Mail marks as
   transactions, as today.
@@ -91,7 +97,7 @@ is a reading, stored as a guess as today and corrected by his word.
 | What was done | A move between people in an exchange (section 5) | missing |
 | What was told about someone | A mention: who is meant, who tells it, who listens | missing |
 | What someone says of themselves | A feeling, an intention, a want, a belief, in their words | partly |
-| What code measured | Per exchange: who started, delays, shares, last word, left unanswered, reactions, deletions, call length. Per day: hours, money paid, places | scattered |
+| What code measured | Per exchange: who started, delays, shares, last word, left unanswered, reactions, deletions, call length. Per day: hours, money paid, places (his phone's, and his photos' before it), sleep and workouts, who was pictured with him | scattered |
 | What was covered | Per source and day: was it captured or not | missing |
 | His word | What he tells Life (section 8) | corrections, labels, told, ratings |
 
@@ -105,11 +111,13 @@ Rules:
   days a source was not covered.
 - Which reads run at which age: moves, mentions, self-reports, lasting claims and promises with their endings, both
   ways (his and theirs to him), at every age. To-dos and appointments only near now.
-- **The hour rule**: an episode owns its hours; commits, Screen Time and voice minutes fill only what no episode
-  covers. An app, a site or a repo maps to a project through Life's list; what maps to nothing is shown as
+- **The hour rule**: an episode owns its hours; a night's sleep and a workout own theirs (measured spans);
+  commits, Screen Time and voice minutes fill only what no episode covers. An app, a site or a repo maps to a project through Life's list; what maps to nothing is shown as
   unassigned.
 - **Coverage** is read by every count, every summary and every forecast: a week with no capture is "not seen",
-  never "quiet".
+  never "quiet". Only a source that captures on its own covers a day (a chat archive, mail, the pendant, the phone's
+  places). One that records only when he acts (photos, workouts) covers nothing: a day without a photo is neither
+  "not seen" nor "nothing happened", and no trend is drawn from how often he takes pictures.
 
 ## 5. The reads of an exchange
 
@@ -326,7 +334,10 @@ lets things be (the same code as taking the lead, shown once). Impulsivity: one 
 
 **Also counted**: the track record of promises, each way. Wants and offers in four directions, by resource, shown as
 asked, given, said. His hours and money per project, area and person against his declared goals (the hour rule).
-How he says he feels over time, by person and by activity. His routines. His health lines, which never age out. His view of each person set side by side,
+How he says he feels over time, by person and by activity. His routines, with his measured sleep and workouts beside what he says of them. His health lines, which never age out.
+**Time together**, by person and month: days recorded together (the pendant) and days pictured together (Photos),
+counted by code and shown apart from contact by message. Before the chats begin it is the only evidence of a tie,
+and it is shown as that: pictured together, never "close". His view of each person set side by side,
 so "the one he is hardest on" has an answer. Ties between other people.
 
 **Closeness** is depth: what is confided each way, support exchanged, the personal against the practical; personal
@@ -355,8 +366,9 @@ above the evidence that looks at raw words.
   someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
   dormant (none for 45 covered days); drifting (falling against its own usual).
 - **Old years have no episodes** (section 16), so there matters and his own month are read from the evidence
-  itself: the claims, mentions and self-reports of the month, grouped by the same small step that groups episodes
-  near now.
+  itself: the claims, mentions and self-reports of the month, and its photo-days (places, who was pictured, his
+  captions: for most days before 2011 the only record), grouped by the same small step that groups episodes
+  near now. A person's old month takes the days they were pictured with him the same way.
 - A summary is kept under everything it read: its evidence, the prompt, his word on it. When one of those changes,
   it is rebuilt at the next build and the old version stays in the data repo's history. After an import, each
   touched summary is rebuilt once, from the bottom up.
@@ -529,8 +541,12 @@ everything stands on. No model layer has read them, and none should yet.
 - **No model reads the old years before the wording is frozen** on the pilot: not today's day and claims reads
   either, since the pilot may still change what the claims read keeps for old years (lasting claims, no to-dos).
   His rule: old data is read once.
-- **Before it starts**: the imports are in; each source's first day is known, so earlier days are "not seen"; the
-  unnamed voices are named as far as they will be; the cost is counted on his data and shown to him.
+- **Before it starts**: the imports are in, Photos on (about 2,940 photo-days, 2003 to 2026); each source's first
+  day is known, so earlier days are "not seen"; the voice model switch has run (his answer, 11 Nov: MECT-B2 before
+  the rebuild) and the unnamed voices are named as far as they will be; the cost is counted on his data and shown
+  to him.
+- **A photo-day's hash moves** when he names someone in Photos or adds a picture to a day, so the summaries that
+  read it are rebuilt, each once at the next build (section 11's rule); a naming spree in Photos is priced by that.
 - **The pilot's last round is the first slice** of the history: those reads are kept, not paid again.
 - **Units are unchanged** (his question, 10 Nov): nothing in this rework moves a unit's shape, id or day, so the
   imported years stand as they are and are never built again.
@@ -700,3 +716,16 @@ of the spec: the experiments decide.
 
 No third review: his rule is one confirming review, then stop. Both reviews are in his data repo,
 `docs/memory-rework/experiments/`.
+
+## 21. What the new sources changed (11 Nov 2026)
+
+The data session's sources checked against this spec, at his ask: Apple Health (workouts and sleep, recent, off
+until the phone build), Photos (a photo-day per local day since 2003, off until his yes), newer assistant exports.
+Nothing in the shape moves: they are evidence of what his devices recorded, beside the talk the reads are built
+for. Taken, each as a line above: activity is never an exchange and gets no focused read (section 3); who is
+pictured is a third surface, Apple's guess (section 3); sleep, workouts, photo places and who was pictured are code's
+measures (section 4), and sleep and workouts own their hours; a source that records only when he acts covers no day
+(section 4); time together by person and month, shown apart from contact (section 10); old months read their
+photo-days (section 11); the rebuild waits for Photos and the voice model switch, and a moved photo-day rebuilds
+its summaries once (section 16). The assistant's replies stay out (his answer). To verify when the data session's
+inventory arrives: whether its imports carry days with an uncertain time zone, and exports that overlap the archive.
