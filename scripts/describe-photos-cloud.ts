@@ -126,6 +126,6 @@ async function* lines(stream: ReadableStream<Uint8Array>) {
 if (import.meta.main) {
   const limit = Number(Bun.argv[2]) || Number.POSITIVE_INFINITY;
   console.log(
-    `described ${await describeInCloud(waitingPhotos(limit, LIBRARY, DESCRIPTIONS))}`
+    `described ${await describeInCloud(waitingPhotos(limit, new Date(0), LIBRARY, DESCRIPTIONS))}`
   );
 }

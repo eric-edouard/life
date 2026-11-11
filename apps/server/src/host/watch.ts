@@ -108,16 +108,13 @@ let describing = false;
 const DESCRIBE_EVERY = 10 * MIN;
 /** On its own timer, one pass at a time, beside the loop and apart from the memory lock: the model runs for minutes (`describePhotos`). */
 async function describeNew() {
-  if (
-    describing ||
-    !settings().describePhotos ||
-    !readySources().some((s) => s.kind === "photos")
-  ) {
+  const from = settings().describePhotos?.from;
+  if (describing || !from || !readySources().some((s) => s.kind === "photos")) {
     return;
   }
   describing = true;
   try {
-    await describePhotos();
+    await describePhotos(from);
   } finally {
     describing = false;
   }

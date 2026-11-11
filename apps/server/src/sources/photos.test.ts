@@ -298,16 +298,21 @@ test("photos waiting for a description: newest first, not videos, the image Phot
   keep(dir, "resources", "derivatives", "C", "CC3_1_102_o.jpeg");
   const original = keep(dir, "originals", "A", "AA1.heic");
   const descriptions = join(dirname(dir), "descriptions.sqlite");
-  expect(waitingPhotos(10, dir, descriptions)).toEqual([
+  expect(waitingPhotos(10, new Date(0), dir, descriptions)).toEqual([
     { uuid: "DD4" },
     { preview: small, uuid: "CC3" },
     { preview, uuid: "BB2" },
     { original, uuid: "AA1" },
   ]);
-  expect(waitingPhotos(2, dir, descriptions).map((w) => w.uuid)).toEqual([
-    "DD4",
-    "CC3",
-  ]);
+  expect(
+    waitingPhotos(2, new Date(0), dir, descriptions).map((w) => w.uuid)
+  ).toEqual(["DD4", "CC3"]);
+  // Only photos taken from `since` on: the describer starts on a day he chose, older photos wait for a backfill.
+  expect(
+    waitingPhotos(10, new Date("2026-10-03T00:00:00Z"), dir, descriptions).map(
+      (w) => w.uuid
+    )
+  ).toEqual(["DD4", "CC3"]);
   writeDescriptions(
     [
       { model: "m", outcome: "described", text: "A beach.", uuid: "DD4" },
@@ -315,10 +320,9 @@ test("photos waiting for a description: newest first, not videos, the image Phot
     ],
     descriptions
   );
-  expect(waitingPhotos(10, dir, descriptions).map((w) => w.uuid)).toEqual([
-    "BB2",
-    "AA1",
-  ]);
+  expect(
+    waitingPhotos(10, new Date(0), dir, descriptions).map((w) => w.uuid)
+  ).toEqual(["BB2", "AA1"]);
 });
 
 test("the Photos card says how many photos are described, how many have no image, and the last failure", () => {
