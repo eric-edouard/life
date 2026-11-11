@@ -242,7 +242,8 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
-   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   * install, checked before and counted after), or his claude.ai or ChatGPT export (a newer one lands beside the older;
+   * `--dry` only counts).
    */
   async import() {
     const { positionals, values } = parseArgs({
@@ -281,9 +282,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return step(async () => {
       const result = await importExport(dir);
-      if (result.failed > 0 || result.unjudged > 0) {
-        return result;
-      }
+      // Each run collects the days it touched, even when a call failed: the next run only asks what is left.
       const cutoff = daysBefore(dayNow(), DAYS);
       if (result.units?.from && daysBefore(result.units.from, 1) <= cutoff) {
         // UTC days padded on each side include every local day before historical zones are installed.
@@ -291,7 +290,11 @@ const commands: Record<string, () => number | Promise<number>> = {
           from: daysBefore(result.units.from, 1),
           to: [daysBefore(result.units.to ?? cutoff, -1), cutoff].sort()[0],
         });
-        return { ...result, collection, failed: collection.failed };
+        return {
+          ...result,
+          collection,
+          failed: result.failed + collection.failed,
+        };
       }
       await reindex();
       return result;

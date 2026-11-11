@@ -304,6 +304,8 @@ export const Imported = z
   .object({
     at: isoDateTime,
     conversation: z.string().min(1),
+    /** A hash of what the model read of the conversation (its title and the start of his messages); lines from before have none. */
+    hash: z.string().optional(),
     keep: z.boolean(),
     madeBy: MadeBy,
     schemaVersion: z.literal(1),

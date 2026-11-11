@@ -54,7 +54,7 @@ export type Descriptor = {
   incoming?: (from?: number) => { end: number; rows: NewRow[] };
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
-  /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
+  /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
   /**
    * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
