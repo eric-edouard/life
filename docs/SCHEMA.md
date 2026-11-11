@@ -226,6 +226,15 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 Historical: Life's old fact checks and what he answered on its decisions page, and his loops' decisions. Nothing reads or
 writes it any more; it stays on disk.
 
+## links.jsonl
+
+The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
+`subject` (`person:<id>`), `open` (the ids of the open things shown: promises, waits and his to-dos with that
+person), `offered` (the ids of the later observations about them judged against those), `links` (each `earlier`,
+`later`, `relation` `ends`, and `quote`, words found in the later observation's own quote), `at`, `madeBy`,
+`schemaVersion`. A pair in a line is never judged again. A link deletes nothing: what it ends is worked out when read
+(`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
+
 ## publications.jsonl
 
 What each publication of units read (`publishUnits`: a night's 7 days, a historical month), one line each,

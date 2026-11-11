@@ -31,6 +31,7 @@ export const SPENDING = [
   "memory.situation",
   "memory.persona",
   "memory.history",
+  "memory.links",
   "memory.import",
   "memory.pilot",
   "eval",

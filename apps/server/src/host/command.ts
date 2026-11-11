@@ -11,6 +11,7 @@ import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
+import { links, readEndings, readLinkWork } from "../memory/links";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -27,7 +28,7 @@ import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { drawDoubtful } from "../memory/statements";
 import { DAYS, gather } from "../memory/units";
-import { readPeople } from "../memory/who";
+import { meant, readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import { dayNow, firstZoneDay, isDay, lastDays } from "../memory/zones";
 import { Rating } from "../records/statement";
@@ -204,6 +205,31 @@ const HANDLERS: Record<string, Handler> = {
     await reindex();
     return 0;
   },
+  /**
+   * `links [<person>] [--force]`: what the links step would judge (people, open things, calls, a token ceiling), with
+   * no model; with a person, their open things and the ending found for each; `--force` judges, as the night does
+   * once his `links` setting is on.
+   */
+  async links(values, rest) {
+    const people = await readPeople();
+    const name = words(rest);
+    if (name) {
+      const { known } = meant(name, people);
+      const lines = known
+        ? await readEndings(people, `person:${known}`)
+        : [`no one is ${name}`];
+      return printed(lines.join("\n") || "(nothing open with them)");
+    }
+    return step(async () => {
+      const pending = await readLinkWork(people);
+      if (!pending) {
+        return { failed: 1 };
+      }
+      return values.force
+        ? links(pending, people)
+        : { ...pending.counts, failed: 0 };
+    })(values, rest);
+  },
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
@@ -256,7 +282,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | histories [--from YYYY-MM] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }

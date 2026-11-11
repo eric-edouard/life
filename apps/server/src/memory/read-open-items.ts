@@ -49,7 +49,11 @@ export function dueOf(
  * The importance-3 current promises and waiting items, and the to-dos he said (not a mail's), that `narrow` (over
  * `o`, with `params`) keeps, as open items with their lines.
  */
-function openCandidatesOf(db: Database, narrow: string, ...params: string[]) {
+export function openCandidatesOf(
+  db: Database,
+  narrow: string,
+  ...params: string[]
+) {
   const rows = db
     .query<
       Row & {
