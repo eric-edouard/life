@@ -46,8 +46,11 @@ interface Known {
  * that, or unasked, nobody can tell.
  */
 export function recordingOf(recorded: Recorded | null, day: string): Verdict {
-  const { from = "", to } = dayRange(day, day);
-  if (recorded?.stretches.some((s) => s.endAt > from && s.startAt < to)) {
+  const { from, to } = dayRange(day, day);
+  if (
+    from &&
+    recorded?.stretches.some((s) => s.endAt > from && s.startAt < to)
+  ) {
     return { state: "captured" };
   }
   const since = recorded?.since && localDate(recorded.since);

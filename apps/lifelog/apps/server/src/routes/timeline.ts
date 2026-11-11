@@ -1,7 +1,6 @@
 // What the phone sends for grouping (rebuild contract): each source's timeline facts and
 // heard-through and the owner's grouping edits. All idempotent; a write that can move a boundary
 // regroups after it commits (grouping.ts).
-
 import { createRoute, z } from "@hono/zod-openapi";
 import { DAY } from "@life/server/src/core/clock";
 import { hasRawPages, sources } from "@lifelog/db/schema";

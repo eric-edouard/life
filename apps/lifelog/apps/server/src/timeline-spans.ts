@@ -1,7 +1,6 @@
 // Timeline spans, what grouping reads of a source's capture (grouping.ts): the iPhone sends its own
 // (PUT /sources/{id}/timeline); the server writes a raw-page source's from its labels
 // (page-labels.ts `spansOf`). One shape and one writer function for both.
-
 import { z } from "@hono/zod-openapi";
 import { DAY, MIN } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
