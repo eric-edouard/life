@@ -5,12 +5,11 @@
 //   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFELOG_SIGN_IDENTITY is set)
 // An identity (Developer ID, for a release) signs under the hardened runtime, which the server, a Bun binary, needs
 // JIT entitlements for; ad hoc has no runtime, as in Life's scripts/app.ts.
-import { createHash } from "node:crypto";
-import { existsSync, lstatSync } from "node:fs";
 import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
 import { EMBEDDER_FILE } from "../../server/src/core/embedder";
+import { bundleLlama, download } from "../../server/src/core/pinned";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -22,6 +21,8 @@ const resources = join(contents, "Resources");
 const swift = join(root, ".build/mac-quiet-release");
 const identity = process.env.LIFELOG_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFELOG_VERSION ?? "1.0";
+const hardened =
+  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const arch = process.arch === "arm64" ? "arm64" : "amd64";
 const triple = `${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin`;
 const codex = `codex-${triple}`;
@@ -29,7 +30,7 @@ const codex = `codex-${triple}`;
 const commit = (await $`git -C ${root} rev-parse HEAD`.text()).trim();
 
 /** cloudflared ("My own domain"), restic (backups), Codex (summaries on ChatGPT), uv (speaker recognition's install)
- * and llama.cpp (search by meaning's embedder), from their official GitHub releases, and the embedder's model (Life's
+ * from their official GitHub releases (llama.cpp, for search by meaning's embedder, is `bundleLlama`), and the embedder's model (Life's
  * core/embedder.ts) from Hugging Face at a fixed revision, all pinned by sha256. */
 const TOOLS = {
   cloudflared: {
@@ -47,11 +48,6 @@ const TOOLS = {
     arm64: EMBEDDER_FILE.sha256,
     url: EMBEDDER_FILE.url,
   },
-  llama: {
-    amd64: "c8094268b6bf62f4998f0e45656fd9f5e2d4afb6b1cd0044d761db64be1dd47d",
-    arm64: "4f5b8de12e0b9516658ca6a5764c6ffb3d7c659c3dd538556b1413c7b4050662",
-    url: `https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-macos-${arch === "arm64" ? "arm64" : "x64"}.tar.gz`,
-  },
   restic: {
     amd64: "c38d579622cf602f665234c5a8c315030b6cf70656028fe6dc29a786b60e5f35",
     arm64: "7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143",
@@ -65,24 +61,11 @@ const TOOLS = {
 };
 
 /** The release's file, downloaded once into .build/host-downloads and refused unless it matches its sha256. */
-async function download(tool: (typeof TOOLS)[keyof typeof TOOLS]) {
-  const cache = join(root, ".build/host-downloads");
-  const file = join(cache, basename(tool.url));
-  if (!existsSync(file)) {
-    await mkdir(cache, { recursive: true });
-    // Resumes a download cut short.
-    await $`curl -fsSL --retry 3 -C - -o ${file}.part ${tool.url}`;
-    await rename(`${file}.part`, file);
-  }
-  const sum = createHash("sha256")
-    .update(await Bun.file(file).bytes())
-    .digest("hex");
-  if (sum !== tool[arch]) {
-    await rm(file);
-    throw new Error(`${tool.url} does not match its pinned sha256 (${sum})`);
-  }
-  return file;
-}
+const fetched = (tool: (typeof TOOLS)[keyof typeof TOOLS]) =>
+  download(
+    { sha256: tool[arch], url: tool.url },
+    join(root, ".build/host-downloads", basename(tool.url))
+  );
 
 /** The menu bar's mark at 18 pt: the iPhone icon's ring (outer 316, inner 244 of 1024) and dot (128), filling it. */
 const MENUBAR = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
@@ -140,30 +123,24 @@ await cp(join(bin, "lifelog-quiet"), join(helpers, "lifelog-quiet"));
 await buildHost(helpers);
 // The server's third-party licenses: Helpers holds only code to sign, so they go to Resources.
 await rename(join(helpers, "NOTICE"), join(resources, "NOTICE"));
-await $`tar -xzf ${await download(TOOLS.cloudflared)} -C ${helpers} cloudflared`;
-await $`bunzip2 -c ${await download(TOOLS.restic)} > ${join(helpers, "restic")}`;
-await $`tar -xzf ${await download(TOOLS.codex)} -C ${helpers} ${codex}`;
+await $`tar -xzf ${await fetched(TOOLS.cloudflared)} -C ${helpers} cloudflared`;
+await $`bunzip2 -c ${await fetched(TOOLS.restic)} > ${join(helpers, "restic")}`;
+await $`tar -xzf ${await fetched(TOOLS.codex)} -C ${helpers} ${codex}`;
 await rename(join(helpers, codex), join(helpers, "codex"));
-await $`tar -xzf ${await download(TOOLS.uv)} -C ${helpers} --strip-components 1 uv-${triple}/uv`;
+await $`tar -xzf ${await fetched(TOOLS.uv)} -C ${helpers} --strip-components 1 uv-${triple}/uv`;
 await $`chmod 755 ${join(helpers, "cloudflared")} ${join(helpers, "restic")} ${join(helpers, "codex")} ${join(helpers, "uv")}`;
 // llama.cpp's server and the libraries it loads from beside it (@loader_path); the model and both licenses go to
 // Resources.
 const llama = join(helpers, "llama");
 const embedder = join(resources, "embedder");
-await mkdir(llama);
 await mkdir(embedder);
-const loaded = [
-  "llama-server",
-  "LICENSE",
-  "libllama-server-impl.dylib",
-  "libllama-common*",
-  "libmtmd*",
-  "libllama.*",
-  "libggml*",
-];
-await $`tar -xzf ${await download(TOOLS.llama)} -C ${llama} --strip-components 1 ${loaded.flatMap((f) => ["--include", `*/${f}`])}`;
+await bundleLlama(
+  llama,
+  join(root, ".build/host-downloads"),
+  (file) => $`codesign --force --sign ${identity} ${hardened} ${file}`
+);
 await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
-await cp(await download(TOOLS.embedder), join(embedder, "model.gguf"));
+await cp(await fetched(TOOLS.embedder), join(embedder, "model.gguf"));
 await writeFile(
   join(embedder, "NOTICE"),
   "The model (EmbeddingGemma-300M) is Gemma, provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms.\n"
@@ -181,23 +158,15 @@ await writeFile(menubar, MENUBAR);
 await $`rsvg-convert -f pdf -d 72 -p 72 -o ${join(resources, "menubar.pdf")} ${menubar}`;
 
 // Inside out: each helper, then the app around them.
-const hardened =
-  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const entitlements = join(out, "server.entitlements");
 await writeFile(entitlements, SERVER_ENTITLEMENTS);
 await $`codesign --force --sign ${identity} ${hardened} --entitlements ${entitlements} ${join(helpers, "lifelog-server")}`;
-// The release links its versioned libraries by name: sign the files, not the links.
-const libraries = [...new Bun.Glob("llama/*.dylib").scanSync(helpers)].filter(
-  (f) => !lstatSync(join(helpers, f)).isSymbolicLink()
-);
 for (const helper of [
   "lifelog-quiet",
   "cloudflared",
   "restic",
   "codex",
   "uv",
-  ...libraries,
-  "llama/llama-server",
 ]) {
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
   await $`codesign --force --sign ${identity} ${hardened} ${join(helpers, helper)}`;

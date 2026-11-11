@@ -1,12 +1,18 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { SourceEvent } from "../records/source";
 import type { Contact } from "./contacts";
 import { toAppleS } from "./imessage";
-import { earliestPhoto, newestPhoto, readPhotos } from "./photos";
+import { writeDescriptions } from "./photo-descriptions";
+import {
+  earliestPhoto,
+  newestPhoto,
+  readPhotos,
+  waitingPhotos,
+} from "./photos";
 
 // A made-up Photos library: the tables and columns read only, as Photos and its search index name them.
 
@@ -38,12 +44,12 @@ interface Asset {
 }
 
 function library(assets: Asset[], faces: [string, number][] = []) {
-  const dir = mkdtempSync(join(tmpdir(), "photos-"));
-  mkdirSync(join(dir, "search"));
+  const dir = join(mkdtempSync(join(tmpdir(), "photos-")), "database");
+  mkdirSync(join(dir, "search"), { recursive: true });
   const db = new Database(join(dir, "Photos.sqlite"));
   db.run(`create table ZASSET (Z_PK integer primary key, ZUUID text, ZDATECREATED real, ZKIND integer, ZFAVORITE integer,
     ZLATITUDE real, ZLONGITUDE real, ZMOMENT integer, ZTRASHEDSTATE integer, ZHIDDEN integer,
-    ZISDETECTEDSCREENSHOT integer, ZVISIBILITYSTATE integer)`);
+    ZISDETECTEDSCREENSHOT integer, ZVISIBILITYSTATE integer, ZDIRECTORY text, ZFILENAME text)`);
   db.run(
     "create table ZADDITIONALASSETATTRIBUTES (Z_PK integer primary key, ZASSET integer, ZTIMEZONENAME text, ZTIMEZONEOFFSET integer, ZREVERSELOCATIONDATA blob, ZTITLE text)"
   );
@@ -70,20 +76,25 @@ function library(assets: Asset[], faces: [string, number][] = []) {
     (1, 4000, 'Beach'), (2, 4000, 'Sunset'), (3, 4120, 'open'), (4, 4120, 'daily'), (5, 3000, 'ignored')`);
   for (const [i, a] of assets.entries()) {
     const pk = i + 1;
-    db.run("insert into ZASSET values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
-      pk,
-      a.uuid,
-      atApple(a.date ?? "2026-10-10T10:00:00Z"),
-      a.kind ?? 0,
-      a.favorite ?? 0,
-      a.lat ?? -180,
-      a.lon ?? -180,
-      a.moment ?? 1,
-      a.trashed ?? 0,
-      a.hidden ?? 0,
-      a.screenshot ?? 0,
-      a.burst ? 2 : 0,
-    ]);
+    db.run(
+      "insert into ZASSET values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        pk,
+        a.uuid,
+        atApple(a.date ?? "2026-10-10T10:00:00Z"),
+        a.kind ?? 0,
+        a.favorite ?? 0,
+        a.lat ?? -180,
+        a.lon ?? -180,
+        a.moment ?? 1,
+        a.trashed ?? 0,
+        a.hidden ?? 0,
+        a.screenshot ?? 0,
+        a.burst ? 2 : 0,
+        a.uuid.slice(0, 1).toUpperCase(),
+        `${a.uuid}.heic`,
+      ]
+    );
     db.run(
       "insert into ZADDITIONALASSETATTRIBUTES values (?, ?, ?, ?, ?, null)",
       [pk, pk, a.zone ?? "Europe/Paris", a.offset ?? 7200, a.address ?? null]
@@ -233,4 +244,106 @@ test("who is pictured: Apple's named people, a merged one as its target, the own
     readPhotos(since, undefined, dir, [card({ handles: [] })])[0]?.photo
       ?.pictured[0]
   ).toEqual({ name: "Ana Test" });
+});
+
+/** A file at `path` under the library's root, made up. */
+function keep(dir: string, ...path: string[]) {
+  const file = join(dirname(dir), ...path);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, "made-up image");
+  return file;
+}
+
+test("photos waiting for a description: newest first, not videos, the image Photos holds of each, none described", () => {
+  const dir = library([
+    { date: "2026-10-01T10:00:00Z", uuid: "AA1" },
+    { date: "2026-10-02T10:00:00Z", uuid: "BB2" },
+    { date: "2026-10-03T10:00:00Z", uuid: "CC3" },
+    { date: "2026-10-04T10:00:00Z", uuid: "DD4" },
+    { date: "2026-10-05T10:00:00Z", kind: 1, uuid: "EE5" },
+    { date: "2026-10-06T10:00:00Z", trashed: 1, uuid: "FF6" },
+  ]);
+  const preview = keep(
+    dir,
+    "resources",
+    "derivatives",
+    "B",
+    "BB2_1_105_c.jpeg"
+  );
+  const small = keep(dir, "resources", "derivatives", "C", "CC3_1_100_o.jpeg");
+  keep(dir, "resources", "derivatives", "C", "CC3_1_102_o.jpeg");
+  const original = keep(dir, "originals", "A", "AA1.heic");
+  const descriptions = join(dirname(dir), "descriptions.sqlite");
+  expect(waitingPhotos(10, dir, descriptions)).toEqual([
+    { uuid: "DD4" },
+    { preview: small, uuid: "CC3" },
+    { preview, uuid: "BB2" },
+    { original, uuid: "AA1" },
+  ]);
+  expect(waitingPhotos(2, dir, descriptions).map((w) => w.uuid)).toEqual([
+    "DD4",
+    "CC3",
+  ]);
+  writeDescriptions(
+    [
+      { model: "m", outcome: "described", text: "A beach.", uuid: "DD4" },
+      { model: "m", outcome: "no-image", uuid: "CC3" },
+    ],
+    descriptions
+  );
+  expect(waitingPhotos(10, dir, descriptions).map((w) => w.uuid)).toEqual([
+    "BB2",
+    "AA1",
+  ]);
+});
+
+test("the Photos card says how many photos are described, how many have no image, and the last failure", () => {
+  const dir = library([
+    { uuid: "AA1" },
+    { uuid: "BB2" },
+    { kind: 1, uuid: "CC3" },
+  ]);
+  const descriptions = join(dirname(dir), "descriptions.sqlite");
+  expect(newestPhoto(dir, descriptions).facts).toBeUndefined();
+  writeDescriptions(
+    [
+      { model: "m", outcome: "described", text: "A beach.", uuid: "AA1" },
+      { error: "timed out", model: "m", outcome: "failed", uuid: "BB2" },
+    ],
+    descriptions
+  );
+  const { facts } = newestPhoto(dir, descriptions);
+  expect(facts?.map((f) => [f.label, f.value])).toEqual([
+    ["Described", "1 of 2"],
+    ["Last failure", "timed out"],
+  ]);
+});
+
+test("a photo carries Life's description of it, in its facts and its text", () => {
+  const dir = library([{ uuid: "AA1" }, { uuid: "BB2" }]);
+  const descriptions = join(dirname(dir), "descriptions.sqlite");
+  writeDescriptions(
+    [
+      {
+        model: "m",
+        outcome: "described",
+        text: "Two people on a beach.",
+        uuid: "AA1",
+      },
+    ],
+    descriptions
+  );
+  const [described, plain] = readPhotos(
+    since,
+    undefined,
+    dir,
+    [],
+    descriptions
+  );
+  expect(described?.photo?.description).toBe("Two people on a beach.");
+  expect(described?.text).toBe(
+    "photo · Seaside · described: Two people on a beach."
+  );
+  expect(plain?.photo?.description).toBeUndefined();
+  expect(SourceEvent.parse(described)).toBeTruthy();
 });

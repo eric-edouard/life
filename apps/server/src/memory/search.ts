@@ -218,7 +218,7 @@ export async function search(words: string, o: DayRange = {}) {
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
     "",
-    "Chats and notes (the best passages: a chat's messages close in time, or a note's version; each heading says where to read more):",
+    "Chats and notes (the best passages: a chat's messages close in time, a note's version, or one photo with its place, scenes, words and description; each heading says where to read more):",
     ...chats,
     "",
     `Mail (no newsletters: the best ${MAIL_HITS} thread-days; each its unit, \`fetch <unit>\` for the thread):`,

@@ -8,6 +8,7 @@ import { chatGroups, type SourceEvent } from "../records/source";
 import { PASSAGES } from "./ledger";
 import {
   enabledSources,
+  isSearched,
   kindOf,
   readySources,
   type Tables,
@@ -477,9 +478,7 @@ export function readPassageTexts(db: Database): boolean {
     `create temp view passage_texts as select end as at, hash, text from passage_store.passages where ${where}`
   );
   const ready = readySources();
-  const searched = enabledSources().filter(
-    (s) => s.kind === "chat" || s.kind === "own_writing" || s.kind === "mail"
-  );
+  const searched = enabledSources().filter(isSearched);
   const isWhole = searched.every((source) => {
     if (!ready.includes(source)) {
       return false;

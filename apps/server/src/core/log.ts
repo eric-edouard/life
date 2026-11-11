@@ -22,6 +22,7 @@ type LogKind =
   | "mcp.call"
   | "model.run"
   | "offline"
+  | "photos.describe"
   | "quota.read"
   | "run.start"
   | "run.end"
