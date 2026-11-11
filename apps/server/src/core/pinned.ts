@@ -20,6 +20,17 @@ export const llamaRelease = (arch: "amd64" | "arm64") => ({
   url: `https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-macos-${arch === "arm64" ? "arm64" : "x64"}.tar.gz`,
 });
 
+/** What the bundles keep of the release: the server and the libraries it loads from beside it (@loader_path). */
+export const LLAMA_LOADED = [
+  "llama-server",
+  "LICENSE",
+  "libllama-server-impl.dylib",
+  "libllama-common*",
+  "libmtmd*",
+  "libllama.*",
+  "libggml*",
+];
+
 /**
  * `pin` as `file`, downloaded once. The bytes go to `file.part` (a cut download resumes from there), and `file` exists
  * only once they match the pin's sha256, so an existing file is trusted. Streamed: a multi-gigabyte model is never in memory.

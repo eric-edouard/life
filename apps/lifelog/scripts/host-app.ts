@@ -10,7 +10,11 @@ import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
 import { EMBEDDER_FILE } from "../../server/src/core/embedder";
-import { download, llamaRelease } from "../../server/src/core/pinned";
+import {
+  download,
+  LLAMA_LOADED,
+  llamaRelease,
+} from "../../server/src/core/pinned";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -135,16 +139,7 @@ const llama = join(helpers, "llama");
 const embedder = join(resources, "embedder");
 await mkdir(llama);
 await mkdir(embedder);
-const loaded = [
-  "llama-server",
-  "LICENSE",
-  "libllama-server-impl.dylib",
-  "libllama-common*",
-  "libmtmd*",
-  "libllama.*",
-  "libggml*",
-];
-await $`tar -xzf ${await fetched(TOOLS.llama)} -C ${llama} --strip-components 1 ${loaded.flatMap((f) => ["--include", `*/${f}`])}`;
+await $`tar -xzf ${await fetched(TOOLS.llama)} -C ${llama} --strip-components 1 ${LLAMA_LOADED.flatMap((f) => ["--include", `*/${f}`])}`;
 await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
 await cp(await fetched(TOOLS.embedder), join(embedder, "model.gguf"));
 await writeFile(
