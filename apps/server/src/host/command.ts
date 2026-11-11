@@ -8,7 +8,7 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
-import { histories, historyWorkOf } from "../memory/histories";
+import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
@@ -190,7 +190,7 @@ const HANDLERS: Record<string, Handler> = {
     if (!from) {
       throw new Error("histories needs --from YYYY-MM, or his history setting");
     }
-    const pending = await historyWorkOf(
+    const pending = await readHistoryWork(
       await readWithPeople(new Date(0)),
       await readPeople(),
       { from, today: dayNow() }

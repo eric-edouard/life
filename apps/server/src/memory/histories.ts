@@ -130,7 +130,7 @@ interface PersonWork {
   name: string;
   ref: string;
 }
-export type HistoryWork = Awaited<ReturnType<typeof historyWorkOf>>;
+export type HistoryWork = Awaited<ReturnType<typeof readHistoryWork>>;
 
 /**
  * What the histories have to read, from a read of every year (`readWithPeople(new Date(0))`): for whoever has a page,
@@ -138,7 +138,7 @@ export type HistoryWork = Awaited<ReturnType<typeof historyWorkOf>>;
  * across everyone, up to `NIGHT_CALLS` calls. Null when a source failed (a month must never be summarised without
  * one). `counts` is the whole of what is pending, before the cap: what a run would cost.
  */
-export async function historyWorkOf(
+export async function readHistoryWork(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   people: People,
   o: { from: string; today: string }
@@ -147,7 +147,8 @@ export async function historyWorkOf(
     return null;
   }
   const direct = directChats(events, people.resolve);
-  const pending = [...(await pagedNow(people))].flatMap((ref) => {
+  const paged = [...(await pagedNow(people))];
+  const pending = paged.flatMap((ref) => {
     const name = people.nameOf(ref);
     const built = new Map(readHistory(ref).months.map((m) => [m.month, m]));
     return monthCallsOf(direct.get(ref) ?? [], name, o)
@@ -156,12 +157,13 @@ export async function historyWorkOf(
   });
   const calls = pending.flatMap((p) => p.m.calls);
   const taken = newestWithin(pending, NIGHT_CALLS);
+  const took = new Set(taken);
   const waiting = new Set(
-    pending.filter((p) => !taken.includes(p)).map((p) => p.ref)
+    pending.filter((p) => !took.has(p)).map((p) => p.ref)
   );
   const mine = Map.groupBy(taken, (p) => p.ref);
   // Everyone with a page: one with no month to read may still owe a story (a year closed).
-  const work: PersonWork[] = [...(await pagedNow(people))].map((ref) => ({
+  const work: PersonWork[] = paged.map((ref) => ({
     isWhole: !waiting.has(ref),
     months: (mine.get(ref) ?? [])
       .map((p) => p.m)
@@ -245,6 +247,13 @@ export function storyInputOf(history: History, name: string, today: string) {
   };
 }
 
+/** Whether a story is to be told: its months changed since the last one, there are some, and none of the person's months still waits. */
+export const isStoryDue = (
+  history: History,
+  now: { inputs: string; months: number },
+  isWhole: boolean
+) => isWhole && now.months > 0 && history.story?.inputs !== now.inputs;
+
 /**
  * The story of the years, built when its months changed (a year closed, or an old month was read again) and never
  * while some of the person's months still wait: it would be told from half a history.
@@ -260,9 +269,7 @@ async function tellStory(
   const input = storyInputOf(history, t.name, today);
   const inputs = inputsOf(STORY_PROMPT, input);
   if (
-    !t.isWhole ||
-    input.months.length === 0 ||
-    history.story?.inputs === inputs
+    !isStoryDue(history, { inputs, months: input.months.length }, t.isWhole)
   ) {
     return false;
   }
@@ -276,6 +283,10 @@ async function tellStory(
     .trim()
     .min(1)
     .parse((reply as { story?: unknown } | null)?.story);
+  // The months it read hold no checked quote: words in quotation marks would be made up.
+  if (QUOTE_MARKS.test(text)) {
+    throw new Error("quotation marks in a story");
+  }
   await write(t.ref, {
     ...readHistory(t.ref),
     story: {

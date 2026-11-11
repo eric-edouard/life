@@ -2,15 +2,17 @@ import { expect, test } from "bun:test";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import {
-  historyWorkOf,
+  isStoryDue,
   type MonthCalls,
   monthCallsOf,
   newestWithin,
   partOf,
+  readHistoryWork,
   storyInputOf,
   withMonth,
 } from "./histories";
 import { readPeople } from "./who";
+import { localDate } from "./zones";
 
 const msg = (
   at: string,
@@ -156,10 +158,46 @@ test("a night takes the newest months first, within its calls; a failed source r
   ]);
   // A month must never be summarised without one of its sources.
   expect(
-    await historyWorkOf(
+    await readHistoryWork(
       { events: [], failed: ["mail"] },
       await readPeople(),
       span
     )
   ).toBeNull();
+});
+
+test("a month is his local month, never the UTC one: late on the 31st in UTC is already the 1st where he is", () => {
+  // The test data has him east of UTC then (the fixture's zones).
+  const at = "2026-10-31T23:30:00.000Z";
+  expect(localDate(at)).toBe("2026-11-01");
+  const [month] = monthCallsOf(
+    [msg(at, true, "made it home, thanks for tonight")],
+    "Ann",
+    { from: "2026-08", today: "2026-12-11" }
+  );
+  expect(month?.month).toBe("2026-11");
+});
+
+test("a story is told when its months changed, never while a month of theirs still waits nor from no month", () => {
+  const history: History = {
+    months: [],
+    schemaVersion: 1,
+    story: {
+      built: "2026-11-11T22:00:00.000Z",
+      inputs: "told",
+      madeBy,
+      text: "A story.",
+      through: "2025",
+    },
+  };
+  expect(isStoryDue(history, { inputs: "changed", months: 3 }, true)).toBe(
+    true
+  );
+  expect(isStoryDue(history, { inputs: "told", months: 3 }, true)).toBe(false);
+  expect(isStoryDue(history, { inputs: "changed", months: 3 }, false)).toBe(
+    false
+  );
+  expect(isStoryDue(history, { inputs: "changed", months: 0 }, true)).toBe(
+    false
+  );
 });

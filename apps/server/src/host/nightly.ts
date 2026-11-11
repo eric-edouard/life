@@ -19,7 +19,7 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
-import { histories, historyWorkOf } from "../memory/histories";
+import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
@@ -231,7 +231,7 @@ export async function nightly(days: number, force = false) {
 
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
- * failure is logged and the last file stands), and the histories' pending months are taken from it (`historyWorkOf`:
+ * failure is logged and the last file stands), and the histories' pending months are taken from it (`readHistoryWork`:
  * only while his `history` setting is on), so only the last years stay in memory for closeness and the personas.
  */
 async function readYears(now: Date) {
@@ -239,10 +239,14 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   const { history } = settings();
+  // In shadow: a failure is logged and the night goes on without its months.
   const pending = history
-    ? await historyWorkOf(everyYear, people, {
+    ? await readHistoryWork(everyYear, people, {
         from: history.from,
         today: localDate(now.toISOString()),
+      }).catch((e: Error) => {
+        log("run.error", { error: e.message, step: "memory.history" });
+        return null;
       })
     : null;
   return { pending, withPeople: lastYearsOf(everyYear) };
