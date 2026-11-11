@@ -28,7 +28,7 @@ export interface DayZone {
   day: string;
   zone: string | null;
 }
-export interface Evidence {
+export interface ZoneEvidence {
   mail: DayZone[];
   photos: DayZone[];
 }
@@ -113,7 +113,7 @@ const agreed = (set?: Set<string | null>) =>
  * calendar boundary, never evidence of where he was.
  */
 export function historicalZonesOf(
-  evidence: Evidence,
+  evidence: ZoneEvidence,
   window: Window,
   eraFrom?: string
 ) {
@@ -189,7 +189,7 @@ function nearestKnownDay<T extends { day: string }>(day: string, known: T[]) {
 }
 
 /** The evidence of the sources that can be read now: one off or unreadable gives none. */
-function readEvidence(): Evidence {
+function readEvidence(): ZoneEvidence {
   const ready = new Set(readySources().map((s) => s.kind));
   const [since, before] = [new Date(0), clock()];
   return {
