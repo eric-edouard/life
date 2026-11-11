@@ -254,7 +254,7 @@ async function readYears(now: Date) {
 }
 
 /** The night's links: what is due (`readLinkWork`), judged. */
-async function linked() {
+async function judgeLinks() {
   const people = await readPeople();
   const pending = await readLinkWork(people);
   return pending && links(pending, people);
@@ -486,7 +486,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // tonight. A failure is logged and never stops the night.
     if (settings().links) {
       phase.at = "links";
-      await linked().catch((e: Error) =>
+      await judgeLinks().catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.links" })
       );
     }

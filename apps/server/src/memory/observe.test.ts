@@ -710,7 +710,7 @@ test("a unit he said was read wrong is read again, once: his word against its la
   ).toBe(0);
 });
 
-test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
+test("the index is rebuilt from observations: search ignores accents, who each is about answers by entity", async () => {
   const { observations } = parseObservations(
     {
       observations: [

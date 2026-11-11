@@ -156,4 +156,14 @@ test("a night takes the oldest due work first and caps each person, so a long ba
     ["person:big", 10],
     [ann, 1],
   ]);
+  // Someone whose open things need more calls a chunk than a person's share still gets one chunk a night.
+  const many = {
+    chunks: [
+      chunk("2026-01-01T00:00:00.000Z"),
+      chunk("2026-01-02T00:00:00.000Z"),
+    ],
+    open: Array.from({ length: 450 }, () => promise),
+    subject: "person:many",
+  };
+  expect(nightOf([many]).map((w) => w.chunks.length)).toEqual([1]);
 });

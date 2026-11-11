@@ -121,9 +121,13 @@ export function nightOf(work: SubjectWork[]) {
     )
     .flatMap((w) => {
       const each = callsOf(w);
+      // At least one chunk while the night has room for it: someone with very many open things is never left out.
       const n = Math.min(
         w.chunks.length,
-        Math.floor(Math.min(room, SUBJECT_CALLS) / each)
+        Math.max(
+          Math.floor(Math.min(room, SUBJECT_CALLS) / each),
+          Number(each <= room)
+        )
       );
       room -= n * each;
       return n > 0 ? [{ ...w, chunks: w.chunks.slice(0, n) }] : [];
