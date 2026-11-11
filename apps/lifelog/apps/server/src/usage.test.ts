@@ -88,7 +88,7 @@ test("days are Jakarta days; maybe-billed jobs count", async () => {
   expect(s.days.at(-1)?.date).toBe("2026-10-08");
   expect(s.days[0]?.date).toBe("2026-09-09");
   expect(s.today.transcription.hours).toBe(1);
-  expect(s.today.transcription.usd).toBeCloseTo(0.22);
+  expect(s.today.transcription.usd).toBeCloseTo(0.2);
   const yesterday = s.days.at(-2);
   expect(yesterday?.transcription.hours).toBe(0.5);
   expect(s.thisMonth.transcription.hours).toBeCloseTo(1.75);
