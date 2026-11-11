@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
+import { count } from "../core/lists";
 import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
@@ -18,7 +19,6 @@ import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
-import { count } from "../memory/units";
 import { localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";

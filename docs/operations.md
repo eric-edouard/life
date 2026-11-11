@@ -132,7 +132,7 @@ inferred person, extraction marker or processed state is written, so pages, rati
 nightly new-fact count do not change.
 
 Before earlier units are created, raw Date headers from the owner's sent mail supply whole-hour offsets as
-`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day; known coverage stays.
+`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day and his first zone record; mail sets, defers or gaps only the days before the mail era ends (the first zone record not derived from mail), so a day his recorded zones cover is never deferred by mail.
 A day with no sent mail takes the nearest valid run (ties earlier) and is reported as a gap. Conflicting or non-hour
 offsets defer their days without rounding or guessing cities. Later model backfill re-derives gap evidence from the
 same headers and treats those days as uncertain; it never silently moves stored unit dates or ids.

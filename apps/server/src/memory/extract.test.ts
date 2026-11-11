@@ -84,7 +84,7 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     episodesNow(lines, [])
   );
   // Activity stays out of extraction even when it makes an episode or has an inflated verdict.
-  for (const source of ["git", "screen", "apple-health"] as const) {
+  for (const source of ["git", "screen", "apple-health", "photos"] as const) {
     const activity = built("unit_000000000006", { source });
     expect(
       groupsOf(

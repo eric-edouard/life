@@ -71,13 +71,13 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/` and `appointments.json` (rebuilt whole) and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/` and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his ratings and corrections cite them, and a re-read
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
-- **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last done one, `episodes-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
+- **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
+  value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
+  the last done one, `episodes-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he

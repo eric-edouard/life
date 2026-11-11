@@ -141,18 +141,45 @@ test("repeated preparation keeps conflicting and non-hour days deferred after ru
   }
 });
 
-test("known zone coverage survives absent mail evidence but explicit invalid offsets still defer", async () => {
-  const absent = await prepareHistoricalZones(
+test("mail never defers a day a recorded zone covers, and the mail era stays put after a run was appended", async () => {
+  const was = readFileSync(ZONES, "utf8");
+  const read = () => [
+    sent("2019-01-06", "+0700"),
+    sent("2019-01-08", "+0700"),
+    sent("2019-01-08", "-0500"),
+    sent("2019-01-12", "+0700"),
+    sent("2019-01-12", "-0500"),
+  ];
+  try {
+    writeFileSync(
+      ZONES,
+      `${JSON.stringify({ from: "2019-01-10T00:00:00Z", schemaVersion: 1, tz: "Etc/GMT" })}\n`
+    );
+    const window = { from: "2019-01-06", to: "2019-01-12" };
+    const first = await prepareHistoricalZones(window, read);
+    expect(first.deferred).toEqual(["2019-01-08"]);
+    expect(first.gaps).toEqual(["2019-01-07", "2019-01-09"]);
+    expect(first.runs).toEqual([
+      { from: "2019-01-05T17:00:00.000Z", tz: "Etc/GMT-7" },
+    ]);
+    const after = readFileSync(ZONES, "utf8");
+    const next = await prepareHistoricalZones(window, read);
+    expect(next.deferred).toEqual(first.deferred);
+    expect(next.runs).toEqual([]);
+    expect(readFileSync(ZONES, "utf8")).toBe(after);
+  } finally {
+    writeFileSync(ZONES, was);
+  }
+});
+
+test("a window entirely after the mail era has no deferrals, gaps or runs", async () => {
+  const report = await prepareHistoricalZones(
     { from: "2020-01-01", to: "2020-01-02" },
-    () => []
+    () => [sent("2020-01-01", "+0530"), sent("2020-01-02", "+0700")]
   );
-  expect(absent.deferred).toEqual([]);
-  expect(absent.gaps).toEqual(["2020-01-01", "2020-01-02"]);
-  const invalid = await prepareHistoricalZones(
-    { from: "2020-01-01", to: "2020-01-02" },
-    () => [sent("2020-01-01", "+0530")]
-  );
-  expect(invalid.deferred).toEqual(["2020-01-01"]);
+  expect(report.deferred).toEqual([]);
+  expect(report.gaps).toEqual([]);
+  expect(report.runs).toEqual([]);
 });
 
 test("prepending a zone never extends a new offset into already stored units", async () => {
