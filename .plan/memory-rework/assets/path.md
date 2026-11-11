@@ -19,6 +19,9 @@ properly only when it moves the score. The bet most at risk: that stored summari
    **Round 2, 11 Nov** (`…/2026-11-11-prove-first-2.md`): on all 57 owner cases two identical baselines gave 18
    and 15 passed (138, 130 of 198 points); on the 27 people cases history and counts as notes stayed inside that
    noise. Next: the history inside the person read, several runs per way.
+   **History in the person read, 11 Nov** (`…/2026-11-11-history-in-page.md`): on the 8 cases about the two,
+   points 13, 16, 17 of 24 with it against 11 to 16 (mean 13.6) without; C1 and C4 better every run. A small,
+   steady gain: the history goes into the person read, built properly.
 4. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
    enough until a layer consumes the codes).
 
