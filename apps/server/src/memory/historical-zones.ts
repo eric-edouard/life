@@ -219,9 +219,11 @@ export function readHistoricalZones(window: Window, read = readEvidence) {
   return historicalZonesOf(read(), { from: window.from, to }, era.from);
 }
 
-/** The day each unit id any record names (outside units/) is in, among `days`: what other records now rest on. */
+const UNIT_IDS = /unit_[0-9a-f]{12}/g;
+
+/** The days among `days` whose units a record outside units/ names by id: what other records now rest on. */
 function citedUnitDays(days: string[]) {
-  const ids = new Set<string>();
+  const cited = new Set<string>();
   for (const file of readdirSync(MEMORY, {
     encoding: "utf8",
     recursive: true,
@@ -229,9 +231,9 @@ function citedUnitDays(days: string[]) {
     if (file !== "units" && !file.startsWith("units/")) {
       try {
         for (const id of readFileSync(join(MEMORY, file), "utf8").match(
-          /unit_[0-9a-f]{12}/g
+          UNIT_IDS
         ) ?? []) {
-          ids.add(id);
+          cited.add(id);
         }
       } catch {
         // a folder
@@ -239,12 +241,12 @@ function citedUnitDays(days: string[]) {
     }
   }
   return new Set(
-    ids.size === 0
+    cited.size === 0
       ? []
       : days.filter((day) => {
           try {
             const text = readFileSync(join(UNITS, `${day}.jsonl`), "utf8");
-            return [...ids].some((id) => text.includes(id));
+            return (text.match(UNIT_IDS) ?? []).some((id) => cited.has(id));
           } catch {
             return false;
           }
