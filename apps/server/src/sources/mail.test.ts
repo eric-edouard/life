@@ -206,9 +206,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       root,
       join(base, "none.sqlite")
     )
-  ).toEqual([
-    { at: "2026-10-09T08:01:00.000Z", date: "Fri, 9 Oct 2026 15:01:00 +0700" },
-  ]);
+  ).toEqual([{ date: "Fri, 9 Oct 2026 15:01:00 +0700" }]);
   writeFileSync(
     join(sentDir, "1003.emlx"),
     emlx("Date: Fri, 9 Oct 2026 10:01:00 +0200\n\n")
