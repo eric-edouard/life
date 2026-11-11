@@ -80,6 +80,12 @@ export async function describeAt(
   return text;
 }
 
+const isUp = () =>
+  fetch(`${URL_BASE}/health`).then(
+    (r) => r.ok,
+    () => false
+  );
+
 /** The server up, downloading the model first when this Mac has none: its describe function and its stop. */
 export async function startDescriber() {
   const server = llamaServer();
@@ -91,6 +97,10 @@ export async function startDescriber() {
       download(f, join(MACHINE_DIR, "models", f.name))
     )
   );
+  // A server already on the port is a leftover (it holds the model's memory): fail loudly, never reuse it.
+  if (await isUp()) {
+    throw new Error(`something already answers on port ${PORT}`);
+  }
   // Background priority: it runs for minutes beside his work.
   const proc = Bun.spawn(
     [
@@ -119,18 +129,13 @@ export async function startDescriber() {
   };
   try {
     const until = performance.now() + START_TIMEOUT;
-    const isUp = () =>
-      fetch(`${URL_BASE}/health`).then(
-        (r) => r.ok,
-        () => false
-      );
     for (;;) {
+      if (proc.exitCode !== null || performance.now() > until) {
+        throw new Error("llama-server did not start");
+      }
       // biome-ignore lint/performance/noAwaitInLoops: polls until the model is loaded
       if (await isUp()) {
         break;
-      }
-      if (proc.exitCode !== null || performance.now() > until) {
-        throw new Error("llama-server did not start");
       }
       // biome-ignore lint/performance/noAwaitInLoops: polls until the model is loaded
       await Bun.sleep(1000);

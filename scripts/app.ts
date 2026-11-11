@@ -1,11 +1,7 @@
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
-import {
-  download,
-  LLAMA_LOADED,
-  llamaRelease,
-} from "@life/server/src/core/pinned";
+import { join } from "node:path";
+import { bundleLlama, download } from "@life/server/src/core/pinned";
 import { execOk } from "@life/server/src/core/proc";
 
 // Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
@@ -19,10 +15,11 @@ const ROOT = join(import.meta.dir, "..");
 const out = process.argv[2] ?? join(ROOT, "dist");
 const app = join(out, "Life.app");
 const contents = join(app, "Contents");
-const arch = process.arch === "arm64" ? "arm64" : "amd64";
 const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFE_VERSION ?? "0.1.0";
 
+const hardened =
+  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const run = (cmd: string[], cwd = ROOT) =>
   execOk(cmd, { cwd, timeout: 900_000 });
 
@@ -109,22 +106,10 @@ await cp(
   join(contents, "Helpers", "life-eventkit")
 );
 
-// llama.cpp's server for the describer (photo descriptions), with the libraries it loads from beside it.
-const release = llamaRelease(arch);
-const llama = join(contents, "Helpers", "llama");
-await mkdir(llama);
-await run([
-  ...[
-    "tar",
-    "-xzf",
-    await download(
-      { sha256: release[arch], url: release.url },
-      join(out, basename(release.url))
-    ),
-  ],
-  ...["-C", llama, "--strip-components", "1"],
-  ...LLAMA_LOADED.flatMap((f) => ["--include", `*/${f}`]),
-]);
+// llama.cpp's server for the describer (photo descriptions), with the libraries it loads from beside it, signed.
+await bundleLlama(join(contents, "Helpers", "llama"), out, (file) =>
+  run(["codesign", "--force", "--sign", identity, ...hardened, file])
+);
 
 const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
@@ -193,8 +178,6 @@ const entitlements = join(out, "helper.entitlements");
 await writeFile(entitlements, HELPER_ENTITLEMENTS);
 const appEntitlements = join(out, "app.entitlements");
 await writeFile(appEntitlements, APP_ENTITLEMENTS);
-const hardened =
-  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 await run([
   "codesign",
   "--force",
@@ -214,28 +197,6 @@ await run([
   "--entitlements",
   appEntitlements,
   join(contents, "Helpers", "life-eventkit"),
-]);
-// llama.cpp's libraries link their versions by name: sign the files, not the links.
-for (const file of [...new Bun.Glob("*.dylib").scanSync(llama)].filter(
-  (f) => !lstatSync(join(llama, f)).isSymbolicLink()
-)) {
-  // biome-ignore lint/performance/noAwaitInLoops: signing order matters
-  await run([
-    "codesign",
-    "--force",
-    "--sign",
-    identity,
-    ...hardened,
-    join(llama, file),
-  ]);
-}
-await run([
-  "codesign",
-  "--force",
-  "--sign",
-  identity,
-  ...hardened,
-  join(llama, "llama-server"),
 ]);
 // Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
 for (const part of [

@@ -11,7 +11,7 @@ import type { Person } from "../records/truth";
 export interface Newest {
   at: string | null;
   /** More lines for its card (a repo's name, how many committed today). */
-  facts?: { at?: string; label: string; value?: string }[];
+  facts?: { at?: string; label: string; value: string }[];
   /** Each part's newest (the bridged networks): the quietest one decides the card's colour. */
   parts?: { at: string; label: string }[];
   /** His words in it: the app shows them only while Show content is on. */

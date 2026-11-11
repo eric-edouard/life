@@ -111,7 +111,7 @@ async function describeNew() {
   if (
     describing ||
     !settings().describePhotos ||
-    !readySources().some((s) => s.name === "photos")
+    !readySources().some((s) => s.kind === "photos")
   ) {
     return;
   }

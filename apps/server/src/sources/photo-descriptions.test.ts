@@ -3,11 +3,11 @@ import { expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock, DAY } from "../core/clock";
 import {
   PHOTOS_PROMPT,
   readDescriptions,
   readSettled,
-  readTally,
   writeDescriptions,
 } from "./photo-descriptions";
 
@@ -25,7 +25,6 @@ test("a store not made yet reads as empty", () => {
   const path = store();
   expect(readDescriptions(["A"], path).size).toBe(0);
   expect(readSettled(path).size).toBe(0);
-  expect(readTally(path).described).toBe(0);
 });
 
 test("a described photo is never written over; a failed one or one with no image is, by the next try", () => {
@@ -55,7 +54,7 @@ test("a described photo is never written over; a failed one or one with no image
   );
 });
 
-test("a photo is settled when described, or failed or without an image less than a day ago", () => {
+test("a photo is settled when described, failed less than a day ago, or without an image less than a week ago", () => {
   const path = store();
   writeDescriptions(
     [
@@ -63,33 +62,19 @@ test("a photo is settled when described, or failed or without an image less than
       row("fresh", { outcome: "failed", text: undefined }),
       row("old", { outcome: "failed", text: undefined }),
       row("none", { outcome: "no-image", text: undefined }),
+      row("none-old", { outcome: "no-image", text: undefined }),
     ],
     path
   );
   const db = new Database(path);
   db.run(
-    "update descriptions set at = '2020-01-01T00:00:00.000Z' where uuid in ('old', 'none')"
+    "update descriptions set at = '2020-01-01T00:00:00.000Z' where uuid in ('old', 'none-old')"
+  );
+  db.run(
+    `update descriptions set at = '${new Date(clock().getTime() - 3 * DAY).toISOString()}' where uuid in ('none')`
   );
   db.close();
-  expect(readSettled(path)).toEqual(new Set(["done", "fresh"]));
-});
-
-test("the tally counts described and no-image photos and gives the last failure", () => {
-  const path = store();
-  writeDescriptions(
-    [
-      row("A"),
-      row("B", { error: "no words", outcome: "failed", text: undefined }),
-      row("C", { outcome: "no-image", text: undefined }),
-    ],
-    path
-  );
-  const tally = readTally(path);
-  expect([tally.described, tally.noImage, tally.failure?.error]).toEqual([
-    1,
-    1,
-    "no words",
-  ]);
+  expect(readSettled(path)).toEqual(new Set(["done", "fresh", "none"]));
 });
 
 test("rows of another prompt are not read", () => {

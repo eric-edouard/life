@@ -5,16 +5,11 @@
 //   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFELOG_SIGN_IDENTITY is set)
 // An identity (Developer ID, for a release) signs under the hardened runtime, which the server, a Bun binary, needs
 // JIT entitlements for; ad hoc has no runtime, as in Life's scripts/app.ts.
-import { lstatSync } from "node:fs";
 import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
 import { EMBEDDER_FILE } from "../../server/src/core/embedder";
-import {
-  download,
-  LLAMA_LOADED,
-  llamaRelease,
-} from "../../server/src/core/pinned";
+import { bundleLlama, download } from "../../server/src/core/pinned";
 import { buildHost } from "../apps/server/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
@@ -26,6 +21,8 @@ const resources = join(contents, "Resources");
 const swift = join(root, ".build/mac-quiet-release");
 const identity = process.env.LIFELOG_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFELOG_VERSION ?? "1.0";
+const hardened =
+  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const arch = process.arch === "arm64" ? "arm64" : "amd64";
 const triple = `${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin`;
 const codex = `codex-${triple}`;
@@ -33,7 +30,7 @@ const codex = `codex-${triple}`;
 const commit = (await $`git -C ${root} rev-parse HEAD`.text()).trim();
 
 /** cloudflared ("My own domain"), restic (backups), Codex (summaries on ChatGPT), uv (speaker recognition's install)
- * and llama.cpp (search by meaning's embedder), from their official GitHub releases, and the embedder's model (Life's
+ * from their official GitHub releases (llama.cpp, for search by meaning's embedder, is `bundleLlama`), and the embedder's model (Life's
  * core/embedder.ts) from Hugging Face at a fixed revision, all pinned by sha256. */
 const TOOLS = {
   cloudflared: {
@@ -51,7 +48,6 @@ const TOOLS = {
     arm64: EMBEDDER_FILE.sha256,
     url: EMBEDDER_FILE.url,
   },
-  llama: llamaRelease(arch),
   restic: {
     amd64: "c38d579622cf602f665234c5a8c315030b6cf70656028fe6dc29a786b60e5f35",
     arm64: "7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143",
@@ -137,9 +133,12 @@ await $`chmod 755 ${join(helpers, "cloudflared")} ${join(helpers, "restic")} ${j
 // Resources.
 const llama = join(helpers, "llama");
 const embedder = join(resources, "embedder");
-await mkdir(llama);
 await mkdir(embedder);
-await $`tar -xzf ${await fetched(TOOLS.llama)} -C ${llama} --strip-components 1 ${LLAMA_LOADED.flatMap((f) => ["--include", `*/${f}`])}`;
+await bundleLlama(
+  llama,
+  join(root, ".build/host-downloads"),
+  (file) => $`codesign --force --sign ${identity} ${hardened} ${file}`
+);
 await rename(join(llama, "LICENSE"), join(embedder, "llama.cpp-LICENSE"));
 await cp(await fetched(TOOLS.embedder), join(embedder, "model.gguf"));
 await writeFile(
@@ -159,23 +158,15 @@ await writeFile(menubar, MENUBAR);
 await $`rsvg-convert -f pdf -d 72 -p 72 -o ${join(resources, "menubar.pdf")} ${menubar}`;
 
 // Inside out: each helper, then the app around them.
-const hardened =
-  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const entitlements = join(out, "server.entitlements");
 await writeFile(entitlements, SERVER_ENTITLEMENTS);
 await $`codesign --force --sign ${identity} ${hardened} --entitlements ${entitlements} ${join(helpers, "lifelog-server")}`;
-// The release links its versioned libraries by name: sign the files, not the links.
-const libraries = [...new Bun.Glob("llama/*.dylib").scanSync(helpers)].filter(
-  (f) => !lstatSync(join(helpers, f)).isSymbolicLink()
-);
 for (const helper of [
   "lifelog-quiet",
   "cloudflared",
   "restic",
   "codex",
   "uv",
-  ...libraries,
-  "llama/llama-server",
 ]) {
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
   await $`codesign --force --sign ${identity} ${hardened} ${join(helpers, helper)}`;

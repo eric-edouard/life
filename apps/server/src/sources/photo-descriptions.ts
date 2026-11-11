@@ -17,11 +17,12 @@ export const DESCRIPTIONS = join(
   "memory",
   "photo-descriptions.sqlite"
 );
-/** A failed photo, or one with no image yet, is tried again after this long. */
-export const RETRY_AFTER = DAY;
+/** A failed photo is tried again after this long; one with no image (Photos may fetch it from iCloud) after a week. */
+const RETRY_FAILED = DAY;
+const RETRY_NO_IMAGE = 7 * DAY;
 
 /** `no-image`: Photos holds no image of it on this Mac to read. */
-export type Outcome = "described" | "failed" | "no-image";
+type Outcome = "described" | "failed" | "no-image";
 export interface Description {
   /** Why it failed (`failed` only). */
   error?: string;
@@ -68,19 +69,20 @@ export function readDescriptions(uuids: string[], path = DESCRIPTIONS) {
 }
 
 /**
- * The photos with nothing left to try: described, or failed or without an image within `RETRY_AFTER`. Every other
+ * The photos with nothing left to try: described, or failed or without an image within their retry time. Every other
  * photo is waiting.
  */
 export function readSettled(path = DESCRIPTIONS) {
-  const stale = new Date(clock().getTime() - RETRY_AFTER).toISOString();
+  const since = (ms: number) => new Date(clock().getTime() - ms).toISOString();
   return readRows(
     (db) =>
       new Set(
         db
-          .query<{ uuid: string }, [string, string]>(
-            "select uuid from descriptions where prompt = ? and (outcome = 'described' or at > ?)"
+          .query<{ uuid: string }, [string, string, string]>(
+            `select uuid from descriptions where prompt = ? and (outcome = 'described'
+              or (outcome = 'failed' and at > ?) or (outcome = 'no-image' and at > ?))`
           )
-          .all(PHOTOS_PROMPT, stale)
+          .all(PHOTOS_PROMPT, since(RETRY_FAILED), since(RETRY_NO_IMAGE))
           .map((r) => r.uuid)
       ),
     new Set<string>(),
@@ -91,26 +93,26 @@ export function readSettled(path = DESCRIPTIONS) {
 /** How many photos are described and how many have no image, and the last failure with its time. */
 export function readTally(path = DESCRIPTIONS) {
   return readRows(
-    (db) => ({
-      described:
+    (db) => {
+      const counts = new Map(
         db
-          .query<{ n: number }, [string]>(
-            "select count(*) as n from descriptions where prompt = ? and outcome = 'described'"
+          .query<{ n: number; outcome: Outcome }, [string]>(
+            "select outcome, count(*) as n from descriptions where prompt = ? group by outcome"
           )
-          .get(PHOTOS_PROMPT)?.n ?? 0,
-      failure:
-        db
-          .query<{ at: string; error: string | null }, [string]>(
-            "select at, error from descriptions where prompt = ? and outcome = 'failed' order by at desc limit 1"
-          )
-          .get(PHOTOS_PROMPT) ?? undefined,
-      noImage:
-        db
-          .query<{ n: number }, [string]>(
-            "select count(*) as n from descriptions where prompt = ? and outcome = 'no-image'"
-          )
-          .get(PHOTOS_PROMPT)?.n ?? 0,
-    }),
+          .all(PHOTOS_PROMPT)
+          .map((r) => [r.outcome, r.n])
+      );
+      return {
+        described: counts.get("described") ?? 0,
+        failure:
+          db
+            .query<{ at: string; error: string | null }, [string]>(
+              "select at, error from descriptions where prompt = ? and outcome = 'failed' order by at desc limit 1"
+            )
+            .get(PHOTOS_PROMPT) ?? undefined,
+        noImage: counts.get("no-image") ?? 0,
+      };
+    },
     { described: 0, failure: undefined, noImage: 0 },
     path
   );

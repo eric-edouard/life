@@ -341,7 +341,9 @@ test("a photo carries Life's description of it, in its facts and its text", () =
     descriptions
   );
   expect(described?.photo?.description).toBe("Two people on a beach.");
-  expect(described?.text).toBe("photo · Seaside · Two people on a beach.");
+  expect(described?.text).toBe(
+    "photo · Seaside · described: Two people on a beach."
+  );
   expect(plain?.photo?.description).toBeUndefined();
   expect(SourceEvent.parse(described)).toBeTruthy();
 });

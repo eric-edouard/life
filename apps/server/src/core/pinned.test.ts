@@ -66,3 +66,21 @@ test("llama.cpp's release is named for the architecture", () => {
   expect(llamaRelease("arm64").url).toContain("macos-arm64.tar.gz");
   expect(llamaRelease("amd64").url).toContain("macos-x64.tar.gz");
 });
+
+test("tries again after a failed request", async () => {
+  let calls = 0;
+  const flaky = Bun.serve({
+    fetch: () =>
+      (calls += 1) === 1
+        ? new Response("down", { status: 503 })
+        : new Response(body),
+    port: 0,
+  });
+  try {
+    const file = join(dir, "flaky.gguf");
+    await download({ sha256, url: `${flaky.url}model.gguf` }, file);
+    expect([calls, readFileSync(file).length]).toEqual([2, body.length]);
+  } finally {
+    flaky.stop(true);
+  }
+});

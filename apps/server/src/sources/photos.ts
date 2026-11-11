@@ -250,7 +250,7 @@ function eventOf(
       pictured.length > 0 && `with ${pictured.map((p) => p.name).join(", ")}`,
       photo.caption && `"${photo.caption}"`,
       photo.ocr && `text: ${ocrText(photo.ocr)}`,
-      photo.description,
+      photo.description && `described: ${photo.description}`,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -333,20 +333,22 @@ export function readPhotos(
 
 /** The first photo's time, without reading anything else. */
 export function earliestPhoto(library = LIBRARY) {
-  return edge("min", library);
+  return readShown(library).first;
 }
 
-function edge(which: "max" | "min", library: string) {
+/** The library's first and last photo or video, and how many photos (not videos) it shows, in one read. */
+function readShown(library: string) {
   const db = openReadOnly(join(library, STORE));
   try {
-    const at = db
-      .query<{ at: number | null }, []>(
-        `select ${which}(a.ZDATECREATED) as at from ZASSET a where ${SHOWN}`
+    const r = db
+      .query<{ first: number | null; last: number | null; photos: number }, []>(
+        `select min(a.ZDATECREATED) as first, max(a.ZDATECREATED) as last,
+          count(case when a.ZKIND != ${VIDEO} then 1 end) as photos from ZASSET a where ${SHOWN}`
       )
-      .get()?.at;
-    return at === null || at === undefined
-      ? null
-      : iso(fromAppleS(at).getTime());
+      .get();
+    const at = (n: number | null | undefined) =>
+      n === null || n === undefined ? null : iso(fromAppleS(n).getTime());
+    return { first: at(r?.first), last: at(r?.last), photos: r?.photos ?? 0 };
   } finally {
     db.close();
   }
@@ -401,22 +403,6 @@ export function waitingPhotos(
   }
 }
 
-/** How many photos (not videos) the library shows. */
-function countShown(library: string) {
-  const db = openReadOnly(join(library, STORE));
-  try {
-    return (
-      db
-        .query<{ n: number }, []>(
-          `select count(*) as n from ZASSET a where ${SHOWN} and a.ZKIND != ${VIDEO}`
-        )
-        .get()?.n ?? 0
-    );
-  } finally {
-    db.close();
-  }
-}
-
 /**
  * The newest photo in Photos (the status snapshot): no words, a caption is his and stays in the library. With the
  * descriptions begun, how many photos have one, how many have no image, and the last failure.
@@ -425,7 +411,7 @@ export function newestPhoto(
   library = LIBRARY,
   descriptions = DESCRIPTIONS
 ): Newest {
-  const at = edge("max", library);
+  const { last: at, photos } = readShown(library);
   if (!existsSync(descriptions)) {
     return { at };
   }
@@ -433,7 +419,7 @@ export function newestPhoto(
   return {
     at,
     facts: [
-      { label: "Described", value: `${described} of ${countShown(library)}` },
+      { label: "Described", value: `${described} of ${photos}` },
       ...(noImage > 0 ? [{ label: "No image", value: String(noImage) }] : []),
       ...(failure
         ? [

@@ -95,9 +95,10 @@ export async function describeInCloud(
 }
 
 async function* lines(stream: ReadableStream<Uint8Array>) {
+  const decoder = new TextDecoder();
   let rest = "";
   for await (const chunk of stream) {
-    rest += new TextDecoder().decode(chunk);
+    rest += decoder.decode(chunk, { stream: true });
     const parts = rest.split("\n");
     rest = parts.pop() ?? "";
     yield* parts.filter(Boolean);
