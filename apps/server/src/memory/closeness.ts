@@ -362,14 +362,16 @@ export async function waitingOf(
   ]);
 }
 
+/** Where the last YEARS years start: what closeness and the personas read. */
+const yearsAgo = () =>
+  new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
+
 /**
  * His chats and mail with people since `since` (`WITH_PEOPLE`), bulk mail and Life's own output left out; `failed`,
- * the sources that could not be read. The night reads the last YEARS years, once, for closeness and personas, and
- * nothing older.
+ * the sources that could not be read. The night reads every year once (`new Date(0)`): the exchange counts take all
+ * of it, closeness and the personas its last YEARS years (`lastYearsOf`).
  */
-export async function readWithPeople(
-  since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`)
-) {
+export async function readWithPeople(since = yearsAgo()) {
   const failed: string[] = [];
   const events = (
     await Promise.all(
@@ -383,6 +385,17 @@ export async function readWithPeople(
   return { events, failed, since };
 }
 export type WithPeople = Awaited<ReturnType<typeof readWithPeople>>;
+
+/** The last YEARS years of a longer read, as a read from there would give them. */
+export function lastYearsOf(all: WithPeople): WithPeople {
+  const since = yearsAgo();
+  const from = since.toISOString();
+  return {
+    events: all.events.filter((e) => e.at >= from),
+    failed: all.failed,
+    since,
+  };
+}
 
 /**
  * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks

@@ -8,9 +8,15 @@ import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
+import {
+  closeness,
+  lastYearsOf,
+  pagedNow,
+  readWithPeople,
+} from "../memory/closeness";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
+import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { reindex } from "../memory/index-writer";
@@ -222,6 +228,16 @@ export async function nightly(days: number, force = false) {
   return Math.max(code, backedUp);
 }
 
+/**
+ * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
+ * failure is logged and the last file stands), so only the last years stay in memory for closeness and the personas.
+ */
+async function readYears() {
+  const everyYear = await readWithPeople(new Date(0));
+  writeExchangeCounts(everyYear, (await readPeople()).resolve);
+  return lastYearsOf(everyYear);
+}
+
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
 const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
@@ -414,7 +430,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
-    const withPeople = await readWithPeople();
+    const withPeople = await readYears();
     await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(
       since,

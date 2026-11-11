@@ -107,6 +107,8 @@ export const INDEX = join(OUT, "index.sqlite");
 export const PASSAGES = join(OUT, "passages.sqlite");
 /** Search by meaning's vectors, by text (`vectors.ts`): apart from the index, which every rebuild drops whole. */
 export const VECTORS = join(OUT, "vectors.sqlite");
+/** What code counts between him and each person, exchange by exchange, rebuilt whole each night (`exchange-counts.ts`). */
+export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
 
 /**
  * Reads the index read-only with `read`, or null when it isn't built. A rebuild meanwhile is safe (`buildIndex`); the

@@ -87,6 +87,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 - **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
+  It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`); closeness and the
+  personas take its last three years.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
