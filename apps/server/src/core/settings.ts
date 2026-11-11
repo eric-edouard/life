@@ -79,6 +79,14 @@ export const Settings = z
     devices: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
+    /**
+     * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
+     * not read, for whoever has a page. Absent means off: no month is read.
+     */
+    history: z
+      .object({ from: z.string().regex(/^\d{4}-\d{2}$/) })
+      .strict()
+      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */

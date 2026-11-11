@@ -19,6 +19,7 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
+import { histories, historyWorkOf } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { newSince, OUT, readLedger } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
@@ -230,12 +231,21 @@ export async function nightly(days: number, force = false) {
 
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
- * failure is logged and the last file stands), so only the last years stay in memory for closeness and the personas.
+ * failure is logged and the last file stands), and the histories' pending months are taken from it (`historyWorkOf`:
+ * only while his `history` setting is on), so only the last years stay in memory for closeness and the personas.
  */
-async function readYears() {
+async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
-  writeExchangeCounts(everyYear, (await readPeople()).resolve);
-  return lastYearsOf(everyYear);
+  const people = await readPeople();
+  writeExchangeCounts(everyYear, people.resolve);
+  const { history } = settings();
+  const pending = history
+    ? await historyWorkOf(everyYear, people, {
+        from: history.from,
+        today: localDate(now.toISOString()),
+      })
+    : null;
+  return { pending, withPeople: lastYearsOf(everyYear) };
 }
 
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
@@ -430,7 +440,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
-    const withPeople = await readYears();
+    const { pending, withPeople } = await readYears(now);
     await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
@@ -449,6 +459,13 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     phase.at = "personas";
     await personas(withPeople);
+    // The histories' months not read yet, in shadow: a failure is logged and never stops the night.
+    if (pending) {
+      phase.at = "histories";
+      await histories(pending).catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.history" })
+      );
+    }
     phase.at = "fact checks";
     await topUpFactChecks();
     phase.at = "index";
