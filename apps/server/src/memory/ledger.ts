@@ -602,12 +602,23 @@ export const readInferredRepos = () => [
   ...latestBy(rowsOf(REPOS_INFERRED, InferredRepo), (g) => g.repo).values(),
 ];
 
-/** The imported conversations the import step kept (`<source>:<id>`, a unit's key): the latest line for each wins. */
+/** The import step's judgments by conversation (`<source>:<id>`, a unit's key): the latest line for each wins. */
+export const readJudgments = (): ReadonlyMap<string, Imported> =>
+  readAppended<Imported, Map<string, Imported>>(
+    IMPORTED,
+    Imported,
+    (last) => new Map(last),
+    (all, i) => {
+      all.set(i.conversation, i);
+    }
+  );
+
+/** The imported conversations the import step kept. */
 export const keptConversations = () =>
   new Set(
-    [
-      ...latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).values(),
-    ].flatMap((i) => (i.keep ? [i.conversation] : []))
+    [...readJudgments().values()].flatMap((i) =>
+      i.keep ? [i.conversation] : []
+    )
   );
 
 /** The owner's labels: the latest one for each unit wins. */

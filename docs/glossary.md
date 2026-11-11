@@ -78,6 +78,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | heard as | How lifelog heard a voice it could not name (`readVoiceKinds`): live with him, live nearby but not talking with him, over a phone, from a screen or speaker, an announcement. Its words carry it as a prefix. | |
 | payment | Money he paid or got back, as his money app gives it (`apps/server/src/payments/`): not a source, never a unit nor read by a model. Placed at read time in his day, the episode it happened in (the shortest holding its time) and where he was. Not a `transaction` (a mail). | |
 | paid | What was paid in an episode or a range, in EUR: money out less refunds. Not "cost" or "spend", which are model spend (`run-log.ts`). | |
+| export copy | An assistant export (claude.ai or ChatGPT) Life keeps as it came in `imports/<source>/`, one per import of different bytes, never replaced or merged. Not a Life export, not the archive. | |
 | archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory

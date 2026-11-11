@@ -9,7 +9,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 | Folder | What | Default |
 |---|---|---|
-| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
+| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, each kept whole as an export copy by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
 | `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, assets | Life.app: the helper's resources; a checkout: the checkout |
 | `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
@@ -85,7 +85,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 `turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
 
-- **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
+- **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
@@ -96,7 +96,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
   with one new message is new as a whole (ponytail: per message would need a record of what was read).
-- **Backup:** once the night is done, or from 06:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
+- **Backup:** once the night is done, or from 09:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - **Bridges:** restarted once a day by the same rule (`healBridges`, its tries in `LIFE_STATE_DIR/memory/bridges.json`),
   before the source alert: a restart heals a hung bridge and makes each check its login anew, so a dead session shows
   red and the alert emails it.
@@ -248,7 +248,7 @@ step: [Back up and restore](use/backup.md).
   missed, extra, duplicates, and start, end and place against lifelog's stays.
 - **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
-  Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
+  Only a score after a re-read means anything. It holds the lock through its judge calls: not near 05:00.
   A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of
   its day, the judge and the claims it cites are unchanged; only the rest are judged again. A batch now holds only those,
   so a grade sees other neighbours' claims than before: from 5 Nov 2026 a score may shift a little for that alone.
@@ -355,7 +355,9 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
   merges bounded best candidates without loading or sorting every vector.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
-  its conversation as it is now, 5 turns before it.
+  its conversation as it is now, 5 turns before it. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
+  search cites it) gives it whole from its export copy, the assistant's replies too, kept or not by the import; a page
+  is at most 200 lines and 50,000 characters.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
   day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
   facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.

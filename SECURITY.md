@@ -10,6 +10,8 @@ agents that act for him. This page says what it protects and what it does not.
 - Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
   keeps is the archive (`~/Library/Application Support/Life/archive/`): phone call history, messages deleted for everyone and old note
   versions.
+- The owner's claude.ai and ChatGPT exports are kept whole as export copies in `imports/` of his data (outside its
+  git), the assistant's replies included; they are read as data, never as his words.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.

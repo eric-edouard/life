@@ -9,7 +9,10 @@ import { localTime, type Window } from "./zones";
 // The nightly's schedule: launchd starts it every 30 minutes, and this decides whether a start does anything (what
 // runs, the backup's turn, the night's state).
 
-const FIRST_HOUR = 2;
+/** The night's first hour, by the Mac's clock: late enough that a night out is over and read whole (his decision, 11 Nov 2026; 02:00 before). */
+const FIRST_HOUR = 5;
+/** From this hour a daily job no longer waits for the night: past the night's three tries, a tick apart. */
+const AFTER_NIGHT_HOUR = FIRST_HOUR + 4;
 export const MAX_ATTEMPTS = 3;
 /** Whether `used` failed tries leave none: the night's and a backfill week's one rule. */
 export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
@@ -39,14 +42,14 @@ export function decide(
 }
 
 /** A daily job's turn (the backup, the bridges' restart): once the night is done for the day (ok or out of tries) or
- * from 06:00 (a night stuck or never recorded must not cost the day's job), then `decide`'s rule on the job's own state. */
+ * from 09:00 (`AFTER_NIGHT_HOUR`: a night stuck or never recorded must not cost the day's job), then `decide`'s rule on the job's own state. */
 export const afterNightDue = (
   hour: number,
   day: string,
   night: JobState | undefined,
   job: JobState | undefined
 ) =>
-  (decide(hour, day, night) === "skip" || hour >= 6) &&
+  (decide(hour, day, night) === "skip" || hour >= AFTER_NIGHT_HOUR) &&
   decide(hour, day, job) === "run";
 
 /**
@@ -91,7 +94,10 @@ const at = (from: Date, plusDays: number, hour: number) => {
 /** When the next nightly may start, and why then (`decide`'s rules, read forward). */
 export function nextNight(now: Date, day: string, state: JobState | undefined) {
   if (now.getHours() < FIRST_HOUR) {
-    return windowAt(at(now, 0, FIRST_HOUR), "waits for 02:00");
+    return windowAt(
+      at(now, 0, FIRST_HOUR),
+      `waits for ${String(FIRST_HOUR).padStart(2, "0")}:00`
+    );
   }
   if (decide(now.getHours(), day, state) === "run") {
     return windowAt(

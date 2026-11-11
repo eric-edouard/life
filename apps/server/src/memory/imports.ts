@@ -3,34 +3,44 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
-import { appendJsonl, rowsOf } from "../core/files";
+import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
 import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
 import {
   type Conversation,
+  copyOf,
+  exportCopiesOf,
+  exportsDir,
   FORMATS,
   formatOf,
-  importOf,
+  hasExportCopy,
+  kept,
+  latestVersions,
   parsedExport,
+  pruned,
 } from "../sources/assistants";
-import { IMPORTED, keptConversations } from "./ledger";
+import { IMPORTED, keptConversations, readJudgments } from "./ledger";
 import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { spareQuota } from "./schedule";
 import { clip } from "./units";
 import { localDate, wall } from "./zones";
 
-// `bun life import <folder> [--dry]`: his claude.ai or ChatGPT export, once (~/Life/docs/
-// claude-import-scope-2026-10-21.md). The export is pruned by code (`pruned`), copied into his data, and each
-// conversation is judged once by the fast model from the start of his messages: about his life, or only work with the
-// assistant (memory/imported.jsonl). The kept ones are a source like any other (`sources/assistants.ts`): collection
-// makes their older days searchable without historical model work.
+// `bun life import <folder> [--dry]`: his claude.ai or ChatGPT export (~/Life/docs/claude-import-scope-2026-10-21.md),
+// a newer one too. The export is kept in his data as a copy of its own (`sources/assistants.ts`), never replacing or
+// merging an older one, and each conversation is judged by the fast model from the start of his messages: about his
+// life, or only work with the assistant (memory/imported.jsonl). It is judged again only when what the model reads of
+// it changed. The kept ones are a source like any other: collection makes their older days searchable without
+// historical model work.
 
 const IMPORT_PROMPT = "import.v1";
 const PER_CALL = 10;
@@ -41,7 +51,7 @@ const GIST = 3000;
 const PART = /^conversations-\d+\.json$/;
 
 /**
- * An export folder's conversations: which assistant's they are, pruned, and the one file kept of them (`copy`).
+ * An export folder's conversations: which assistant's they are, his messages only, and the one file kept of them (`copy`).
  * A large ChatGPT export has no `conversations.json` but parts (`PART`): read by their number and joined.
  */
 export function readExport(folder: string) {
@@ -61,7 +71,7 @@ export function readExport(folder: string) {
     throw new Error(`${folder} is neither a claude.ai nor a ChatGPT export`);
   }
   return {
-    ...parsedExport(source, json),
+    conversations: parsedExport(source, json),
     copy: parts.length
       ? Buffer.from(JSON.stringify(json))
       : readFileSync(whole),
@@ -70,7 +80,17 @@ export function readExport(folder: string) {
 }
 
 const gist = (c: Conversation) =>
-  clip(c.messages.map((m) => m.text).join("\n"), GIST);
+  clip(
+    c.messages
+      .filter((m) => kept(m.text))
+      .map((m) => m.text)
+      .join("\n"),
+    GIST
+  );
+
+/** What the model reads of a conversation, as a hash: it is judged again when this changes. */
+const gistHash = (c: Conversation) =>
+  digest("sha256", `${c.title}\n${gist(c)}`, 12);
 
 /** What an import would read: conversations, his kept messages, their days, and what the judging would read. */
 export function summaryOf(all: number, conversations: Conversation[]) {
@@ -88,22 +108,19 @@ export function summaryOf(all: number, conversations: Conversation[]) {
   };
 }
 
-/** `import --dry`: what importing `folder` would read, with no copy and no model call. */
-export function dryRun(folder: string) {
-  const { all, conversations, source } = readExport(folder);
-  return { source, ...summaryOf(all, conversations) };
-}
-
 const Entry = z.object({
   id: z.string(),
   keep: z.boolean(),
   why: z.string().min(1),
 });
 
-/** The model's reply for one call: a line for each conversation asked about, once; anything else is counted invalid. */
+/**
+ * The model's reply for one call: a line for each conversation asked about (`asked`: its id and the hash of what the
+ * model read), once; anything else is counted invalid.
+ */
 export function parseJudged(
   reply: unknown,
-  asked: Set<string>,
+  asked: Map<string, string>,
   ctx: { at: string; madeBy: MadeBy; source: string }
 ) {
   const list = z
@@ -119,6 +136,7 @@ export function parseJudged(
     (e): Imported => ({
       at: ctx.at,
       conversation: `${ctx.source}:${e.id}`,
+      hash: asked.get(e.id),
       keep: e.keep,
       madeBy: ctx.madeBy,
       schemaVersion: 1,
@@ -128,40 +146,124 @@ export function parseJudged(
   return { invalid, records };
 }
 
+const sameMessages = (a: Conversation | undefined, b: Conversation) =>
+  a?.messages.length === b.messages.length &&
+  b.messages.every(
+    (m, i) => m.id === a.messages[i]?.id && m.text === a.messages[i]?.text
+  );
+
 /**
- * Copies the export into his data and judges each conversation not judged yet under this prompt. A different export
- * of the same assistant is refused: the copy is the only source of its units' words.
+ * What importing an export would do: its conversations as the memory would read them after (`merged`, each at its
+ * latest version), the ones whose latest version it changes (`changed`, with the version before), and the ones due a
+ * judgment (`due`): never judged, or what the model reads of them changed since. A line from before `hash` stands for
+ * the conversation's first version.
+ */
+function planOf(
+  source: keyof typeof FORMATS,
+  conversations: Conversation[],
+  copy: Buffer
+) {
+  const copies = exportCopiesOf(source);
+  const have = copies.find(
+    (c) =>
+      statSync(c.path).size === copy.length && readFileSync(c.path).equals(copy)
+  );
+  // Without the copy holding these bytes, so a rerun after a crash plans the same changes again.
+  const others = copies.filter((c) => c !== have);
+  const before = latestVersions(others);
+  const after = latestVersions([
+    ...others,
+    copyOf(have?.path ?? "", conversations),
+  ]);
+  const merged = pruned([...after.values()].map((v) => v.latest));
+  const changed = [...after]
+    .filter(([id, v]) => !sameMessages(before.get(id)?.latest, v.latest))
+    .map(([id, v]) => ({ before: before.get(id)?.latest, now: v.latest }));
+  return {
+    after,
+    changed,
+    // Recomputed after the judging, from the lines it wrote.
+    due: () => {
+      const judgments = readJudgments();
+      return merged.filter((c) => {
+        const judged = judgments.get(`${source}:${c.id}`);
+        const line =
+          judged?.madeBy.prompt === IMPORT_PROMPT ? judged : undefined;
+        const v = after.get(c.id) as {
+          first: Conversation;
+          latest: Conversation;
+        };
+        if (!line) {
+          return true;
+        }
+        if (line.hash) {
+          return line.hash !== gistHash(v.latest);
+        }
+        return v.first !== v.latest && gistHash(v.first) !== gistHash(v.latest);
+      });
+    },
+    have,
+    merged,
+  };
+}
+
+/** `import --dry`: what importing `folder` would read and judge, and what is new in it; no copy, no model call. */
+export function dryRun(folder: string) {
+  const { conversations, copy, source } = readExport(folder);
+  const plan = planOf(source, conversations, copy);
+  const due = plan.due();
+  const words = (c: Conversation | undefined) =>
+    new Set(c?.messages.map((m) => `${m.id} ${m.text}`));
+  return {
+    new: {
+      changed: plan.changed.filter((c) => c.before).length,
+      conversations: plan.changed.filter((c) => !c.before).length,
+      messages: plan.changed.reduce((n, { before, now }) => {
+        const had = words(before);
+        return (
+          n + now.messages.filter((m) => !had.has(`${m.id} ${m.text}`)).length
+        );
+      }, 0),
+    },
+    source,
+    ...summaryOf(plan.after.size, due),
+  };
+}
+
+/** The UTC days of a conversation's kept messages. */
+const utcDaysOf = (c: Conversation | undefined) =>
+  (c?.messages ?? []).flatMap((m) =>
+    kept(m.text) ? [wall(m.at, "UTC").day] : []
+  );
+
+/**
+ * Keeps the export as a copy of its own (unless these very bytes are kept already) and judges each conversation due.
+ * Collection covers the days of the conversations it changed or judged again.
  */
 export async function importExport(folder: string) {
-  const { all, conversations, copy, source } = readExport(folder);
-  const to = importOf(source);
-  if (existsSync(to) && !readFileSync(to).equals(copy)) {
-    throw new Error(
-      `${to} holds another ${FORMATS[source].label} export already`
-    );
-  }
+  const { conversations, copy, source } = readExport(folder);
+  const plan = planOf(source, conversations, copy);
   const engine = settings().backfillEngine;
   if (!engine) {
     throw new Error("imports are off: set backfillEngine in settings first");
   }
   await spareQuota(engine);
-  mkdirSync(dirname(to), { recursive: true });
-  writeFileSync(to, copy);
+  if (!plan.have) {
+    const dir = exportsDir(source);
+    mkdirSync(dir, { recursive: true });
+    const name = hasExportCopy(source, dir)
+      ? `conversations.${digest("sha256", copy, 12)}.json`
+      : "conversations.json";
+    writeFileSync(join(dir, `${name}.tmp`), copy);
+    renameSync(join(dir, `${name}.tmp`), join(dir, name));
+  }
   const step = await begin(
     "import",
     "fast",
     { prompt: IMPORT_PROMPT, source },
     engine
   );
-  const unjudged = () => {
-    const judged = new Set(
-      rowsOf(IMPORTED, Imported)
-        .filter((i) => i.madeBy.prompt === IMPORT_PROMPT)
-        .map((i) => i.conversation)
-    );
-    return conversations.filter((c) => !judged.has(`${source}:${c.id}`));
-  };
-  const due = unjudged();
+  const due = plan.due();
   const ctx = {
     at: step.now.toISOString(),
     madeBy: stamp(step.llm, IMPORT_PROMPT, step.run),
@@ -185,32 +287,40 @@ export async function importExport(folder: string) {
         },
         prompt: IMPORT_PROMPT,
       });
-      const checked = parseJudged(json, new Set(batch.map((c) => c.id)), ctx);
+      const checked = parseJudged(
+        json,
+        new Map(
+          batch.map((c) => [
+            c.id,
+            gistHash((plan.after.get(c.id) as { latest: Conversation }).latest),
+          ])
+        ),
+        ctx
+      );
       // Written as each call ends: a stopped run resumes from them.
       appendJsonl(IMPORTED, Imported, checked.records);
       invalid += checked.invalid;
     })
   );
   // Model eligibility counts kept conversations; search collects every pruned owner message.
-  const kept = keptConversations();
-  const days = summaryOf(
-    all,
-    conversations.filter((c) => kept.has(`${source}:${c.id}`))
-  );
-  const read = summaryOf(all, conversations);
-  const utcDays = [
-    ...new Set(
-      conversations.flatMap((c) => c.messages.map((m) => wall(m.at, "UTC").day))
-    ),
+  const keptKeys = keptConversations();
+  const days = [
+    ...new Set([
+      ...plan.changed.flatMap((c) => [
+        ...utcDaysOf(c.before),
+        ...utcDaysOf(c.now),
+      ]),
+      ...due.flatMap(utcDaysOf),
+    ]),
   ].sort();
   return step.end({
     asked: due.length,
     invalid,
-    kept: days.conversations.kept,
-    read,
+    kept: plan.merged.filter((c) => keptKeys.has(`${source}:${c.id}`)).length,
+    read: summaryOf(plan.after.size, plan.merged),
     source,
-    units: { days: utcDays.length, from: utcDays[0], to: utcDays.at(-1) },
+    units: { days: days.length, from: days[0], to: days.at(-1) },
     // A conversation a failed call left unjudged reads as not kept: the same import retries it.
-    unjudged: unjudged().length,
+    unjudged: plan.due().length,
   });
 }
