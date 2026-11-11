@@ -245,6 +245,14 @@ function cut(list: SourceEvent[], resolve: Resolve) {
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => cut(list, resolve));
 
+/**
+ * The units of every source but lifelog, from their events with files shown (`showFiles`), the code rules applied: the
+ * night's (`gather`) and the watcher's today (`buildTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
+ * meet these, so the `duplicate` rule is the same either way.
+ */
+export const sourceUnitsOf = (shown: SourceEvent[], resolve: Resolve) =>
+  applyRules(messageUnits(shown, resolve), keptConversations());
+
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
   first.chatName ??
@@ -692,12 +700,10 @@ export async function gather(
   }));
   const built = [
     ...chapters.map(frozen),
-    ...applyRules(
-      [
-        ...voice,
-        ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
-      ],
-      keptConversations()
+    ...applyRules(voice, keptConversations()),
+    ...sourceUnitsOf(
+      shown.flatMap(({ events }) => events),
+      resolve
     ),
   ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)

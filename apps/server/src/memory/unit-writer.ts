@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { keptConversations, readFiles, readUnitsOf, UNITS } from "./ledger";
+import { readFiles, readUnitsOf, UNITS } from "./ledger";
 import { showFiles } from "./message-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";
@@ -12,8 +12,8 @@ import {
   applyRules,
   type Evidence,
   isFrozen,
-  messageUnits,
   readSourceEvents,
+  sourceUnitsOf,
   voiceUnits,
 } from "./units";
 import { readPeople } from "./who";
@@ -167,19 +167,24 @@ export async function buildTodayUnits(day: string) {
     read.flatMap((r) => r.events),
     readFiles()
   );
-  const want = applyRules(messageUnits(events, resolve), keptConversations())
+  const want = sourceUnitsOf(events, resolve)
     .map((b) => Unit.parse(b.unit))
     .filter((u) => u.date === day);
-  // Lifelog's units, and a source's that was not read now (off, unreadable or failed), stay as they are.
-  const fresh = new Set(
-    read.map((r) => r.s.name).filter((name) => !failed.includes(name))
-  );
   return {
     day,
-    kept: (u: Unit) => !fresh.has(u.source),
+    kept: keptToday(
+      read.map((r) => r.s.name),
+      failed
+    ),
     passages: preparePassages(events, { from: day, to: day }, failed),
     want,
   };
+}
+
+/** What today's write keeps as it is: lifelog's units, and those of a source not read now (off, unreadable or failed). */
+export function keptToday(read: string[], failed: string[]) {
+  const fresh = new Set(read.filter((name) => !failed.includes(name)));
+  return (u: Unit) => !fresh.has(u.source);
 }
 
 /** Writes what `buildTodayUnits` built (under the lock): today's file keeps lifelog's units and those of a source not read. */

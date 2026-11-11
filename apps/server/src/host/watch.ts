@@ -218,36 +218,29 @@ export function resumed(store: Store, now: number) {
   return pending;
 }
 
-/**
- * What the watcher owes the store: the lifelog units from an instant on (null: none), and the whole index
- * (`isIndexOwed`; otherwise the index follows the units it writes, `reindexUnits`).
- */
-interface Owed {
-  from: Date | null;
-  isIndexOwed: boolean;
-}
 /** The earlier of two instants the units are owed from. */
 const earliest = (a: Date | null, b: Date | null) =>
   a && b && b < a ? b : (a ?? b);
 
 /**
- * Pays what is owed holding the lock, and what the index's staleness adds (`readStaleness`: a correction is
- * searchable within the minute; a `truth/` edit builds every lifelog unit again); returns what is still owed (all of
- * it when another run held the lock). A unit that went, or that a code rule dropped or took back, takes the full
- * `reindex`.
+ * Pays what is owed holding the lock: the lifelog units from `from` on (null: none) and the index (`reindexFor`),
+ * with what the index's staleness adds (`readStaleness`: a correction is searchable within the minute; a `truth/` edit
+ * builds every lifelog unit again); returns the instant still owed (all of it when another run held the lock).
  */
-async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
+async function settle(
+  store: Store,
+  cursor: string,
+  from: Date | null
+): Promise<Date | null> {
   const stale = readStaleness();
-  const due = {
-    from: stale === "truth" ? new Date(0) : owed.from,
-    isIndexOwed: owed.isIndexOwed || stale !== null,
-  };
-  if (!(due.from || due.isIndexOwed)) {
-    return due;
+  isIndexOwed ||= stale !== null;
+  const due = stale === "truth" ? new Date(0) : from;
+  if (!(due || isIndexOwed)) {
+    return null;
   }
   const done = await locked(async () => {
-    const built = due.from ? await syncLifelogUnits(store, due.from) : null;
-    await reindexFor(built, due.isIndexOwed);
+    const built = due ? await syncLifelogUnits(store, due) : null;
+    await reindexFor(built);
     return { built };
   });
   if (done?.built) {
@@ -256,20 +249,23 @@ async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
       `${clock().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
     );
   }
-  return done ? { from: null, isIndexOwed: false } : due;
+  return done ? null : due;
 }
 
-/** Set while the index follows units a sync wrote, cleared once it did: written units no longer differ, so an update that threw is redone whole by whichever sync runs next. */
-let isIndexOwed = false;
 /**
- * The index after a sync (under the lock): whole when owed (`owed`, or an update that threw) or when a unit went or a
- * code rule dropped or took one back, else only the units written (`reindexUnits`).
+ * Whether the whole index is owed: at start (the last run may have stopped between units and index), when what it
+ * reads went stale (`readStaleness`), and while it follows units a sync wrote (they no longer differ, so an update that
+ * threw is redone whole by whichever sync runs next); cleared once it is built.
+ */
+let isIndexOwed = true;
+/**
+ * The index after a sync (under the lock): whole when owed (`isIndexOwed`) or when a unit went or a code rule dropped
+ * or took one back, else only the units written (`reindexUnits`).
  */
 async function reindexFor(
-  built: { hasGoneOrBack: boolean; written: Unit[] } | null,
-  owed = false
+  built: { hasGoneOrBack: boolean; written: Unit[] } | null
 ) {
-  const isWhole = owed || isIndexOwed || !!built?.hasGoneOrBack;
+  const isWhole = isIndexOwed || !!built?.hasGoneOrBack;
   isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
   if (isWhole) {
     await reindex();
@@ -280,14 +276,15 @@ async function reindexFor(
 }
 
 let syncing = false;
-/** How often today's units from every source but lifelog are built (`buildTodayUnits`): search finds a message by its words within this. */
+/** How often today's units from every source but lifelog are built (`buildTodayUnits`), the first a tick after start: search finds a message by its words within this. */
 const TODAY_EVERY = 5 * MIN;
 /**
  * On its own timer, one at a time: today's units built outside the lock, written and indexed under it. When a run holds
  * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
  */
 async function syncToday() {
-  if (syncing) {
+  // While a run holds the lock its reads would be thrown away.
+  if (syncing || isLocked()) {
     return;
   }
   syncing = true;
@@ -328,7 +325,6 @@ export async function watch(): Promise<number> {
   sayActions();
   minute();
   embedEvery();
-  todayEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(embedEvery, EMBED_EVERY),
@@ -349,8 +345,8 @@ async function listen(running: string, started: Date): Promise<number> {
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
   let health = readHealth();
-  // At start, every unit follows the store and the index is rebuilt: the last run may have stopped between the two.
-  let owed: Owed = { from: new Date(0), isIndexOwed: true };
+  // At start, every unit follows the store (and the index is owed whole: `isIndexOwed`).
+  let owed: Date | null = new Date(0);
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
@@ -363,7 +359,7 @@ async function listen(running: string, started: Date): Promise<number> {
         more ? 0 : holdFor(pending, clock().getTime(), speech)
       );
       ({ more } = page);
-      owed.from = earliest(owed.from, page.touched);
+      owed = earliest(owed, page.touched);
       for (const h of hearings(
         pending,
         page.owner,
@@ -377,7 +373,7 @@ async function listen(running: string, started: Date): Promise<number> {
           ({ heard, marked }) => {
             // Its marks (its spans, on its turns from `from`) changed: the units carry them at the next sync.
             if (marked) {
-              owed.from = earliest(owed.from, new Date(h.from));
+              owed = earliest(owed, new Date(h.from));
             }
             return heard ? null : h.tries;
           },

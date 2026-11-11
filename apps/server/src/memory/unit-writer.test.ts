@@ -2,7 +2,12 @@ import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Unit } from "../records/unit";
 import { readUnits, UNITS } from "./ledger";
-import { diffUnits, publishTodayUnits, writeUnits } from "./unit-writer";
+import {
+  diffUnits,
+  keptToday,
+  publishTodayUnits,
+  writeUnits,
+} from "./unit-writer";
 
 /** The sources of the units in memory/units/, by day. */
 const sourcesByDay = async () =>
@@ -35,7 +40,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
   let published = 0;
   const built = (want: Unit[], failed: string[] = []) => ({
     day,
-    kept: (u: Unit) => u.source === "lifelog" || failed.includes(u.source),
+    kept: keptToday(["whatsapp", "mail"], failed),
     passages: () => {
       published += 1;
     },
