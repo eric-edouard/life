@@ -33,9 +33,9 @@ backfill over his history) waits.
 
 | Session | State | The rebuild waits for |
 |---|---|---|
-| Speaker re-split (Nemotron's speakers on the Scribe-era recordings) | Done and run, 11 Nov: 2,856 jobs relabeled; words, turns and unit ids unchanged; a relabeled conversation-day's unit hash moves at its next build | Nothing. Closes first |
-| Voice naming (bench, queue, rechecks) | Phone side and an AI naming measurement left, about half a day | His answer on the MECT-B2 voice model switch (the one bulk name change: before the rebuild, or not for now). Names otherwise keep moving with his answers, by design |
-| History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos merged and on (about 2,940 photo-days, 2003 to 2026); his word on assistant replies as units |
+| Speaker re-split (Nemotron's speakers on the Scribe-era recordings) | Done and run, 11 Nov: 2,856 jobs relabeled; words, turns and unit ids unchanged; a relabeled conversation-day's unit hash moves at its next build | Nothing. Archived 11 Nov |
+| Voice naming (bench, queue, rechecks) | Phone side and an AI naming measurement left, about half a day | The MECT-B2 voice model switch, run and recognition finished (his answer, 11 Nov: "Yes MECT-B2, before rebuild"). Names otherwise keep moving with his answers, by design |
+| History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos merged and on (about 2,940 photo-days, 2003 to 2026). Assistant replies stay out of memory (his answer, 11 Nov: no) |
 
 Taken into the path: naming unknown voices from the day's context goes into the per-exchange read (a model-owned
 layer, never lifelog), once the naming session's numbers are in. To check when Photos merges: its read cost in the
