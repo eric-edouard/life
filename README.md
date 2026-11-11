@@ -157,7 +157,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 | Reading | Your Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an [allmodels.io](https://allmodels.io) key, each in three tiers: fast, main and deep. Outputs are cached by input and prompt, so a night re-reads only what changed. |
 | Search by meaning | [EmbeddingGemma 300M](https://huggingface.co/google/embeddinggemma-300m), run by llama.cpp on your Mac, for your voice and your memory alike. No text leaves the Mac to be embedded. |
 | Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
-| Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
+| Voices | The MECT-B2 model, on your Mac, learning only from the names you give. |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; lifelog's iPhone and Watch apps in Swift 6. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |

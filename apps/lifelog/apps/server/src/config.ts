@@ -47,9 +47,10 @@ export function ownerClock(at: Date) {
 // Display samples per person and embedding model, spread across recording time.
 export const VOICE_MAP_POINTS_PER_PERSON_MODEL = 400;
 
-// Speaker recognition.
-// ponytail: placeholder values; calibrate on real Pendant conversations (mixed languages,
-// overlap, distance to the mic) before trusting a match.
+// Speaker recognition. The replay notes below were measured on ECAPA vectors. On MECT-B2's (11 Nov 2026, his
+// answers replayed, 3,567 turns) the same numbers stayed at the knee: 2,210 turns named right and 110 wrong
+// (ECAPA: 2,231 and 162 of 4,100); a lower `margin` or `matchThreshold` named more wrong than right, a higher
+// one lost names (`ownerTurn` 0.7 would credit him 6 fewer turns of others and lose 3 of his: too little to move).
 export const RECOGNITION = {
   // A voice is scored against a person's closest conversations, this many (speakers.ts `likeness`).
   bestExemplars: 2,
