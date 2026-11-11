@@ -108,6 +108,8 @@ const QueueItem = z
     // Its voice group (the unnamed group recognition keeps), or its one voice's `jobId/label`.
     id: z.string(),
     kind: z.enum(suggestionKinds),
+    // Everyone, the most like its voice first; empty when it is too short to judge.
+    likely: z.array(z.uuid()),
     // The name the summaries heard; null when none, or when it is already the known person's
     // name or alias.
     name: z.string().nullable(),
@@ -436,7 +438,8 @@ export function speakerRoutes({
       createRoute({
         description:
           "The owner's answer for a queue item's voices: a new person (name), a person " +
-          "(personId), nobody they know (ignore), a video or TV playing (media), or several people " +
+          "(personId), nobody they know (ignore), a video or TV playing (media), someone not worth naming " +
+          "(not_relevant: these voices are not asked again, and are no stranger), or several people " +
           "(several: who; each turn is decided among them), then the rest of their turns as they read " +
           "(rest). Each voice becomes the owner's correction of " +
           "that speaker, so voice evidence moves with it; answered voices leave the queue.",
@@ -456,6 +459,8 @@ export function speakerRoutes({
                     z.object({ kind: z.literal("ignore") }),
                     // A video, TV or radio playing.
                     z.object({ kind: z.literal("media") }),
+                    // Someone he may know but won't name: never asked again, never a stranger.
+                    z.object({ kind: z.literal("not_relevant") }),
                     // Several people: who, named passage by passage, someone unknown too.
                     z.object({
                       kind: z.literal("several"),

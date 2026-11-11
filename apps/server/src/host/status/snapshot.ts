@@ -715,7 +715,6 @@ interface Processing {
 }
 type Sweep =
   | Reads["status"]["nightly"]
-  | Reads["status"]["midday"]
   | Omit<Reads["status"]["backfill"], "state">;
 
 /** A nightly report's email (`reportKey`), by its key. */
@@ -941,7 +940,6 @@ function calendarCard(
 function pipelineCards(r: Reads): Card[] {
   return [
     sweepCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
-    sweepCard(r, "midday", "Midday", r.status.midday, r.status.midday.next),
     sweepCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
     engineCard(r),

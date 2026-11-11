@@ -28,7 +28,7 @@ import { readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import { firstZoneDay, isDay, lastDays } from "../memory/zones";
 import { Rating } from "../records/statement";
-import { midday, nightly } from "./nightly";
+import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
 // The memory command line: parses the arguments and calls the steps.
@@ -126,7 +126,7 @@ const HANDLERS: Record<string, Handler> = {
       );
       return Promise.resolve(1);
     }
-    // The ticks read it, a week each, when no night or midday run is due (nightly.ts); not while a week runs.
+    // The ticks read it, a week each, when no night is due (nightly.ts); not while a week runs.
     const { from, to } = v;
     return locked(() => {
       // A new range keeps the weeks this day read already: setting it again never lifts the day's cap.
@@ -175,7 +175,6 @@ const HANDLERS: Record<string, Handler> = {
     await reindex();
     return 0;
   },
-  midday: (values) => midday(clock(), values.force),
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
@@ -228,7 +227,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | personas | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }

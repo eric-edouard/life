@@ -38,7 +38,7 @@ import {
   type Target,
   voiceId,
 } from "./people";
-import { recheckOf } from "./recheck";
+import { likelyOf, recheckOf } from "./sounds-like";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";
@@ -250,10 +250,15 @@ function cardOf(
   };
 }
 
-export type Card = Suggestion & { clips: Clip[]; words: number };
+// `likely`: everyone, the most like its voice first (the phone orders its names by it).
+export type Card = Suggestion & {
+  clips: Clip[];
+  likely: string[];
+  words: number;
+};
 
 // The voices to recheck: each speaker he named, judged without its own conversations
-// (recheck.ts `recheckOf`), the most doubtful first. A turn with its own answer is not the
+// (sounds-like.ts `recheckOf`), the most doubtful first. A turn with its own answer is not the
 // speaker's sample.
 // ponytail: every named voice is judged again on each build (0.7 s for 700 of them, in the
 // worker); keep each voice's verdict between builds if that grows.
@@ -334,6 +339,7 @@ function readRechecks(
           card: {
             ...card,
             clips: clipsOf(card),
+            likely: likelyOf(reader.samples(card.voices), reader.profiles),
             words: members.reduce(
               (sum, v) =>
                 sum + [...v.words.values()].reduce((a, b) => a + b, 0),
@@ -395,6 +401,7 @@ function readSplitCards(
         // Map point/card ids are strings: turns/ reserves the split-group namespace.
         ...cardOf(`turns/${group}`, voices, seconds, 0),
         clips,
+        likely: [],
         words,
       };
       return clips.length
@@ -531,7 +538,11 @@ function cardsOf(
   const clipsOf = cardClips(db, reader, clip);
   return suggest(db, voices, reader)
     .map(({ card, words }) => ({
-      card: { ...card, clips: clipsOf(card) },
+      card: {
+        ...card,
+        clips: clipsOf(card),
+        likely: likelyOf(reader.samples(card.voices), reader.profiles),
+      },
       words,
     }))
     .sort(
@@ -660,6 +671,7 @@ export type CardAnswer =
   | { kind: "assign"; personId: string }
   | { kind: "ignore" }
   | { kind: "media" }
+  | { kind: "not_relevant" }
   | { kind: "several"; people: string[]; unknown: boolean };
 
 // The person an answer already names: the one picked, or the one whose name or alias the owner
@@ -708,8 +720,8 @@ export function answerVoices(
     let target: Target = { kind: "unknown" };
     if (several) {
       target = several;
-    } else if (action.kind === "media") {
-      target = { kind: "media" };
+    } else if (action.kind === "media" || action.kind === "not_relevant") {
+      target = { kind: action.kind };
     } else if (personId) {
       target = { kind: "person", personId };
     } else if (action.kind === "confirm") {

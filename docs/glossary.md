@@ -16,6 +16,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
 | split group | Clean sampled turns separated from a job's speaker label by voice; recognized turn rows keep the group, which supplies no identity or evidence. | |
+| not relevant | The owner's answer for a voice he won't name: maybe someone he knows, so that voice is not asked about again and is never a stranger's reference (status `not_relevant`). Not "Not anyone I know", which makes a stranger. | |
 | recheck | A voice the owner named as a person that lifelog, judging without that voice's own conversations, hears as another person on at least half of its sampled turns. Offered once more in the naming flow; his next answer for that voice (the same name or another) settles it for good. | |
 | sample | A voice embedding of one clean recorded turn, with its model and revision; no extra audio. Unnamed samples are nobody's evidence. | |
 | profile | A person's owner-attributed voice evidence, represented by one exemplar per conversation of clean clips. | |
@@ -120,9 +121,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
-| sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
+| sweep | A scheduled batch of steps: `nightly`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources, read raw until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |
 | status | Whether Life works and how fresh it is. | |

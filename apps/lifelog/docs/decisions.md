@@ -112,12 +112,13 @@ reverse it, change its entry here in the same commit.
   turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
 - **Scribe's speakers redone by Nemotron 3, once (11 Nov 2026).** Before Life's memory was rebuilt, every completed
   Scribe job (5,963 with audio; Scribe merged two people under one voice in about 12% of the voices he named)
-  took who-spoke-when from the speech service's own diarizer, run on Modal GPUs (`stt-bench`
-  `local/modal_speakers.py`, `bench rediarize`; `rediarize.ts`, a step removed after its run). Scribe's words, turns
+  took who-spoke-when from the speech service's own diarizer, run on Modal GPUs (a one-off step, removed after its
+  run: `rediarize.ts`, `local/modal_speakers.py`, `bench rediarize`, in git history). Scribe's words, turns
   and indexes stay: he preferred them to Nemotron 3.5's on 10 of 10 blind spots, and Nemotron 3.5's better overlap
   needs its own words. One map (each old label to the new label holding most of its seconds) moves every row keyed by
   label; an owner answer stays whole only where its voice did not merge with another. Nemotron 3 separated 61% of the
-  sentences he gave someone else inside Scribe's voices (Nemotron 3.5: 56%). A block Scribe transcribes after the run
+  sentences he gave someone else inside Scribe's voices (Nemotron 3.5: 56%). The run relabeled 2,856 jobs, found 2,459 already
+  matching and left 648 with no speech; after it, the stored speakers separate 67% of those sentences. A block Scribe transcribes after the run
   (Thai, or a speech-service failure) still carries Scribe's speakers.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
@@ -209,6 +210,10 @@ reverse it, change its entry here in the same commit.
 - **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
   sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
   recovered or asked about. Its samples remain negative references.
+- **"Not relevant" is its own answer** (the owner, 11 Nov 2026: "sometimes people I know but lazy to input name or
+  think they're not relevant"). Status `not_relevant`: that voice is not asked about again, its samples kept, never a stranger's
+  reference, so a friend's voice left unnamed teaches no stranger; the same person in a later conversation is a new
+  voice and may be asked once more. Earlier "Not anyone I know" answers stay as given.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the
