@@ -56,6 +56,9 @@ function seed() {
     .values([{ name: "Guest" }, { isOwner: true, name: "Owner" }])
     .returning()
     .all();
+  if (!(guest && owner)) {
+    throw new Error("no people");
+  }
   const jobId = seedTranscript(db, TURNS, WORDS);
   db.update(transcripts)
     .set({
@@ -78,14 +81,14 @@ function seed() {
     .values([
       {
         jobId,
-        personId: guest?.id,
+        personId: guest.id,
         source: "owner",
         speakerLabel: "speaker_0",
         status: "person",
       },
       {
         jobId,
-        personId: owner?.id,
+        personId: owner.id,
         source: "owner",
         speakerLabel: "speaker_1",
         status: "person",
@@ -104,7 +107,7 @@ function seed() {
       turnIndex: 2,
     })
     .run();
-  return { guest: guest?.id, jobId, owner: owner?.id };
+  return { guest: guest.id, jobId, owner: owner.id };
 }
 
 const ownerRows = (jobId: string) =>
@@ -140,7 +143,7 @@ test("the diarizer's turns relabel a Scribe transcript, its turns and indexes ke
   // A parser bump re-reads the same speakers from raw.
   expect(
     parseTranscript(row?.raw).transcript.words.map((w) => w.speakerId)
-  ).toEqual(row?.parsed.words.map((w) => w.speakerId));
+  ).toEqual(row?.parsed.words.map((w) => w.speakerId) ?? []);
   const cached = db
     .select()
     .from(turnRows)
