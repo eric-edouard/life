@@ -35,7 +35,7 @@ backfill over his history) waits.
 |---|---|---|
 | Speaker re-split (Nemotron's speakers on the Scribe-era recordings) | Done and run, 11 Nov: 2,856 jobs relabeled; words, turns and unit ids unchanged; a relabeled conversation-day's unit hash moves at its next build | Nothing. Archived 11 Nov |
 | Voice naming (bench, queue, rechecks) | Phone side and an AI naming measurement left, about half a day | The MECT-B2 voice model switch, run and recognition finished (his answer, 11 Nov: "Yes MECT-B2, before rebuild"). Names otherwise keep moving with his answers, by design |
-| History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos merged and on (about 2,940 photo-days, 2003 to 2026). Assistant replies stay out of memory (his answer, 11 Nov: no) |
+| History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos on (merged 11 Nov, PR 432, still off: his yes after the cost of re-reading about 56 recent days), with its per-photo descriptions landed if he approves them (a local model, one backfill; they move every photo-day's hash once). The 23 undated days of 2025–2026 are published (PR 434). Open, his yes: photo zones as evidence for old days (settles about 26 of 35 older undated days, rewrites those history units; free before the rebuild, since no model has read old years). Assistant replies stay out of memory (his answer, 11 Nov: no) |
 
 Taken into the path: naming unknown voices from the day's context goes into the per-exchange read (a model-owned
 layer, never lifelog), once the naming session's numbers are in. **The numbers (11 Nov, 120 voices he had
