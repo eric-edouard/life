@@ -214,8 +214,9 @@ struct VoicePage: View {
                     answer(
                         .several(
                             people: Array(among.union(chosen + [owner].compactMap(\.self))),
-                            // Someone unknown too only when he ticked nobody and left a clip unnamed.
-                            unknown: among.isEmpty && chosen.count < picks.count
+                            // Someone unknown too when a clip says so, or he ticked nobody and left one unnamed.
+                            unknown: picks.values.contains(WhoPills.unknown)
+                                || among.isEmpty && chosen.count < picks.count
                         ))
                 } label: {
                     Text("Done").frame(maxWidth: .infinity)
@@ -254,10 +255,15 @@ struct VoicePage: View {
         let suggested = (picks ?? [:]).sorted { $0.key < $1.key }.reduce(into: shown) { all, pick in
             if !all.contains(pick.value) { all.append(pick.value) }
         }
-        return WhoPills(people: people, suggested: suggested, picked: picks?[index]) { choose($0, for: index) }
-            // Under the clip's words, past its play button.
-            .padding(.leading, 62)
-            .padding(.bottom, 8)
+        // One tap for a clip that is nobody to name (11 Nov: they were hidden in "Someone else").
+        return WhoPills(
+            people: people, suggested: suggested + [WhoPills.unknown, WhoPills.media], picked: picks?[index]
+        ) {
+            choose($0, for: index)
+        }
+        // Under the clip's words, past its play button.
+        .padding(.leading, 62)
+        .padding(.bottom, 8)
     }
 
     /// A new name: the main answer when nobody is suggested.
