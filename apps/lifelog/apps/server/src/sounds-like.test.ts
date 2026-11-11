@@ -8,14 +8,19 @@ import {
 } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
-import { conversations, people, speakerAssignments } from "@lifelog/db/schema";
+import {
+  conversations,
+  people,
+  speakerAssignments,
+  voiceSamples,
+} from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import { evaluate, exportVoices } from "../scripts/eval-voices";
 import { createApp } from "./app";
 import { logChange } from "./change-log";
 import { setOwnerTimeZone, sha256Hex } from "./config";
 import { queueCache } from "./naming-cache";
-import { morningPush, namingQueue } from "./naming-queue";
+import { answerVoices, morningPush, namingQueue } from "./naming-queue";
 import { assign, keepServerSamples, recognize, weighProfiles } from "./people";
 import { services } from "./services";
 import { profilesWithout, soundsLikeOf } from "./speakers";
@@ -201,6 +206,8 @@ test("the existing answer settles either name, through the worker; push and map 
       clips: [expect.any(Object), expect.any(Object)],
       id: `${changed.jobId}/voice`,
       kind: "recheck",
+      // Everyone with a voice, the most like this one first.
+      likely: [second, first],
       namedPersonId: first,
       personId: second,
       seconds: 16,
@@ -305,4 +312,23 @@ test("turn rows are excluded, retired conversations leave, and unchanged builds 
     .run();
   logChange(env.db, "conversation", retired.id);
   expect(queue.rechecks()).toEqual([]);
+});
+
+test("not relevant: never asked again, its voice kept, never a stranger's, nothing to score", () => {
+  setup();
+  const held = voice(null, [THIRD, THIRD]);
+  const scored = evaluate(exportVoices(env.db)).turns;
+  answerVoices(env.db, [{ jobId: held.jobId, speakerLabel: "voice" }], {
+    kind: "not_relevant",
+  });
+  expect(rowOf(held.jobId)).toMatchObject({
+    personId: null,
+    source: "owner",
+    status: "not_relevant",
+  });
+  expect(env.db.select().from(voiceSamples).all()).toHaveLength(6);
+  expect(evaluate(exportVoices(env.db)).turns).toBe(scored);
+  const again = voice(null, [THIRD, THIRD]);
+  recognize(env.db, again.jobId);
+  expect(rowOf(again.jobId)?.status).not.toBe("stranger");
 });

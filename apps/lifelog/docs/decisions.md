@@ -209,6 +209,9 @@ reverse it, change its entry here in the same commit.
 - **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
   sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
   recovered or asked about. Its samples remain negative references.
+- **"Not relevant" is its own answer** (the owner, 11 Nov 2026: "sometimes people I know but lazy to input name or
+  think they're not relevant"). Status `not_relevant`: never asked about again, its samples kept, never a stranger's
+  reference, so a friend's voice left unnamed teaches no stranger. Earlier "Not anyone I know" answers stay as given.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the

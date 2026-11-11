@@ -26,7 +26,7 @@ import {
   voiceId,
   weighProfiles,
 } from "../src/people";
-import { recheckOf } from "../src/recheck";
+import { recheckOf } from "../src/sounds-like";
 import { likeness, profilesWithout } from "../src/speakers";
 
 export type Export = ReturnType<typeof exportVoices>;
@@ -46,13 +46,14 @@ type Outcome = (typeof OUTCOMES)[number];
 const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
 
 // His answer for a sampled turn, by the one read rule (`speakerOf`): for the turn, else for its
-// voice; none when he never answered, or answered several people (a fallback, not who spoke). A
-// row without a person is "Not anyone I know" or media (its `status`): nobody he knows.
+// voice; none when he never answered, answered several people (a fallback, not who spoke) or
+// "Not relevant" (maybe someone he knows). A row without a person is "Not anyone I know" or media
+// (its `status`): nobody he knows.
 export function answers(data: Pick<Export, "assignments">) {
   const byJob = Map.groupBy(data.assignments, (a) => a.jobId);
   return (s: Pick<Sample, "jobId" | "speakerLabel" | "turnIndex">) => {
     const row = speakerOf(byJob.get(s.jobId), s.speakerLabel, s.turnIndex);
-    return row?.candidates ? undefined : row;
+    return row?.candidates || row?.status === "not_relevant" ? undefined : row;
   };
 }
 

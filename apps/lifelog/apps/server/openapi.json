@@ -1747,6 +1747,13 @@
             "type": "string",
             "enum": ["new_person", "known_person", "recheck", "several"]
           },
+          "likely": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "name": {
             "type": ["string", "null"]
           },
@@ -1792,6 +1799,7 @@
           "exchanges",
           "id",
           "kind",
+          "likely",
           "name",
           "namedPersonId",
           "personId",
@@ -1859,7 +1867,14 @@
           },
           "status": {
             "type": "string",
-            "enum": ["person", "unknown", "candidate", "media", "stranger"]
+            "enum": [
+              "person",
+              "unknown",
+              "candidate",
+              "media",
+              "not_relevant",
+              "stranger"
+            ]
           },
           "turnIndex": {
             "type": ["integer", "null"]
@@ -5135,7 +5150,7 @@
     },
     "/naming-queue/answer": {
       "post": {
-        "description": "The owner's answer for a queue item's voices: a new person (name), a person (personId), nobody they know (ignore), a video or TV playing (media), or several people (several: who; each turn is decided among them), then the rest of their turns as they read (rest). Each voice becomes the owner's correction of that speaker, so voice evidence moves with it; answered voices leave the queue.",
+        "description": "The owner's answer for a queue item's voices: a new person (name), a person (personId), nobody they know (ignore), a video or TV playing (media), someone not worth naming (not_relevant: never asked again, not a stranger), or several people (several: who; each turn is decided among them), then the rest of their turns as they read (rest). Each voice becomes the owner's correction of that speaker, so voice evidence moves with it; answered voices leave the queue.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5190,6 +5205,16 @@
                           "kind": {
                             "type": "string",
                             "enum": ["media"]
+                          }
+                        },
+                        "required": ["kind"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["not_relevant"]
                           }
                         },
                         "required": ["kind"]

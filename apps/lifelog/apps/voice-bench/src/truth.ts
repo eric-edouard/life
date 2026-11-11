@@ -64,6 +64,9 @@ export const nameOf = (
   if (row.candidates) {
     return { kind: "several" };
   }
+  if (row.status === "not_relevant") {
+    return; // Maybe someone he knows, unnamed: no answer to score.
+  }
   return row.personId
     ? { kind: "person", personId: row.personId }
     : { kind: row.status === "media" ? "media" : "unknown" };

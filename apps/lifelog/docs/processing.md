@@ -226,6 +226,8 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   puts him and someone else under one speaker. A turn under 6 s needs only 0.5 if it is also 0.1 ahead of the next
   person (short clips score lower, and his short requests said alone stayed unnamed). His own correction of a
   turn wins, and recognition never replaces it.
+- "Not relevant" (status `not_relevant`) only stops the question: maybe someone he knows, so its voice is nobody's
+  reference and nothing is scored against it.
 - "Not anyone I know" means someone he doesn't care about: a stranger. A voice 0.05 more like the strangers (one
   exemplar per conversation of their clips) than like its nearest person is a stranger too, status `stranger`: no
   name, no turn moved to anyone, not named from nearby, in no unnamed group and never in "Who's this?". Measured on
