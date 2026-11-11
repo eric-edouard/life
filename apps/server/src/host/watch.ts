@@ -13,11 +13,12 @@ import {
 } from "../memory/index-writer";
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
-import { listening } from "../memory/sources";
+import { listening, readySources } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
+import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { HEALTH, type Health, polling, readHealth } from "./health";
@@ -36,6 +37,22 @@ import { lockReport, sendReport } from "./report";
 // down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded.
 
 let ticking = false;
+let syncingMeasurements = false;
+/** One copy sync at a time; a failed page waits for the next minute. */
+async function syncMeasurements() {
+  if (
+    syncingMeasurements ||
+    !readySources().some((s) => s.kind === "physical")
+  ) {
+    return;
+  }
+  syncingMeasurements = true;
+  try {
+    await syncAppleHealth();
+  } finally {
+    syncingMeasurements = false;
+  }
+}
 /**
  * Each minute, one at a time, beside the loop (reading his lists takes about 10 s): his changes in his to-do list
  * (apps/server/src/todo-list) recorded as state. `at` is taken before the read: what Life writes during it falls in the
@@ -366,6 +383,9 @@ async function quiet(running: string) {
 }
 
 function minute() {
+  syncMeasurements().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.apple-health" })
+  );
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "todo.tick" })
   );

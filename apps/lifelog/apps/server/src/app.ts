@@ -6,6 +6,7 @@ import { except } from "hono/combine";
 import { HTTPException } from "hono/http-exception";
 import { type Config, sha256Hex } from "./config";
 import { storeServerError } from "./diagnostics";
+import { appleHealthRoutes } from "./routes/apple-health";
 import { backupRoutes } from "./routes/backup";
 import type { ApiEnv } from "./routes/common";
 import { conversationRoutes } from "./routes/conversations";
@@ -64,6 +65,7 @@ const opening = (routes: string[]) => {
 };
 // Writes that change nothing searchable: no search sweep after them.
 const UNSEARCHED = new Set([
+  "/apple-health",
   "/search",
   "/health/heartbeat",
   "/events",
@@ -163,6 +165,7 @@ export function createApp(s: Services) {
 
   app
     .route("/", healthRoutes(s))
+    .route("/", appleHealthRoutes(s))
     .route("/", voicePageRoutes())
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))

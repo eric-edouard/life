@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
-import type { Newest } from "./contract";
+import { isWithin, type Newest } from "./contract";
 
 // His conversations with AI assistants, from the one-time exports of claude.ai and ChatGPT (~/Life/docs/
 // claude-import-scope-2026-10-21.md): his own messages only, pruned by code. An export is copied once to
@@ -265,11 +265,7 @@ export const readAssistant =
           })
         )
       )
-      .filter(
-        (e) =>
-          e.at >= since.toISOString() &&
-          (!before || e.at < before.toISOString())
-      )
+      .filter(isWithin(since, before))
       .sort((a, b) => a.at.localeCompare(b.at));
 
 /** The first imported message's timestamp, using the export's read-once cache. */

@@ -20,6 +20,14 @@ export const SourceFile = z
   .strict();
 
 export type SourceFile = z.infer<typeof SourceFile>;
+/** The Apple Health measurements that are one number (a sleep and a workout are spans with their own fields). */
+export const QUANTITY_KINDS = [
+  "steps",
+  "resting_heart_rate",
+  "heart_rate_variability",
+  "weight",
+] as const;
+export type QuantityKind = (typeof QUANTITY_KINDS)[number];
 /** A normalized source event. Ids are stable per source, so syncing twice never duplicates. */
 export const SourceEvent = z
   .object({
@@ -40,6 +48,30 @@ export const SourceEvent = z
     // His words to Life, to keep (a mark): mail he sent only to himself, a `tell_life` line. Set by its reader; a
     // self-chat's messages are marked by `chatDay` (units.ts), which knows whose a chat is.
     marked: z.literal(true).optional(),
+    // Apple Health only: the numbers a measurement-day sums; sleep belongs to its woke event.
+    measured: z
+      .discriminatedUnion("kind", [
+        z
+          .object({
+            asleepMs: z.number().nonnegative(),
+            kind: z.literal("sleep"),
+          })
+          .strict(),
+        z
+          .object({
+            activity: z.string(),
+            kcal: z.number().nonnegative().optional(),
+            kind: z.literal("workout"),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.enum(QUANTITY_KINDS),
+            value: z.number().nonnegative(),
+          })
+          .strict(),
+      ])
+      .optional(),
     // A phone call event of its chat (including call-only chats): its length once it ended (0: not picked up),
     // none when no end was seen. Its text is the line Life writes for it (`callLine`, units.ts).
     phoneCall: z
@@ -54,7 +86,7 @@ export const SourceEvent = z
     text: z.string(),
     // Mail only: Mail sorted it as a transaction (an order, booking, receipt, delivery or bank notice).
     transaction: z.literal(true).optional(),
-    // Screen Time only: when the app or website left the front.
+    // Screen Time: when the app or website left the front; Apple Health: when a workout ended.
     until: isoDateTime.optional(),
   })
   .strict();

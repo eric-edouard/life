@@ -505,6 +505,7 @@ extension ServerClient {
         /// Previews: the driver over `library`, nothing live.
         func previewSync(capture: CaptureStore = .preview(), library: LibraryStore? = nil) -> some View {
             environment(SyncStore.preview(capture: capture, library: library))
+                .environment(AppleHealthReader())
         }
     }
 #endif

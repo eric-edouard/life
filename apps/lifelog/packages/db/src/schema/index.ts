@@ -1,9 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
-import { bytesOf, vectorOf } from "@life/server/src/core/embedder";
 import { isNull, type SQLWrapper, sql } from "drizzle-orm";
 import {
-  customType,
   index,
   integer,
   primaryKey,
@@ -15,21 +12,19 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-// SQLite, one file, one writer (docs/architecture.md). Instants are epoch milliseconds (Date in
-// code), ids text uuids, JSON text read and written by Drizzle, booleans 0 and 1.
-const instant = (name: string) => integer(name, { mode: "timestamp_ms" });
-const boolean = (name: string) => integer(name, { mode: "boolean" });
-const json = <T = unknown>(name: string) =>
-  text(name, { mode: "json" }).$type<T>();
-const uuid = (name: string) => text(name);
-const newId = () => randomUUID();
+import {
+  boolean,
+  createdAt,
+  instant,
+  json,
+  newId,
+  updatedAt,
+  uuid,
+  vector,
+} from "./columns";
 
-// A vector as Life's core stores it: scored in JS (search.ts), never by the database.
-const vector = customType<{ data: number[]; driverData: Uint8Array }>({
-  dataType: () => "blob",
-  fromDriver: (bytes) => Array.from(vectorOf(bytes)),
-  toDriver: bytesOf,
-});
+// biome-ignore lint/performance/noBarrelFile: the schema index is the tables contract.
+export { appleHealth } from "./apple-health";
 
 // Pendant pages: [[first, last], …] inclusive, sorted, touching ones joined. Admission never buys a
 // page a job or fragment already holds, failed or not (cutter.ts `holderOf`, under the one writer).
@@ -137,13 +132,6 @@ export interface ParsedTranscript {
   turns: Turn[];
   words: Word[];
 }
-
-const createdAt = instant("created_at").notNull().$defaultFn(clock);
-
-const updatedAt = instant("updated_at")
-  .notNull()
-  .$defaultFn(clock)
-  .$onUpdate(clock);
 
 // The ledger. Usage is computed from it (state <> 'failed'), by admittedAt.
 export const transcriptionJobs = sqliteTable(
