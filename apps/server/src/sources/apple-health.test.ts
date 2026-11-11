@@ -2,7 +2,6 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOUR, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { SourceEvent } from "../records/source";
 import {
@@ -32,16 +31,14 @@ test("sleep unions overlapping devices, keeps stages and awake time, and separat
     sleep("nap", "2024-02-02T05:00:00Z", "2024-02-02T05:25:00Z"),
   ];
   const events = nightsOf(segments.toReversed());
-  expect(events.map((e) => e.text)).toEqual([
-    "fell asleep",
-    "woke: 7 h 5 min asleep (deep 1 h, REM 30 min, core 6 h 5 min), awake 25 min",
-    "fell asleep",
-    "woke: 25 min asleep",
+  expect(events.map((e) => [e.at, e.until, e.text])).toEqual([
+    [
+      "2024-02-01T20:00:00.000Z",
+      "2024-02-02T03:05:00.000Z",
+      "slept 7 h 5 min (deep 1 h, REM 30 min, core 6 h 5 min), awake 25 min",
+    ],
+    ["2024-02-02T05:00:00.000Z", "2024-02-02T05:25:00.000Z", "slept 25 min"],
   ]);
-  expect(events[1]?.measured).toEqual({
-    asleepMs: 7 * HOUR + 5 * MIN,
-    kind: "sleep",
-  });
   expect(events.every((e) => SourceEvent.safeParse(e).success)).toBe(true);
   expect(
     nightsOf(
@@ -57,9 +54,10 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
   setSettings({ lifelog: { url: "https://lifelog.example" } });
   process.env.LIFELOG_TOKEN = "made-up-device-token";
   const base = {
+    activity: "walking",
     endAt: "2024-02-02T08:00:00.000Z",
-    id: "hour",
-    kind: "steps",
+    id: "workout",
+    kind: "workout",
     startAt: "2024-02-02T07:00:00.000Z",
   };
   let changed = false;
@@ -77,10 +75,10 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     }
     if (hasBadCursor) {
       return Promise.resolve(
-        Response.json({ measurements: [{ ...base, seq: after, value: 99 }] })
+        Response.json({ measurements: [{ ...base, kcal: 99, seq: after }] })
       );
     }
-    if (hasDay && after < 8) {
+    if (hasDay && after < 5) {
       return Promise.resolve(
         Response.json({
           measurements: [
@@ -97,30 +95,6 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
               seq: 5,
               startAt: "2026-10-10T06:00:00Z",
             },
-            {
-              endAt: "2026-10-10T07:00:00Z",
-              id: "weight",
-              kind: "weight",
-              seq: 6,
-              startAt: "2026-10-10T07:00:00Z",
-              value: 68.24,
-            },
-            {
-              endAt: "2026-10-10T08:00:00Z",
-              id: "resting",
-              kind: "resting_heart_rate",
-              seq: 7,
-              startAt: "2026-10-10T08:00:00Z",
-              value: 57,
-            },
-            {
-              endAt: "2026-10-10T09:00:00Z",
-              id: "hrv",
-              kind: "heart_rate_variability",
-              seq: 8,
-              startAt: "2026-10-10T09:00:00Z",
-              value: 41.3,
-            },
           ],
         })
       );
@@ -129,7 +103,7 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     return Promise.resolve(
       Response.json(
         after < seq
-          ? { measurements: [{ ...base, seq, value: changed ? 280 : 140 }] }
+          ? { measurements: [{ ...base, kcal: changed ? 280 : 140, seq }] }
           : { measurements: [] }
       )
     );
@@ -145,8 +119,8 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     const read = () => readAppleHealth(new Date(0), undefined, dir);
     expect(read()).toHaveLength(1);
     expect(read()[0]).toMatchObject({
-      measured: { kind: "steps", value: 280 },
-      text: "280 steps",
+      text: "walking, 280 kcal",
+      until: base.endAt,
     });
     expect(earliestAppleHealth(dir)).toBe(base.startAt);
     expect(newestAppleHealth(dir)).toEqual({ at: base.startAt });
@@ -165,31 +139,30 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     expect(read()).toHaveLength(1);
     hasDay = true;
     await syncAppleHealth(dir);
-    const wakeDay = readAppleHealth(
+    const sleepDay = readAppleHealth(
+      new Date("2026-10-08T22:00:00Z"),
+      new Date("2026-10-09T22:00:00Z"),
+      dir
+    );
+    expect(sleepDay.map((e) => [e.at, e.until, e.text])).toEqual([
+      [
+        "2026-10-09T21:30:00.000Z",
+        "2026-10-09T22:40:00.000Z",
+        "slept 1 h 10 min",
+      ],
+    ]);
+    const nextDay = readAppleHealth(
       new Date("2026-10-09T22:00:00Z"),
       new Date("2026-10-10T22:00:00Z"),
       dir
     );
-    expect(wakeDay.map((e) => e.measured?.kind)).toEqual([
-      "sleep",
-      "workout",
-      "weight",
-      "resting_heart_rate",
-      "heart_rate_variability",
-    ]);
-    expect(wakeDay.every((e) => SourceEvent.safeParse(e).success)).toBe(true);
-    expect(wakeDay.map((e) => e.text)).toEqual([
-      "woke: 1 h 10 min asleep",
-      "running, 315 kcal",
-      "weight 68.2 kg",
-      "resting heart rate 57 bpm",
-      "HRV 41 ms",
-    ]);
+    expect(nextDay.map((e) => e.text)).toEqual(["running, 315 kcal"]);
+    expect(nextDay.every((e) => SourceEvent.safeParse(e).success)).toBe(true);
     hasBadCursor = true;
     await expect(syncAppleHealth(dir)).rejects.toThrow("cursor");
     hasBadCursor = false;
     await syncAppleHealth(dir);
-    expect(cursors.at(-1)).toBe(8);
+    expect(cursors.at(-1)).toBe(5);
   } finally {
     fetch.mockRestore();
     setSettings({ lifelog: old });
