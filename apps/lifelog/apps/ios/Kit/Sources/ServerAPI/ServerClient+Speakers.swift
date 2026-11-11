@@ -51,8 +51,12 @@ extension ServerClient {
         public var kind: Kind
         /// The name the summaries heard for it.
         public var name: String?
-        /// For `knownPerson`: who it sounds like.
+        /// For `knownPerson` and `recheck`: who it sounds like.
         public var personId: UUID?
+        /// For `recheck`: who the owner named it, asked once more.
+        public var namedPersonId: UUID?
+        /// Everyone, the most like its voice first; absent in an answer kept from before 11 Nov.
+        public var likely: [UUID]?
         public var conversations: Int
         public var seconds: Double
         /// Turns it traded with the owner.
@@ -73,16 +77,24 @@ extension ServerClient {
         try decode([NamingItem].self, try await send(try request("naming-queue")))
     }
 
+    /// Voices the owner named that sound like someone else (openapi `/naming-queue/rechecks`), the most doubtful first.
+    /// Any answer settles one for good.
+    public func rechecks() async throws -> [NamingItem] {
+        try decode([NamingItem].self, try await send(try request("naming-queue/rechecks")))
+    }
+
     /// The owner's answer for a voice to name (openapi `/naming-queue/answer`).
     public enum NamingAnswer: Sendable, Equatable, Codable {
         /// Someone new, named so.
         case confirm(name: String)
         /// One of the owner's people.
         case assign(UUID)
-        /// Not anyone to name: never asked about again.
+        /// A stranger he doesn't care about: not asked about again, and voices like it are strangers too.
         case ignore
         /// A video, TV or radio playing: left out of summaries and search, never a voice profile.
         case media
+        /// Maybe someone he knows, not worth naming: not asked about again, and no stranger to compare voices with.
+        case notRelevant
         /// Several people under one voice: who among the owner's people, someone unknown too. Its passages are named
         /// in place first, one turn at a time.
         case several(people: [UUID], unknown: Bool)
@@ -102,6 +114,7 @@ extension ServerClient {
                 try container.encode(id.uuidString.lowercased(), forKey: .personId)
             case .ignore: try container.encode("ignore", forKey: .kind)
             case .media: try container.encode("media", forKey: .kind)
+            case .notRelevant: try container.encode("not_relevant", forKey: .kind)
             case .rest: try container.encode("rest", forKey: .kind)
             case .several(let people, let unknown):
                 try container.encode("several", forKey: .kind)
@@ -116,6 +129,7 @@ extension ServerClient {
             case "confirm": self = .confirm(name: try container.decode(String.self, forKey: .name))
             case "assign": self = .assign(try container.decode(UUID.self, forKey: .personId))
             case "media": self = .media
+            case "not_relevant": self = .notRelevant
             // "Assign the rest", gone Oct 15: a waiting one goes as it was, for the server to refuse, never as `ignore`.
             case "rest": self = .rest
             case "several":

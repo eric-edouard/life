@@ -39,7 +39,7 @@ reverse it, change its entry here in the same commit.
   its sampled turns must first guess another person; the named person must still have a profile.
   The most frequent other person is suggested. The only stored fact is `speaker_assignments.rechecked`, set
   when an owner answer replaces an owner row of the same scope; recognition never sets it.
-  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone shows them later.
+  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone asks them after the voices to name, "Keep X" first.
 
 - **The voice bench's answers reach the archive through the server (owner's decision, 10 Nov 2026, reversing his
   "bench only" of that morning).** His review found many of his past names wrong, so they belong in lifelog. The
@@ -217,6 +217,9 @@ reverse it, change its entry here in the same commit.
   think they're not relevant"). Status `not_relevant`: that voice is not asked about again, its samples kept, never a stranger's
   reference, so a friend's voice left unnamed teaches no stranger; the same person in a later conversation is a new
   voice and may be asked once more. Earlier "Not anyone I know" answers stay as given.
+- **The phone's names follow the voice** (11 Nov 2026): the name pills are ordered by the card's `likely` (his people with a voice profile, the most like the voice first), then by
+  name. "Several people" is answered by ticking who is in it; naming a clip stays the precise path and adds to the
+  ticks. With a tick, nobody unknown is sent.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the
