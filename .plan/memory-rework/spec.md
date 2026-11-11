@@ -60,7 +60,9 @@ forecasts. Each part works without the ones after it.
     evidence.
   - One channel per exchange; the episode joins across channels.
 - An exchange is complete when its silence has passed. The day's read (episodes, claims) runs the same night as
-  today; the focused reads run once the exchange is complete, so at most a night later, never twice.
+  today; the focused reads run once the exchange is complete, so at most a night later, never twice on the same
+  messages. An exchange whose messages change afterwards (a late backup fill, mail that arrives late) is read
+  again once, known by its messages' hash as today's cache knows a unit.
 - Read by a model: every exchange of a chat where both sides ever wrote, with anyone, at any age. A sitting where
   only one side wrote is read too: an ignored message is evidence. Skipped by code: notifications, newsletters,
   chats where nobody ever answered, big groups where he never speaks, and recordings lifelog heard from a screen, a
@@ -117,7 +119,12 @@ Rules:
 - **Coverage** is read by every count, every summary and every forecast: a week with no capture is "not seen",
   never "quiet". Only a source that captures on its own covers a day (a chat archive, mail, the pendant, the phone's
   places). One that records only when he acts (photos, workouts) covers nothing: a day without a photo is neither
-  "not seen" nor "nothing happened", and no trend is drawn from how often he takes pictures.
+  "not seen" nor "nothing happened", and no trend is drawn from how often he takes pictures. A day the history
+  could not date (its zone unsure, so no unit was published: about 100 days) is "not seen".
+- **An old local day is a guess.** Before 31 May 2025 the zone of a day comes from a sent mail's offset (whole
+  hours, no daylight saving), so a message near midnight can sit a day off. Exchanges, delays and months are
+  counted from instants and do not care. What depends on the hour of the day (his routines, late-night contact) is
+  counted from 31 May 2025 on, and marked approximate before.
 
 ## 5. The reads of an exchange
 
@@ -528,7 +535,7 @@ After this spec and its second review, once his credits are back; never before.
   both is at most 2.2 million tokens of their words, plus the prompts. At the list prices of the hosts his engine
   routes to, a round is about two dollars at the ceiling, so three rounds are a few dollars. Everyone's one-to-one
   history (102 people) is at most 2.4 million tokens per read. Not yet sized: recordings, group chats, the third
-  person. The table is in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-sizes.md`.
+  person, his assistant chats (about 4,400 kept conversation-days, his words only). The table is in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-sizes.md`.
 - Then: the build (the path), and the history.
 
 ### The history, read once
@@ -727,5 +734,10 @@ pictured is a third surface, Apple's guess (section 3); sleep, workouts, photo p
 measures (section 4), and sleep and workouts own their hours; a source that records only when he acts covers no day
 (section 4); time together by person and month, shown apart from contact (section 10); old months read their
 photo-days (section 11); the rebuild waits for Photos and the voice model switch, and a moved photo-day rebuilds
-its summaries once (section 16). The assistant's replies stay out (his answer). To verify when the data session's
-inventory arrives: whether its imports carry days with an uncertain time zone, and exports that overlap the archive.
+its summaries once (section 16). The assistant's replies stay out (his answer). Verified on the data session's inventory the same evening (13 sources, 7,076 day files, 2007 to now): exports
+that overlap the archive are deduped below units (WhatsApp by message id, assistant conversations at their latest
+version), so nothing above counts twice; old local days are guesses and about 100 days have no units (section 4);
+several sources' hashes move late, hence the one re-read of a changed exchange (section 3). What it also shows:
+the written history is thin before 2018 (WhatsApp holds 2 to 50 chat-days a year from 2012 to 2017, iMessage
+starts mid-2015), so an old year is mostly mail and photos; and Apple names 22 people in his photos, so time
+together by picture exists only for them.
