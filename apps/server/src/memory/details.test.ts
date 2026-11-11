@@ -15,6 +15,7 @@ const contact = (over: Partial<Contact> = {}): Contact => ({
   addresses: [],
   birthday: null,
   handles: ["+33 6 11 11 11 11"],
+  id: "card-ana",
   name: "Ana Test",
   profiles: [],
   related: [],
