@@ -217,7 +217,7 @@ reverse it, change its entry here in the same commit.
   think they're not relevant"). Status `not_relevant`: that voice is not asked about again, its samples kept, never a stranger's
   reference, so a friend's voice left unnamed teaches no stranger; the same person in a later conversation is a new
   voice and may be asked once more. Earlier "Not anyone I know" answers stay as given.
-- **The phone's names follow the voice** (11 Nov 2026): the name pills are ordered by the card's `likely`, then by
+- **The phone's names follow the voice** (11 Nov 2026): the name pills are ordered by the card's `likely` (his people with a voice profile, the most like the voice first), then by
   name. "Several people" is answered by ticking who is in it; naming a clip stays the precise path and adds to the
   ticks. With a tick, nobody unknown is sent.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
