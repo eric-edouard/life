@@ -172,6 +172,16 @@ test("mail never defers a day a recorded zone covers, and the mail era stays put
   }
 });
 
+test("a window entirely after the mail era has no deferrals, gaps or runs", async () => {
+  const report = await prepareHistoricalZones(
+    { from: "2020-01-01", to: "2020-01-02" },
+    () => [sent("2020-01-01", "+0530"), sent("2020-01-02", "+0700")]
+  );
+  expect(report.deferred).toEqual([]);
+  expect(report.gaps).toEqual([]);
+  expect(report.runs).toEqual([]);
+});
+
 test("prepending a zone never extends a new offset into already stored units", async () => {
   const was = readFileSync(ZONES, "utf8");
   const path = join(UNITS, "2018-01-02.jsonl");

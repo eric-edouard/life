@@ -334,19 +334,18 @@ export async function readHistoricalZones(
       ...(eraEnd ? [daysBefore(eraEnd, 1)] : []),
     ].sort()[0] as string,
   };
+  const firstZone = firstZoneDay();
   const limit = [
-    mailDays.to,
+    window.to,
     ...(firstUnit ? [daysBefore(firstUnit, 1)] : []),
+    ...(firstZone ? [daysBefore(firstZone, 1)] : []),
   ].sort()[0] as string;
   // Derive gaps again on retries too: appended runs must never turn an unresolved day into known coverage.
   const report = historicalZonesOf(read(new Date(0), clock()), mailDays);
   const deferred = [...report.deferred];
-  const stored = new Set(zones().flatMap((z) => (z.source ? [z.from] : [])));
   const runs = report.runs.filter((r) => {
     const { day } = wall(r.from, r.tz);
-    return (
-      day >= window.from && day <= limit && !stored.has(Date.parse(r.from))
-    );
+    return day >= window.from && day <= limit;
   });
   // Before the first record, zoneAt extrapolates backward. Extending a different final run into stored units would
   // change their dates; restoring it on their first day is forbidden by the past-zone boundary.
