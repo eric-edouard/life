@@ -47,7 +47,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
-  that text includes each day's Apple Health lines (sleep and workouts).
+  that text includes each day's Apple Health lines (sleep and workouts). With the `photos` source on, it includes each
+  day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
+  photos, the names Apple's People gives and his captions; never an image, a face or a face print.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).

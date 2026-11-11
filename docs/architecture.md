@@ -59,8 +59,8 @@ flowchart LR
   (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its words, fetched
   only for the units sent in full (`voiceText`). Nothing is cut (his request of 9 Nov 2026): a day too long for one
   call (`callCharsOf`, the provider's context) is read in parts, in time order, through the same re-read; a mail is
-  its own words, the history it quotes left out (`ownWordsOf`). Apple Health units can make episodes: each workout
-  and night has its own bounds. They remain activity (`isActivity`): never extracted, importance at most 1.
+  its own words, the history it quotes left out (`ownWordsOf`). Apple Health and Photos units can make episodes: each workout
+  and night has its own bounds, a photo-day its lines of photos at a place. They remain activity (`isActivity`): never extracted, importance at most 1.
   Like other episodes, they become Past calendar events and memory claims; episodes are never drawn for fact checks.
 - **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
