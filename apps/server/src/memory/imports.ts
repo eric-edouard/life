@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { appendJsonl, rowsOf } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
@@ -18,6 +18,7 @@ import { Imported } from "../records/observation";
 import {
   COPY,
   type Conversation,
+  copyOf,
   exportCopiesOf,
   exportsDir,
   FORMATS,
@@ -27,7 +28,7 @@ import {
   parsedExport,
   pruned,
 } from "../sources/assistants";
-import { IMPORTED, keptConversations, latestBy } from "./ledger";
+import { IMPORTED, keptConversations, readJudgments } from "./ledger";
 import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { spareQuota } from "./schedule";
@@ -163,25 +164,17 @@ function planOf(
   copy: Buffer
 ) {
   const copies = exportCopiesOf(source);
-  const have = copies.some(
+  const have = copies.find(
     (c) =>
       statSync(c.path).size === copy.length && readFileSync(c.path).equals(copy)
   );
-  const before = latestVersions(copies);
-  const after = have
-    ? before
-    : latestVersions([
-        ...copies,
-        {
-          conversations,
-          path: "",
-          updatedAt:
-            conversations
-              .map((c) => c.updatedAt)
-              .sort()
-              .at(-1) ?? "",
-        },
-      ]);
+  // Without the copy holding these bytes, so a rerun after a crash plans the same changes again.
+  const others = copies.filter((c) => c !== have);
+  const before = latestVersions(others);
+  const after = latestVersions([
+    ...others,
+    copyOf(have?.path ?? "", conversations),
+  ]);
   const merged = pruned([...after.values()].map((v) => v.latest));
   const changed = [...after]
     .filter(([id, v]) => !sameMessages(before.get(id)?.latest, v.latest))
@@ -191,14 +184,11 @@ function planOf(
     changed,
     // Recomputed after the judging, from the lines it wrote.
     due: () => {
-      const lines = latestBy(
-        rowsOf(IMPORTED, Imported).filter(
-          (i) => i.madeBy.prompt === IMPORT_PROMPT
-        ),
-        (i) => i.conversation
-      );
+      const judgments = readJudgments();
       return merged.filter((c) => {
-        const line = lines.get(`${source}:${c.id}`);
+        const judged = judgments.get(`${source}:${c.id}`);
+        const line =
+          judged?.madeBy.prompt === IMPORT_PROMPT ? judged : undefined;
         const v = after.get(c.id) as {
           first: Conversation;
           latest: Conversation;
@@ -241,7 +231,7 @@ export function dryRun(folder: string) {
 }
 
 /** The UTC days of a conversation's kept messages. */
-const daysOf = (c: Conversation | undefined) =>
+const utcDaysOf = (c: Conversation | undefined) =>
   (c?.messages ?? []).flatMap((m) =>
     kept(m.text) ? [wall(m.at, "UTC").day] : []
   );
@@ -316,8 +306,11 @@ export async function importExport(folder: string) {
   const keptKeys = keptConversations();
   const days = [
     ...new Set([
-      ...plan.changed.flatMap((c) => [...daysOf(c.before), ...daysOf(c.now)]),
-      ...due.flatMap(daysOf),
+      ...plan.changed.flatMap((c) => [
+        ...utcDaysOf(c.before),
+        ...utcDaysOf(c.now),
+      ]),
+      ...due.flatMap(utcDaysOf),
     ]),
   ].sort();
   return step.end({

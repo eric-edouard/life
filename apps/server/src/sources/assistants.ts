@@ -13,8 +13,8 @@ import { isWithin, type Newest } from "./contract";
 
 type Assistant = "chatgpt" | "claude";
 
-/** A turn of a conversation as both exports reduce to: who wrote it, its words, and the files it carried as tags. */
-export interface Turn {
+/** A message of a conversation as both exports reduce to: who wrote it, its words, and the files it carried as tags. */
+export interface ExportMessage {
   at: string;
   fromMe: boolean;
   id: string;
@@ -25,7 +25,7 @@ export interface Turn {
 /** A conversation as both exports reduce to: its turns in order, and when the export says it was last updated. */
 export interface Conversation {
   id: string;
-  messages: Turn[];
+  messages: ExportMessage[];
   title: string;
   updatedAt: string;
 }
@@ -34,7 +34,10 @@ const iso = (s: number | string) =>
   new Date(typeof s === "number" ? s * 1000 : s).toISOString();
 
 /** When a conversation was last updated: the export's word, or its newest turn if that is later. */
-const updatedOf = (stated: number | string | null | undefined, turns: Turn[]) =>
+const updatedOf = (
+  stated: number | string | null | undefined,
+  turns: ExportMessage[]
+) =>
   [...(stated ? [iso(stated)] : []), ...turns.map((m) => m.at)].sort().at(-1) ??
   "";
 
@@ -65,7 +68,7 @@ const ClaudeExport = z.array(
 function parseClaude(json: unknown): Conversation[] {
   return ClaudeExport.parse(json).map((c) => {
     const messages = c.chat_messages.map(
-      (m): Turn => ({
+      (m): ExportMessage => ({
         at: iso(m.created_at),
         fromMe: m.sender === "human",
         id: m.uuid,
@@ -159,7 +162,7 @@ function parseChatgpt(json: unknown): Conversation[] {
     ) {
       branch.unshift(node);
     }
-    const messages = branch.flatMap(({ message: m }): Turn[] => {
+    const messages = branch.flatMap(({ message: m }): ExportMessage[] => {
       if (
         !(m && ["assistant", "user"].includes(m.author.role)) ||
         m.metadata?.is_visually_hidden_from_conversation ||
@@ -240,15 +243,13 @@ export function kept(text: string) {
   return text.length <= 2000 || (text.match(STRUCTURED)?.length ?? 0) < 5;
 }
 
-/** Conversations with his kept messages only (an identical message seen before dropped: a resend, a fork). */
+/** Conversations (his messages only) with the kept ones (an identical message seen before dropped: a resend, a fork). */
 export function pruned(all: Conversation[]) {
   const seen = new Set<string>();
   return all.flatMap((c) => {
     const messages = c.messages.filter((m) => {
-      const fresh = m.fromMe && kept(m.text) && !seen.has(m.text);
-      if (m.fromMe) {
-        seen.add(m.text);
-      }
+      const fresh = kept(m.text) && !seen.has(m.text);
+      seen.add(m.text);
       return fresh;
     });
     return messages.length > 0 ? [{ ...c, messages }] : [];
@@ -269,11 +270,22 @@ export const exportsDir = (source: Assistant, data = OWNER_DATA_DIR) =>
 /** An export copy's file: `conversations.json`, or `conversations.<12 hex of its bytes>.json` for a later one. */
 export const COPY = /^conversations(\.[0-9a-f]{12})?\.json$/;
 
-interface Copy {
+export interface Copy {
   conversations: Conversation[];
   path: string;
   updatedAt: string;
 }
+
+/** An export copy from its conversations: its update time is the newest any holds, which is where copy order starts. */
+export const copyOf = (path: string, conversations: Conversation[]): Copy => ({
+  conversations,
+  path,
+  updatedAt:
+    conversations
+      .map((c) => c.updatedAt)
+      .sort()
+      .at(-1) ?? "",
+});
 
 const memo = new Map<string, Copy & { mtime: number }>();
 /** Oldest first by the newest update each copy holds, never by name: the one definition of copy order. */
@@ -299,19 +311,12 @@ export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
         const { mtimeMs } = statSync(path);
         let hit = memo.get(path);
         if (hit?.mtime !== mtimeMs) {
-          const conversations = parsedExport(
-            source,
-            JSON.parse(readFileSync(path, "utf8"))
-          );
           hit = {
-            conversations,
+            ...copyOf(
+              path,
+              parsedExport(source, JSON.parse(readFileSync(path, "utf8")))
+            ),
             mtime: mtimeMs,
-            path,
-            updatedAt:
-              conversations
-                .map((c) => c.updatedAt)
-                .sort()
-                .at(-1) ?? "",
           };
           memo.set(path, hit);
         }
@@ -341,13 +346,30 @@ export function latestVersions(copies: Copy[]) {
   return versions;
 }
 
-/** The conversations as memory reads them: each at its latest version, pruned. */
-export const conversationsOf = (source: Assistant, dir?: string) =>
-  pruned(
-    [...latestVersions(exportCopiesOf(source, dir)).values()].map(
-      (v) => v.latest
-    )
+const mergedMemo = new Map<
+  string,
+  { copies: Copy[]; result: Conversation[] }
+>();
+/**
+ * The conversations as memory reads them: each at its latest version, pruned. Merged again only when a copy was added
+ * or changed (the copies are the memoised ones, so identity says so): status, search and every unit read this.
+ */
+export function conversationsOf(source: Assistant, dir = exportsDir(source)) {
+  const copies = exportCopiesOf(source, dir);
+  const hit = mergedMemo.get(dir);
+  if (
+    hit &&
+    hit.copies.length === copies.length &&
+    hit.copies.every((c, i) => c === copies[i])
+  ) {
+    return hit.result;
+  }
+  const result = pruned(
+    [...latestVersions(copies).values()].map((v) => v.latest)
   );
+  mergedMemo.set(dir, { copies, result });
+  return result;
+}
 
 let lastRead: {
   conversation: Conversation;
@@ -358,7 +380,7 @@ let lastRead: {
  * One conversation whole, every turn of its latest version (`<source>:<id>`, as search cites it), or none. Parsed on
  * demand from the copy holding it; the last one is kept, so paging through it does not read the copy again.
  */
-export function readConversation(key: string, dir?: string) {
+export function readImportedConversation(key: string, dir?: string) {
   const source = (Object.keys(FORMATS) as Assistant[]).find((a) =>
     key.startsWith(`${a}:`)
   );

@@ -51,6 +51,10 @@ test("fetch gives an imported conversation back whole, dropped ones too, both si
   expect(first).toContain("Fix this:\n  ```\n  ls\n  ```");
   expect(first).toContain("Claude: Run it twice.\n  Then check.");
   expect(first).toContain("(more: fetch claude:w1 --from-turn 2)");
+  // A page stops before a line that would pass the character bound, and says where to go on.
+  const stopped = await fetchOf("claude:w1", 0, 200);
+  expect(stopped).toContain(": 1–2 of 4");
+  expect(stopped).toContain("(more: fetch claude:w1 --from-turn 2)");
   // The long message stands alone on its page, clipped and said so; the next page goes on after it.
   const long = await fetchOf("claude:w1", 2, 200);
   expect(long).toContain("3–3 of 4");

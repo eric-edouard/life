@@ -1,12 +1,10 @@
 import { clock, DAY } from "../core/clock";
-import { rowsOf } from "../core/files";
 import { fuse } from "../core/fusion";
 import { newestDays } from "../core/lists";
 import { redact } from "../core/redact";
-import { Imported } from "../records/observation";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { readConversation } from "../sources/assistants";
+import { readImportedConversation } from "../sources/assistants";
 import { repoMap } from "../sources/git";
 import {
   authorOf,
@@ -22,7 +20,7 @@ import {
   voiceKey,
   withStore,
 } from "../sources/lifelog";
-import { IMPORTED, latestBy, readInferredRepos, readUnit } from "./ledger";
+import { readInferredRepos, readJudgments, readUnit } from "./ledger";
 import type { SourceLine } from "./observe";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
@@ -309,13 +307,11 @@ function wholeConversation(id: string, from: number, limit: number) {
   if (!source) {
     return null;
   }
-  const whole = readConversation(id);
+  const whole = readImportedConversation(id);
   if (!whole) {
     return asData([`(no conversation ${id})`]);
   }
-  const line = latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).get(
-    id
-  );
+  const line = readJudgments().get(id);
   let verdict = "not judged";
   if (line) {
     verdict = line.keep ? "kept" : `not kept: ${line.why}`;

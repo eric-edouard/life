@@ -231,8 +231,8 @@ test("imports route quota and calls to the historical engine and keep import.v1 
       asked: 1,
       failed: 0,
       kept: 2,
-      // Only the conversation judged now: the two with lines from before are neither new nor changed.
-      units: { days: 1, from: "2026-03-02", to: "2026-03-02" },
+      // The copy was already there but its changes never collected: planned again from the other copies.
+      units: { days: 2, from: "2001-01-01", to: "2026-03-02" },
       unjudged: 0,
     });
     expect(result.read.from).toBe("2001-01-02");
@@ -350,7 +350,8 @@ test("a newer export lands beside the older and only what changed is asked, read
     expect(readdirSync(exportsDir("claude"))).toHaveLength(2);
     // The same export again adds no copy and asks nothing.
     const again = await importExport(newerFolder);
-    expect(again).toMatchObject({ asked: 0, units: { days: 0 } });
+    // Nothing is asked again, but the days it changed are planned again: a crash after the copy never loses them.
+    expect(again).toMatchObject({ asked: 0, units: result.units });
     expect(readdirSync(exportsDir("claude"))).toHaveLength(2);
     expect(asked()).toHaveLength(5);
   } finally {
@@ -358,4 +359,41 @@ test("a newer export lands beside the older and only what changed is asked, read
     quota.mockRestore();
     setSettings({ backfillEngine: before ?? null });
   }
+});
+
+test("a judgment line from before hashes stands for the first version: a newer copy asks again only when the gist changed", () => {
+  const line = (id: string) => ({
+    at: "2026-03-04T00:00:00Z",
+    conversation: `claude:${id}`,
+    keep: true,
+    madeBy: { engine: "claude", model: "old", prompt: "import.v1", run: "old" },
+    schemaVersion: 1 as const,
+    why: "About family.",
+  });
+  appendJsonl(IMPORTED, Imported, [line("same"), line("edited")]);
+  const at = "2026-03-02T09:00:00.000Z";
+  const older = [
+    chat("same", "2026-03-02T10:00:00.000Z", ["a", "Ada moves to Lyon.", at]),
+    chat("edited", "2026-03-02T10:00:00.000Z", [
+      "b",
+      "Bo's dinner is Friday.",
+      at,
+    ]),
+  ];
+  const newer = [
+    chat("same", "2026-04-02T10:00:00.000Z", ["a", "Ada moves to Lyon.", at]),
+    chat("edited", "2026-04-02T10:00:00.000Z", [
+      "b",
+      "Bo's dinner moved to Sunday.",
+      at,
+    ]),
+  ];
+  mkdirSync(exportsDir("claude"), { recursive: true });
+  writeFileSync(
+    join(exportsDir("claude"), "conversations.json"),
+    JSON.stringify(older)
+  );
+  expect(dryRun(folderWith(older)).conversations.kept).toBe(0);
+  // Only the edited one is due: its gist changed; the other is the same words in a later copy.
+  expect(dryRun(folderWith(newer)).conversations.kept).toBe(1);
 });

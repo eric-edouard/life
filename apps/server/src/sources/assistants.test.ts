@@ -10,7 +10,7 @@ import {
   newestAssistant,
   pruned,
   readAssistant,
-  readConversation,
+  readImportedConversation,
 } from "./assistants";
 import { claudeExport } from "./store-fixtures";
 
@@ -128,12 +128,6 @@ test("pruning drops code, pasted documents, tool notices, agent briefs and repea
           fromMe: true,
           id: "1",
           text: "hello Ada",
-        },
-        {
-          at: "2026-01-01T00:00:01.000Z",
-          fromMe: false,
-          id: "1b",
-          text: "Hello!",
         },
       ],
       title: "a",
@@ -259,13 +253,16 @@ test("a conversation comes back whole, the assistant's turns too, from the copy 
   // All code: pruned out of memory, still fetchable by its id.
   expect(conversationsOf("claude")).toEqual([]);
   expect(
-    readConversation("claude:c")?.messages.map((m) => [m.fromMe, m.text])
+    readImportedConversation("claude:c")?.messages.map((m) => [
+      m.fromMe,
+      m.text,
+    ])
   ).toEqual([
     [true, "```\nls\n```"],
     [false, "Here is the listing."],
   ]);
-  expect(readConversation("claude:zz")).toBeUndefined();
-  expect(readConversation("chatgpt:c")).toBeUndefined();
+  expect(readImportedConversation("claude:zz")).toBeUndefined();
+  expect(readImportedConversation("chatgpt:c")).toBeUndefined();
 });
 
 test("with one copy the conversations read exactly as the export pruned", () => {

@@ -282,7 +282,9 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return step(async () => {
       const result = await importExport(dir);
-      // Each run collects the days it touched, even when a call failed: the next run only asks what is left.
+      if (result.failed > 0 || result.unjudged > 0) {
+        return result;
+      }
       const cutoff = daysBefore(dayNow(), DAYS);
       if (result.units?.from && daysBefore(result.units.from, 1) <= cutoff) {
         // UTC days padded on each side include every local day before historical zones are installed.
@@ -290,11 +292,7 @@ const commands: Record<string, () => number | Promise<number>> = {
           from: daysBefore(result.units.from, 1),
           to: [daysBefore(result.units.to ?? cutoff, -1), cutoff].sort()[0],
         });
-        return {
-          ...result,
-          collection,
-          failed: result.failed + collection.failed,
-        };
+        return { ...result, collection, failed: collection.failed };
       }
       await reindex();
       return result;
