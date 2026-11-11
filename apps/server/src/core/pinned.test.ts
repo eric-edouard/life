@@ -68,18 +68,18 @@ test("llama.cpp's release is named for the architecture", () => {
 });
 
 test("tries again after a failed request", async () => {
-  let calls = 0;
+  const answers = [
+    () => new Response("down", { status: 503 }),
+    () => new Response(body),
+  ];
   const flaky = Bun.serve({
-    fetch: () =>
-      (calls += 1) === 1
-        ? new Response("down", { status: 503 })
-        : new Response(body),
+    fetch: () => (answers.shift() ?? answers[0] ?? (() => new Response()))(),
     port: 0,
   });
   try {
     const file = join(dir, "flaky.gguf");
     await download({ sha256, url: `${flaky.url}model.gguf` }, file);
-    expect([calls, readFileSync(file).length]).toEqual([2, body.length]);
+    expect(readFileSync(file)).toEqual(body);
   } finally {
     flaky.stop(true);
   }
