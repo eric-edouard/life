@@ -67,6 +67,8 @@ export const personaPath = (ref: string) =>
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
   join(HISTORIES, `${ref.slice("person:".length)}.json`);
+/** What each publication of units read: its days and sources (`publishUnits`, read by `coverage.ts`). Append-only. */
+export const COVERAGE = join(MEMORY, "coverage.jsonl");
 export const EPISODES = join(MEMORY, "episodes");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");

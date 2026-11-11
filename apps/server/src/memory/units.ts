@@ -724,8 +724,11 @@ export async function gather(
     events: shown.flatMap(({ events }) => events),
     failed,
     files,
+    // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {
-      lifelog: lifelog.length,
+      ...(sources.some((s) => s.kind === "voice") && {
+        lifelog: lifelog.length,
+      }),
       ...Object.fromEntries(
         shown.map(({ events, s }) => [s.name, events.length])
       ),

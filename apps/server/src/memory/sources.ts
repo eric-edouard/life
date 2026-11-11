@@ -87,6 +87,7 @@ export const FULL_DISK = "Full Disk Access for Life";
 const LISTED: Descriptor[] = [
   // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, snapshot.ts).
   {
+    capturesOnItsOwn: true,
     kind: "voice",
     label: "Pendant",
     missing: lifelogMissing,
@@ -94,6 +95,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 6 * HOUR,
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     earliest: readEarliestImessage,
     group: isImessageGroup,
@@ -109,6 +111,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 24 * HOUR,
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     group: isWhatsappGroup,
     handleOf: phoneOf,
@@ -128,6 +131,7 @@ const LISTED: Descriptor[] = [
     },
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     group: isPhoneGroup,
     kind: "chat",
@@ -141,6 +145,7 @@ const LISTED: Descriptor[] = [
   },
   ...NETWORKS.map(bridgedSource),
   {
+    capturesOnItsOwn: true,
     earliest: readEarliestMail,
     incoming: incomingMail,
     kind: "mail",

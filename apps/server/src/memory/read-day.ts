@@ -2,6 +2,7 @@ import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog";
+import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";
 import { span } from "./episode-span";
 import {
@@ -51,6 +52,7 @@ export const shownEpisode =
 export function dayLines({
   actions = [],
   born = [],
+  covered = [],
   due = [],
   facts = [],
   episodes = [],
@@ -60,6 +62,7 @@ export function dayLines({
 }: {
   actions?: readonly LedgerEntry[];
   born?: string[];
+  covered?: SourceDay[];
   due?: string[];
   facts?: string[];
   episodes?: DayEpisode[];
@@ -106,6 +109,7 @@ export function dayLines({
       : []),
     `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
     ...units.filter((u) => !isNoise(u)).map(unitLine),
+    ...coveredLines(covered),
     ...(actions.length > 0
       ? [
           "",
@@ -116,6 +120,29 @@ export function dayLines({
         ]
       : []),
   ];
+}
+
+/**
+ * A day's coverage as lines: which capturing sources were captured, which Life did not see (and why), which it cannot
+ * tell. An empty list (no capturing source on) gives none.
+ */
+export function coveredLines(covered: SourceDay[]) {
+  const named = (state: SourceDay["state"]) =>
+    covered
+      .filter((c) => c.state === state)
+      .map((c) => `${c.label}${c.why ? ` (${c.why})` : ""}`)
+      .join(state === "captured" ? ", " : "; ");
+  const row = (title: string, state: SourceDay["state"]) =>
+    named(state) ? [`- ${title}: ${named(state)}`] : [];
+  return covered.length > 0
+    ? [
+        "",
+        'Coverage (sources that capture on their own; "not seen" is not "quiet"):',
+        ...row("Captured", "captured"),
+        ...row("Not seen", "not_seen"),
+        ...row("Unknown", "unknown"),
+      ]
+    : [];
 }
 
 export async function day(date: string) {
@@ -150,6 +177,7 @@ export async function day(date: string) {
     return dayLines({
       actions,
       born,
+      covered: readCoverage(db, date),
       due: dueOf(db, date, context),
       episodes: episodes.map((episode) => {
         const s = span(episode);

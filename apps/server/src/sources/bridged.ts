@@ -716,6 +716,7 @@ function bridgeRooms(synapse: string) {
 export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
   return {
+    capturesOnItsOwn: true,
     chatDays: 7,
     incoming: (from?: number) => incomingArchived(name, "eventId", from),
     kind: "chat",

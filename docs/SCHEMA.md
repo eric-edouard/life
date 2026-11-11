@@ -226,6 +226,14 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 Historical: Life's old fact checks and what he answered on its decisions page, and his loops' decisions. Nothing reads or
 writes it any more; it stays on disk.
 
+## coverage.jsonl
+
+What each publication of units read (`publishUnits`: a night's 7 days, a historical month), one line each,
+append-only: `at`, `from` and `to` (local days, both included), `sources` (the names of the sources it read for those
+days), `schemaVersion`. No content. `coverage.ts` reads it to tell a day Life read with nothing in it from a day it
+did not read; before its first line, a day with no unit of a source is unknown. The watcher's writing of today adds no
+line.
+
 ## told.jsonl
 
 What he told Life in a chat, append-only, one synchronous line each outside the lock (`recordTold`, `memory/told.ts`, from

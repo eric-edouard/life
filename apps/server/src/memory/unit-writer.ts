@@ -1,9 +1,12 @@
 import { mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { daysBefore } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
+import { appendJsonl } from "../core/files";
+import type { SourceName } from "../core/names";
+import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { readFiles, readUnitsOf, UNITS } from "./ledger";
+import { COVERAGE, readFiles, readUnitsOf, UNITS } from "./ledger";
 import { showFiles } from "./message-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";
@@ -45,6 +48,16 @@ export async function publishUnits(evidence: Evidence, passages?: () => void) {
     evidence.built.map((b) => b.unit),
     (u) => evidence.skipped.includes(u.source) || isFrozen(u)
   );
+  // What was read, for whoever asks later whether a day was seen (`coverage.ts`): the days and the sources, no content.
+  appendJsonl(COVERAGE, Published, [
+    {
+      at: clock().toISOString(),
+      from: evidence.window.from,
+      schemaVersion: 1,
+      sources: Object.keys(evidence.read) as SourceName[],
+      to: evidence.window.to,
+    },
+  ]);
 }
 
 /**

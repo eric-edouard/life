@@ -5,7 +5,14 @@ import { daysBefore, iso, MIN } from "../core/clock";
 import { readSettings, setSettings } from "../core/settings";
 import { collectHistorical, historicalWindow } from "./historical-collection";
 import { reindex } from "./index-writer";
-import { INDEX, MEMORY, readIndex, readUnitsOf, UNITS } from "./ledger";
+import {
+  COVERAGE,
+  INDEX,
+  MEMORY,
+  readIndex,
+  readUnitsOf,
+  UNITS,
+} from "./ledger";
 import { readPassages } from "./passages";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
@@ -89,7 +96,15 @@ test("historical collection has no voice/files model step; failed publication le
       publishUnits({ ...evidence, failed: ["whatsapp"] })
     ).rejects.toThrow("sources failed");
     expect(readFileSync(path, "utf8")).toBe(stored);
+    // Nothing was published: the record of what was read gains no line.
+    expect(existsSync(COVERAGE)).toBe(false);
     await publishUnits({ ...evidence, skipped: ["whatsapp", "lifelog"] });
+    // One line per publication: its days and the sources it read, nothing else.
+    expect(JSON.parse(readFileSync(COVERAGE, "utf8").trim())).toMatchObject({
+      from: date,
+      sources: Object.keys(evidence.read),
+      to: date,
+    });
     expect(readUnitsOf([date]).map((u) => u.id)).toEqual([voice.id, chat.id]);
     await publishUnits({ ...evidence, skipped: ["lifelog"] });
     expect(readUnitsOf([date])).toEqual([voice]);
@@ -98,6 +113,7 @@ test("historical collection has no voice/files model step; failed publication le
     expect(snapshot()).toEqual(before);
   } finally {
     setSettings({ sources });
+    rmSync(COVERAGE, { force: true });
     if (had) {
       await Bun.write(path, had);
     } else {

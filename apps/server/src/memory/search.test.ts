@@ -11,7 +11,7 @@ import { buildIndex, reindexUnits } from "./index-writer";
 import { situationPath } from "./ledger";
 import { dayLines } from "./read-day";
 import { dueOf } from "./read-open-items";
-import { coverageLines } from "./read-person-page";
+import { heldLines } from "./read-person-page";
 import { OWNER } from "./read-truth";
 import { readSituationsOf, matches as searchMatches } from "./search";
 
@@ -87,7 +87,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     "(nothing found)",
   ]);
   // What Life holds about someone: by source and by month, and what it can't hold.
-  const cover = coverageLines(db, "person:jerome", []);
+  const cover = heldLines(db, "person:jerome", []);
   expect(cover[0]).toContain("its memory starts on 2026-10-14");
   expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
   expect(cover).toContain(
