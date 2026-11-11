@@ -208,7 +208,8 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 ### Stage 8. The connector's one batch
 
 The overview, a span, the evidence, and the "which part" argument: one PR, one reconnect, when everything they
-return already exists and has been read through the old tools.
+return already exists and has been read through the old tools. Also in that batch: `read_processing_runs`'s description
+(`mcp.ts`) still names the midday sweep, removed 11 Nov (left so his ChatGPT needs no reconnect for it).
 
 ### Stage 9. The boundary
 
