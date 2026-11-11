@@ -112,7 +112,7 @@ reverse it, change its entry here in the same commit.
   turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
-  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is
+  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: same price, it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
   the best transcription in every language wherever he is. VoxLingua's top guess misses most short Thai (it hears Lao,
   Javanese, English and dozens more, and Parakeet writes made-up words), so a turn is routed by a small logistic model
   over VoxLingua's scores and the rest of the block, its weights fitted by `bench context fit` on blocks Scribe heard
