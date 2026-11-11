@@ -91,7 +91,7 @@ Scribe v3 (10 Nov 2026) claims 27% fewer word errors than v2 over 102 languages 
 
 | item | price |
 |---|---|
-| Scribe v2 / v2 Medical batch | **$0.22 / audio-hour** (confirmed) |
+| Scribe v3, v2 / v2 Medical batch | **$0.20 / audio-hour** (confirmed 2026-11-11; v2 was $0.22 on 2026-10-07) |
 | Scribe v2 Realtime | **$0.39 / hour** (confirmed) |
 | Keyterm prompting | +$0.05 / h |
 | Entity detection | +$0.07 / h |
