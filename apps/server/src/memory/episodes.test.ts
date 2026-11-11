@@ -203,8 +203,8 @@ test("a day's reply is checked: verdicts and episodes for its own units only, pe
   });
 });
 
-test("health episodes survive alone; activity importance stays capped; repo, screen and agents cannot make episodes", () => {
-  const sources = ["apple-health", "git", "screen", "agent"] as const;
+test("health and photo episodes survive alone; activity importance stays capped; repo, screen and agents cannot make episodes", () => {
+  const sources = ["apple-health", "photos", "git", "screen", "agent"] as const;
   for (const source of sources) {
     const health = unit({ id: U1, source });
     const parsed = parseDay(
@@ -234,7 +234,9 @@ test("health episodes survive alone; activity importance stays capped; repo, scr
         units: new Map([[U1, health]]),
       }
     );
-    expect(parsed.episodes).toHaveLength(source === "apple-health" ? 1 : 0);
+    expect(parsed.episodes).toHaveLength(
+      source === "apple-health" || source === "photos" ? 1 : 0
+    );
     expect(parsed.verdicts[0]?.importance).toBe(source === "agent" ? 3 : 1);
   }
 });

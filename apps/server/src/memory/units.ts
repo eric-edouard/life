@@ -1,5 +1,6 @@
 import { clock, daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
+import { count } from "../core/lists";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { redact } from "../core/redact";
@@ -18,7 +19,11 @@ import {
   turnRef,
   withStore,
 } from "../sources/lifelog";
-import { deviceDayText, measurementDayText } from "./activity-days";
+import {
+  deviceDayText,
+  measurementDayText,
+  photoDayText,
+} from "./activity-days";
 import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
@@ -83,7 +88,7 @@ export interface Built {
 
 export const unitId = (...parts: string[]) =>
   `unit_${digest("sha1", parts.join("|"), 12)}`;
-/** The id of the chat-day (thread-day, note-day, repo-day, device-day or measurement-day) an event is in. */
+/** The id of the chat-day (thread-day, note-day, repo-day, device-day, measurement-day or photo-day) an event is in. */
 export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
@@ -222,12 +227,12 @@ export function oneToOne(b: Built) {
     : undefined;
 }
 
-/** One list per chat-day, thread-day, note-day, repo-day, device-day or measurement-day, by source and local day. */
+/** One list per chat-day, thread-day, note-day, repo-day, device-day, measurement-day or photo-day, by source and local day. */
 const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** A chat-day, thread-day, note-day, repo-day, device-day or measurement-day, cut by its source's kind. */
+/** A chat-day, thread-day, note-day, repo-day, device-day, measurement-day or photo-day, cut by its source's kind. */
 function cut(list: SourceEvent[], resolve: Resolve) {
   const kind = kindOf((list[0] as SourceEvent).source);
   if (kind === "repo") {
@@ -235,6 +240,9 @@ function cut(list: SourceEvent[], resolve: Resolve) {
   }
   if (kind === "screen") {
     return activityDay(list, deviceDayText(list));
+  }
+  if (kind === "photos") {
+    return activityDay(list, photoDayText(list));
   }
   return kind === "physical"
     ? activityDay(list, measurementDayText(list))
@@ -395,7 +403,12 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
         ...new Set(
           sorted.flatMap((e) => {
             if (e.fromMe) {
-              return [OWNER];
+              return [
+                OWNER,
+                ...(e.photo?.pictured ?? []).map(
+                  (p) => `${UNKNOWN}${p.handle ?? p.name}`
+                ),
+              ];
             }
             return written ? [`${UNKNOWN}${e.sender}`] : [];
           })
@@ -419,10 +432,6 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
     },
   };
 }
-
-/** "1 commit", "2 commits". */
-export const count = (n: number, noun: string) =>
-  `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /** "+4,673 −199": the lines of some repo-days. */
 export function lineCounts(stats: Unit["stats"][]) {
@@ -463,7 +472,7 @@ function repoDay(list: SourceEvent[]): Built {
   };
 }
 
-/** A device-day or measurement-day, made like a chat-day of its lines; its text is its totals, its title their headline. */
+/** A device-day, measurement-day or photo-day, made like a chat-day of its lines; its text is their body (a device-day's its totals), its title their headline. */
 function activityDay(
   list: SourceEvent[],
   { body, headline, lines }: ReturnType<typeof deviceDayText>

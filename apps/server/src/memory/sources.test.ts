@@ -42,6 +42,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "git",
     "screen",
     "apple-health",
+    "photos",
   ]);
 });
 
