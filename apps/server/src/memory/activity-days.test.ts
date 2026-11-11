@@ -3,7 +3,11 @@ import { iso, MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
 import { nightsOf } from "../sources/apple-health";
-import { deviceDayText, measurementDayText } from "./activity-days";
+import {
+  deviceDayText,
+  measurementDayText,
+  photoDayText,
+} from "./activity-days";
 import { applyRules, messageUnits } from "./units";
 import { localDate } from "./zones";
 
@@ -108,4 +112,88 @@ test("device-day text keeps totals, ordered long stints and stored content witho
     lines: [],
   });
   expect(messageUnits([short], () => null)[0]?.messages[0]?.id).toBe(short.id);
+});
+
+const shot = (
+  id: string,
+  at: string,
+  photo: Partial<NonNullable<SourceEvent["photo"]>> = {}
+): SourceEvent => ({
+  at,
+  chat: "photos",
+  chatName: "Photos",
+  fromMe: true,
+  id: `photos:${id}`,
+  photo: { pictured: [], scenes: [], ...photo },
+  sender: "me",
+  source: "photos",
+  text: `photo ${id}`,
+});
+
+test("a photo-day groups photos by half hour and place, each line with what Photos and he say of them", () => {
+  const ana = { handle: "+33 6 11 11 11 11", name: "Ana" };
+  const list = [
+    shot("c", "2026-10-09T08:20:00.000Z", {
+      address: "1 Example Road, Exampleville",
+      favorite: true,
+      ocr: "open daily",
+      pictured: [ana, { name: "Tom" }],
+      place: "Seaside",
+      point: { lat: 48.8566, lon: 2.3522 },
+      scenes: ["Beach", "Sea"],
+    }),
+    shot("a", "2026-10-09T08:00:00.000Z", {
+      caption: "First swim",
+      pictured: [ana],
+      place: "Seaside",
+      scenes: ["Beach"],
+      zone: "Asia/Bangkok",
+    }),
+    shot("b", "2026-10-09T08:10:00.000Z", {
+      place: "Seaside",
+      scenes: ["Beach", "Sunset"],
+      video: true,
+    }),
+    // The same place, but more than half an hour after the last photo.
+    shot("d", "2026-10-09T09:00:00.000Z", { place: "Seaside" }),
+    // Half an hour later, somewhere else.
+    shot("e", "2026-10-09T09:10:00.000Z", { place: "Old town" }),
+    shot("f", "2026-10-09T09:12:00.000Z"),
+  ];
+  const result = photoDayText(list);
+  expect(result.body).toBe(
+    [
+      '10:00–10:20 · Seaside · 1 Example Road, Exampleville · 48.8566, 2.3522 · 2 photos, 1 video · Beach, Sunset, Sea · with Ana, Tom · ★ 1 · zone Asia/Bangkok · "First swim" · text: open daily',
+      "11:00 · Seaside · 1 photo",
+      "11:10 · Old town · 1 photo",
+      "11:12 · 1 photo",
+    ].join("\n")
+  );
+  expect(result.headline).toBe("5 photos, 1 video · Seaside, Old town");
+  expect(result.lines.map((e) => e.id)).toEqual(
+    ["a", "b", "c", "d", "e", "f"].map((id) => `photos:${id}`)
+  );
+  expect(list[0]?.id).toBe("photos:c");
+
+  const [day] = messageUnits(list, () => null);
+  expect(day?.unit).toMatchObject({
+    hash: digest("sha256", result.body, 16),
+    people: ["person:me", "unknown:+33 6 11 11 11 11", "unknown:Tom"],
+    refs: ["photos:a", "photos:f"],
+    source: "photos",
+    stats: { items: 6 },
+    title: `Photos: ${result.headline}`,
+  });
+  expect(day?.messages.map((m) => m.id)).toHaveLength(6);
+  expect(day?.text).toBe(`Photos: ${result.headline}\n${result.body}`);
+});
+
+test("a photo-day's text is redacted", () => {
+  const { body } = photoDayText([
+    shot("a", "2026-10-09T08:00:00.000Z", {
+      ocr: "4111111111111111",
+      place: "Cafe",
+    }),
+  ]);
+  expect(body).toBe("10:00 · Cafe · 1 photo · text: [number removed]");
 });
