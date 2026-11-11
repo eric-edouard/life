@@ -60,6 +60,10 @@ export async function describeInCloud(
     })();
     let described = 0;
     for await (const line of lines(proc.stdout)) {
+      // Modal's CLI prints its own progress on stdout too: only the entrypoint's JSON lines are answers.
+      if (!line.startsWith("{")) {
+        continue;
+      }
       const a = JSON.parse(line) as {
         error?: string;
         text?: string;
