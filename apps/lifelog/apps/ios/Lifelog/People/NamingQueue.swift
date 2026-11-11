@@ -5,7 +5,8 @@ import ServerAPI
 import Timeline
 
 /// The voices to name (`GET /naming-queue`), app-wide: the Library's row and badge, People's entry and the naming screen
-/// all read this one list, in the server's order, so they show one number. The last list is kept on disk so the screen
+/// all read this one list, in the server's order, so they show one number. The names to check again
+/// (`GET /naming-queue/rechecks`) follow them on the screen, outside that number. The last list is kept on disk so the screen
 /// opens at once and offline, as the morning push's tap expects; a refresh replaces it when the server answers. An
 /// answer leaves the list and goes to the outbox at once, and the voices of answers waiting there stay out of it.
 @Observable
@@ -43,7 +44,8 @@ final class NamingQueue {
     /// A failed answer, for the owner to read; the voice is back in the list.
     var actionError: String?
 
-    var count: Int { voices.count }
+    /// The voices to name, not counting the names to check again.
+    var count: Int { voices.count { $0.item.kind != .recheck } }
 
     @ObservationIgnored private let library: LibraryStore?
     @ObservationIgnored private let sync: SyncStore?
@@ -76,10 +78,11 @@ final class NamingQueue {
         {
             await show(kept)
         }
-        guard let fresh = try? await client?.namingQueue() else {
+        guard var fresh = try? await client?.namingQueue() else {
             loaded = true
             return
         }
+        fresh += (try? await client?.rechecks()) ?? []
         await show(fresh)
         try? ServerClient.encode(fresh).write(to: Self.cache, options: .atomic)
     }
@@ -183,7 +186,7 @@ final class NamingQueue {
         /// The demo library's voices to name (`-fixtureLibrary`): one that sounds like one of its people, one the
         /// summaries heard a name for, one nobody named; their clips sit in its newest conversations.
         static func fixture(in library: LibraryStore) async -> [ServerClient.NamingItem] {
-            let records = (try? await library.conversations(before: nil, limit: 3)) ?? []
+            let records = (try? await library.conversations(before: nil, limit: 4)) ?? []
             let person = try? await library.people().first { !$0.isOwner }
             let me = try? await library.people().first(where: \.isOwner)
             let words = [
@@ -210,12 +213,16 @@ final class NamingQueue {
                         "words": pieces.indices.map { [$0 * step, $0 * step + step - 50, pieces[$0].utf16.count] },
                     ] as [String: Any]
                 }
-                let known = index == 0 ? person : nil
+                let known = index == 0 ? person : index == 3 ? me : nil
                 return [
                     "id": "fixture-\(index)",
-                    "kind": index == 2 ? "several" : known == nil ? "new_person" : "known_person",
+                    "kind": index == 3
+                        ? "recheck" : index == 2 ? "several" : known == nil ? "new_person" : "known_person",
                     "name": index == 1 ? "Hervé" : NSNull(),
                     "personId": known.map { $0.id.uuidString.lowercased() } ?? NSNull(),
+                    // The last one he named, and it sounds like him.
+                    "namedPersonId": (index == 3 ? person?.id.uuidString.lowercased() : nil).map { $0 as Any }
+                        ?? NSNull(),
                     "conversations": 1 + index, "seconds": 240 + index * 300, "exchanges": 40 - index * 10,
                     "evidence": index == 1
                         ? [

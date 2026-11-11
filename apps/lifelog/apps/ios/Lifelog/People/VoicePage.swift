@@ -24,10 +24,15 @@ struct VoicePage: View {
     private var item: ServerClient.NamingItem { voice.item }
     /// Who it sounds like, when it sounds like one of the owner's people.
     private var known: CachedPerson? {
-        item.kind == .knownPerson ? item.personId.flatMap { id in people.first { $0.id == id } } : nil
+        [.knownPerson, .recheck].contains(item.kind)
+            ? item.personId.flatMap { id in people.first { $0.id == id } } : nil
+    }
+    /// A recheck: who the owner named it before.
+    private var named: CachedPerson? {
+        item.kind == .recheck ? item.namedPersonId.flatMap { id in people.first { $0.id == id } } : nil
     }
     /// Everyone else, for "someone else".
-    private var others: [CachedPerson] { people.filter { $0.id != known?.id } }
+    private var others: [CachedPerson] { people.filter { $0.id != known?.id && $0.id != named?.id } }
     /// The name the summaries heard; the server leaves it out when it is the known person's. Beside a known person
     /// both are shown, and either is one tap.
     private var heard: String? { item.name }
@@ -90,6 +95,7 @@ struct VoicePage: View {
 
     private var question: String {
         if picks != nil || item.kind == .several { return "Several people in this voice" }
+        if let named { return named.isOwner ? "You said this was you" : "You named this \(named.name)" }
         if let known { return known.isOwner ? "Is this you?" : "Is this \(known.name)?" }
         if let name = item.name { return "Is this \(name)?" }
         return "Who’s this?"
@@ -114,6 +120,7 @@ struct VoicePage: View {
         }
         if let known {
             let sounds = known.isOwner ? "It sounds like your voice" : "It sounds like \(known.name)"
+            if named != nil { return "\(sounds) in your other conversations." }
             return called.map { "\(sounds), but \($0)" } ?? "\(sounds)."
         }
         if let called { return called.prefix(1).uppercased() + called.dropFirst() }
@@ -124,7 +131,28 @@ struct VoicePage: View {
 
     private var answers: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if picks == nil, let known {
+            if picks == nil, let named {
+                Button {
+                    answer(.assign(named.id))
+                } label: {
+                    Text(named.isOwner ? "Keep, it’s me" : "Keep \(named.name)").frame(maxWidth: .infinity)
+                }
+                .primaryGlassButton()
+                .controlSize(.large)
+                .accessibilityIdentifier("naming.keep")
+                if let known {
+                    Button {
+                        answer(.assign(known.id))
+                    } label: {
+                        Text(known.isOwner ? "It’s me" : "It’s \(known.name)").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
+                    .tint(Palette.textPrimary)
+                    .accessibilityIdentifier("naming.yes")
+                }
+            } else if picks == nil, let known {
                 Button {
                     answer(.assign(known.id))
                 } label: {
@@ -177,7 +205,7 @@ struct VoicePage: View {
                 .disabled(picks.isEmpty)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    if known != nil || item.name != nil {
+                    if known != nil || named != nil || item.name != nil {
                         Text("Or someone else")
                             .font(.subheadline)
                             .foregroundStyle(Palette.textSecondary)
@@ -214,7 +242,7 @@ struct VoicePage: View {
 
     /// A new name: the main answer when nobody is suggested.
     private var nameField: some View {
-        let suggested = known != nil || item.name != nil
+        let suggested = known != nil || named != nil || item.name != nil
         return HStack(spacing: 8) {
             TextField(suggested ? "Another name" : "Their name", text: $draft)
                 .textInputAutocapitalization(.words)

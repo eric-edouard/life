@@ -39,7 +39,7 @@ reverse it, change its entry here in the same commit.
   its sampled turns must first guess another person; the named person must still have a profile.
   The most frequent other person is suggested. The only stored fact is `speaker_assignments.rechecked`, set
   when an owner answer replaces an owner row of the same scope; recognition never sets it.
-  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone shows them later.
+  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone asks them after the voices to name, "Keep X" first.
 
 - **The voice bench's answers reach the archive through the server (owner's decision, 10 Nov 2026, reversing his
   "bench only" of that morning).** His review found many of his past names wrong, so they belong in lifelog. The

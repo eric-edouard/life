@@ -110,9 +110,15 @@ private struct NamingEntry: View {
                     Text("Who’s this?")
                         .font(.cardTitle)
                         .foregroundStyle(Palette.textPrimary)
-                    Text("^[\(count) voice](inflect: true) you talked with this month")
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.textSecondary)
+                    Group {
+                        if count > 0 {
+                            Text("^[\(count) voice](inflect: true) you talked with this month")
+                        } else {
+                            Text("Names to check again")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
                 }
                 if let words = first.clips.first?.item.text {
                     Text("“\(words)”")

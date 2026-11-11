@@ -51,8 +51,10 @@ extension ServerClient {
         public var kind: Kind
         /// The name the summaries heard for it.
         public var name: String?
-        /// For `knownPerson`: who it sounds like.
+        /// For `knownPerson` and `recheck`: who it sounds like.
         public var personId: UUID?
+        /// For `recheck`: who the owner named it, asked once more.
+        public var namedPersonId: UUID?
         public var conversations: Int
         public var seconds: Double
         /// Turns it traded with the owner.
@@ -71,6 +73,12 @@ extension ServerClient {
     /// The voices to name, playable first, then the most words a name unlocks.
     public func namingQueue() async throws -> [NamingItem] {
         try decode([NamingItem].self, try await send(try request("naming-queue")))
+    }
+
+    /// Voices the owner named that sound like someone else (openapi `/naming-queue/rechecks`), the most doubtful first.
+    /// Any answer settles one for good.
+    public func rechecks() async throws -> [NamingItem] {
+        try decode([NamingItem].self, try await send(try request("naming-queue/rechecks")))
     }
 
     /// The owner's answer for a voice to name (openapi `/naming-queue/answer`).
