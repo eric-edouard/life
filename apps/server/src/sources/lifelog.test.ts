@@ -18,7 +18,6 @@ import {
   ownerSpoke,
   Page,
   poll,
-  Recorded,
   readConversations,
   readPhoneZone,
   Stays,
@@ -31,6 +30,7 @@ import {
   visits,
   writeMarks,
 } from "./lifelog";
+import { Recorded } from "./lifelog-recorded";
 import {
   conversation,
   lifelogServer,

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readAppended } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
-import type { Recorded } from "../sources/lifelog";
+import type { Recorded } from "../sources/lifelog-recorded";
 import { PUBLICATIONS, UNITS } from "./ledger";
 import { enabledSources } from "./sources";
 import { dayNow, localDate } from "./zones";

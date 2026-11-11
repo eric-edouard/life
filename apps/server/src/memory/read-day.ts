@@ -1,7 +1,8 @@
 import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import { lifelogMissing, readRecorded } from "../sources/lifelog";
+import { lifelogMissing } from "../sources/lifelog";
+import { readRecorded } from "../sources/lifelog-recorded";
 import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";
 import { span } from "./episode-span";
