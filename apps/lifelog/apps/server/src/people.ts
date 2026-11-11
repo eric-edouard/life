@@ -138,7 +138,7 @@ export const keepServerSamples = (
             .all()
         : [];
     for (const sample of kept) {
-      evidenceForNew(tx, sample);
+      evidenceFromAnswer(tx, sample);
     }
     tx.update(transcripts)
       .set({ excerptsAt: clock() })
@@ -149,8 +149,8 @@ export const keepServerSamples = (
     }
   });
 
-// New evidence requires the owner's person assignment of the turn or its speaker.
-function evidenceForNew(tx: Db, sample: Sample) {
+// A sample is evidence only of the one person the owner's answer for its turn or speaker names.
+export function evidenceFromAnswer(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
       .select()
@@ -165,9 +165,8 @@ function evidenceForNew(tx: Db, sample: Sample) {
     sample.speakerLabel,
     sample.turnIndex
   );
-  if (owner?.personId && !owner.candidates) {
-    setEvidence(tx, [sample.id], owner.personId);
-  }
+  const person = owner?.candidates ? null : (owner?.personId ?? null);
+  setEvidence(tx, [sample.id], person);
 }
 
 function setEvidence(db: Db, sampleIds: string[], personId: string | null) {

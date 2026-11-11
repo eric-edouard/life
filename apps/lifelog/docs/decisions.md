@@ -110,6 +110,15 @@ reverse it, change its entry here in the same commit.
   the context router, where Thai was spotted but only parts went to Scribe (343, about 13 h), are heard by Scribe
   whole once more (a step since removed; `transcripts.scribe_words_at` marks them). Their words change turn by
   turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
+- **Scribe's speakers redone by Nemotron 3, once (11 Nov 2026).** Before Life's memory was rebuilt, every completed
+  Scribe job (5,963 with audio; Scribe merged two people under one voice in about 12% of the voices he named)
+  took who-spoke-when from the speech service's own diarizer, run on Modal GPUs (`stt-bench`
+  `local/modal_speakers.py`, `bench rediarize`; `rediarize.ts`, a step removed after its run). Scribe's words, turns
+  and indexes stay: he preferred them to Nemotron 3.5's on 10 of 10 blind spots, and Nemotron 3.5's better overlap
+  needs its own words. One map (each old label to the new label holding most of its seconds) moves every row keyed by
+  label; an owner answer stays whole only where its voice did not merge with another. Nemotron 3 separated 61% of the
+  sentences he gave someone else inside Scribe's voices (Nemotron 3.5: 56%). A block Scribe transcribes after the run
+  (Thai, or a speech-service failure) still carries Scribe's speakers.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
   Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is
