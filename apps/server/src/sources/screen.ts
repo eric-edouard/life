@@ -21,7 +21,7 @@ import {
   newestArchived,
   openArchive,
 } from "./archived";
-import type { Newest } from "./contract";
+import { isWithin, type Newest } from "./contract";
 import { fromAppleS } from "./imessage";
 
 // Screen Time as a source: his time in each app and Safari website, on the Mac and on each iOS device that syncs to it,
@@ -377,10 +377,7 @@ export function readScreen(
   const groups = Map.groupBy(rows, (r) => `${r.device}|${r.stream}`);
   return [...groups.values()]
     .flatMap((g) => stintsOf(g, (g[0] as (typeof g)[number]).stream))
-    .filter(
-      (s) =>
-        s.at >= since.toISOString() && (!before || s.at < before.toISOString())
-    )
+    .filter(isWithin(since, before))
     .map(
       (s): SourceEvent => ({
         at: s.at,
