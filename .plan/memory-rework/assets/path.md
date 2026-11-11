@@ -26,6 +26,22 @@ properly only when it moves the score. The bet most at risk: that stored summari
    enough until a layer consumes the codes).
 
 
+## Before the full rebuild: the data sessions (11 Nov, evening)
+
+Three other sessions prepare the data. The code work of the path starts now, in shadow; only the full rebuild (the
+backfill over his history) waits.
+
+| Session | State | The rebuild waits for |
+|---|---|---|
+| Speaker re-split (Nemotron's speakers on the Scribe-era recordings) | Done and run, 11 Nov: 2,856 jobs relabeled; words, turns and unit ids unchanged; a relabeled conversation-day's unit hash moves at its next build | Nothing. Closes first |
+| Voice naming (bench, queue, rechecks) | Phone side and an AI naming measurement left, about half a day | His answer on the MECT-B2 voice model switch (the one bulk name change: before the rebuild, or not for now). Names otherwise keep moving with his answers, by design |
+| History import (Apple Health merged, off; Photos and assistant imports building) | About 3 to 5 hours, then his choices | Photos merged and on (about 2,940 photo-days, 2003 to 2026); his word on assistant replies as units |
+
+Taken into the path: naming unknown voices from the day's context goes into the per-exchange read (a model-owned
+layer, never lifelog), once the naming session's numbers are in. To check when Photos merges: its read cost in the
+watcher's 5-minute sync of today.
+
+
 Draft of 10 Nov 2026, at his ask: reach the whole [spec](../spec.md) iteratively, never break the working state,
 and never open one huge rework PR. This is the skeleton of the build plan; each step still gets its own golden-rule
 plan when it starts. Checked against today's code: a night is a list of named steps (`host/nightly.ts`: episodes,
