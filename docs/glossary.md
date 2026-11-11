@@ -63,6 +63,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | physical | The source kind for what devices measure of the owner's body; an activity kind. | |
 | measurement-day | One local day's Apple Health nights and workouts, each as a timed span; a night belongs to the day it began. | |
 | photos | The Photos library as a source, read in place and read-only. Off until enabled in `sources`. | |
+| ocr | The words Apple found in a photo (signs, screenshots of text), as a set in no text order, from its search index. Not a transcript. | |
 | photo-day | A Photos unit: one local day of his library, its photos grouped by half hour and place, each line with Apple's place, scenes, who is pictured and his captions. Never an image. | |
 | pictured | Who Apple's People names on a photo's faces, by name and, when Apple links a Contacts card, its handle. Not a unit's `people` (refs). | |
 | scene | A label Apple's photo analysis gives a photo (beach, sunset), from its search index. Not a topic (a verdict's tag). | |

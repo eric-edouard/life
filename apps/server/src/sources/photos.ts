@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { type Plist, readBplist, type Uid } from "../core/bplist";
 import { iso } from "../core/clock";
@@ -26,17 +27,15 @@ const SEARCH_INDEX = join("search", "leo.sqlite");
 
 /** The search index's categories: a scene label (Beach), a word found in the photo. */
 const SCENE = 4000;
-const TEXT = 4120;
-/** The text of a photo, in characters at most. */
-const TEXT_MAX = 300;
+const OCR = 4120;
+/** The words found in photos, as shown, in characters at most. */
+const OCR_MAX = 300;
 /** A coordinate Photos has none for. */
 const NO_COORDINATE = -180;
 /** `ZISMECONFIDENCE`, from which a person Photos knows is the owner. */
 const OWNER_CONFIDENCE = 0.5;
 /** `ZKIND` of a video. */
 const VIDEO = 1;
-/** A photo's coordinates keep about 10 m. */
-const POINT_DECIMALS = 1e4;
 
 /**
  * Not trashed, hidden or a screenshot, the frame of a burst he picked, and dated: Photos dates what it cannot place at
@@ -54,6 +53,7 @@ interface Row {
   kind: number;
   lat: number;
   lon: number;
+  offset: number | null;
   pk: number;
   place: string | null;
   uuid: string;
@@ -99,7 +99,12 @@ function addressOf(blob: Uint8Array) {
  * (The lexicon is read for the ids the photos carry only.)
  */
 function analysisOf(library: string, uuids: string[]) {
-  const db = openReadOnly(join(library, SEARCH_INDEX));
+  const index = join(library, SEARCH_INDEX);
+  // A fresh library has no index yet: its photos have no scenes or words, and are still read.
+  if (!existsSync(index)) {
+    return new Map<string, Analysis>();
+  }
+  const db = openReadOnly(index);
   try {
     const items = db
       .query<{ ids: Uint8Array; uuid: string }, [string]>(
@@ -110,7 +115,7 @@ function analysisOf(library: string, uuids: string[]) {
     const words = new Map(
       db
         .query<{ category: number; content: string; id: number }, [string]>(
-          `select lexeme_id as id, category, content from lexicon where category in (${SCENE}, ${TEXT}) and lexeme_id in (select value from json_each(?))`
+          `select lexeme_id as id, category, content from lexicon where category in (${SCENE}, ${OCR}) and lexeme_id in (select value from json_each(?))`
         )
         .all(JSON.stringify(items.flatMap((i) => i.ids)))
         .map((w) => [w.id, w])
@@ -120,7 +125,7 @@ function analysisOf(library: string, uuids: string[]) {
         const found = ids.flatMap((id) => words.get(id) ?? []);
         const of = (category: number) =>
           found.filter((w) => w.category === category).map((w) => w.content);
-        return [uuid, { scenes: [...new Set(of(SCENE))], text: of(TEXT) }];
+        return [uuid, { ocr: of(OCR), scenes: [...new Set(of(SCENE))] }];
       })
     );
   } finally {
@@ -135,7 +140,7 @@ function analysisOf(library: string, uuids: string[]) {
 function namedPersons(rows: PersonRow[], contacts: Contact[]) {
   const byId = new Map(rows.map((p) => [p.id, p]));
   const handles = new Map(contacts.map((c) => [c.id, c.handles[0]]));
-  const named = new Map<number, Named>();
+  const named = new Map<number, Person>();
   for (const { id } of rows) {
     let p = byId.get(id);
     // A merge never loops; the bound is only so that a store that does cannot hang a read.
@@ -147,16 +152,40 @@ function namedPersons(rows: PersonRow[], contacts: Contact[]) {
     }
     const handle = p?.uri ? handles.get(p.uri) : undefined;
     if (p?.name && p.confidence < OWNER_CONFIDENCE) {
-      named.set(id, { name: p.name, ...(handle ? { handle } : {}) });
+      named.set(id, {
+        id: p.id,
+        who: { name: p.name, ...(handle ? { handle } : {}) },
+      });
     }
   }
   return named;
 }
 
 type Named = Photo["pictured"][number];
+/** A named person: the one it is after merges (`id`), and as shown. */
+interface Person {
+  id: number;
+  who: Named;
+}
+
+/** The words found in photos as shown: the first that fit `OCR_MAX` characters. */
+export const ocrText = (words: string[]) =>
+  within(words, OCR_MAX, (w) => w.length + 1).join(" ");
+
+const WORDS = /[\s,]+/;
+
+/** The address of a photo when it says more than its place: not when the place holds it, or all its words. */
+export function addressBeyond({ address, place }: Photo) {
+  const known = place?.toLowerCase() ?? "";
+  return address
+    ?.split(WORDS)
+    .some((w) => w && !known.includes(w.toLowerCase()))
+    ? address
+    : undefined;
+}
 interface Analysis {
+  ocr: string[];
   scenes: string[];
-  text: string[];
 }
 
 /** A photo as an event: its facts as `Photo` (`records/source.ts`), and its own line for whoever reads it alone. */
@@ -164,14 +193,14 @@ function eventOf(
   r: Row,
   analysis: Analysis | undefined,
   faces: { person: number }[],
-  persons: Map<number, Named>
+  persons: Map<number, Person>
 ): SourceEvent {
-  const { scenes = [], text = [] } = analysis ?? {};
+  const { ocr = [], scenes = [] } = analysis ?? {};
   const pictured = [
     ...new Map(
       faces.flatMap((f) => {
         const p = persons.get(f.person);
-        return p ? [[p.name, p] as const] : [];
+        return p ? [[p.id, p.who] as const] : [];
       })
     ).values(),
   ];
@@ -179,18 +208,12 @@ function eventOf(
     ...(r.address ? { address: addressOf(r.address) } : {}),
     ...(r.caption ? { caption: r.caption } : {}),
     ...(r.favorite ? { favorite: true } : {}),
-    ...(text.length > 0
-      ? { ocr: within(text, TEXT_MAX, (w) => w.length + 1).join(" ") }
-      : {}),
+    ...(ocr.length > 0 ? { ocr } : {}),
+    ...(r.offset === null ? {} : { offset: r.offset }),
     pictured,
     ...(r.place ? { place: r.place } : {}),
     ...(r.lat !== NO_COORDINATE && r.lon !== NO_COORDINATE
-      ? {
-          point: {
-            lat: Math.round(r.lat * POINT_DECIMALS) / POINT_DECIMALS,
-            lon: Math.round(r.lon * POINT_DECIMALS) / POINT_DECIMALS,
-          },
-        }
+      ? { point: { lat: r.lat, lon: r.lon } }
       : {}),
     scenes,
     ...(r.kind === VIDEO ? { video: true } : {}),
@@ -208,11 +231,11 @@ function eventOf(
     text: [
       photo.video ? "video" : "photo",
       photo.place,
-      photo.address,
+      addressBeyond(photo),
       scenes.join(", "),
       pictured.length > 0 && `with ${pictured.map((p) => p.name).join(", ")}`,
       photo.caption && `"${photo.caption}"`,
-      photo.ocr && `text: ${photo.ocr}`,
+      photo.ocr && `text: ${ocrText(photo.ocr)}`,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -238,7 +261,7 @@ export function readPhotos(
       .query<Row, [number, number | null, number | null]>(
         `select a.Z_PK as pk, a.ZUUID as uuid, a.ZDATECREATED as date, a.ZKIND as kind, a.ZFAVORITE as favorite,
                 a.ZLATITUDE as lat, a.ZLONGITUDE as lon, m.ZTITLE as place,
-                x.ZTIMEZONENAME as zone, x.ZREVERSELOCATIONDATA as address,
+                x.ZTIMEZONENAME as zone, x.ZTIMEZONEOFFSET as offset, x.ZREVERSELOCATIONDATA as address,
                 coalesce(d.ZLONGDESCRIPTION, x.ZTITLE) as caption
            from ZASSET a
            left join ZADDITIONALASSETATTRIBUTES x on x.ZASSET = a.Z_PK

@@ -136,7 +136,7 @@ test("a photo-day groups photos by half hour and place, each line with what Phot
     shot("c", "2026-10-09T08:20:00.000Z", {
       address: "1 Example Road, Exampleville",
       favorite: true,
-      ocr: "open daily",
+      ocr: ["open", "daily"],
       pictured: [ana, { name: "Tom" }],
       place: "Seaside",
       point: { lat: 48.8566, lon: 2.3522 },
@@ -144,15 +144,19 @@ test("a photo-day groups photos by half hour and place, each line with what Phot
     }),
     shot("a", "2026-10-09T08:00:00.000Z", {
       caption: "First swim",
+      // Photos names zones "GMT+0700": a different offset than Paris in summer shows, the same one does not.
+      offset: 25_200,
       pictured: [ana],
       place: "Seaside",
       scenes: ["Beach"],
-      zone: "Asia/Bangkok",
+      zone: "GMT+0700",
     }),
     shot("b", "2026-10-09T08:10:00.000Z", {
+      offset: 7200,
       place: "Seaside",
       scenes: ["Beach", "Sunset"],
       video: true,
+      zone: "GMT+0200",
     }),
     // The same place, but more than half an hour after the last photo.
     shot("d", "2026-10-09T09:00:00.000Z", { place: "Seaside" }),
@@ -163,7 +167,7 @@ test("a photo-day groups photos by half hour and place, each line with what Phot
   const result = photoDayText(list);
   expect(result.body).toBe(
     [
-      '10:00–10:20 · Seaside · 1 Example Road, Exampleville · 48.8566, 2.3522 · 2 photos, 1 video · Beach, Sunset, Sea · with Ana, Tom · ★ 1 · zone Asia/Bangkok · "First swim" · text: open daily',
+      '10:00–10:20 · Seaside · 1 Example Road, Exampleville · 48.8566, 2.3522 · 2 photos, 1 video · Beach, Sunset, Sea · with Ana, Tom · ★ 1 · zone GMT+0700 · "First swim" · text: open daily',
       "11:00 · Seaside · 1 photo",
       "11:10 · Old town · 1 photo",
       "11:12 · 1 photo",
@@ -188,10 +192,29 @@ test("a photo-day groups photos by half hour and place, each line with what Phot
   expect(day?.text).toBe(`Photos: ${result.headline}\n${result.body}`);
 });
 
+test("a photo-day shows an address only when it says more than the place, and no zero count", () => {
+  const { body, headline } = photoDayText([
+    shot("a", "2026-10-09T08:00:00.000Z", {
+      address: "Seaside, Exampleville",
+      place: "Seaside",
+      video: true,
+    }),
+    shot("b", "2026-10-09T10:00:00.000Z", {
+      address: "Old town",
+      place: "The Old town quarter",
+      video: true,
+    }),
+  ]);
+  expect(body).toBe(
+    "10:00 · Seaside · Seaside, Exampleville · 1 video\n12:00 · The Old town quarter · 1 video"
+  );
+  expect(headline).toBe("2 videos · Seaside, The Old town quarter");
+});
+
 test("a photo-day's text is redacted", () => {
   const { body } = photoDayText([
     shot("a", "2026-10-09T08:00:00.000Z", {
-      ocr: "4111111111111111",
+      ocr: ["4111111111111111"],
       place: "Cafe",
     }),
   ]);

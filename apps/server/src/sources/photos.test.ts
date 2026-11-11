@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SourceEvent } from "../records/source";
@@ -30,6 +30,7 @@ interface Asset {
   lexemes?: number[];
   lon?: number;
   moment?: number;
+  offset?: number;
   screenshot?: number;
   trashed?: number;
   uuid: string;
@@ -44,7 +45,7 @@ function library(assets: Asset[], faces: [string, number][] = []) {
     ZLATITUDE real, ZLONGITUDE real, ZMOMENT integer, ZTRASHEDSTATE integer, ZHIDDEN integer,
     ZISDETECTEDSCREENSHOT integer, ZVISIBILITYSTATE integer)`);
   db.run(
-    "create table ZADDITIONALASSETATTRIBUTES (Z_PK integer primary key, ZASSET integer, ZTIMEZONENAME text, ZREVERSELOCATIONDATA blob, ZTITLE text)"
+    "create table ZADDITIONALASSETATTRIBUTES (Z_PK integer primary key, ZASSET integer, ZTIMEZONENAME text, ZTIMEZONEOFFSET integer, ZREVERSELOCATIONDATA blob, ZTITLE text)"
   );
   db.run(
     "create table ZASSETDESCRIPTION (ZASSETATTRIBUTES integer, ZLONGDESCRIPTION text)"
@@ -56,10 +57,10 @@ function library(assets: Asset[], faces: [string, number][] = []) {
   );
   db.run(`create table ZPERSON (Z_PK integer primary key, ZMERGETARGETPERSON integer, ZFULLNAME text,
     ZDISPLAYNAME text, ZPERSONURI text, ZISMECONFIDENCE real)`);
-  // 1 Ana (linked to a Contacts card), 2 merged into 1, 3 Tom (no card), 4 the owner, 5 unnamed.
+  // 1 Ana (linked to a Contacts card), 2 merged into 1, 3 Tom (no card), 4 the owner, 5 unnamed, 6 another Tom.
   db.run(`insert into ZPERSON values
     (1, null, 'Ana Test', 'Ana', 'card-1:ABPerson', 0), (2, 1, null, null, null, 0), (3, null, null, 'Tom', null, 0),
-    (4, null, 'Me Myself', 'Me', null, 1), (5, null, null, null, null, 0)`);
+    (4, null, 'Me Myself', 'Me', null, 1), (5, null, null, null, null, 0), (6, null, null, 'Tom', null, 0)`);
   const search = new Database(join(dir, "search", "leo.sqlite"));
   search.run("create table items (identifier text, lexeme_ids blob)");
   search.run(
@@ -83,12 +84,10 @@ function library(assets: Asset[], faces: [string, number][] = []) {
       a.screenshot ?? 0,
       a.burst ? 2 : 0,
     ]);
-    db.run("insert into ZADDITIONALASSETATTRIBUTES values (?, ?, ?, ?, null)", [
-      pk,
-      pk,
-      a.zone ?? "Europe/Paris",
-      a.address ?? null,
-    ]);
+    db.run(
+      "insert into ZADDITIONALASSETATTRIBUTES values (?, ?, ?, ?, ?, null)",
+      [pk, pk, a.zone ?? "Europe/Paris", a.offset ?? 7200, a.address ?? null]
+    );
     if (a.caption) {
       db.run("insert into ZASSETDESCRIPTION values (?, ?)", [pk, a.caption]);
     }
@@ -129,6 +128,7 @@ test("a photo is one event of its day: Apple's place, address, point, scenes, wo
       lat: 48.856_612_3,
       lexemes: [1, 2, 3, 4, 5],
       lon: 2.352_219_8,
+      offset: 25_200,
       uuid: "A1",
       zone: "Asia/Bangkok",
     },
@@ -149,10 +149,11 @@ test("a photo is one event of its day: Apple's place, address, point, scenes, wo
       address: "1 Example Road, Exampleville, Examplia",
       caption: "Our first swim",
       favorite: true,
-      ocr: "open daily",
+      ocr: ["open", "daily"],
+      offset: 25_200,
       pictured: [],
       place: "Seaside",
-      point: { lat: 48.8566, lon: 2.3522 },
+      point: { lat: 48.856_612_3, lon: 2.352_219_8 },
       scenes: ["Beach", "Sunset"],
       zone: "Asia/Bangkok",
     },
@@ -162,6 +163,7 @@ test("a photo is one event of its day: Apple's place, address, point, scenes, wo
   });
   // No coordinates (-180), no place, no scenes: a video with nothing else.
   expect(events[1]?.photo).toEqual({
+    offset: 7200,
     pictured: [],
     scenes: [],
     video: true,
@@ -187,6 +189,21 @@ test("trashed, hidden, screenshots, unpicked burst frames and undated photos are
   expect(read()).toEqual(["photos:keep", "photos:after-window"]);
   expect(earliestPhoto(dir)).toBe("2026-09-30T23:59:00.000Z");
   expect(newestPhoto(dir).at).toBe("2026-10-20T00:00:00.000Z");
+});
+
+test("two people with one name stay two, and a library without a search index is still read", () => {
+  const dir = library(
+    [{ uuid: "twins" }],
+    [
+      ["twins", 3],
+      ["twins", 6],
+      ["twins", 3],
+    ]
+  );
+  rmSync(join(dir, "search"), { recursive: true });
+  const [twins] = readPhotos(since, undefined, dir, []);
+  expect(twins?.photo?.pictured).toEqual([{ name: "Tom" }, { name: "Tom" }]);
+  expect(twins?.photo?.scenes).toEqual([]);
 });
 
 test("who is pictured: Apple's named people, a merged one as its target, the owner and the unnamed left out, a Contacts handle with the name", () => {

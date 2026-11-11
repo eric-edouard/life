@@ -1,5 +1,5 @@
 // Reading Apple's binary property lists (`bplist00`), which apps keep in their stores (Photos' reverse-geocoded
-// addresses). Reads what those hold: booleans, numbers, strings, data, arrays, dictionaries and the references an
+// addresses). Reads what those hold: booleans, numbers, dates (as numbers), strings, data, arrays, dictionaries and the references an
 // NSKeyedArchiver archive links its objects by (`Uid`).
 
 export interface Uid {
@@ -84,6 +84,8 @@ export function readBplist(bytes: Uint8Array): Plist {
         return uint(next, 2 ** low);
       case 2:
         return low === 3 ? view.getFloat64(next) : view.getFloat32(next);
+      case 3:
+        return view.getFloat64(next);
       case 8:
         return { uid: uint(next, low + 1) };
       default:

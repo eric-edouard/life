@@ -1,9 +1,10 @@
 import { MIN, minutes } from "../core/clock";
-import { count, within } from "../core/lists";
+import { count } from "../core/lists";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
+import { addressBeyond, ocrText } from "../sources/photos";
 import { WEB } from "../sources/screen";
-import { time, zoneAt } from "./zones";
+import { offsetAt, time } from "./zones";
 
 /** A device-day's stints this long are its lines; shorter ones count in its totals only. */
 const LINE_STINT = 5 * MIN;
@@ -41,8 +42,6 @@ export function measurementDayText(list: SourceEvent[]) {
 const PHOTO_GAP = 30 * MIN;
 /** The scene labels a line of photos shows: the most common among them. */
 const SCENES_SHOWN = 5;
-/** The words found in a line's photos, in characters at most (a photo's own are cut the same: `sources/photos.ts`). */
-const TEXT_MAX = 300;
 
 /** The most common of `values`, first seen first among equals. */
 const commonest = (values: string[], n: number) =>
@@ -55,7 +54,7 @@ const commonest = (values: string[], n: number) =>
 function tally(photos: { video?: true }[]) {
   const videos = photos.filter((p) => p.video).length;
   return [
-    count(photos.length - videos, "photo"),
+    ...(photos.length > videos ? [count(photos.length - videos, "photo")] : []),
     ...(videos > 0 ? [count(videos, "video")] : []),
   ].join(", ");
 }
@@ -68,25 +67,25 @@ function photoLine(group: SourceEvent[]) {
   const located = photos.find((p) => p.point || p.address);
   const names = photos.flatMap((p) => p.pictured.map((x) => x.name));
   const favorites = photos.filter((p) => p.favorite).length;
+  // Photos names a zone "GMT+0700", never as Life does: it shows only when its offset is not the one Life dated the day in.
   const zones = new Set(
     group.flatMap((e) =>
-      e.photo?.zone && e.photo.zone !== zoneAt(e.at) ? [e.photo.zone] : []
+      e.photo?.zone &&
+      e.photo.offset !== undefined &&
+      e.photo.offset * 1000 !== offsetAt(e.at)
+        ? [e.photo.zone]
+        : []
     )
   );
-  const words = within(
-    [...new Set(photos.flatMap((p) => p.ocr?.split(" ") ?? []))],
-    TEXT_MAX,
-    (w) => w.length + 1
-  );
-  const place = first.photo?.place;
-  const address = located?.address;
+  const words = ocrText([...new Set(photos.flatMap((p) => p.ocr ?? []))]);
   return [
-    first.at === last.at || time(first.at) === time(last.at)
+    time(first.at) === time(last.at)
       ? time(first.at)
       : `${time(first.at)}–${time(last.at)}`,
-    place,
-    address && address !== place ? address : undefined,
-    located?.point && `${located.point.lat}, ${located.point.lon}`,
+    first.photo?.place,
+    addressBeyond({ address: located?.address, place: first.photo?.place }),
+    located?.point &&
+      `${located.point.lat.toFixed(4)}, ${located.point.lon.toFixed(4)}`,
     tally(photos),
     commonest(
       photos.flatMap((p) => p.scenes),
@@ -96,7 +95,7 @@ function photoLine(group: SourceEvent[]) {
     favorites > 0 && `★ ${favorites}`,
     zones.size > 0 && `zone ${[...zones].join(", ")}`,
     ...photos.flatMap((p) => (p.caption ? [`"${p.caption}"`] : [])),
-    words.length > 0 && `text: ${words.join(" ")}`,
+    words && `text: ${words}`,
   ]
     .filter(Boolean)
     .join(" · ");

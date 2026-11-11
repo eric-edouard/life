@@ -70,14 +70,18 @@ export function wall(iso: string, tz = zoneAt(iso)) {
   return { day, hms };
 }
 
+/** `tz`'s offset from UTC at `iso`, in ms (by default where he was then). */
+export function offsetAt(iso: string, tz = zoneAt(iso)) {
+  const { day, hms } = wall(iso, tz);
+  return (
+    Date.parse(`${day}T${hms}Z`) - Math.floor(Date.parse(iso) / 1000) * 1000
+  );
+}
+
 /** The instant local `date` starts (or reaches `hm`, "HH:MM") in `tz`, by default where he was then (`cutAt` keeps that one instant). */
 export function dayStart(date: string, tz?: string, hm = "00:00") {
   const utc = Date.parse(`${date}T${hm}:00Z`);
-  const offset = (at: number) => {
-    const iso = new Date(at).toISOString();
-    const { day, hms } = wall(iso, tz ?? zoneAt(iso));
-    return Date.parse(`${day}T${hms}Z`) - at;
-  };
+  const offset = (at: number) => offsetAt(new Date(at).toISOString(), tz);
   return new Date(utc - offset(utc - offset(utc)));
 }
 

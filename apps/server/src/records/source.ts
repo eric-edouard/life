@@ -29,7 +29,9 @@ export const Photo = z
     address: z.string().optional(),
     caption: z.string().optional(),
     favorite: z.literal(true).optional(),
-    ocr: z.string().optional(),
+    ocr: z.array(z.string()).optional(),
+    // The zone it was taken in, as Photos wrote it (a name like "GMT+0700"), and its offset from UTC in seconds.
+    offset: z.int().optional(),
     pictured: z.array(
       z.object({ handle: z.string().optional(), name: z.string() }).strict()
     ),
@@ -37,7 +39,6 @@ export const Photo = z
     point: z.object({ lat: z.number(), lon: z.number() }).strict().optional(),
     scenes: z.array(z.string()),
     video: z.literal(true).optional(),
-    // The time zone it was taken in, as Photos wrote it.
     zone: z.string().optional(),
   })
   .strict();
