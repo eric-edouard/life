@@ -107,8 +107,11 @@ await cp(
 );
 
 // llama.cpp's server for the describer (photo descriptions), with the libraries it loads from beside it, signed.
-await bundleLlama(join(contents, "Helpers", "llama"), out, (file) =>
-  run(["codesign", "--force", "--sign", identity, ...hardened, file])
+await bundleLlama(
+  join(contents, "Helpers", "llama"),
+  join(contents, "Resources", "llama.cpp-LICENSE"),
+  out,
+  (file) => run(["codesign", "--force", "--sign", identity, ...hardened, file])
 );
 
 const helper = join(out, "helper");

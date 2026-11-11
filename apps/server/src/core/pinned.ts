@@ -37,11 +37,12 @@ const LLAMA_LOADED = [
 
 /**
  * llama.cpp's server for this Mac's architecture in `dest`, with the libraries it loads from beside it, each signed
- * by `sign` (the release links its versioned libraries by name: the files are signed, not the links). The release is
- * downloaded into `cache`.
+ * by `sign` (the release links its versioned libraries by name: the files are signed, not the links), and its licence
+ * at `license`, outside the code folder a signed app refuses non-code files in. The release is downloaded into `cache`.
  */
 export async function bundleLlama(
   dest: string,
+  license: string,
   cache: string,
   sign: (file: string) => Promise<unknown>
 ) {
@@ -52,6 +53,8 @@ export async function bundleLlama(
     ...["-C", dest, "--strip-components", "1"],
     ...LLAMA_LOADED.flatMap((f) => ["--include", `*/${f}`]),
   ]);
+  await mkdir(dirname(license), { recursive: true });
+  await rename(join(dest, "LICENSE"), license);
   const libraries = [...new Bun.Glob("*.dylib").scanSync(dest)].filter(
     (f) => !lstatSync(join(dest, f)).isSymbolicLink()
   );
