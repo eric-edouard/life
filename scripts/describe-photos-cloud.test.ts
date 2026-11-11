@@ -20,6 +20,7 @@ test("photos go to the cloud command and its answers are stored", async () => {
   writeFileSync(
     fake,
     `console.log("✓ Initialized. View run at https://modal.com/apps/made-up");
+console.log(JSON.stringify({ level: "info", msg: "made-up container log" }));
 let first = true;
 for await (const l of console) {
   if (!l) continue;

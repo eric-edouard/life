@@ -18,6 +18,21 @@ import {
   waitingPhotos,
 } from "../apps/server/src/sources/photos";
 
+interface Answer {
+  error?: string;
+  text?: string;
+  uuid: string;
+}
+/** A line of the entrypoint's answers, or null for anything else Modal prints. */
+const answerOf = (line: string): Answer | null => {
+  try {
+    const a = JSON.parse(line) as Partial<Answer> | null;
+    return typeof a?.uuid === "string" ? (a as Answer) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const CLOUD_MODEL = "qwen3.5-9b-bf16@vllm";
 const SAVE_EVERY = 256;
 const MODAL = [
@@ -60,15 +75,11 @@ export async function describeInCloud(
     })();
     let described = 0;
     for await (const line of lines(proc.stdout)) {
-      // Modal's CLI prints its own progress on stdout too: only the entrypoint's JSON lines are answers.
-      if (!line.startsWith("{")) {
+      // Modal's CLI streams its own progress and the container's logs on stdout too: an answer is a line naming a photo.
+      const a = answerOf(line);
+      if (!a) {
         continue;
       }
-      const a = JSON.parse(line) as {
-        error?: string;
-        text?: string;
-        uuid: string;
-      };
       rows.push(
         a.text
           ? {
