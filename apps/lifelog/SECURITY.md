@@ -15,6 +15,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | Transcripts | ElevenLabs keeps a copy under its own retention policy | Their terms ([docs/providers.md](docs/providers.md)) |
 | Push alerts' text (the voices-to-name count, "open lifelog", Life's "heard you" notices; never what was said) | Apple's push service, on its way to the phone | Apple's terms; silent pushes carry no text |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
+| Audio for the speaker re-split (11 Nov 2026), once and only with the owner's OK | Modal's GPUs, in a container's memory for its call | Kept nowhere: no Volume, logs print counts only |
 
 The phone reads sleep and workouts from Apple Health
 only after the Settings permission request. It writes nothing to Health. Measurements go to the paired server,

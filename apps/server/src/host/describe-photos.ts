@@ -101,7 +101,7 @@ export async function describePhotos(
 }
 
 /** The image the model reads: Photos' preview as it is, else the original as a JPEG at `jpeg`; none when Photos holds neither here. */
-async function imageOf(
+export async function imageOf(
   w: { original?: string; preview?: string },
   jpeg: string
 ) {

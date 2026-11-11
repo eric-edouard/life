@@ -54,6 +54,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
   photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
   photo; never an image, a face or a face print.
+- To Modal's GPUs, each once and only with his OK: lifelog audio for the speaker re-split (11 Nov 2026), and each photo's
+  1024-pixel preview for the one-off backfill of photo descriptions (`scripts/describe-photos-cloud.ts`; date written when
+  it runs). Held in the container's memory for its call and kept nowhere: no Volume, logs print counts only.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).
