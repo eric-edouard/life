@@ -128,7 +128,7 @@ const night = (facts: number) =>
     repos: { suggestions: [] },
     retired: 1,
     spent: [
-      "Model use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
+      "Model use, backfill of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
       "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
     ],
   }) as unknown as Night;

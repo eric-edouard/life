@@ -14,10 +14,16 @@ import {
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { listening, readySources } from "../memory/sources";
-import { syncLifelogUnits } from "../memory/unit-writer";
+import {
+  buildTodayUnits,
+  publishTodayUnits,
+  syncLifelogUnits,
+} from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
+import { dayNow } from "../memory/zones";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
+import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
@@ -29,7 +35,8 @@ import { lockReport, sendReport } from "./report";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
-// or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Health is in
+// or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
+// builds today's units from every other source the same way (`buildTodayUnits`), with no model call. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
@@ -240,13 +247,7 @@ async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
   }
   const done = await locked(async () => {
     const built = due.from ? await syncLifelogUnits(store, due.from) : null;
-    // Written units no longer differ: if the index update throws, the retry owes the whole index.
-    owed.isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
-    if (due.isIndexOwed || built?.hasGoneOrBack) {
-      await reindex();
-    } else if (built?.written.length) {
-      await reindexUnits(built.written);
-    }
+    await reindexFor(built, due.isIndexOwed);
     return { built };
   });
   if (done?.built) {
@@ -256,6 +257,52 @@ async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
     );
   }
   return done ? { from: null, isIndexOwed: false } : due;
+}
+
+/** Set while the index follows units a sync wrote, cleared once it did: written units no longer differ, so an update that threw is redone whole by whichever sync runs next. */
+let isIndexOwed = false;
+/**
+ * The index after a sync (under the lock): whole when owed (`owed`, or an update that threw) or when a unit went or a
+ * code rule dropped or took one back, else only the units written (`reindexUnits`).
+ */
+async function reindexFor(
+  built: { hasGoneOrBack: boolean; written: Unit[] } | null,
+  owed = false
+) {
+  const isWhole = owed || isIndexOwed || !!built?.hasGoneOrBack;
+  isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
+  if (isWhole) {
+    await reindex();
+  } else if (built?.written.length) {
+    await reindexUnits(built.written);
+  }
+  isIndexOwed = false;
+}
+
+let syncing = false;
+/** How often today's units from every source but lifelog are built (`buildTodayUnits`): search finds a message by its words within this. */
+const TODAY_EVERY = 5 * MIN;
+/**
+ * On its own timer, one at a time: today's units built outside the lock, written and indexed under it. When a run holds
+ * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
+ */
+async function syncToday() {
+  if (syncing) {
+    return;
+  }
+  syncing = true;
+  try {
+    const built = await buildTodayUnits(dayNow());
+    await locked(async () => reindexFor(await publishTodayUnits(built)));
+  } finally {
+    syncing = false;
+  }
+}
+
+function todayEvery() {
+  syncToday().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.today" })
+  );
 }
 
 /** Whether Life can act from here, in life-watch.log at start (the connector's `change_todo_item` acts from this process). */
@@ -281,9 +328,11 @@ export async function watch(): Promise<number> {
   sayActions();
   minute();
   embedEvery();
+  todayEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(embedEvery, EMBED_EVERY),
+    setInterval(todayEvery, TODAY_EVERY),
   ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));

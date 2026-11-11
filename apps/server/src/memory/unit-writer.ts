@@ -3,11 +3,21 @@ import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { readUnitsOf, UNITS } from "./ledger";
+import { keptConversations, readFiles, readUnitsOf, UNITS } from "./ledger";
+import { showFiles } from "./message-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";
-import { kindOf } from "./sources";
-import { applyRules, type Evidence, isFrozen, voiceUnits } from "./units";
+import { kindOf, quietly } from "./sources";
+import {
+  applyRules,
+  type Evidence,
+  isFrozen,
+  messageUnits,
+  readSourceEvents,
+  voiceUnits,
+} from "./units";
+import { readPeople } from "./who";
+import { dayStart } from "./zones";
 
 /** All local days in a window, including empty days. */
 export function unitDays(window: { from: string; to: string }) {
@@ -95,6 +105,24 @@ export async function syncLifelogUnits(store: Store, since: Date) {
     ...chapters,
     ...applyRules(built).map((b) => Unit.parse(b.unit)),
   ];
+  const diff = diffUnits(have, want);
+  // Every voice unit on those days that this sync did not read stays.
+  const read = new Set(have.map((u) => u.id));
+  await writeUnits(
+    diff.dates,
+    want,
+    (u) => kindOf(u.source) !== "voice" || !read.has(u.id)
+  );
+  return diff;
+}
+
+/**
+ * What a writer changes on disk: the units it read there (`have`, only the kind it writes) against those it wants.
+ * Returns how many were added, changed and removed, the units written (`written`), the days whose files change (a unit
+ * that changed its day leaves the old day's file too), and whether a unit went or a code rule dropped or took one back
+ * (`hasGoneOrBack`: the index is rebuilt whole, the observations on it go or come back).
+ */
+export function diffUnits(have: Unit[], want: Unit[]) {
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];
@@ -103,26 +131,71 @@ export async function syncLifelogUnits(store: Store, since: Date) {
     (u) => had.has(u.id) && had.get(u.id) !== wants.get(u.id)
   );
   const removed = have.filter((u) => !wants.has(u.id));
-  // A unit that changed its day leaves the old day's file too.
   const dates = new Set(
     [...want, ...have]
       .filter((u) => had.get(u.id) !== wants.get(u.id))
       .map((u) => u.date)
   );
-  // Every voice unit on those days that this sync did not read stays.
-  const read = new Set(had.keys());
-  await writeUnits(
-    [...dates],
-    want,
-    (u) => kindOf(u.source) !== "voice" || !read.has(u.id)
-  );
   const dropOf = new Map(have.map((u) => [u.id, !!u.drop]));
   return {
     added: added.length,
     changed: changed.length,
+    dates: [...dates],
     hasGoneOrBack:
       removed.length > 0 || changed.some((u) => dropOf.get(u.id) !== !!u.drop),
     removed: removed.length,
     written: [...added, ...changed],
   };
+}
+
+/**
+ * Today's units from every source but lifelog, built as the night builds them, with no model call: a file sent today
+ * stays a tag until the night describes it. Read outside the lock (`publishTodayUnits` writes them under it). A source
+ * that throws is logged and keeps its units, like one that can't be read now; the rest are built.
+ * ponytail: reads today from every source every few minutes, a per-source cursor (`incoming`) if that ever costs; the
+ * `duplicate` rule sees today only (the night's sees 7 days), the night settles it.
+ */
+export async function buildTodayUnits(day: string) {
+  const { resolve, truth } = await readPeople();
+  const { failed, read } = await readSourceEvents(
+    dayStart(day),
+    undefined,
+    truth,
+    quietly
+  );
+  const events = showFiles(
+    read.flatMap((r) => r.events),
+    readFiles()
+  );
+  const want = applyRules(messageUnits(events, resolve), keptConversations())
+    .map((b) => Unit.parse(b.unit))
+    .filter((u) => u.date === day);
+  // Lifelog's units, and a source's that was not read now (off, unreadable or failed), stay as they are.
+  const fresh = new Set(
+    read.map((r) => r.s.name).filter((name) => !failed.includes(name))
+  );
+  return {
+    day,
+    kept: (u: Unit) => !fresh.has(u.source),
+    passages: preparePassages(events, { from: day, to: day }, failed),
+    want,
+  };
+}
+
+/** Writes what `buildTodayUnits` built (under the lock): today's file keeps lifelog's units and those of a source not read. */
+export async function publishTodayUnits(built: {
+  day: string;
+  kept: (u: Unit) => boolean;
+  passages: () => void;
+  want: Unit[];
+}) {
+  const diff = diffUnits(
+    readUnitsOf([built.day]).filter((u) => !built.kept(u)),
+    built.want
+  );
+  if (diff.dates.length > 0) {
+    built.passages();
+    await writeUnits([built.day], built.want, built.kept);
+  }
+  return diff;
 }

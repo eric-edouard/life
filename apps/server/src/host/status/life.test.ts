@@ -1,18 +1,7 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { DAY } from "../../core/clock";
-import { log } from "../../core/log";
 import { systemZone } from "../../core/platform";
 import { lifeStatus } from "./life";
-
-test("the status holds the midday while the last quota reading is over the reserve; an unread one holds nothing", async () => {
-  const now = new Date();
-  const resetsAt = new Date(now.getTime() + DAY).toISOString();
-  log("quota.read", { resetsAt, used: 80 });
-  expect((await lifeStatus(now)).midday.next.why).toStartWith("held");
-  log("quota.read");
-  expect((await lifeStatus(now)).midday.next.why).not.toStartWith("held");
-});
 
 test("the status reads only read: no write, log, model call, action or send", async () => {
   const source = (

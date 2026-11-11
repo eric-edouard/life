@@ -30,25 +30,22 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
   health file).
-- `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
+- `extraction`, `consolidation`, `nightly` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
   `read_processing_runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
 - `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else
   `idle`.
-- `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`); `midday.slotSpentAt`:
-  when the last midday started. **A spent slot is not a success**: read `midday.lastOk` / `lastFailed`.
+- `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`).
 - `backfill`: the backfill's runs (`latest`, `lastOk`, `lastFailed`) and `state`: its range (`next`, `to`), `failures`
   of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
-- `nightly.next`, `midday.next`: `{earliest, latest, why}`. The nightly tick runs every 30 min, so a run is expected
+- `nightly.next`: `{earliest, latest, why}`. The nightly tick runs every 30 min, so a run is expected
   between the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures
-  today: no more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over
-  75%" (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
-  reading has no reset time). Not a countdown.
+  today: no more tries until tomorrow" or "today's night succeeded". Not a countdown.
 - `timeZone`: the Mac's, read at each call (`systemZone`), which every schedule follows.
 
 ## runs
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it is
-null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
+null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`,
 `memory.backfill` and the steps `memory.repos|files|episodes|extract|closeness|pages` (`memory.triage` and `memory.infer`
 until 18 Oct, `memory.details` 6–8 Nov 2026)).
 
