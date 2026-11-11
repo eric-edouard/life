@@ -141,14 +141,17 @@ one-sided, how they batch). The map branch is merged with `main`, so the spec no
 
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
-| 1.1 | The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts | His marked failures on stale open items, as regression cases | None yet |
+| 1.1 | The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
 | 1.2 | Open items read endings | The same cases pass; a sample he would check | Stale items stop showing as open |
 | 1.3 | Problems and their fixes; a repeat of the same complaint | Cases | The 14-day retire window can go |
 
 ### Stage 2. Histories from the evidence Life already has
 
 Episodes and facts exist today. Months, years and a story can be built from them before any new read exists; they
-get richer, with no change of shape, as stage 4 adds evidence.
+get richer, with no change of shape, as stage 4 adds evidence. Proved first (11 Nov): a history read month by month
+from raw one-to-one messages helped only once inside the person read, never as notes beside it. Old years have no
+episodes: their matters and his month are read from the evidence itself (spec 11). A targeted raw re-read is allowed
+where an answer failed (spec 1).
 
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
@@ -160,7 +163,7 @@ get richer, with no change of shape, as stage 4 adds evidence.
 
 ### Stage 3. The pilot (no change to the running Life)
 
-Scripts on a copy of his data, as the benches run today. Four pieces (spec section 16). It freezes the wording of
+Scripts on a copy of his data, as the benches run today. Every run logs tokens and time per step (spec 16). Four pieces (spec section 16). It freezes the wording of
 the focused reads, sets the numbers, and prices the backfill. Stages 0 to 2 feed it and do not wait for it.
 
 ### Stage 4. The focused reads, one family per PR, each in shadow
@@ -179,18 +182,18 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 
 | Step | What ships | Value / deletes |
 |---|---|---|
-| 5.1 | The counting code: a rate per chance, a vantage, a minimum. Tests on made-up data | None alone |
+| 5.1 | The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
 | 5.2 | The person read gains its counts beside today's prose persona, same name and arguments | First meters an agent can use as data |
 | 5.3 | Patterns and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
-| 5.5 | The persona's traits and patterns come from the counts; how each writes stays | Deletes the weekly re-read of three years of raw |
+| 5.5 | The persona's traits and patterns come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
 | 5.6 | Pages drawn by code from history and readings, one section per PR (Now, History, Between us, his own page) | When the last section moved: deletes the page-writing prompt and its no-churn rules |
 
 ### Stage 6. His word and Life's list
 
 | Step | What ships |
 |---|---|
-| 6.1 | His correction is an input to the read of that exchange, one kind of his word per PR |
+| 6.1 | His correction is an input to the read of that exchange, and code keeps the record hidden in every later reading where one of the same form on the same messages matches it, until his word lifts it; it never hides another record of the same message (spec 8). One kind of his word per PR |
 | 6.2 | Questions for him: one new rule per PR on top of today's fact checks, same connector tools |
 | 6.3 | Life's list learns projects, goals and roles beside `truth/`, which stays its seed |
 | 6.4 | The rules of `AGENTS.md` rewritten (his yes), and the interview that seeds a new Life |
@@ -199,7 +202,7 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 
 | Step | What ships |
 |---|---|
-| 7.1 | The forecast record, the code that settles one, the scoring, all in shadow. The backtest is the same code run on the past |
+| 7.1 | The forecast record, the code that settles one, the scoring, all in shadow; each "based on past behaviour", a case where he acted set aside, one in ten never shown (spec 12). The backtest is the same code run on the past |
 | 7.2 | One sort at a time shown in the person read, once it beat its baseline |
 
 ### Stage 8. The connector's one batch
