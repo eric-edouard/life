@@ -5,6 +5,7 @@ import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
+import { settings } from "../core/settings";
 import {
   readSearchedTexts,
   readStaleness,
@@ -27,6 +28,7 @@ import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
+import { describePhotos } from "./describe-photos";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -41,7 +43,7 @@ import { lockReport, sendReport } from "./report";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
-// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded.
+// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
 let syncingMeasurements = false;
@@ -98,6 +100,26 @@ async function embedSearched() {
     await embedNew(embedder, readSearchedTexts);
   } finally {
     embedding = false;
+  }
+}
+
+let describing = false;
+/** How often photos with no description are looked for: a pass takes about 8 minutes, so a new photo waits about this long. */
+const DESCRIBE_EVERY = 10 * MIN;
+/** On its own timer, one pass at a time, beside the loop and apart from the memory lock: the model runs for minutes (`describePhotos`). */
+async function describeNew() {
+  if (
+    describing ||
+    !settings().describePhotos ||
+    !readySources().some((s) => s.name === "photos")
+  ) {
+    return;
+  }
+  describing = true;
+  try {
+    await describePhotos();
+  } finally {
+    describing = false;
   }
 }
 
@@ -325,9 +347,11 @@ export async function watch(): Promise<number> {
   sayActions();
   minute();
   embedEvery();
+  describeEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(embedEvery, EMBED_EVERY),
+    setInterval(describeEvery, DESCRIBE_EVERY),
     setInterval(todayEvery, TODAY_EVERY),
   ];
   try {
@@ -458,6 +482,12 @@ export async function mailStuckLock() {
 function embedEvery() {
   embedSearched().catch((e: Error) =>
     log("run.error", { error: e.message, step: "watch.embed" })
+  );
+}
+
+function describeEvery() {
+  describeNew().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.describe" })
   );
 }
 

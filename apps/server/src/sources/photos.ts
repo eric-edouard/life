@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { type Plist, readBplist, type Uid } from "../core/bplist";
 import { iso } from "../core/clock";
 import { within } from "../core/lists";
@@ -9,6 +9,7 @@ import type { Photo, SourceEvent } from "../records/source";
 import { type Contact, readContactRecords } from "./contacts";
 import type { Newest } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
+import { DESCRIPTIONS, readSettled, readTally } from "./photo-descriptions";
 
 // His photos and videos from the Mac's Photos library, opened read-only. Never written, never copied: Photos keeps its own
 // history (Recently Deleted, iCloud), and no image, face or face print is read, only what Apple's analysis and he wrote
@@ -36,6 +37,9 @@ const NO_COORDINATE = -180;
 const OWNER_CONFIDENCE = 0.5;
 /** `ZKIND` of a video. */
 const VIDEO = 1;
+
+/** The files of a photo's 1024 px preview and, when Photos has none, of its small one: the one line to change what stands in. */
+const PREVIEWS = ["_1_105_c", "_1_100_o"];
 
 /**
  * Not trashed, hidden or a screenshot, the frame of a burst he picked, and dated: Photos dates what it cannot place at
@@ -329,7 +333,98 @@ function edge(which: "max" | "min", library: string) {
   }
 }
 
-/** The newest photo in Photos (the status snapshot): no words, a caption is his and stays in the library. */
-export const newestPhoto = (library = LIBRARY): Newest => ({
-  at: edge("max", library),
-});
+/** A photo (not a video) still to describe, with the image files Photos holds of it on this Mac. */
+export interface Waiting {
+  original?: string;
+  preview?: string;
+  uuid: string;
+}
+
+/**
+ * The photos still to describe (`readSettled` says which are not), newest first, at most `limit`. Photos keeps a
+ * preview of most (even of an original that lives in iCloud), else the original may be here; Photos' folders are
+ * macOS-versioned like its store, and `photos.test.ts` pins them.
+ */
+export function waitingPhotos(
+  limit: number,
+  library = LIBRARY,
+  descriptions = DESCRIPTIONS
+): Waiting[] {
+  const settled = readSettled(descriptions);
+  const root = dirname(library);
+  const db = openReadOnly(join(library, STORE));
+  try {
+    return db
+      .query<{ directory: string; file: string; uuid: string }, []>(
+        `select a.ZUUID as uuid, a.ZDIRECTORY as directory, a.ZFILENAME as file from ZASSET a
+          where ${SHOWN} and a.ZKIND != ${VIDEO} order by a.ZDATECREATED desc`
+      )
+      .all()
+      .filter((r) => !settled.has(r.uuid))
+      .slice(0, limit)
+      .map(({ directory, file, uuid }) => {
+        const preview = PREVIEWS.map((suffix) =>
+          join(
+            root,
+            ...["resources", "derivatives", uuid.slice(0, 1).toUpperCase()],
+            `${uuid}${suffix}.jpeg`
+          )
+        ).find((p) => existsSync(p));
+        const original = join(root, "originals", directory, file);
+        return {
+          ...(existsSync(original) ? { original } : {}),
+          ...(preview ? { preview } : {}),
+          uuid,
+        };
+      });
+  } finally {
+    db.close();
+  }
+}
+
+/** How many photos (not videos) the library shows. */
+function countShown(library: string) {
+  const db = openReadOnly(join(library, STORE));
+  try {
+    return (
+      db
+        .query<{ n: number }, []>(
+          `select count(*) as n from ZASSET a where ${SHOWN} and a.ZKIND != ${VIDEO}`
+        )
+        .get()?.n ?? 0
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * The newest photo in Photos (the status snapshot): no words, a caption is his and stays in the library. With the
+ * descriptions begun, how many photos have one, how many have no image, and the last failure.
+ */
+export function newestPhoto(
+  library = LIBRARY,
+  descriptions = DESCRIPTIONS
+): Newest {
+  const at = edge("max", library);
+  if (!existsSync(descriptions)) {
+    return { at };
+  }
+  const { described, failure, noImage } = readTally(descriptions);
+  return {
+    at,
+    facts: [
+      { label: "Described", value: `${described} of ${countShown(library)}` },
+      ...(noImage > 0 ? [{ label: "No image", value: String(noImage) }] : []),
+      ...(failure
+        ? [
+            {
+              at: failure.at,
+              label: "Last failure",
+              value: failure.error ?? "",
+            },
+          ]
+        : []),
+    ],
+  };
+}
