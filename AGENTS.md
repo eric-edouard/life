@@ -144,7 +144,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
   of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
-  (`docs/operations.md`, "Model engines").
+  (`docs/operations.md`, "Model engines"). One model runs on the Mac instead of a provider: photo descriptions, Qwen3.5-9B
+  under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
+  then reaches his provider inside the photo lines like the rest of the line.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
