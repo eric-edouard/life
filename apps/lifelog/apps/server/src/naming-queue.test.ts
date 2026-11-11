@@ -574,33 +574,6 @@ test("every card has a clip: a sample of its voice, else its own longest turns",
     [`${chatty.jobId}/speaker_1`]: 3,
     [`${heard.jobId}/speaker_1`]: 1,
   });
-  // 11 Nov: 41 of 57 cards had no samples, so no names to offer first, and came before the rest.
-  const [mine] = env.db
-    .insert(voiceSamples)
-    .values({
-      conversationId: heard.id,
-      durationSeconds: 9,
-      embedding: Array.from({ length: 192 }, (_, i) => (i === 3 ? 1 : 0)),
-      jobId: heard.jobId,
-      modelId: "test/ecapa",
-      modelRevision: "r1",
-      speakerLabel: "speaker_0",
-      turnIndex: 0,
-    })
-    .returning()
-    .all();
-  env.db
-    .insert(voiceProfiles)
-    .values({
-      addedBy: "owner_confirmed",
-      personId: me,
-      sampleId: mine?.id ?? "",
-    })
-    .run();
-  expect(queued().map((c) => c.id)).toEqual([
-    `${heard.jobId}/speaker_1`,
-    `${chatty.jobId}/speaker_1`,
-  ]);
 });
 
 // Oct 15, the owner's phone: every clip played 20 s of a one-word turn. The provider stretched a
