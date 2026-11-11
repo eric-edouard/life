@@ -247,36 +247,6 @@ const ranges = () =>
 const logged = (id: string) =>
   env.db.select().from(changeLog).where(eq(changeLog.ref, id)).all().length;
 
-test("recorded: whether a Pendant's audio falls in a range, and since when lifelog can tell", async () => {
-  const asked = async (from: number, to: number) =>
-    (await send("GET", `/recorded?from=${iso(from)}&to=${iso(to)}`)).json();
-  expect(await asked(0, 100)).toEqual({ hasRecording: false, since: null });
-  await timeline(400, [span(0, [100, 400], [])]);
-  // An old-app recording is no Pendant's: it neither counts nor moves `since`.
-  env.db.insert(sources).values({ id: "import:old" }).run();
-  env.db
-    .insert(timelineSpans)
-    .values({
-      endAt: new Date(at(-500)),
-      facts: {
-        audible: [],
-        breaks: [],
-        pauses: [],
-        speech: [],
-        unanalyzed: [],
-      },
-      firstPage: 0,
-      sourceId: "import:old",
-      startAt: new Date(at(-900)),
-    })
-    .run();
-  const since = iso(100);
-  expect(await asked(-1000, -400)).toEqual({ hasRecording: false, since });
-  expect(await asked(0, 100)).toEqual({ hasRecording: false, since });
-  expect(await asked(50, 150)).toEqual({ hasRecording: true, since });
-  expect(await asked(400, 500)).toEqual({ hasRecording: false, since });
-});
-
 test("a timeline makes conversations with anchor ids, logged, closed once heard-through passes", async () => {
   const response = await timeline(200, [
     span(

@@ -10,7 +10,7 @@ import {
   sources,
   timelineSpans,
 } from "@lifelog/db/schema";
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { markDirty, overlapping } from "./grouping";
 
 export const Instant = z.iso.datetime({ offset: true });
@@ -119,24 +119,30 @@ export function saveSpans(tx: Db, sourceId: string, spans: SpanFacts[]) {
 
 // Recorded (docs/timeline.md): whether a Pendant's audio falls in `[from, to)`, and the start of the first
 // span held (`since`, null with none): before it lifelog cannot tell. Old-app recordings are no Pendant's.
+// ponytail: newest first, so a range with a recording answers at once; one with none reads every span before it
+// (0.1 s at 280,000 spans): an index on `end_at` when that shows.
 export function recorded(db: Pick<Db, "select">, from: Date, to: Date) {
-  const first = (during?: ReturnType<typeof overlapping>) =>
+  const pendants = () =>
     db
       .select({ startAt: timelineSpans.startAt })
       .from(timelineSpans)
-      .innerJoin(sources, eq(sources.id, timelineSpans.sourceId))
-      .where(and(isPendant, during))
-      .orderBy(asc(timelineSpans.startAt))
-      .limit(1)
-      .get();
+      .innerJoin(sources, eq(sources.id, timelineSpans.sourceId));
+  const during = overlapping(timelineSpans.startAt, timelineSpans.endAt, {
+    cut: from.getTime(),
+    stop: to.getTime(),
+  });
+  const first = pendants()
+    .where(isPendant)
+    .orderBy(asc(timelineSpans.startAt))
+    .limit(1)
+    .get();
   return {
     hasRecording:
-      first(
-        overlapping(timelineSpans.startAt, timelineSpans.endAt, {
-          cut: from.getTime(),
-          stop: to.getTime(),
-        })
-      ) !== undefined,
-    since: first()?.startAt.toISOString() ?? null,
+      pendants()
+        .where(and(isPendant, during))
+        .orderBy(desc(timelineSpans.startAt))
+        .limit(1)
+        .get() !== undefined,
+    since: first?.startAt.toISOString() ?? null,
   };
 }
