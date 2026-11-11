@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   readDescriptions,
-  readSettled,
+  readHandled,
 } from "../apps/server/src/sources/photo-descriptions";
 import { describeInCloud } from "./describe-photos-cloud";
 
@@ -42,5 +42,5 @@ for await (const l of console) {
   expect([...readDescriptions(["A", "B", "C"], descriptions)]).toEqual([
     ["A", "seen A"],
   ]);
-  expect(readSettled(descriptions)).toEqual(new Set(["A", "B", "C"]));
+  expect(readHandled(descriptions)).toEqual(new Set(["A", "B", "C"]));
 });

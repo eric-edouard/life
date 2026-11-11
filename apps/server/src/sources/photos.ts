@@ -12,7 +12,7 @@ import { fromAppleS, toAppleS } from "./imessage";
 import {
   DESCRIPTIONS,
   readDescriptions,
-  readSettled,
+  readHandled,
   readTally,
 } from "./photo-descriptions";
 
@@ -394,7 +394,7 @@ export interface Waiting {
 }
 
 /**
- * The photos still to describe (`readSettled` says which are not), newest first, at most `limit`. Photos keeps a
+ * The photos still to describe (`readHandled` says which are not), newest first, at most `limit`. Photos keeps a
  * preview of most (even of an original that lives in iCloud), else the original may be here; Photos' folders are
  * macOS-versioned like its store, and `photos.test.ts` pins them.
  */
@@ -403,7 +403,7 @@ export function waitingPhotos(
   library = LIBRARY,
   descriptions = DESCRIPTIONS
 ): Waiting[] {
-  const settled = readSettled(descriptions);
+  const handled = readHandled(descriptions);
   const root = dirname(library);
   const db = openReadOnly(join(library, STORE));
   try {
@@ -413,7 +413,7 @@ export function waitingPhotos(
           where ${SHOWN} and a.ZKIND != ${VIDEO} order by a.ZDATECREATED desc`
       )
       .all()
-      .filter((r) => !settled.has(r.uuid))
+      .filter((r) => !handled.has(r.uuid))
       .slice(0, limit)
       .map(({ directory, file, uuid }) => {
         const preview = PREVIEWS.map((suffix) =>
