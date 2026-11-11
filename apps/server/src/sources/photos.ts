@@ -12,7 +12,7 @@ import { fromAppleS, toAppleS } from "./imessage";
 import {
   DESCRIPTIONS,
   readDescriptions,
-  readSettled,
+  readHandled,
   readTally,
 } from "./photo-descriptions";
 
@@ -331,6 +331,38 @@ export function readPhotos(
   }
 }
 
+/** `ZIMPORTEDBY` of a photo his own devices took (1, 2): a Mac's import (5) dates its photos by the Mac's clock, not where he stood. */
+const OWN_CAMERA = "(1, 2)";
+
+/**
+ * Where his photos place him: the taken-at instant and Photos' offset from UTC in minutes, for the photos his own devices
+ * took or that carry coordinates, from `since` on (before `before`). A shown photo without that is no evidence of a place.
+ */
+export function readPhotoOffsets(since: Date, before: Date, library = LIBRARY) {
+  const db = openReadOnly(join(library, STORE));
+  try {
+    return db
+      .query<{ date: number; offset: number }, [number, number, number]>(
+        `select a.ZDATECREATED as date, x.ZTIMEZONEOFFSET as offset
+           from ZASSET a join ZADDITIONALASSETATTRIBUTES x on x.ZASSET = a.Z_PK
+          where ${WINDOW} and ${SHOWN} and x.ZTIMEZONEOFFSET is not null
+            and (x.ZIMPORTEDBY in ${OWN_CAMERA} or a.ZLATITUDE != ${NO_COORDINATE})
+          order by a.ZDATECREATED`
+      )
+      .all(
+        toAppleS(since.getTime()),
+        toAppleS(before.getTime()),
+        toAppleS(before.getTime())
+      )
+      .map((r) => ({
+        at: iso(fromAppleS(r.date).getTime()),
+        offset: Math.round(r.offset / 60),
+      }));
+  } finally {
+    db.close();
+  }
+}
+
 /** The first photo's time, without reading anything else. */
 export function earliestPhoto(library = LIBRARY) {
   return readShown(library).first;
@@ -362,7 +394,7 @@ export interface Waiting {
 }
 
 /**
- * The photos still to describe (`readSettled` says which are not), newest first, at most `limit`. Photos keeps a
+ * The photos still to describe (`readHandled` says which are not), newest first, at most `limit`. Photos keeps a
  * preview of most (even of an original that lives in iCloud), else the original may be here; Photos' folders are
  * macOS-versioned like its store, and `photos.test.ts` pins them.
  */
@@ -371,7 +403,7 @@ export function waitingPhotos(
   library = LIBRARY,
   descriptions = DESCRIPTIONS
 ): Waiting[] {
-  const settled = readSettled(descriptions);
+  const handled = readHandled(descriptions);
   const root = dirname(library);
   const db = openReadOnly(join(library, STORE));
   try {
@@ -381,7 +413,7 @@ export function waitingPhotos(
           where ${SHOWN} and a.ZKIND != ${VIDEO} order by a.ZDATECREATED desc`
       )
       .all()
-      .filter((r) => !settled.has(r.uuid))
+      .filter((r) => !handled.has(r.uuid))
       .slice(0, limit)
       .map(({ directory, file, uuid }) => {
         const preview = PREVIEWS.map((suffix) =>

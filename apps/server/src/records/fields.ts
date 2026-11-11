@@ -13,7 +13,9 @@ export const isoDateTime = z.iso.datetime({ offset: true });
 
 export const Importance = z.int().min(0).max(3);
 
-export const UnitId = z.string().regex(/^unit_[0-9a-f]{12}$/);
+/** A unit id anywhere in a text (global: `text.match(UNIT_ID)` lists them). */
+export const UNIT_ID = /unit_[0-9a-f]{12}/g;
+export const UnitId = z.string().regex(new RegExp(`^${UNIT_ID.source}$`));
 
 /** 16 hex of SHA-256 over a unit's content. */
 export const ContentHash = z.string().regex(/^[0-9a-f]{16}$/);

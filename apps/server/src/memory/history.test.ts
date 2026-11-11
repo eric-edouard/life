@@ -147,13 +147,10 @@ test("a failed later month preserves its files and reindexes the already publish
       async () => ({
         deferred: [],
         gaps: [],
-        reasons: [],
         runs: [],
       })
     );
-    expect(result.failed).toBe(1);
-    expect(result.months).toBe(1);
-    expect(result.reasons).toContain("sources failed: told");
+    expect(result).toMatchObject({ failed: 1, months: 1, sources: ["told"] });
     const [unit] = readUnitsOf([date]);
     expect(unit).toBeDefined();
     expect(
@@ -221,20 +218,14 @@ test("a conflicting zone just before the requested range defers the complete exp
     let expanded: { from: string; to: string } | undefined;
     const result = await collectHistory(
       { from: date, to: date },
-      async () => ({ deferred: [], gaps: [], reasons: [], runs: [] }),
+      async () => ({ deferred: [], gaps: [], runs: [] }),
       (range) => {
         expanded = range;
-        return Promise.resolve({
-          deferred: ["2020-04-30"],
-          gaps: [],
-          reasons: ["made-up conflicting offset"],
-          runs: [],
-        });
+        return { deferred: ["2020-04-30"], gaps: [], runs: [] };
       }
     );
     expect(expanded).toEqual({ from: "2020-04-30", to: date });
     expect(result.deferred).toContain("2020-04-30");
-    expect(result.reasons).toContain("made-up conflicting offset");
     expect(
       readPassages({
         from: dayStart("2020-04-30").toISOString(),

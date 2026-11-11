@@ -135,17 +135,19 @@ export const Unit = z
 export type Unit = z.infer<typeof Unit>;
 
 /**
- * memory/zones.jsonl: the owner's IANA time zone from `from` on. `source: "mail"` marks a run derived from his sent
- * mail's Date headers (the history collection); absent, it is a record of where he was.
+ * memory/zones.jsonl: the owner's IANA time zone from `from` on. `source` marks a run the history collection derived,
+ * from his sent mail's Date headers or his photos' offsets; absent, it is a record of where he was.
  */
 export const Zone = z
   .object({
     from: isoDateTime,
     schemaVersion: z.literal(1),
-    source: z.literal("mail").optional(),
+    source: z.enum(["mail", "photos"]).optional(),
     tz: z.string(),
   })
   .strict();
+
+export type Zone = z.infer<typeof Zone>;
 
 /** The owner's label on a unit: does it matter, and optionally the right type and area (an id from truth/areas.yaml). memory/labels.jsonl. */
 export const MemoryLabel = z

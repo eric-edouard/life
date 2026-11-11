@@ -156,7 +156,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | machine dir | One per computer: the archive, the locks, Codex's home (`MACHINE_DIR`). | |
 | Life code dir | Life's code, prompts and assets (`LIFE_CODE_DIR`, env too). | |
 | time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`): a recorded line's at that instant (`zoneAt`), the present's the latest noticed (`zoneNow`); where he is now is the phone's latest zone, else the Mac's (`readZoneHere`). | |
-| mail era | The days before his first zone record not derived from mail (`mailEraEnd`, `zones.ts`): the only days sent-mail Date headers may set, defer or gap. | |
+| settled day | A day whose stored zone derived lines never change, so its units keep their dates and ids: a day a record cites by a unit id, one on or after the first episode, a deferred day that holds units, and one neighbour each side (`settledDays`, `historical-zones.ts`). | |
+| derived era | The days before his first zone record that has no `source` (`derivedEraEnd`, `historical-zones.ts`): the only days photo offsets and sent-mail Date headers may set, defer or gap. | |
 | boundary zone | One layer of the code in fallow's checks (`.fallowrc.json`). | |
 
 Next: the [architecture](architecture.md) and [every record](SCHEMA.md).

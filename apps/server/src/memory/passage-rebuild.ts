@@ -1,28 +1,31 @@
 import { clock, daysBefore } from "../core/clock";
 import { filesIn } from "../core/files";
+import { readEvidence, readHistoricalZones } from "./historical-zones";
 import { historyMonths } from "./history";
 import { UNITS } from "./ledger";
 import { preparePassages } from "./passages";
 import { type Tables, tables } from "./sources";
-import {
-  dayNow,
-  dayStart,
-  isDay,
-  readHistoricalZones,
-  type Window,
-} from "./zones";
+import { dayNow, dayStart, isDay, type Window } from "./zones";
 
 /** Explicit model-free passage rebuilding, one month per transaction; repeating completed months is safe. */
 export async function rebuildPassages(
   requested: { from?: string; to?: string } = {},
   read: {
     sources: () => Partial<Tables["SEARCHED"]>;
-    zones: (window: Window) => Promise<{ deferred: string[] }>;
+    zones?: (window: Window) => { deferred: string[] };
   } = {
     sources: () => ({ ...tables().SEARCHED, ...tables().SEARCHED_MAIL }),
-    zones: readHistoricalZones,
   }
 ) {
+  // The evidence of the zones is the same for every month: read it once.
+  let evidence: ReturnType<typeof readEvidence> | undefined;
+  const zonesOf =
+    read.zones ??
+    ((window: Window) =>
+      readHistoricalZones(window, () => {
+        evidence ??= readEvidence();
+        return evidence;
+      }));
   const from = requested.from ?? (await filesIn(UNITS)).sort()[0]?.slice(0, 10);
   const to = requested.to ?? dayNow();
   if (!from) {
@@ -46,8 +49,7 @@ export async function rebuildPassages(
         (sourceRead) => sourceRead?.(start, end) ?? []
       );
       const publish = preparePassages(events, window, [], readers);
-      // biome-ignore lint/performance/noAwaitInLoops: every source and zone read finishes before a month publishes
-      const zones = await read.zones(publish.window);
+      const zones = zonesOf(publish.window);
       publish(new Set(zones.deferred));
       messages += events.length;
       months += 1;

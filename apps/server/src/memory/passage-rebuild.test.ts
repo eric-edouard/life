@@ -39,7 +39,7 @@ test("explicit rebuild is bounded, resumes its failed month, and never changes u
   };
   const read = {
     sources: () => ({ line: source }),
-    zones: async () => ({ deferred: [] as string[] }),
+    zones: () => ({ deferred: [] as string[] }),
   };
   const result = await rebuildPassages(
     { from: "2004-04-01", to: "2004-05-31" },
@@ -81,7 +81,7 @@ test("rebuild checks uncertainty over expanded edge days and defers their whole 
       }),
       zones: (window) => {
         reportFrom = window.from;
-        return Promise.resolve({ deferred: [localDate(events[0]?.at ?? "")] });
+        return { deferred: [localDate(events[0]?.at ?? "")] };
       },
     }
   );
