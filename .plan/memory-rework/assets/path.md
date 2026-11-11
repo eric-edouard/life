@@ -28,6 +28,18 @@ properly only when it moves the score. The bet most at risk: that stored summari
 
 ## Before the full rebuild: the data sessions (11 Nov, evening)
 
+**12 Nov: the voice naming session handed off and closed too.** He answered the whole naming queue and rechecks
+(about 130 answers; 346 film and video voices marked media). On his 5,010 judged turns: 2,263 named right, 157 wrong
+(113 of them other people's turns given to him, where one speaker label holds two people), 720 unnamed; lifelog's
+recognition stays as is. Naming from what is said, measured again on the new voice model (117 voices): the voice and
+the reading agreeing named 60 known voices, all right, and 1 of 40 strangers; the reading alone 65 right of 70. Two
+things are now v3's to build, his picks: (1) that naming inside the per-exchange read (agreement used at once as
+Life's reading; the reading alone a suggestion for his naming, never a name; never written to lifelog; still to
+measure in the per-exchange form), most useful on voices too short to match (up to about 15 hours of unnamed
+speech); (2) showing lifelog's machine names with likeness under 0.7 as "probably X" (about 5.6 hours, 4,318 turns).
+Written in `apps/lifelog/docs/research/voice-bench.md`; inputs in his data, `docs/lifelog/voice-bench/ai-naming/`.
+Draft PR 409 is superseded (closing it is his call).
+
 **12 Nov, 01:40: the data is in.** The history import session handed off and closed: 8,674 day files; Photos on
 (2,998 photo-days since 2003) and Apple Health on (796 days since 2022); photo zones applied, 10 days still undated
 (travel days; life#453); photo descriptions from 7 Sep 2026 only (older ones parked, life#451); the voice model switch
