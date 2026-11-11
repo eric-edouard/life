@@ -1649,10 +1649,14 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["new_person", "known_person", "several"]
+            "enum": ["new_person", "known_person", "recheck", "several"]
           },
           "name": {
             "type": ["string", "null"]
+          },
+          "namedPersonId": {
+            "type": ["string", "null"],
+            "format": "uuid"
           },
           "personId": {
             "type": ["string", "null"],
@@ -1693,6 +1697,7 @@
           "id",
           "kind",
           "name",
+          "namedPersonId",
           "personId",
           "seconds",
           "voices",
@@ -4907,6 +4912,26 @@
         "responses": {
           "200": {
             "description": "Voices to name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/naming-queue/rechecks": {
+      "get": {
+        "description": "Owner-named voices that sound like another person without their own conversations, offered once more. Highest other-person share first.",
+        "responses": {
+          "200": {
+            "description": "Voices to recheck",
             "content": {
               "application/json": {
                 "schema": {

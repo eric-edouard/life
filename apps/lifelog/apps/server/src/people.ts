@@ -39,10 +39,10 @@ import {
 import {
   centroid,
   decide,
+  exemplarsOf,
   likeness,
   NO_PROFILES,
   nearbyMatch,
-  type Profile,
   type Profiles,
 } from "./speakers";
 import { averageLinkage } from "./voice-linkage";
@@ -206,12 +206,6 @@ type Clip = Pick<
   | "modelRevision"
 >;
 
-// One exemplar per conversation: the centroid of its clips.
-const exemplarsOf = (clips: Clip[]) =>
-  [...Map.groupBy(clips, (r) => r.conversationId).values()].map((c) =>
-    centroid(c.map((r) => r.embedding))
-  );
-
 // Per-model profiles from each person's evidence and the strangers' references.
 export function weighProfiles(
   rows: EvidenceRow[],
@@ -225,21 +219,23 @@ export function weighProfiles(
   const known = byModel(rows);
   const unknown = byModel(strangers);
   return new Map(
-    [...new Set([...known.keys(), ...unknown.keys()])].map((model) => [
-      model,
-      {
-        people: [
-          ...Map.groupBy(known.get(model) ?? [], (r) => r.personId).values(),
-        ].map(
-          (clips): Profile => ({
-            exemplars: exemplarsOf(clips),
+    [...new Set([...known.keys(), ...unknown.keys()])].map((model) => {
+      const references = exemplarsOf(unknown.get(model) ?? []);
+      return [
+        model,
+        {
+          people: [
+            ...Map.groupBy(known.get(model) ?? [], (r) => r.personId).values(),
+          ].map((clips) => ({
+            ...exemplarsOf(clips),
             isOwner: clips[0]?.isOwner ?? false,
             personId: clips[0]?.personId ?? "",
-          })
-        ),
-        strangers: exemplarsOf(unknown.get(model) ?? []),
-      },
-    ])
+          })),
+          strangerConversations: references.conversations,
+          strangers: references.exemplars,
+        },
+      ] as const;
+    })
   );
 }
 export type ProfilesByModel = Map<string, Profiles>;
@@ -406,7 +402,7 @@ export function readVoices(db: Db) {
 }
 
 // One model's samples and their centroid once clean speech reaches minSpeakerSeconds.
-function speakerVoice(speakerSamples: VoiceSample[]) {
+export function speakerVoice(speakerSamples: VoiceSample[]) {
   const model = speakerSamples[0] ? modelKey(speakerSamples[0]) : "";
   const samples = speakerSamples.filter((s) => modelKey(s) === model);
   const seconds = samples.reduce((sum, s) => sum + s.durationSeconds, 0);
@@ -962,8 +958,8 @@ export function assign(
   });
 }
 
-// Replaces the owner row for a speaker or turn and moves that scope's evidence in this
-// transcript to the person (or drops it: several people are nobody's evidence).
+// Replaces the owner row for a speaker or turn (a second answer of his is `rechecked`) and moves
+// that scope's evidence in this transcript to the person (or drops it: several are nobody's).
 function writeOwnerRow(
   tx: Db,
   scope: {
@@ -983,6 +979,7 @@ function writeOwnerRow(
       ? isNull(assignments.turnIndex)
       : eq(assignments.turnIndex, turnIndex)
   );
+  const previous = tx.select().from(assignments).where(scoped).get();
   tx.delete(assignments).where(scoped).run();
   const [row] = tx
     .insert(assignments)
@@ -990,6 +987,7 @@ function writeOwnerRow(
       candidates,
       jobId,
       personId,
+      rechecked: previous?.source === "owner",
       source: "owner",
       speakerLabel,
       status: ownerStatus(personId, media),

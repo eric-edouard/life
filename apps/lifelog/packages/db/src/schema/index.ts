@@ -406,6 +406,7 @@ export const speakerAssignments = sqliteTable(
     // "Several people" before `candidates`: waits in the queue as it is; dropped once none is left.
     mixed: boolean("mixed").notNull().default(false),
     personId: uuid("person_id").references(() => people.id),
+    rechecked: boolean("rechecked").notNull().default(false),
     score: real("score"),
     source: text("source", { enum: assignmentSources }).notNull(),
     speakerLabel: text("speaker_label").notNull(),
@@ -423,12 +424,11 @@ export const speakerAssignments = sqliteTable(
   ]
 );
 
-// A card of the voices to name (naming-queue.ts): a group of unnamed voices that talked with the
-// owner, with the name the summaries heard for it. Its id is the group's: the unnamed group
-// recognition keeps, or its one voice's id (`voiceId`, job/label).
+// A naming card (naming-queue.ts), identified by its voice group or job/label.
 export const suggestionKinds = [
   "new_person",
   "known_person",
+  "recheck",
   "several",
 ] as const;
 export type Candidates = NonNullable<
@@ -441,10 +441,10 @@ export interface Suggestion {
   // Turns it traded with the owner (one each way).
   exchanges: number;
   id: string;
-  // known_person: the summaries think it is `personId`.
   kind: (typeof suggestionKinds)[number];
   name: string | null;
-  personId: string | null;
+  namedPersonId: string | null; // recheck: the person he named
+  personId: string | null; // known_person: who the summaries think it is; recheck: who it sounds like
   seconds: number;
   voices: {
     conversationId: string;

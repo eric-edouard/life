@@ -344,8 +344,10 @@ test("the one-time reopen recovers expired samples, preserves owner rows, and su
   env.db.$client.run(
     "alter table transcripts drop column excerpts_attempted_at"
   );
+  env.db.$client.run("alter table speaker_assignments drop column rechecked");
+  // Its `when` in the journal: it and the migrations after it run again.
   env.db.$client.run(
-    "delete from __drizzle_migrations where created_at = (select max(created_at) from __drizzle_migrations)"
+    "delete from __drizzle_migrations where created_at >= 1794225727810"
   );
   migrateDb(env.db);
   expect(cutAt(held)).toBeNull();
