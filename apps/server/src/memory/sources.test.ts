@@ -79,7 +79,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "radio",
   ]);
   expect(Object.keys(t.OWN_WRITING)).toEqual(["notes", "claude", "chatgpt"]);
-  // A source with no search window is not searched (git); mail is searched in its own section.
+  // A source with no search window is not searched (git); mail is searched in its own section; a photo is a passage of its own.
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
     "whatsapp",
@@ -92,6 +92,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "claude",
     "chatgpt",
     "told",
+    "photos",
   ]);
   expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
 });

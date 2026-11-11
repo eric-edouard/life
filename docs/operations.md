@@ -39,7 +39,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
 the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
-sources, the agents (their wake words), the agents' report senders, the Reminders and Past calendar plugins.
+sources, `describePhotos` (the local photo describer), the agents (their wake words), the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, email, git). So a new key lands
@@ -87,6 +87,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 - **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
+  It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`); closeness and the
+  personas take its last three years.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
@@ -174,6 +177,9 @@ enabled source is available and collected passage coverage is complete.
   (a lifelog outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
   log). The report's Actions section lists every ask.
 - When `apple-health` is ready, the minute timer syncs lifelog's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
+- With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet settled (60 a pass,
+  newest first) with a local model: Qwen3.5-9B under llama.cpp, started for the pass and stopped after, downloaded once to `MACHINE_DIR/models`
+  (pinned sizes and hashes, `core/pinned.ts`). Progress is the photos source card (Described n of m, No image, Last failure) and the log kind `photos.describe`.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a

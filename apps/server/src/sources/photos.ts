@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { type Plist, readBplist, type Uid } from "../core/bplist";
 import { iso } from "../core/clock";
 import { within } from "../core/lists";
@@ -9,6 +9,12 @@ import type { Photo, SourceEvent } from "../records/source";
 import { type Contact, readContactRecords } from "./contacts";
 import type { Newest } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
+import {
+  DESCRIPTIONS,
+  readDescriptions,
+  readSettled,
+  readTally,
+} from "./photo-descriptions";
 
 // His photos and videos from the Mac's Photos library, opened read-only. Never written, never copied: Photos keeps its own
 // history (Recently Deleted, iCloud), and no image, face or face print is read, only what Apple's analysis and he wrote
@@ -36,6 +42,9 @@ const NO_COORDINATE = -180;
 const OWNER_CONFIDENCE = 0.5;
 /** `ZKIND` of a video. */
 const VIDEO = 1;
+
+/** The files of a photo's 1024 px preview and, when Photos has none, of its small one: the one line to change what stands in. */
+const PREVIEWS = ["_1_105_c", "_1_100_o"];
 
 /**
  * Not trashed, hidden or a screenshot, the frame of a burst he picked, and dated: Photos dates what it cannot place at
@@ -196,7 +205,8 @@ function eventOf(
   r: Row,
   analysis: Analysis | undefined,
   faces: { person: number }[],
-  persons: Map<number, Person>
+  persons: Map<number, Person>,
+  description: string | undefined
 ): SourceEvent {
   const { ocr = [], scenes = [] } = analysis ?? {};
   const pictured = [
@@ -210,6 +220,7 @@ function eventOf(
   const photo: Photo = {
     ...(r.address ? { address: addressOf(r.address) } : {}),
     ...(r.caption ? { caption: r.caption } : {}),
+    ...(description ? { description } : {}),
     ...(r.favorite ? { favorite: true } : {}),
     ...(ocr.length > 0 ? { ocr } : {}),
     ...(r.offset === null ? {} : { offset: r.offset }),
@@ -239,6 +250,7 @@ function eventOf(
       pictured.length > 0 && `with ${pictured.map((p) => p.name).join(", ")}`,
       photo.caption && `"${photo.caption}"`,
       photo.ocr && `text: ${ocrText(photo.ocr)}`,
+      photo.description && `described: ${photo.description}`,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -247,14 +259,15 @@ function eventOf(
 
 /**
  * The photos and videos taken from `since` on (before `before`), oldest first, one event each: its place (the moment's
- * title), address, coordinates, scenes, the words found in it, who Apple's People names in it, his caption, and the
- * zone it was taken in. Not trashed, hidden or burst frames he left out, nor screenshots.
+ * title), address, coordinates, scenes, the words found in it, who Apple's People names in it, his caption, Life's
+ * description of it (`descriptions`) and the zone it was taken in. Not trashed, hidden or burst frames he left out, nor screenshots.
  */
 export function readPhotos(
   since: Date,
   before?: Date,
   library = LIBRARY,
-  contacts: Contact[] = readContactRecords()
+  contacts: Contact[] = readContactRecords(),
+  descriptions = DESCRIPTIONS
 ): SourceEvent[] {
   const from = toAppleS(since.getTime());
   const to = before ? toAppleS(before.getTime()) : null;
@@ -300,8 +313,18 @@ export function readPhotos(
       library,
       rows.map((r) => r.uuid)
     );
+    const described = readDescriptions(
+      rows.map((r) => r.uuid),
+      descriptions
+    );
     return rows.map((r) =>
-      eventOf(r, analysis.get(r.uuid), faces.get(r.pk) ?? [], persons)
+      eventOf(
+        r,
+        analysis.get(r.uuid),
+        faces.get(r.pk) ?? [],
+        persons,
+        described.get(r.uuid)
+      )
     );
   } finally {
     db.close();
@@ -342,26 +365,103 @@ export function readPhotoOffsets(since: Date, before: Date, library = LIBRARY) {
 
 /** The first photo's time, without reading anything else. */
 export function earliestPhoto(library = LIBRARY) {
-  return edge("min", library);
+  return readShown(library).first;
 }
 
-function edge(which: "max" | "min", library: string) {
+/** The library's first and last photo or video, and how many photos (not videos) it shows, in one read. */
+function readShown(library: string) {
   const db = openReadOnly(join(library, STORE));
   try {
-    const at = db
-      .query<{ at: number | null }, []>(
-        `select ${which}(a.ZDATECREATED) as at from ZASSET a where ${SHOWN}`
+    const r = db
+      .query<{ first: number | null; last: number | null; photos: number }, []>(
+        `select min(a.ZDATECREATED) as first, max(a.ZDATECREATED) as last,
+          count(case when a.ZKIND != ${VIDEO} then 1 end) as photos from ZASSET a where ${SHOWN}`
       )
-      .get()?.at;
-    return at === null || at === undefined
-      ? null
-      : iso(fromAppleS(at).getTime());
+      .get();
+    const at = (n: number | null | undefined) =>
+      n === null || n === undefined ? null : iso(fromAppleS(n).getTime());
+    return { first: at(r?.first), last: at(r?.last), photos: r?.photos ?? 0 };
   } finally {
     db.close();
   }
 }
 
-/** The newest photo in Photos (the status snapshot): no words, a caption is his and stays in the library. */
-export const newestPhoto = (library = LIBRARY): Newest => ({
-  at: edge("max", library),
-});
+/** A photo (not a video) still to describe, with the image files Photos holds of it on this Mac. */
+export interface Waiting {
+  original?: string;
+  preview?: string;
+  uuid: string;
+}
+
+/**
+ * The photos still to describe (`readSettled` says which are not), newest first, at most `limit`. Photos keeps a
+ * preview of most (even of an original that lives in iCloud), else the original may be here; Photos' folders are
+ * macOS-versioned like its store, and `photos.test.ts` pins them.
+ */
+export function waitingPhotos(
+  limit: number,
+  library = LIBRARY,
+  descriptions = DESCRIPTIONS
+): Waiting[] {
+  const settled = readSettled(descriptions);
+  const root = dirname(library);
+  const db = openReadOnly(join(library, STORE));
+  try {
+    return db
+      .query<{ directory: string; file: string; uuid: string }, []>(
+        `select a.ZUUID as uuid, a.ZDIRECTORY as directory, a.ZFILENAME as file from ZASSET a
+          where ${SHOWN} and a.ZKIND != ${VIDEO} order by a.ZDATECREATED desc`
+      )
+      .all()
+      .filter((r) => !settled.has(r.uuid))
+      .slice(0, limit)
+      .map(({ directory, file, uuid }) => {
+        const preview = PREVIEWS.map((suffix) =>
+          join(
+            root,
+            ...["resources", "derivatives", uuid.slice(0, 1).toUpperCase()],
+            `${uuid}${suffix}.jpeg`
+          )
+        ).find((p) => existsSync(p));
+        const original = join(root, "originals", directory, file);
+        return {
+          ...(existsSync(original) ? { original } : {}),
+          ...(preview ? { preview } : {}),
+          uuid,
+        };
+      });
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * The newest photo in Photos (the status snapshot): no words, a caption is his and stays in the library. With the
+ * descriptions begun, how many photos have one, how many have no image, and the last failure.
+ */
+export function newestPhoto(
+  library = LIBRARY,
+  descriptions = DESCRIPTIONS
+): Newest {
+  const { last: at, photos } = readShown(library);
+  if (!existsSync(descriptions)) {
+    return { at };
+  }
+  const { described, failure, noImage } = readTally(descriptions);
+  return {
+    at,
+    facts: [
+      { label: "Described", value: `${described} of ${photos}` },
+      ...(noImage > 0 ? [{ label: "No image", value: String(noImage) }] : []),
+      ...(failure
+        ? [
+            {
+              at: failure.at,
+              label: "Last failure",
+              value: failure.error ?? "",
+            },
+          ]
+        : []),
+    ],
+  };
+}

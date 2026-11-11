@@ -23,6 +23,7 @@ enum Helper {
     env["LIFE_OWNER_DATA_DIR"] = data.path
     env["LIFE_STATE_DIR"] = state.path
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
+    env["LIFE_LLAMA_SERVER"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/llama/llama-server").path
     env.merge(Keychain.all()) { _, kept in kept }
     return env
   }

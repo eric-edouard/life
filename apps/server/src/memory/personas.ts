@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DAY, daysBefore, MIN } from "../core/clock";
+import { DAY, daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { callCharsOf, stamp } from "../models/llm";
 import {
@@ -12,7 +12,11 @@ import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { exchangesOf } from "./exchanges";
+import {
+  exchangeCountsOf,
+  type PairCounts,
+  pairCountsOf,
+} from "./exchange-counts";
 import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
 import { locate } from "./observe";
 import { OWNER } from "./read-truth";
@@ -29,7 +33,7 @@ import { localDate, time } from "./zones";
 // (his notes, his imported assistant chats). One call per person reads what passed between them over 3 years: their 1:1
 // messages and the group chat-days they wrote in (the night's `readWithPeople`), and his recorded conversations where
 // they spoke (the stored units, words read only when due), whole when it fits one call (`callCharsOf`), else sampled
-// across the years (`sampleOf`), with their page and code's counts over the 1:1 messages (`pairCountsOf`), and
+// across the years (`sampleOf`), with their page and code's counts over the 1:1 messages (`exchange-counts.ts`), and
 // writes the persona whole, at most once a week and only when something new was said. Every quote is checked against
 // what was shown. Nothing is sent.
 
@@ -41,68 +45,6 @@ const REBUILD_AFTER = 7 * DAY;
 /** A line seen on fewer days is `thin`; one whose newest quote is older than a year is `old`. */
 const SOLID_DAYS = 3;
 const OLD_AFTER_DAYS = 365;
-
-/** What code counts between him and one person over their 1:1 messages (`directChats`), for their persona. */
-export interface PairCounts {
-  /** Local days with a message. */
-  days: number;
-  /** Messages each way, and how many of them their writer deleted. */
-  got: number;
-  gotDeleted: number;
-  /** Median minutes from the other's message to an answer inside one exchange, each way; null when none. */
-  heAnswersIn: number | null;
-  /** Who opened an exchange (`exchangesOf`). */
-  heOpened: number;
-  sent: number;
-  sentDeleted: number;
-  theyAnswerIn: number | null;
-  theyOpened: number;
-}
-
-const median = (xs: number[]) =>
-  xs.length > 0
-    ? Math.round(xs.toSorted((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0)
-    : null;
-
-export function pairCountsOf(list: SourceEvent[]): PairCounts {
-  const c = {
-    got: 0,
-    gotDeleted: 0,
-    heOpened: 0,
-    sent: 0,
-    sentDeleted: 0,
-    theyOpened: 0,
-  };
-  const waits = { him: [] as number[], them: [] as number[] };
-  for (const exchange of exchangesOf(list)) {
-    let last: SourceEvent | undefined;
-    for (const e of exchange) {
-      const deleted = e.deleted ? 1 : 0;
-      const opened = last ? 0 : 1;
-      if (e.fromMe) {
-        c.sent += 1;
-        c.sentDeleted += deleted;
-        c.heOpened += opened;
-      } else {
-        c.got += 1;
-        c.gotDeleted += deleted;
-        c.theyOpened += opened;
-      }
-      if (last && last.fromMe !== e.fromMe) {
-        (e.fromMe ? waits.him : waits.them).push(
-          (Date.parse(e.at) - Date.parse(last.at)) / MIN
-        );
-      }
-      last = e;
-    }
-  }
-  return {
-    ...c,
-    days: new Set(list.map((e) => localDate(e.at))).size,
-    heAnswersIn: median(waits.him),
-    theyAnswerIn: median(waits.them),
-  };
-}
 
 /** Someone's persona; none when there is none or it was written in an older shape (then it is due). */
 export const readPersona = (ref: string) => {
@@ -542,7 +484,9 @@ export async function personas({ events, failed, since }: WithPeople) {
         const heard = sample.filter((d): d is Recording => "unit" in d);
         const days = sample.filter((d): d is ShownDay => "messages" in d);
         const counts: PairCounts | null =
-          t.ref === OWNER ? null : pairCountsOf(direct.get(t.ref) ?? []);
+          t.ref === OWNER
+            ? null
+            : pairCountsOf(exchangeCountsOf(direct.get(t.ref) ?? []));
         const shown = {
           counts,
           days: days.map(dayInput),

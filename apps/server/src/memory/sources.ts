@@ -318,6 +318,13 @@ const withFiles =
   (since: Date, before?: Date): SourceEvent[] =>
     showFiles(read(since, before), readFiles());
 
+/** Whether search reads a source's text as passages (`passages.ts`): chats, mail, his own writing and his photos, one passage each. */
+export const isSearched = (s: Pick<Descriptor, "kind">) =>
+  s.kind === "chat" ||
+  s.kind === "mail" ||
+  s.kind === "own_writing" ||
+  s.kind === "photos";
+
 /**
  * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
  * a source's name to its reader (its events showing their files), in cut order.
@@ -339,7 +346,7 @@ export function tablesOf(sources: Descriptor[]) {
     /** His own writing (his notes, his imported assistant chats), as days of his persona: read by personas only. */
     OWN_WRITING: readers((s) => s.kind === "own_writing"),
     /** What `search` reads chat messages and notes from: the sources it has a window for. */
-    SEARCHED: readers((s) => s.kind === "chat" || s.kind === "own_writing"),
+    SEARCHED: readers((s) => isSearched(s) && s.kind !== "mail"),
     /** The mail `search` reads, in a section of its own. */
     SEARCHED_MAIL: readers((s) => s.kind === "mail"),
     /**

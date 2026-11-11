@@ -78,6 +78,7 @@ function photoLine(group: SourceEvent[]) {
     )
   );
   const words = ocrText([...new Set(photos.flatMap((p) => p.ocr ?? []))]);
+  const descriptions = new Set(photos.flatMap((p) => p.description ?? []));
   return [
     time(first.at) === time(last.at)
       ? time(first.at)
@@ -96,6 +97,7 @@ function photoLine(group: SourceEvent[]) {
     zones.size > 0 && `zone ${[...zones].join(", ")}`,
     ...photos.flatMap((p) => (p.caption ? [`"${p.caption}"`] : [])),
     words && `text: ${words}`,
+    ...[...descriptions].map((d) => `described: ${d}`),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -104,7 +106,7 @@ function photoLine(group: SourceEvent[]) {
 /**
  * A photo-day: its photos in lines of those taken within half an hour at one place (his library's moment), each with the
  * place, address and coordinates, how many, the commonest scenes, who is pictured, favourites, a zone Life did not date
- * the day in, his captions and the words found in them. Redacted, as the words of any source are.
+ * the day in, his captions, the words found in them and Life's descriptions of them. Redacted, as the words of any source are.
  */
 export function photoDayText(list: SourceEvent[]) {
   const lines = list.toSorted((a, b) => a.at.localeCompare(b.at));

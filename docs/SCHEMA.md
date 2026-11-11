@@ -57,7 +57,8 @@ Apple Health's source events are nights and workouts, each with `at` and `until`
 once; a night belongs to the local day it began. `activityDay` builds the measurement-day's timed lines, without totals.
 
 Photos' source events are photos, each with `at` and a `photo` (`records/source.ts`): the place, address, coordinates,
-scenes, text found in it, who is pictured, caption, zone, favourite and whether it is a video. The photo-day's text
+scenes, text found in it, who is pictured, caption, zone, favourite, whether it is a video and Life's `description` of it
+(from `photo-descriptions.sqlite` in `LIFE_STATE_DIR/memory/`: one row per photo uuid and prompt, `outcome` `described`, `failed` or `no-image`, `text`, `error`, `model`, `at`; a described row is never overwritten, a failed one is retried after a day). The photo-day's text
 groups them by half hour and place (`photoDayText`, redacted); its hash is that text, so a photo added to a group or a
 new person named in Photos moves it.
 

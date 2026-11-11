@@ -60,7 +60,7 @@ flowchart LR
   only for the units sent in full (`voiceText`). Nothing is cut (his request of 9 Nov 2026): a day too long for one
   call (`callCharsOf`, the provider's context) is read in parts, in time order, through the same re-read; a mail is
   its own words, the history it quotes left out (`ownWordsOf`). Apple Health and Photos units can make episodes: each workout
-  and night has its own bounds, a photo-day its lines of photos at a place. They remain activity (`isActivity`): never extracted, importance at most 1.
+  and night has its own bounds, a photo-day its lines of photos at a place (with a local model's description of each photo, `models/describer.ts`; each photo is also a search passage). They remain activity (`isActivity`): never extracted, importance at most 1.
   Like other episodes, they become Past calendar events and memory claims; episodes are never drawn for fact checks.
 - **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
@@ -86,13 +86,14 @@ flowchart LR
   sampled (the newest, then each month's most eventful days, year by year); a
   chapter from before conversation-days goes in by its words while lifelog holds its turns, else as its summary,
   context only. With their page and what code counts over
-  the 1:1 messages (`pairCountsOf`: who writes, deletes, opens, how fast each answers). Deleted messages are read like
+  the 1:1 messages (the exchange counts, below: who writes, deletes, opens, how fast each answers). Deleted messages are read like
   the rest, marked; a call is its call line. Each quote is found in a chat message or a recorded turn shown (a writing
   line's only in that writer's 1:1 chats) and kept with its time, so how well a line is backed (`supportOf`: solid on 3
   days or more, thin, old) is counted when read, never stored. Rebuilt whole at most weekly, when what was said
   changed. Psychology lives here only, in accepted terms (Big Five, values, attachment, Gottman's
   moves, social exchange) with the behaviour that shows it; pages stay facts.
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units (`reindex`); the watcher rewrites only the rows of the units it rewrote in place (`reindexUnits`), and rebuilds it all when a unit went or a code rule dropped or took one back, or an input is newer than it (`readStaleness`); read by the CLI and the connector.
+- **The exchange counts** (`LIFE_STATE_DIR/memory/exchange-counts.json`, `memory/exchange-counts.ts`): what code counts between him and each person over their one-to-one chats and mail threads, one row per exchange (who opened, messages and deletions each way, minutes to each answer, its days). The sources are the truth: the night reads every year once and rewrites the file whole, and writes nothing when a source failed. The person read folds the rows by year; the persona folds the same rows over the messages it is shown. What code counts from the sources is derived state like this, never a file in `memory/` (decided 11 Nov 2026: it costs a minute and a half a night, and no invariant, migration or commit).
 - **The passages** (`LIFE_STATE_DIR/memory/passages.sqlite`): rebuildable source-backed search text, separate from the index. The first message's unit owns a passage, identified by source and first-message id. Reconciliation follows complete grouping runs across midnight and month boundaries; search and embeddings use these same rows, including imported assistant messages excluded from model reading. Ordinary reindex reads metadata only.
 - **The vectors** (`LIFE_STATE_DIR/memory/vectors.sqlite`): normalized float32 vectors addressed by text hash, in partitions of at most 4,096 rows. Exact scans retain bounded best candidates per partition; an index rebuild never re-embeds. Each watcher embedding pass selects at most 256 missing hashes in SQLite, newest first, before loading their texts; arrivals precede historical backlog. Pruning compares stored hashes in SQLite, without loading the corpus. Episode search text lives in the rebuildable index.
 

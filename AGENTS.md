@@ -144,7 +144,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
   of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
-  (`docs/operations.md`, "Model engines").
+  (`docs/operations.md`, "Model engines"). One model runs on the Mac instead of a provider: photo descriptions, Qwen3.5-9B
+  under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
+  then reaches his provider inside the photo lines like the rest of the line.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
@@ -186,6 +188,7 @@ Before adding a helper, use the one that exists:
 | What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
+| What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |

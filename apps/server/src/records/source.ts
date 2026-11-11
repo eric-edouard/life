@@ -22,12 +22,14 @@ export const SourceFile = z
 export type SourceFile = z.infer<typeof SourceFile>;
 /**
  * What Photos knows of a photo, and he wrote: `pictured` is who Apple's People names in it (by name and, when Apple links a
- * Contacts card, its handle), `scenes` Apple's labels for it, `ocr` the words it found in it. Not a unit's `people` (refs).
+ * Contacts card, its handle), `scenes` Apple's labels for it, `ocr` the words it found in it, `description` Life's own
+ * reading of the image (the glossary's description). Not a unit's `people` (refs).
  */
 export const Photo = z
   .object({
     address: z.string().optional(),
     caption: z.string().optional(),
+    description: z.string().optional(),
     favorite: z.literal(true).optional(),
     ocr: z.array(z.string()).optional(),
     // The zone it was taken in, as Photos wrote it (a name like "GMT+0700"), and its offset from UTC in seconds.

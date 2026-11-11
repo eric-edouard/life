@@ -102,7 +102,7 @@ class Http(unittest.TestCase):
         many = post("/embed-ranges", ogg(np.concatenate([clip, clip])), **{"X-Ranges": "[[0, 3], [9, 12]]"})
         self.assertEqual(len(many["embeddings"][0]["embedding"]), app.DIMENSIONS)
         self.assertIsNone(many["embeddings"][1])
-        self.assertEqual(many["modelRevision"], app.MODELS["ecapa"][1])
+        self.assertEqual((many["modelId"], many["modelRevision"]), app.speaker_pin())
         heard = post("/transcribe", TWO_VOICES)
         self.assertEqual(len(heard["turns"]), 2)
         self.assertEqual(heard["models"]["parakeet"], app.provenance("parakeet"))
