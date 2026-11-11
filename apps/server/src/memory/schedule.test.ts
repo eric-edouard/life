@@ -22,43 +22,45 @@ const st = (status: "ok" | "failed", attempts = 1, date = day): JobState => ({
   status,
 });
 
-test("the guard runs only after 02:00, once a day, three tries at most", () => {
-  expect(decide(1, day, undefined)).toBe("skip");
-  expect(decide(2, day, undefined)).toBe("run");
-  expect(decide(2, day, st("ok"))).toBe("skip");
-  expect(decide(5, day, st("failed", 2))).toBe("run");
-  expect(decide(5, day, st("failed", 3))).toBe("skip");
-  expect(decide(5, day, st("ok", 0, "2026-10-14"))).toBe("run");
+test("the guard runs only after 05:00, once a day, three tries at most", () => {
+  expect(decide(4, day, undefined)).toBe("skip");
+  expect(decide(5, day, undefined)).toBe("run");
+  expect(decide(5, day, st("ok"))).toBe("skip");
+  expect(decide(8, day, st("failed", 2))).toBe("run");
+  expect(decide(8, day, st("failed", 3))).toBe("skip");
+  expect(decide(8, day, st("ok", 0, "2026-10-14"))).toBe("run");
 });
 
-test("the backup is due once the night is done for the day or from 06:00, once a day, three tries at most", () => {
-  expect(afterNightDue(1, day, undefined, undefined)).toBe(false);
-  expect(afterNightDue(3, day, undefined, undefined)).toBe(false); // the night has not run
-  expect(afterNightDue(3, day, st("failed", 1), undefined)).toBe(false); // the night retries first
-  expect(afterNightDue(6, day, undefined, undefined)).toBe(true); // the night never finished: back up anyway
-  expect(afterNightDue(3, day, st("ok"), undefined)).toBe(true);
-  expect(afterNightDue(3, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
-  expect(afterNightDue(3, day, st("ok"), st("ok"))).toBe(false);
-  expect(afterNightDue(4, day, st("ok"), st("failed", 2))).toBe(true);
-  expect(afterNightDue(4, day, st("ok"), st("failed", 3))).toBe(false);
-  expect(afterNightDue(3, day, st("ok"), st("ok", 0, "2026-10-14"))).toBe(true);
+test("the backup is due once the night is done for the day or from 09:00, once a day, three tries at most", () => {
+  expect(afterNightDue(4, day, undefined, undefined)).toBe(false);
+  expect(afterNightDue(6, day, undefined, undefined)).toBe(false); // the night has not run
+  expect(afterNightDue(6, day, st("failed", 1), undefined)).toBe(false); // the night retries first
+  expect(afterNightDue(8, day, undefined, undefined)).toBe(false);
+  expect(afterNightDue(9, day, undefined, undefined)).toBe(true); // the night never finished: back up anyway
+  expect(afterNightDue(6, day, st("ok"), undefined)).toBe(true);
+  expect(afterNightDue(6, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
+  expect(afterNightDue(6, day, st("ok"), st("ok"))).toBe(false);
+  expect(afterNightDue(7, day, st("ok"), st("failed", 2))).toBe(true);
+  expect(afterNightDue(7, day, st("ok"), st("failed", 3))).toBe(false);
+  expect(afterNightDue(6, day, st("ok"), st("ok", 0, "2026-10-14"))).toBe(true);
 });
 
 test("the next windows: earliest and expected by the next tick, with why", () => {
   const at = (h: number, m = 0, d = 15) => new Date(2026, 9, d, h, m);
   const iso = (d: Date) => d.toISOString();
   expect(nextNight(at(1), day, undefined)).toMatchObject({
-    earliest: iso(at(2)),
-    latest: iso(at(2, 30)),
+    earliest: iso(at(5)),
+    latest: iso(at(5, 30)),
+    why: "waits for 05:00",
   });
-  expect(nextNight(at(5), day, st("failed", 2)).why).toBe(
+  expect(nextNight(at(8), day, st("failed", 2)).why).toBe(
     "retry 3 of 3 after a failure"
   );
-  expect(nextNight(at(5), day, st("failed", 3))).toMatchObject({
-    earliest: iso(at(2, 0, 16)),
+  expect(nextNight(at(8), day, st("failed", 3))).toMatchObject({
+    earliest: iso(at(5, 0, 16)),
     why: "3 failures today: no more tries until tomorrow",
   });
-  expect(nextNight(at(5), day, st("ok")).earliest).toBe(iso(at(2, 0, 16)));
+  expect(nextNight(at(8), day, st("ok")).earliest).toBe(iso(at(5, 0, 16)));
 });
 
 test("two runs at once: exactly one takes the lock, the other gets null without running", async () => {
@@ -80,7 +82,7 @@ test("a backfill reads a week at a time up to its last day, four a day; three fa
   const today = "2026-10-21";
   const b = { failures: 0, next: "2025-07-01", to: "2025-07-10" };
   const night = st("ok", 1, today);
-  // Not before the day's own night went through: yesterday's ok night (00:00-02:00) or a failed one is no turn.
+  // Not before the day's own night went through: yesterday's ok night (00:00-05:00) or a failed one is no turn.
   expect(backfillWeek(b, today, st("ok", 1, "2026-10-20"))).toBeNull();
   expect(backfillWeek(b, today, st("failed", 1, today))).toBeNull();
   const week = backfillWeek(b, today, night);
@@ -125,9 +127,10 @@ test("a tick runs the night when due, else a backfill week unless the backup is 
   const ok = st("ok", 1, today);
   const backfill = { failures: 0, next: "2025-07-01", to: "2025-08-01" };
   const backedUp = st("ok", 1, today);
-  expect(turnOf(at(3), today, {})).toBe("night");
+  expect(turnOf(at(4), today, {})).toBe("none");
+  expect(turnOf(at(5), today, {})).toBe("night");
   expect(
-    turnOf(at(1), today, { backfill, night: st("ok", 1, "2026-10-20") })
+    turnOf(at(4), today, { backfill, night: st("ok", 1, "2026-10-20") })
   ).toBe("none");
   expect(turnOf(at(14), today, { backfill, backup: backedUp, night: ok })).toBe(
     "backfill"
@@ -152,7 +155,7 @@ test("over 75% of his Codex quota a tick runs only the night, until the quota re
   expect(turnOf(at(14), today, { ...week, quota: quota(75) })).toBe("backfill");
   expect(turnOf(at(14), today, { ...week, quota: quota(80) })).toBe("none");
   expect(turnOf(at(14), today, week)).toBe("backfill"); // unread: nothing waits
-  expect(turnOf(at(3), today, { quota: quota(99) })).toBe("night");
+  expect(turnOf(at(5), today, { quota: quota(99) })).toBe("night");
   // A reading from before its reset holds nothing.
   expect(
     turnOf(at(14, 28), "2026-10-28", {
