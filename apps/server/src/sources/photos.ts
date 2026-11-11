@@ -175,7 +175,10 @@ export const ocrText = (words: string[]) =>
 const WORDS = /[\s,]+/;
 
 /** The address of a photo when it says more than its place: not when the place holds it, or all its words. */
-export function addressBeyond({ address, place }: Photo) {
+export function addressBeyond({
+  address,
+  place,
+}: Pick<Photo, "address" | "place">) {
   const known = place?.toLowerCase() ?? "";
   return address
     ?.split(WORDS)
