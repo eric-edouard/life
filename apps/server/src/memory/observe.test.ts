@@ -781,7 +781,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
   expect(
     db
       .query<{ n: number }, [string]>(
-        "select count(*) as n from links where entity = ?"
+        "select count(*) as n from observation_entities where entity = ?"
       )
       .get("person:dad")?.n
   ).toBe(1);

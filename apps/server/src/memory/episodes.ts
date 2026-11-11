@@ -37,7 +37,7 @@ import {
   type Verdicts,
   verdictOf,
 } from "./ledger";
-import { linkOf } from "./observe";
+import { entityOf } from "./observe";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
 import { OWNER, type Truth } from "./read-truth";
@@ -245,7 +245,7 @@ function verdictsOf(
 
 /** A person the model named, as a ref: one it was given, or an `unknown:` name resolved by code; never the owner. */
 function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
-  const link = linkOf(ref, ctx.people, ctx.resolve);
+  const link = entityOf(ref, ctx.people, ctx.resolve);
   if ("ref" in link) {
     return link.ref === OWNER ? null : link.ref;
   }

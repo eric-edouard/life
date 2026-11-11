@@ -156,7 +156,7 @@ export interface Reject {
 }
 
 /** One entity the model gave: a candidate, an unknown name code can resolve or must keep, or something invented. */
-export function linkOf(
+export function entityOf(
   e: string,
   candidates: Set<string>,
   resolve: (surface: string) => string | null
@@ -252,7 +252,7 @@ function recordOf(
 }
 
 /** An observation's `entities` and `about` as refs: candidates, or names code resolves; the rest kept or rejected. */
-function links(
+function entitiesOf(
   o: z.infer<typeof ModelObservation>,
   id: string,
   candidates: Set<string>,
@@ -263,7 +263,7 @@ function links(
   const unresolved: { observation: string; surface: string; unit: string }[] =
     [];
   for (const e of o.entities) {
-    const link = linkOf(e, candidates, resolve);
+    const link = entityOf(e, candidates, resolve);
     if ("ref" in link) {
       entities.add(link.ref);
     } else if ("surface" in link) {
@@ -272,7 +272,7 @@ function links(
       rejects.push({ reason: "entity-not-candidate", unit: o.unit, value: e });
     }
   }
-  const said = o.about ? linkOf(o.about, candidates, resolve) : null;
+  const said = o.about ? entityOf(o.about, candidates, resolve) : null;
   const about = said && "ref" in said ? said.ref : undefined;
   if (about) {
     entities.add(about);
@@ -318,7 +318,7 @@ export function parseObservations(
       rejects.push({ reason: "duplicate", unit: o.unit });
       continue;
     }
-    const { about, entities, ...linked } = links(
+    const { about, entities, ...linked } = entitiesOf(
       o,
       id,
       ctx.candidates,

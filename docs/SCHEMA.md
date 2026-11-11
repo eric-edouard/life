@@ -511,6 +511,6 @@ episodes, what happened, with what came of it (episodes-2026-11)" hold both side
 `derived/memory/index.sqlite` is rebuilt from `observations/` and `units/` by `bun life memory index` (and by the nightly run, once, at the end):
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones, its `home` page and the
 `detail` it states), full-text table
-`search` (claim and quote, accent-insensitive) and table `links` (observation, entity); and the units: table `units`,
+`search` (claim and quote, accent-insensitive) and table `observation_entities` (observation, entity: who or what each is about); and the units: table `units`,
 full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).

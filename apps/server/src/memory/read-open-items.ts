@@ -60,8 +60,8 @@ function openCandidatesOf(db: Database, narrow: string, ...params: string[]) {
       string[]
     >(
       `select ${COLUMNS}, o.at,
-         (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
-         (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
+         (select group_concat(substr(entity, 9)) from observation_entities where observation = o.id and entity like 'project:%') as projects,
+         (select entity from observation_entities where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
        from observations o where o.importance = ${TOP_AT} and ${CURRENT}
        and (o.type in ('promise', 'waiting_on_someone') or (o.type = 'to_do' and o.speaker = ?))
        and ${narrow} order by o.at, o.id`
@@ -102,7 +102,7 @@ export function openWithOf(
 ) {
   const said = openCandidatesOf(
     db,
-    "exists (select 1 from links where observation = o.id and entity = ?)",
+    "exists (select 1 from observation_entities where observation = o.id and entity = ?)",
     ref
   );
   const ids = new Set(said.map((c) => c.id));
