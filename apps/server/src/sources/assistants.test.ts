@@ -6,6 +6,7 @@ import {
   exportsDir,
   FORMATS,
   formatOf,
+  hasExportCopy,
   kept,
   newestAssistant,
   pruned,
@@ -293,4 +294,25 @@ test("with one copy the conversations read exactly as the export pruned", () => 
     ["a1"],
     ["b2"],
   ]);
+});
+
+test("a file with no name in an export reads, and whether a copy is kept never parses one", () => {
+  const chat = claudeChat("n1", "2026-03-02T10:00:00.000Z", [
+    "m1",
+    "human",
+    "My notes from the trip",
+  ]);
+  const message = {
+    ...chat.chat_messages[0],
+    files: [{ file_name: null }, { file_name: "plan.pdf" }],
+  };
+  putCopy("claude", "conversations.json", [
+    { ...chat, chat_messages: [message] },
+  ]);
+  expect(conversationsOf("claude")[0]?.messages[0]?.tags).toEqual([
+    "[file plan.pdf]",
+  ]);
+  // A copy that does not parse is still found by its file: the source reads it, and fails, inside the night's guard.
+  putCopy("claude", "conversations.json", "not an export");
+  expect(hasExportCopy("claude")).toBe(true);
 });

@@ -16,8 +16,8 @@ import {
   readEarliestArchived,
 } from "../sources/archived";
 import {
-  exportCopiesOf,
   FORMATS,
+  hasExportCopy,
   newestAssistant,
   readAssistant,
   readEarliestAssistant,
@@ -176,7 +176,7 @@ const LISTED: Descriptor[] = [
       imported: true,
       kind: "own_writing",
       label: FORMATS[name].label,
-      missing: () => (exportCopiesOf(name).length ? undefined : "not imported"),
+      missing: () => (hasExportCopy(name) ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
       read: (since, before) => readAssistant(name)(since, undefined, before),
