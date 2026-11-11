@@ -8,7 +8,7 @@ import {
 } from "../apps/server/src/sources/photo-descriptions";
 import { describeInCloud } from "./describe-photos-cloud";
 
-// Made-up images; a fake `modal` (a bun script) answers all but photo B and never sees "no-image" photo C.
+// Made-up images; a fake `modal` (a bun script) prints its own progress first, like Modal's CLI, then answers all but photo B and never sees "no-image" photo C.
 test("photos go to the cloud command and its answers are stored", async () => {
   const dir = mkdtempSync(join(tmpdir(), "life-cloud-"));
   const image = (name: string) => {
@@ -19,7 +19,9 @@ test("photos go to the cloud command and its answers are stored", async () => {
   const fake = join(dir, "fake.ts");
   writeFileSync(
     fake,
-    `let first = true;
+    `console.log("✓ Initialized. View run at https://modal.com/apps/made-up");
+console.log(JSON.stringify({ level: "info", msg: "made-up container log" }));
+let first = true;
 for await (const l of console) {
   if (!l) continue;
   const j = JSON.parse(l);
