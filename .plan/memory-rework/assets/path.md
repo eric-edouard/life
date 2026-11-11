@@ -16,6 +16,9 @@ properly only when it moves the score. The bet most at risk: that stored summari
    of 40, none 22, counts 23, history 24, both 24. Counts fixed "who reaches out" (C1); a history fixed the friend
    over the years (C19). Nothing else moved; the mined cases ask for exact dated facts and may be narrower than a
    fair answer. Not proved, not disproved; one run per way.
+   **Round 2, 11 Nov** (`…/2026-11-11-prove-first-2.md`): on all 57 owner cases two identical baselines gave 18
+   and 15 passed (138, 130 of 198 points); on the 27 people cases history and counts as notes stayed inside that
+   noise. Next: the history inside the person read, several runs per way.
 4. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
    enough until a layer consumes the codes).
 
