@@ -74,8 +74,9 @@ forecasts. Each part works without the ones after it.
   guess, marked as a guess, made with the people in his life then given as context. Who a handle or a voice is, is
   worked out when read: merging two people, or naming a voice, relabels the focused reads' records with no re-read,
   since they are kept under the words and the voices, not the names. A voice still unnamed has its moves recorded.
-  A third surface, from Photos: who Apple's People names in a picture, with the Contacts card Apple links. It is
-  Apple's guess, worked out when read like a handle, corrected by his word; it is never a speaker.
+  A third surface, from Photos: who Apple's People names in a picture, with the Contacts card Apple links. The
+  name is trusted (his word, 11 Nov 2026: the names in Photos are his own), so it is that person, worked out when
+  read like a handle; it is never a speaker. Apple's scenes and the words it finds in a picture stay guesses.
   Today's day and claims reads keep today's rule: a voice named late re-reads its days. That cost is counted.
 - What his devices recorded is not an exchange either: a photo-day, a night's sleep, a workout, a day of commits or
   of Screen Time (today's "activity" units). No focused read runs on them: they say where he was, with whom and
@@ -730,7 +731,7 @@ The data session's sources checked against this spec, at his ask: Apple Health (
 until the phone build), Photos (a photo-day per local day since 2003, off until his yes), newer assistant exports.
 Nothing in the shape moves: they are evidence of what his devices recorded, beside the talk the reads are built
 for. Taken, each as a line above: activity is never an exchange and gets no focused read (section 3); who is
-pictured is a third surface, Apple's guess (section 3); sleep, workouts, photo places and who was pictured are code's
+pictured is a third surface, trusted on his word (section 3); sleep, workouts, photo places and who was pictured are code's
 measures (section 4), and sleep and workouts own their hours; a source that records only when he acts covers no day
 (section 4); time together by person and month, shown apart from contact (section 10); old months read their
 photo-days (section 11); the rebuild waits for Photos and the voice model switch, and a moved photo-day rebuilds
