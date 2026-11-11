@@ -308,16 +308,15 @@ export const turns = sqliteTable(
 );
 
 // ---- Speakers and people ----------------------------------------------------
-//
-// A transcript speaker label ("speaker_0") is assigned to a person, to unknown, a stranger, or to an
-// unnamed candidate cluster. Only owner actions create people or add voice evidence;
-// recognition only writes assignments with source "recognized".
-
+// A speaker label ("speaker_0") goes to a person, unknown, a stranger or an unnamed candidate cluster;
+// `not_relevant` is his "Not relevant" (maybe someone he knows; never asked again, never a stranger).
+// Only owner actions create people or add voice evidence; recognition writes only source "recognized".
 export const speakerStatuses = [
   "person",
   "unknown",
   "candidate",
   "media",
+  "not_relevant",
   // Recognized only: sounds like the voices he answered "Not anyone I know" for (people.ts).
   "stranger",
 ] as const;
