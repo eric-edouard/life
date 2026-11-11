@@ -50,8 +50,8 @@ bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"i
 bun life memory units --from 2026-01-01 --to 2026-09-30
 ```
 
-Each night reads the last 7 days. Older history can be collected for search without model calls, one month at a time;
-its end must be before those 7 days. Omit the dates to collect the available history. Collection reports unavailable
+Each night reads the last 7 days. Older months can be collected for search without model calls, one month at a time;
+their end must be before those 7 days. Omit the dates to collect every available month. Collection reports unavailable
 sources and uncertain time zones. Historical model backfill is paused until its prompts are ready.
 
 ## History
