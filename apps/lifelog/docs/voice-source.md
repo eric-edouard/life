@@ -58,6 +58,8 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 
 - **search**: `POST /search` with a query; passages of about 30 to 60 s, best first. Matching by meaning needs the
   Mac's embedder; without it, words only.
+- **recorded**: `GET /recorded?from=&to=` (instants): whether a Pendant recorded in between, and `since`, the start of
+  the first recording held. No recording after `since` is the Pendant off or out of reach, never a quiet day.
 - **places**: `GET /where?at=` (an instant: the stay around it) and `GET /visits` (every stay, or by `place`, or
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is

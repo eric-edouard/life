@@ -5,11 +5,13 @@ import { z } from "@hono/zod-openapi";
 import type { Db } from "@lifelog/db";
 import {
   holdsPages,
+  isPendant,
   transcriptionJobs as jobs,
+  sources,
   timelineSpans,
 } from "@lifelog/db/schema";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { markDirty } from "./grouping";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { markDirty, overlapping } from "./grouping";
 
 export const Instant = z.iso.datetime({ offset: true });
 const Interval = z
@@ -113,4 +115,28 @@ export function saveSpans(tx: Db, sourceId: string, spans: SpanFacts[]) {
     markDirty(tx, [sourceId], [Math.min(...edges), Math.max(...edges)]);
   }
   return movedUnderJobs(tx, sourceId, old, spans);
+}
+
+// Recorded (docs/timeline.md): whether a Pendant's audio falls in `[from, to)`, and the start of the first
+// span held (`since`, null with none): before it lifelog cannot tell. Old-app recordings are no Pendant's.
+export function recorded(db: Pick<Db, "select">, from: Date, to: Date) {
+  const first = (during?: ReturnType<typeof overlapping>) =>
+    db
+      .select({ startAt: timelineSpans.startAt })
+      .from(timelineSpans)
+      .innerJoin(sources, eq(sources.id, timelineSpans.sourceId))
+      .where(and(isPendant, during))
+      .orderBy(asc(timelineSpans.startAt))
+      .limit(1)
+      .get();
+  return {
+    hasRecording:
+      first(
+        overlapping(timelineSpans.startAt, timelineSpans.endAt, {
+          cut: from.getTime(),
+          stop: to.getTime(),
+        })
+      ) !== undefined,
+    since: first()?.startAt.toISOString() ?? null,
+  };
 }

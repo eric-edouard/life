@@ -759,6 +759,19 @@ export async function visits(q: Record<string, string | number | undefined>) {
   );
 }
 
+export const Recorded = z.object({
+  hasRecording: z.boolean(),
+  since: z.string().nullable(),
+});
+export type Recorded = z.infer<typeof Recorded>;
+
+/** Whether the pendant recorded between two instants (a day: `dayRange`), and `since` when lifelog can tell. */
+export async function readRecorded(from: string, to: string) {
+  return Recorded.parse(
+    await call(`/recorded?${new URLSearchParams({ from, to })}`)
+  );
+}
+
 /**
  * Replaces the spans (marks) the hearing found in a conversation from `from` on (a span grows as he goes on): each
  * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.

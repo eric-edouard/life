@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { readAppended } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
+import type { Recorded } from "../sources/lifelog";
 import { PUBLICATIONS, UNITS } from "./ledger";
 import { enabledSources } from "./sources";
 import { dayNow, localDate } from "./zones";
@@ -23,21 +24,42 @@ export interface SourceDay {
   why?: string;
 }
 
+type Verdict = Pick<SourceDay, "state" | "why">;
+
 /** What is known of one source when a day is judged. */
 interface Known {
   /** Its first day: before it, nothing of it exists. */
   firstDay?: string;
   /** Whether it has a unit on the day. */
   hasUnit: boolean;
-  /** The pendant: reading its store says nothing of whether it was recording. */
-  isVoice: boolean;
   label: string;
   /** What keeps it from being read now, if anything. */
   missing?: string;
   name: SourceName;
+  /** The pendant with no unit that day: what lifelog says of its recording (`recordingOf`). */
+  recording?: Verdict;
 }
 
-type Verdict = Pick<SourceDay, "state" | "why">;
+/**
+ * The pendant on a day Life holds nothing of, from what lifelog says it recorded (null: it could not be asked): a
+ * recording is capture, with or without speech; none since lifelog can tell is the pendant off or out of reach; before
+ * that, or unasked, nobody can tell.
+ */
+export function recordingOf(recorded: Recorded | null, day: string): Verdict {
+  if (recorded?.hasRecording) {
+    return { state: "captured" };
+  }
+  const since = recorded?.since && localDate(recorded.since);
+  if (since && day >= since) {
+    return { state: "not_seen", why: "the pendant recorded nothing this day" };
+  }
+  return {
+    state: "unknown",
+    why: recorded
+      ? `nothing held; lifelog cannot tell whether it was recording before ${since || "now"}`
+      : "nothing held; lifelog could not be asked whether it was recording",
+  };
+}
 
 /** What the source itself says of the day, whatever was read: nothing when only the record can tell. */
 function bySource(s: Known, day: string, today: string): Verdict | undefined {
@@ -50,11 +72,8 @@ function bySource(s: Known, day: string, today: string): Verdict | undefined {
   if (s.firstDay && day < s.firstDay) {
     return { state: "not_seen", why: `before its first day, ${s.firstDay}` };
   }
-  if (s.isVoice) {
-    return {
-      state: "unknown",
-      why: "nothing held; Life cannot tell yet whether it was recording",
-    };
+  if (s.recording) {
+    return s.recording;
   }
   return day === today ? { state: "captured" } : undefined;
 }
@@ -87,8 +106,8 @@ function byRecord(
 
 /**
  * Each capturing source on `day`. In order: a source that can't be read today is not seen; a unit that day is
- * capture; before the source's first day, not seen; the pendant with nothing held is unknown (ponytail: until lifelog
- * can say when it recorded, a `GET /recorded` on its contract); today, a readable source is being captured; a day
+ * capture; before the source's first day, not seen; the pendant with nothing held is what lifelog says it
+ * recorded (`recordingOf`); today, a readable source is being captured; a day
  * with no units file was never read (the history could not date it); then the record decides: a publication that read
  * the source for the day is capture, one that covers the day without it is not seen, and a day no publication covers
  * is not seen once the record exists and unknown before it.
@@ -123,9 +142,14 @@ const readPublished = () =>
 
 /**
  * The coverage of `day`: each source he turned on that captures on its own, from the index (its units that day, its
- * first unit), its own first day, the day's units file and the record of what was read.
+ * first unit), its own first day, the day's units file, the record of what was read and, for the pendant, what lifelog
+ * recorded that day (`readRecorded`; null when it could not be asked).
  */
-export function readCoverage(db: Database, day: string): SourceDay[] {
+export function readCoverage(
+  db: Database,
+  day: string,
+  recorded: Recorded | null
+): SourceDay[] {
   const withUnit = new Set(
     db
       .query<{ source: string }, [string]>(
@@ -151,10 +175,11 @@ export function readCoverage(db: Database, day: string): SourceDay[] {
             firstUnit.get(s.name)?.first ??
             undefined,
           hasUnit: withUnit.has(s.name),
-          isVoice: s.kind === "voice",
           label: s.label,
           missing: day === today ? s.missing?.() : undefined,
           name: s.name,
+          recording:
+            s.kind === "voice" ? recordingOf(recorded, day) : undefined,
         };
       }),
     today,

@@ -18,6 +18,7 @@ import {
   ownerSpoke,
   Page,
   poll,
+  Recorded,
   readConversations,
   readPhoneZone,
   Stays,
@@ -507,6 +508,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       "conversation"
     ),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
+    ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
     ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
     ...drift(

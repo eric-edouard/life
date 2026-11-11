@@ -1,14 +1,13 @@
 import { expect, test } from "bun:test";
 import type { Published } from "../records/publication";
-import { coverageOf } from "./coverage";
+import { coverageOf, recordingOf } from "./coverage";
 import { coveredLines } from "./read-day";
 
 const source = (
   name: "imessage" | "whatsapp" | "line" | "lifelog",
-  extra: { firstDay?: string; hasUnit?: boolean; missing?: string } = {}
+  extra: Partial<Parameters<typeof coverageOf>[1]["sources"][number]> = {}
 ) => ({
   hasUnit: false,
-  isVoice: name === "lifelog",
   label: name,
   name,
   ...extra,
@@ -63,22 +62,37 @@ test("not seen: before a source's first day, a day never published, a source the
   });
 });
 
-test("unknown: a day before the record with no unit, and the pendant with nothing held", () => {
-  expect(stateOf("2026-10-01", { sources: [source("imessage")] })).toEqual({
-    imessage: "unknown: Life kept no record of what it read before 2026-11-13",
-  });
-  expect(
-    stateOf("2026-11-10", {
+test("the pendant with nothing held: what lifelog says it recorded, never the record of what Life read", () => {
+  const since = "2026-10-08T03:00:00.000Z";
+  const pendant = (recorded: Parameters<typeof recordingOf>[0], day: string) =>
+    stateOf(day, {
       lines: [line("2026-11-07", "2026-11-13", ["lifelog"])],
-      sources: [source("lifelog")],
-    })
-  ).toEqual({
-    lifelog:
-      "unknown: nothing held; Life cannot tell yet whether it was recording",
-  });
+      sources: [source("lifelog", { recording: recordingOf(recorded, day) })],
+    }).lifelog;
+  // Recording with nobody speaking is capture; no recording is the pendant off, not a quiet day.
+  expect(pendant({ hasRecording: true, since }, "2026-11-10")).toBe("captured");
+  expect(pendant({ hasRecording: false, since }, "2026-11-10")).toBe(
+    "not_seen: the pendant recorded nothing this day"
+  );
+  expect(pendant({ hasRecording: false, since }, "2026-10-01")).toBe(
+    "unknown: nothing held; lifelog cannot tell whether it was recording before 2026-10-08"
+  );
+  expect(pendant({ hasRecording: false, since: null }, "2026-11-10")).toBe(
+    "unknown: nothing held; lifelog cannot tell whether it was recording before now"
+  );
+  expect(pendant(null, "2026-11-10")).toBe(
+    "unknown: nothing held; lifelog could not be asked whether it was recording"
+  );
+  // A unit that day needs no asking.
   expect(
     stateOf("2026-11-10", { sources: [source("lifelog", { hasUnit: true })] })
   ).toEqual({ lifelog: "captured" });
+});
+
+test("unknown: a day before the record with no unit", () => {
+  expect(stateOf("2026-10-01", { sources: [source("imessage")] })).toEqual({
+    imessage: "unknown: Life kept no record of what it read before 2026-11-13",
+  });
 });
 
 test("today: a readable source is being captured, one that can't be read is not seen", () => {
@@ -110,7 +124,7 @@ test("the day read's lines name each state once, with why; no capturing source, 
         label: "Pendant",
         name: "lifelog",
         state: "unknown",
-        why: "nothing held; Life cannot tell yet whether it was recording",
+        why: "nothing held; lifelog could not be asked whether it was recording",
       },
     ])
   ).toEqual([
@@ -118,7 +132,7 @@ test("the day read's lines name each state once, with why; no capturing source, 
     'Coverage (sources that capture on their own; "not seen" is not "quiet"):',
     "- Captured: iMessage, WhatsApp",
     "- Not seen: LINE (before its first day, 2026-10-30)",
-    "- Unknown: Pendant (nothing held; Life cannot tell yet whether it was recording)",
+    "- Unknown: Pendant (nothing held; lifelog could not be asked whether it was recording)",
   ]);
   expect(coveredLines([])).toEqual([]);
 });

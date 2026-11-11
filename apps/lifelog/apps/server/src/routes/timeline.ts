@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 import { record } from "../events";
 import { pendantSources, regroupAfterCommit, saveEdit } from "../grouping";
 import type { Services } from "../services";
-import { Instant, saveSpans, TimelineSpan } from "../timeline-spans";
+import { Instant, recorded, saveSpans, TimelineSpan } from "../timeline-spans";
 import { ApiError, json, router, sizeLimit } from "./common";
 
 const Timeline = z
@@ -61,6 +61,28 @@ export function timelineRoutes({
   };
 
   return router()
+    .openapi(
+      createRoute({
+        description:
+          "Whether a Pendant recorded between `from` and `to` (a day: the reader's own bounds of it), and " +
+          "`since`, the start of the first recording held: before it, no recording says nothing.",
+        method: "get",
+        path: "/recorded",
+        request: { query: z.object({ from: Instant, to: Instant }) },
+        responses: {
+          200: json(
+            z
+              .object({ hasRecording: z.boolean(), since: Instant.nullable() })
+              .openapi("Recorded"),
+            "Recorded"
+          ),
+        },
+      }),
+      (c) => {
+        const { from, to } = c.req.valid("query");
+        return c.json(recorded(db, new Date(from), new Date(to)), 200);
+      }
+    )
     .openapi(
       createRoute({
         description:
