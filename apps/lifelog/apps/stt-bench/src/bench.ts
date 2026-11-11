@@ -335,6 +335,7 @@ async function rediarize() {
   const dir = join(DIR, "resplit");
   const outcomes: Record<string, number> = {};
   for (const name of await readdir(dir)) {
+    // biome-ignore lint/performance/noAwaitInLoops: one job at a time, the server's one writer
     const { turns } = (await Bun.file(join(dir, name)).json()) as {
       turns?: unknown[];
     };

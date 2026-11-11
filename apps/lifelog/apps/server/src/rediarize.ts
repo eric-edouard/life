@@ -100,8 +100,7 @@ export function relabeled(
     raw: {
       ...raw,
       words: (raw.words ?? []).map((token) => {
-        const speaker = token.speaker_id;
-        const start = token.start;
+        const { speaker_id: speaker, start } = token;
         if (typeof speaker !== "string" || typeof start !== "number") {
           return token;
         }
@@ -136,14 +135,14 @@ export function movedRows(
   const turnsOf = (old: string, next: string) =>
     labels.flatMap((l, i) => (l === next && oldLabels[i] === old ? [i] : []));
   // Most specific first, so a turn's own answer wins over a voice's.
-  for (const r of rows.filter((r) => r.turnIndex !== null && held(r))) {
+  for (const r of rows.filter((x) => x.turnIndex !== null && held(x))) {
     put({
       ...r,
       speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel,
       updatedAt: now,
     });
   }
-  for (const r of rows.filter((r) => r.turnIndex === null && held(r))) {
+  for (const r of rows.filter((x) => x.turnIndex === null && held(x))) {
     const next = map.get(r.speakerLabel);
     if (!next) {
       continue;
@@ -165,7 +164,7 @@ export function movedRows(
       });
     }
   }
-  for (const r of rows.filter((r) => r.turnIndex !== null && !held(r))) {
+  for (const r of rows.filter((x) => x.turnIndex !== null && !held(x))) {
     put({
       ...r,
       speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel,
@@ -261,7 +260,7 @@ export function rediarize(
     for (const run of runs) {
       const result = run.result as {
         speakerIdentities?: { jobId: string; speakerLabel: string }[];
-      };
+      } | null;
       if (!result?.speakerIdentities?.some((s) => s.jobId === jobId)) {
         continue;
       }

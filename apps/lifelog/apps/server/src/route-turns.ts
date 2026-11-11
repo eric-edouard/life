@@ -35,7 +35,10 @@ const MIN_ROUTED_SECONDS = 1;
 // clips is still heard whole; only the words inside the turn are kept.
 const PAD_SECONDS = 0.25;
 
-type Span = { end: number; start: number };
+interface Span {
+  end: number;
+  start: number;
+}
 const seconds = (turns: HeardTurn[]) =>
   turns.reduce((sum, t) => sum + t.end - t.start, 0);
 const inside = (turn: Span, at: number) => at >= turn.start && at < turn.end;
