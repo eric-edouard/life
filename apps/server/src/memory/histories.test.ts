@@ -11,6 +11,7 @@ import {
   storyInputOf,
   withMonth,
 } from "./histories";
+import { historyOf } from "./read-person-page";
 import { readPeople } from "./who";
 import { localDate } from "./zones";
 
@@ -200,4 +201,70 @@ test("a story is told when its months changed, never while a month of theirs sti
   expect(isStoryDue(history, { inputs: "changed", months: 0 }, true)).toBe(
     false
   );
+});
+
+test("the person read shows the story and the newest 12 months; every earlier month is a dated entry of its timeline", () => {
+  const names = [
+    ...Array.from(
+      { length: 12 },
+      (_, i) => `2025-${String(i + 1).padStart(2, "0")}`
+    ),
+    "2026-01",
+    "2026-02",
+  ];
+  const months = names.map((month, i) => ({
+    built: "2026-11-11T22:00:00.000Z",
+    inputs: month,
+    madeBy,
+    month,
+    parts: [
+      {
+        quotes:
+          i === 13
+            ? [
+                {
+                  at: "2026-02-03T12:00:00.000Z",
+                  text: "see you Sunday",
+                  writer: "them" as const,
+                },
+              ]
+            : [],
+        summary: `What passed in ${month}.`,
+      },
+    ],
+  }));
+  const history: History = {
+    months,
+    schemaVersion: 1,
+    story: {
+      built: "2026-11-11T22:00:00.000Z",
+      inputs: "s",
+      madeBy,
+      text: "Two quiet years.",
+      through: "2025",
+    },
+  };
+  const { block, earlier } = historyOf(history);
+  expect(block[0]).toStartWith("Past months between them and him");
+  expect(block[1]).toBe("Over the years (through 2025): Two quiet years.");
+  // Newest first, with the words found in their messages.
+  expect(block[2]).toBe(
+    '- 2026-02: What passed in 2026-02. Their words: "see you Sunday" (2026-02-03, them)'
+  );
+  expect(block.slice(2, -1)).toHaveLength(12);
+  expect(block.at(-2)).toBe("- 2025-03: What passed in 2025-03.");
+  // The 13th and 14th, each once, on the month's last day: paged by the one `before`.
+  expect(earlier).toEqual([
+    {
+      day: "2025-02-28",
+      kind: "month",
+      line: "- 2025-02: What passed in 2025-02.",
+    },
+    {
+      day: "2025-01-31",
+      kind: "month",
+      line: "- 2025-01: What passed in 2025-01.",
+    },
+  ]);
+  expect(historyOf(null)).toEqual({ block: [], earlier: [] });
 });

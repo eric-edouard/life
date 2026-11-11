@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, HOUR } from "../core/clock";
 import { newestDays } from "../core/lists";
+import type { History } from "../records/history";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
 import { detailsBlock, readDetailsOf } from "./details";
@@ -10,6 +11,7 @@ import {
   readExchangeCounts,
 } from "./exchange-counts";
 import { EXCHANGE_ENDS_AFTER } from "./exchanges";
+import { readHistory } from "./histories";
 import {
   CURRENT,
   entity,
@@ -28,7 +30,7 @@ import { readSituationNow, situationBlock } from "./situations";
 import { clip, normalize } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { repliesOwed } from "./words";
-import { dayNow, localDate, localTime } from "./zones";
+import { dayNow, localDate, localTime, monthsOf } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
 // their observations, episodes and recorded conversations, paged back by day; with no name, the people.
@@ -84,7 +86,7 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
 /** One thing of a person's timeline: its day, which list it shows in, and its line. */
 interface Dated {
   day: string;
-  kind: "conversation" | "episode" | "observation";
+  kind: "conversation" | "episode" | "month" | "observation";
   line: string;
 }
 
@@ -136,7 +138,8 @@ export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
 }
 
 /**
- * A person: their page, whole, with what code counted between them and him (`exchangeCountsBlock`) and what Life holds
+ * A person: their page, whole, with what code counted between them and him (`exchangeCountsBlock`), their history's
+ * story and newest months (`historyOf`; the earlier months are paged with the timeline) and what Life holds
  * about them by source and month; then their observations (every
  * one linked to them, whatever page it lives on) and the episodes with them, newest first by whole days, and their
  * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
@@ -171,6 +174,8 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const episodes = all.filter((m) =>
     m.people.some((p) => refOf(p.ref) === ref)
   );
+  // Their history, read before the index opens: its newest months on the first page, the earlier ones in the timeline.
+  const history = historyOf(known ? readHistory(ref) : null);
   // What may be open with them besides the observations (someone Life knows, first page only), read before the index
   // opens (nothing awaits while it is).
   // What code counted between them, first page only, read before the index opens too.
@@ -213,8 +218,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
           line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
         })),
       ].toSorted((a, b) => b.day.localeCompare(a.day));
+      // The history's months beyond the newest (the first page's block) are paged with the rest, each on its last day.
       const { next, taken } = newestDays(
-        timeline,
+        [...timeline, ...history.earlier].toSorted((a, b) =>
+          b.day.localeCompare(a.day)
+        ),
         (t) => t.day,
         PAGE_ITEMS,
         before
@@ -239,10 +247,12 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...exchangeCountsBlock(
                 counted && { ...counted, rows: counted.people[ref] ?? [] }
               ),
+              ...history.block,
               ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
             ]),
+        ...section("Earlier months between them and him:", lines("month")),
         ...section("Episodes with them:", lines("episode")),
         ...section(recordedTitle(heard), lines("conversation")),
         "",
@@ -252,6 +262,50 @@ export async function person(name?: string, o: { before?: string } = {}) {
       ];
     })
   );
+}
+
+/** The months of a history the first page shows whole; the earlier ones are paged with the timeline. */
+const NEWEST_MONTHS = 12;
+
+/**
+ * A person's history (`histories.ts`) as the person read shows it: `block`, the first page's (what it is, the story of
+ * the years, the newest months, newest first), and `earlier`, every month before those as a dated entry of the
+ * timeline, on its last day. Nothing when no month was read yet.
+ */
+export function historyOf(history: History | null) {
+  const months = (history?.months ?? []).toReversed();
+  const shown = (m: History["months"][number]) => {
+    const quotes = m.parts
+      .flatMap((p) => p.quotes)
+      .map(
+        (q) =>
+          `"${q.text}" (${localDate(q.at)}, ${q.writer === "owner" ? "him" : "them"})`
+      );
+    return `- ${m.month}: ${m.parts.map((p) => p.summary).join(" ")}${quotes.length > 0 ? ` Their words: ${quotes.join(", ")}` : ""}`;
+  };
+  const story = history?.story;
+  return {
+    block:
+      months.length > 0
+        ? [
+            "Past months between them and him (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls; earlier months further down and on older pages):",
+            ...(story
+              ? [`Over the years (through ${story.through}): ${story.text}`]
+              : []),
+            ...months.slice(0, NEWEST_MONTHS).map(shown),
+            "",
+          ]
+        : [],
+    earlier: months.slice(NEWEST_MONTHS).map(
+      (m): Dated => ({
+        day:
+          monthsOf({ from: `${m.month}-01`, to: `${m.month}-31` })[0]?.to ??
+          `${m.month}-28`,
+        kind: "month",
+        line: shown(m),
+      })
+    ),
+  };
 }
 
 /**
