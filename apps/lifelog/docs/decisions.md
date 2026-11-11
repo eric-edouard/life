@@ -230,6 +230,15 @@ reverse it, change its entry here in the same commit.
 - **The Pendant's button asks an AI.** One press transcribes the last minute at once and offers it to Claude or
   ChatGPT; nothing of it is stored on the server but its cost.
 
+## Apple Health
+
+- Apple Health has its own sequence cursor in `apple_health`, outside `change_log`. A day's hundreds of
+  measurements must not wake the phone's voice long poll or Life's voice watcher. Only the device token opens
+  `GET /apple-health` and `POST /apple-health`.
+- The phone reads six kinds from Health, never writes to it, and keeps one acknowledged end per kind. Health is
+  its durable store; a failed chunk is read again. The seven-day overlap catches recent changes, not deletions or
+  measurements arriving more than seven days late.
+
 ## The repo
 
 - **Better-T-Stack's layout, with lifelog's own tools.** The owner's platforms plan (22 Oct 2026) ran

@@ -118,7 +118,7 @@ function config() {
 }
 
 /** GET `path`, or send `body` to it (POST unless `method` says otherwise). */
-async function call(
+export async function call(
   path: string,
   timeoutS = 60,
   body?: unknown,

@@ -77,9 +77,9 @@ export type Descriptor = {
       /**
        * own_writing: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
        * report they did, evidence of it, never anyone's words; screen: the time he spent in each app and website, as his
-       * devices record it.
+       * devices record it; physical: what his devices measure of his body.
        */
-      kind: "agent" | "chat" | "mail" | "own_writing" | "screen";
+      kind: "agent" | "chat" | "mail" | "own_writing" | "screen" | "physical";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date, before?: Date) => SourceEvent[];
     }
@@ -96,9 +96,16 @@ export type Descriptor = {
   | { kind: "voice" }
 );
 
-/** Activity: what his devices record he did (commits, Screen Time), never anyone's words: never extracted, importance 1 at most. */
+/** Activity: what his devices record (commits, Screen Time, body measurements), never anyone's words: never extracted, importance 1 at most. */
 export const isActivity = (kind: Descriptor["kind"]) =>
-  kind === "repo" || kind === "screen";
+  kind === "repo" || kind === "screen" || kind === "physical";
+
+/** Whether an item is in a `read`'s window: from `since` on, before `before`. */
+export const isWithin = (since: Date, before?: Date) => {
+  const from = since.toISOString();
+  const to = before?.toISOString();
+  return (item: { at: string }) => item.at >= from && (!to || item.at < to);
+};
 
 /** Which project and area a repo belongs to: his map (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
 export interface Placement {

@@ -345,6 +345,7 @@ test("the one-time reopen recovers expired samples, preserves owner rows, and su
     "alter table transcripts drop column excerpts_attempted_at"
   );
   env.db.$client.run("alter table speaker_assignments drop column rechecked");
+  env.db.$client.run("drop table apple_health");
   // Its `when` in the journal: it and the migrations after it run again.
   env.db.$client.run(
     "delete from __drizzle_migrations where created_at >= 1794225727810"
