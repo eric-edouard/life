@@ -7,12 +7,14 @@
 //   bun run bench page                   the report, the cloud and the review, on this Mac only
 //   bun run bench apply [--write] [person id to leave out…]  his review answers that differ from the archive,
 //                                        listed, or sent to lifelog's server (PORT, LIFELOG_TOKEN)
+//   bun run bench reembed list <modelId> <modelRevision> | post | finish   the owner's one-off (11 Nov 2026):
+//                                        see `reembed` (DATABASE_PATH to list; PORT, LIFELOG_DEVICE_TOKEN to send)
 //   bun run bench all                    clips, embed, score, in order (after a first `sample`)
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { send, writesOf } from "./apply";
-import { readNames, readSample, type Sample } from "./archive";
+import { listReembed, readNames, readSample, type Sample } from "./archive";
 import { cutClips } from "./clips";
 import { serve } from "./page";
 import { type Embedded, markdownOf, reportOf } from "./report";
@@ -156,6 +158,57 @@ async function apply(...args: string[]) {
   }
 }
 
+// The owner's one-off (11 Nov 2026), removed after its run: the samples not yet on the speech
+// service's speaker model, listed by the server for local/modal_embed.py, and its vectors sent back.
+async function reembed(step = "", modelId = "", modelRevision = "") {
+  const { LIFELOG_DEVICE_TOKEN: token, PORT: port } = process.env;
+  const url = `http://127.0.0.1:${port}/voice-samples/reembed`;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  if (step === "list") {
+    const jobs = listReembed({ modelId, modelRevision });
+    await Bun.write(
+      join(DIR, "reembed/listing.json"),
+      JSON.stringify({ jobs })
+    );
+    console.log(`${jobs.length} jobs listed`);
+    return;
+  }
+  const out = join(DIR, "reembed/out");
+  const files = (await readdir(out)).filter((f) => f.endsWith(".json"));
+  let written = 0;
+  let model = { modelId, modelRevision };
+  for (const file of files) {
+    // biome-ignore lint/performance/noAwaitInLoops: the server's one writer
+    const { vectors, ...its } = await readJson<{
+      modelId: string;
+      modelRevision: string;
+      vectors?: unknown[];
+    }>(join(out, file));
+    if (vectors?.length) {
+      model = its;
+      const res = await fetch(url, {
+        body: JSON.stringify({ ...its, vectors }),
+        headers,
+        method: "POST",
+      });
+      written += ((await res.json()) as { written: number }).written;
+    }
+  }
+  const finished =
+    step === "finish" &&
+    (await (
+      await fetch(url, {
+        body: JSON.stringify({ ...model, finish: true, vectors: [] }),
+        headers,
+        method: "POST",
+      })
+    ).json());
+  console.log({ finished, written });
+}
+
 const STEPS: Record<string, (...args: string[]) => Promise<unknown>> = {
   all: async () => {
     await clips();
@@ -166,6 +219,7 @@ const STEPS: Record<string, (...args: string[]) => Promise<unknown>> = {
   clips,
   embed,
   page: () => serve(DIR, ANSWERS, score),
+  reembed,
   sample,
   score,
 };

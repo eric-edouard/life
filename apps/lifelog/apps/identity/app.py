@@ -45,8 +45,10 @@ MODEL_DIR = os.environ.get("MODEL_DIR", "/models")
 RUNTIME = os.environ.get("SPEECH_RUNTIME", "mlx" if sys.platform == "darwin" else "onnx")
 THREADS = int(os.environ.get("THREADS", "0")) or os.cpu_count() or 1
 # name: (Hugging Face repo, pinned revision, the files used; None for all)
+# MECT-B2's code: AntSpeaker is no package, so `download` unpacks this commit of it beside the weights.
+ANTSPEAKER = ("ant-research/AntSpeaker", "976f462d7af33a36b5dc2f0d6d75d6f044220d27")
 MODELS = {
-    "ecapa": ("speechbrain/spkrec-ecapa-voxceleb", "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286", None),
+    "mect-b2": ("AntResearch/AntSpeaker", "fdabda1565f7d2f229a6a09dfff1191dc9faf61a", ["mect_b2_vb2.pt"]),
     "voxlingua": (
         "speechbrain/lang-id-voxlingua107-ecapa",
         "0253049ae131d6a4be1c4f0d8b0ff483a0f8c8e9",
@@ -97,11 +99,63 @@ def provenance(name: str) -> str:
     return f"{repo}@{revision}"
 
 
-def download():
+def speaker_pin() -> tuple[str, str]:
+    """The speaker model as samples name it: its weights file, and their revision with the code's commit
+    (the features are computed by that code, so a new commit is a new model)."""
+    repo, revision, (file,) = MODELS["mect-b2"]
+    return f"{repo}/{file}", f"{revision}+{ANTSPEAKER[1]}"
+
+
+def antspeaker_path() -> str:
+    return os.path.join(model_path("mect-b2"), f"AntSpeaker-{ANTSPEAKER[1]}")
+
+
+def download(names=tuple(MODELS)):
+    import tarfile
+    import urllib.request
+
     from huggingface_hub import snapshot_download
 
-    for name, (repo, revision, files) in MODELS.items():
+    for name in names:
+        repo, revision, files = MODELS[name]
         snapshot_download(repo, revision=revision, local_dir=model_path(name), allow_patterns=files)
+    if "mect-b2" in names and not os.path.exists(antspeaker_path()):
+        repo, commit = ANTSPEAKER
+        with urllib.request.urlopen(f"https://github.com/{repo}/archive/{commit}.tar.gz") as archive:
+            # The archive's one folder is AntSpeaker-<commit>.
+            tarfile.open(fileobj=archive, mode="r|gz").extractall(model_path("mect-b2"), filter="data")
+
+
+def speaker_model():
+    """MECT-B2 (AntSpeaker): 16 kHz samples to an embedding tensor. The one loader: the voice bench and
+    a one-off run elsewhere use it, so every vector comes from the same code."""
+    import torch
+
+    sys.path.insert(0, antspeaker_path())
+    import antspeaker.models  # noqa: F401  (registers the models)
+    import torchaudio.compliance.kaldi as kaldi
+    from antspeaker.utils.registry import create_model
+
+    path = os.path.join(model_path("mect-b2"), MODELS["mect-b2"][2][0])
+    config = torch.load(path, map_location="cpu")["config"]
+    feature = config["feature"]
+    model, _ = create_model(config["model"]).load_model(path)
+    model.eval()
+
+    def embed(samples):
+        fbank = kaldi.fbank(
+            torch.from_numpy(samples)[None] * (1 << 15),
+            num_mel_bins=feature["num_mel_bins"],
+            frame_length=feature["frame_length"],
+            frame_shift=feature["frame_shift"],
+            dither=0.0,
+            energy_floor=0.0,
+            window_type="hamming",
+            sample_frequency=feature["sampling_rate"],
+        )
+        return model(fbank[None].transpose(-1, -2))[0]
+
+    return embed
 
 
 class Models:
@@ -110,12 +164,11 @@ class Models:
     def __init__(self):
         import torch
         from speechbrain.inference.classifiers import EncoderClassifier as Classifier
-        from speechbrain.inference.speaker import EncoderClassifier
         from transformers import AutoModelForAudioFrameClassification, AutoProcessor
 
         torch.set_num_threads(THREADS)
         cpu = {"device": "cpu"}
-        self.ecapa = EncoderClassifier.from_hparams(model_path("ecapa"), savedir=model_path("ecapa"), run_opts=cpu)
+        self.speaker = speaker_model()
         self.voxlingua = Classifier.from_hparams(model_path("voxlingua"), savedir=model_path("voxlingua"), run_opts=cpu)
         self.processor = AutoProcessor.from_pretrained(model_path("nemotron"))
         self.nemotron = AutoModelForAudioFrameClassification.from_pretrained(model_path("nemotron")).eval()
@@ -194,7 +247,7 @@ def embed(models: Models, samples) -> list[float]:
     import torch
 
     with torch.inference_mode():
-        out = models.ecapa.encode_batch(torch.from_numpy(samples).unsqueeze(0))
+        out = models.speaker(samples)
     vector = out.reshape(-1).numpy().astype(np.float64)
     norm = np.linalg.norm(vector)
     if vector.shape != (DIMENSIONS,) or not np.isfinite(vector).all() or norm == 0:
@@ -337,13 +390,13 @@ class Handler(BaseHTTPRequestHandler):
 
         def answer(embeddings):
             found = iter(embeddings)
-            repo, revision, _ = MODELS["ecapa"]
+            model, revision = speaker_pin()
             return {
                 "embeddings": [
                     None if c is None else {"durationSeconds": c.size / SAMPLE_RATE, "embedding": next(found)}
                     for c in clips
                 ],
-                "modelId": repo,
+                "modelId": model,
                 "modelRevision": revision,
             }
 

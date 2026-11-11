@@ -5043,6 +5043,76 @@
         }
       }
     },
+    "/voice-samples/reembed": {
+      "post": {
+        "description": "The owner's one-off of 11 Nov 2026: a speaker model's new vectors onto their voice samples by id; with `finish`, the samples left on another model go and every voice is recognized again.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "modelRevision": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "finish": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "vectors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "embedding": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": ["embedding", "id"]
+                    }
+                  }
+                },
+                "required": ["modelId", "modelRevision", "vectors"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What was written",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dropped": {
+                      "type": "integer"
+                    },
+                    "written": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["dropped", "written"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/naming-queue": {
       "get": {
         "description": "The voices to name: unnamed voices with at least 10 turns traded and a minute of talk with the owner, or at least 300 words even when overheard, across the whole archive. One item per voice across conversations and days, playable first then most words, each with clean clips of its voice and the name the summaries heard or who it sounds like.",

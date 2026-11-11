@@ -8,7 +8,9 @@ import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
 import { answerVoices, severalTarget } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
+import { dropOtherModels, reembed } from "../reembed";
 import type { Services } from "../services";
+import { EMBEDDING_DIMENSIONS } from "../speech-service";
 import { VOICE_SCOPES } from "../voice-map";
 import {
   ApiError,
@@ -20,6 +22,10 @@ import {
 } from "./common";
 
 const JobParam = z.object({ jobId: z.uuid() });
+const Model = z.object({
+  modelId: z.string().min(1),
+  modelRevision: z.string().min(1),
+});
 
 // Who a speaker (turnIndex null) or one turn is. A turn without its own row is its speaker's.
 const SpeakerAssignment = z
@@ -408,6 +414,48 @@ export function speakerRoutes({
               { error: "not_found" as const, message: "no such two people" },
               404
             );
+      }
+    )
+    .openapi(
+      createRoute({
+        description:
+          "The owner's one-off of 11 Nov 2026: a speaker model's new vectors onto their voice samples by id; with `finish`, the samples left " +
+          "on another model go and every voice is recognized again.",
+        method: "post",
+        path: "/voice-samples/reembed",
+        request: {
+          body: {
+            content: {
+              "application/json": {
+                schema: Model.extend({
+                  finish: z.boolean().default(false),
+                  vectors: z.array(
+                    z.object({
+                      embedding: z
+                        .array(z.number())
+                        .length(EMBEDDING_DIMENSIONS),
+                      id: z.uuid(),
+                    })
+                  ),
+                }),
+              },
+            },
+            required: true,
+          },
+        },
+        responses: {
+          200: json(
+            z.object({ dropped: z.int(), written: z.int() }),
+            "What was written"
+          ),
+        },
+      }),
+      (c) => {
+        const { finish, vectors, ...model } = c.req.valid("json");
+        const written = reembed(db, model, vectors);
+        const dropped = finish ? dropOtherModels(db, model) : 0;
+        voices.soon();
+        return c.json({ dropped, written }, 200);
       }
     )
     .openapi(
