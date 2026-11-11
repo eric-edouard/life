@@ -214,9 +214,8 @@ struct VoicePage: View {
                     answer(
                         .several(
                             people: Array(among.union(chosen + [owner].compactMap(\.self))),
-                            // Someone unknown too when a clip says so, or he ticked nobody and left one unnamed.
+                            // Someone unknown too when a clip says so; a video is nobody.
                             unknown: picks.values.contains(WhoPills.unknown)
-                                || among.isEmpty && chosen.count < picks.count
                         ))
                 } label: {
                     Text("Done").frame(maxWidth: .infinity)
@@ -252,18 +251,15 @@ struct VoicePage: View {
     /// Under a clip, once "several people" is asked: who says it.
     private func whoSays(_ index: Int) -> some View {
         let shown = [people.first(where: \.isOwner), known].compactMap { $0.map(WhoPills.pick) }
+        // One tap for a clip that is nobody to name, last (11 Nov: they were hidden in "Someone else").
+        let nobody = [WhoPills.unknown, WhoPills.media]
         let suggested = (picks ?? [:]).sorted { $0.key < $1.key }.reduce(into: shown) { all, pick in
-            if !all.contains(pick.value) { all.append(pick.value) }
+            if !all.contains(pick.value), !nobody.contains(pick.value) { all.append(pick.value) }
         }
-        // One tap for a clip that is nobody to name (11 Nov: they were hidden in "Someone else").
-        return WhoPills(
-            people: people, suggested: suggested + [WhoPills.unknown, WhoPills.media], picked: picks?[index]
-        ) {
-            choose($0, for: index)
-        }
-        // Under the clip's words, past its play button.
-        .padding(.leading, 62)
-        .padding(.bottom, 8)
+        return WhoPills(people: people, suggested: suggested + nobody, picked: picks?[index]) { choose($0, for: index) }
+            // Under the clip's words, past its play button.
+            .padding(.leading, 62)
+            .padding(.bottom, 8)
     }
 
     /// A new name: the main answer when nobody is suggested.
