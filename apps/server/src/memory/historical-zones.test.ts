@@ -15,7 +15,6 @@ import { EPISODES, MEMORY, UNITS, ZONES } from "./ledger";
 import { zoneAt, zones } from "./zones";
 
 const sent = (day: string, offset: string) => ({
-  at: `${day}T12:00:00Z`,
   date: `${day} 12:00:00 ${offset}`,
 });
 const photo = (day: string, offset: number) => ({
@@ -42,22 +41,19 @@ test("an offset is a whole-hour zone, a quarter hour that defers, or noise that 
   expect(fixedZoneOf(900)).toBeUndefined();
 });
 
-test("sent mail: -0000 and a missing header defer the day, a noise offset says nothing; the day is the sender's", () => {
+test("sent mail says only whole-hour zones: -0000, a missing header, a quarter hour and noise say nothing; the day is the sender's", () => {
   expect(
     mailEvidenceOf([
       sent("2023-01-02", "-0000"),
-      { at: "2023-01-03T09:00:00Z" },
+      {},
       sent("2023-01-04", "+0201"),
-      { at: "2023-01-01T19:00:00Z", date: "2 Jan 2023 00:30:00 +0530" },
+      { date: "2 Jan 2023 00:30:00 +0530" },
+      { date: "2 Jan 2023 00:30:00 +0100" },
     ])
-  ).toEqual([
-    { day: "2023-01-02", zone: null },
-    { day: "2023-01-03", zone: null },
-    { day: "2023-01-02", zone: null },
-  ]);
+  ).toEqual([{ day: "2023-01-02", zone: "Etc/GMT-1" }]);
 });
 
-test("runs use the nearest evidence for gaps, ties earlier, and defer conflicting and quarter-hour days", () => {
+test("gaps take the nearest known day, ties earlier; split mail is a gap, unless it names both differing sides (a travel day)", () => {
   const report = historicalZonesOf(
     evidenceOf([
       sent("2023-01-02", "+0700"),
@@ -65,20 +61,28 @@ test("runs use the nearest evidence for gaps, ties earlier, and defer conflictin
       sent("2023-01-07", "+0530"),
       sent("2023-01-08", "+0700"),
       sent("2023-01-08", "-0500"),
+      sent("2023-01-10", "+0700"),
+      sent("2023-01-12", "+0700"),
+      sent("2023-01-12", "+0100"),
+      sent("2023-01-13", "+0700"),
     ]),
-    { from: "2023-01-01", to: "2023-01-09" }
+    { from: "2023-01-01", to: "2023-01-13" }
   );
   expect(report.gaps).toEqual([
     "2023-01-01",
     "2023-01-03",
     "2023-01-04",
     "2023-01-05",
+    "2023-01-07",
     "2023-01-09",
+    "2023-01-11",
+    "2023-01-12",
   ]);
-  expect(report.deferred).toEqual(["2023-01-07", "2023-01-08"]);
+  expect(report.deferred).toEqual(["2023-01-08"]);
   expect(report.runs).toEqual([
     { from: "2022-12-31T17:00:00.000Z", source: "mail", tz: "Etc/GMT-7" },
     { from: "2023-01-05T05:00:00.000Z", source: "mail", tz: "Etc/GMT+5" },
+    { from: "2023-01-08T17:00:00.000Z", source: "mail", tz: "Etc/GMT-7" },
   ]);
 });
 

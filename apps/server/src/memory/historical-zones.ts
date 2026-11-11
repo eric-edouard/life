@@ -61,20 +61,20 @@ const dayAt = (instant: number, minutes: number) =>
 /** A numeric RFC 5322 Date offset, kept with its sign: -0000 means the sender did not know the local offset. */
 const MAIL_OFFSET = /([+-])(\d{2})(\d{2})(?:\s*\([^)]*\))?\s*$/;
 
-/** The local day and zone of each sent mail; a mail without a usable Date header defers its received day. */
-export function mailEvidenceOf(sent: { at: string; date?: string }[]) {
+/** The local day and zone of each sent mail; a mail with no whole-hour zone (no usable Date header, -0000, a quarter hour) says nothing. */
+export function mailEvidenceOf(sent: { date?: string }[]) {
   return sent.flatMap<DayZone>((mail) => {
     const offset = mail.date?.match(MAIL_OFFSET);
     const instant = Date.parse(mail.date ?? "");
     if (!(offset && Number.isFinite(instant))) {
-      return [{ day: wall(mail.at, "UTC").day, zone: null }];
+      return [];
     }
     const minutes =
       (Number(offset[2]) * 60 + Number(offset[3])) *
       (offset[1] === "+" ? 1 : -1);
     const zone =
       offset[1] === "-" && minutes === 0 ? null : fixedZoneOf(minutes);
-    return zone === undefined ? [] : [{ day: dayAt(instant, minutes), zone }];
+    return zone ? [{ day: dayAt(instant, minutes), zone }] : [];
   });
 }
 
@@ -104,8 +104,10 @@ const agreed = (set?: Set<string | null>) =>
  * 1. Photos agree on one offset: that zone (`photos`), deferred if it is a quarter hour. A photo is where he stood.
  *    Photos that split are his phone recording a real move: the day is placed by its mail or its neighbours, wrong by
  *    at most the hours in transit.
- * 2. Else mail agrees on one offset: that zone (`mail`). Mail that conflicts, has a quarter hour or no usable header
- *    defers the day: split mail can't be told from a client clock that is wrong, and on most days it is all there is.
+ * 2. Else mail agrees on one zone: that zone (`mail`). Mail that splits is a gap: a client clock that is wrong can't be
+ *    told from a move, so the day takes its nearest known day, unless it is a travel day: its own mail names both the
+ *    zone of the known day before it and of the one after, and they differ. A travel day is deferred: it waits for
+ *    evidence that can tell which part of the day was where.
  * A run carries the source of the day that opened it. `eraFrom` is where the first recorded zone begins: the last day
  * of the era is deferred when it would end after it. Later model backfill must re-read this report: a gap is only a
  * calendar boundary, never evidence of where he was.
@@ -122,9 +124,8 @@ export function historicalZonesOf(
     if (photo !== undefined) {
       return photo && { source: "photos" as const, tz: photo };
     }
-    const sent = mail.get(day);
-    const tz = agreed(sent);
-    return sent && (tz ? { source: "mail" as const, tz } : null);
+    const tz = agreed(mail.get(day));
+    return tz && { source: "mail" as const, tz };
   };
   const known = [...new Set([...photos.keys(), ...mail.keys()])]
     .sort()
@@ -136,27 +137,36 @@ export function historicalZonesOf(
   const deferred: string[] = [];
   const runs: Run[] = [];
   let previous: string | undefined;
-  // The days go up, so the nearest known day only moves forward, and stays the earlier one on a tie.
+  // The days go up, so the first known day after this one only moves forward; the nearest is it or the one before
+  // (the earlier on a tie).
   const apart = (a: string, b: string) =>
     Math.abs(Date.parse(a) - Date.parse(b));
-  let nearest = 0;
+  let next = 0;
   for (let day = window.from; day <= window.to; day = daysBefore(day, -1)) {
     const verdict = verdictOf(day);
-    if (verdict === null) {
+    while (next < known.length && (known[next] as { day: string }).day <= day) {
+      next += 1;
+    }
+    const [before, after] = [known[next - 1], known[next]];
+    const sent = mail.get(day);
+    const isTravelDay =
+      !verdict &&
+      before &&
+      after &&
+      before.tz !== after.tz &&
+      sent?.has(before.tz) &&
+      sent.has(after.tz);
+    if (verdict === null || isTravelDay) {
       deferred.push(day);
       continue;
     }
     if (!verdict) {
       gaps.push(day);
     }
-    while (
-      nearest + 1 < known.length &&
-      apart((known[nearest + 1] as { day: string }).day, day) <
-        apart((known[nearest] as { day: string }).day, day)
-    ) {
-      nearest += 1;
-    }
-    const closest = known[nearest];
+    const closest =
+      before && !(after && apart(after.day, day) < apart(before.day, day))
+        ? before
+        : after;
     if (
       !closest ||
       (eraFrom &&

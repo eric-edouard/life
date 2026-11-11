@@ -140,10 +140,13 @@ nightly new-fact count do not change.
 Before earlier units are created, each day's zone is derived from its own evidence as `Etc/GMT±N`, with IANA's reversed
 sign, read for the sources that are on and readable (`historicalZonesOf`). Photos that agree on one offset decide the day
 (`source: "photos"`; only photos that place him: his own devices' or with coordinates, not a Mac's import). Photos that
-split fall back to mail, since the phone recorded a move. Else sent mail's Date headers agree on one offset (`source: "mail"`);
-mail that conflicts, has no usable header or a quarter hour (+5:30) defers the day, and so does a quarter-hour photo. A
-noise offset (+2:01) is ignored. A day with no evidence takes the nearest day that has some (ties earlier) and is
-reported as a gap. Only the days before the derived era ends (the first zone record without `source`) are set, so a day his
+split fall back to mail, since the phone recorded a move. Else sent mail's Date headers agree on one offset (`source: "mail"`).
+A quarter-hour photo (+5:30) defers its day. Mail says only whole-hour zones: one with no usable header, -0000 or a
+quarter hour says nothing, and a noise offset (+2:01) is ignored. A day with no evidence, or whose mail splits, takes the
+nearest day that has some (ties earlier) and is reported as a gap, except a travel day: its own mail names both the
+zone of the known day before and of the one after, and they differ (a clock change included). Travel days stay
+deferred, with no units: no step reads his answers about a day before the recorded zones (a `zones.jsonl` line without
+`source` would end the derived era there), so they wait for a future source of evidence. Only the days before the derived era ends (the first zone record without `source`) are set, so a day his
 recorded zones cover is never deferred, and the era's last day is deferred when it would end after that record begins.
 Stored zones are corrected only by appended lines (`supersedingRuns`), and only when the window covers the whole derived
 era; a narrower one appends nothing. A settled day (a day a record cites by a unit id, a day on or after the first episode,

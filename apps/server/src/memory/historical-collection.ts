@@ -84,7 +84,7 @@ export async function collectHistorical(
           units,
         };
       }
-      // An unsupported or conflicting offset defers that day; it is never replaced by a guess.
+      // A deferred day (a quarter-hour photo, a travel day) gets no units; it is never replaced by a guess.
       const deferred = new Set(zones.deferred);
       const ranges: Window[] = [];
       for (const day of unitDays(month).filter((d) => !deferred.has(d))) {
