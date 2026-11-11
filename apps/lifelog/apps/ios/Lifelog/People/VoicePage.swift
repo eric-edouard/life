@@ -18,8 +18,7 @@ struct VoicePage: View {
     @State private var playing: Int?
     @State private var draft = ""
     @FocusState private var typing: Bool
-    /// "Several people": who says each clip, by its index; `nil` until asked.
-    /// "Several people": who says each clip, one or more.
+    /// "Several people": who says each clip, one or more, by its index; `nil` until asked.
     @State private var picks: [Int: [WhoPills.Pick]]?
     /// "Several people": who is in it, ticked without naming a clip.
     @State private var among: Set<UUID> = []
