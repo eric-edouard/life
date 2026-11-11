@@ -58,14 +58,18 @@ test("a pass describes what has an image, one fails, one has none; the model run
         return Promise.resolve();
       },
     });
-  await describePhotos({ descriptions, library: library_, start });
+  await describePhotos("2000-01-01", {
+    descriptions,
+    library: library_,
+    start,
+  });
   expect(seen).toEqual(["image of BB2", "image of AA1"]);
   expect(stopped).toBe(true);
   expect(readDescriptions(["AA1", "BB2", "CC3"], descriptions)).toEqual(
     new Map([["BB2", "Two people at a table."]])
   );
   // Nothing is waiting but the failed one, which waits a day: a second pass starts no model.
-  await describePhotos({
+  await describePhotos("2000-01-01", {
     descriptions,
     library: library_,
     start: () => {

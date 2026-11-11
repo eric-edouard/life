@@ -394,12 +394,13 @@ export interface Waiting {
 }
 
 /**
- * The photos still to describe (`readHandled` says which are not), newest first, at most `limit`. Photos keeps a
+ * The photos taken from `since` on still to describe (`readHandled` says which are not), newest first, at most `limit`. Photos keeps a
  * preview of most (even of an original that lives in iCloud), else the original may be here; Photos' folders are
  * macOS-versioned like its store, and `photos.test.ts` pins them.
  */
 export function waitingPhotos(
   limit: number,
+  since: Date,
   library = LIBRARY,
   descriptions = DESCRIPTIONS
 ): Waiting[] {
@@ -408,11 +409,11 @@ export function waitingPhotos(
   const db = openReadOnly(join(library, STORE));
   try {
     return db
-      .query<{ directory: string; file: string; uuid: string }, []>(
+      .query<{ directory: string; file: string; uuid: string }, [number]>(
         `select a.ZUUID as uuid, a.ZDIRECTORY as directory, a.ZFILENAME as file from ZASSET a
-          where ${SHOWN} and a.ZKIND != ${VIDEO} order by a.ZDATECREATED desc`
+          where ${SHOWN} and a.ZKIND != ${VIDEO} and a.ZDATECREATED >= ? order by a.ZDATECREATED desc`
       )
-      .all()
+      .all(toAppleS(since.getTime()))
       .filter((r) => !handled.has(r.uuid))
       .slice(0, limit)
       .map(({ directory, file, uuid }) => {

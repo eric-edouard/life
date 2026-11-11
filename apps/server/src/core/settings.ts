@@ -73,8 +73,11 @@ export const Settings = z
       })
       .strict()
       .optional(),
-    /** Whether the Mac writes a description of each photo (`host/describe-photos.ts`); a local model, no image leaves it. Without it, none. */
-    describePhotos: z.literal(true).optional(),
+    /**
+     * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
+     * model, no image leaves it. Without it, none.
+     */
+    describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     devices: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */

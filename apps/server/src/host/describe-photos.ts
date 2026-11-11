@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { log } from "../core/log";
 import { toJpeg } from "../memory/message-files";
+import { dayStart, zoneAt } from "../memory/zones";
 import { DESCRIBER_MODEL, startDescriber } from "../models/describer";
 import { promptText } from "../models/llm";
 import {
@@ -14,7 +15,7 @@ import {
 import { LIBRARY, waitingPhotos } from "../sources/photos";
 
 // A pass of the photo descriptions (`watch.ts` runs one every 10 minutes while the `describePhotos` setting is on): the newest
-// photos with no description, the model started only when one has an image to read and stopped after. The rows of
+// photos with no description taken from its day on, the model started only when one has an image to read and stopped after. The rows of
 // the store are the queue, so a pass keeps no state.
 
 /** About 8 minutes of the model at 8 s a photo. */
@@ -24,6 +25,7 @@ const IMAGE_PX = 1024;
 const ERROR_MAX = 200;
 
 export async function describePhotos(
+  from: string,
   o: {
     descriptions?: string;
     library?: string;
@@ -35,7 +37,8 @@ export async function describePhotos(
     library = LIBRARY,
     start = startDescriber,
   } = o;
-  const waiting = waitingPhotos(PER_PASS, library, descriptions);
+  const since = dayStart(from, zoneAt(`${from}T12:00:00Z`));
+  const waiting = waitingPhotos(PER_PASS, since, library, descriptions);
   if (waiting.length === 0) {
     return;
   }
