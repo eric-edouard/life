@@ -23,7 +23,7 @@ const PER_CALL = 8;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
 /** The long side, in pixels, of the image a model is shown. */
-const IMAGE_PX = "1600";
+const IMAGE_PX = 1600;
 /** What textutil reads as text: Word, RTF, OpenDocument text, plain text. */
 const DOCUMENT = /msword|rtf$|opendocument\.text|wordprocessingml|^text\/plain/;
 /** What Messages leaves in a message's text where a file was: U+FFFC. */
@@ -106,6 +106,15 @@ async function run(cmd: string[]) {
   return r.stdout;
 }
 
+/** `src` as a JPEG at `out` with its long side at most `px` pixels; false when `sips` failed (logged). */
+export async function toJpeg(src: string, out: string, px: number) {
+  const made = await run([
+    ...["sips", "-s", "format", "jpeg", "-Z", String(px), src],
+    ...["--out", out],
+  ]);
+  return made !== undefined;
+}
+
 /** Read by code: a document's text, a PDF's text layer. Else the JPEG a model is shown: a photo, a scan's first page. */
 async function prepare(f: Readable, base: string): Promise<Read | undefined> {
   const bytes = await bytesOf(f);
@@ -126,11 +135,7 @@ async function prepare(f: Readable, base: string): Promise<Read | undefined> {
     return { text: layer };
   }
   const image = `${base}.jpg`;
-  const made = await run([
-    ...["sips", "-s", "format", "jpeg", "-Z", IMAGE_PX, src],
-    ...["--out", image],
-  ]);
-  return made === undefined ? undefined : { image };
+  return (await toJpeg(src, image, IMAGE_PX)) ? { image } : undefined;
 }
 
 /**

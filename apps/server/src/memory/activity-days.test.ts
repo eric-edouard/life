@@ -211,6 +211,21 @@ test("a photo-day shows an address only when it says more than the place, and no
   expect(headline).toBe("2 videos · Seaside, The Old town quarter");
 });
 
+test("a photo-day lists the distinct descriptions of a line's photos", () => {
+  const { body } = photoDayText([
+    shot("a", "2026-10-09T08:00:00.000Z", {
+      description: "Two people at a table.",
+    }),
+    shot("b", "2026-10-09T08:05:00.000Z", {
+      description: "Two people at a table.",
+    }),
+    shot("c", "2026-10-09T08:10:00.000Z", { description: "A plate of fish." }),
+  ]);
+  expect(body).toBe(
+    "10:00–10:10 · 3 photos · described: Two people at a table. · described: A plate of fish."
+  );
+});
+
 test("a photo-day's text is redacted", () => {
   const { body } = photoDayText([
     shot("a", "2026-10-09T08:00:00.000Z", {

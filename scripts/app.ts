@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { bundleLlama, download } from "@life/server/src/core/pinned";
 import { execOk } from "@life/server/src/core/proc";
 
 // Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
@@ -18,6 +18,8 @@ const contents = join(app, "Contents");
 const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFE_VERSION ?? "0.1.0";
 
+const hardened =
+  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const run = (cmd: string[], cwd = ROOT) =>
   execOk(cmd, { cwd, timeout: 900_000 });
 
@@ -34,15 +36,7 @@ async function sparkle() {
   if (existsSync(join(FRAMEWORKS, "Sparkle.xcframework"))) {
     return;
   }
-  const zip = join(out, "sparkle.zip");
-  await mkdir(out, { recursive: true });
-  await run(["curl", "-sSL", "--max-time", "300", "-o", zip, SPARKLE.url]);
-  const sum = createHash("sha256")
-    .update(await Bun.file(zip).bytes())
-    .digest("hex");
-  if (sum !== SPARKLE.sha256) {
-    throw new Error(`Sparkle's download does not match its checksum (${sum})`);
-  }
+  const zip = await download(SPARKLE, join(out, "sparkle.zip"));
   await mkdir(FRAMEWORKS, { recursive: true });
   await run(["ditto", "-x", "-k", zip, FRAMEWORKS]);
 }
@@ -112,6 +106,11 @@ await cp(
   join(contents, "Helpers", "life-eventkit")
 );
 
+// llama.cpp's server for the describer (photo descriptions), with the libraries it loads from beside it, signed.
+await bundleLlama(join(contents, "Helpers", "llama"), out, (file) =>
+  run(["codesign", "--force", "--sign", identity, ...hardened, file])
+);
+
 const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
 await cp(join(helper, "life"), join(contents, "Helpers", "life"));
@@ -179,8 +178,6 @@ const entitlements = join(out, "helper.entitlements");
 await writeFile(entitlements, HELPER_ENTITLEMENTS);
 const appEntitlements = join(out, "app.entitlements");
 await writeFile(appEntitlements, APP_ENTITLEMENTS);
-const hardened =
-  identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 await run([
   "codesign",
   "--force",
