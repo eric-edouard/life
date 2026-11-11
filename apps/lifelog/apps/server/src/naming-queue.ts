@@ -527,8 +527,8 @@ const conversationsOf = (db: Db) =>
     .all()
     .map((c) => c.id);
 
-// Only eligible, returned cards get clips. Playable cards come first, then the most words a
-// name unlocks, so the first card is useful to hear and to answer.
+// Only eligible, returned cards get clips. Playable cards first, then those with samples (names
+// to offer, a profile to teach), then the most words a name unlocks: the first card is useful.
 function cardsOf(
   db: Db,
   voices: Voice[],
@@ -548,7 +548,9 @@ function cardsOf(
     .sort(
       (a, b) =>
         Number(b.card.clips.some((c) => c.audio || c.at)) -
-          Number(a.card.clips.some((c) => c.audio || c.at)) || b.words - a.words
+          Number(a.card.clips.some((c) => c.audio || c.at)) ||
+        Number(b.card.likely.length > 0) - Number(a.card.likely.length > 0) ||
+        b.words - a.words
     )
     .map(({ card, words }) => ({ ...card, words }));
 }
