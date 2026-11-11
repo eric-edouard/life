@@ -8,10 +8,10 @@ import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
-  intelligenceRuns,
-  type ParsedTranscript,
   speakerAssignments as assignments,
+  intelligenceRuns,
   transcriptionJobs as jobs,
+  type ParsedTranscript,
   transcripts,
   voiceSamples,
 } from "@lifelog/db/schema";
@@ -78,15 +78,24 @@ export function relabeled(
 ) {
   const labelOf = (speakerId: string | null, start: number, end: number) => {
     const i = parsed.turns.findIndex(
-      (t) => ownWords(t, [{ end, logprob: null, spacing: "", speakerId, start, text: "" }]).length > 0
+      (t) =>
+        ownWords(t, [
+          { end, logprob: null, spacing: "", speakerId, start, text: "" },
+        ]).length > 0
     );
     return i >= 0 ? labels[i] : speakerId && (map.get(speakerId) ?? speakerId);
   };
   return {
     parsed: {
       ...parsed,
-      turns: parsed.turns.map((t, i) => ({ ...t, speakerId: labels[i] ?? t.speakerId })),
-      words: parsed.words.map((w) => ({ ...w, speakerId: labelOf(w.speakerId, w.start, w.end) ?? null })),
+      turns: parsed.turns.map((t, i) => ({
+        ...t,
+        speakerId: labels[i] ?? t.speakerId,
+      })),
+      words: parsed.words.map((w) => ({
+        ...w,
+        speakerId: labelOf(w.speakerId, w.start, w.end) ?? null,
+      })),
     },
     raw: {
       ...raw,
@@ -128,24 +137,40 @@ export function movedRows(
     labels.flatMap((l, i) => (l === next && oldLabels[i] === old ? [i] : []));
   // Most specific first, so a turn's own answer wins over a voice's.
   for (const r of rows.filter((r) => r.turnIndex !== null && held(r))) {
-    put({ ...r, speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel, updatedAt: now });
+    put({
+      ...r,
+      speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel,
+      updatedAt: now,
+    });
   }
   for (const r of rows.filter((r) => r.turnIndex === null && held(r))) {
     const next = map.get(r.speakerLabel);
     if (!next) {
       continue;
     }
-    const clean = labels.every((l, i) => l !== next || oldLabels[i] === r.speakerLabel);
+    const clean = labels.every(
+      (l, i) => l !== next || oldLabels[i] === r.speakerLabel
+    );
     if (clean) {
       put({ ...r, speakerLabel: next, updatedAt: now });
       continue;
     }
     for (const turnIndex of turnsOf(r.speakerLabel, next)) {
-      put({ ...r, id: randomUUID(), speakerLabel: next, turnIndex, updatedAt: now });
+      put({
+        ...r,
+        id: randomUUID(),
+        speakerLabel: next,
+        turnIndex,
+        updatedAt: now,
+      });
     }
   }
   for (const r of rows.filter((r) => r.turnIndex !== null && !held(r))) {
-    put({ ...r, speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel, updatedAt: now });
+    put({
+      ...r,
+      speakerLabel: labels[r.turnIndex ?? 0] ?? r.speakerLabel,
+      updatedAt: now,
+    });
   }
   const seconds = (old: string, next: string) => turnsOf(old, next).length;
   const recognized = rows
@@ -156,7 +181,11 @@ export function movedRows(
       return seconds(b.speakerLabel, nb) - seconds(a.speakerLabel, na);
     });
   for (const r of recognized) {
-    put({ ...r, speakerLabel: map.get(r.speakerLabel) ?? r.speakerLabel, updatedAt: now });
+    put({
+      ...r,
+      speakerLabel: map.get(r.speakerLabel) ?? r.speakerLabel,
+      updatedAt: now,
+    });
   }
   return [...out.values()];
 }
@@ -165,13 +194,23 @@ export type Rediarized = "done" | "unchanged" | "refused";
 
 // Applies the diarizer's turns to one completed Scribe job. Refused for another job or no turns;
 // unchanged when its labels already are these.
-export function rediarize(db: Db, jobId: string, diarized: DiarizedTurn[]): Rediarized {
+export function rediarize(
+  db: Db,
+  jobId: string,
+  diarized: DiarizedTurn[]
+): Rediarized {
   const outcome = db.transaction((tx) => {
     const row = tx
       .select({ parsed: transcripts.parsed, raw: transcripts.raw })
       .from(transcripts)
       .innerJoin(jobs, eq(jobs.id, transcripts.jobId))
-      .where(and(eq(transcripts.jobId, jobId), eq(jobs.transcriber, "scribe"), eq(jobs.state, "completed")))
+      .where(
+        and(
+          eq(transcripts.jobId, jobId),
+          eq(jobs.transcriber, "scribe"),
+          eq(jobs.state, "completed")
+        )
+      )
       .get();
     if (!row || diarized.length === 0) {
       return "refused" as const;
@@ -182,16 +221,32 @@ export function rediarize(db: Db, jobId: string, diarized: DiarizedTurn[]): Redi
       return "unchanged" as const;
     }
     const map = labelMapOf(row.parsed, labels);
-    const next = relabeled(row.parsed, row.raw as { words?: Record<string, unknown>[] }, labels, map);
+    const next = relabeled(
+      row.parsed,
+      row.raw as { words?: Record<string, unknown>[] },
+      labels,
+      map
+    );
     tx.update(transcripts).set(next).where(eq(transcripts.jobId, jobId)).run();
     rebuildTurnsIn(tx, jobId);
-    for (const s of tx.select().from(voiceSamples).where(eq(voiceSamples.jobId, jobId)).all()) {
+    for (const s of tx
+      .select()
+      .from(voiceSamples)
+      .where(eq(voiceSamples.jobId, jobId))
+      .all()) {
       const label = labels[s.turnIndex];
       if (label && label !== s.speakerLabel) {
-        tx.update(voiceSamples).set({ speakerLabel: label }).where(eq(voiceSamples.id, s.id)).run();
+        tx.update(voiceSamples)
+          .set({ speakerLabel: label })
+          .where(eq(voiceSamples.id, s.id))
+          .run();
       }
     }
-    const rows = tx.select().from(assignments).where(eq(assignments.jobId, jobId)).all();
+    const rows = tx
+      .select()
+      .from(assignments)
+      .where(eq(assignments.jobId, jobId))
+      .all();
     tx.delete(assignments).where(eq(assignments.jobId, jobId)).run();
     const moved = movedRows(rows, oldLabels, labels, map);
     if (moved.length > 0) {
@@ -204,12 +259,16 @@ export function rediarize(db: Db, jobId: string, diarized: DiarizedTurn[]): Redi
       .where(sql`instr(${intelligenceRuns.result}, ${jobId}) > 0`)
       .all();
     for (const run of runs) {
-      const result = run.result as { speakerIdentities?: { jobId: string; speakerLabel: string }[] };
+      const result = run.result as {
+        speakerIdentities?: { jobId: string; speakerLabel: string }[];
+      };
       if (!result?.speakerIdentities?.some((s) => s.jobId === jobId)) {
         continue;
       }
       const speakerIdentities = result.speakerIdentities.map((s) =>
-        s.jobId === jobId ? { ...s, speakerLabel: map.get(s.speakerLabel) ?? s.speakerLabel } : s
+        s.jobId === jobId
+          ? { ...s, speakerLabel: map.get(s.speakerLabel) ?? s.speakerLabel }
+          : s
       );
       tx.update(intelligenceRuns)
         .set({ result: { ...result, speakerIdentities } })
