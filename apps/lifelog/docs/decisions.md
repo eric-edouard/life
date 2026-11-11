@@ -121,7 +121,7 @@ reverse it, change its entry here in the same commit.
   (Thai, or a speech-service failure) still carries Scribe's speakers.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
-  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is
+  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: $0.20/h like v2 now, its answers keep v2's shape, and it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
   the best transcription in every language wherever he is. VoxLingua's top guess misses most short Thai (it hears Lao,
   Javanese, English and dozens more, and Parakeet writes made-up words), so a turn is routed by a small logistic model
   over VoxLingua's scores and the rest of the block, its weights fitted by `bench context fit` on blocks Scribe heard

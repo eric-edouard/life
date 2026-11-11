@@ -33,6 +33,7 @@ import {
 import { logChange } from "./change-log";
 import { billableSeconds, sha256Hex } from "./config";
 import { reportError } from "./diagnostics";
+import { SCRIBE_MODEL } from "./elevenlabs";
 import { record } from "./events";
 import { captureRange } from "./turns";
 import { blockKeyterms } from "./vocabulary";
@@ -435,7 +436,7 @@ const settingsHash = (s: TranscriptionSettings) =>
   new Bun.CryptoHasher("sha256")
     .update(
       JSON.stringify([
-        "scribe_v2",
+        SCRIBE_MODEL,
         s.languageCode,
         s.numSpeakers,
         [...s.keyterms].sort(),

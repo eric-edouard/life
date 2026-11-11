@@ -1,17 +1,17 @@
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import { z } from "zod";
 
-// Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
+// Prices from docs/research/elevenlabs.md (live pricing page; Scribe's rate read 2026-11-11).
 // The API reference prices keyterms at +20% ($0.044/h); the higher figure is used.
-export const SCRIBE_V2_USD_PER_HOUR = 0.22;
+export const SCRIBE_USD_PER_HOUR = 0.2;
 const KEYTERMS_USD_PER_HOUR = 0.05;
 
 // Seconds at the base Scribe rate that this audio will cost, add-ons included.
 export const billableSeconds = (seconds: number, s: { keyterms: string[] }) =>
   (seconds *
-    (SCRIBE_V2_USD_PER_HOUR +
+    (SCRIBE_USD_PER_HOUR +
       (s.keyterms.length > 0 ? KEYTERMS_USD_PER_HOUR : 0))) /
-  SCRIBE_V2_USD_PER_HOUR;
+  SCRIBE_USD_PER_HOUR;
 
 // Days, months (spending) and clock times are the owner's: the zone the
 // iPhone named in its latest heartbeat (`refreshOwnerTimeZone`), UTC until it has named one.
