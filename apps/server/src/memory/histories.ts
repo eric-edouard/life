@@ -301,7 +301,7 @@ async function tellStory(
 }
 
 /**
- * Reads the pending months (`historyWorkOf`), a few people at a time, each person's months in order: a month is
+ * Reads the pending months (`readHistoryWork`), a few people at a time, each person's months in order: a month is
  * written when every one of its calls gave a part, else its last version stands and the next night reads it again.
  * Then each person's story. A failure costs its month only, never the night.
  */
