@@ -51,6 +51,7 @@ class Voices:
         out = {}
         for name, data, samples in batch:
             try:
+                print("job", len(data), len(samples), flush=True)
                 clips = identity.clips_of(identity.read_audio(data), [tuple(s["range"]) for s in samples])
                 out[name] = {
                     "modelId": model,

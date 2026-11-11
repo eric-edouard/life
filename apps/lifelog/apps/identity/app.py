@@ -2,7 +2,7 @@
 
 POST /embed-ranges  body: Ogg Opus (any rate or channels, up to 16 MB). Headers X-Identity-Secret
               and X-Ranges, a JSON list of [start, end] seconds of the file (at most 400).
-              -> {embeddings: one {embedding: 192 floats, L2-normalized, durationSeconds} or null
+              -> {embeddings: one {embedding: 192 floats (MECT-B2), L2-normalized, durationSeconds} or null
                   per range (null when it lies outside the file or holds under 0.5 s; one over
                   30 s is cut to its first 30 s), modelId, modelRevision}
 POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
