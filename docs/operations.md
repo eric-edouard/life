@@ -146,8 +146,9 @@ quarter hour says nothing, and a noise offset (+2:01) is ignored. A day with no 
 nearest day that has some (ties earlier) and is reported as a gap, except a travel day: its own mail names both the
 zone of the known day before and of the one after, and they differ (a clock change included). Travel days stay
 deferred, with no units: no step reads his answers about a day before the recorded zones (a `zones.jsonl` line without
-`source` would end the derived era there), so they wait for a future source of evidence. Only the days before the derived era ends (the first zone record without `source`) are set, so a day his
-recorded zones cover is never deferred, and the era's last day is deferred when it would end after that record begins.
+`source` would end the derived era there), so they wait for a future source of evidence.
+Only the days before the derived era ends (the first zone record without `source`) are set, so a day his recorded zones
+cover is never deferred, and the era's last day is deferred when it would end after that record begins.
 Stored zones are corrected only by appended lines (`supersedingRuns`), and only when the window covers the whole derived
 era; a narrower one appends nothing. A settled day (a day a record cites by a unit id, a day on or after the first episode,
 a deferred day that holds units, each with one neighbour) keeps its stored zone, so no cited unit moves. Later

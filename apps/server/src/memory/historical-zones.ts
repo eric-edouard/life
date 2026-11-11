@@ -104,10 +104,8 @@ const agreed = (set?: Set<string | null>) =>
  * 1. Photos agree on one offset: that zone (`photos`), deferred if it is a quarter hour. A photo is where he stood.
  *    Photos that split are his phone recording a real move: the day is placed by its mail or its neighbours, wrong by
  *    at most the hours in transit.
- * 2. Else mail agrees on one zone: that zone (`mail`). Mail that splits is a gap: a client clock that is wrong can't be
- *    told from a move, so the day takes its nearest known day, unless it is a travel day: its own mail names both the
- *    zone of the known day before it and of the one after, and they differ. A travel day is deferred: it waits for
- *    evidence that can tell which part of the day was where.
+ * 2. Else mail agrees on one zone: that zone (`mail`). Mail that splits is a gap (a wrong client clock can't be told
+ *    from a move), except a travel day, which is deferred.
  * A run carries the source of the day that opened it. `eraFrom` is where the first recorded zone begins: the last day
  * of the era is deferred when it would end after it. Later model backfill must re-read this report: a gap is only a
  * calendar boundary, never evidence of where he was.
@@ -143,7 +141,7 @@ export function historicalZonesOf(
   const apart = (a: string, b: string) =>
     Math.abs(Date.parse(a) - Date.parse(b));
   const nearestOf = (day: string, before?: Known, after?: Known) =>
-    before && !(after && apart(after.day, day) < apart(before.day, day))
+    !after || (before && apart(before.day, day) <= apart(after.day, day))
       ? before
       : after;
   /** A gap day whose own mail names both the zone of the known day before it and of the one after, and they differ. */

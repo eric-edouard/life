@@ -626,7 +626,7 @@ export function readMail(
   return events;
 }
 
-/** Raw Date headers of the owner's sent mail, sharing the read-once message cache. Missing headers remain explicit. */
+/** Raw Date headers of the owner's sent mail, sharing the read-once message cache; a missing one is undefined and says nothing. */
 export function readSentMailDates(
   since: Date,
   before: Date,
@@ -653,8 +653,6 @@ export function readSentMailDates(
     seen.add(id);
     const path = emlxPath(root, r.mailbox, r.rowid);
     const read = path ? (parsed.get(path) ?? parse(path, id)) : undefined;
-    return [
-      { at: new Date(r.received * 1000).toISOString(), date: read?.date },
-    ];
+    return [{ date: read?.date }];
   });
 }
