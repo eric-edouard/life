@@ -110,7 +110,7 @@ of the owner's or any secret; push a red branch; in the root checkout, `git stas
 1. `git worktree list`, then `git fetch && git worktree add --no-track .claude/worktrees/<topic> -b <topic>
    origin/main`. The root checkout stays clean on `main`.
 2. Commit small and often, staging only your own paths.
-3. When green, ship through a PR that passes `golden-rule-verdict` (`/ship` in Claude Code).
+3. When green, ship through a PR that passes the debt verdict (`work-on-code`; `/ship` in Claude Code).
 4. Debug from evidence: `bun run events`, `DATABASE_PATH=<archive> bun run --cwd apps/lifelog/apps/server diagnostics:recent`, and
    the phone's data read-only with `xcrun devicectl device copy from --domain-type appDataContainer
    --domain-identifier <bundle id>`, over USB if possible.

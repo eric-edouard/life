@@ -300,7 +300,7 @@ case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
 - It commits only its own files, by path (`git commit -- <files>`), and only while the connector's `read_life_status` shows
   `processing` idle: the nightly stages `memory/` and `truth/` in the same repo, and a bare commit would take them.
 - A second Claude session, with fresh context, makes an adversarial pass on the findings before any fix is proposed.
-  The fix, once the owner approves its scope, takes the normal path: a worktree, a PR, a golden-rule verdict.
+  The fix, once the owner approves its scope, takes the normal path: a worktree, a PR, a debt verdict.
 - The audit file quotes only what a finding needs (ids, cursors and refs otherwise). Its sections, in order:
   1. **Complaint:** the ask id, recording and turn, spoken and recorded instants.
   2. **Scope:** this case and a named window of related ones.
