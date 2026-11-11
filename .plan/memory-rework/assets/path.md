@@ -22,9 +22,7 @@ properly only when it moves the score. The bet most at risk: that stored summari
    **History in the person read, 11 Nov** (`…/2026-11-11-history-in-page.md`): on the 8 cases about the two,
    points 13, 16, 17 of 24 with it against 11 to 16 (mean 13.6) without; C1 and C4 better every run. A small,
    steady gain: the history goes into the person read, built properly.
-4. **Money joins Life before the build**, as part of the import (his word, 11 Nov): income, and money in and out
-   with his father and the house build, so a money question can tell his own money from the family's.
-5. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
+4. Then build, in path order, only what moved the score. The pilot's prompt tuning waits (round 2's wording is
    enough until a layer consumes the codes).
 
 
