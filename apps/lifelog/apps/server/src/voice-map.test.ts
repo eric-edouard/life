@@ -269,6 +269,7 @@ function seedMap() {
     exchanges: 12,
     id: "group",
     kind: "new_person" as const,
+    likely: [],
     name: null,
     namedPersonId: null,
     personId: null,

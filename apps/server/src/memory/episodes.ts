@@ -252,11 +252,11 @@ function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
   return "surface" in link ? `${UNKNOWN}${link.surface}` : null;
 }
 
-/** Whether these units can make an episode: not when all are what his devices log or his agents did (`isActivity`, agent). */
+/** Whether these units can make an episode: not when all are commits, screen time or agent reports. */
 const isLived = (units: Unit[]) =>
   units.some((u) => {
     const kind = kindOf(u.source);
-    return !isActivity(kind) && kind !== "agent";
+    return kind !== "repo" && kind !== "screen" && kind !== "agent";
   });
 
 /**

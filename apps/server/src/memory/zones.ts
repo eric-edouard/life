@@ -15,7 +15,10 @@ import { daysOf, UNITS, ZONES } from "./ledger";
 // wall clock there. Local days and times come from here, never from the zone of the process reading them, so a day read again
 // later (in another country) keeps its units' dates and ids. (Schedules, schedule.ts, follow the Mac's own clock.)
 
-let cache = { list: [] as { from: number; tz: string }[], mtime: -1 };
+let cache = {
+  list: [] as { from: number; source?: "mail"; tz: string }[],
+  mtime: -1,
+};
 
 /**
  * The records by `from` (one about the past, his history told later, is appended after the newer ones), read again
@@ -25,18 +28,24 @@ function zones() {
   const mtime = statSync(ZONES).mtimeMs;
   if (mtime !== cache.mtime) {
     const list = rowsOf(ZONES, Zone)
-      .map((z) => ({ from: Date.parse(z.from), tz: z.tz }))
+      .map((z) => ({ from: Date.parse(z.from), source: z.source, tz: z.tz }))
       .toSorted((a, b) => a.from - b.from);
     cache = { list, mtime };
   }
   return cache.list;
 }
 
+const dayOfZone = (z?: { from: number; tz: string }) =>
+  z ? wall(new Date(z.from).toISOString(), z.tz).day : "";
+
 /** The local day his first zone record starts: memory can't read a day before it without guessing its zone. */
-export const firstZoneDay = () => {
-  const [first] = zones();
-  return first ? wall(new Date(first.from).toISOString(), first.tz).day : "";
-};
+export const firstZoneDay = () => dayOfZone(zones()[0]);
+
+/**
+ * The local day the mail era ends: his first record of where he was, not derived from mail. Before it, sent-mail Date
+ * headers may set, defer or gap a day; from it on, a recorded zone covers the day.
+ */
+const mailEraEnd = () => dayOfZone(zones().find((z) => !z.source));
 
 /** The owner's time zone at `iso`: the latest record from before it (the first one before them all). */
 export function zoneAt(iso: string) {
@@ -70,14 +79,18 @@ export function wall(iso: string, tz = zoneAt(iso)) {
   return { day, hms };
 }
 
+/** `tz`'s offset from UTC at `iso`, in ms (by default where he was then). */
+export function offsetAt(iso: string, tz = zoneAt(iso)) {
+  const { day, hms } = wall(iso, tz);
+  return (
+    Date.parse(`${day}T${hms}Z`) - Math.floor(Date.parse(iso) / 1000) * 1000
+  );
+}
+
 /** The instant local `date` starts (or reaches `hm`, "HH:MM") in `tz`, by default where he was then (`cutAt` keeps that one instant). */
 export function dayStart(date: string, tz?: string, hm = "00:00") {
   const utc = Date.parse(`${date}T${hm}:00Z`);
-  const offset = (at: number) => {
-    const iso = new Date(at).toISOString();
-    const { day, hms } = wall(iso, tz ?? zoneAt(iso));
-    return Date.parse(`${day}T${hms}Z`) - at;
-  };
+  const offset = (at: number) => offsetAt(new Date(at).toISOString(), tz);
   return new Date(utc - offset(utc - offset(utc)));
 }
 
@@ -199,9 +212,12 @@ export function lastDays(now: Date, days: number): Window {
 }
 
 /** The one writer of past and present zone runs; callers hold the memory lock. */
-export function noteZones(runs: { from: string; tz: string }[]) {
+export function noteZones(
+  runs: { from: string; source?: "mail"; tz: string }[],
+  path = ZONES
+) {
   appendJsonl(
-    ZONES,
+    path,
     Zone,
     runs.map((r) => ({ ...r, schemaVersion: 1 as const }))
   );
@@ -314,6 +330,14 @@ export async function readHistoricalZones(
   const firstUnit = files
     .find((f) => rowsOf(join(UNITS, f), Unit).length > 0)
     ?.slice(0, 10);
+  const eraEnd = mailEraEnd();
+  const mailDays = {
+    from: window.from,
+    to: [
+      window.to,
+      ...(eraEnd ? [daysBefore(eraEnd, 1)] : []),
+    ].sort()[0] as string,
+  };
   const firstZone = firstZoneDay();
   const limit = [
     window.to,
@@ -321,11 +345,8 @@ export async function readHistoricalZones(
     ...(firstZone ? [daysBefore(firstZone, 1)] : []),
   ].sort()[0] as string;
   // Derive gaps again on retries too: appended runs must never turn an unresolved day into known coverage.
-  const report = historicalZonesOf(read(new Date(0), clock()), window);
-  const gaps = new Set(report.gaps);
-  const deferred = report.deferred.filter(
-    (day) => !(firstZone && day >= firstZone && gaps.has(day))
-  );
+  const report = historicalZonesOf(read(new Date(0), clock()), mailDays);
+  const deferred = [...report.deferred];
   const runs = report.runs.filter((r) => {
     const { day } = wall(r.from, r.tz);
     return day >= window.from && day <= limit;
@@ -362,6 +383,6 @@ export async function prepareHistoricalZones(
   read = readSentMailDates
 ) {
   const report = await readHistoricalZones(window, read);
-  noteZones(report.runs);
+  noteZones(report.runs.map((r) => ({ ...r, source: "mail" as const })));
   return report;
 }

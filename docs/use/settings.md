@@ -65,10 +65,13 @@ bun life import ~/Downloads/claude-export
 Download your data from claude.ai or ChatGPT and unzip it first (a large ChatGPT export comes as several
 `conversations-000.json` files: Life reads them as one). The optional `backfillEngine` selects the runner for
 imports and historical model backfills; without it those jobs are off. Codex uses your subscription quota, while an
-API engine uses its paid credits. This setting leaves the nightly and midday runner unchanged.
+API engine uses its paid credits. This setting leaves the nightly runner unchanged.
 
-The dry run copies nothing and calls no model. The real import judges conversations in batches of ten, resumes missing
-judgments when repeated, and refuses a different export of the same assistant. A failed Codex call waits for a retry.
-Once judging finishes, Life collects the older messages and updates search without reading them for facts.
+The dry run copies nothing and calls no model; it says what is new in the export. A newer export imports the same way:
+Life keeps every export as it came, never replacing an older one, so a conversation you deleted in the app stays in Life.
+Each conversation reads at its latest version, and the real import judges in batches of ten only the new conversations
+and those whose beginning changed, resuming missing judgments when repeated. A failed Codex call waits for a retry.
+Life collects the older messages it touched and updates search without reading them for facts. Any conversation, even
+one Life did not keep, can be read back whole by its id.
 
 Next: [back up and restore](backup.md).

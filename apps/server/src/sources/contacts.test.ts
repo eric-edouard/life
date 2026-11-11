@@ -29,7 +29,7 @@ function make(
   mkdirSync(join(path, ".."), { recursive: true });
   const db = new Database(path);
   db.run(
-    "create table ZABCDRECORD (Z_PK integer primary key, ZFIRSTNAME text, ZLASTNAME text, ZORGANIZATION text, ZJOBTITLE text, ZDEPARTMENT text, ZBIRTHDAY real, ZBIRTHDAYYEAR integer)"
+    "create table ZABCDRECORD (Z_PK integer primary key, ZFIRSTNAME text, ZLASTNAME text, ZORGANIZATION text, ZJOBTITLE text, ZDEPARTMENT text, ZBIRTHDAY real, ZBIRTHDAYYEAR integer, ZUNIQUEID text)"
   );
   db.run("create table ZABCDPHONENUMBER (ZOWNER integer, ZFULLNUMBER text)");
   db.run("create table ZABCDEMAILADDRESS (ZOWNER integer, ZADDRESS text)");
@@ -44,7 +44,7 @@ function make(
   );
   db.run("create table ZABCDURLADDRESS (ZOWNER integer, ZURL text)");
   for (const [i, r] of rows.entries()) {
-    db.run("insert into ZABCDRECORD values (?, ?, ?, ?, ?, null, ?, ?)", [
+    db.run("insert into ZABCDRECORD values (?, ?, ?, ?, ?, null, ?, ?, ?)", [
       i + 1,
       r.first ?? null,
       r.last ?? null,
@@ -52,6 +52,7 @@ function make(
       r.title ?? null,
       r.birthday?.[0] ?? null,
       r.birthday?.[1] ?? null,
+      `card-${i + 1}`,
     ]);
     for (const h of r.handles) {
       db.run(
@@ -136,6 +137,7 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
       addresses: ["12 rue Neuve, 44000 Nantes, France (Home)"],
       birthday: "1990-01-05",
       handles: ["+33 6 11 11 11 11", "claire@example.com"],
+      id: "card-1",
       name: "Claire",
       profiles: ["Facebook: claire.d", "https://claire.example"],
       related: ["Mother: Anne"],

@@ -16,6 +16,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
 | split group | Clean sampled turns separated from a job's speaker label by voice; recognized turn rows keep the group, which supplies no identity or evidence. | |
+| not relevant | The owner's answer for a voice he won't name: maybe someone he knows, so that voice is not asked about again and is never a stranger's reference (status `not_relevant`). Not "Not anyone I know", which makes a stranger. | |
 | recheck | A voice the owner named as a person that lifelog, judging without that voice's own conversations, hears as another person on at least half of its sampled turns. Offered once more in the naming flow; his next answer for that voice (the same name or another) settles it for good. | |
 | sample | A voice embedding of one clean recorded turn, with its model and revision; no extra audio. Unnamed samples are nobody's evidence. | |
 | profile | A person's owner-attributed voice evidence, represented by one exemplar per conversation of clean clips. | |
@@ -52,11 +53,22 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `phone`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `claude`, `chatgpt`, and the agent's. | |
-| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `agent`. | |
-| activity | What his devices record he did, never anyone's words: the `repo` and `screen` kinds (`isActivity`). Never extracted, importance 1 at most. | |
+| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `phone`, `line`, `instagram`, `linkedin`, `telegram`, `mail`, `notes`, `git`, `screen` (Screen Time), `apple-health`, `photos`, `claude`, `chatgpt`, and the agent's. | |
+| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `screen`, `physical`, `photos`, `agent`. | |
+| activity | What his devices record he did, never someone else's words (a photo's caption is his): the `repo`, `screen`, `physical` and `photos` kinds (`isActivity`). Never extracted, importance 1 at most; physical and photos units can make episodes. | |
 | stint | One stretch of time in one app or website on one device, from Screen Time; the same one back within 2 minutes is one stint. Not a Claude session. | |
 | device-day | A Screen Time unit: one device's stints on one local day, its time by app and website and its stints of 5 minutes or more. The device is named by the `devices` setting. | |
+| apple-health | The Apple Health source, read through lifelog's REST contract into a derived copy. Off until enabled in `sources`. | |
+| measurement | One Apple Health record: a sleep segment or a workout. Instants only; a night (its segments together) and a workout each make an episode, never extracted facts. | |
+| physical | The source kind for what devices measure of the owner's body; an activity kind. | |
+| measurement-day | One local day's Apple Health nights and workouts, each as a timed span; a night belongs to the day it began. | |
+| photos | The Photos library as a source, read in place and read-only. Off until enabled in `sources`. | |
+| ocr | The words Apple found in a photo (signs, screenshots of text), as a set in no text order, from its search index. Not a transcript. | |
+| photo-day | A Photos unit: one local day of his library, its photos grouped by half hour and place, each line with Apple's place, scenes, who is pictured and his captions. Never an image. | |
+| pictured | Who Apple's People names on a photo's faces, by name and, when Apple links a Contacts card, its handle. Not a unit's `people` (refs). | |
+| scene | A label Apple's photo analysis gives a photo (beach, sunset), from its search index. Not a topic (a verdict's tag). | |
+| description | Life's reading of an image, in a sentence or two: a photo's (`sources/photo-descriptions.ts`), written on the Mac by the describer, or a message file's (`what` in `files.jsonl`, written by his provider's fast model, shown as "described by Life"). One concept in two stores; `what` becomes `description` in a later migration. Not a caption (his), not an episode's `what`. | `what` of a message file |
+| describer | The local model that writes a photo's description (`models/describer.ts`): Qwen3.5-9B under llama.cpp, started by the watcher only while photos wait. Not the embedder, not Lifelog Host's children. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
@@ -68,13 +80,14 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | heard as | How lifelog heard a voice it could not name (`readVoiceKinds`): live with him, live nearby but not talking with him, over a phone, from a screen or speaker, an announcement. Its words carry it as a prefix. | |
 | payment | Money he paid or got back, as his money app gives it (`apps/server/src/payments/`): not a source, never a unit nor read by a model. Placed at read time in his day, the episode it happened in (the shortest holding its time) and where he was. Not a `transaction` (a mail). | |
 | paid | What was paid in an episode or a range, in EUR: money out less refunds. Not "cost" or "spend", which are model spend (`run-log.ts`). | |
+| export copy | An assistant export (claude.ai or ChatGPT) Life keeps as it came in `imports/<source>/`, one per import of different bytes, never replaced or merged. Not a Life export, not the archive. | |
 | archive | Life's own copy of the WhatsApp, the bridged networks' and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day. Id `unit_…`. | |
+| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day, a device-day, a measurement-day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | episode | A stretch of the owner's day that happened, read from the day's units and stays together; never a plan. Called moment before Nov 2026. Id `ep_…`. | |
 | part | The new units of a day that fit one call, in time order (`dayPartOf`); a day too long for one call is read in parts, each seeing the episodes the one before wrote. | |
@@ -112,16 +125,17 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
-| sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
+| sweep | A scheduled batch of steps: `nightly`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources, read raw until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory` and `change_todo_item` write; `read_agent_asks` is an agent's own feed of asks; `search` and `fetch` keep ChatGPT's names. | |
-| exchange | One sitting of talk in a stream of messages, in time order, ended when nothing is written for 6 hours (`exchangesOf`, `EXCHANGE_ENDS_AFTER`, `memory/exchanges.ts`). The caller chooses the stream: one person's messages across channels (the persona's counts: who opened, how fast each answers) or one chat. Not a passage (search's text, cut by size and 30 minutes), not a conversation (lifelog's grouping of speech), not lifelog's `exchanges` (turns traded in a conversation); the episodes prompt calls it a burst. | |
+| exchange counts | What code counts between him and one person over their one-to-one chats and mail threads, one row per exchange: who opened it, messages and deletions each way, minutes to each answer, its days (`memory/exchange-counts.ts`). Rebuilt whole from the sources each night into Life's state; folded over any span for the person read and the persona. Not a measurement (an Apple Health record), not a level (closeness), not a model's reading. | |
+| exchange | One sitting of talk in a stream of messages, in time order, ended when nothing is written for 6 hours (`exchangesOf`, `EXCHANGE_ENDS_AFTER`, `memory/exchanges.ts`). The caller chooses the stream: one person's messages across channels (the exchange counts: who opened, how fast each answers) or one chat. Not a passage (search's text, cut by size and 30 minutes), not a conversation (lifelog's grouping of speech), not lifelog's `exchanges` (turns traded in a conversation); the episodes prompt calls it a burst. | |
 | exchange batch | What one call reads when a stream's exchanges are read together: consecutive exchanges up to 30,000 characters, an exchange never cut (`batchesOf`, `EXCHANGE_BATCH_CHARS`, `memory/exchanges.ts`). Not the batches of calls a step runs side by side (`inBatches`). | |
 | living chat | A chat or a mail thread both sides wrote in (`isLiving`, `memory/exchanges.ts`): the ones a read of exchanges is for. One only he or only they wrote in is not. | |
 | move | Something one person did toward another in an exchange, as a read lists it: its code, the line it is on, the words that show it. Who made it and when come from the message, never from the model; a move whose words are not in its exchange is dropped. Read by the memory rework's pilot today (`scripts/memory-pilot.ts`), stored nowhere in `memory/` yet. Not a trait, not a verdict on a person; not the `act` command, not a mark (his words to Life). | |
@@ -142,6 +156,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | machine dir | One per computer: the archive, the locks, Codex's home (`MACHINE_DIR`). | |
 | Life code dir | Life's code, prompts and assets (`LIFE_CODE_DIR`, env too). | |
 | time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`): a recorded line's at that instant (`zoneAt`), the present's the latest noticed (`zoneNow`); where he is now is the phone's latest zone, else the Mac's (`readZoneHere`). | |
+| mail era | The days before his first zone record not derived from mail (`mailEraEnd`, `zones.ts`): the only days sent-mail Date headers may set, defer or gap. | |
 | boundary zone | One layer of the code in fallow's checks (`.fallowrc.json`). | |
 
 Next: the [architecture](architecture.md) and [every record](SCHEMA.md).

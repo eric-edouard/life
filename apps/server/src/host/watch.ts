@@ -5,6 +5,7 @@ import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
+import { settings } from "../core/settings";
 import {
   readSearchedTexts,
   readStaleness,
@@ -13,13 +14,21 @@ import {
 } from "../memory/index-writer";
 import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
-import { listening } from "../memory/sources";
-import { syncLifelogUnits } from "../memory/unit-writer";
+import { listening, readySources } from "../memory/sources";
+import {
+  buildTodayUnits,
+  publishTodayUnits,
+  syncLifelogUnits,
+} from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
+import { dayNow } from "../memory/zones";
 import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
+import type { Unit } from "../records/unit";
+import { syncAppleHealth } from "../sources/apple-health";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
+import { describePhotos } from "./describe-photos";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -28,14 +37,31 @@ import { lockReport, sendReport } from "./report";
 
 // `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
-// or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Health is in
+// or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
+// builds today's units from every other source the same way (`buildTodayUnits`), with no model call. Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
-// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded.
+// down never stops it (1 Nov: 20 h without one). Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
+let syncingMeasurements = false;
+/** One copy sync at a time; a failed page waits for the next minute. */
+async function syncMeasurements() {
+  if (
+    syncingMeasurements ||
+    !readySources().some((s) => s.kind === "physical")
+  ) {
+    return;
+  }
+  syncingMeasurements = true;
+  try {
+    await syncAppleHealth();
+  } finally {
+    syncingMeasurements = false;
+  }
+}
 /**
  * Each minute, one at a time, beside the loop (reading his lists takes about 10 s): his changes in his to-do list
  * (apps/server/src/todo-list) recorded as state. `at` is taken before the read: what Life writes during it falls in the
@@ -74,6 +100,26 @@ async function embedSearched() {
     await embedNew(embedder, readSearchedTexts);
   } finally {
     embedding = false;
+  }
+}
+
+let describing = false;
+/** How often photos with no description are looked for: a pass takes about 8 minutes, so a new photo waits about this long. */
+const DESCRIBE_EVERY = 10 * MIN;
+/** On its own timer, one pass at a time, beside the loop and apart from the memory lock: the model runs for minutes (`describePhotos`). */
+async function describeNew() {
+  if (
+    describing ||
+    !settings().describePhotos ||
+    !readySources().some((s) => s.kind === "photos")
+  ) {
+    return;
+  }
+  describing = true;
+  try {
+    await describePhotos();
+  } finally {
+    describing = false;
   }
 }
 
@@ -194,42 +240,29 @@ export function resumed(store: Store, now: number) {
   return pending;
 }
 
-/**
- * What the watcher owes the store: the lifelog units from an instant on (null: none), and the whole index
- * (`isIndexOwed`; otherwise the index follows the units it writes, `reindexUnits`).
- */
-interface Owed {
-  from: Date | null;
-  isIndexOwed: boolean;
-}
 /** The earlier of two instants the units are owed from. */
 const earliest = (a: Date | null, b: Date | null) =>
   a && b && b < a ? b : (a ?? b);
 
 /**
- * Pays what is owed holding the lock, and what the index's staleness adds (`readStaleness`: a correction is
- * searchable within the minute; a `truth/` edit builds every lifelog unit again); returns what is still owed (all of
- * it when another run held the lock). A unit that went, or that a code rule dropped or took back, takes the full
- * `reindex`.
+ * Pays what is owed holding the lock: the lifelog units from `from` on (null: none) and the index (`reindexFor`),
+ * with what the index's staleness adds (`readStaleness`: a correction is searchable within the minute; a `truth/` edit
+ * builds every lifelog unit again); returns the instant still owed (all of it when another run held the lock).
  */
-async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
+async function settle(
+  store: Store,
+  cursor: string,
+  from: Date | null
+): Promise<Date | null> {
   const stale = readStaleness();
-  const due = {
-    from: stale === "truth" ? new Date(0) : owed.from,
-    isIndexOwed: owed.isIndexOwed || stale !== null,
-  };
-  if (!(due.from || due.isIndexOwed)) {
-    return due;
+  isIndexOwed ||= stale !== null;
+  const due = stale === "truth" ? new Date(0) : from;
+  if (!(due || isIndexOwed)) {
+    return null;
   }
   const done = await locked(async () => {
-    const built = due.from ? await syncLifelogUnits(store, due.from) : null;
-    // Written units no longer differ: if the index update throws, the retry owes the whole index.
-    owed.isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
-    if (due.isIndexOwed || built?.hasGoneOrBack) {
-      await reindex();
-    } else if (built?.written.length) {
-      await reindexUnits(built.written);
-    }
+    const built = due ? await syncLifelogUnits(store, due) : null;
+    await reindexFor(built);
     return { built };
   });
   if (done?.built) {
@@ -238,7 +271,57 @@ async function settle(store: Store, cursor: string, owed: Owed): Promise<Owed> {
       `${clock().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
     );
   }
-  return done ? { from: null, isIndexOwed: false } : due;
+  return done ? null : due;
+}
+
+/**
+ * Whether the whole index is owed: at start (the last run may have stopped between units and index), when what it
+ * reads went stale (`readStaleness`), and while it follows units a sync wrote (they no longer differ, so an update that
+ * threw is redone whole by whichever sync runs next); cleared once it is built.
+ */
+let isIndexOwed = true;
+/**
+ * The index after a sync (under the lock): whole when owed (`isIndexOwed`) or when a unit went or a code rule dropped
+ * or took one back, else only the units written (`reindexUnits`).
+ */
+async function reindexFor(
+  built: { hasGoneOrBack: boolean; written: Unit[] } | null
+) {
+  const isWhole = isIndexOwed || !!built?.hasGoneOrBack;
+  isIndexOwed ||= !!(built?.written.length || built?.hasGoneOrBack);
+  if (isWhole) {
+    await reindex();
+  } else if (built?.written.length) {
+    await reindexUnits(built.written);
+  }
+  isIndexOwed = false;
+}
+
+let syncing = false;
+/** How often today's units from every source but lifelog are built (`buildTodayUnits`), the first a tick after start: search finds a message by its words within this. */
+const TODAY_EVERY = 5 * MIN;
+/**
+ * On its own timer, one at a time: today's units built outside the lock, written and indexed under it. When a run holds
+ * the lock this turn is skipped; the other way round, a night that finds the lock held waits for the next tick.
+ */
+async function syncToday() {
+  // While a run holds the lock its reads would be thrown away.
+  if (syncing || isLocked()) {
+    return;
+  }
+  syncing = true;
+  try {
+    const built = await buildTodayUnits(dayNow());
+    await locked(async () => reindexFor(await publishTodayUnits(built)));
+  } finally {
+    syncing = false;
+  }
+}
+
+function todayEvery() {
+  syncToday().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.today" })
+  );
 }
 
 /** Whether Life can act from here, in life-watch.log at start (the connector's `change_todo_item` acts from this process). */
@@ -264,9 +347,12 @@ export async function watch(): Promise<number> {
   sayActions();
   minute();
   embedEvery();
+  describeEvery();
   const timers = [
     setInterval(minute, MIN),
     setInterval(embedEvery, EMBED_EVERY),
+    setInterval(describeEvery, DESCRIBE_EVERY),
+    setInterval(todayEvery, TODAY_EVERY),
   ];
   try {
     return await (listening() ? listen(running, started) : quiet(running));
@@ -283,8 +369,8 @@ async function listen(running: string, started: Date): Promise<number> {
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
   let health = readHealth();
-  // At start, every unit follows the store and the index is rebuilt: the last run may have stopped between the two.
-  let owed: Owed = { from: new Date(0), isIndexOwed: true };
+  // At start, every unit follows the store (and the index is owed whole: `isIndexOwed`).
+  let owed: Date | null = new Date(0);
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
   // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
@@ -297,7 +383,7 @@ async function listen(running: string, started: Date): Promise<number> {
         more ? 0 : holdFor(pending, clock().getTime(), speech)
       );
       ({ more } = page);
-      owed.from = earliest(owed.from, page.touched);
+      owed = earliest(owed, page.touched);
       for (const h of hearings(
         pending,
         page.owner,
@@ -311,7 +397,7 @@ async function listen(running: string, started: Date): Promise<number> {
           ({ heard, marked }) => {
             // Its marks (its spans, on its turns from `from`) changed: the units carry them at the next sync.
             if (marked) {
-              owed.from = earliest(owed.from, new Date(h.from));
+              owed = earliest(owed, new Date(h.from));
             }
             return heard ? null : h.tries;
           },
@@ -366,6 +452,9 @@ async function quiet(running: string) {
 }
 
 function minute() {
+  syncMeasurements().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.apple-health" })
+  );
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "todo.tick" })
   );
@@ -393,6 +482,12 @@ export async function mailStuckLock() {
 function embedEvery() {
   embedSearched().catch((e: Error) =>
     log("run.error", { error: e.message, step: "watch.embed" })
+  );
+}
+
+function describeEvery() {
+  describeNew().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "watch.describe" })
   );
 }
 

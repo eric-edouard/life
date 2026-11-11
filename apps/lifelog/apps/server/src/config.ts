@@ -1,17 +1,17 @@
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import { z } from "zod";
 
-// Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
+// Prices from docs/research/elevenlabs.md (live pricing page; Scribe's rate read 2026-11-11).
 // The API reference prices keyterms at +20% ($0.044/h); the higher figure is used.
-export const SCRIBE_V2_USD_PER_HOUR = 0.22;
+export const SCRIBE_USD_PER_HOUR = 0.2;
 const KEYTERMS_USD_PER_HOUR = 0.05;
 
 // Seconds at the base Scribe rate that this audio will cost, add-ons included.
 export const billableSeconds = (seconds: number, s: { keyterms: string[] }) =>
   (seconds *
-    (SCRIBE_V2_USD_PER_HOUR +
+    (SCRIBE_USD_PER_HOUR +
       (s.keyterms.length > 0 ? KEYTERMS_USD_PER_HOUR : 0))) /
-  SCRIBE_V2_USD_PER_HOUR;
+  SCRIBE_USD_PER_HOUR;
 
 // Days, months (spending) and clock times are the owner's: the zone the
 // iPhone named in its latest heartbeat (`refreshOwnerTimeZone`), UTC until it has named one.
@@ -47,9 +47,10 @@ export function ownerClock(at: Date) {
 // Display samples per person and embedding model, spread across recording time.
 export const VOICE_MAP_POINTS_PER_PERSON_MODEL = 400;
 
-// Speaker recognition.
-// ponytail: placeholder values; calibrate on real Pendant conversations (mixed languages,
-// overlap, distance to the mic) before trusting a match.
+// Speaker recognition. The replay notes below were measured on ECAPA vectors. On MECT-B2's (11 Nov 2026, his
+// answers replayed, 3,567 turns) the same numbers stayed at the knee: 2,210 turns named right and 110 wrong
+// (ECAPA: 2,231 and 162 of 4,100); a lower `margin` or `matchThreshold` named more wrong than right, a higher
+// one lost names (`ownerTurn` 0.7 would credit him 6 fewer turns of others and lose 3 of his: too little to move).
 export const RECOGNITION = {
   // A voice is scored against a person's closest conversations, this many (speakers.ts `likeness`).
   bestExemplars: 2,

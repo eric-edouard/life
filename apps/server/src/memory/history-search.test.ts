@@ -9,7 +9,7 @@ const event = (
   source: SourceEvent["source"] = "line"
 ): SourceEvent => ({
   at,
-  chat: "old-room",
+  chat: source === "claude" ? "claude:old-room" : "old-room",
   chatName: "Old room",
   fromMe: true,
   id,
@@ -29,7 +29,7 @@ test("stored ancient chats and pruned assistant writing remain searchable withou
   });
   const hits = (await chatHits("ancient cobalt")).join("\n");
   expect(hits).toContain("(line, chat old-room)");
-  expect(hits).toContain("(claude, fetch unit_");
+  expect(hits).toContain("(claude, fetch claude:old-room)");
   expect(
     (await chatHits("cobalt", { from: "2002-01-01" })).join("\n")
   ).not.toContain("ancient cobalt");

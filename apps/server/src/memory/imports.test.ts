@@ -1,13 +1,24 @@
-import { expect, spyOn, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { beforeEach, expect, spyOn, test } from "bun:test";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { setSettings, settings } from "../core/settings";
 import { Imported } from "../records/observation";
-import { importOf } from "../sources/assistants";
+import { conversationsOf, exportsDir } from "../sources/assistants";
 import { dryRun, importExport, parseJudged, readExport } from "./imports";
 import { IMPORTED } from "./ledger";
+
+beforeEach(() =>
+  rmSync(exportsDir("claude"), { force: true, recursive: true })
+);
 
 // A made-up claude.ai export: one conversation about his life, one only code.
 const exportOf = (text: string) => [
@@ -21,7 +32,7 @@ const exportOf = (text: string) => [
       },
     ],
     name: "Ada's move",
-    uuid: "c1",
+    uuid: "imp1",
   },
   {
     chat_messages: [
@@ -33,7 +44,7 @@ const exportOf = (text: string) => [
       },
     ],
     name: "A bug",
-    uuid: "c2",
+    uuid: "imp2",
   },
 ];
 
@@ -84,9 +95,8 @@ test("a ChatGPT export split into numbered files is one export, in the files' or
   writeFileSync(join(dir, "conversations-999.json"), JSON.stringify([first]));
   writeFileSync(join(dir, "conversation_asset_file_names.json"), "{}");
   const read = readExport(dir);
-  expect([read.source, read.all, read.conversations.map((c) => c.id)]).toEqual([
+  expect([read.source, read.conversations.map((c) => c.id)]).toEqual([
     "chatgpt",
-    2,
     ["c1", "c2"],
   ]);
   // What Life keeps is the two as one file, the same bytes on every read: a repeated import is not another export.
@@ -103,7 +113,7 @@ test("a judging reply is checked: one line per conversation asked about", () => 
         { id: "zz", keep: true, why: "Not asked." },
       ],
     },
-    new Set(["c1"]),
+    new Map([["c1", "h1"]]),
     {
       at: "2026-10-21T00:00:00.000Z",
       madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
@@ -111,18 +121,9 @@ test("a judging reply is checked: one line per conversation asked about", () => 
     }
   );
   expect(judged.invalid).toBe(2);
-  expect(judged.records.map((r) => [r.conversation, r.keep])).toEqual([
-    ["claude:c1", true],
+  expect(judged.records.map((r) => [r.conversation, r.keep, r.hash])).toEqual([
+    ["claude:c1", true, "h1"],
   ]);
-});
-
-test("another export of the same assistant is refused before any model call", async () => {
-  const to = importOf("claude");
-  mkdirSync(dirname(to), { recursive: true });
-  writeFileSync(to, JSON.stringify(exportOf("An older export.")));
-  await expect(
-    importExport(folderWith(exportOf("A newer one.")))
-  ).rejects.toThrow("holds another Claude export already");
 });
 
 test("an import without a historical engine stops before copying or any model work", async () => {
@@ -132,6 +133,7 @@ test("an import without a historical engine stops before copying or any model wo
     setSettings({ backfillEngine: null });
     await expect(importExport(folder)).rejects.toThrow("set backfillEngine");
     expect(dryRun(folder).source).toBe("claude");
+    expect(existsSync(exportsDir("claude"))).toBe(false);
   } finally {
     setSettings({ backfillEngine: before ?? null });
   }
@@ -169,7 +171,11 @@ test("imports route quota and calls to the historical engine and keep import.v1 
     uuid: "ancient-unkept",
   });
   const folder = folderWith(json);
-  writeFileSync(importOf("claude"), JSON.stringify(json));
+  mkdirSync(exportsDir("claude"), { recursive: true });
+  writeFileSync(
+    join(exportsDir("claude"), "conversations.json"),
+    JSON.stringify(json)
+  );
   appendJsonl(IMPORTED, Imported, [
     {
       at: "2026-03-04T00:00:00Z",
@@ -225,6 +231,7 @@ test("imports route quota and calls to the historical engine and keep import.v1 
       asked: 1,
       failed: 0,
       kept: 2,
+      // The copy was already there but its changes never collected: planned again from the other copies.
       units: { days: 2, from: "2001-01-01", to: "2026-03-02" },
       unjudged: 0,
     });
@@ -239,4 +246,154 @@ test("imports route quota and calls to the historical engine and keep import.v1 
     localDay.mockRestore();
     setSettings({ backfillEngine: before ?? null });
   }
+});
+
+// A made-up claude.ai conversation: its messages as [id, text, instant].
+const chat = (
+  uuid: string,
+  updated: string,
+  ...turns: [string, string, string][]
+) => ({
+  chat_messages: turns.map(([id, text, at]) => ({
+    created_at: at,
+    sender: "human",
+    text,
+    uuid: id,
+  })),
+  name: uuid,
+  updated_at: updated,
+  uuid,
+});
+
+test("a newer export lands beside the older and only what changed is asked, read and collected", async () => {
+  const long = `My sister Ada moves to Lyon in May. ${"We talk about it. ".repeat(180)}`;
+  const older = [
+    chat("g1", "2026-03-02T10:00:00.000Z", [
+      "a",
+      long,
+      "2026-03-02T09:00:00.000Z",
+    ]),
+    chat("g2", "2026-03-02T10:00:00.000Z", [
+      "b",
+      "Bo's dinner is on Friday.",
+      "2026-03-02T09:30:00.000Z",
+    ]),
+    chat("g5", "2026-02-10T10:00:00.000Z", [
+      "c",
+      "Plan the Sunday lunch.",
+      "2026-02-10T09:00:00.000Z",
+    ]),
+  ];
+  const newer = [
+    chat(
+      "g1",
+      "2026-05-01T10:00:00.000Z",
+      ["a", long, "2026-03-02T09:00:00.000Z"],
+      ["d", "Ada has moved.", "2026-05-01T09:00:00.000Z"]
+    ),
+    chat("g5", "2026-03-04T10:00:00.000Z", [
+      "c",
+      "Plan the Monday lunch.",
+      "2026-03-04T09:00:00.000Z",
+    ]),
+    chat("g3", "2026-04-10T10:00:00.000Z", [
+      "e",
+      "Book the train to Lyon.",
+      "2026-04-10T09:00:00.000Z",
+    ]),
+  ];
+  const before = settings().backfillEngine;
+  const schedule = await import("./schedule");
+  const models = await import("../models/llm");
+  const quota = spyOn(schedule, "spareQuota").mockResolvedValue();
+  const ask = spyOn(models, "askOnce").mockImplementation(async (opts) => ({
+    conversations: (
+      opts.input as { conversations: { id: string }[] }
+    ).conversations.map((c) => ({
+      id: c.id,
+      keep: true,
+      why: "About family.",
+    })),
+  }));
+  const asked = () =>
+    ask.mock.calls
+      .flatMap(
+        (c) => (c[0].input as { conversations: { id: string }[] }).conversations
+      )
+      .map((c) => c.id);
+  try {
+    setSettings({ backfillEngine: "codex" });
+    await importExport(folderWith(older));
+    expect(asked()).toEqual(["g1", "g2", "g5"]);
+    const newerFolder = folderWith(newer);
+    const dry = dryRun(newerFolder);
+    expect(dry.new).toEqual({ changed: 2, conversations: 1, messages: 3 });
+    expect(dry.calls).toBe(1);
+    const result = await importExport(newerFolder);
+    // g1 grew past its gist: not asked again. g5's words changed and g3 is new.
+    expect(asked().slice(3)).toEqual(["g5", "g3"]);
+    // g5's old day (its edited message moved) is collected too, with every day a change touched.
+    expect(result.units).toEqual({
+      days: 5,
+      from: "2026-02-10",
+      to: "2026-05-01",
+    });
+    // g2 is missing from the newer export and still read; the new turn and conversation are read.
+    expect(
+      conversationsOf("claude").map((c) => [c.id, c.messages.length])
+    ).toEqual([
+      ["g1", 2],
+      ["g2", 1],
+      ["g5", 1],
+      ["g3", 1],
+    ]);
+    expect(readdirSync(exportsDir("claude"))).toHaveLength(2);
+    // The same export again adds no copy and asks nothing.
+    const again = await importExport(newerFolder);
+    // Nothing is asked again, but the days it changed are planned again: a crash after the copy never loses them.
+    expect(again).toMatchObject({ asked: 0, units: result.units });
+    expect(readdirSync(exportsDir("claude"))).toHaveLength(2);
+    expect(asked()).toHaveLength(5);
+  } finally {
+    ask.mockRestore();
+    quota.mockRestore();
+    setSettings({ backfillEngine: before ?? null });
+  }
+});
+
+test("a judgment line from before hashes stands for the first version: a newer copy asks again only when the gist changed", () => {
+  const line = (id: string) => ({
+    at: "2026-03-04T00:00:00Z",
+    conversation: `claude:${id}`,
+    keep: true,
+    madeBy: { engine: "claude", model: "old", prompt: "import.v1", run: "old" },
+    schemaVersion: 1 as const,
+    why: "About family.",
+  });
+  appendJsonl(IMPORTED, Imported, [line("same"), line("edited")]);
+  const at = "2026-03-02T09:00:00.000Z";
+  const older = [
+    chat("same", "2026-03-02T10:00:00.000Z", ["a", "Ada moves to Lyon.", at]),
+    chat("edited", "2026-03-02T10:00:00.000Z", [
+      "b",
+      "Bo's dinner is Friday.",
+      at,
+    ]),
+  ];
+  const newer = [
+    chat("same", "2026-04-02T10:00:00.000Z", ["a", "Ada moves to Lyon.", at]),
+    chat("edited", "2026-04-02T10:00:00.000Z", [
+      "b",
+      "Bo's dinner moved to Sunday.",
+      at,
+    ]),
+  ];
+  mkdirSync(exportsDir("claude"), { recursive: true });
+  writeFileSync(
+    join(exportsDir("claude"), "conversations.json"),
+    JSON.stringify(older)
+  );
+  expect(dryRun(folderWith(older)).conversations.kept).toBe(0);
+  // Only the edited one is due: its gist changed; the other is the same words in a later copy.
+  expect(dryRun(folderWith(newer)).conversations.kept).toBe(1);
 });

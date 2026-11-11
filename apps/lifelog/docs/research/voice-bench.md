@@ -86,3 +86,12 @@ changed 16% (708 turns in 181 voices), most from one person he knows to another.
 - **Full runs for five models.** After a quick look on 1,500 turns, only MECT-B2 was run on everything beside ECAPA
   and ReDimNet2-B6: the others were no better than those, or the same model retrained.
 - **The GPU.** On the Mac's GPU these models were slower than on its CPU cores: every new clip length is compiled.
+
+## The switch (11 Nov 2026)
+
+Production moved to MECT-B2 the next day. Every stored sample on block audio was embedded again once (51,900, on
+Modal CPUs, with the speech service's own loader; 313 checked against the Mac, cosine 1.0); the 2,100 on audio from
+before blocks were dropped, with 447 evidence clips of 15 people. The recognition thresholds were swept on the new
+vectors and stayed where they were. The voice eval on his answers, before and after: turns named right 2,231 of
+4,100 to 2,210 of 3,567 (54% to 62%), wrong names 162 to 110 (6.8% to 4.7%), left unnamed 1,102 to 706. In the
+archive, whole voices carrying a recognized name went from 6,625 to 7,249 (707 gained, 83 lost, 5 changed person).

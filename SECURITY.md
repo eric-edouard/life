@@ -10,6 +10,8 @@ agents that act for him. This page says what it protects and what it does not.
 - Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
   keeps is the archive (`~/Library/Application Support/Life/archive/`): phone call history, messages deleted for everyone and old note
   versions.
+- The owner's claude.ai and ChatGPT exports are kept whole as export copies in `imports/` of his data (outside its
+  git), the assistant's replies included; they are read as data, never as his words.
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.
@@ -23,7 +25,8 @@ every quote checked against its source. One call is given tools, and only when a
 cases' agent (`scripts/question-cases.ts`, his word of 10 Nov 2026), Codex on his subscription with Life's connector
 as its only tools, serving its reads and none of its writes. It has no shell, no web and a read-only sandbox, so
 recorded content it reads can steer it to read more, and to nothing else. The text goes to the provider the owner chose (his subscriptions, or
-OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data).
+OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRouter's only when it lists them as keeping no data). Photo descriptions are written on
+the Mac by a local model (llama.cpp, `describePhotos` setting); no image goes to a provider.
 
 ## Agents
 
@@ -46,7 +49,13 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
-  call lines do (who, when, how long; no content), so nothing new leaves the Mac.
+  call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
+  that text includes each day's Apple Health lines (sleep and workouts). With the `photos` source on, it includes each
+  day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
+  photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
+  photo; never an image, a face or a face print.
+- To Modal's GPUs, each once and only with his OK (photos: his OK of 11 Nov 2026): lifelog audio for the speaker re-split (11 Nov 2026), and each photo's
+  1024-pixel preview for the one-off backfill of photo descriptions (`scripts/describe-photos-cloud.ts`). Held in the container's memory for its call and kept nowhere: no Volume, logs print counts only.
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).

@@ -71,13 +71,13 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/` and `appointments.json` (rebuilt whole) and a rename's backfill (next).
+  rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/` and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his ratings and corrections cite them, and a re-read
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
-- **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last done one, `episodes-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
+- **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
+  value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
+  the last done one, `episodes-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
@@ -88,6 +88,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating), `told.jsonl` (what he told Life, one synchronous append: `recordTold`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
+- **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
+  copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
+  export lands as a copy of its own, and a conversation reads from the copy holding its latest version.
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
@@ -141,7 +144,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
   of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
-  (`docs/operations.md`, "Model engines").
+  (`docs/operations.md`, "Model engines"). One model runs on the Mac instead of a provider: photo descriptions, Qwen3.5-9B
+  under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
+  then reaches his provider inside the photo lines like the rest of the line.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
@@ -183,6 +188,7 @@ Before adding a helper, use the one that exists:
 | What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
+| What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
@@ -193,6 +199,8 @@ Before adding a helper, use the one that exists:
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
+| Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `buildTodayUnits` every 5 min for the rest, no model call; read raw, no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
+| An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
@@ -259,15 +267,15 @@ removing a regression case; anything that spends the owner's model quota heavily
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
 data repo; add a send into a chat, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
-`golden-rule-verdict` passes on the PR's current head (once it passes, any agent merges, without asking him: his
+the debt verdict passes on the PR's current head (once it passes, any agent merges, without asking him: his
 ruling of 29 Oct).
 
 ## Workflow
 
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay
   short and written for humans.
-- Every PR passes the golden rule (the `golden-rule` skills where available): a plan checked before code, and
-  `golden-rule-verdict` before merge: did it add or reduce debt?
+- Every PR follows the `work-on-code` skill where available: a debt plan checked before code, and the debt
+  verdict before merge: did it add or reduce debt?
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.

@@ -83,16 +83,18 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     ledger([...verdicts.values(), verdict(b5.unit)]),
     episodesNow(lines, [])
   );
-  // An episode's commits are never read in full, whatever their importance.
-  const commits = built("unit_000000000006", { source: "git" });
-  expect(
-    groupsOf(
-      [b1],
-      [b1, commits],
-      ledger([verdict(b1.unit), verdict(commits.unit, { importance: 1 })]),
-      episodesNow([episode({ units: [U1, "unit_000000000006"] })], [])
-    ).groups.map((g) => g.units.map((b) => b.unit.id))
-  ).toEqual([[U1]]);
+  // Activity stays out of extraction even when it makes an episode or has an inflated verdict.
+  for (const source of ["git", "screen", "apple-health", "photos"] as const) {
+    const activity = built("unit_000000000006", { source });
+    expect(
+      groupsOf(
+        [b1],
+        [b1, activity],
+        ledger([verdict(b1.unit), verdict(activity.unit, { importance: 3 })]),
+        episodesNow([episode({ units: [U1, activity.unit.id] })], [])
+      ).groups.map((g) => g.units.map((b) => b.unit.id))
+    ).toEqual([[U1]]);
+  }
   // U3 is a copy: never read, even though pending; returned apart, to be marked read with nothing in it.
   expect(copies.map((b) => b.unit.id)).toEqual([U3]);
   expect(

@@ -30,6 +30,8 @@ export const SourceName = z.enum([
   "mail",
   "git",
   "screen",
+  "apple-health",
+  "photos",
   "notes",
   "claude",
   "chatgpt",

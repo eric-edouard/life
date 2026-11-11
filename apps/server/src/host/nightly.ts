@@ -8,9 +8,15 @@ import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { closeness, pagedNow, readWithPeople } from "../memory/closeness";
+import {
+  closeness,
+  lastYearsOf,
+  pagedNow,
+  readWithPeople,
+} from "../memory/closeness";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
+import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { reindex } from "../memory/index-writer";
@@ -33,13 +39,10 @@ import {
   afterWeek,
   backfillWeek,
   isOutOfTries,
-  middayDue,
   quotaLine,
   readBackfill,
-  readMidday,
   readState,
   recordBackfill,
-  recordMidday,
   recordState,
   spareQuota,
   turnOf,
@@ -127,10 +130,10 @@ export async function archiveLine(since: string) {
 /**
  * Repo map, episodes (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
- * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
- * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else the midday
- * pass (episodes) when its slot is open, else a backfill week; neither over the Codex quota's reserve
- * (`reserved`), read each tick. Then the daily backup, when it is due
+ * minutes; unless `force`, a start does nothing before 05:00, once the day is ok, or after 3 failures (schedule.ts), and
+ * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else a backfill week,
+ * not over the Codex quota's reserve (`reserved`), read each tick. Today, before its night, is the watcher's
+ * (`buildTodayUnits`): its units, raw, no episodes or facts until the night (his decision, 11 Nov 2026). Then the daily backup, when it is due
  * (`afterNightDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
@@ -159,16 +162,18 @@ export async function nightly(days: number, force = false) {
     backfill: undefined,
     backup: readState("backup"),
     bridges: readState("bridges"),
-    midday: readMidday(),
     night: readState(),
   });
   const turn = force
     ? "night"
     : turnOf(now, day, { ...states(), quota: await quota() });
-  const code =
-    turn === "night"
-      ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
-      : await daytime(turn, now, day);
+  let code = 0;
+  if (turn === "night") {
+    code =
+      (await locked(() => runNight(days, now, day, force))) ?? Number(force);
+  } else if (turn === "backfill") {
+    code = await backfilled(day);
+  }
   // The appointments first, with their own catch: the Past calendar's whole sync after the night must not spend
   // Google's rate limit before them.
   await syncAppointments(now).then(
@@ -223,45 +228,24 @@ export async function nightly(days: number, force = false) {
   return Math.max(code, backedUp);
 }
 
+/**
+ * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
+ * failure is logged and the last file stands), so only the last years stay in memory for closeness and the personas.
+ */
+async function readYears() {
+  const everyYear = await readWithPeople(new Date(0));
+  writeExchangeCounts(everyYear, (await readPeople()).resolve);
+  return lastYearsOf(everyYear);
+}
+
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
 const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
 
-/** A tick's work when it is not the night's. */
-function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
-  if (turn === "midday") {
-    return midday(now);
-  }
-  return turn === "backfill" ? backfilled(day) : Promise.resolve(0);
-}
-
 /**
- * A midday run (about 13:00 and 19:00, same 30-minute tick): today's episodes, so the day's speech is read while it is
- * fresh, then the index. Its facts wait for the night: a chat-day read for facts at
- * midday is read again in full at night once its later messages land, so reading it once costs about half (5 Nov). No
- * commit, no email: the nightly commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
- * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
- */
-export async function midday(now = clock(), force = false) {
-  if (!(force || middayDue(now, readMidday()))) {
-    return 0;
-  }
-  const code = await locked(() => {
-    recordMidday();
-    return sweep("memory.midday", lastDays(now, 1), { extract: false })
-      .then((failure) => (failure ? 1 : 0))
-      .catch((e) => {
-        console.error(`midday: ${(e as Error).message}`);
-        return 1;
-      });
-  });
-  return code ?? Number(force);
-}
-
-/**
- * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night and no midday to run:
+ * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night to run:
  * a sweep under the lock, then the range moves on. The past is read oldest first, a week per tick, a few a day, only
- * after the day's night (`backfillWeek`), so it never keeps the nights, the midday runs or the backup from their turn,
+ * after the day's night (`backfillWeek`), so it never keeps the nights or the backup from their turn,
  * nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
  */
 async function backfilled(day: string) {
@@ -276,10 +260,7 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const failure = await sweep("memory.backfill", week, {
-      engine,
-      extract: true,
-    });
+    const failure = await sweep("memory.backfill", week, engine);
     if (await isOfflineFailure(failure)) {
       return 1;
     }
@@ -303,28 +284,20 @@ async function backfilled(day: string) {
 }
 
 /**
- * One sweep without commit or email: the evidence of `window`, read once for episodes and (when `extract`) facts, then
+ * One sweep without commit or email: the evidence of `window`, read once for episodes and facts, then
  * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
  * caller holds the lock.
  */
-async function sweep(
-  name: string,
-  window: Window,
-  o: { engine?: Engine; extract: boolean }
-) {
-  const rec = await metered(name, { ...window }, o.engine);
+async function sweep(name: string, window: Window, engine?: Engine) {
+  const rec = await metered(name, { ...window }, engine);
   const phase = phases(rec);
   try {
     phase.at = "gather";
-    const evidence = await gather(window, await readPeople(), {
-      engine: o.engine,
-    });
+    const evidence = await gather(window, await readPeople(), { engine });
     const found = await phase.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
-    if (o.extract) {
-      const extracted = await phase.step("extract", () => extract(evidence));
-      console.log(JSON.stringify(extracted));
-    }
+    const extracted = await phase.step("extract", () => extract(evidence));
+    console.log(JSON.stringify(extracted));
     phase.at = "index";
     await reindex();
     await rec.end({ outcome: "ok" });
@@ -457,7 +430,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
-    const withPeople = await readWithPeople();
+    const withPeople = await readYears();
     await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(
       since,

@@ -35,9 +35,13 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
+
+// His zone runs from mail are tagged once, before any command reads the memory (AGENTS.md, "A rename or a new field backfills").
+await migrateStored();
 
 /** The one agent, when there is exactly one: the default of `ask`. */
 const only = () => {
@@ -242,7 +246,8 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
-   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   * install, checked before and counted after), or his claude.ai or ChatGPT export (a newer one lands beside the older;
+   * `--dry` only counts).
    */
   async import() {
     const { positionals, values } = parseArgs({

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
+import { count } from "../core/lists";
 import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
@@ -18,7 +19,6 @@ import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
-import { count } from "../memory/units";
 import { localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";
@@ -259,7 +259,7 @@ function alert(
   return compose(subject, { date, label, weekday, ...rest });
 }
 
-/** The watcher's alert (`mailStuckLock`): a run has held the lock over 3 hours, so no night or midday can start. */
+/** The watcher's alert (`mailStuckLock`): a run has held the lock over 3 hours, so no night or backfill can start. */
 export const lockReport = (since: string) =>
   alert(since, "Life nightly", {
     failure: {
@@ -267,7 +267,7 @@ export const lockReport = (since: string) =>
       step: "the lock",
     },
     notes: [
-      "No night or midday starts while it holds it. Details: derived/log, and the pid in ~/Life/.nightly.lock",
+      "No night or backfill starts while it holds it. Details: derived/log, and the pid in ~/Life/.nightly.lock",
     ],
     preheader: `A run has held the lock since ${time(since)}.`,
     stats: [{ label: "held since", value: time(since) }],

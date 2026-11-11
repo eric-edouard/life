@@ -20,6 +20,8 @@ struct VoicePage: View {
     @FocusState private var typing: Bool
     /// "Several people": who says each clip, by its index; `nil` until asked.
     @State private var picks: [Int: WhoPills.Pick]?
+    /// "Several people": who is in it, ticked without naming a clip.
+    @State private var among: Set<UUID> = []
 
     private var item: ServerClient.NamingItem { voice.item }
     /// Who it sounds like, when it sounds like one of the owner's people.
@@ -31,8 +33,15 @@ struct VoicePage: View {
     private var named: CachedPerson? {
         item.kind == .recheck ? item.namedPersonId.flatMap { id in people.first { $0.id == id } } : nil
     }
+    /// Everyone, the most like this voice first (the server's `likely`), then by name.
+    private var ranked: [CachedPerson] {
+        let place = Dictionary((item.likely ?? []).enumerated().map { ($1, $0) }, uniquingKeysWith: min)
+        return people.sorted {
+            (place[$0.id] ?? .max, $0.name) < (place[$1.id] ?? .max, $1.name)
+        }
+    }
     /// Everyone else, for "someone else".
-    private var others: [CachedPerson] { people.filter { $0.id != known?.id && $0.id != named?.id } }
+    private var others: [CachedPerson] { ranked.filter { $0.id != known?.id && $0.id != named?.id } }
     /// The name the summaries heard; the server leaves it out when it is the known person's. Beside a known person
     /// both are shown, and either is one tap.
     private var heard: String? { item.name }
@@ -113,7 +122,7 @@ struct VoicePage: View {
     private var why: String? {
         if picks != nil {
             return (item.kind == .several ? "You said so before. " : "")
-                + "Name each passage; the others go to whoever they sound like among them."
+                + "Tick who is in it, or name each passage; the others go to whoever they sound like among them."
         }
         let called = heard.map { name in
             item.evidence.first.map { "someone called it “\(name)”: “\($0.text)”" } ?? "someone called it “\(name)”"
@@ -184,6 +193,15 @@ struct VoicePage: View {
                 .accessibilityIdentifier("naming.yes")
             }
             if let picks {
+                FlowLayout(spacing: 8) {
+                    ForEach(ranked.filter { !$0.isOwner }) { person in
+                        WhoPills.pill(person.name, among.contains(person.id)) {
+                            among.formSymmetricDifference([person.id])
+                        }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Who’s in it")
                 Button {
                     // The owner is among them, as in nearly every conversation he records.
                     let chosen = picks.values.compactMap { pick -> UUID? in
@@ -195,14 +213,16 @@ struct VoicePage: View {
                     let owner = people.first(where: \.isOwner)?.id
                     answer(
                         .several(
-                            people: Array(Set(chosen + [owner].compactMap(\.self))), unknown: chosen.count < picks.count
+                            people: Array(among.union(chosen + [owner].compactMap(\.self))),
+                            // Someone unknown too only when he ticked nobody and left a clip unnamed.
+                            unknown: among.isEmpty && chosen.count < picks.count
                         ))
                 } label: {
                     Text("Done").frame(maxWidth: .infinity)
                 }
                 .primaryGlassButton()
                 .controlSize(.large)
-                .disabled(picks.isEmpty)
+                .disabled(picks.isEmpty && among.isEmpty)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     if known != nil || named != nil || item.name != nil {
@@ -270,6 +290,8 @@ struct VoicePage: View {
         if picks == nil {
             Button("Not anyone I know") { answer(.ignore) }
                 .accessibilityHint("It isn’t asked about again.")
+            Button("Not relevant") { answer(.notRelevant) }
+                .accessibilityHint("You may know them. It isn’t asked about again.")
             Button("Video or TV") { answer(.media) }
                 .accessibilityHint("Left out of summaries and search.")
             Button("Several people", action: openSeveral)

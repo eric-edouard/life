@@ -48,6 +48,8 @@ export interface Contact {
   birthday: string | null;
   /** Its phone numbers and emails, as written. */
   handles: string[];
+  /** The card's own id, which Photos' People link to (`ZUNIQUEID`). */
+  id: string;
   /** The person's name, else the company's. */
   name: string | null;
   /** Social profiles ("Facebook: claire.d") and web addresses. */
@@ -66,6 +68,7 @@ interface RecordRow {
   id: number;
   last: string | null;
   title: string | null;
+  uid: string;
   year: number | null;
 }
 
@@ -147,7 +150,8 @@ function readFrom(file: string): Contact[] {
     const records = db
       .query<RecordRow, []>(
         `select Z_PK as id, ZFIRSTNAME as first, ZLASTNAME as last, ZORGANIZATION as company, ZJOBTITLE as title,
-                ZDEPARTMENT as department, ZBIRTHDAY as birthday, ZBIRTHDAYYEAR as year from ZABCDRECORD`
+                ZDEPARTMENT as department, ZBIRTHDAY as birthday, ZBIRTHDAYYEAR as year,
+                ZUNIQUEID as uid from ZABCDRECORD`
       )
       .all();
     return records.flatMap((r) => {
@@ -171,6 +175,7 @@ function readFrom(file: string): Contact[] {
           }),
           birthday: birthdayOf(r.birthday, r.year),
           handles: own,
+          id: r.uid,
           name: person ?? r.company,
           profiles: (profiles.get(r.id) ?? []).flatMap((p) =>
             SITE_ONLY.test(p.line as string) ? [] : [p.line as string]

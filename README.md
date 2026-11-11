@@ -92,7 +92,7 @@ What each source reads, exactly: [sources](docs/sources.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/pipeline-dark.png">
-  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, personas and search. The archive runs every 5 seconds, vectors every 10 minutes, the day so far at 13:00 and 19:00, the nightly after 2:00.">
+  <img src="assets/readme/pipeline-light.png" alt="The memory pipeline: sources become each thread's day; one model call reads each day into episodes; facts are read episode by episode with every quote checked; they feed pages, situations, personas and search. The archive runs every 5 seconds, today's messages become searchable every 5 minutes, vectors every 10 minutes, the nightly after 5:00.">
 </picture>
 
 A model reads your life the way you'd tell it: a day at a time, every channel together. The voice note, the WhatsApp
@@ -120,8 +120,8 @@ Who gets a page is judged from what code counts in the sources (two-way chats, t
 never from what a model wrote about someone. You correct anything by saying so to your assistant; your word is kept and wins over the
 memory.
 
-Nothing is ready to ask on day one. Tonight, after 2:00, Life reads your last 7 days; then every night, plus the day
-so far at 13:00 and 19:00. Older months come in through a [backfill](docs/use/settings.md#older-months).
+Nothing is ready to ask on day one. Tonight, after 5:00, Life reads your last 7 days; then every night. Today's
+messages are searchable within minutes, as they are; what happened and the facts come with the night. Older months come in through a [backfill](docs/use/settings.md#older-months).
 
 How the pipeline is built, and why: [architecture](docs/architecture.md). Every word Life uses:
 [glossary](docs/glossary.md).
@@ -157,7 +157,7 @@ Life itself sends nothing into a chat, ever. Its only mail and notifications are
 | Reading | Your Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an [allmodels.io](https://allmodels.io) key, each in three tiers: fast, main and deep. Outputs are cached by input and prompt, so a night re-reads only what changed. |
 | Search by meaning | [EmbeddingGemma 300M](https://huggingface.co/google/embeddinggemma-300m), run by llama.cpp on your Mac, for your voice and your memory alike. No text leaves the Mac to be embedded. |
 | Transcription | lifelog's speech service, on your Mac: Nemotron 3 finds who speaks when, VoxLingua107 the language, Parakeet Ultra the words. ElevenLabs Scribe (paid, by the hour of speech) takes the languages these miss, or all of it if you prefer. |
-| Voices | SpeechBrain's ECAPA model, on your Mac, learning only from the names you give. |
+| Voices | The MECT-B2 model, on your Mac, learning only from the names you give. |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; lifelog's iPhone and Watch apps in Swift 6. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
@@ -187,8 +187,8 @@ turn on the sources you want, and press **Open Full Disk Access** to allow Life 
 so it starts with the Mac.
 
 The cost is your model usage, nothing else: each night makes about one call per day it reads, then more for the facts
-and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips the
-13:00 and 19:00 passes and the backfill once your Codex quota is 75% used; the nightly always runs.
+and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips
+the backfill once your Codex quota is 75% used; the nightly always runs.
 
 ## Where your data goes
 
