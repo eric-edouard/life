@@ -137,36 +137,37 @@ export function historicalZonesOf(
   const deferred: string[] = [];
   const runs: Run[] = [];
   let previous: string | undefined;
+  type Known = (typeof known)[number];
   // The days go up, so the first known day after this one only moves forward; the nearest is it or the one before
   // (the earlier on a tie).
   const apart = (a: string, b: string) =>
     Math.abs(Date.parse(a) - Date.parse(b));
+  const nearestOf = (day: string, before?: Known, after?: Known) =>
+    before && !(after && apart(after.day, day) < apart(before.day, day))
+      ? before
+      : after;
+  /** A gap day whose own mail names both the zone of the known day before it and of the one after, and they differ. */
+  const isTravelDay = (day: string, before?: Known, after?: Known) =>
+    before &&
+    after &&
+    before.tz !== after.tz &&
+    mail.get(day)?.has(before.tz) &&
+    mail.get(day)?.has(after.tz);
   let next = 0;
   for (let day = window.from; day <= window.to; day = daysBefore(day, -1)) {
     const verdict = verdictOf(day);
-    while (next < known.length && (known[next] as { day: string }).day <= day) {
+    while (next < known.length && (known[next] as Known).day <= day) {
       next += 1;
     }
     const [before, after] = [known[next - 1], known[next]];
-    const sent = mail.get(day);
-    const isTravelDay =
-      !verdict &&
-      before &&
-      after &&
-      before.tz !== after.tz &&
-      sent?.has(before.tz) &&
-      sent.has(after.tz);
-    if (verdict === null || isTravelDay) {
+    if (verdict === null || (!verdict && isTravelDay(day, before, after))) {
       deferred.push(day);
       continue;
     }
     if (!verdict) {
       gaps.push(day);
     }
-    const closest =
-      before && !(after && apart(after.day, day) < apart(before.day, day))
-        ? before
-        : after;
+    const closest = nearestOf(day, before, after);
     if (
       !closest ||
       (eraFrom &&
