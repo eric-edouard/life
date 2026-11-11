@@ -77,7 +77,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last done one, `episodes-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
+  the last done one, `zone-sources-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
@@ -138,7 +138,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
 - **Historical collection is model-free.** `memory units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. Scheduled model backfill stays paused until prompts are frozen.
-- **Historical zones come from sent-mail Date offsets**, model-free, as `Etc/GMT±N` (reversed sign). Append only before the first stored unit day; never move stored units. Missing-mail days use the nearest known run (ties earlier), reported as gaps for later model review; conflicting or non-hour offsets defer their days. No city guesses or new Zone fields.
+- **Historical zones come from evidence of the day**, model-free, as `Etc/GMT±N` (reversed sign): the offsets of photos that place him, else sent-mail Date offsets (`historical-zones.ts`, `docs/operations.md`). Stored zones change only by appended lines, over the whole derived era, and a day a record cites, an episode day or a deferred day holding units keeps its zone. Days with no evidence use the nearest known day (ties earlier), reported as gaps for later model review; conflicting or quarter-hour offsets defer their days. No city guesses or new Zone fields.
 - **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
