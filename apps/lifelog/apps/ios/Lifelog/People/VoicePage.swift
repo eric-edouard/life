@@ -214,8 +214,8 @@ struct VoicePage: View {
                     answer(
                         .several(
                             people: Array(among.union(chosen + [owner].compactMap(\.self))),
-                            // Someone unknown too only when he ticked nobody and left a clip unnamed.
-                            unknown: among.isEmpty && chosen.count < picks.count
+                            // Someone unknown too when a clip says so; a video is nobody.
+                            unknown: picks.values.contains(WhoPills.unknown)
                         ))
                 } label: {
                     Text("Done").frame(maxWidth: .infinity)
@@ -251,10 +251,12 @@ struct VoicePage: View {
     /// Under a clip, once "several people" is asked: who says it.
     private func whoSays(_ index: Int) -> some View {
         let shown = [people.first(where: \.isOwner), known].compactMap { $0.map(WhoPills.pick) }
+        // One tap for a clip that is nobody to name, last (11 Nov: they were hidden in "Someone else").
+        let nobody = [WhoPills.unknown, WhoPills.media]
         let suggested = (picks ?? [:]).sorted { $0.key < $1.key }.reduce(into: shown) { all, pick in
-            if !all.contains(pick.value) { all.append(pick.value) }
+            if !all.contains(pick.value), !nobody.contains(pick.value) { all.append(pick.value) }
         }
-        return WhoPills(people: people, suggested: suggested, picked: picks?[index]) { choose($0, for: index) }
+        return WhoPills(people: people, suggested: suggested + nobody, picked: picks?[index]) { choose($0, for: index) }
             // Under the clip's words, past its play button.
             .padding(.leading, 62)
             .padding(.bottom, 8)
