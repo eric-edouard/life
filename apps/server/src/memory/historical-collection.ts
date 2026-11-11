@@ -9,10 +9,13 @@ import { readySources } from "./sources";
 import { publishUnits, unitDays } from "./unit-writer";
 import { DAYS, gather } from "./units";
 import { readPeople } from "./who";
-import { dayNow, isDay, localDate, type Window, wall } from "./zones";
+import { dayNow, isDay, localDate, monthsOf, type Window, wall } from "./zones";
 
 /** A requested historical range ends before the nightly's seven local days. */
-export function historyWindow(from: string, to = daysBefore(dayNow(), DAYS)) {
+export function historicalWindow(
+  from: string,
+  to = daysBefore(dayNow(), DAYS)
+) {
   if (!(isDay(from) && isDay(to) && from <= to)) {
     throw new Error(
       "units needs an ordered --from/--to pair of YYYY-MM-DD dates"
@@ -24,23 +27,8 @@ export function historyWindow(from: string, to = daysBefore(dayNow(), DAYS)) {
   return { from, to };
 }
 
-/** Owner-local calendar months, each bounded by the requested days. */
-export function historyMonths(window: Window) {
-  const months: Window[] = [];
-  let { from } = window;
-  while (from <= window.to) {
-    const year = Number(from.slice(0, 4));
-    const month = Number(from.slice(5, 7));
-    const next = `${year + Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, "0")}-01`;
-    const to = [daysBefore(next, 1), window.to].sort()[0] as string;
-    months.push({ from, to });
-    from = daysBefore(to, -1);
-  }
-  return months;
-}
-
 /** Model-free historical collection, called while holding memory's existing lock. */
-export async function collectHistory(
+export async function collectHistorical(
   requested: { from?: string; to?: string } = {},
   prepareZones = prepareHistoricalZones,
   readZones = readHistoricalZones
@@ -62,7 +50,7 @@ export async function collectHistory(
       units: 0,
     };
   }
-  const window = historyWindow(
+  const window = historicalWindow(
     requested.from ?? daysBefore(wall(earliest as string, "UTC").day, 1),
     requested.to
   );
@@ -82,7 +70,7 @@ export async function collectHistory(
   let units = 0;
   let hasPublished = false;
   try {
-    for (const month of historyMonths(window)) {
+    for (const month of monthsOf(window)) {
       // biome-ignore lint/performance/noAwaitInLoops: publish one bounded month before reading the next
       const evidence = await gather(month, people, { historical: true });
       if (evidence.failed.length > 0) {

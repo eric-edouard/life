@@ -6,7 +6,7 @@ import { closeness, readWithPeople } from "../memory/closeness";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { extract } from "../memory/extract";
-import { collectHistory } from "../memory/history";
+import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
@@ -226,7 +226,7 @@ const HANDLERS: Record<string, Handler> = {
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
-  units: step((v) => collectHistory(v)),
+  units: step((v) => collectHistorical(v)),
   async unresolved() {
     console.log(await unresolved());
     return 0;

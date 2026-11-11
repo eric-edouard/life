@@ -3,7 +3,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { daysBefore, iso, MIN } from "../core/clock";
 import { readSettings, setSettings } from "../core/settings";
-import { collectHistory, historyMonths, historyWindow } from "./history";
+import { collectHistorical, historicalWindow } from "./historical-collection";
 import { reindex } from "./index-writer";
 import { INDEX, MEMORY, readIndex, readUnitsOf, UNITS } from "./ledger";
 import { readPassages } from "./passages";
@@ -11,12 +11,12 @@ import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import { publishUnits, unitDays, writeUnits } from "./unit-writer";
 import { gather } from "./units";
-import { dayNow, dayStart } from "./zones";
+import { dayNow, dayStart, monthsOf } from "./zones";
 
 const window = { from: "2024-01-31", to: "2024-03-02" };
 
 test("history is bounded by local months and excludes the nightly's seven days", () => {
-  expect(historyMonths(window)).toEqual([
+  expect(monthsOf(window)).toEqual([
     { from: "2024-01-31", to: "2024-01-31" },
     { from: "2024-02-01", to: "2024-02-29" },
     { from: "2024-03-01", to: "2024-03-02" },
@@ -26,11 +26,11 @@ test("history is bounded by local months and excludes the nightly's seven days",
     "2024-02-29",
     "2024-03-01",
   ]);
-  expect(historyWindow("2024-01-01").to).toBe(daysBefore(dayNow(), 7));
-  expect(() => historyWindow("2024-01-01", daysBefore(dayNow(), 6))).toThrow(
+  expect(historicalWindow("2024-01-01").to).toBe(daysBefore(dayNow(), 7));
+  expect(() => historicalWindow("2024-01-01", daysBefore(dayNow(), 6))).toThrow(
     "seven-day"
   );
-  expect(() => historyWindow("2024-03-01", "2024-01-01")).toThrow("ordered");
+  expect(() => historicalWindow("2024-03-01", "2024-01-01")).toThrow("ordered");
 });
 
 test("historical collection has no voice/files model step; failed publication leaves units and downstream memory intact; retry clears empty days and preserves voice", async () => {
@@ -142,7 +142,7 @@ test("a failed later month preserves its files and reindexes the already publish
         },
       ];
     };
-    const result = await collectHistory(
+    const result = await collectHistorical(
       { from: "2024-01-01", to: "2024-02-02" },
       async () => ({
         deferred: [],
@@ -216,7 +216,7 @@ test("a conflicting zone just before the requested range defers the complete exp
           e.at >= from.toISOString() && (!before || e.at < before.toISOString())
       );
     let expanded: { from: string; to: string } | undefined;
-    const result = await collectHistory(
+    const result = await collectHistorical(
       { from: date, to: date },
       async () => ({ deferred: [], gaps: [], runs: [] }),
       (range) => {
