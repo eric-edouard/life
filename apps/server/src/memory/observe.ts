@@ -338,3 +338,16 @@ export function parseObservations(
   }
   return { observations, rejects, replaced, unresolved };
 }
+
+/** The quotes a model gave, each kept only as words found in a message it was shown (`locate`), with that message. */
+export function foundQuotes<M extends { text: string }>(
+  quotes: string[],
+  pool: M[]
+) {
+  const texts = pool.map((m) => m.text);
+  return quotes.flatMap((q) => {
+    const found = locate(q, texts);
+    const message = found ? pool[found.line] : undefined;
+    return found && message ? [{ message, text: found.verbatim }] : [];
+  });
+}
