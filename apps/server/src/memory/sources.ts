@@ -318,9 +318,12 @@ const withFiles =
   (since: Date, before?: Date): SourceEvent[] =>
     showFiles(read(since, before), readFiles());
 
-/** Whether search reads a source's text as passages (`passages.ts`): chats, mail and his own writing. */
+/** Whether search reads a source's text as passages (`passages.ts`): chats, mail, his own writing and his photos, one passage each. */
 export const isSearched = (s: Pick<Descriptor, "kind">) =>
-  s.kind === "chat" || s.kind === "mail" || s.kind === "own_writing";
+  s.kind === "chat" ||
+  s.kind === "mail" ||
+  s.kind === "own_writing" ||
+  s.kind === "photos";
 
 /**
  * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each

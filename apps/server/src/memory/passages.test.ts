@@ -282,3 +282,41 @@ test("embedding passage selection shares the enabled filter even when a source i
     setSettings({ sources: before });
   }
 });
+
+test("each photo is a passage of its own, found by its description", () => {
+  const path = pathOf();
+  const photos = ["10:00", "10:01"].map(
+    (time, i): SourceEvent => ({
+      at: `2020-04-14T${time}:00.000Z`,
+      chat: "photos",
+      fromMe: true,
+      id: `photos:P${i}`,
+      photo: {
+        description: i ? "A red kite." : "A plate of fish.",
+        pictured: [],
+        scenes: [],
+      },
+      sender: "me",
+      source: "photos",
+      text: i ? "photo · A red kite." : "photo · A plate of fish.",
+    })
+  );
+  writePassages(
+    photos,
+    { from: "2020-04-14", to: "2020-04-14" },
+    [],
+    { photos: readerOf(photos) },
+    path
+  );
+  const before = settings().sources;
+  try {
+    setSettings({ sources: ["photos"] });
+    expect(
+      readPassages({}, false, path)
+        .map((p) => p.id)
+        .sort()
+    ).toEqual(["photos|photos:P0", "photos|photos:P1"]);
+  } finally {
+    setSettings({ sources: before });
+  }
+});

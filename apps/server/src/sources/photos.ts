@@ -9,7 +9,12 @@ import type { Photo, SourceEvent } from "../records/source";
 import { type Contact, readContactRecords } from "./contacts";
 import type { Newest } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
-import { DESCRIPTIONS, readSettled, readTally } from "./photo-descriptions";
+import {
+  DESCRIPTIONS,
+  readDescriptions,
+  readSettled,
+  readTally,
+} from "./photo-descriptions";
 
 // His photos and videos from the Mac's Photos library, opened read-only. Never written, never copied: Photos keeps its own
 // history (Recently Deleted, iCloud), and no image, face or face print is read, only what Apple's analysis and he wrote
@@ -200,7 +205,8 @@ function eventOf(
   r: Row,
   analysis: Analysis | undefined,
   faces: { person: number }[],
-  persons: Map<number, Person>
+  persons: Map<number, Person>,
+  description: string | undefined
 ): SourceEvent {
   const { ocr = [], scenes = [] } = analysis ?? {};
   const pictured = [
@@ -214,6 +220,7 @@ function eventOf(
   const photo: Photo = {
     ...(r.address ? { address: addressOf(r.address) } : {}),
     ...(r.caption ? { caption: r.caption } : {}),
+    ...(description ? { description } : {}),
     ...(r.favorite ? { favorite: true } : {}),
     ...(ocr.length > 0 ? { ocr } : {}),
     ...(r.offset === null ? {} : { offset: r.offset }),
@@ -243,6 +250,7 @@ function eventOf(
       pictured.length > 0 && `with ${pictured.map((p) => p.name).join(", ")}`,
       photo.caption && `"${photo.caption}"`,
       photo.ocr && `text: ${ocrText(photo.ocr)}`,
+      photo.description,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -251,14 +259,15 @@ function eventOf(
 
 /**
  * The photos and videos taken from `since` on (before `before`), oldest first, one event each: its place (the moment's
- * title), address, coordinates, scenes, the words found in it, who Apple's People names in it, his caption, and the
- * zone it was taken in. Not trashed, hidden or burst frames he left out, nor screenshots.
+ * title), address, coordinates, scenes, the words found in it, who Apple's People names in it, his caption, Life's
+ * description of it (`descriptions`) and the zone it was taken in. Not trashed, hidden or burst frames he left out, nor screenshots.
  */
 export function readPhotos(
   since: Date,
   before?: Date,
   library = LIBRARY,
-  contacts: Contact[] = readContactRecords()
+  contacts: Contact[] = readContactRecords(),
+  descriptions = DESCRIPTIONS
 ): SourceEvent[] {
   const from = toAppleS(since.getTime());
   const to = before ? toAppleS(before.getTime()) : null;
@@ -304,8 +313,18 @@ export function readPhotos(
       library,
       rows.map((r) => r.uuid)
     );
+    const described = readDescriptions(
+      rows.map((r) => r.uuid),
+      descriptions
+    );
     return rows.map((r) =>
-      eventOf(r, analysis.get(r.uuid), faces.get(r.pk) ?? [], persons)
+      eventOf(
+        r,
+        analysis.get(r.uuid),
+        faces.get(r.pk) ?? [],
+        persons,
+        described.get(r.uuid)
+      )
     );
   } finally {
     db.close();

@@ -318,3 +318,30 @@ test("the Photos card says how many photos are described, how many have no image
     ["Last failure", "timed out"],
   ]);
 });
+
+test("a photo carries Life's description of it, in its facts and its text", () => {
+  const dir = library([{ uuid: "AA1" }, { uuid: "BB2" }]);
+  const descriptions = join(dirname(dir), "descriptions.sqlite");
+  writeDescriptions(
+    [
+      {
+        model: "m",
+        outcome: "described",
+        text: "Two people on a beach.",
+        uuid: "AA1",
+      },
+    ],
+    descriptions
+  );
+  const [described, plain] = readPhotos(
+    since,
+    undefined,
+    dir,
+    [],
+    descriptions
+  );
+  expect(described?.photo?.description).toBe("Two people on a beach.");
+  expect(described?.text).toBe("photo · Seaside · Two people on a beach.");
+  expect(plain?.photo?.description).toBeUndefined();
+  expect(SourceEvent.parse(described)).toBeTruthy();
+});
