@@ -117,6 +117,8 @@ export const PASSAGES = join(OUT, "passages.sqlite");
 export const VECTORS = join(OUT, "vectors.sqlite");
 /** What code counts between him and each person, exchange by exchange, rebuilt whole each night (`exchange-counts.ts`). */
 export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
+/** The local days the pendant recorded on, as lifelog says, rebuilt whole each night (`recorded-days.ts`). */
+export const RECORDED_DAYS = join(OUT, "recorded-days.json");
 
 /**
  * Reads the index read-only with `read`, or null when it isn't built. A rebuild meanwhile is safe (`buildIndex`); the

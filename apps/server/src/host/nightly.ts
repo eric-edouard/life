@@ -27,6 +27,7 @@ import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { personas } from "../memory/personas";
+import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
 import {
   commitMemory,
@@ -452,6 +453,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const found = await phase.step("episodes", () => episodes(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
+    // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
+    await writeRecordedDays();
     const { pending, withPeople } = await readYears(now);
     await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(

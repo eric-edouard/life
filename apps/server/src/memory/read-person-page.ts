@@ -4,6 +4,7 @@ import { newestDays } from "../core/lists";
 import type { History } from "../records/history";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
+import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
 import {
   type ExchangeCounts,
@@ -92,14 +93,17 @@ interface Dated {
 
 const total = (rows: { n: number }[]) => rows.reduce((a, r) => a + r.n, 0);
 
+const daysLine = (title: string, by: Map<string, number>) =>
+  by.size > 0
+    ? `; ${title}: ${[...by].map(([s, n]) => `${s} ${n} day${n === 1 ? "" : "s"}`).join(", ")}`
+    : "";
+
 /**
  * What Life holds about someone, by source and by month, and what it can't hold, so a short answer never reads as
- * "nothing happened". `timeline`: everything the person's answer pages through.
+ * "nothing happened": each month says the days a source of theirs (one that captures on its own and holds a unit
+ * with them) was not captured (`notCapturedOf`). `timeline`: everything the person's answer pages through.
  */
 export function heldLines(db: Database, ref: string, timeline: Dated[]) {
-  const start = db
-    .query<{ d: string | null }, []>("select min(date) as d from units")
-    .get()?.d;
   const units = db
     .query<
       { first: string; last: string; m: string; n: number; source: string },
@@ -118,20 +122,29 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
   const months = [...new Set([...byMonth.keys(), ...dated.keys()])].sort();
   const count = (m: string, kind: Dated["kind"]) =>
     (dated.get(m) ?? []).filter((t) => t.kind === kind).length;
+  const coverage = months[0]
+    ? readCoverage(db, `${months[0]}-01`, dayNow())
+    : { days: new Map(), sources: [] };
+  const theirs = coverage.sources.filter((c) =>
+    sources.some(([s]) => s === c.name)
+  );
+  const missed = notCapturedOf(coverage.days, theirs);
+  const since = (s: string) => theirs.find((c) => c.name === s)?.firstDay;
   return [
-    `What Life holds about them (its memory starts on ${start ?? "?"}; older chats are only in the archive: \`chats\` with \`who\` and \`from\`):`,
+    "What Life holds about them (older chats are only in the archive: `chats` with `who` and `from`):",
     ...sources.map(
       ([s, rows]) =>
         `- ${s}: ${total(rows)} units, ${rows.map((r) => r.first).sort()[0]} to ${rows
           .map((r) => r.last)
           .sort()
-          .at(-1)}`
+          .at(-1)}${since(s) ? ` (Life holds it since ${since(s)})` : ""}`
     ),
-    "By month:",
+    "By month (not seen, unknown: days a source of theirs was not captured, or Life cannot tell; never quiet days):",
     ...months.map((m) => {
       const here = (byMonth.get(m) ?? []).toSorted((a, b) => b.n - a.n);
       const by = here.map((r) => `${r.source} ${r.n}`).join(", ");
-      return `- ${m}: ${total(here)} units${by ? ` (${by})` : ""}, ${count(m, "observation")} observations, ${count(m, "episode")} episodes`;
+      const gaps = missed.get(m);
+      return `- ${m}: ${total(here)} units${by ? ` (${by})` : ""}, ${count(m, "observation")} observations, ${count(m, "episode")} episodes${gaps ? daysLine("not seen", gaps.not_seen) + daysLine("unknown", gaps.unknown) : ""}`;
     }),
     "Not in Life: calls, and time together that wasn't recorded.",
   ];
