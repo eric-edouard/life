@@ -114,6 +114,22 @@ test("a photo-only message carries its attachments as files, a link preview left
   );
 });
 
+test("a phone call has no words and no file, and is kept: its readers write its line", () => {
+  const call = {
+    at: "2026-11-10T09:00:00.000Z",
+    chat: "+33600000001",
+    fromMe: false,
+    id: "phone:+33600000001/1",
+    phoneCall: { seconds: 90, video: false },
+    sender: "+33600000001",
+    source: "phone" as const,
+    text: "",
+  };
+  expect(
+    showFiles([call, { ...call, phoneCall: undefined }], new Map())
+  ).toEqual([call]);
+});
+
 test("media rows are files: the archive's copy, a document's name, a photo never downloaded", () => {
   const { add, dir, now, source } = whatsappFixture();
   add(1, "P1", 1, null, 300, "Media/120@g.us/a/photo.jpg");
