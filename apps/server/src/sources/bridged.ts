@@ -8,6 +8,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
+  EXPORT_ROW,
   incomingArchived,
   insertAll,
   LATEST_VERSIONS,
@@ -108,6 +109,31 @@ function hisIds(bridge: string, template: string) {
   }
 }
 
+/**
+ * The bridge's chats by the network's own id for them (Instagram's `igid`): each one's room and, for a one-to-one,
+ * the other person's id as the bridge writes it. None when the bridge was never added on this Mac.
+ */
+export function portalsOf(bridge: string, bridges = BRIDGES) {
+  const file = join(bridges, bridge, `${bridge}.db`);
+  if (!existsSync(file)) {
+    return new Map<string, { other: string | null; room: string }>();
+  }
+  const db = openReadOnly(file);
+  try {
+    return new Map(
+      db
+        .query<{ igid: string; other: string | null; room: string }, []>(
+          `select json_extract(metadata, '$.igid') as igid, mxid as room, other_user_id as other from portal
+            where mxid is not null and json_extract(metadata, '$.igid') is not null`
+        )
+        .all()
+        .map((p) => [String(p.igid), { other: p.other, room: p.room }])
+    );
+  } finally {
+    db.close();
+  }
+}
+
 /** A room's name: its own (`m.room.name`), else its other joined members' names, his and the bot's left out. */
 function roomNamer(
   hs: ReturnType<typeof openReadOnly>,
@@ -188,7 +214,7 @@ function archivedVersion(
 }
 
 /** Adds message versions and their files to a network's archive (a version already there is skipped): how many were new. */
-function insertVersions(
+export function insertVersions(
   archive: Database,
   files: SQLQueryBindings[][],
   messages: SQLQueryBindings[][]
@@ -465,11 +491,15 @@ function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
 const keyOf = (r: { at: string; chat: string }) => `${r.chat} ${r.at}`;
 
 /**
- * Of the archive's versions, the latest ones but for what the bridge backfilled from before its cutover (written after
- * it, about a time before it): that time is the earlier copy's.
+ * A version the readers take (alias `m`): not what the bridge backfilled from before its cutover (written after it,
+ * about a time before it: that time is the earlier copy's), but an export row, whose import chose it (`EXPORT_ROW`).
  */
+export const AS_READ = `(${EXPORT_ROW} or not (m.at < coalesce((select min(at) from cutover), '')
+      and m.seenAt >= coalesce((select min(at) from cutover), '')))`;
+
+/** Of the archive's versions, the latest ones the readers take (`AS_READ`). */
 const SINCE_CUTOVER = `${LATEST_VERSIONS}
-    and not (m.at < coalesce((select min(at) from cutover), '') and m.seenAt >= coalesce((select min(at) from cutover), ''))`;
+    and ${AS_READ}`;
 
 /** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`), its calls as phone calls. */
 export function readBridged(

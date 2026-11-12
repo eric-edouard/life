@@ -13,7 +13,7 @@ import {
   settings,
 } from "../core/settings";
 import { collectHistorical } from "../memory/historical-collection";
-import { dryRun, importExport } from "../memory/imports";
+import { dryRun, importExport, importInstagramExport } from "../memory/imports";
 import { reindex } from "../memory/index-writer";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
@@ -21,6 +21,10 @@ import { DAYS } from "../memory/units";
 import { dayNow, dayRange } from "../memory/zones";
 import { engineKeys, readEngine } from "../models/llm";
 import { entryLine } from "../records/ledger-entry";
+import {
+  copyInstagramExport,
+  isInstagramExport,
+} from "../sources/instagram-export";
 import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { Asked, actAsked, requested, setGrant } from "./act";
@@ -242,8 +246,9 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
-   * install, checked before and counted after), or his claude.ai or ChatGPT export (a newer one lands beside the older;
-   * `--dry` only counts).
+   * install, checked before and counted after), his claude.ai or ChatGPT export (a newer one lands beside the older),
+   * or his Instagram export (an unzipped folder: its messages go into the Instagram archive, with Life quit, since
+   * the archive has one writer). `--dry` only counts.
    */
   async import() {
     const { positionals, values } = parseArgs({
@@ -269,20 +274,27 @@ const commands: Record<string, () => number | Promise<number>> = {
       );
       return 0;
     }
+    const isInstagram = isInstagramExport(dir);
     if (values.dry) {
-      console.log(JSON.stringify(dryRun(dir)));
+      console.log(
+        JSON.stringify(
+          isInstagram ? copyInstagramExport(dir, { dry: true }) : dryRun(dir)
+        )
+      );
       return 0;
     }
     // Its copy goes into his data: a new install starts first (`init`), or brings a Life export.
     if (!started()) {
       console.error(
-        "Start Life first (or import a Life export): an assistant export goes into a set-up Life"
+        "Start Life first (or import a Life export): an export of his goes into a set-up Life"
       );
       return 2;
     }
     return step(async () => {
-      const result = await importExport(dir);
-      if (result.failed > 0 || result.unjudged > 0) {
+      const result = isInstagram
+        ? await importInstagramExport(dir)
+        : await importExport(dir);
+      if (result.failed > 0 || ("unjudged" in result && result.unjudged > 0)) {
         return result;
       }
       const cutoff = daysBefore(dayNow(), DAYS);

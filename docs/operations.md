@@ -257,6 +257,14 @@ stores kept in the export are copied consistently with SQLite's `VACUUM INTO`.
 manifest, never over existing data, never into an existing archive. Setting up a backup and restoring one, step by
 step: [Back up and restore](use/backup.md).
 
+The same verb brings in an export of his: an assistant's (above), or Instagram's (`docs/sources.md`). An Instagram
+export, by hand: unzip it (its `your_instagram_activity/messages` tree is all that is read), run
+`bun life import <folder> --dry` for the counts (chats, messages, those already held, files kept and missing,
+photos to describe; nothing is written), then, with Life quit (the archive has one writer; the command waits for it),
+`bun life import <folder>`: the rows are written, the files cloned, the photos described with the backfill engine,
+and the days of the added messages collected into units. Rows in an archive are never removed: read the dry counts
+first.
+
 ## The nightly report
 
 - It goes out in HTML, in plain text and as a complete HTML attachment, because mail clients clip long bodies.
