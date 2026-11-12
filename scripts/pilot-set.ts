@@ -62,17 +62,24 @@ const rareIn = (x: NonNullable<Kept["reply"]["exchanges"]>[number]) =>
   (x.tension ? 1 : 0) +
   (x.moves ?? []).filter((m) => RARE.has(m.code)).length;
 
+/** Every exchange of a read's kept replies on `engine`, as the reply gave it, with its first message. */
+const keptExchanges = (read: string, engine: string) => {
+  const dir = join(KEPT, read, engine);
+  return (existsSync(dir) ? readdirSync(dir) : []).flatMap((file) => {
+    const kept = readJson<Kept>(join(dir, file));
+    return (kept?.reply.exchanges ?? []).map((x) => ({
+      first: kept?.messages[x.exchange] ?? "",
+      x,
+    }));
+  });
+};
+
 /** How much of what is rare each exchange holds, by its first message, over every read kept on `engine`. */
 function richness(engine: string) {
   const score = new Map<string, number>();
   for (const read of Object.keys(READS)) {
-    const dir = join(KEPT, read, engine);
-    for (const file of existsSync(dir) ? readdirSync(dir) : []) {
-      const kept = readJson<Kept>(join(dir, file));
-      for (const x of kept?.reply.exchanges ?? []) {
-        const first = kept?.messages[x.exchange] ?? "";
-        score.set(first, (score.get(first) ?? 0) + rareIn(x));
-      }
+    for (const { first, x } of keptExchanges(read, engine)) {
+      score.set(first, (score.get(first) ?? 0) + rareIn(x));
     }
   }
   return score;
@@ -81,13 +88,9 @@ function richness(engine: string) {
 /** The exchanges holding each of `codes`, by their first message, in the `read` kept on `engine`. */
 function holdersOf(read: string, engine: string, codes: string[]) {
   const holders = new Map(codes.map((c) => [c, new Set<string>()]));
-  const dir = join(KEPT, read, engine);
-  for (const file of existsSync(dir) ? readdirSync(dir) : []) {
-    const kept = readJson<Kept>(join(dir, file));
-    for (const x of kept?.reply.exchanges ?? []) {
-      for (const m of x.moves ?? []) {
-        holders.get(m.code)?.add(kept?.messages[x.exchange] ?? "");
-      }
+  for (const { first, x } of keptExchanges(read, engine)) {
+    for (const m of x.moves ?? []) {
+      holders.get(m.code)?.add(first);
     }
   }
   return holders;
