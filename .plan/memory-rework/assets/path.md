@@ -221,7 +221,7 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 
 | Step | What ships | Value / deletes |
 |---|---|---|
-| 5.1 | The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
+| 5.1 | **Merged 13 Nov (PR 473):** `memory/moves.ts` (the move shapes and their checking) and `memory/move-rates.ts` (one vote per code, side and exchange; a chance per counted thing; 15 chances for a share; only what the test sets proved says a share; per source for an exchange chance; the last 12 months against before; the place among people), used by the pilot's page script. The reads stay scripts until stage 4. Originally: The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
 | 5.2 | The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
 | 5.3 | Patterns and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
