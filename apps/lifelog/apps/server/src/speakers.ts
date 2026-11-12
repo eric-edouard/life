@@ -193,6 +193,23 @@ function nameOf(
   };
 }
 
+// A voice under `minSpeakerSeconds` (samples, no vector) is compared at the short bar, for a
+// person only: `nameOf`'s `isStranger` is not used (it stays unnamed, never marked stranger),
+// and its `vector` stays null, so it is no nearby reference and joins no unnamed group.
+function shortNameOf(
+  samples: { embedding: Vector }[],
+  vector: Vector | null,
+  voices: Profiles,
+  candidates?: Candidates | null
+) {
+  return !(vector || candidates) && samples.length > 0
+    ? nameOf(centroid(samples.map((s) => s.embedding)), voices, {
+        margin: RECOGNITION.shortVoiceMargin,
+        threshold: RECOGNITION.shortVoiceThreshold,
+      })
+    : null;
+}
+
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little
@@ -216,17 +233,8 @@ function decisionOf(
   const profiles = voices.people;
   const owner = profiles.find((p) => p.isOwner)?.personId;
   const named = vector && !candidates ? nameOf(vector, voices) : null;
-  // A voice under `minSpeakerSeconds` (samples, no vector) is compared at the short bar, for a
-  // person only: `nameOf`'s `isStranger` is not used (it stays unnamed, never marked stranger),
-  // and its `vector` stays null, so it is no nearby reference and joins no unnamed group.
-  const short =
-    !(vector || candidates) && samples.length > 0
-      ? nameOf(centroid(samples.map((s) => s.embedding)), voices, {
-          margin: RECOGNITION.shortVoiceMargin,
-          threshold: RECOGNITION.shortVoiceThreshold,
-        })
-      : null;
-  const personId = named?.personId ?? short?.personId ?? null;
+  const heard = named ?? shortNameOf(samples, vector, voices, candidates);
+  const personId = heard?.personId ?? null;
   // Among candidates: the nearest of them, `margin` ahead; a closed set (no "unknown too", each
   // with a profile) takes a weaker match. Else a turn nearest the owner's voice is his.
   const among = profiles.filter(
@@ -265,9 +273,9 @@ function decisionOf(
       : [];
   return {
     isStranger: named?.isStranger ?? false,
-    margin: (named ?? short)?.best?.margin ?? null,
+    margin: heard?.best?.margin ?? null,
     personId,
-    score: (named ?? short)?.best?.score ?? null,
+    score: heard?.best?.score ?? null,
     turns,
     vector,
   };
