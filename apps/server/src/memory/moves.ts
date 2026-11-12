@@ -222,7 +222,8 @@ function movesOf(raw: unknown[], span: Span, read: ReadName) {
   const { entries } = checkedEntries(
     raw,
     schema,
-    (m) => `${m.line}|${m.code}`,
+    // A line can hold a mention of each person talked about.
+    (m) => `${m.line}|${m.code}|${"who" in m ? m.who : ""}`,
     (key) => {
       const line = Number.parseInt(key, 10);
       return line >= span.start && line < span.end;

@@ -4,7 +4,7 @@
 // `--sample` reads about that many exchanges of everyone else instead, the people named left out. Without `--run` it
 // only counts what it would ask. Prints counts, never a word or a name.
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { readJson, writeJson } from "@life/server/src/core/files";
@@ -17,7 +17,11 @@ import {
   readWithPeople,
 } from "@life/server/src/memory/closeness";
 import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
-import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
+import {
+  type CheckedExchange,
+  checkedMoves,
+  type ReadName,
+} from "@life/server/src/memory/moves";
 import {
   begin,
   inBatches,
@@ -118,6 +122,43 @@ export function countsOf(calls: Call[], dir: string, wording: string) {
   };
 }
 
+/** A kept reply: the reply as given, the keys of the messages it read, where each exchange starts, the wording's digest. */
+interface Kept {
+  messages: string[];
+  reply: unknown;
+  starts: number[];
+  wording: string;
+}
+const wordingOf = (wording: string) => digest("sha256", wording, 16);
+
+/**
+ * Every exchange a read's kept replies hold under `label`, checked (`checkedMoves`), by its first message's key:
+ * only replies to this `wording` (a folder can hold several wordings' replies) whose messages are all in `events`.
+ */
+export function readKept(
+  read: ReadName,
+  label: string,
+  events: Map<string, SourceEvent>,
+  wording: string
+) {
+  const dir = join(KEPT, read, label);
+  const out = new Map<string, CheckedExchange>();
+  for (const file of existsSync(dir) ? readdirSync(dir) : []) {
+    const kept = readJson<Kept>(join(dir, file));
+    const messages = kept?.messages.flatMap((id) => events.get(id) ?? []);
+    if (
+      kept?.wording === wordingOf(wording) &&
+      messages?.length === kept.messages.length
+    ) {
+      const checked = checkedMoves(kept.reply, messages, kept.starts, read);
+      for (const x of checked.exchanges) {
+        out.set(kept.messages[x.exchange] as string, x);
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Makes every call not kept yet, a few at a time. A reply that is one (`Reply`) is kept as the model gave it, with
  * what made it, the wording's digest and the messages it read; its moves are worked out from it when read
@@ -143,8 +184,8 @@ export async function makeCalls(
           messages: c.messages.map((m) => eventKey(m)),
           reply,
           starts: c.starts,
-          wording: digest("sha256", wording, 16),
-        });
+          wording: wordingOf(wording),
+        } satisfies Kept & { madeBy: unknown });
         counts.dropped += checked.dropped;
         counts.missing += checked.missing;
         counts.offLine += checked.offLine;
@@ -160,7 +201,7 @@ export async function makeCalls(
 }
 
 /** Who a person is, as a read is told: their name and what they are to him on his map. */
-const withOf = (known: string, people: People): With => ({
+export const withOf = (known: string, people: People): With => ({
   name: people.nameOf(`person:${known}`),
   relation: people.truth.people.find((p) => p.id === known)?.relation ?? null,
 });
@@ -170,7 +211,7 @@ const withOf = (known: string, people: People): With => ({
  * in, people in an order that never changes (a digest of their ref), until the exchanges are enough. One batch a
  * person, so the sample spreads over people, channels and languages.
  */
-export function sampleOf(
+function sampleOthersOf(
   events: SourceEvent[],
   people: People,
   left: ReadonlySet<string>,
@@ -251,7 +292,7 @@ if (import.meta.main) {
   const named = directOf(names, events, people);
   const last = values.last ? Number(values.last) : undefined;
   const others = () =>
-    sampleOf(
+    sampleOthersOf(
       events,
       people,
       new Set(named.flatMap((p) => (p.known ? [`person:${p.known}`] : []))),

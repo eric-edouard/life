@@ -12,7 +12,7 @@ import { readPeople } from "@life/server/src/memory/who";
 import { transcripts, voiceLines } from "@life/server/src/memory/words";
 import type { SourceEvent } from "@life/server/src/records/source";
 import { turnsBetween, withStore } from "@life/server/src/sources/lifelog";
-import { setFile, type TestSet } from "./memory-pilot";
+import { setFile, type TestSet, withOf } from "./memory-pilot";
 
 const [LEAST, MOST, PER_PERSON] = [20, 480, 8];
 /** Turns in a row that stand as one exchange (a chat's exchange is about ten messages), and exchanges a call. */
@@ -100,11 +100,7 @@ if (import.meta.main) {
     ).slice(0, PIECES);
     set.push({
       batch,
-      with: {
-        name: people.nameOf(other),
-        relation:
-          people.truth.people.find((p) => p.id === known)?.relation ?? null,
-      },
+      with: withOf(known, people),
     });
   }
   writeJson(setFile(name), set);

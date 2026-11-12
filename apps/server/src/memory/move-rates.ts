@@ -79,7 +79,7 @@ export const CHANCE: Record<Thing, Chance> = {
 };
 
 /** Under this many chances a rate says "too few" (spec 9). A reading's own higher bar is its reader's. */
-export const MINIMUM = 15;
+const MINIMUM = 15;
 
 const both = (...things: Thing[]) =>
   things.flatMap((t) => [`${t}|me`, `${t}|them`]);
@@ -219,7 +219,7 @@ function chancesIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
 }
 
 /** What a count says: a share, too few chances for one, or a thing not proven on the test set. */
-export type Says = "share" | "too few" | "exploratory";
+type Says = "share" | "too few" | "exploratory";
 /** A count of `n` in `of` chances, and what it says. */
 export interface Rate extends Count {
   says: Says;

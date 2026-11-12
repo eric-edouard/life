@@ -3,24 +3,13 @@
 // `--flag <engine>` instead: what the connection read's tension flag catches of the exchanges where the conflict
 // read, by the same engine, found friction. Reads the replies kept by `memory-pilot.ts`; prints counts, never a word.
 
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { readJson } from "@life/server/src/core/files";
-import { digest } from "@life/server/src/core/hash";
 import { readWithPeople } from "@life/server/src/memory/closeness";
-import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
+import type { ReadName } from "@life/server/src/memory/moves";
 import { promptText } from "@life/server/src/models/llm";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
-import { z } from "zod";
-import { KEPT, READS, readSet } from "./memory-pilot";
+import { READS, readKept, readSet } from "./memory-pilot";
 
-const Kept = z.object({
-  messages: z.array(z.string()),
-  reply: z.unknown(),
-  starts: z.array(z.int()),
-  wording: z.string(),
-});
 /** The conflict read's codes that say something went wrong between them (the rest is steering). */
 const FRICTION = new Set([
   "fault",
@@ -37,47 +26,57 @@ interface Read {
   tension?: boolean;
 }
 
-/** Every exchange an engine read, by the id of its first message. */
-function readsOf(
+/** What a move is graded as, beside its code: how a bid was met, a deep disclosure, a mention's tone, a strong fault, where blame goes. */
+function gradesOf(move: Record<string, unknown>) {
+  const answer = (move.answer as { kind?: string } | undefined)?.kind;
+  return [
+    ...(answer ? [`(met ${answer})`] : []),
+    ...(move.code === "discloses" && Number(move.depth) >= 2
+      ? ["discloses (deep)"]
+      : []),
+    ...(move.code === "mention" && move.tone !== "neutral"
+      ? [`mention (${move.tone})`]
+      : []),
+    ...(move.code === "mention" && move.kind === "judgement"
+      ? ["mention (judgement)"]
+      : []),
+    ...(move.code === "fault" && Number(move.strength) >= 2
+      ? ["fault (strong)"]
+      : []),
+    ...(move.code === "blames" ? [`blames (${move.on})`] : []),
+  ];
+}
+
+/** Every exchange an engine read, by the key of its first message: its marks (codes, grades, a tone that is not neutral). */
+const readsOf = (
   read: ReadName,
   engine: string,
   events: Map<string, SourceEvent>,
   wording: string
-) {
-  const dir = join(KEPT, read, engine);
-  const out = new Map<string, Read>();
-  for (const file of existsSync(dir) ? readdirSync(dir) : []) {
-    const kept = Kept.safeParse(readJson(join(dir, file)));
-    const messages = kept.data?.messages.map((id) => events.get(id));
-    // A folder can hold replies to several wordings of a read: only this one's count.
-    if (
-      !(
-        kept.success &&
-        kept.data.wording === wording &&
-        messages?.every(Boolean)
-      )
-    ) {
-      continue;
-    }
-    const checked = checkedMoves(
-      kept.data.reply,
-      messages as SourceEvent[],
-      kept.data.starts,
-      read
-    );
-    for (const x of checked.exchanges) {
-      out.set(kept.data.messages[x.exchange] as string, {
-        conflict: x.conflict,
-        marks: new Set(x.moves.map((m) => `${m.code}|${m.by}`)),
-        tension: x.tension,
-      });
-    }
-  }
-  return out;
-}
+) =>
+  new Map(
+    [...readKept(read, engine, events, wording)].map(
+      ([key, x]): [string, Read] => [
+        key,
+        {
+          conflict: x.conflict,
+          marks: new Set([
+            ...x.moves.map((m) => `${m.code}|${m.by}`),
+            ...x.moves.flatMap((m) => gradesOf(m).map((g) => `${g}|${m.by}`)),
+            ...(["me", "them"] as const).flatMap((side) =>
+              x.tone[side] && x.tone[side] !== "neutral"
+                ? [`(tone ${x.tone[side]})|${side}`]
+                : []
+            ),
+          ]),
+          tension: x.tension,
+        },
+      ]
+    )
+  );
 
 /** Cohen's kappa of two yes/no readings: `both` said yes, `a` or `b` alone, over `n` exchanges. */
-export function kappaOf(both: number, a: number, b: number, n: number) {
+function kappaOf(both: number, a: number, b: number, n: number) {
   const agree = (both + (n - both - a - b)) / n;
   const yesA = (both + a) / n;
   const yesB = (both + b) / n;
@@ -119,9 +118,6 @@ if (import.meta.main) {
       set: { type: "string" },
     },
   });
-  // The wording a read's replies must answer: the read's own.
-  const wordingOf = async (prompt: string) =>
-    digest("sha256", await promptText(prompt), 16);
   // With `--set <name>[,<name>]`, only those test sets' exchanges, read from its file: no source is opened.
   const all = values.set
     ? values.set
@@ -134,13 +130,13 @@ if (import.meta.main) {
       "connection",
       values.flag,
       events,
-      await wordingOf(READS.connection.prompt)
+      await promptText(READS.connection.prompt)
     );
     const read = readsOf(
       "conflict",
       values.flag,
       events,
-      await wordingOf(READS.conflict.prompt)
+      await promptText(READS.conflict.prompt)
     );
     const shared = [...read].flatMap(([id, c]) => {
       const f = flagged.get(id);
@@ -165,7 +161,7 @@ if (import.meta.main) {
         "usage: bun scripts/pilot-agree.ts <read> <engine> <engine> | --flag <engine>"
       );
     }
-    const wording = await wordingOf(READS[name as ReadName].prompt);
+    const wording = await promptText(READS[name as ReadName].prompt);
     const a = readsOf(name as ReadName, engineA, events, wording);
     const b = readsOf(name as ReadName, engineB, events, wording);
     const shared = [...a].flatMap(([id, x]): [Read, Read][] => {

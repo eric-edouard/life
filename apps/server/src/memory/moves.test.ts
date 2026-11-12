@@ -139,3 +139,25 @@ test("a move stays inside its exchange; an exchange the batch does not hold is m
   expect(checkedMoves(replyOf([], 7), batch, [0, 2]).missing).toBe(2);
   expect(() => checkedMoves({ moves: [] }, talk, [0])).toThrow();
 });
+
+test("two people talked about on one line are two mentions", () => {
+  const line = [msg(0, false, "Marc et Julie ont annulé au dernier moment")];
+  const mention = (who: string) => ({
+    code: "mention",
+    kind: "fact",
+    line: 0,
+    purpose: "complains",
+    quote: "Marc et Julie ont annulé",
+    reported: false,
+    scope: "act",
+    tone: "negative",
+    who,
+  });
+  const { exchanges } = checkedMoves(
+    replyOf([mention("Marc"), mention("Julie"), mention("Marc")]),
+    line,
+    [0],
+    "mentions"
+  );
+  expect(exchanges[0]?.moves.map((m) => m.who)).toEqual(["Marc", "Julie"]);
+});
