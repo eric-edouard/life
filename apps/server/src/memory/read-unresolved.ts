@@ -8,12 +8,16 @@ const EXAMPLE_MAX = 80;
 /**
  * `bun life memory unresolved`: for Claude. The people Life inferred (who it thinks they are, how sure, and how many
  * observations are about them), then the names it still cannot place, most seen first, with the days they appeared
- * on and an example unit. Nothing here waits on the owner; when he says who someone is, Claude records it with
+ * on and an example unit, and the Contacts cards whose name and handle disagree. Nothing here waits on the owner; when he says who someone is, Claude records it with
  * `bun life memory correct`.
  */
 export async function unresolved(top = 25) {
   const [rows, people] = await Promise.all([readUnresolved(), readPeople()]);
-  const { inferred, resolve } = people;
+  const { apart, inferred, names: nameOf, resolve } = people;
+  const cards = apart.map(
+    (a) =>
+      `- ${nameOf.get(a.card) ?? a.card} (${a.card}): its name and handles say ${a.people.map((p) => nameOf.get(p) ?? p).join(" and ")}`
+  );
   const open = rows.filter((r) => !resolve(r.surface));
   const units = readUnitsFor(
     open.map((r) => r.unit),
@@ -56,6 +60,13 @@ export async function unresolved(top = 25) {
     `People Life inferred (${inferredPeople.length}; used from confidence ${INFERRED_USE_AT}, below truth/ and your corrections):`,
     ...(inferredPeople.length > 0 ? inferredPeople : ["(none)"]),
     "",
+    ...(cards.length > 0
+      ? [
+          `Contacts cards Life cannot place (${cards.length}; its name and handles say more than one person: ask him whose it is, then put its handles in truth/):`,
+          ...cards,
+          "",
+        ]
+      : []),
     `Names not placed (${names.size}; ${resolved} sightings of names that now resolve are left out). Top ${Math.min(top, names.size)}:`,
     ...lines,
   ].join("\n");

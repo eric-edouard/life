@@ -301,8 +301,8 @@ test("a card that shares only a short name with someone whose numbers are known 
   );
 });
 
-test("a card named for someone in truth/ is theirs, even when it holds a number truth/ gives to someone else", () => {
-  // A card under Cyril's whole name holds Bea's number and an address: the address is Cyril's, the number stays Bea's.
+test("a card whose whole name says one person and whose number says another is no one's: Life does not guess", () => {
+  // A card under Cyril's whole name holds Bea's number and an address (a card he renamed, or two people in one card).
   const cyril = Person.parse({
     handles: { email: [], phone: ["+33600000050"], whatsapp: [] },
     id: "cyril",
@@ -312,21 +312,51 @@ test("a card named for someone in truth/ is theirs, even when it holds a number 
     "+33677777777",
     "cy@example.com",
   ]);
-  const { canon, resolve } = foldsOf([...truth, cyril], [], [], [mixed]);
-  expect(canon(`person:${mixed.id}`)).toBe("person:cyril");
-  expect(resolve("cy@example.com")).toBe("person:cyril");
+  const self = `person:${mixed.id}`;
+  const { apart, canon, resolve } = foldsOf([...truth, cyril], [], [], [mixed]);
+  expect(apart).toEqual([
+    { card: self, people: ["person:cyril", "person:bea"] },
+  ]);
+  // Whatever the order of its handles, and with Cyril's own number on it too.
+  const reordered = now("card-mixed", "Cyril Blanc", [
+    "+33600000050",
+    "cy@example.com",
+    "+33677777777",
+  ]);
+  expect(foldsOf([...truth, cyril], [], [], [reordered]).apart).toEqual([
+    { card: self, people: ["person:cyril", "person:bea"] },
+  ]);
+  // Once he says whose the card is, it is placed and no longer listed.
+  const settled = foldsOf(
+    [...truth, cyril],
+    [],
+    [
+      {
+        at: AT,
+        from: self,
+        kind: "same-person",
+        schemaVersion: 1,
+        to: "person:bea",
+      },
+    ] as never,
+    [mixed]
+  );
+  expect(settled.apart).toEqual([]);
+  expect(settled.resolve("cy@example.com")).toBe("person:bea");
+  expect(canon(self)).toBe(self);
+  // The number truth/ knows is still Bea's; the address is the card's own, neither Bea's nor Cyril's.
   expect(resolve("+33677777777")).toBe("person:bea");
-  // Unless he said the address is not Cyril: then the card is no one's by its name, and Bea's by her number.
-  const notCyril = {
-    at: AT,
-    kind: "not-this-person",
-    person: "person:cyril",
-    schemaVersion: 1,
-    surface: "cy@example.com",
-  };
-  expect(
-    foldsOf([...truth, cyril], [], [notCyril] as never, [mixed]).canon(
-      `person:${mixed.id}`
-    )
-  ).toBe("person:bea");
+  expect(resolve("cy@example.com")).toBe(self);
+  // His word in truth/ settles it: the address is Bea's, whatever the card is called.
+  const bea = Person.parse({
+    ...truth[0],
+    handles: {
+      email: ["cy@example.com"],
+      phone: ["+33677777777"],
+      whatsapp: [],
+    },
+  });
+  expect(foldsOf([bea, cyril], [], [], [mixed]).resolve("cy@example.com")).toBe(
+    "person:bea"
+  );
 });

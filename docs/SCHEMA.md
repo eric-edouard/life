@@ -179,9 +179,11 @@ person. Only a card with a handle that is a sender Life cannot name, or a surfac
 his address book is never copied. Two cards sharing a handle are one person when they share a name, else the first by
 card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's guesses, a guess's link to
 `truth/` included (`readingOf`: his Contacts are his word on a number). A card named, whole, as someone in `truth/`
-is that person and brings its handles (a number on it that `truth/` gives someone else stays theirs: his label for
-the card comes first); else a card that shares a handle with someone in `truth/` is that person; else one that shares
-only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`); a guess made for
+is that person and brings its handles; else a card that shares a handle with someone in `truth/` is that person; else
+one that shares only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`). A
+card whose whole name and whose handles say more than one person is no one's, a card **apart** (he renamed a card,
+two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and
+`bun life memory unresolved` lists the card for him to say; a guess made for
 one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
 the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
 
