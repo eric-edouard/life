@@ -2,6 +2,7 @@ import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog";
+import { readRecorded } from "../sources/lifelog-recorded";
 import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";
 import { span } from "./episode-span";
@@ -20,7 +21,7 @@ import { byTime, euros, paid, paymentLine, placedOn } from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import { dueContext, dueOf } from "./read-open-items";
 import { readPeople } from "./who";
-import { inDays, localDate, time } from "./zones";
+import { dayRange, inDays, localDate, time } from "./zones";
 
 // `bun life memory day <date>` and the connector's `read_day`: what happened that day (its episodes), what is due, its
 // units (recorded conversations among them), its key observations and what Life changed.
@@ -162,6 +163,12 @@ export async function day(date: string) {
   const stays = lifelogMissing()
     ? []
     : await staysOf({ at: date }).catch(() => null);
+  // Whether the pendant recorded that day; null when lifelog is not set up or could not be read.
+  const bounds = dayRange(date, date);
+  const recorded =
+    lifelogMissing() || !bounds.from
+      ? null
+      : await readRecorded(bounds.from, bounds.to).catch(() => null);
   const context = await dueContext(date, people);
   const ofDays = await placedOn(date, date, all, stays ?? []);
   return withIndex((db) => {
@@ -177,7 +184,7 @@ export async function day(date: string) {
     return dayLines({
       actions,
       born,
-      covered: readCoverage(db, date),
+      covered: readCoverage(db, date, recorded),
       due: dueOf(db, date, context),
       episodes: episodes.map((episode) => {
         const s = span(episode);

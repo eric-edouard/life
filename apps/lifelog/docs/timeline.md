@@ -94,6 +94,10 @@ source's fragments into **blocks** of up to 2 minutes and makes each one job (`c
   `untimedPage`;
 - `pauses`: confirmed recording pauses inside it.
 
+**Recorded** is what the spans say of a range of time (`recorded`, `GET /recorded`): its **stretches**, each the
+Pendants' spans less than a minute apart joined into one, given whole. Speech or silence makes no difference; an
+old-app recording is no Pendant's. Before the first span held (`since`), no stretch says nothing.
+
 And `heardThrough`: the capture time of the durable, analyzed, contiguous page prefix. It only moves forward, and
 grouping closes a conversation once it is 5 minutes past its end. A late page, a new gap or a clock change sends the
 spans from where they changed again, at most 200 per request.
