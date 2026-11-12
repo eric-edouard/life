@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
-import { chatGroups, type SourceEvent } from "../records/source";
+import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { PASSAGES } from "./ledger";
 import {
   enabledSources,
@@ -82,7 +82,7 @@ const rowOf = (events: SourceEvent[]): Passage => {
     end: events.at(-1)?.at ?? first.at,
     events,
     hash: textHashOf(EMBEDDER_MODEL, text),
-    id: `${first.source}|${first.id}`,
+    id: eventKey(first),
     source: first.source,
     start: first.at,
     text,
@@ -142,7 +142,7 @@ function readEdges(
   to: string,
   readers: Readers
 ) {
-  const out = new Map(events.map((e) => [`${e.source}|${e.id}`, e]));
+  const out = new Map(events.map((e) => [eventKey(e), e]));
   const chats = chatGroups(events.filter((e) => kindOf(e.source) === "chat"));
   for (const list of chats.values()) {
     const first = list[0] as SourceEvent;
@@ -160,7 +160,7 @@ function readEdges(
         direction,
         read
       )) {
-        out.set(`${e.source}|${e.id}`, e);
+        out.set(eventKey(e), e);
       }
     }
   }
@@ -184,7 +184,7 @@ function runBoundsOf(events: SourceEvent[]) {
         run = { end: e.at, start: e.at };
       }
       run.end = e.at;
-      bounds.set(`${e.source}|${e.id}`, run);
+      bounds.set(eventKey(e), run);
       last = e;
     }
   }
@@ -329,10 +329,10 @@ export function preparePassages(
     const blocked = new Set(
       expanded
         .filter((e) => deferred.has(localDate(e.at)))
-        .map((e) => bounds.get(`${e.source}|${e.id}`))
+        .map((e) => bounds.get(eventKey(e)))
     );
     const eligible = expanded.filter(
-      (e) => !blocked.has(bounds.get(`${e.source}|${e.id}`))
+      (e) => !blocked.has(bounds.get(eventKey(e)))
     );
     mkdirSync(dirname(path), { recursive: true });
     const db = new Database(path);

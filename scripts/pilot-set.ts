@@ -12,7 +12,11 @@ import { digest } from "@life/server/src/core/hash";
 import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
 import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
 import { readPeople } from "@life/server/src/memory/who";
-import { chatGroups, type SourceEvent } from "@life/server/src/records/source";
+import {
+  chatGroups,
+  eventKey,
+  type SourceEvent,
+} from "@life/server/src/records/source";
 import { KEPT, READS, setFile, type TestSet } from "./memory-pilot";
 
 /** Messages a call of the test set holds at most (one longer exchange goes alone): small, so a try takes minutes. */
@@ -90,7 +94,7 @@ function holdersOf(read: string, engine: string, codes: string[]) {
 }
 
 const idOf = (exchange: SourceEvent[]) =>
-  exchange[0] ? `${exchange[0].source}|${exchange[0].id}` : "";
+  exchange[0] ? eventKey(exchange[0]) : "";
 
 if (import.meta.main) {
   const { positionals, values } = parseArgs({

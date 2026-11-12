@@ -37,7 +37,11 @@ import {
   promptText,
   stamp,
 } from "@life/server/src/models/llm";
-import { chatGroups, type SourceEvent } from "@life/server/src/records/source";
+import {
+  chatGroups,
+  eventKey,
+  type SourceEvent,
+} from "@life/server/src/records/source";
 import { z } from "zod";
 
 /** Where a reply is kept, by read and engine: his data, outside `memory/`, so no lock and no nightly step reads it. */
@@ -430,7 +434,7 @@ export async function makeCalls(
         const checked = checkedMoves(reply, c.messages, c.starts, name);
         writeJson(join(dir, `${c.key}.json`), {
           madeBy: stamp(step.llm, prompt, step.run),
-          messages: c.messages.map((m) => `${m.source}|${m.id}`),
+          messages: c.messages.map((m) => eventKey(m)),
           reply,
           starts: c.starts,
           wording: digest("sha256", wording, 16),

@@ -10,7 +10,7 @@ import { readJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { readWithPeople } from "@life/server/src/memory/closeness";
 import { promptText } from "@life/server/src/models/llm";
-import type { SourceEvent } from "@life/server/src/records/source";
+import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 import { z } from "zod";
 import {
   checkedMoves,
@@ -134,7 +134,7 @@ if (import.meta.main) {
         .split(",")
         .flatMap((name) => readSet(name).flatMap((s) => s.batch.flat()))
     : (await readWithPeople(new Date(0))).events;
-  const events = new Map(all.map((e) => [`${e.source}|${e.id}`, e]));
+  const events = new Map(all.map((e) => [eventKey(e), e]));
   if (values.flag) {
     const flagged = readsOf(
       "connection",
