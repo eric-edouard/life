@@ -171,7 +171,7 @@ test("steering counts only where a decision is at stake; an answer to a fault on
 });
 
 test("14 chances say too few, 15 say share; a code not proven keeps its counts with no share", () => {
-  const shares = () => exchange([move("me", "shares"), move("me", "explores")]);
+  const shares = () => exchange([move("me", "shares"), move("me", "returns")]);
   const rate = (n: number, thing: Thing) =>
     rowOf(moveRatesOf(many(n, shares), NOVEMBER), thing, "me", "whatsapp")?.all;
   expect(rate(14, "shares")).toEqual({ n: 14, of: 14, says: "too few" });
