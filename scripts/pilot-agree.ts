@@ -116,11 +116,10 @@ if (import.meta.main) {
     allowPositionals: true,
     options: {
       flag: { type: "string" },
-      prompt: { type: "string" },
       set: { type: "string" },
     },
   });
-  // The wording a read's replies must answer: the read's own, or `--prompt <name>` for an earlier one.
+  // The wording a read's replies must answer: the read's own.
   const wordingOf = async (prompt: string) =>
     digest("sha256", await promptText(prompt), 16);
   // With `--set <name>[,<name>]`, only those test sets' exchanges, read from its file: no source is opened.
@@ -141,7 +140,7 @@ if (import.meta.main) {
       "conflict",
       values.flag,
       events,
-      await wordingOf(values.prompt ?? READS.conflict.prompt)
+      await wordingOf(READS.conflict.prompt)
     );
     const shared = [...read].flatMap(([id, c]) => {
       const f = flagged.get(id);
@@ -166,9 +165,7 @@ if (import.meta.main) {
         "usage: bun scripts/pilot-agree.ts <read> <engine> <engine> | --flag <engine>"
       );
     }
-    const wording = await wordingOf(
-      values.prompt ?? READS[name as ReadName].prompt
-    );
+    const wording = await wordingOf(READS[name as ReadName].prompt);
     const a = readsOf(name as ReadName, engineA, events, wording);
     const b = readsOf(name as ReadName, engineB, events, wording);
     const shared = [...a].flatMap(([id, x]): [Read, Read][] => {

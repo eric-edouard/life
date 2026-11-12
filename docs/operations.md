@@ -300,7 +300,12 @@ first.
   does and writes nothing of his. Run it before sizing a read of his history.
 - **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>]` reads
   the one-to-one chats of the people named, a batch of exchanges per call, with one of the rework's reads
-  (`connection` so far; its prompt is `prompts/memory-connection.v1.md`). Without `--run` it asks nothing: per
+  (`connection`, `mentions`, `conflict`; `READS` names each one's prompt). `--all` reads every one-to-one chat both
+  sides wrote in; `--set <name>` a saved test set (`pilot-set.ts`, or `pilot-voice-set.ts` for recorded
+  conversations), so a wording is tried in minutes; `--model`, `--effort` and `--label` name another model of the
+  engine and the folder its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
+  far two readers agree, by code and side; `pilot-readings.ts` writes a trial page per person in his data from
+  what `memory/move-rates.ts` counts. Without `--run` it asks nothing: per
   person, by position, how many calls it would make, how many are kept already, and at most how many tokens. With
   `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by another family), as one
   `memory.pilot` run, and keeps each reply that is one in his data,
