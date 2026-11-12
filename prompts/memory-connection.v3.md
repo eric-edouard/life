@@ -53,25 +53,31 @@ One entry for every exchange in `lines`, in order, even when it holds no move:
 
 ## The moves
 
+When unsure whether a move is there, leave it out: a missed move costs less than an invented one.
+
 Seen in the words:
 
-| `code` | The line… |
-|---|---|
-| `shares` | brings something of their own to the other for a reaction: a moment of their day, a photo, a joke, a thought. Not an answer to a question, not logistics |
-| `good_news` | tells something good that happened to them |
-| `asks_about` | asks about the other person: their state, their day, their life, how something of theirs went. Not a practical question about plans or facts |
-| `thanks` | thanks the other |
-| `affection` | says affection, appreciation or praise for the other |
-| `support_asked` | asks for help, comfort or advice for themselves |
-| `support_given` | gives help, comfort or advice to the other, asked or not |
-| `invites` | proposes to do something together |
-| `reassurance_asked` | asks whether things are all right between them ("are you angry?", "did I do something?") |
-| `explores` | pursues an idea for its own sake: a question about ideas, a book, how something works |
-| `asks_for` | asks the other for something, with `resource` |
-| `offers` | offers the other something, with `resource` |
-| `gives` | gives or has just given the other something, with `resource` |
-| `refuses` | says no to something asked, with `resource` |
-| `returns` | gives back or pays back something received, with `resource` |
+| `code` | The line… | Not this |
+|---|---|---|
+| `shares` | brings the other something to react to, asking nothing of them: a photo, a link, a joke, a moment of their day | an answer to a question; logistics; something requested (that is `gives`) |
+| `good_news` | tells something good that happened to them | |
+| `asks_about` | asks about the other person: how they are, their day, their life, how something of theirs went | a practical question about plans or facts (`asks_for` information) |
+| `thanks` | thanks the other | |
+| `affection` | says affection, appreciation or praise for the other | |
+| `support_asked` | asks for help, comfort or advice for their own trouble | asking for a thing or a favour (`asks_for`) |
+| `support_given` | comforts, encourages or advises the other about the other's own trouble | doing a practical favour (`gives` service) |
+| `invites` | proposes to do something together | |
+| `reassurance_asked` | asks whether things are all right between them ("are you angry?", "did I do something?") | |
+| `explores` | discusses an idea for its own sake: how something works, a book, a theory, a question about the world | an opinion about a person; a practical question |
+| `asks_for` | asks the other to do or provide something, with `resource` | a question about their life (`asks_about`) |
+| `offers` | offers to do or provide something, with `resource` | |
+| `gives` | hands the other something they asked for or needed, with `resource`: money sent, a thing handed over, a favour done, a contact or a recommendation they wanted, advice they asked for | a plain answer to a question (no move: answering is not giving); something brought just to react to (`shares`); a promise to do it later (`offers`) |
+| `refuses` | says no to a request, an offer or an invitation made earlier in the same exchange, with `resource` | a no that answers nothing asked |
+| `returns` | gives back or pays back something received, with `resource` | |
+
+Between `shares`, `asks_for` and `gives`, decide in this order: the line asks the other for something → `asks_for`;
+it hands over what was asked for or needed (the thing itself, not words about it) → `gives`; it only brings something
+to react to → `shares`. A line that simply answers a question ("yes at 8", "it's the blue one") is none of them.
 
 `resource` is what is asked, offered, given, refused or returned: `affection` (care, comfort, time together),
 `standing` (praise, respect, a recommendation), `information` (advice, news, a contact, knowledge), `money`,
@@ -79,9 +85,9 @@ Seen in the words:
 
 A judgement:
 
-| `code` | The line… |
-|---|---|
-| `discloses` | tells something about themselves, with `depth`: 1 for facts of their day or plans, 2 for an opinion, a worry or a wish that is their own, 3 for something that exposes them: a fear, a shame, a hurt, a deep feeling |
+| `code` | The line… | Not this |
+|---|---|---|
+| `discloses` | tells something about their own inner life or personal situation that they did not have to say, with `depth`: 1 a personal fact beyond logistics ("I slept badly", "I quit my job", "j'ai mal au dos depuis hier"), 2 a worry, a wish or a feeling of their own about their life ("I'm scared it won't work", "ça me stresse", "j'en ai marre de ce boulot"), 3 something that exposes them: a fear, a shame, a hurt, a deep feeling ("I feel like a failure", "j'ai honte") | plans and logistics ("I'll be there at 8"); a plain answer to a factual question; what happened to other people; an opinion on a topic, a product or a third person (`explores`, or nothing); a complaint about the other person (that is tension, not disclosure) |
 
 A line can carry two moves (good news that is also a disclosure): list both.
 
@@ -100,7 +106,8 @@ exchange, leave `answer` out. Code sees that itself.
 
 ## Rules
 
-- Only what is in the words. No trait, no motive, no guess about what someone feels and did not say.
+- Only what is in the words. No trait, no motive, no guess about what someone feels and did not say. A feeling
+  counts as disclosed only when the line names it or plainly shows it; a fact alone is depth 1 at most.
 - One move per code and per person in an exchange: when the same person makes the same move several times, list the
   clearest one.
 - What a person reports someone else said or did is not that person's own move.

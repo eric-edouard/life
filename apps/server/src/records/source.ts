@@ -88,6 +88,10 @@ export const SourceEvent = z
   .strict();
 
 export type SourceEvent = z.infer<typeof SourceEvent>;
+/** An event's key across sources: its source and its id (`source|id`). */
+export const eventKey = (e: Pick<SourceEvent, "id" | "source">) =>
+  `${e.source}|${e.id}`;
+
 /** Messages by chat, in the order given. */
 export const chatGroups = (events: SourceEvent[]) =>
   Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
