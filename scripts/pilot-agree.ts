@@ -10,7 +10,13 @@ import { readJson } from "@life/server/src/core/files";
 import { readWithPeople } from "@life/server/src/memory/closeness";
 import type { SourceEvent } from "@life/server/src/records/source";
 import { z } from "zod";
-import { checkedMoves, KEPT, READS, type ReadName } from "./memory-pilot";
+import {
+  checkedMoves,
+  KEPT,
+  READS,
+  type ReadName,
+  readSet,
+} from "./memory-pilot";
 
 const Kept = z.object({
   messages: z.array(z.string()),
@@ -102,9 +108,12 @@ function rowOf(
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { flag: { type: "string" } },
+    options: { flag: { type: "string" }, set: { type: "string" } },
   });
-  const { events: all } = await readWithPeople(new Date(0));
+  // With `--set <name>`, only that test set's exchanges, read from its file: no source is opened.
+  const all = values.set
+    ? readSet(values.set).flatMap((s) => s.batch.flat())
+    : (await readWithPeople(new Date(0))).events;
   const events = new Map(all.map((e) => [`${e.source}|${e.id}`, e]));
   if (values.flag) {
     const flagged = readsOf("connection", values.flag, events);

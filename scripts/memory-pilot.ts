@@ -1,4 +1,4 @@
-// `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>]`: the memory
+// `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>] | --all`: the memory
 // rework's pilot (docs/operations.md, "Measuring"). For each person named, their one-to-one chats both sides wrote in,
 // a batch of exchanges per call; `--last` keeps each person's newest batches only (the second family's check);
 // `--sample` reads about that many exchanges of everyone else instead, the people named left out. Without `--run` it
@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { writeJson } from "@life/server/src/core/files";
+import { readJson, writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { Engine } from "@life/server/src/core/names";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
@@ -29,6 +29,7 @@ import { textOf } from "@life/server/src/memory/units";
 import { type People, readPeople } from "@life/server/src/memory/who";
 import { batchLines } from "@life/server/src/memory/words";
 import {
+  askOnce,
   CHARS_PER_TOKEN,
   llmFor,
   llmSpec,
@@ -40,6 +41,20 @@ import { z } from "zod";
 
 /** Where a reply is kept, by read and engine: his data, outside `memory/`, so no lock and no nightly step reads it. */
 export const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
+
+/**
+ * A test set: batches of exchanges saved whole, each with whom it is, so a wording is tried and two readers are
+ * compared without reading his sources again (`pilot-set.ts` writes one, `--set <name>` reads it).
+ */
+export type TestSet = { batch: SourceEvent[][]; with: With }[];
+export const setFile = (name: string) => join(KEPT, "sets", `${name}.json`);
+export const readSet = (name: string) => {
+  const set = readJson<TestSet>(setFile(name));
+  if (!set) {
+    throw new Error(`no test set ${name}: bun scripts/pilot-set.ts first`);
+  }
+  return set;
+};
 
 const RESOURCES = [
   "affection",
@@ -339,7 +354,7 @@ export function checkedMoves(
   return { ...counts, exchanges };
 }
 
-interface With {
+export interface With {
   name: string;
   relation: string | null;
 }
@@ -431,16 +446,21 @@ export async function makeCalls(
       { key: c.key }
     );
   };
-  // A few calls at a time (`parallel`): a reply is kept as it lands, so a stopped pass loses only those in flight.
+  // `parallel` calls at once, the next starting as one ends: a reply is kept as it lands, so a stopped pass loses only
+  // those in flight.
   const todo = notKept(calls, dir);
-  for (let n = 0; n < todo.length; n += parallel) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few calls at a time, not all at once
-    await Promise.all(
-      todo
-        .slice(n, n + parallel)
-        .map((c, m) => one(c, join(step.dir, `batch-${n + m}`)))
-    );
-  }
+  let next = 0;
+  const work = async () => {
+    while (next < todo.length) {
+      const i = next;
+      next += 1;
+      // biome-ignore lint/performance/noAwaitInLoops: one worker's calls, one after another
+      await one(todo[i] as Call, join(step.dir, `batch-${i}`));
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(parallel, todo.length) }, work)
+  );
   return counts;
 }
 
@@ -486,11 +506,24 @@ export function sampleOf(
   return calls;
 }
 
+/** Every call of everyone with a one-to-one chat both sides wrote in, all years: the history's one read. */
+export const allOf = (events: SourceEvent[], people: People, wording: string) =>
+  [...directChats(events, people.resolve)]
+    .filter(([ref]) => ref.startsWith("person:"))
+    .flatMap(([ref, messages]) =>
+      callsOf(messages, withOf(ref.slice("person:".length), people), wording)
+    );
+
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
+      all: { type: "boolean" },
+      effort: { type: "string" },
       engine: { type: "string" },
+      label: { type: "string" },
+      model: { type: "string" },
+      set: { type: "string" },
       last: { type: "string" },
       parallel: { type: "string" },
       run: { type: "boolean" },
@@ -499,51 +532,75 @@ if (import.meta.main) {
   });
   const [name = "", ...names] = positionals;
   const read: Read | undefined = READS[name as ReadName];
-  if (!read || names.length === 0) {
+  if (!read || (names.length === 0 && !values.all && !values.set)) {
     throw new Error(
       `usage: bun scripts/memory-pilot.ts <${Object.keys(READS).join("|")}> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>]`
     );
   }
   const engine = Engine.optional().parse(values.engine);
-  const llm = llmFor("main", engine);
+  // `--model` and `--effort` name another model of the engine (the reference, a second family); `--label` the folder
+  // its replies are kept in, so two models of one engine never share one.
+  const main = llmFor("main", engine);
+  const llm = {
+    ...main,
+    effort: values.effort ?? main.effort,
+    model: values.model ?? main.model,
+  };
   console.log(`${name} on ${llmSpec(llm)}`);
   const wording = await promptText(read.prompt);
-  const { events, failed } = await readWithPeople(new Date(0));
+  const dir = join(KEPT, name, values.label ?? llm.engine);
+  // A test set is read from its file: no source is opened.
+  const { events, failed } = values.set
+    ? { events: [], failed: [] }
+    : await readWithPeople(new Date(0));
   const people = await readPeople();
-  const dir = join(KEPT, name, llm.engine);
   const named = directOf(names, events, people);
   const last = values.last ? Number(values.last) : undefined;
-  const calls = values.sample
-    ? sampleOf(
-        events,
-        people,
-        new Set(named.flatMap((p) => (p.known ? [`person:${p.known}`] : []))),
-        Number(values.sample),
-        wording
-      )
-    : named.flatMap(({ known, messages }, i) => {
-        const all = known
-          ? callsOf(messages, withOf(known, people), wording)
-          : [];
-        const mine = last ? all.slice(-last) : all;
-        console.log(`Person ${i + 1}${known ? "" : ": no one by that name"}`);
-        console.table([countsOf(mine, dir, wording)]);
-        return mine;
-      });
-  if (values.sample) {
+  const calls = values.set
+    ? readSet(values.set).map((s) => callOf(s.batch, s.with, wording))
+    : values.all
+      ? allOf(events, people, wording)
+      : values.sample
+        ? sampleOf(
+            events,
+            people,
+            new Set(
+              named.flatMap((p) => (p.known ? [`person:${p.known}`] : []))
+            ),
+            Number(values.sample),
+            wording
+          )
+        : named.flatMap(({ known, messages }, i) => {
+            const all = known
+              ? callsOf(messages, withOf(known, people), wording)
+              : [];
+            const mine = last ? all.slice(-last) : all;
+            console.log(
+              `Person ${i + 1}${known ? "" : ": no one by that name"}`
+            );
+            console.table([countsOf(mine, dir, wording)]);
+            return mine;
+          });
+  if (values.sample || values.all || values.set) {
     console.log(
-      `Sample: ${calls.length} people, ${calls.reduce((n, c) => n + c.starts.length, 0)} exchanges`
+      `${values.set ?? (values.all ? "All" : "Sample")}: ${calls.length} calls, ${calls.reduce((n, c) => n + c.starts.length, 0)} exchanges, ${calls.reduce((n, c) => n + c.messages.length, 0)} messages`
     );
     console.table([countsOf(calls, dir, wording)]);
   }
   if (values.run) {
     await spareQuota(llm.engine);
-    const step = await begin(
+    const begun = await begin(
       "pilot",
       "main",
       { prompt: read.prompt, read: name },
       engine
     );
+    const step = {
+      ...begun,
+      ask: (o: Parameters<typeof begun.ask>[0]) =>
+        askOnce({ ...o, llm, run: begun.run }),
+      llm,
+    };
     console.table([
       step.end(
         await makeCalls(
