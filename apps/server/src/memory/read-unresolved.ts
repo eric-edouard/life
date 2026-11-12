@@ -16,7 +16,7 @@ export async function unresolved(top = 25) {
   const { apart, inferred, names: nameOf, resolve } = people;
   const cards = apart.map(
     (a) =>
-      `- ${nameOf.get(a.card) ?? a.card} (${a.card}): named as ${nameOf.get(a.named) ?? a.named}, holds a handle of ${nameOf.get(a.handled) ?? a.handled}`
+      `- ${nameOf.get(a.card) ?? a.card} (${a.card}): its name and handles say ${a.people.map((p) => nameOf.get(p) ?? p).join(" and ")}`
   );
   const open = rows.filter((r) => !resolve(r.surface));
   const units = readUnitsFor(
@@ -62,7 +62,7 @@ export async function unresolved(top = 25) {
     "",
     ...(cards.length > 0
       ? [
-          `Contacts cards Life cannot place (${cards.length}; the name says one person, a handle another: ask him whose each is, then put the handle in truth/):`,
+          `Contacts cards Life cannot place (${cards.length}; its name and handles say more than one person: ask him whose it is, then put its handles in truth/):`,
           ...cards,
           "",
         ]

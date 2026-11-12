@@ -162,7 +162,7 @@ function readingOf(
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
  * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
  * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
- * person. A card whose whole name and whose handle say two different people folds into no one (`apart`: his to say).
+ * person. A card whose whole name and whose handles say more than one person folds into no one (`apart`: his to say).
  */
 export function foldsOf(
   people: Person[],
@@ -187,21 +187,15 @@ export function foldsOf(
       into.set(self, to);
     }
   }
-  const apart: { card: string; handled: string; named: string }[] = [];
+  // A card whose whole name and whose handles say more than one person, to settle once the folds are known.
+  const torn: { card: string; people: string[] }[] = [];
   for (const c of contacts) {
     const self = `person:${c.id}`;
-    const named = read(c.name);
-    const placed = placeOf(self, {
-      byName:
-        named && named !== self && !isRuledOut(c, named) ? named : undefined,
-      handled: c.surfaces.map(read).find((x) => x && x !== self) ?? undefined,
-      isWhole: (ref) => isWholeNameOf(c, ref, people),
-      people,
-    });
-    if (typeof placed === "string") {
-      into.set(self, placed);
-    } else if (placed) {
-      apart.push(placed);
+    const says = saidBy(c, self, read, people, isRuledOut);
+    if (says.people.length > 1) {
+      torn.push({ card: self, people: says.people });
+    } else if (says.people[0] ?? says.maybe) {
+      into.set(self, (says.people[0] ?? says.maybe) as string);
     }
   }
   for (const c of corrections) {
@@ -217,6 +211,20 @@ export function foldsOf(
     }
     return r;
   };
+  // A card he settled himself (`same-person`) is placed; one whose name and handles are one person after all (a
+  // guess folded into them) is theirs; the rest is not Life's to place: no one's until he says (`apart`), and each
+  // handle truth/ knows still reads as its own person.
+  const apart = torn.flatMap((t) => {
+    if (canon(t.card) !== t.card) {
+      return [];
+    }
+    const now = [...new Set(t.people.map(canon))];
+    if (now.length === 1) {
+      into.set(t.card, now[0] as string);
+      return [];
+    }
+    return [{ card: t.card, people: now }];
+  });
   const resolve = (surface: string): string | null => {
     const ref = read(surface);
     return ref ? canon(ref) : null;
@@ -225,30 +233,29 @@ export function foldsOf(
 }
 
 /**
- * Who a contact card is, from who its name reads as (`byName`) and who one of its handles reads as (`handled`): whoever
- * its whole name says, then whoever shares a handle with it, then whoever its name may still be (`namesTheSame`). A
- * card whose whole name says one person and whose handle says another is not Life's to place (a card he renamed, two
- * people merged in one card, a number two people share): it is returned apart, no one's until he says, and each
- * handle truth/ knows still reads as its own person.
+ * Who a contact card says it is: `people`, whoever its whole name is in truth/ and whoever each of its handles reads
+ * as (every handle, so their order never decides), each once; and `maybe`, whoever its name may still be when
+ * nothing else says (`namesTheSame`).
  */
-function placeOf(
-  card: string,
-  o: {
-    byName: string | undefined;
-    handled: string | undefined;
-    isWhole: (ref: string) => boolean;
-    people: Person[];
-  }
+function saidBy(
+  c: ContactNow,
+  self: string,
+  read: (surface: string) => string | null,
+  people: Person[],
+  isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
-  const whole = o.byName && o.isWhole(o.byName) ? o.byName : undefined;
-  if (whole && o.handled && whole !== o.handled) {
-    return { card, handled: o.handled, named: whole };
-  }
-  return (
-    whole ??
-    o.handled ??
-    (o.byName && namesTheSame(o.byName, o.people) ? o.byName : undefined)
-  );
+  const named = read(c.name);
+  const byName =
+    named && named !== self && !isRuledOut(c, named) ? named : undefined;
+  const whole = byName && isWholeNameOf(c, byName, people) ? byName : undefined;
+  const handled = c.surfaces.flatMap((surface) => {
+    const ref = read(surface);
+    return ref && ref !== self ? [ref] : [];
+  });
+  return {
+    maybe: byName && namesTheSame(byName, people) ? byName : undefined,
+    people: [...new Set([...(whole ? [whole] : []), ...handled])],
+  };
 }
 
 /**
@@ -484,7 +491,7 @@ export async function readPeople() {
     ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
   ]);
   return {
-    /** The Contacts cards Life cannot place: their whole name says one person, a handle another (`foldsOf`). */
+    /** The Contacts cards Life cannot place: their whole name and their handles say more than one person (`foldsOf`). */
     apart,
     /** Everyone beyond truth/ (`beyondOf`), folded or not: what every listing of people reads. */
     beyond,
