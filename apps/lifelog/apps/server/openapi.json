@@ -3355,6 +3355,33 @@
         },
         "required": ["terms"]
       },
+      "Recorded": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "stretches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": ["endAt", "startAt"]
+            }
+          }
+        },
+        "required": ["since", "stretches"]
+      },
       "Timeline": {
         "type": "object",
         "properties": {
@@ -5800,6 +5827,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Vocabulary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recorded": {
+      "get": {
+        "description": "The stretches a Pendant recorded that overlap `from`..`to` (at most 31 days; a day is the reader's own bounds of it), oldest first, whole, pauses under a minute joined; and `since`, the start of the first recording held: before it, no stretch says nothing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recorded"
                 }
               }
             }

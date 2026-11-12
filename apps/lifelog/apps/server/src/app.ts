@@ -37,6 +37,7 @@ const READS = [
   "GET /capabilities",
   "GET /changes",
   "GET /conversations/{id}",
+  "GET /recorded",
   "GET /status",
   "GET /transcription-jobs/{id}/transcript",
   "GET /visits",

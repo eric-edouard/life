@@ -403,7 +403,7 @@ const clip = (ranges: Range[], cut: number, stop: number): Range[] =>
 const toRanges = (pairs: [string, string][]): Range[] =>
   pairs.map(([a, b]) => [Date.parse(a), Date.parse(b)]);
 // [start, end) columns overlapping [cut, stop); either side may be unbounded.
-const overlapping = (
+export const overlapping = (
   start: SQLiteColumn,
   end: SQLiteColumn,
   { cut, stop }: { cut: number; stop: number }

@@ -2,12 +2,13 @@
 // heard-through and the owner's grouping edits. All idempotent; a write that can move a boundary
 // regroups after it commits (grouping.ts).
 import { createRoute, z } from "@hono/zod-openapi";
+import { DAY } from "@life/server/src/core/clock";
 import { hasRawPages, sources } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
 import { record } from "../events";
 import { pendantSources, regroupAfterCommit, saveEdit } from "../grouping";
 import type { Services } from "../services";
-import { Instant, saveSpans, TimelineSpan } from "../timeline-spans";
+import { Instant, recorded, saveSpans, TimelineSpan } from "../timeline-spans";
 import { ApiError, json, router, sizeLimit } from "./common";
 
 const Timeline = z
@@ -61,6 +62,40 @@ export function timelineRoutes({
   };
 
   return router()
+    .openapi(
+      createRoute({
+        description:
+          "The stretches a Pendant recorded that overlap `from`..`to` (at most 31 days; a day is the reader's own " +
+          "bounds of it), oldest first, whole, pauses under a minute joined; and `since`, the start of the first " +
+          "recording held: before it, no stretch says nothing.",
+        method: "get",
+        path: "/recorded",
+        request: {
+          query: z
+            .object({ from: Instant, to: Instant })
+            .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 31 * DAY, {
+              message: "at most 31 days: page a longer read",
+            }),
+        },
+        responses: {
+          200: json(
+            z
+              .object({
+                since: Instant.nullable(),
+                stretches: z.array(
+                  z.object({ endAt: Instant, startAt: Instant })
+                ),
+              })
+              .openapi("Recorded"),
+            "Recorded"
+          ),
+        },
+      }),
+      (c) => {
+        const { from, to } = c.req.valid("query");
+        return c.json(recorded(db, new Date(from), new Date(to)), 200);
+      }
+    )
     .openapi(
       createRoute({
         description:
