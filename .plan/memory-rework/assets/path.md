@@ -228,6 +228,13 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 | 5.5 | The persona's traits and patterns come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
 | 5.6 | Pages drawn by code from history and readings, one section per PR (Now, History, Between us, his own page) | When the last section moved: deletes the page-writing prompt and its no-churn rules |
 
+**A case stage 5.3 and step 1.2 must pass (12 Nov, life issue 469; with its names in his data,
+`docs/memory-rework/cases/2026-11-12-obligation-forward.md`):** a request someone made to him, extracted at importance
+2, never became his to-do (open items take importance 3 and his own words only), its reply owed expired after 3 days
+among chatter, and the wait it hung on was met without raising the next step. In v3: an `asks_for` by the other
+person that he has not done stays open at any importance until a message ends it (Links), and a wait that is met
+raises the step it was waiting for. The fixture: the forward is due from the day after until the day it was sent.
+
 ### Stage 6. His word and Life's list
 
 | Step | What ships |
