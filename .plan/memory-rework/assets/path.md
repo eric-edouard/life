@@ -180,8 +180,8 @@ one-sided, how they batch). The map branch is merged with `main`, so the spec no
 
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
-| 1.1 | The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
-| 1.2 | Open items read endings | The same cases pass; a sample he would check | Stale items stop showing as open |
+| 1.1 | **Merged 12 Nov (PR 456), switched on in shadow (his yes):** `memory/links.jsonl`, nothing reads it yet. Originally: The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
+| 1.2 | Open items read endings. **His word, 12 Nov: check how the shadow performs first, and leave shadow only when its results hold** (the endings judged on real nights: right, wrong, missed) | The same cases pass; a sample he would check | Stale items stop showing as open |
 | 1.3 | Problems and their fixes; a repeat of the same complaint | Cases | The 14-day retire window can go |
 
 ### Stage 2. Histories from the evidence Life already has
