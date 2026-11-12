@@ -144,3 +144,20 @@ test("a lone owner still takes 0.65 through ownerTurn, but not 0.55 through its 
     ).turns[0]?.personId
   ).toBeUndefined();
 });
+
+test("a voice under 8 s is named at 0.5 and a 0.2 lead, a person only", () => {
+  const voices = { people: profiles, strangerConversations: [], strangers: [] };
+  const short = (owner: number, other: number, strangers: number[][] = []) =>
+    decide(
+      { samples: [turnAt(owner, other, 3)], vector: null },
+      { ...voices, strangers }
+    );
+  const clara = short(0.2, 0.6);
+  expect(clara.personId).toBe("clara");
+  expect(clara.vector).toBeNull();
+  expect(short(0.5, 0.45).personId).toBeNull(); // close between two people
+  // 0.78 to the stranger below: stays unnamed, and is not marked a stranger
+  const unlike = short(0.2, 0.55, [[0, 0, 1]]);
+  expect(unlike.personId).toBeNull();
+  expect(unlike.isStranger).toBe(false);
+});
