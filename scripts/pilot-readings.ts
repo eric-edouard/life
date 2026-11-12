@@ -9,15 +9,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readJson } from "@life/server/src/core/files";
 import { readWithPeople } from "@life/server/src/memory/closeness";
+import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
 import { promptText } from "@life/server/src/models/llm";
-import {
-  allOf,
-  checkedMoves,
-  KEPT,
-  READS,
-  type ReadName,
-} from "./memory-pilot";
+import { allOf, KEPT, READS } from "./memory-pilot";
 
 /** Under this many chances a rate is not shown (spec 9: "too few to say"). */
 const MINIMUM = 15;

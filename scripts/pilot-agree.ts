@@ -9,16 +9,11 @@ import { parseArgs } from "node:util";
 import { readJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { readWithPeople } from "@life/server/src/memory/closeness";
+import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
 import { promptText } from "@life/server/src/models/llm";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 import { z } from "zod";
-import {
-  checkedMoves,
-  KEPT,
-  READS,
-  type ReadName,
-  readSet,
-} from "./memory-pilot";
+import { KEPT, READS, readSet } from "./memory-pilot";
 
 const Kept = z.object({
   messages: z.array(z.string()),

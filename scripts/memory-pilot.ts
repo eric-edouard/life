@@ -17,16 +17,14 @@ import {
   readWithPeople,
 } from "@life/server/src/memory/closeness";
 import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
-import { folded, locate } from "@life/server/src/memory/observe";
+import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
 import {
   begin,
-  checkedEntries,
   inBatches,
   inputsOf,
   type Step,
 } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
-import { textOf } from "@life/server/src/memory/units";
 import { type People, readPeople } from "@life/server/src/memory/who";
 import { batchLines } from "@life/server/src/memory/words";
 import {
@@ -42,7 +40,6 @@ import {
   eventKey,
   type SourceEvent,
 } from "@life/server/src/records/source";
-import { z } from "zod";
 
 /** Where a reply is kept, by read and engine: his data, outside `memory/`, so no lock and no nightly step reads it. */
 export const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
@@ -61,303 +58,12 @@ export const readSet = (name: string) => {
   return set;
 };
 
-const RESOURCES = [
-  "affection",
-  "standing",
-  "information",
-  "money",
-  "goods",
-  "service",
-] as const;
-const cited = { line: z.int().min(0), quote: z.string() };
-const opening = {
-  ...cited,
-  answer: z
-    .object({
-      kind: z.enum(["toward", "away", "against"]),
-      line: z.int().min(0),
-    })
-    .nullish(),
-};
-/** A move of the connection read, by its code: what each carries beside its line and its quote. */
-const ConnectionMove = z.discriminatedUnion("code", [
-  z.object({
-    code: z.enum([
-      "shares",
-      "good_news",
-      "support_asked",
-      "invites",
-      "reassurance_asked",
-    ]),
-    ...opening,
-  }),
-  z.object({
-    code: z.literal("discloses"),
-    depth: z.int().min(1).max(3),
-    ...opening,
-  }),
-  z.object({
-    code: z.enum(["asks_for", "offers"]),
-    resource: z.enum(RESOURCES),
-    ...opening,
-  }),
-  z.object({
-    code: z.enum(["gives", "refuses", "returns"]),
-    resource: z.enum(RESOURCES),
-    ...cited,
-  }),
-  z.object({
-    code: z.enum([
-      "asks_about",
-      "thanks",
-      "affection",
-      "support_given",
-      "explores",
-    ]),
-    ...cited,
-  }),
-]);
-/** A move of the mentions read: someone not in the conversation talked about, or what a writer says of their own mind. */
-const MentionsMove = z.discriminatedUnion("code", [
-  z.object({
-    code: z.literal("mention"),
-    kind: z.enum(["fact", "judgement"]),
-    purpose: z.enum([
-      "informs",
-      "plans",
-      "complains",
-      "praises",
-      "worries",
-      "asks_advice",
-      "jokes",
-    ]),
-    reported: z.boolean(),
-    scope: z.enum(["act", "person"]),
-    tone: z.enum(["positive", "neutral", "negative"]),
-    who: z.string().min(1).max(80),
-    ...cited,
-  }),
-  z.object({
-    code: z.literal("feels"),
-    valence: z.enum(["positive", "negative"]),
-    ...cited,
-  }),
-  z.object({ code: z.enum(["intends", "wants", "believes"]), ...cited }),
-]);
-const Strength = z.int().min(1).max(3);
-/** A move of the conflict read: friction, the answer to a fault (`to`: the line it answers), and who steers. */
-const ConflictMove = z.discriminatedUnion("code", [
-  z.object({
-    code: z.enum(["fault", "contempt", "presses"]),
-    strength: Strength,
-    ...cited,
-  }),
-  z.object({
-    code: z.literal("blames"),
-    on: z.enum(["other", "self", "third", "circumstances"]),
-    ...cited,
-  }),
-  z.object({
-    code: z.literal("apologises"),
-    parts: z.array(z.enum(["admits", "regret", "repair"])).default([]),
-    to: z.int().min(0).nullish(),
-    ...cited,
-  }),
-  z.object({
-    code: z.enum([
-      "engages",
-      "excuses",
-      "denies",
-      "counters",
-      "yields",
-      "moves_on",
-    ]),
-    to: z.int().min(0).nullish(),
-    ...cited,
-  }),
-  z.object({
-    code: z.enum(["distress", "directs", "proposes", "defers", "decides"]),
-    ...cited,
-  }),
-]);
-/** A move of any read, as code checks it: its code, its line, its words. */
-interface Move {
-  code: string;
-  line: number;
-  quote: string;
-}
-/** The reads the pilot knows: the prompt of each, the shape of its moves, and what makes two moves of one person one. */
+/** The prompt of each read; its moves' shape is `MOVES`, `memory/moves.ts`. */
 export const READS = {
-  conflict: {
-    move: ConflictMove,
-    prompt: "memory-conflict.v2",
-    voteOf: (m: Move) => m.code,
-  },
-  connection: {
-    move: ConnectionMove,
-    prompt: "memory-connection.v3",
-    voteOf: (m: Move) => m.code,
-  },
-  mentions: {
-    move: MentionsMove,
-    prompt: "memory-mentions.v1",
-    // A mention is one per person talked about.
-    voteOf: (m: Move) =>
-      "who" in m ? `${m.code}|${folded(String(m.who)).out}` : m.code,
-  },
-} satisfies Record<string, Read>;
-interface Read {
-  move: z.ZodType<Move>;
-  prompt: string;
-  voteOf: (m: Move) => string;
-}
-export type ReadName = keyof typeof READS;
-const Tone = z.enum(["warm", "neutral", "cold"]).nullish().catch(undefined);
-/** One exchange of a reply; its moves are checked one by one (`movesOf`). Each read fills the flags it is asked for. */
-const ExchangeEntry = z.object({
-  conflict: z.boolean().optional(),
-  exchange: z.int().min(0),
-  moves: z.array(z.unknown()),
-  tension: z.boolean().optional(),
-  // A tone that is none of the three is no tone: it never costs the exchange its moves.
-  tone: z.object({ me: Tone, them: Tone }).catch({}),
-});
-/** What makes a reply one, and so worth keeping: an object with its exchanges. The rest is checked when read. */
-const Reply = z.object({ exchanges: z.array(z.unknown()) });
-
-/** An exchange of a batch: its messages, from line `start` of the batch. */
-interface Span {
-  end: number;
-  messages: SourceEvent[];
-  start: number;
-}
-
-/**
- * The words of a move and the line they are on, inside its exchange: the quote found there (`locate`, the cited line
- * first), else, for a quote too short for `locate`, the cited line whole when the quote is in it.
- */
-function quoted(m: Move, span: Span) {
-  const texts = span.messages.map(textOf);
-  const at = m.line - span.start;
-  const found = locate(m.quote, texts, at);
-  if (found) {
-    return { line: span.start + found.line, verbatim: found.verbatim };
-  }
-  const whole = texts[at] ?? "";
-  const quote = folded(m.quote).out.trim();
-  return quote && folded(whole).out.includes(quote)
-    ? { line: m.line, verbatim: whole }
-    : null;
-}
-
-/** A move's answer, kept only when it is a later line of the same exchange, written by the other side. */
-function answerOf(m: Move, line: number, by: SourceEvent, span: Span) {
-  const answer =
-    "answer" in m
-      ? (m.answer as { kind: string; line: number } | null | undefined)
-      : undefined;
-  const reply = answer ? span.messages[answer.line - span.start] : undefined;
-  const isTheirs = reply && !reply.phoneCall && reply.fromMe !== by.fromMe;
-  return answer && isTheirs && answer.line > line ? answer : undefined;
-}
-
-/** The line a move answers (`to`), kept only when it is an earlier line of the same exchange, written by the other side. */
-function answeredOf(m: Move, line: number, by: SourceEvent, span: Span) {
-  const to = "to" in m && typeof m.to === "number" ? m.to : undefined;
-  const said = to === undefined ? undefined : span.messages[to - span.start];
-  return said && said.fromMe !== by.fromMe && (to as number) < line
-    ? to
-    : undefined;
-}
-
-/**
- * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
- * there, one per code and person.
- */
-function movesOf(raw: unknown[], span: Span, read: Read) {
-  const { entries } = checkedEntries(
-    raw,
-    read.move,
-    (m) => `${m.line}|${m.code}`,
-    (key) => {
-      const line = Number.parseInt(key, 10);
-      return line >= span.start && line < span.end;
-    }
-  );
-  const seen = new Set<string>();
-  let offLine = 0;
-  const moves = entries.flatMap((m) => {
-    const found = quoted(m, span);
-    const message = found ? span.messages[found.line - span.start] : undefined;
-    const vote = `${message?.fromMe}|${read.voteOf(m)}`;
-    if (!(found && message) || message.phoneCall || seen.has(vote)) {
-      return [];
-    }
-    seen.add(vote);
-    offLine += found.line === m.line ? 0 : 1;
-    return [
-      {
-        ...m,
-        answer: answerOf(m, found.line, message, span),
-        at: message.at,
-        by: message.fromMe ? "me" : "them",
-        line: found.line,
-        quote: found.verbatim,
-        to: answeredOf(m, found.line, message, span),
-      },
-    ];
-  });
-  return { dropped: raw.length - moves.length, moves, offLine };
-}
-
-/**
- * A reply's moves as code accepts them, exchange by exchange. An exchange is one the batch really holds, named by its
- * first line (`starts`), once; a move stays inside its exchange; who made it and when come from the message, never
- * from the reply. Throws on a reply that is not one. `dropped`: moves refused; `offLine`: quotes found on another
- * line of their exchange; `missing`: exchanges of the batch the reply left out or got wrong.
- */
-export function checkedMoves(
-  reply: unknown,
-  messages: SourceEvent[],
-  starts: number[],
-  name: ReadName = "connection"
-) {
-  const read: Read = READS[name];
-  const spans = new Map(
-    starts.map((start, i): [number, Span] => {
-      const end = starts[i + 1] ?? messages.length;
-      return [start, { end, messages: messages.slice(start, end), start }];
-    })
-  );
-  const { entries } = checkedEntries(
-    Reply.parse(reply).exchanges,
-    ExchangeEntry,
-    (x) => String(x.exchange),
-    (key) => spans.has(Number(key))
-  );
-  const counts = {
-    dropped: 0,
-    missing: starts.length - entries.length,
-    offLine: 0,
-  };
-  const exchanges = entries.map((x) => {
-    const { dropped, moves, offLine } = movesOf(
-      x.moves,
-      spans.get(x.exchange) as Span,
-      read
-    );
-    counts.dropped += dropped;
-    counts.offLine += offLine;
-    return {
-      conflict: x.conflict,
-      exchange: x.exchange,
-      moves,
-      tension: x.tension,
-      tone: x.tone,
-    };
-  });
-  return { ...counts, exchanges };
-}
+  conflict: { prompt: "memory-conflict.v2" },
+  connection: { prompt: "memory-connection.v3" },
+  mentions: { prompt: "memory-mentions.v1" },
+} satisfies Record<ReadName, { prompt: string }>;
 
 export interface With {
   name: string;
@@ -519,7 +225,7 @@ if (import.meta.main) {
     },
   });
   const [name = "", ...names] = positionals;
-  const read: Read | undefined = READS[name as ReadName];
+  const read: { prompt: string } | undefined = READS[name as ReadName];
   if (!read || (names.length === 0 && !values.all && !values.set)) {
     throw new Error(
       `usage: bun scripts/memory-pilot.ts <${Object.keys(READS).join("|")}> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>]`
