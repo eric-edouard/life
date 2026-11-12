@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { digest } from "../core/hash";
 import { SourceName } from "../core/names";
 import {
   EntityRef,
@@ -29,11 +30,11 @@ export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
 
-/** Life's inferred people not folded into another (`foldsOf`): one id per person. */
-export const unfoldedOf = (
-  inferred: InferredPerson[],
+/** The people beyond truth/ (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
+export const unfoldedOf = <P extends { id: string }>(
+  people: P[],
   canon: (ref: string) => string
-) => inferred.filter((p) => canon(`person:${p.id}`) === `person:${p.id}`);
+) => people.filter((p) => canon(`person:${p.id}`) === `person:${p.id}`);
 
 /** L2: one small dated claim, cited to the exact place in its source. memory/observations/<yyyy-mm>.jsonl. */
 export const Observation = z
@@ -237,6 +238,9 @@ export const Correction = z
 
 export type Correction = z.infer<typeof Correction>;
 
+/** What a person beyond truth/ goes by: handles (a phone, an email, a network's id) or names, at least one. */
+const Surfaces = z.array(z.string().min(1)).min(1);
+
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
 export const INFERRED_PREFIX = "inf_";
 
@@ -267,11 +271,37 @@ export const InferredPerson = z
     relation: z.string().min(1),
     schemaVersion: z.literal(1),
     /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
-    surfaces: z.array(z.string().min(1)).min(1),
+    surfaces: Surfaces,
   })
   .strict();
 
 export type InferredPerson = z.infer<typeof InferredPerson>;
+
+/** The id prefix of the people his Contacts name (`ContactPerson`); truth ids never start with it either. */
+export const CONTACT_PREFIX = "con_";
+
+/**
+ * memory/people-contacts.jsonl: a card of his Contacts whose handle appears in his messages, as Contacts name it. Written
+ * by code (the night's `writeContactPeople`), append-only: a card's latest line gives its name, and its surfaces only
+ * grow. Who it is does not rest on the card any more: a card he deletes keeps its person (his answer, 12 Nov 2026).
+ * Used below truth/ and above Life's own guesses (`readingOf`): his Contacts are his word on who a number is.
+ */
+export const ContactPerson = z
+  .object({
+    at: isoDateTime,
+    /** The card's own id in Contacts; the person's id is derived from it (`contactIdOf`), never from a name. */
+    card: z.string().min(1),
+    name: z.string().min(1),
+    schemaVersion: z.literal(1),
+    /** The card's phones and emails, as written. */
+    surfaces: Surfaces,
+  })
+  .strict();
+export type ContactPerson = z.infer<typeof ContactPerson>;
+
+/** A contact person's id: the prefix and a digest of its card's id. */
+export const contactIdOf = (card: string) =>
+  `${CONTACT_PREFIX}${digest("sha1", card, 12)}`;
 
 /**
  * memory/repos-inferred.jsonl: which project a code repo belongs to, as Life guesses (folder name under ~/Work, or

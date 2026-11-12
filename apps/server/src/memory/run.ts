@@ -241,6 +241,9 @@ export function meContext(truth: Truth) {
   };
 }
 
+/** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
+export const IN_CONTACTS = "in his Contacts";
+
 /**
  * The map as the episodes, extract and pages prompts name it: the people on his map (with those Life inferred) and his
  * projects, every ref a reply may use (`map`). A call's `<context>` (the same for every call of a run, so it is cached)
@@ -250,11 +253,14 @@ export function meContext(truth: Truth) {
 export function refContext(
   {
     canon,
+    contacts = [],
     inferred,
     truth,
   }: {
     /** Who a person ref is now (`readPeople`). */
     canon: (ref: string) => string;
+    /** The people his Contacts name (`readPeople`). */
+    contacts?: { id: string; name: string }[];
     inferred: InferredPerson[];
     truth: Truth;
   },
@@ -285,6 +291,14 @@ export function refContext(
           relation: `${p.relation} (inferred)`,
           ...flag(`person:${p.id}`),
         })),
+      // Who his Contacts name: a name he gave a number, no relation known.
+      ...unfoldedOf(contacts, canon).map((p) => ({
+        aliases: [] as string[],
+        name: p.name,
+        ref: `person:${p.id}`,
+        relation: IN_CONTACTS,
+        ...flag(`person:${p.id}`),
+      })),
     ],
     projects: truth.projects.map((p) => ({
       area: p.area,

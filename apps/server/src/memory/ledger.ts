@@ -16,6 +16,7 @@ import { openReadOnly } from "../core/sqlite";
 import { Episode } from "../records/episode";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import {
+  ContactPerson,
   Correction,
   Extracted,
   Imported,
@@ -78,6 +79,8 @@ export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
 export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
+/** The people his Contacts name, appended by the night (`contact-people.ts`). */
+export const CONTACT_PEOPLE = join(MEMORY, "people-contacts.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 /** The appointments ahead of him (`memory/appointments.ts`), rewritten whole. */
 export const APPOINTMENTS = join(MEMORY, "appointments.json");
@@ -608,6 +611,9 @@ export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
+
+/** The lines of the people his Contacts name, as appended (`contactsNow` folds them). */
+export const readContactLines = () => rowsOf(CONTACT_PEOPLE, ContactPerson);
 
 /** The repos Life inferred: the latest record for each repo wins. */
 export const readInferredRepos = () => [

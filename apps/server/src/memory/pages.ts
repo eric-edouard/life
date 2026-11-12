@@ -149,7 +149,7 @@ const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
 async function targets(observations: Shown[], folks: People) {
-  const { inferred, truth } = folks;
+  const { contacts, inferred, truth } = folks;
   const levels = levelsWith(folks);
   const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
   const close = personallyClose(levels);
@@ -175,6 +175,16 @@ async function targets(observations: Shown[], folks: People) {
         [
           `person:${p.id}`,
           { hold: inferredHold(p), name: `${p.name} (inferred)` },
+        ] as const
+    ),
+    ...contacts.map(
+      (p) =>
+        [
+          `person:${p.id}`,
+          {
+            hold: `${quote(`**${p.name}**`)}\n\n_Named by his Contacts, not in truth/._`,
+            name: p.name,
+          },
         ] as const
     ),
   ]);

@@ -9,7 +9,9 @@ import {
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
+import { type ContactNow, contactsNow } from "./contact-people";
 import {
+  readContactLines,
   readCorrections,
   readInferred,
   readObservations,
@@ -22,8 +24,8 @@ import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import { normalize, PERSON, UNKNOWN } from "./units";
 
-// Who a name, handle or person ref is now: truth/, the people Life inferred and the owner's corrections, in that order
-// of trust under his word. Every reader and step resolves people through here.
+// Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
+// owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
 
 const WHO = /^(person|unknown):/;
 /** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
@@ -49,8 +51,8 @@ function guessesOf(inferred: InferredPerson[]) {
 
 const PAREN = /\(.*?\)/g;
 
-/** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
-function nameIndex(people: Person[]) {
+/** Names and aliases, normalized, to the person; a name two people share maps to nobody. */
+function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
   const index = new Map<string, string | null>();
   for (const p of people) {
     for (const n of [p.name, ...p.aliases]) {
@@ -82,16 +84,27 @@ const handleIndex = (people: Person[]): Map<string, string> =>
 
 /**
  * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
- * (handles, then names and aliases), then its latest confident inferred guess (the person in truth/ it links to, else
- * the guess). A `not-this-person` correction blocks that match.
+ * (handles, then names and aliases), the person in truth/ its latest confident inferred guess links to, the person
+ * his Contacts name (a handle of its card, else its name when one contact person alone goes by it), then the guess
+ * itself. A `not-this-person` correction blocks that match.
  */
 function readingOf(
   people: Person[],
   inferred: InferredPerson[],
-  corrections: Correction[]
+  corrections: Correction[],
+  contacts: ContactNow[]
 ) {
   const handles = handleIndex(people);
   const names = nameIndex(people);
+  const carded = new Map<string, string>();
+  for (const c of contacts) {
+    for (const key of c.surfaces.flatMap((s) => contactKeyOf(s) ?? keysOf(s))) {
+      if (!carded.has(key)) {
+        carded.set(key, c.id);
+      }
+    }
+  }
+  const cardNames = nameIndex(contacts.map((c) => ({ ...c, aliases: [] })));
   const said = new Map<string, string>();
   const not = new Set<string>();
   for (const c of corrections) {
@@ -116,12 +129,17 @@ function readingOf(
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
     const named = names.get(normalize(surface.trim().replace(PAREN, "")));
     const guesses = ks.map((k) => guessed.get(k));
+    const card =
+      (key ? carded.get(key) : undefined) ??
+      ks.map((k) => carded.get(k)).find(Boolean) ??
+      cardNames.get(normalize(surface.trim().replace(PAREN, "")));
     return (
       [
         ...ks.map((k) => said.get(k)),
         truth && `person:${truth}`,
         named && `person:${named}`,
         ...guesses.map((g) => g?.person),
+        card && `person:${card}`,
         ...guesses.map((g) => g && `person:${g.id}`),
       ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`))) ?? null
     );
@@ -131,16 +149,21 @@ function readingOf(
 /**
  * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
- * the one person it reads as.
+ * the one person it reads as. A contact person folds the same way, by its handles then its name: a card of someone
+ * in truth/ is that person, and a guess made for one of its handles is the contact person.
  */
 export function foldsOf(
   people: Person[],
   inferred: InferredPerson[],
-  corrections: Correction[]
+  corrections: Correction[],
+  contacts: ContactNow[] = []
 ) {
-  const read = readingOf(people, inferred, corrections);
+  const read = readingOf(people, inferred, corrections, contacts);
   const into = new Map<string, string>();
-  for (const r of inferred) {
+  for (const r of [
+    ...inferred,
+    ...contacts.map((c) => ({ id: c.id, surfaces: [...c.surfaces, c.name] })),
+  ]) {
     const self = `person:${r.id}`;
     const to = r.surfaces.map(read).find((x) => x && x !== self);
     if (to) {
@@ -178,9 +201,10 @@ export function aboutNow(
   people: Person[],
   inferred: InferredPerson[],
   corrections: Correction[],
-  chatOf: Map<string, string> = new Map()
+  chatOf: Map<string, string> = new Map(),
+  contacts: ContactNow[] = []
 ) {
-  const { canon, resolve } = foldsOf(people, inferred, corrections);
+  const { canon, resolve } = foldsOf(people, inferred, corrections, contacts);
   const found = unresolved.flatMap((u) =>
     u.observation
       ? [{ observation: u.observation, ref: resolve(u.surface) }]
@@ -188,7 +212,10 @@ export function aboutNow(
   );
   const named = Map.groupBy(found, (n) => n.observation);
   const namesOf = new Map<string, string[]>([
-    ...inferred.map((p): [string, string[]] => [`person:${p.id}`, [p.name]]),
+    ...[...inferred, ...contacts].map((p): [string, string[]] => [
+      `person:${p.id}`,
+      [p.name],
+    ]),
     ...people.map((p): [string, string[]] => [
       `person:${p.id}`,
       [p.name, ...p.aliases],
@@ -349,21 +376,30 @@ export const episodeNow = <E extends { people: { ref: string }[] }>(
 /** An observation as readers get it (`aboutNow`). */
 export type Shown = ReturnType<typeof aboutNow>[number];
 
-/** truth/, Life's inferred people and the owner's corrections, read once, with the resolver and the folds over them. */
+/**
+ * truth/, the people his Contacts name, Life's inferred people and the owner's corrections, read once, with the
+ * resolver and the folds over them.
+ */
 export async function readPeople() {
   const [truth, inferred, corrections] = await Promise.all([
     loadTruth(),
     readInferred(),
     readCorrections(),
   ]);
-  const { canon, resolve } = foldsOf(truth.people, inferred, corrections);
+  const contacts = contactsNow(readContactLines());
+  const { canon, resolve } = foldsOf(
+    truth.people,
+    inferred,
+    corrections,
+    contacts
+  );
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
       ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
-    ...[...truth.people, ...inferred].map(
+    ...[...truth.people, ...inferred, ...contacts].map(
       (p) => [`person:${p.id}`, p.name] as const
     ),
     ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
@@ -371,6 +407,8 @@ export async function readPeople() {
   ]);
   return {
     canon,
+    /** The people his Contacts name (`contact-people.ts`), folded or not. */
+    contacts,
     corrections,
     inferred,
     /** An episode's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
@@ -391,6 +429,7 @@ export type People = Awaited<ReturnType<typeof readPeople>>;
  * filed as they read today; with the ledgers that say where each stands, and every observation in the ledger.
  */
 export async function observationsNow({
+  contacts,
   corrections,
   inferred,
   truth,
@@ -416,7 +455,8 @@ export async function observationsNow({
     truth.people,
     inferred,
     corrections,
-    chatHandles(units)
+    chatHandles(units),
+    contacts
   );
   return { all, observations, standing };
 }
@@ -475,19 +515,23 @@ export function nearNames<
     .map(({ p }) => p);
 }
 
-/** Everyone a name can mean: the people on his map and those Life inferred (not folded into another), going by their surfaces too. */
+/**
+ * Everyone a name can mean: the people on his map, and those his Contacts name or Life inferred (not folded into
+ * another), going by their surfaces too.
+ */
 function nameable({
   canon,
+  contacts = [],
   inferred,
   truth,
-}: Pick<People, "canon" | "inferred" | "truth">) {
+}: Pick<People, "canon" | "inferred" | "truth"> &
+  Partial<Pick<People, "contacts">>) {
   return [
     ...truth.people,
     ...new Map(
-      unfoldedOf(inferred, canon).map((p) => [
-        p.id,
-        { ...p, aliases: p.surfaces },
-      ])
+      [...unfoldedOf(contacts, canon), ...unfoldedOf(inferred, canon)].map(
+        (p) => [p.id, { ...p, aliases: p.surfaces }]
+      )
     ).values(),
   ];
 }
@@ -499,7 +543,8 @@ function nameable({
  */
 export function meant(
   name: string,
-  people: Pick<People, "canon" | "inferred" | "resolve" | "truth">
+  people: Pick<People, "canon" | "inferred" | "resolve" | "truth"> &
+    Partial<Pick<People, "contacts">>
 ) {
   const all = nameable(people);
   const resolved = people.resolve(name)?.replace(PERSON, "");

@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { INFERRED_PREFIX } from "../records/observation";
+import { CONTACT_PREFIX, INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
   AreasFile,
@@ -114,6 +114,11 @@ function checkPeople(people: Person[], issues: string[]): Set<string> {
     if (p.id.startsWith(INFERRED_PREFIX)) {
       issues.push(
         `person ${p.id}: "${INFERRED_PREFIX}" ids are Life's inferred people`
+      );
+    }
+    if (p.id.startsWith(CONTACT_PREFIX)) {
+      issues.push(
+        `person ${p.id}: "${CONTACT_PREFIX}" ids are the people his Contacts name`
       );
     }
     for (const h of new Set(handlesOf(p))) {

@@ -215,18 +215,26 @@ export function readContactRecords(dir = DIR): Contact[] {
   });
 }
 
-/** Handle key -> the name his Contacts give it (the first name a handle has wins). */
-export function namesOf(contacts: Contact[]) {
-  const names = new Map<string, string>();
-  for (const c of contacts) {
-    for (const key of c.handles.map(contactKeyOf)) {
-      if (c.name && key && !names.has(key)) {
-        names.set(key, c.name);
+/**
+ * Handle key -> the card that owns it: of the named cards holding a handle, the first by card id (a stable order,
+ * whatever order the databases are read in). The one rule for whose a handle is in Contacts.
+ */
+export function ownersOf(contacts: Contact[]) {
+  const owners = new Map<string, Contact & { name: string }>();
+  for (const c of contacts.toSorted((a, b) => a.id.localeCompare(b.id))) {
+    const { name } = c;
+    for (const key of name ? c.handles.map(contactKeyOf) : []) {
+      if (name && key && !owners.has(key)) {
+        owners.set(key, { ...c, name });
       }
     }
   }
-  return names;
+  return owners;
 }
+
+/** Handle key -> the name his Contacts give it (`ownersOf`). */
+export const namesOf = (contacts: Contact[]) =>
+  new Map([...ownersOf(contacts)].map(([key, c]) => [key, c.name]));
 
 /** Handle key -> the name his Contacts give it, read now. */
 export const readContacts = (dir = DIR) => namesOf(readContactRecords(dir));
