@@ -74,13 +74,34 @@ function richness(engine: string) {
   return score;
 }
 
+/** The exchanges holding each of `codes`, by their first message, in the `read` kept on `engine`. */
+function holdersOf(read: string, engine: string, codes: string[]) {
+  const holders = new Map(codes.map((c) => [c, new Set<string>()]));
+  const dir = join(KEPT, read, engine);
+  for (const file of existsSync(dir) ? readdirSync(dir) : []) {
+    const kept = readJson<Kept>(join(dir, file));
+    for (const x of kept?.reply.exchanges ?? []) {
+      for (const m of x.moves ?? []) {
+        holders.get(m.code)?.add(kept?.messages[x.exchange] ?? "");
+      }
+    }
+  }
+  return holders;
+}
+
 const idOf = (exchange: SourceEvent[]) =>
   exchange[0] ? `${exchange[0].source}|${exchange[0].id}` : "";
 
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { plain: { type: "string" }, rich: { type: "string" } },
+    options: {
+      codes: { type: "string" },
+      each: { type: "string" },
+      plain: { type: "string" },
+      read: { type: "string" },
+      rich: { type: "string" },
+    },
   });
   const [name] = positionals;
   if (!name) {
@@ -111,16 +132,38 @@ if (import.meta.main) {
           }))
         );
     });
-  const rich = all
-    .toSorted((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-    .slice(0, Number(values.rich ?? 40));
+  // With `--codes a,b --read <read> [--each <n>]`: for each code in turn, the `n` batches not taken yet holding it in
+  // the most exchanges, so every code named gets its cases; else the richest overall.
+  const codes = values.codes?.split(",") ?? [];
+  const holders = holdersOf(values.read ?? "connection", "openrouter", codes);
+  const picked = new Set<string>();
+  const byCode = codes.flatMap((code) => {
+    const held = holders.get(code) ?? new Set();
+    const best = all
+      .filter((b) => !picked.has(b.id))
+      .map((b) => ({ b, n: b.batch.filter((x) => held.has(idOf(x))).length }))
+      .filter((x) => x.n > 0)
+      .toSorted((x, y) => y.n - x.n || x.b.id.localeCompare(y.b.id))
+      .slice(0, Number(values.each ?? 8))
+      .map((x) => x.b);
+    for (const b of best) {
+      picked.add(b.id);
+    }
+    return best;
+  });
+  const rich =
+    codes.length > 0
+      ? byCode
+      : all
+          .toSorted((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+          .slice(0, Number(values.rich ?? 40));
   const taken = new Set(rich.map((b) => b.id));
   const plain = all
     .filter((b) => !taken.has(b.id))
     .toSorted((a, b) =>
       digest("sha1", a.id, 12).localeCompare(digest("sha1", b.id, 12))
     )
-    .slice(0, Number(values.plain ?? 15));
+    .slice(0, Number(values.plain ?? (codes.length > 0 ? 0 : 15)));
   const set: TestSet = [...rich, ...plain].map((b) => ({
     batch: b.batch,
     with: b.with,

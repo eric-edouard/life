@@ -7,7 +7,9 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { readJson } from "@life/server/src/core/files";
+import { digest } from "@life/server/src/core/hash";
 import { readWithPeople } from "@life/server/src/memory/closeness";
+import { promptText } from "@life/server/src/models/llm";
 import type { SourceEvent } from "@life/server/src/records/source";
 import { z } from "zod";
 import {
@@ -22,6 +24,7 @@ const Kept = z.object({
   messages: z.array(z.string()),
   reply: z.unknown(),
   starts: z.array(z.int()),
+  wording: z.string(),
 });
 /** The conflict read's codes that say something went wrong between them (the rest is steering). */
 const FRICTION = new Set([
@@ -43,14 +46,22 @@ interface Read {
 function readsOf(
   read: ReadName,
   engine: string,
-  events: Map<string, SourceEvent>
+  events: Map<string, SourceEvent>,
+  wording: string
 ) {
   const dir = join(KEPT, read, engine);
   const out = new Map<string, Read>();
   for (const file of existsSync(dir) ? readdirSync(dir) : []) {
     const kept = Kept.safeParse(readJson(join(dir, file)));
     const messages = kept.data?.messages.map((id) => events.get(id));
-    if (!(kept.success && messages?.every(Boolean))) {
+    // A folder can hold replies to several wordings of a read: only this one's count.
+    if (
+      !(
+        kept.success &&
+        kept.data.wording === wording &&
+        messages?.every(Boolean)
+      )
+    ) {
       continue;
     }
     const checked = checkedMoves(
@@ -108,16 +119,35 @@ function rowOf(
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { flag: { type: "string" }, set: { type: "string" } },
+    options: {
+      flag: { type: "string" },
+      prompt: { type: "string" },
+      set: { type: "string" },
+    },
   });
-  // With `--set <name>`, only that test set's exchanges, read from its file: no source is opened.
+  // The wording a read's replies must answer: the read's own, or `--prompt <name>` for an earlier one.
+  const wordingOf = async (prompt: string) =>
+    digest("sha256", await promptText(prompt), 16);
+  // With `--set <name>[,<name>]`, only those test sets' exchanges, read from its file: no source is opened.
   const all = values.set
-    ? readSet(values.set).flatMap((s) => s.batch.flat())
+    ? values.set
+        .split(",")
+        .flatMap((name) => readSet(name).flatMap((s) => s.batch.flat()))
     : (await readWithPeople(new Date(0))).events;
   const events = new Map(all.map((e) => [`${e.source}|${e.id}`, e]));
   if (values.flag) {
-    const flagged = readsOf("connection", values.flag, events);
-    const read = readsOf("conflict", values.flag, events);
+    const flagged = readsOf(
+      "connection",
+      values.flag,
+      events,
+      await wordingOf(READS.connection.prompt)
+    );
+    const read = readsOf(
+      "conflict",
+      values.flag,
+      events,
+      await wordingOf(values.prompt ?? READS.conflict.prompt)
+    );
     const shared = [...read].flatMap(([id, c]) => {
       const f = flagged.get(id);
       return f ? [[f, c] as const] : [];
@@ -141,8 +171,11 @@ if (import.meta.main) {
         "usage: bun scripts/pilot-agree.ts <read> <engine> <engine> | --flag <engine>"
       );
     }
-    const a = readsOf(name as ReadName, engineA, events);
-    const b = readsOf(name as ReadName, engineB, events);
+    const wording = await wordingOf(
+      values.prompt ?? READS[name as ReadName].prompt
+    );
+    const a = readsOf(name as ReadName, engineA, events, wording);
+    const b = readsOf(name as ReadName, engineB, events, wording);
     const shared = [...a].flatMap(([id, x]): [Read, Read][] => {
       const y = b.get(id);
       return y ? [[x, y]] : [];
