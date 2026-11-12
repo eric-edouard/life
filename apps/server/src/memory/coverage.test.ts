@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Published } from "../records/publication";
-import { coverageOf, recordingOf } from "./coverage";
+import { coverageOf, notCapturedOf, type recordingOf } from "./coverage";
 import { coveredLines } from "./read-day";
 
 const source = (
@@ -62,36 +62,41 @@ test("not seen: before a source's first day, a day never published, a source the
   });
 });
 
-test("the pendant with nothing held: what lifelog says it recorded, never the record of what Life read", () => {
-  const since = "2026-10-08T03:00:00.000Z";
+test("the pendant with nothing held: what lifelog said it recorded, never the record of what Life read", () => {
+  // lifelog can tell since 8 Oct and was last asked on the night of 12 Nov.
+  const kept = {
+    built: "2026-11-12T03:00:00.000Z",
+    days: ["2026-11-09", "2026-11-10"],
+    since: "2026-10-08T03:00:00.000Z",
+  };
   const pendant = (recorded: Parameters<typeof recordingOf>[0], day: string) =>
     stateOf(day, {
       lines: [line("2026-11-07", "2026-11-13", ["lifelog"])],
-      sources: [source("lifelog", { recording: recordingOf(recorded, day) })],
+      sources: [source("lifelog", { recorded })],
     }).lifelog;
-  // The answer for a range holding the day: a stretch the day before, one at midday (any zone's 10 Nov).
-  const stretches = [
-    { endAt: "2026-11-09T07:00:00.000Z", startAt: "2026-11-09T06:00:00.000Z" },
-    { endAt: "2026-11-10T07:00:00.000Z", startAt: "2026-11-10T06:00:00.000Z" },
-  ];
-  // Recording with nobody speaking is capture; no stretch in the day is the pendant off, not a quiet day.
-  expect(pendant({ since, stretches }, "2026-11-10")).toBe("captured");
-  expect(pendant({ since, stretches }, "2026-11-11")).toBe(
+  // Recording with nobody speaking is capture; a day not recorded on is the pendant off, not a quiet day.
+  expect(pendant(kept, "2026-11-10")).toBe("captured");
+  expect(pendant(kept, "2026-11-11")).toBe(
     "not_seen: the pendant recorded nothing this day"
   );
-  expect(pendant({ since, stretches: [] }, "2026-10-01")).toBe(
+  expect(pendant(kept, "2026-10-01")).toBe(
     "unknown: nothing held; lifelog cannot tell whether it was recording before 2026-10-08"
   );
-  expect(pendant({ since: null, stretches: [] }, "2026-11-10")).toBe(
+  expect(pendant({ ...kept, days: [], since: null }, "2026-11-10")).toBe(
     "unknown: nothing held; lifelog cannot tell whether it was recording before now"
   );
-  expect(pendant(null, "2026-11-10")).toBe(
-    "unknown: nothing held; lifelog could not be asked whether it was recording"
+  // The day it was last asked on, and after: its later hours were never said.
+  expect(pendant(kept, "2026-11-12")).toBe(
+    "unknown: nothing held; lifelog was last asked on 2026-11-12"
   );
-  // A unit that day needs no asking.
+  expect(pendant(null, "2026-11-10")).toBe(
+    "unknown: nothing held; lifelog was never asked whether it was recording"
+  );
+  // A unit that day needs no asking; today is being captured, whatever last night's file says.
   expect(
     stateOf("2026-11-10", { sources: [source("lifelog", { hasUnit: true })] })
   ).toEqual({ lifelog: "captured" });
+  expect(pendant(kept, "2026-11-20")).toBe("captured");
 });
 
 test("unknown: a day before the record with no unit", () => {
@@ -140,4 +145,30 @@ test("the day read's lines name each state once, with why; no capturing source, 
     "- Unknown: Pendant (nothing held; lifelog could not be asked whether it was recording)",
   ]);
   expect(coveredLines([])).toEqual([]);
+});
+
+test("by month, the days a source was not captured, from its first day on", () => {
+  const day = (state: "captured" | "not_seen" | "unknown") => [
+    { label: "LINE", name: "line" as const, state },
+    {
+      label: "iMessage",
+      name: "imessage" as const,
+      state: "not_seen" as const,
+    },
+  ];
+  const missed = notCapturedOf(
+    new Map([
+      ["2026-10-29", day("not_seen")],
+      ["2026-10-30", day("unknown")],
+      ["2026-10-31", day("captured")],
+      ["2026-11-01", day("not_seen")],
+      ["2026-11-02", day("not_seen")],
+    ]),
+    // iMessage is not asked about: it is not one of the sources given.
+    [{ firstDay: "2026-10-30", label: "LINE", name: "line" }]
+  );
+  expect([...missed.keys()]).toEqual(["2026-10", "2026-11"]);
+  expect([...(missed.get("2026-10")?.unknown ?? [])]).toEqual([["line", 1]]);
+  expect(missed.get("2026-10")?.not_seen.size).toBe(0);
+  expect([...(missed.get("2026-11")?.not_seen ?? [])]).toEqual([["line", 2]]);
 });

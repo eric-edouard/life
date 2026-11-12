@@ -88,10 +88,12 @@ test("search: an observation hit names the unit it comes from and who is in it",
   ]);
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = heldLines(db, "person:jerome", []);
-  expect(cover[0]).toContain("its memory starts on 2026-10-14");
-  expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
   expect(cover).toContain(
-    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes"
+    "- lifelog: 1 units, 2026-10-14 to 2026-10-14 (Life holds it since 2026-10-14)"
+  );
+  // The pendant's other days of the month, from its first day on: lifelog was never asked, so nobody can tell.
+  expect(cover).toContain(
+    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes; unknown: lifelog 17 days"
   );
   expect(cover.at(-1)).toContain("calls");
   // A unit rewritten in place takes its rows alone: the observations stay.

@@ -88,7 +88,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
-  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`); closeness and the
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), and asks lifelog
+  which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
+  recorded-days`; a few seconds); closeness and the
   personas take its last three years. With his `history` setting on, the same read gives the histories their
   months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
   costs its month only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`

@@ -21,6 +21,7 @@ import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
 import { person } from "../memory/read-person-page";
 import { unresolved } from "../memory/read-unresolved";
+import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
 import { readBackfill, recordBackfill } from "../memory/schedule";
@@ -259,6 +260,8 @@ const HANDLERS: Record<string, Handler> = {
       return 1;
     }
   },
+  /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
+  "recorded-days": step(writeRecordedDays),
   repos: (values, rest) =>
     values.scan
       ? scan(values, rest)
@@ -282,7 +285,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | exchange-counts | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
