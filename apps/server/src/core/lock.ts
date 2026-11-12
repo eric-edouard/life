@@ -82,9 +82,12 @@ export async function hold(name: Service, note = LIFE_STATE_DIR, every = MIN) {
     // biome-ignore lint/performance/noAwaitInLoops: one try each `every`
     await Bun.sleep(every);
   }
-  process.on("exit", () => {
-    if (holder(name)?.pid === String(process.pid)) {
-      rmSync(path, { force: true });
-    }
-  });
+  process.on("exit", () => release(name));
+}
+
+/** Lets go of `name` if this process holds it: before its exit, when what needed it is done. */
+export function release(name: Service) {
+  if (holder(name)?.pid === String(process.pid)) {
+    rmSync(serviceLock(name), { force: true });
+  }
 }

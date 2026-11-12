@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { hold } from "../core/lock";
+import { hold, release } from "../core/lock";
 import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
@@ -332,7 +332,8 @@ export async function importExport(folder: string) {
 /**
  * Brings an Instagram export into the Instagram archive (`copyInstagramExport`, as the one writer of the archive),
  * then describes the photos it kept: an import describes its own files (the historical collection that follows is
- * model-free and leaves old files as tags). Collection covers the days of the messages it added.
+ * model-free and leaves old files as tags). Collection covers the export's days, whatever this run added: the same
+ * import again describes and collects what a stopped one left.
  */
 export async function importInstagramExport(folder: string) {
   const engine = settings().backfillEngine;
@@ -340,8 +341,14 @@ export async function importInstagramExport(folder: string) {
     throw new Error("imports are off: set backfillEngine in settings first");
   }
   await spareQuota(engine);
+  // The archive's one writer only while the rows are written: describing and collecting need no archive lock, and
+  // the archiver must not wait on them.
   await hold("archive");
   const copied = copyInstagramExport(folder);
+  release("archive");
+  console.log(
+    `Instagram: ${copied.added} messages written to the archive; Life can run again`
+  );
   if (!(copied.first && copied.last)) {
     return { ...copied, failed: 0, units: undefined };
   }

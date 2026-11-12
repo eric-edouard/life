@@ -102,6 +102,8 @@ function anaAndBen() {
 test("an export's chats are read as what each message is worth: words decoded, reactions and empty messages dropped, a share its link, a call a notice, files by their name in the chat's own folder", () => {
   expect(decoded(garbled("déjà \u{1f600}"))).toBe("déjà \u{1f600}");
   const root = anaAndBen();
+  // Words that were written right (bytes that are no UTF-8) are kept as they are.
+  expect(decoded("caf\u00e9")).toBe("caf\u00e9");
   expect(isInstagramExport(root)).toBe(true);
   const chats = readExportChats(root);
   expect(chats.map((c) => [c.id, c.title])).toEqual([
@@ -145,9 +147,13 @@ test("an export is copied once: a second import adds nothing, its rows are read 
   // A dry run writes nothing.
   expect(readBridged(INSTAGRAM, new Date(0), archive)).toEqual([]);
   expect(copyInstagramExport(root, { archive, bridges, now })).toEqual(dry);
+  // A second run adds nothing, and still says the export's span: what a stopped import left is described and collected.
   expect(copyInstagramExport(root, { archive, bridges, now })).toMatchObject({
     added: 0,
     duplicates: 6,
+    first: new Date(T).toISOString(),
+    last: new Date(T + 70_000).toISOString(),
+    otherNames: 0,
   });
   const read = readBridged(INSTAGRAM, new Date(0), archive);
   // With no bridge and no earlier copy, a chat is named by its export id and a person by their name.
@@ -161,7 +167,7 @@ test("an export is copied once: a second import adds nothing, its rows are read 
   // The start and its end are one call of a minute.
   expect(read[3]?.phoneCall).toEqual({ seconds: 60, video: true });
   const [kept, ...tags] = read[4]?.files ?? [];
-  expect(kept?.ref).toBe(`instagram:export:${T + 70_000}/1`);
+  expect(kept?.ref).toBe(`instagram:export:10001/${T + 70_000}/1`);
   expect(kept?.path).toBe(join(archive, "media/instagram/export/10001/a.jpg"));
   expect(existsSync(kept?.path ?? "")).toBe(true);
   expect(tags.map((f) => f.path)).toEqual([undefined, undefined]);
@@ -221,9 +227,43 @@ test("a chat lands where the archive already holds it: the bridge's room by the 
   ]);
 });
 
-test("an export that does not say whose it is is refused", () => {
-  const root = exportOf({ ana_10001: { messages: BEN, other: "Ana" } });
-  expect(() => copyInstagramExport(root, { ...dirs(), dry: true })).toThrow(
+test("an export that does not say whose a message is is refused: no single name in every chat, or a third name in a chat of two", () => {
+  const one = exportOf({ ana_10001: { messages: BEN, other: "Ana" } });
+  expect(() => copyInstagramExport(one, { ...dirs(), dry: true })).toThrow(
     "does not say whose it is"
   );
+  // Ben's message sits in Ana's chat: his own older name, or hers.
+  const renamed = exportOf({
+    ana_10001: { messages: BEN, other: "Ana" },
+    ben_10002: { messages: BEN, other: "Ben Ito" },
+  });
+  expect(
+    copyInstagramExport(renamed, { ...dirs(), dry: true }).otherNames
+  ).toBe(1);
+  expect(() => copyInstagramExport(renamed, dirs())).toThrow(
+    "neither person's"
+  );
+});
+
+test("two chats with a file of the same millisecond keep two files", () => {
+  const { archive, bridges } = dirs();
+  const photo = (chat: string) =>
+    said(ME, T, {
+      photos: [
+        { uri: `your_instagram_activity/messages/inbox/${chat}/photos/p.jpg` },
+      ],
+    });
+  const root = exportOf({
+    ana_10001: { messages: [photo("ana_10001")], other: "Ana" },
+    ben_10002: { messages: [photo("ben_10002")], other: "Ben Ito" },
+  });
+  for (const chat of ["ana_10001", "ben_10002"]) {
+    writeFileSync(join(chatDir(root, chat), "photos/p.jpg"), chat);
+  }
+  copyInstagramExport(root, { archive, bridges });
+  expect(
+    readBridged(INSTAGRAM, new Date(0), archive).flatMap((e) =>
+      (e.files ?? []).map((f) => f.ref)
+    )
+  ).toEqual([`instagram:export:10001/${T}/1`, `instagram:export:10002/${T}/1`]);
 });

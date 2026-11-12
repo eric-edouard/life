@@ -69,10 +69,14 @@ export const isInstagramExport = (folder: string) =>
   existsSync(join(folder, MESSAGES, "inbox"));
 
 /** The export's text as written: Meta writes each UTF-8 byte as one character. */
-export const decoded = (s: string) =>
-  [...s].every((c) => c.charCodeAt(0) < 256)
-    ? Buffer.from(s, "latin1").toString("utf8")
-    : s;
+export function decoded(s: string) {
+  if ([...s].some((c) => c.charCodeAt(0) > 255)) {
+    return s;
+  }
+  const read = Buffer.from(s, "latin1").toString("utf8");
+  // Bytes that are no UTF-8 were written as they are (a real "é"): kept.
+  return read.includes("\ufffd") ? s : read;
+}
 
 const isFile = (path: string) =>
   lstatSync(path, { throwIfNoEntry: false })?.isFile() === true;
@@ -176,7 +180,7 @@ function messageOf(
 
 /** The export's chats, each with its messages oldest first: every `message_N.json` of every chat folder the listing holds. */
 export function readExportChats(folder: string): ExportChat[] {
-  return ["inbox", "message_requests"].flatMap((box) => {
+  const chats = ["inbox", "message_requests"].flatMap((box) => {
     const root = join(folder, MESSAGES, box);
     if (!existsSync(root)) {
       return [];
@@ -221,6 +225,10 @@ export function readExportChats(folder: string): ExportChat[] {
       ];
     });
   });
+  // A chat is read once, from the first box that holds it.
+  return [
+    ...new Map(chats.toReversed().map((c) => [c.id, c])).values(),
+  ].toReversed();
 }
 
 /** His name in the export: the one participant of every chat. */
@@ -318,7 +326,7 @@ const isHeld = (theirs: Held[], m: ChatMessage, fromMe: number) =>
   );
 
 /** A message's files as its archive row says them, and those the export holds with where each clone goes. */
-function keptFiles(m: ChatMessage, mediaDir: string) {
+function keptFiles(m: ChatMessage, chat: string, mediaDir: string) {
   const clones: [to: string, from: string][] = [];
   const row = m.files.map((f, n) => {
     const path = f.from && join(mediaDir, f.name);
@@ -327,7 +335,8 @@ function keptFiles(m: ChatMessage, mediaDir: string) {
     }
     return {
       fileName: f.name,
-      id: `export:${m.ms}/${n + 1}`,
+      // The chat is in it: two chats may each hold a file of the same millisecond, and a ref is read once.
+      id: `export:${chat}/${m.ms}/${n + 1}`,
       mimeType: f.mimeType,
       path,
     };
@@ -351,7 +360,7 @@ function chatRows(
   const fresh = c.messages.filter(
     (m) => !isHeld(theirs, m, m.senderName === o.owner ? 1 : 0)
   );
-  const kept = fresh.map((m) => keptFiles(m, mediaDir));
+  const kept = fresh.map((m) => keptFiles(m, c.id, mediaDir));
   return {
     clones: kept.flatMap((k) => k.clones),
     duplicates: c.messages.length - fresh.length,
@@ -399,6 +408,21 @@ export function copyInstagramExport(
   const portals = portalsOf(NETWORK, o.bridges ?? BRIDGES);
   const archive = archiveFor(dir, o.dry);
   try {
+    // In a chat of two, a message under a third name is his or theirs under an older name: nobody can say whose.
+    const otherNames = sum(
+      chats
+        .filter((c) => c.participants.length === 2)
+        .map(
+          (c) =>
+            c.messages.filter((m) => !c.participants.includes(m.senderName))
+              .length
+        )
+    );
+    if (otherNames > 0 && !o.dry) {
+      throw new Error(
+        `${otherNames} messages of one-to-one chats are under a name that is neither person's: whose they are can't be told`
+      );
+    }
     const held = heldIn(archive);
     const seenAt = new Date(o.now ?? clock().getTime()).toISOString();
     const made = chats.map((c) =>
@@ -421,7 +445,10 @@ export function copyInstagramExport(
         rows
       );
     }
-    const times = rows.map((r) => r[0] as number).sort((a, b) => a - b);
+    // The export's own span, whatever this run added: a second run describes and collects what a first left undone.
+    const times = chats
+      .flatMap((c) => c.messages.map((m) => m.ms))
+      .sort((a, b) => a - b);
     const at = (ms: number | undefined) =>
       ms === undefined ? undefined : new Date(ms).toISOString();
     return {
@@ -433,6 +460,7 @@ export function copyInstagramExport(
       first: at(times[0]),
       last: at(times.at(-1)),
       messages: sum(chats.map((c) => c.messages.length)),
+      otherNames,
       photos: sum(made.map((m) => m.photos)),
     };
   } finally {
