@@ -14,7 +14,13 @@ import {
   type Tables,
   tables,
 } from "./sources";
-import { dayUnitId, isLifeOutput, normalize, searchableMail } from "./units";
+import {
+  dayUnitId,
+  isLifeOutput,
+  normalize,
+  searchableMail,
+  textOf,
+} from "./units";
 import { type DayRange, dayStart, localDate, type Window } from "./zones";
 
 // Rebuildable source text, independent of index.sqlite. Each passage belongs to its first message's unit.
@@ -29,7 +35,8 @@ create table if not exists coverage (source text, start text, end text, primary 
 /** A chat's consecutive messages, anchored after a natural silence; writing a neighboring day keeps the same cuts. */
 export function passagesOf(events: SourceEvent[]) {
   const passages: SourceEvent[][] = [];
-  const chats = chatGroups(events);
+  // A phone call is searched by its line, as every reader shows it.
+  const chats = chatGroups(events.map((e) => ({ ...e, text: textOf(e) })));
   for (const list of chats.values()) {
     let open: SourceEvent[] = [];
     let chars = 0;

@@ -46,7 +46,8 @@ function fileLine(f: SourceFile, e: FileEntry | undefined) {
 
 /**
  * Events with their files as lines of their text, in place of the U+FFFC a file leaves in it; an event with neither
- * text nor file is left out. Every reader of chats and mail goes through it.
+ * text nor file is left out, but a phone call, whose line its readers write (`textOf`). Every reader of chats and
+ * mail goes through it.
  */
 export const showFiles = (
   events: SourceEvent[],
@@ -59,7 +60,7 @@ export const showFiles = (
     ]
       .filter(Boolean)
       .join("\n");
-    return text ? [{ ...e, text }] : [];
+    return text || e.phoneCall ? [{ ...e, text }] : [];
   });
 
 type Readable = SourceFile & { path: string };

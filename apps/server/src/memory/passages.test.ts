@@ -320,3 +320,35 @@ test("each photo is a passage of its own, found by its description", () => {
     setSettings({ sources: before });
   }
 });
+
+const CALL_LINE = /^\(audio call .+, 1 min\)$/;
+
+test("a phone call in a chat is searched by its line, in the passage of the messages around it", () => {
+  const at = (min: number) =>
+    iso(Date.parse("2026-11-10T09:00:00.000Z") + min * MIN);
+  const said = (
+    id: string,
+    min: number,
+    more: Partial<SourceEvent>
+  ): SourceEvent => ({
+    at: at(min),
+    chat: "c1",
+    fromMe: false,
+    id,
+    sender: "ana",
+    source: "whatsapp",
+    text: "",
+    ...more,
+  });
+  const [passage, ...rest] = passagesOf([
+    said("m1", 0, { text: "calling you" }),
+    said("m2", 1, { phoneCall: { seconds: 90, video: false } }),
+    said("m3", 4, { text: "thanks" }),
+  ]);
+  expect(rest).toEqual([]);
+  expect(passage?.map((e) => e.text)).toEqual([
+    "calling you",
+    expect.stringMatching(CALL_LINE),
+    "thanks",
+  ]);
+});
