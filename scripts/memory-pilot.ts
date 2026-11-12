@@ -21,7 +21,6 @@ import { folded, locate } from "@life/server/src/memory/observe";
 import {
   begin,
   checkedEntries,
-  inBatches,
   inputsOf,
   type Step,
 } from "@life/server/src/memory/run";
@@ -405,10 +404,11 @@ export async function makeCalls(
   prompt: string,
   wording: string,
   dir: string,
-  name: ReadName = "connection"
+  name: ReadName = "connection",
+  parallel = 4
 ) {
   const counts = { dropped: 0, missing: 0, moves: 0, offLine: 0 };
-  await inBatches(notKept(calls, dir), step.dir, async (c, bdir) => {
+  const one = async (c: Call, bdir: string) => {
     await step.attempt(
       async () => {
         const reply = await step.ask({ dir: bdir, input: c.input, prompt });
@@ -430,7 +430,17 @@ export async function makeCalls(
       },
       { key: c.key }
     );
-  });
+  };
+  // A few calls at a time (`parallel`): a reply is kept as it lands, so a stopped pass loses only those in flight.
+  const todo = notKept(calls, dir);
+  for (let n = 0; n < todo.length; n += parallel) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few calls at a time, not all at once
+    await Promise.all(
+      todo
+        .slice(n, n + parallel)
+        .map((c, m) => one(c, join(step.dir, `batch-${n + m}`)))
+    );
+  }
   return counts;
 }
 
@@ -482,6 +492,7 @@ if (import.meta.main) {
     options: {
       engine: { type: "string" },
       last: { type: "string" },
+      parallel: { type: "string" },
       run: { type: "boolean" },
       sample: { type: "string" },
     },
@@ -541,7 +552,8 @@ if (import.meta.main) {
           read.prompt,
           wording,
           dir,
-          name as ReadName
+          name as ReadName,
+          values.parallel ? Number(values.parallel) : undefined
         )
       ),
     ]);
