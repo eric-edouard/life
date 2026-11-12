@@ -1,15 +1,21 @@
-// `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>]`: the memory rework's pilot
-// (docs/operations.md, "Measuring"). For each person named, their one-to-one chats both sides wrote in, a batch of
-// exchanges per call. Without `--run` it only counts what it would ask. Prints counts, never a word or a name.
+// `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>] | --all`: the memory
+// rework's pilot (docs/operations.md, "Measuring"). For each person named, their one-to-one chats both sides wrote in,
+// a batch of exchanges per call; `--last` keeps each person's newest batches only (the second family's check);
+// `--sample` reads about that many exchanges of everyone else instead, the people named left out. Without `--run` it
+// only counts what it would ask. Prints counts, never a word or a name.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { writeJson } from "@life/server/src/core/files";
+import { readJson, writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { Engine } from "@life/server/src/core/names";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
-import { directOf, readWithPeople } from "@life/server/src/memory/closeness";
+import {
+  directChats,
+  directOf,
+  readWithPeople,
+} from "@life/server/src/memory/closeness";
 import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
 import { folded, locate } from "@life/server/src/memory/observe";
 import {
@@ -24,6 +30,7 @@ import { textOf } from "@life/server/src/memory/units";
 import { type People, readPeople } from "@life/server/src/memory/who";
 import { batchLines } from "@life/server/src/memory/words";
 import {
+  askOnce,
   CHARS_PER_TOKEN,
   llmFor,
   llmSpec,
@@ -33,12 +40,22 @@ import {
 import { chatGroups, type SourceEvent } from "@life/server/src/records/source";
 import { z } from "zod";
 
-/** The reads the pilot knows, each by its prompt. */
-const READS: Record<string, { prompt: string }> = {
-  connection: { prompt: "memory-connection.v1" },
-};
 /** Where a reply is kept, by read and engine: his data, outside `memory/`, so no lock and no nightly step reads it. */
-const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
+export const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
+
+/**
+ * A test set: batches of exchanges saved whole, each with whom it is, so a wording is tried and two readers are
+ * compared without reading his sources again (`pilot-set.ts` writes one, `--set <name>` reads it).
+ */
+export type TestSet = { batch: SourceEvent[][]; with: With }[];
+export const setFile = (name: string) => join(KEPT, "sets", `${name}.json`);
+export const readSet = (name: string) => {
+  const set = readJson<TestSet>(setFile(name));
+  if (!set) {
+    throw new Error(`no test set ${name}: bun scripts/pilot-set.ts first`);
+  }
+  return set;
+};
 
 const RESOURCES = [
   "affection",
@@ -59,7 +76,7 @@ const opening = {
     .nullish(),
 };
 /** A move of the connection read, by its code: what each carries beside its line and its quote. */
-const Move = z.discriminatedUnion("code", [
+const ConnectionMove = z.discriminatedUnion("code", [
   z.object({
     code: z.enum([
       "shares",
@@ -96,13 +113,108 @@ const Move = z.discriminatedUnion("code", [
     ...cited,
   }),
 ]);
-type Move = z.infer<typeof Move>;
+/** A move of the mentions read: someone not in the conversation talked about, or what a writer says of their own mind. */
+const MentionsMove = z.discriminatedUnion("code", [
+  z.object({
+    code: z.literal("mention"),
+    kind: z.enum(["fact", "judgement"]),
+    purpose: z.enum([
+      "informs",
+      "plans",
+      "complains",
+      "praises",
+      "worries",
+      "asks_advice",
+      "jokes",
+    ]),
+    reported: z.boolean(),
+    scope: z.enum(["act", "person"]),
+    tone: z.enum(["positive", "neutral", "negative"]),
+    who: z.string().min(1).max(80),
+    ...cited,
+  }),
+  z.object({
+    code: z.literal("feels"),
+    valence: z.enum(["positive", "negative"]),
+    ...cited,
+  }),
+  z.object({ code: z.enum(["intends", "wants", "believes"]), ...cited }),
+]);
+const Strength = z.int().min(1).max(3);
+/** A move of the conflict read: friction, the answer to a fault (`to`: the line it answers), and who steers. */
+const ConflictMove = z.discriminatedUnion("code", [
+  z.object({
+    code: z.enum(["fault", "contempt", "presses"]),
+    strength: Strength,
+    ...cited,
+  }),
+  z.object({
+    code: z.literal("blames"),
+    on: z.enum(["other", "self", "third", "circumstances"]),
+    ...cited,
+  }),
+  z.object({
+    code: z.literal("apologises"),
+    parts: z.array(z.enum(["admits", "regret", "repair"])).default([]),
+    to: z.int().min(0).nullish(),
+    ...cited,
+  }),
+  z.object({
+    code: z.enum([
+      "engages",
+      "excuses",
+      "denies",
+      "counters",
+      "yields",
+      "moves_on",
+    ]),
+    to: z.int().min(0).nullish(),
+    ...cited,
+  }),
+  z.object({
+    code: z.enum(["distress", "directs", "proposes", "defers", "decides"]),
+    ...cited,
+  }),
+]);
+/** A move of any read, as code checks it: its code, its line, its words. */
+interface Move {
+  code: string;
+  line: number;
+  quote: string;
+}
+/** The reads the pilot knows: the prompt of each, the shape of its moves, and what makes two moves of one person one. */
+export const READS = {
+  conflict: {
+    move: ConflictMove,
+    prompt: "memory-conflict.v2",
+    voteOf: (m: Move) => m.code,
+  },
+  connection: {
+    move: ConnectionMove,
+    prompt: "memory-connection.v3",
+    voteOf: (m: Move) => m.code,
+  },
+  mentions: {
+    move: MentionsMove,
+    prompt: "memory-mentions.v1",
+    // A mention is one per person talked about.
+    voteOf: (m: Move) =>
+      "who" in m ? `${m.code}|${folded(String(m.who)).out}` : m.code,
+  },
+} satisfies Record<string, Read>;
+interface Read {
+  move: z.ZodType<Move>;
+  prompt: string;
+  voteOf: (m: Move) => string;
+}
+export type ReadName = keyof typeof READS;
 const Tone = z.enum(["warm", "neutral", "cold"]).nullish().catch(undefined);
-/** One exchange of a reply; its moves are checked one by one (`movesOf`). */
+/** One exchange of a reply; its moves are checked one by one (`movesOf`). Each read fills the flags it is asked for. */
 const ExchangeEntry = z.object({
+  conflict: z.boolean().optional(),
   exchange: z.int().min(0),
   moves: z.array(z.unknown()),
-  tension: z.boolean(),
+  tension: z.boolean().optional(),
   // A tone that is none of the three is no tone: it never costs the exchange its moves.
   tone: z.object({ me: Tone, them: Tone }).catch({}),
 });
@@ -136,20 +248,32 @@ function quoted(m: Move, span: Span) {
 
 /** A move's answer, kept only when it is a later line of the same exchange, written by the other side. */
 function answerOf(m: Move, line: number, by: SourceEvent, span: Span) {
-  const answer = "answer" in m ? m.answer : undefined;
+  const answer =
+    "answer" in m
+      ? (m.answer as { kind: string; line: number } | null | undefined)
+      : undefined;
   const reply = answer ? span.messages[answer.line - span.start] : undefined;
   const isTheirs = reply && !reply.phoneCall && reply.fromMe !== by.fromMe;
   return answer && isTheirs && answer.line > line ? answer : undefined;
+}
+
+/** The line a move answers (`to`), kept only when it is an earlier line of the same exchange, written by the other side. */
+function answeredOf(m: Move, line: number, by: SourceEvent, span: Span) {
+  const to = "to" in m && typeof m.to === "number" ? m.to : undefined;
+  const said = to === undefined ? undefined : span.messages[to - span.start];
+  return said && said.fromMe !== by.fromMe && (to as number) < line
+    ? to
+    : undefined;
 }
 
 /**
  * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
  * there, one per code and person.
  */
-function movesOf(raw: unknown[], span: Span) {
+function movesOf(raw: unknown[], span: Span, read: Read) {
   const { entries } = checkedEntries(
     raw,
-    Move,
+    read.move,
     (m) => `${m.line}|${m.code}`,
     (key) => {
       const line = Number.parseInt(key, 10);
@@ -161,7 +285,7 @@ function movesOf(raw: unknown[], span: Span) {
   const moves = entries.flatMap((m) => {
     const found = quoted(m, span);
     const message = found ? span.messages[found.line - span.start] : undefined;
-    const vote = `${message?.fromMe}|${m.code}`;
+    const vote = `${message?.fromMe}|${read.voteOf(m)}`;
     if (!(found && message) || message.phoneCall || seen.has(vote)) {
       return [];
     }
@@ -175,6 +299,7 @@ function movesOf(raw: unknown[], span: Span) {
         by: message.fromMe ? "me" : "them",
         line: found.line,
         quote: found.verbatim,
+        to: answeredOf(m, found.line, message, span),
       },
     ];
   });
@@ -190,8 +315,10 @@ function movesOf(raw: unknown[], span: Span) {
 export function checkedMoves(
   reply: unknown,
   messages: SourceEvent[],
-  starts: number[]
+  starts: number[],
+  name: ReadName = "connection"
 ) {
+  const read: Read = READS[name];
   const spans = new Map(
     starts.map((start, i): [number, Span] => {
       const end = starts[i + 1] ?? messages.length;
@@ -212,16 +339,23 @@ export function checkedMoves(
   const exchanges = entries.map((x) => {
     const { dropped, moves, offLine } = movesOf(
       x.moves,
-      spans.get(x.exchange) as Span
+      spans.get(x.exchange) as Span,
+      read
     );
     counts.dropped += dropped;
     counts.offLine += offLine;
-    return { exchange: x.exchange, moves, tension: x.tension, tone: x.tone };
+    return {
+      conflict: x.conflict,
+      exchange: x.exchange,
+      moves,
+      tension: x.tension,
+      tone: x.tone,
+    };
   });
   return { ...counts, exchanges };
 }
 
-interface With {
+export interface With {
   name: string;
   relation: string | null;
 }
@@ -285,14 +419,15 @@ export async function makeCalls(
   step: Pick<Step, "ask" | "attempt" | "dir" | "llm" | "run">,
   prompt: string,
   wording: string,
-  dir: string
+  dir: string,
+  name: ReadName = "connection"
 ) {
   const counts = { dropped: 0, missing: 0, moves: 0, offLine: 0 };
   await inBatches(notKept(calls, dir), step, async (c, bdir) => {
     await step.attempt(
       async () => {
         const reply = await step.ask({ dir: bdir, input: c.input, prompt });
-        const checked = checkedMoves(reply, c.messages, c.starts);
+        const checked = checkedMoves(reply, c.messages, c.starts, name);
         writeJson(join(dir, `${c.key}.json`), {
           madeBy: stamp(step.llm, prompt, step.run),
           messages: c.messages.map((m) => `${m.source}|${m.id}`),
@@ -320,45 +455,148 @@ const withOf = (known: string, people: People): With => ({
   relation: people.truth.people.find((p) => p.id === known)?.relation ?? null,
 });
 
+/**
+ * About `n` exchanges of everyone but `left`: the newest batch of each person with a one-to-one chat both sides wrote
+ * in, people in an order that never changes (a digest of their ref), until the exchanges are enough. One batch a
+ * person, so the sample spreads over people, channels and languages.
+ */
+export function sampleOf(
+  events: SourceEvent[],
+  people: People,
+  left: ReadonlySet<string>,
+  n: number,
+  wording: string
+) {
+  const everyone = [...directChats(events, people.resolve)]
+    .filter(([ref]) => ref.startsWith("person:") && !left.has(ref))
+    .toSorted(([a], [b]) =>
+      digest("sha1", a, 12).localeCompare(digest("sha1", b, 12))
+    );
+  const calls: Call[] = [];
+  let exchanges = 0;
+  for (const [ref, messages] of everyone) {
+    if (exchanges >= n) {
+      break;
+    }
+    const newest = callsOf(
+      messages,
+      withOf(ref.slice("person:".length), people),
+      wording
+    ).at(-1);
+    if (newest) {
+      calls.push(newest);
+      exchanges += newest.starts.length;
+    }
+  }
+  return calls;
+}
+
+/** Every call of everyone with a one-to-one chat both sides wrote in, all years: the history's one read. */
+export const allOf = (events: SourceEvent[], people: People, wording: string) =>
+  [...directChats(events, people.resolve)]
+    .filter(([ref]) => ref.startsWith("person:"))
+    .flatMap(([ref, messages]) =>
+      callsOf(messages, withOf(ref.slice("person:".length), people), wording)
+    );
+
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { engine: { type: "string" }, run: { type: "boolean" } },
+    options: {
+      all: { type: "boolean" },
+      effort: { type: "string" },
+      engine: { type: "string" },
+      label: { type: "string" },
+      last: { type: "string" },
+      model: { type: "string" },
+      run: { type: "boolean" },
+      sample: { type: "string" },
+      set: { type: "string" },
+    },
   });
   const [name = "", ...names] = positionals;
-  const read = READS[name];
-  if (!read || names.length === 0) {
+  const read: Read | undefined = READS[name as ReadName];
+  if (!read || (names.length === 0 && !values.all && !values.set)) {
     throw new Error(
-      `usage: bun scripts/memory-pilot.ts <${Object.keys(READS).join("|")}> <person>… [--run] [--engine <engine>]`
+      `usage: bun scripts/memory-pilot.ts <${Object.keys(READS).join("|")}> <person>… [--run] [--engine <engine>] [--last <n>] [--sample <n>]`
     );
   }
   const engine = Engine.optional().parse(values.engine);
-  const llm = llmFor("main", engine);
+  // `--model` and `--effort` name another model of the engine (the reference, a second family); `--label` the folder
+  // its replies are kept in, so two models of one engine never share one.
+  const main = llmFor("main", engine);
+  const llm = {
+    ...main,
+    effort: values.effort ?? main.effort,
+    model: values.model ?? main.model,
+  };
   console.log(`${name} on ${llmSpec(llm)}`);
   const wording = await promptText(read.prompt);
-  const { events, failed } = await readWithPeople(new Date(0));
+  const dir = join(KEPT, name, values.label ?? llm.engine);
+  // A test set is read from its file: no source is opened.
+  const { events, failed } = values.set
+    ? { events: [], failed: [] }
+    : await readWithPeople(new Date(0));
   const people = await readPeople();
-  const dir = join(KEPT, name, llm.engine);
-  const calls = directOf(names, events, people).flatMap(
-    ({ known, messages }, i) => {
-      const mine = known
+  const named = directOf(names, events, people);
+  const last = values.last ? Number(values.last) : undefined;
+  const others = () =>
+    sampleOf(
+      events,
+      people,
+      new Set(named.flatMap((p) => (p.known ? [`person:${p.known}`] : []))),
+      Number(values.sample),
+      wording
+    );
+  const ofNamed = () =>
+    named.flatMap(({ known, messages }, i) => {
+      const all = known
         ? callsOf(messages, withOf(known, people), wording)
         : [];
+      const mine = last ? all.slice(-last) : all;
       console.log(`Person ${i + 1}${known ? "" : ": no one by that name"}`);
       console.table([countsOf(mine, dir, wording)]);
       return mine;
-    }
-  );
+    });
+  let calls: Call[];
+  if (values.set) {
+    calls = readSet(values.set).map((s) => callOf(s.batch, s.with, wording));
+  } else if (values.all) {
+    calls = allOf(events, people, wording);
+  } else {
+    calls = values.sample ? others() : ofNamed();
+  }
+  if (values.sample || values.all || values.set) {
+    console.log(
+      `${values.set ?? (values.all ? "All" : "Sample")}: ${calls.length} calls, ${calls.reduce((n, c) => n + c.starts.length, 0)} exchanges, ${calls.reduce((n, c) => n + c.messages.length, 0)} messages`
+    );
+    console.table([countsOf(calls, dir, wording)]);
+  }
   if (values.run) {
     await spareQuota(llm.engine);
-    const step = await begin(
+    const begun = await begin(
       "pilot",
       "main",
       { prompt: read.prompt, read: name },
       engine
     );
+    const step = {
+      ...begun,
+      ask: (o: Parameters<typeof begun.ask>[0]) =>
+        askOnce({ ...o, llm, run: begun.run }),
+      llm,
+    };
     console.table([
-      step.end(await makeCalls(calls, step, read.prompt, wording, dir)),
+      step.end(
+        await makeCalls(
+          calls,
+          step,
+          read.prompt,
+          wording,
+          dir,
+          name as ReadName
+        )
+      ),
     ]);
   }
   console.log(
