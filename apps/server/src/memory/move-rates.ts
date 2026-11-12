@@ -84,7 +84,7 @@ const MINIMUM = 15;
 const both = (...things: Thing[]) =>
   things.flatMap((t) => [`${t}|me`, `${t}|them`]);
 /**
- * What a share may be said of, as `thing|side` (a flag has no side): the test set of 13 Nov 2026, against the
+ * What a share may be said of, as `thing|side` (a flag has no side): the test sets of 13 Nov 2026, against the
  * reference model: kappa 0.5 or more on 30 cases or more. Everything else is exploratory: counted, never a share.
  */
 export const PROVEN = new Set<string>([
@@ -109,13 +109,17 @@ export const PROVEN = new Set<string>([
     "warm",
     "toward",
     "explores",
-    "good_news"
+    "good_news",
+    "defers",
+    "presses"
   ),
+  "apologises|me",
+  "denies|me",
+  "excuses|me",
   "reassurance_asked|them",
   "refuses|me",
   "believes|them",
   "wants|them",
-  "defers|them",
   "tension",
   "conflict",
 ]);
