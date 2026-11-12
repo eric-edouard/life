@@ -179,11 +179,17 @@ export async function stage(
   }
   cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });
   for (const p of filesUnder(join(dir, "state"))) {
+    const staged = join(dir, "state", p);
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
       KEPT_OUT_END.some((e) => p.endsWith(e))
     ) {
-      rmSync(join(dir, "state", p), { force: true });
+      rmSync(staged, { force: true });
+    } else if (p.endsWith(".sqlite")) {
+      // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite
+      // like the archive's, never as a file without its -wal, which no reader opens.
+      rmSync(staged);
+      copyDb(join(LIFE_STATE_DIR, p), staged);
     }
   }
   const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));

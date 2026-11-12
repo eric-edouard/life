@@ -15,6 +15,7 @@ import { SECRETS, writeSecret } from "../core/secret";
 import { PASSAGES } from "../memory/ledger";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
+import { DESCRIPTIONS } from "../sources/photo-descriptions";
 import { stage } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
@@ -123,4 +124,25 @@ test("a staged file of the last staging's size and mtime keeps its hash; a chang
   expect(hash("archive/media/edited.jpg")).toBe(
     await sha256Of(join(base, "2", "archive/media/edited.jpg"))
   );
+});
+
+test("a store in Life's state that is being written, in WAL, is exported whole and counted", async () => {
+  mkdirSync(join(DESCRIPTIONS, ".."), { recursive: true });
+  const db = new Database(DESCRIPTIONS);
+  try {
+    db.run("pragma journal_mode = wal");
+    db.run("create table if not exists made_up (id text)");
+    db.run("delete from made_up");
+    db.run("insert into made_up values ('a'), ('b'), ('c')");
+    const archive = mkdtempSync(join(tmpdir(), "life-archive-"));
+    const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
+    const m = await stage(dir, archive);
+    expect(
+      m.counts.rows["state/memory/photo-descriptions.sqlite"]
+    ).toMatchObject({ made_up: 3 });
+    expect(m.files.some((f) => f.path.endsWith("-wal"))).toBe(false);
+  } finally {
+    db.close();
+    rmSync(DESCRIPTIONS, { force: true });
+  }
 });
