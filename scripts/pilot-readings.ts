@@ -9,12 +9,14 @@ import { readJson } from "@life/server/src/core/files";
 import { readWithPeople } from "@life/server/src/memory/closeness";
 import {
   CHANCE,
+  type Chance,
   type MoveRate,
   moveRatesOf,
   placeAmong,
   type Rate,
   type ReadOfCalls,
   seenExchanges,
+  type Thing,
 } from "@life/server/src/memory/move-rates";
 import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
@@ -32,16 +34,69 @@ const sayRate = ({ n, of, says }: Rate) => {
   return `${says === "too few" ? "too few to say" : "counted, not said"} (${n} of ${of})`;
 };
 const idOf = (r: MoveRate) => `${r.thing}|${r.side}|${r.source}`;
-const sideOf = (r: MoveRate, name: string) => {
-  if (!r.side) {
-    return "";
-  }
-  return r.side === "me" ? "he" : name;
+/** Each thing counted, in plain words after who did it. */
+const WORDS: Record<Thing, string> = {
+  affection: "says affection",
+  against: "turns against the other's bid",
+  apologises: "apologises",
+  asks_about: "asks about the other",
+  asks_for: "asks for something",
+  away: "lets the other's bid pass",
+  believes: "says what they believe",
+  blames: "places blame",
+  conflict: "a conflict",
+  contempt: "shows contempt",
+  counters: "counters with a fault of the other",
+  decides: "settles it",
+  defers: "leaves it to the other",
+  denies: "denies",
+  directs: "tells the other what to do",
+  discloses: "discloses something personal",
+  distress: "appeals to their own distress",
+  engages: "engages with it",
+  excuses: "makes an excuse",
+  explores: "explores an idea",
+  fault: "raises a fault",
+  feels: "says how they feel",
+  gives: "gives something",
+  good_news: "shares good news",
+  intends: "says what they intend",
+  invites: "invites",
+  mention: "talks about someone else",
+  moves_on: "says let's move on",
+  offers: "offers something",
+  presses: "presses",
+  proposes: "proposes",
+  reassurance_asked: "asks for reassurance",
+  refuses: "refuses",
+  returns: "returns something",
+  shares: "shares something of their day",
+  support_asked: "asks for support",
+  support_given: "gives support",
+  tension: "some tension",
+  thanks: "thanks",
+  toward: "takes up the other's bid",
+  unanswered: "leaves the other's bid unanswered",
+  wants: "says what they want",
+  warm: "reads warm",
+  yields: "yields",
 };
-const labelOf = (r: MoveRate, name: string) =>
-  `${r.thing}, ${sideOf(r, name) || "the exchange"}${r.source ? `, ${r.source}` : ""} (${CHANCE[r.thing]})`;
+/** The page's sections, by what a rate is a share of. */
+const SECTIONS: [Chance, string][] = [
+  [
+    "exchange",
+    "Day to day: a share of the exchanges they wrote in, per channel",
+  ],
+  ["bid", "When the other reaches out (a bid): a share of the other's bids"],
+  ["fault", "When the other raises a fault: a share of those exchanges"],
+  ["decision", "When something is decided: a share of those exchanges"],
+];
+const labelOf = (r: MoveRate, name: string) => {
+  const who = r.side === "me" ? "he " : `${name} `;
+  return `${r.side ? who : ""}${WORDS[r.thing]}${r.source ? ` (${r.source})` : ""}`;
+};
 
-/** A person's page: where their rates stand among everyone's, lately against before, and every rate. */
+/** A person's page: where their rates stand among everyone's, lately against before, and every rate said. */
 function pageOf(
   name: string,
   relation: string | null,
@@ -54,21 +109,23 @@ function pageOf(
       .filter((o) => o.name !== name)
       .map((o) => o.rate);
     const { above, below } = placeAmong(r.all, rest);
+    const among = rest.filter((o) => o.says === "share").length;
     return r.all.says === "share" && Math.min(above, below) < ENDS
       ? [
-          `- ${labelOf(r, name)}: ${sayRate(r.all)}, ${above} above and ${below} below among ${rest.length} others`,
+          `- ${labelOf(r, name)}: ${sayRate(r.all)}; ${above} of ${among} other people are above, ${below} below`,
         ]
       : [];
   });
   const row = (r: MoveRate, ...rates: Rate[]) =>
     `| ${labelOf(r, name)} | ${rates.map(sayRate).join(" | ")} |`;
-  const flagged = rows.filter((r) =>
+  const said = rows.filter((r) => r.all.says !== "exploratory");
+  const flagged = said.filter((r) =>
     ["tension", "conflict", "warm"].includes(r.thing)
   );
   return [
     `# ${name}${relation ? ` (${relation})` : ""}`,
     "",
-    `${exchanges} exchanges. A share is of the chance in brackets; a rate of an exchange chance is kept per source, never pooled; a bid met is by the side that met it.`,
+    `${exchanges} exchanges read. Counted by code from what the reads listed; a trial, outside his memory.`,
     "",
     "## What stands out among the people of his life",
     "",
@@ -79,12 +136,23 @@ function pageOf(
     "| | Last 12 months | Before |",
     "|---|---|---|",
     ...flagged.map((r) => row(r, r.lately, r.before)),
+    ...SECTIONS.flatMap(([chance, title]) => [
+      "",
+      `## ${title}`,
+      "",
+      "| | All time |",
+      "|---|---|",
+      ...said
+        .filter((r) => CHANCE[r.thing] === chance)
+        .map((r) => row(r, r.all)),
+    ]),
     "",
-    "## Rates per side",
+    "## Counted, not proven yet (two models do not agree enough, or too few test cases): no share is said",
     "",
-    "| | All time |",
-    "|---|---|",
-    ...rows.map((r) => row(r, r.all)),
+    rows
+      .filter((r) => r.all.says === "exploratory" && r.all.n > 0)
+      .map((r) => `${labelOf(r, name)}: ${r.all.n} of ${r.all.of}`)
+      .join("; "),
   ].join("\n");
 }
 
@@ -143,7 +211,9 @@ if (import.meta.main) {
   }
   const dir = join(KEPT, "..", "readings");
   mkdirSync(dir, { recursive: true });
-  for (const p of rates) {
+  // A page is written for a person with at least one share to say.
+  const paged = rates.filter((p) => p.rows.some((r) => r.all.says === "share"));
+  for (const p of paged) {
     writeFileSync(
       join(dir, `${p.name.replace(/[^\p{L}\p{N}]+/gu, "-")}.md`),
       `${pageOf(p.name, p.relation, p.rows, p.exchanges, others)}\n`
@@ -153,6 +223,7 @@ if (import.meta.main) {
     {
       exchanges: rates.reduce((n, p) => n + p.exchanges, 0),
       missing,
+      pages: paged.length,
       people: rates.length,
     },
   ]);
