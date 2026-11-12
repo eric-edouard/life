@@ -63,6 +63,8 @@ export const situationPath = (ref: string) =>
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>
   join(PERSONAS, `${ref.slice("person:".length)}.json`);
+/** The links between observations (`memory/links.ts`): one line per judged batch, append-only. */
+export const LINKS = join(MEMORY, "links.jsonl");
 /** Each person's past months with him, summarised once, and their story (`memory/histories.ts`), one file per person. */
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>

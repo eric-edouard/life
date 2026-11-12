@@ -710,7 +710,7 @@ test("a unit he said was read wrong is read again, once: his word against its la
   ).toBe(0);
 });
 
-test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
+test("the index is rebuilt from observations: search ignores accents, who each is about answers by entity", async () => {
   const { observations } = parseObservations(
     {
       observations: [
@@ -781,7 +781,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
   expect(
     db
       .query<{ n: number }, [string]>(
-        "select count(*) as n from links where entity = ?"
+        "select count(*) as n from observation_entities where entity = ?"
       )
       .get("person:dad")?.n
   ).toBe(1);

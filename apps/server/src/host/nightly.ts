@@ -22,6 +22,7 @@ import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { newSince, OUT, readLedger } from "../memory/ledger";
+import { links, readLinkWork } from "../memory/links";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
@@ -252,6 +253,13 @@ async function readYears(now: Date) {
   return { pending, withPeople: lastYearsOf(everyYear) };
 }
 
+/** The night's links: what is due (`readLinkWork`), judged. */
+async function judgeLinks() {
+  const people = await readPeople();
+  const pending = await readLinkWork(people);
+  return pending && links(pending, people);
+}
+
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
 const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
@@ -474,6 +482,14 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     await topUpFactChecks();
     phase.at = "index";
     await reindex();
+    // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open
+    // tonight. A failure is logged and never stops the night.
+    if (settings().links) {
+      phase.at = "links";
+      await judgeLinks().catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.links" })
+      );
+    }
     phase.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);

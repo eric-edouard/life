@@ -226,6 +226,15 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 Historical: Life's old fact checks and what he answered on its decisions page, and his loops' decisions. Nothing reads or
 writes it any more; it stays on disk.
 
+## links.jsonl
+
+The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
+`subject` (`person:<id>`), `open` (the ids of the open things shown: promises, waits and his to-dos with that
+person), `offered` (the ids of the later observations about them judged against those), `links` (each `earlier`,
+`later`, `relation` `ends`, and `quote`, words found in the later observation's own quote), `at`, `madeBy`,
+`schemaVersion`. A pair in a line is never judged again. A link deletes nothing: what it ends is worked out when read
+(`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
+
 ## publications.jsonl
 
 What each publication of units read (`publishUnits`: a night's 7 days, a historical month), one line each,
@@ -511,6 +520,6 @@ episodes, what happened, with what came of it (episodes-2026-11)" hold both side
 `derived/memory/index.sqlite` is rebuilt from `observations/` and `units/` by `bun life memory index` (and by the nightly run, once, at the end):
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones, its `home` page and the
 `detail` it states), full-text table
-`search` (claim and quote, accent-insensitive) and table `links` (observation, entity); and the units: table `units`,
+`search` (claim and quote, accent-insensitive) and table `observation_entities` (observation, entity: who or what each is about); and the units: table `units`,
 full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).

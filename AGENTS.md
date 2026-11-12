@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
-  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
+  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/`, `histories/` (a month or a story replaced only by its re-read, its last version left to the data repo's git history; a file is never removed) and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his ratings and corrections cite them, and a re-read
@@ -190,6 +190,7 @@ Before adding a helper, use the one that exists:
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held and what each publication read (`memory/publications.jsonl`) |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
+| How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` is the one place that decides what a link ends; in shadow, off until his `links` setting, read by nothing but `bun life memory links <person>` |
 | A person's past months with him, and their story | their history (`memory/histories.ts`, `readHistory`): a closed month read once from their one-to-one exchanges, again only when what it was shown changes; the present month is the situation's. Off until his `history` setting |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |

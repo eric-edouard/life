@@ -92,7 +92,10 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   personas take its last three years. With his `history` setting on, the same read gives the histories their
   months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
   costs its month only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
-  prints the people, months, calls and a token ceiling, with no model.
+  prints the people, months, calls and a token ceiling, with no model. With his `links` setting on, after the index
+  the night reads how open things ended (`links.jsonl`, in shadow); `bun life memory links` prints what is due
+  (people, open things, calls, a token ceiling) with no model, `bun life memory links <person>` each open thing with
+  the ending found.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the

@@ -94,6 +94,11 @@ export const Settings = z
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
     lifelog: z.object({ url: z.url() }).strict().optional(),
+    /**
+     * The links (`memory/links.ts`): each night reads how the open things between him and a person ended. Absent
+     * means off: nothing is read. Nothing reads the links yet.
+     */
+    links: z.literal(true).optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */

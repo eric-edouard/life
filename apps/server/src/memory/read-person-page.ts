@@ -69,7 +69,7 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
   const seen = new Map(
     db
       .query<{ at: string; id: string }, []>(
-        "select substr(l.entity, 8) as id, max(o.at) as at from links l join observations o on o.id = l.observation where l.entity like 'person:%' group by l.entity"
+        "select substr(l.entity, 8) as id, max(o.at) as at from observation_entities l join observations o on o.id = l.observation where l.entity like 'person:%' group by l.entity"
       )
       .all()
       .map((r) => [r.id, r.at])
@@ -199,7 +199,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
       const timeline: Dated[] = [
         ...latest(
           db,
-          "join links l on l.observation = o.id where l.entity = ?",
+          "join observation_entities l on l.observation = o.id where l.entity = ?",
           ref,
           -1
         ).map((r) => ({
@@ -370,6 +370,6 @@ function noOne(
 const linkedCount = (db: Database, id: string) =>
   db
     .query<{ n: number }, [string]>(
-      `select count(*) as n from links l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
+      `select count(*) as n from observation_entities l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
     )
     .get(`person:${id}`)?.n ?? 0;
