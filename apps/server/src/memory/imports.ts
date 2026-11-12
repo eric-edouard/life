@@ -276,7 +276,7 @@ export async function importExport(folder: string) {
   const context = meContext(await loadTruth());
   let invalid = 0;
   // One bad call costs only its conversations: they are asked again on the next run.
-  await inBatches(chunks(due, PER_CALL), step.dir, (batch, dir) =>
+  await inBatches(chunks(due, PER_CALL), step, (batch, dir) =>
     step.attempt(async () => {
       const json = await step.ask({
         context,

@@ -8,7 +8,14 @@ import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { askOnce, hasQuota, llmFor, llmSpec, quota } from "../models/llm";
+import {
+  askOnce,
+  callsAtOnceOf,
+  hasQuota,
+  llmFor,
+  llmSpec,
+  quota,
+} from "../models/llm";
 import type { Tier } from "../models/model-call";
 import {
   type Beyond,
@@ -22,8 +29,6 @@ import { localDate } from "./zones";
 
 // What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls and
 // the context a run sends first.
-
-const PARALLEL = 4;
 
 /**
  * A run of any kind, logged in derived/log as started now with `fields`: its id is its start instant (`runId`). `error`
@@ -215,22 +220,38 @@ export const chunks = <T>(list: T[], n: number) =>
     list.slice(i * n, (i + 1) * n)
   );
 
-/** Runs `one` over every batch, a few at a time, each with its own folder `dir/batch-NNN` for its input and reply. */
+/**
+ * Runs `one` over every batch, as many at once as the step's engine takes (`callsAtOnceOf`), the next starting as one
+ * ends, each with its own folder `dir/batch-NNN` for its input and reply. A throw starts no new batch.
+ */
 export async function inBatches<T>(
   batches: T[],
-  dir: string,
+  step: Pick<Step, "dir" | "llm">,
   one: (batch: T, bdir: string) => Promise<void>
 ) {
-  for (let i = 0; i < batches.length; i += PARALLEL) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few calls at a time, not all at once
-    await Promise.all(
-      batches.slice(i, i + PARALLEL).map(async (b, j) => {
-        const bdir = join(dir, `batch-${String(i + j).padStart(3, "0")}`);
+  let next = 0;
+  let failed = false;
+  const work = async () => {
+    while (!failed && next < batches.length) {
+      const i = next;
+      next += 1;
+      const bdir = join(step.dir, `batch-${String(i).padStart(3, "0")}`);
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one worker's batches, one after another
         await mkdir(bdir, { recursive: true });
-        await one(b, bdir);
-      })
-    );
-  }
+        await one(batches[i] as T, bdir);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(callsAtOnceOf(step.llm), batches.length) },
+      work
+    )
+  );
 }
 
 /** Who the owner is and his areas: the start of the context every memory call of a run shares (so it is cached). */

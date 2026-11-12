@@ -91,7 +91,7 @@ export async function situations() {
     return episodes.length > 0 ? [{ episodes, ref }] : [];
   });
   let written = 0;
-  await inBatches(targets, step.dir, (t, dir) =>
+  await inBatches(targets, step, (t, dir) =>
     step.attempt(
       async () => {
         const page = Bun.file(pagePath(t.ref));

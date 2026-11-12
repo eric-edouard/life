@@ -1,8 +1,13 @@
 import { expect, spyOn, test } from "bun:test";
+import { mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { llmFor } from "../models/llm";
 import { beyondOf, type InferredPerson } from "../records/observation";
 import { Person, Project } from "../records/truth";
 import {
   begin,
+  inBatches,
   inputsOf,
   involvedOf,
   metered,
@@ -206,4 +211,47 @@ test("a sweep's selected engine reaches collection, attachments, episodes and ex
 test("a call's inputs digest is pinned: the one personas, situations and appointments kept (a change rebuilds them all)", () => {
   expect(inputsOf("memory-persona.v2", { a: 1 })).toBe("dba367e9d7038416");
   expect(inputsOf("p", { a: 1 })).not.toBe(inputsOf("q", { a: 1 }));
+});
+
+test("batches run as many at once as their engine takes, the next starting as one ends; a throw starts no new one", async () => {
+  const most = async (engine: "codex" | "openrouter", n: number) => {
+    const dir = mkdtempSync(join(tmpdir(), "batches-"));
+    let [now, top] = [0, 0];
+    const ran: number[] = [];
+    await inBatches(
+      Array.from({ length: n }, (_, i) => i),
+      { dir, llm: llmFor("main", engine) },
+      async (i) => {
+        now += 1;
+        top = Math.max(top, now);
+        await Bun.sleep(1);
+        ran.push(i);
+        now -= 1;
+      }
+    );
+    expect(ran.toSorted((a, b) => a - b)).toEqual(
+      Array.from({ length: n }, (_, i) => i)
+    );
+    expect(readdirSync(dir).length).toBe(n);
+    return top;
+  };
+  expect(await most("openrouter", 100)).toBe(32);
+  expect(await most("codex", 100)).toBe(4);
+  expect(await most("openrouter", 3)).toBe(3);
+
+  const started: number[] = [];
+  const failing = inBatches(
+    Array.from({ length: 20 }, (_, i) => i),
+    {
+      dir: mkdtempSync(join(tmpdir(), "batches-")),
+      llm: llmFor("main", "codex"),
+    },
+    async (i) => {
+      started.push(i);
+      await Bun.sleep(1);
+      throw new Error("refused");
+    }
+  );
+  await expect(failing).rejects.toThrow("refused");
+  expect(started.toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3]);
 });

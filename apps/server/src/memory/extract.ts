@@ -226,7 +226,7 @@ async function appendObservations(list: Observation[]) {
 }
 
 /**
- * Calls in lanes, run PARALLEL lanes at a time and a lane's calls one after another: the calls holding one episode (cut
+ * Calls in lanes, several lanes at once (`inBatches`) and a lane's calls one after another: the calls holding one episode (cut
  * between its days) share a lane, in order, so its later days see what its earlier ones wrote.
  */
 export function lanesOf<T extends { episode: Episode | null }[]>(calls: T[]) {
@@ -508,7 +508,7 @@ export async function extract(evidence: Evidence) {
       }
       finished.push(...sources);
     });
-  await inBatches(lanes, step.dir, async (lane, bdir) => {
+  await inBatches(lanes, step, async (lane, bdir) => {
     for (const [k, call] of lane.entries()) {
       // biome-ignore lint/performance/noAwaitInLoops: a lane's calls go in order, each seeing the facts of the last
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);

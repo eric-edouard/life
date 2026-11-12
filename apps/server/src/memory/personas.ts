@@ -466,7 +466,7 @@ export async function personas({ events, failed, since }: WithPeople) {
       : [];
   });
   let written = 0;
-  await inBatches(targets, step.dir, (t, dir) =>
+  await inBatches(targets, step, (t, dir) =>
     step.attempt(
       async () => {
         // Everything, when it fits one call (it does today); else one sample across the years of all of it.

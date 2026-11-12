@@ -309,7 +309,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
   const step = await begin("history", "main", { prompt: MONTH_PROMPT });
   let months = 0;
   let stories = 0;
-  await inBatches(pending.work, step.dir, async (t, dir) => {
+  await inBatches(pending.work, step, async (t, dir) => {
     let isRead = true;
     for (const m of t.months) {
       // biome-ignore lint/performance/noAwaitInLoops: one person's file is written one month at a time

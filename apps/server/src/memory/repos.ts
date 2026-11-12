@@ -140,7 +140,7 @@ export async function mapRepos() {
   let invalid = 0;
   let unknownProject = 0;
   // One bad call costs only its repos: they are asked again next time.
-  await inBatches(chunks(candidates, PER_CALL), step.dir, (batch, dir) =>
+  await inBatches(chunks(candidates, PER_CALL), step, (batch, dir) =>
     step.attempt(async () => {
       const json = await step.ask({
         context,

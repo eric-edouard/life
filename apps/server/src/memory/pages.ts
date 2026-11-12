@@ -549,7 +549,7 @@ export async function pages(opts: PagesOptions) {
   };
   const built: BuiltPage[] = [];
   // One bad page keeps its previous version; the next run tries again.
-  await inBatches(chosen, step.dir, (t, bdir) =>
+  await inBatches(chosen, step, (t, bdir) =>
     step.attempt(
       async () => {
         built.push(await buildOne(t, r, bdir));

@@ -236,7 +236,7 @@ export async function links(pending: LinkWork, people: People) {
     type: o.type,
   });
   let found = 0;
-  await inBatches(pending.work, step.dir, async (w, dir) => {
+  await inBatches(pending.work, step, async (w, dir) => {
     for (const [i, later] of w.chunks.entries()) {
       // biome-ignore lint/performance/noAwaitInLoops: one person's chunks in order, each appended when whole
       await step.attempt(

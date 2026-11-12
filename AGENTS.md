@@ -234,7 +234,7 @@ Before adding a helper, use the one that exists:
 | Life's own events in a calendar (the Past calendar, the appointments) | `googleCalendar` (`host/google-calendar.ts`), grouped by `heldOf` and brought in line by `reconcile` (`memory/calendar-events.ts`); each output finds only its own events |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
-| A model provider's models, effort, quota | its entry in `PROVIDERS` (`llm.ts`) |
+| A model provider's models, effort, quota, calls at once | its entry in `PROVIDERS` (`llm.ts`); a step's calls run through `inBatches` (`memory/run.ts`), never a loop or a limit of its own |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 | A file's size | Biome caps at 800 lines; a file already larger is in `CAPS` (`scripts/imports.test.ts`), whose count only goes down: split it by job |
 

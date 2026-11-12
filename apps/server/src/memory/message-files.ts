@@ -255,7 +255,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
       described += entries.length;
       await appendJsonl(FILES, FileEntry, entries);
     };
-    await inBatches(chunks(shown, PER_CALL), step.dir, describe);
+    await inBatches(chunks(shown, PER_CALL), step, describe);
     return step.end({
       copied: copies.length,
       described,
