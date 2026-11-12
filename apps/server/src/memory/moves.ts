@@ -298,3 +298,21 @@ export function checkedMoves(
   });
   return { ...counts, exchanges };
 }
+
+/** What each read gave about an exchange, by its first message's key: the unit the rates count (`memory/move-rates.ts`). */
+export interface SeenExchange {
+  /** Its first message's instant. */
+  at: string;
+  conflict?: boolean;
+  /** Its first message's key (`eventKey`). */
+  key: string;
+  moves: Move[];
+  /** The reads that listed it, so a code is counted only over the exchanges its own read saw. */
+  reads: Set<ReadName>;
+  /** Its first message's source: rates of an exchange chance are kept apart by it. */
+  source: string;
+  tension?: boolean;
+  tone: { me?: string | null; them?: string | null };
+  /** The sides that wrote in it; a call line is no one's writing. */
+  took: Set<Side>;
+}
