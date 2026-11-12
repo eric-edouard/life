@@ -43,7 +43,7 @@ const seconds = (turns: HeardTurn[]) =>
   turns.reduce((sum, t) => sum + t.end - t.start, 0);
 const inside = (turn: Span, at: number) => at >= turn.start && at < turn.end;
 // The turn a word at `at` belongs to: the one holding it, else the nearest.
-const turnAt = <T extends Span>(turns: T[], at: number) => {
+export const turnAt = <T extends Span>(turns: T[], at: number) => {
   const distance = (t: T) =>
     inside(t, at) ? 0 : Math.min(Math.abs(t.start - at), Math.abs(t.end - at));
   return turns.reduce<T | undefined>(

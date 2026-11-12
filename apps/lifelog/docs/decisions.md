@@ -128,7 +128,13 @@ reverse it, change its entry here in the same commit.
   takes over; someone who starts meanwhile gets the words only once the first stops. Of the short runs of words that
   fell inside another speaker's turn, 93% were pieces of that speaker's sentence, not reactions. Measured on 150
   ordinary blocks: 8.5% of speech seconds had lost their speaker, and the new turns change the speaker of 6.9% of
-  words. Turns stay a partition, so nothing that reads them changed.
+  words. Turns stay a partition, so nothing that reads them changed. The stored speech jobs take the corrected turns once, turn by turn
+  (their words, turns and turn indexes kept; each stored turn takes the label of the new turn holding most of its
+  seconds; owner answers, names, samples and summary guesses follow their voices). That puts right about half of the
+  misplaced words, not all: a stored turn made by the old cut can hold two speakers' words. A job is taken only when
+  the old cut, run on the recomputed segments, reproduces its stored speakers; one that does not was heard differently
+  and is left alone. The counts of the run are added here after it. The step (`rediarize.ts`, its route) is deleted
+  after its run, like the 11 Nov one.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
   Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: $0.20/h like v2 now, its answers keep v2's shape, and it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
