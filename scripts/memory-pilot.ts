@@ -185,7 +185,7 @@ interface Move {
 export const READS = {
   conflict: {
     move: ConflictMove,
-    prompt: "memory-conflict.v1",
+    prompt: "memory-conflict.v2",
     voteOf: (m: Move) => m.code,
   },
   connection: {
