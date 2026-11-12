@@ -107,8 +107,12 @@ export const PROVEN = new Set<string>([
     "fault",
     "proposes",
     "warm",
-    "toward"
+    "toward",
+    "explores",
+    "good_news"
   ),
+  "reassurance_asked|them",
+  "refuses|me",
   "believes|them",
   "wants|them",
   "defers|them",
