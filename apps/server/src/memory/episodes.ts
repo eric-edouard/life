@@ -447,7 +447,8 @@ export async function episodes(evidence: Evidence) {
     await publishUnits(evidence);
   }
   let verdicts = readVerdicts();
-  const { canon, corrections, inferred, refOf, resolve } = await readPeople();
+  const { beyond, canon, corrections, inferred, refOf, resolve } =
+    await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -457,7 +458,7 @@ export async function episodes(evidence: Evidence) {
   }
   const levels = levelsWith({ canon, corrections });
   const refs = refContext(
-    { canon, inferred, truth },
+    { beyond, canon, truth },
     personallyClose(levels),
     contextPeopleBy(levels)
   );

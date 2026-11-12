@@ -14,6 +14,7 @@ import {
   pagedNow,
   readWithPeople,
 } from "../memory/closeness";
+import { writeContactPeople } from "../memory/contact-people";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
@@ -447,6 +448,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   let failure: ReturnType<typeof phase.failed> | undefined;
   try {
     const repos = await phase.step("repos", () => mapRepos());
+    // Who his Contacts name among the senders Life cannot: before the sources are read, so tonight's units and
+    // counts already go by them (derived from Contacts; a failure is logged and the people kept still read).
+    writeContactPeople();
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const evidence = await gather(window, await readPeople());

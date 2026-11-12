@@ -23,11 +23,11 @@ export const ContentHash = z.string().regex(/^[0-9a-f]{16}$/);
 /** person:<slug>, project:<slug> or area:<slug> (design §3.2). */
 export const EntityRef = z
   .string()
-  .regex(/^(person|project|area):(?:inf_)?[a-z0-9-]+$/);
+  .regex(/^(?:person:(?:inf_|con_)?|(?:project|area):(?:inf_)?)[a-z0-9-]+$/);
 
 export const EpisodeId = z.string().regex(/^ep_[0-9a-f]{12}$/);
 
-export const PersonRef = z.string().regex(/^person:(?:inf_)?[a-z0-9-]+$/);
+export const PersonRef = z.string().regex(/^person:(?:inf_|con_)?[a-z0-9-]+$/);
 
 /** Who made a model's output: engine and model (switching engines re-runs nothing), the prompt version, the run. */
 export const MadeBy = z

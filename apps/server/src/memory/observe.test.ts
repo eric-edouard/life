@@ -4,35 +4,26 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  type Correction,
   Extracted,
-  type InferredPerson,
   Observation,
   type Unresolved,
 } from "../records/observation";
-import { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
 import { buildIndex } from "./index-writer";
 import { isCurrent, latestExtractions } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
-import { ledger, unit, verdict } from "./record-fixtures";
+import {
+  inferred,
+  ledger,
+  people,
+  said,
+  unit,
+  verdict,
+} from "./record-fixtures";
 import { areaLookup } from "./tags";
 import type { Built } from "./units";
 import { aboutNow, chatHandles, foldsOf, namedIn, renamed } from "./who";
-
-const people = [
-  Person.parse({ aliases: ["Jean"], id: "me", name: "Jean Dupont" }),
-  Person.parse({
-    aliases: ["Pops"],
-    handles: { whatsapp: ["+66600000001"] },
-    id: "dad",
-    name: "Jean Senior Dupont",
-  }),
-  Person.parse({ aliases: ["Gas"], id: "gaston", name: "Gaston" }),
-  // Owns a handle that is also someone else's alias: the handle must win.
-  Person.parse({ aliases: ["+66600000001"], id: "decoy", name: "Decoy" }),
-];
 
 const source: Source = {
   lines: [
@@ -110,108 +101,6 @@ test("a hinted line wins when the quote is there; otherwise the whole text is se
   expect(locate("on se voit demain soir", twice, 7)?.line).toBe(0);
 });
 
-test("names resolve cheapest first: handles, then names and aliases, else nothing", () => {
-  const { resolve } = foldsOf(people, [], []);
-  expect(resolve("+66600000001")).toBe("person:dad");
-  expect(resolve("pops")).toBe("person:dad");
-  expect(resolve("Jean (Me)")).toBe("person:me");
-  expect(resolve("Annesophie")).toBeNull();
-});
-
-const inferred = (id: string, surfaces: string[], confidence = 0.8) =>
-  ({
-    area: "shop",
-    at: "2026-10-14T00:00:00.000Z",
-    confidence,
-    evidence: [{ quote: "q", unit: "unit_000000000001" }],
-    id,
-    madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
-    name: "the plumber",
-    project: null,
-    relation: "plumber",
-    schemaVersion: 1,
-    surfaces,
-  }) as InferredPerson;
-const said = (c: Record<string, unknown>) =>
-  ({ at: "2026-10-14T00:00:00.000Z", schemaVersion: 1, ...c }) as Correction;
-
-test("a surface resolves to what the owner said, else truth, else a confident inferred person, never against a correction", () => {
-  const inferredPeople = [
-    inferred("inf_plumber", ["+33611111111", "Plombier"]),
-    inferred("inf_maybe", ["+33622222222"], 0.3),
-  ];
-  const { resolve } = foldsOf(people, inferredPeople, [
-    said({ kind: "this-is", person: "person:gaston", surface: "+33633333333" }),
-    said({ kind: "not-this-person", person: "person:dad", surface: "Pops" }),
-    said({
-      from: "person:inf_plumber",
-      kind: "same-person",
-      to: "person:gaston",
-    }),
-  ]);
-  expect(resolve("+33633333333")).toBe("person:gaston");
-  expect(resolve("+66600000001")).toBe("person:dad");
-  // The model's guess is used, and folded into the person the owner says it is.
-  expect(resolve("plombier")).toBe("person:gaston");
-  expect(resolve("+33622222222")).toBeNull();
-  expect(resolve("Pops")).toBeNull();
-  expect(foldsOf(people, inferredPeople, []).resolve("plombier")).toBe(
-    "person:inf_plumber"
-  );
-  expect(
-    foldsOf(
-      [],
-      [],
-      [said({ from: "person:a", kind: "same-person", to: "person:a" })]
-    ).canon("person:a")
-  ).toBe("person:a");
-});
-
-test("a surface the call linked to someone in truth/ is them, and so is every guess going by it, until he says otherwise", () => {
-  const linked = (confidence: number) => ({
-    ...inferred("inf_gas-1", ["Gas B"], confidence),
-    person: "person:gaston",
-  });
-  // An older guess for the same surface, with a page of its own: the newest confident answer decides.
-  const older = inferred("inf_gas", ["Gas B", "+33644444444"]);
-  const both = [older, linked(0.6)];
-  expect(foldsOf(people, both, []).resolve("Gas B")).toBe("person:gaston");
-  expect(foldsOf([], both, []).canon("person:inf_gas")).toBe("person:gaston");
-  expect(foldsOf(people, both, []).resolve("+33644444444")).toBe(
-    "person:gaston"
-  );
-  // Unsure, the link is not used; a newer confident answer with no link takes it back, and every id the surface was
-  // given reads as that answer (one surface, one person).
-  expect(foldsOf([], [older, linked(0.4)], []).canon("person:inf_gas")).toBe(
-    "person:inf_gas"
-  );
-  const unlinked = foldsOf(
-    [],
-    [older, linked(0.6), inferred("inf_gas-2", ["Gas B"])],
-    []
-  ).canon;
-  expect(unlinked("person:inf_gas")).toBe("person:inf_gas-2");
-  expect(unlinked("person:inf_gas-1")).toBe("person:inf_gas-2");
-  // His word on the surface beats the link.
-  const not = said({
-    kind: "not-this-person",
-    person: "person:gaston",
-    surface: "Gas B",
-  });
-  expect(foldsOf([], both, [not]).canon("person:inf_gas")).toBe(
-    "person:inf_gas-1"
-  );
-  expect(foldsOf(people, both, [not]).resolve("Gas B")).toBe(
-    "person:inf_gas-1"
-  );
-  // A surface that is a name on the map reads as them, and so does a guess made for it before.
-  expect(
-    foldsOf(people, [inferred("inf_gaston-x", ["Gaston"])], []).canon(
-      "person:inf_gaston-x"
-    )
-  ).toBe("person:gaston");
-});
-
 test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {
   const inferredPeople = [inferred("inf_plumber", ["Plombier"])];
   const fold = said({
@@ -233,7 +122,9 @@ test("an observation is about its entities, folded, plus the names that resolve 
     { surface: "Plombier" },
   ] as unknown as Unresolved[];
   expect(
-    aboutNow(obs, rows, people, inferredPeople, [fold]).map((o) => o.entities)
+    aboutNow(obs, rows, people, inferredPeople, [fold], []).map(
+      (o) => o.entities
+    )
   ).toEqual([
     ["person:gaston", "project:shop"],
     ["person:gaston"],
@@ -241,11 +132,9 @@ test("an observation is about its entities, folded, plus the names that resolve 
   ]);
   // A name that still maps to nobody marks its observation `unmapped`: it is not about Jean alone.
   const ghost = [{ observation: "obs_2", surface: "Ghost" }] as Unresolved[];
-  expect(aboutNow(obs, ghost, people, [], []).map((o) => o.unmapped)).toEqual([
-    false,
-    true,
-    false,
-  ]);
+  expect(
+    aboutNow(obs, ghost, people, [], [], []).map((o) => o.unmapped)
+  ).toEqual([false, true, false]);
 });
 
 test("who wrote a fact is who their handle is today: refiled, and an older sentence renamed, with no new reading", () => {
@@ -285,7 +174,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     },
   ] as unknown as Observation[];
   const chats = new Map([["unit_000000000002", "+66600000001"]]);
-  const now = aboutNow(facts, [], people, [], [], chats);
+  const now = aboutNow(facts, [], people, [], [], [], chats);
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
     "person:dad",
@@ -346,7 +235,7 @@ test("a move stays out of a unit where that person still writes as themself, and
       unit: "unit_000000000008",
     },
   ] as unknown as Observation[];
-  const now = aboutNow(facts, [], people, [], []);
+  const now = aboutNow(facts, [], people, [], [], []);
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
     "person:gaston",
@@ -384,7 +273,7 @@ test("two authors filed as one person who now resolve to two different people: n
       unit: "unit_000000000006",
     },
   ] as unknown as Observation[];
-  const now = aboutNow(facts, [], people, [], []);
+  const now = aboutNow(facts, [], people, [], [], []);
   // Each author is who they are now, but Gaston as named in the unit stays Gaston: two people claim the name.
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
@@ -407,7 +296,7 @@ test("a voice kept by lifelog's id resolves by the name lifelog gave it when the
       unit: "unit_000000000007",
     },
   ] as unknown as Observation[];
-  const [o] = aboutNow(facts, [], people, [], []);
+  const [o] = aboutNow(facts, [], people, [], [], []);
   expect(o?.speaker).toBe("person:dad");
   expect(o?.speakerName).toBeUndefined();
 });
@@ -467,7 +356,8 @@ test("a fact whose subjects changed since it was written is marked refiled", () 
       [],
       people,
       [inferred("inf_plumber", ["Plombier"])],
-      [fold]
+      [fold],
+      []
     ).map((o) => o.refiled)
   ).toEqual([true, false]);
 });
@@ -488,7 +378,7 @@ const ctx = {
     "project:bakery",
   ]),
   madeBy,
-  resolve: foldsOf(people, [], []).resolve,
+  resolve: foldsOf(people, [], [], []).resolve,
   sources: new Map([[source.unit.id, source]]),
 };
 const obs = (over: Record<string, unknown>) => ({
@@ -836,7 +726,7 @@ test("a unit read before and no longer kept is unkept once (its facts replaced b
 test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {
   const found = namedIn(
     ["Called Gas about the Garden Shed, then Jean Senior Dupont.", "Nothing"],
-    foldsOf(people, [], []).resolve,
+    foldsOf(people, [], [], []).resolve,
     [{ name: "Garden Shed", ref: "project:shed" }]
   );
   expect([...found].sort()).toEqual([

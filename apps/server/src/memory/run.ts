@@ -11,8 +11,8 @@ import { git } from "../core/proc";
 import { askOnce, hasQuota, llmFor, llmSpec, quota } from "../models/llm";
 import type { Tier } from "../models/model-call";
 import {
+  type Beyond,
   INFERRED_USE_AT,
-  type InferredPerson,
   unfoldedOf,
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
@@ -249,13 +249,14 @@ export function meContext(truth: Truth) {
  */
 export function refContext(
   {
+    beyond,
     canon,
-    inferred,
     truth,
   }: {
+    /** Everyone beyond truth/ (`readPeople`). */
+    beyond: Beyond[];
     /** Who a person ref is now (`readPeople`). */
     canon: (ref: string) => string;
-    inferred: InferredPerson[];
     truth: Truth;
   },
   close: ReadonlySet<string>,
@@ -275,14 +276,16 @@ export function refContext(
         relation: p.relation,
         ...flag(`person:${p.id}`),
       })),
-      // One ref per person: an inferred id folded into another is that one.
-      ...unfoldedOf(inferred, canon)
-        .filter((p) => p.confidence >= INFERRED_USE_AT)
+      // One ref per person: an id folded into another is that one. A guess is used from INFERRED_USE_AT and says
+      // it is one; who his Contacts name is a name he gave a number, no relation known.
+      ...unfoldedOf(beyond, canon)
+        .filter((p) => (p.confidence ?? 1) >= INFERRED_USE_AT)
         .map((p) => ({
           aliases: [] as string[],
           name: p.name,
           ref: `person:${p.id}`,
-          relation: `${p.relation} (inferred)`,
+          relation:
+            p.kind === "inferred" ? `${p.relation} (inferred)` : p.relation,
           ...flag(`person:${p.id}`),
         })),
     ],

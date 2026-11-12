@@ -418,14 +418,14 @@ export async function fetchOf(
  * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
  */
 function needlesOf(who: string, people: People) {
-  const { canon, corrections, inferred, truth } = people;
+  const { beyond, canon, corrections, truth } = people;
   // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
   const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
     who,
     ...(person ? [person.name, ...person.aliases, ...handlesOf(person)] : []),
-    ...inferred.flatMap((p) =>
+    ...beyond.flatMap((p) =>
       canon(`person:${p.id}`) === ref ? [p.name, ...p.surfaces] : []
     ),
     // A handle the owner said is them ("Ann K on Instagram is Claire").

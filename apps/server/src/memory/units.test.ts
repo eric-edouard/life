@@ -382,14 +382,8 @@ test("a turn of one of his asks moves its unit's hash and its refs are kept; a t
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
-  const { resolve } = foldsOf(
-    [
-      ...people,
-      { ...people[1], aliases: [], id: "other", name: "Pops" } as Person,
-    ],
-    [],
-    []
-  );
+  const other = { ...people[1], aliases: [], id: "other", name: "Pops" };
+  const { resolve } = foldsOf([...people, other as Person], [], [], []);
   expect(resolve("Jean (Me)")).toBe("person:me");
   expect(resolve("Jean Senior")).toBe("person:dad");
   expect(resolve("Pops")).toBeNull();
@@ -1035,7 +1029,7 @@ test("who wrote a message, for every kind: him, an agent's own line, whom the re
 });
 
 test("a reader sees a unit's stored senders as whom they resolve to today, a mail's unknown senders left out", () => {
-  const { resolve } = foldsOf(people, [], []);
+  const { resolve } = foldsOf(people, [], [], []);
   const refOf = (r: string) =>
     r.startsWith("unknown:") ? (resolve(r.slice(8)) ?? r) : r;
   const [chat] = messageUnits(

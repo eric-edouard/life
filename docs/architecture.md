@@ -56,7 +56,8 @@ flowchart LR
   his phone stayed: the units not judged yet in full, the rest as stubs, and the day's episodes as they stand. It writes
   a verdict per new unit (type, importance, area) and the episodes new, changed or gone: only what happened, each with
   `what` came of it and the episode holding it (`within`). The same call says who the day's unknown people are
-  (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its words, fetched
+  (`memory/people-inferred.jsonl`, used at once, corrected later); before it, the night names the senders his
+  Contacts know (`memory/people-contacts.jsonl`, by code, read above any guess: `contact-people.ts`). A conversation-day's text is its words, fetched
   only for the units sent in full (`voiceText`). Nothing is cut (his request of 9 Nov 2026): a day too long for one
   call (`callCharsOf`, the provider's context) is read in parts, in time order, through the same re-read; a mail is
   its own words, the history it quotes left out (`ownWordsOf`). Apple Health and Photos units can make episodes: each workout

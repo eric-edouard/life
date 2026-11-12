@@ -8,8 +8,8 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { callCharsOf, stamp } from "../models/llm";
 import {
+  type Beyond,
   Correction,
-  type InferredPerson,
   type Observation,
 } from "../records/observation";
 import { type Area, isUnderway, type Person } from "../records/truth";
@@ -111,7 +111,7 @@ export function ownerHold(me: Truth["me"]) {
   return `${quote(me.text.split("\n").slice(1).join("\n"))}\n\n_From truth/me.md: yours. Life never edits it._`;
 }
 
-function inferredHold(p: InferredPerson) {
+function inferredHold(p: Beyond) {
   return `${quote(`**${p.name}** · ${p.relation}`)}\n\n_Inferred by Life from messages (confidence ${p.confidence}), not in truth/: it may be wrong. Tell Claude who this is and it is recorded._`;
 }
 
@@ -149,7 +149,7 @@ const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
 async function targets(observations: Shown[], folks: People) {
-  const { inferred, truth } = folks;
+  const { beyond, truth } = folks;
   const levels = levelsWith(folks);
   const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
   const close = personallyClose(levels);
@@ -170,11 +170,16 @@ async function targets(observations: Shown[], folks: People) {
           },
         ] as const
     ),
-    ...inferred.map(
+    ...beyond.map(
       (p) =>
         [
           `person:${p.id}`,
-          { hold: inferredHold(p), name: `${p.name} (inferred)` },
+          p.kind === "inferred"
+            ? { hold: inferredHold(p), name: `${p.name} (inferred)` }
+            : {
+                hold: `${quote(`**${p.name}**`)}\n\n_Named by his Contacts, not in truth/._`,
+                name: p.name,
+              },
         ] as const
     ),
   ]);

@@ -1,4 +1,6 @@
 import type { LedgerEntry } from "../records/ledger-entry";
+import type { Correction, InferredPerson } from "../records/observation";
+import { Person } from "../records/truth";
 import type { Unit, Verdict } from "../records/unit";
 import { type Verdicts, verdictKey } from "./ledger";
 
@@ -68,3 +70,37 @@ export const action = (over: Partial<LedgerEntry> = {}): LedgerEntry => ({
   why: "he asked",
   ...over,
 });
+
+/** A made-up map: him, his father under a WhatsApp number, a friend, and someone whose alias is another's handle. */
+export const people = [
+  Person.parse({ aliases: ["Jean"], id: "me", name: "Jean Dupont" }),
+  Person.parse({
+    aliases: ["Pops"],
+    handles: { whatsapp: ["+66600000001"] },
+    id: "dad",
+    name: "Jean Senior Dupont",
+  }),
+  Person.parse({ aliases: ["Gas"], id: "gaston", name: "Gaston" }),
+  // Owns a handle that is also someone else's alias: the handle must win.
+  Person.parse({ aliases: ["+66600000001"], id: "decoy", name: "Decoy" }),
+];
+
+/** A person Life inferred, going by `surfaces`. */
+export const inferred = (id: string, surfaces: string[], confidence = 0.8) =>
+  ({
+    area: "shop",
+    at: "2026-10-14T00:00:00.000Z",
+    confidence,
+    evidence: [{ quote: "q", unit: "unit_000000000001" }],
+    id,
+    madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+    name: "the plumber",
+    project: null,
+    relation: "plumber",
+    schemaVersion: 1,
+    surfaces,
+  }) as InferredPerson;
+
+/** A correction of his. */
+export const said = (c: Record<string, unknown>) =>
+  ({ at: "2026-10-14T00:00:00.000Z", schemaVersion: 1, ...c }) as Correction;

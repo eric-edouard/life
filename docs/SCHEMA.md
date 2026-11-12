@@ -168,6 +168,22 @@ Names Life could not map to `truth/`: `{schemaVersion: 1, surface, unit, observa
 `model` (the extractor named someone not on the map) or `speaker` (lifelog named a voice the map doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
 could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and lifelog voices).
 
+## people-contacts.jsonl
+
+Who his Contacts name among the handles his messages hold, written by the night (`writeContactPeople`,
+`memory/contact-people.ts`; by hand `bun life memory contact-people`), by code, append-only:
+`{schemaVersion: 1, card, name, surfaces, at}`. `card` is the Contacts card's own id; the person's id is `con_` and a
+digest of it (`contactIdOf`), never a name (truth ids never start with `con_`). A card's latest line gives its name
+and its surfaces (phones and emails, as written) only grow; a card deleted from Contacts appends nothing and keeps its
+person. Only a card with a handle that is a sender Life cannot name, or a surface of someone it guessed, gets a line:
+his address book is never copied. Two cards sharing a handle are one person when they share a name, else the first by
+card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's guesses, a guess's link to
+`truth/` included (`readingOf`: his Contacts are his word on a number). A card that shares a handle with someone in
+`truth/` is that person and brings its other handles; one that shares only a name is them when it is their whole name,
+or any name of theirs when `truth/` gives them no phone or email to say otherwise (`namesTheSame`); a guess made for
+one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
+the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
+
 ## people-inferred.jsonl
 
 Who Life thinks an unknown handle or name is, written by `bun life memory episodes` (the same call that reads the day;
