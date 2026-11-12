@@ -411,6 +411,8 @@ const codexQuota = async () =>
  */
 interface Provider {
   ask: (call: ModelCall) => Promise<Answer>;
+  /** How many of its calls a step runs at once (`inBatches`). */
+  callsAtOnce: number;
   /** Tokens one call can hold, the smallest of its models and routes (fallback included). */
   contextTokens: number;
   effort?: Record<Tier, string>;
@@ -423,6 +425,11 @@ interface Provider {
   /** Whether a call of it may be given tools (`Tools`): Codex only, the question cases' agent. */
   tools?: true;
 }
+// A call to an API engine costs the Mac nothing while it waits: on 12 Nov 2026, 103 calls at up to 96 at once on
+// openrouter were each answered by their first host, none refused. allmodels at this many is not measured. An engine
+// that starts a program on the Mac for each call (claude, codex) is held to a few.
+const API_CALLS_AT_ONCE = 32;
+const CLI_CALLS_AT_ONCE = 4;
 /** An API engine: its calls go through its routes, which name its host and keys. */
 function apiEngine(
   engine: Router,
@@ -438,6 +445,7 @@ function apiEngine(
   ];
   return {
     ask: askRoutes,
+    callsAtOnce: API_CALLS_AT_ONCE,
     contextTokens,
     host: new URL(ROUTERS[engine].url).host,
     keys: routers.map((r) => ROUTERS[r].key),
@@ -450,6 +458,7 @@ const PROVIDERS: Record<Engine, Provider> = {
   allmodels: apiEngine("allmodels", ALLMODELS_MODELS, 1_048_576),
   claude: {
     ask: askClaude,
+    callsAtOnce: CLI_CALLS_AT_ONCE,
     contextTokens: 200_000,
     host: "api.anthropic.com",
     keys: [],
@@ -457,6 +466,7 @@ const PROVIDERS: Record<Engine, Provider> = {
   },
   codex: {
     ask: askCodex,
+    callsAtOnce: CLI_CALLS_AT_ONCE,
     contextTokens: 272_000,
     effort: CODEX_EFFORT,
     host: "chatgpt.com",
@@ -467,6 +477,9 @@ const PROVIDERS: Record<Engine, Provider> = {
   },
   openrouter: apiEngine("openrouter", OPENROUTER_MODELS, 1_048_576),
 };
+
+/** How many calls of `llm`'s engine run at once. */
+export const callsAtOnceOf = (llm: Llm) => PROVIDERS[llm.engine].callsAtOnce;
 
 /**
  * The fewest characters a token holds, a low bound on purpose: a text of n characters is at most n / CHARS_PER_TOKEN

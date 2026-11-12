@@ -117,7 +117,7 @@ async function ratedRun() {
   const asked = judged
     .filter((f) => keys.has(f.id) && !kept[f.id])
     .toSorted((a, b) => a.date.localeCompare(b.date));
-  await inBatches(chunks(asked, PER_CALL), DIR, async (part, dir) => {
+  await inBatches(chunks(asked, PER_CALL), JUDGING, async (part, dir) => {
     const seen = claimsOn(part.flatMap((f) => f.units));
     for (const grade of await judge(part, seen, { dir, run })) {
       const key = keys.get(grade.fact);
@@ -162,7 +162,7 @@ async function ratedRun() {
 async function judgeCasesRun(path: string) {
   const { cases } = JudgeCases.parse(await Bun.file(path).json());
   const got = new Map<string, Grade>();
-  await inBatches(cases, DIR, async (c, dir) => {
+  await inBatches(cases, JUDGING, async (c, dir) => {
     const [g] = await judge([c], c.claims, { dir, run });
     if (g) {
       got.set(c.id, g);
@@ -217,6 +217,8 @@ if (!asJson) {
 const rec = await metered("eval", { args });
 const { run } = rec;
 const DIR = join(OUT, "evals", run);
+// The judge's calls, as `inBatches` runs them: in this run's folder, as many at once as its engine takes.
+const JUDGING = { dir: DIR, llm: llmFor("main") };
 await ended(rec, async () => {
   if (mode === "--judge-cases") {
     if (!claimsFile) {

@@ -434,7 +434,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
   let written = 0;
   let invalid = 0;
   if (failed.length === 0) {
-    await inBatches(chunks(due, PER_CALL), step.dir, (batch, dir) =>
+    await inBatches(chunks(due, PER_CALL), step, (batch, dir) =>
       step.attempt(async () => {
         const json = await step.ask({
           context: meContext(truth),

@@ -288,7 +288,7 @@ export async function makeCalls(
   dir: string
 ) {
   const counts = { dropped: 0, missing: 0, moves: 0, offLine: 0 };
-  await inBatches(notKept(calls, dir), step.dir, async (c, bdir) => {
+  await inBatches(notKept(calls, dir), step, async (c, bdir) => {
     await step.attempt(
       async () => {
         const reply = await step.ask({ dir: bdir, input: c.input, prompt });

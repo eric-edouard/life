@@ -212,7 +212,8 @@ late with harm), or spoken asks above about one a day for a month.
 - Calls go through `apps/server/src/models/llm.ts` (an API engine's through `routers.ts`): `claude -p` or the pinned `codex` on the owner's subscription, or
   an API engine with his keys (allmodels since 28 Oct 2026, openrouter since 8 Nov), chosen with
   `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
-  call, keys, whether it may run tools, and its quota.
+  call, keys, whether it may run tools, its quota, and how many of its calls a step runs at once (`callsAtOnce`: 32 for
+  an API engine, 4 for one that starts a program on the Mac).
 - An API engine's model is its routes (`routesOf`): `router:author/model@host,host[=effort]`, then the next router's
   after a space; a router left out is the engine's own, an effort left out the tier's (a route's effort wins over `LIFE_LLM`'s). Each router (`ROUTERS`) is one endpoint and one key. The hosts are
   asked one at a time in that order, streamed, within one 60-minute deadline: a host that errs, sends nothing for 5
