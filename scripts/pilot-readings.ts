@@ -1,248 +1,91 @@
-// `bun scripts/pilot-readings.ts`: a first look at counted readings (spec 9 and 10), by code, from the whole-history
-// read kept by `memory-pilot.ts --all`. One page per person with enough exchanges, written in his data
-// (`docs/memory-rework/readings/`), never in `memory/`. A trial of what an agent would see, not the stored layer.
-// Prints counts, never a word or a name.
-// ponytail: channels are pooled and a pattern list is not counted; the real counting code (path, step 5.1) keeps
-// them apart.
+// `bun scripts/pilot-readings.ts`: a first look at counted readings (spec 9 and 10), from the whole-history reads kept
+// by `memory-pilot.ts --all`. One page per person, written in his data (`docs/memory-rework/readings/`), never in
+// `memory/`. Only wording is here: the counting is `memory/move-rates.ts`. Prints counts, never a word or a name.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { clock, iso } from "@life/server/src/core/clock";
 import { readJson } from "@life/server/src/core/files";
 import { readWithPeople } from "@life/server/src/memory/closeness";
+import {
+  CHANCE,
+  type MoveRate,
+  moveRatesOf,
+  placeAmong,
+  type Rate,
+  type ReadOfCalls,
+  seenExchanges,
+} from "@life/server/src/memory/move-rates";
 import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
+import { localDate } from "@life/server/src/memory/zones";
 import { promptText } from "@life/server/src/models/llm";
 import { allOf, KEPT, READS } from "./memory-pilot";
 
-/** Under this many chances a rate is not shown (spec 9: "too few to say"). */
-const MINIMUM = 15;
-const SIDES = ["me", "them"] as const;
-type Side = (typeof SIDES)[number];
-const OPENINGS = [
-  "shares",
-  "discloses",
-  "good_news",
-  "invites",
-  "asks_for",
-  "offers",
-  "support_asked",
-  "reassurance_asked",
-];
-const ANSWERS = [
-  "engages",
-  "apologises",
-  "excuses",
-  "denies",
-  "counters",
-  "yields",
-  "moves_on",
-];
-const STEERS = ["directs", "proposes", "defers", "decides"];
+/** Standings are listed for a rate within this many places of either end. */
+const ENDS = 3;
 
-/** One exchange as every read saw it: who wrote in it, and each read's moves and flags. */
-interface Seen {
-  at: Date;
-  conflict?: boolean;
-  moves: {
-    answer?: { kind: string };
-    by: Side;
-    code: string;
-    depth?: number;
-    quote: string;
-    strength?: number;
-    to?: number;
-    line: number;
-  }[];
-  tension?: boolean;
-  tone: { me?: string | null; them?: string | null };
-  wrote: Set<Side>;
-}
+const sayRate = ({ n, of, says }: Rate) => {
+  if (says === "share") {
+    return `${Math.round((100 * n) / of)}% (${n} of ${of})`;
+  }
+  return `${says === "too few" ? "too few to say" : "counted, not said"} (${n} of ${of})`;
+};
+const idOf = (r: MoveRate) => `${r.thing}|${r.side}|${r.source}`;
+const sideOf = (r: MoveRate, name: string) => {
+  if (!r.side) {
+    return "";
+  }
+  return r.side === "me" ? "he" : name;
+};
+const labelOf = (r: MoveRate, name: string) =>
+  `${r.thing}, ${sideOf(r, name) || "the exchange"}${r.source ? `, ${r.source}` : ""} (${CHANCE[r.thing]})`;
 
-const share = (n: number, of: number) =>
-  of < MINIMUM
-    ? `too few to say (${n} of ${of})`
-    : `${Math.round((100 * n) / of)}% (${n} of ${of})`;
-
-/** A rate of a page, kept so people can be set side by side: what it counts, and its share of its chances. */
-interface Rate {
-  n: number;
-  of: number;
-  what: string;
-}
-const YEAR_MS = 365 * 24 * 3600 * 1000;
-
-/** A person's page: rates per side, each a share of its chances, with the year by year volume and tension. */
-function pageOf(name: string, relation: string | null, seen: Seen[]) {
-  const rates: Rate[] = [];
-  const rate = (what: string, n: number, of: number) => {
-    rates.push({ n, of, what });
-    return share(n, of);
-  };
-  const took = (s: Side) => seen.filter((x) => x.wrote.has(s));
-  const has = (x: Seen, s: Side, code: string) =>
-    x.moves.some((m) => m.by === s && m.code === code);
-  const label = (s: Side) => (s === "me" ? "He" : name);
-  const out: string[] = [
+/** A person's page: where their rates stand among everyone's, lately against before, and every rate. */
+function pageOf(
+  name: string,
+  relation: string | null,
+  rows: MoveRate[],
+  exchanges: number,
+  others: Map<string, { name: string; rate: Rate }[]>
+) {
+  const standing = rows.flatMap((r) => {
+    const rest = (others.get(idOf(r)) ?? [])
+      .filter((o) => o.name !== name)
+      .map((o) => o.rate);
+    const { above, below } = placeAmong(r.all, rest);
+    return r.all.says === "share" && Math.min(above, below) < ENDS
+      ? [
+          `- ${labelOf(r, name)}: ${sayRate(r.all)}, ${above} above and ${below} below among ${rest.length} others`,
+        ]
+      : [];
+  });
+  const row = (r: MoveRate, ...rates: Rate[]) =>
+    `| ${labelOf(r, name)} | ${rates.map(sayRate).join(" | ")} |`;
+  const flagged = rows.filter((r) =>
+    ["tension", "conflict", "warm"].includes(r.thing)
+  );
+  return [
     `# ${name}${relation ? ` (${relation})` : ""}`,
     "",
-    `${seen.length} exchanges, ${seen[0]?.at.toISOString().slice(0, 10)} to ${seen.at(-1)?.at.toISOString().slice(0, 10)}. Each line: a share of the exchanges that side wrote in, unless it names another chance.`,
+    `${exchanges} exchanges. A share is of the chance in brackets; a rate of an exchange chance is kept per source, never pooled; a bid met is by the side that met it.`,
     "",
-    "## By year",
+    "## What stands out among the people of his life",
     "",
-    "| Year | Exchanges | Tense | Conflict | He reads warm | They read warm |",
-    "|---|---|---|---|---|---|",
-  ];
-  const years = Map.groupBy(seen, (x) => x.at.getUTCFullYear());
-  for (const [year, list] of [...years].sort(([a], [b]) => a - b)) {
-    const warm = (s: Side) => {
-      const toned = list.filter((x) => x.tone[s]);
-      return share(
-        toned.filter((x) => x.tone[s] === "warm").length,
-        toned.length
-      );
-    };
-    out.push(
-      `| ${year} | ${list.length} | ${share(list.filter((x) => x.tension).length, list.length)} | ${share(list.filter((x) => x.conflict).length, list.length)} | ${warm("me")} | ${warm("them")} |`
-    );
-  }
-  const table = (title: string, codes: string[]) => {
-    out.push("", `## ${title}`, "", `| Move | He | ${name} |`, "|---|---|---|");
-    for (const code of codes) {
-      out.push(
-        `| ${code} | ${SIDES.map((s) => rate(`${code}, by ${s === "me" ? "him" : "them"}`, took(s).filter((x) => has(x, s, code)).length, took(s).length)).join(" | ")} |`
-      );
-    }
-  };
-  table("Connection", [
-    "asks_about",
-    "shares",
-    "discloses",
-    "good_news",
-    "affection",
-    "thanks",
-    "support_given",
-    "support_asked",
-    "reassurance_asked",
-    "invites",
-    "explores",
-  ]);
-  table("Giving and asking", ["asks_for", "offers", "gives", "refuses"]);
-  table("Mentions and self-reports", [
-    "mention",
-    "feels",
-    "intends",
-    "wants",
-    "believes",
-  ]);
-  out.push(
-    "",
-    "## How an opening is met (chance: the opening)",
-    "",
-    "| Opening by | Met | Turned away | Turned against | No answer |",
-    "|---|---|---|---|---|"
-  );
-  for (const s of SIDES) {
-    const openings = seen.flatMap((x) =>
-      x.moves.filter((m) => m.by === s && OPENINGS.includes(m.code))
-    );
-    const kind = (k: string | undefined) =>
-      rate(
-        `${s === "me" ? "his" : "their"} openings ${k ? `met ${k}` : "left with no answer"}`,
-        openings.filter((m) => m.answer?.kind === k).length,
-        openings.length
-      );
-    out.push(
-      `| ${label(s)} | ${kind("toward")} | ${kind("away")} | ${kind("against")} | ${kind(undefined)} |`
-    );
-  }
-  out.push(
-    "",
-    "## When a fault is raised (chance: an exchange where that side raised one)",
-    "",
-    `| The other then… | When he raises it | When ${name} raises it |`,
-    "|---|---|---|"
-  );
-  const faulted = (s: Side) => seen.filter((x) => has(x, s, "fault"));
-  const other = (s: Side): Side => (s === "me" ? "them" : "me");
-  for (const code of ANSWERS) {
-    out.push(
-      `| ${code} | ${SIDES.map((s) => rate(`${s === "me" ? "they" : "he"} ${code} when faulted`, faulted(s).filter((x) => has(x, other(s), code)).length, faulted(s).length)).join(" | ")} |`
-    );
-  }
-  out.push(
-    "",
-    `Faults raised: he in ${rate("fault raised, by him", faulted("me").length, took("me").length)}, ${name} in ${rate("fault raised, by them", faulted("them").length, took("them").length)}. Presses: he ${rate("presses, by him", took("me").filter((x) => has(x, "me", "presses")).length, took("me").length)}, ${name} ${rate("presses, by them", took("them").filter((x) => has(x, "them", "presses")).length, took("them").length)}.`,
-    "",
-    "## Who steers (chance: an exchange with something to decide)",
-    "",
-    `| Move | He | ${name} |`,
-    "|---|---|---|"
-  );
-  const atStake = seen.filter((x) =>
-    x.moves.some((m) => STEERS.includes(m.code))
-  );
-  for (const code of STEERS) {
-    out.push(
-      `| ${code} | ${SIDES.map((s) => rate(`${code} when something is decided, by ${s === "me" ? "him" : "them"}`, atStake.filter((x) => has(x, s, code)).length, atStake.length)).join(" | ")} |`
-    );
-  }
-  // Lately against before (spec 9): the last twelve months beside everything earlier.
-  const since = +(seen.at(-1)?.at ?? 0) - YEAR_MS;
-  const [lately, before] = [
-    seen.filter((x) => +x.at >= since),
-    seen.filter((x) => +x.at < since),
-  ];
-  const warm = (list: Seen[], s: Side) => {
-    const toned = list.filter((x) => x.tone[s]);
-    return [
-      toned.filter((x) => x.tone[s] === "warm").length,
-      toned.length,
-    ] as const;
-  };
-  const flagged = (list: Seen[], flag: "conflict" | "tension") =>
-    [list.filter((x) => x[flag]).length, list.length] as const;
-  const trend = (
-    what: string,
-    of: (list: Seen[]) => readonly [number, number]
-  ) =>
-    `| ${what} | ${rate(`${what}, last 12 months`, ...of(lately))} | ${share(...of(before))} |`;
-  const trends = [
+    ...(standing.length ? standing : ["Nothing at either end."]),
     "",
     "## Lately against before",
     "",
     "| | Last 12 months | Before |",
     "|---|---|---|",
-    trend("tense", (l) => flagged(l, "tension")),
-    trend("conflict", (l) => flagged(l, "conflict")),
-    trend("he reads warm", (l) => warm(l, "me")),
-    trend("they read warm", (l) => warm(l, "them")),
-  ];
-  return { head: out.slice(0, 3), rates, rest: [...trends, ...out.slice(3)] };
-}
-
-/** Where each of a person's rates sits among everyone with enough chances: the few at either end, the furthest first. */
-function standingOf(mine: Rate[], all: Rate[][]) {
-  const lines = mine.flatMap((r) => {
-    if (r.of < MINIMUM) {
-      return [];
-    }
-    const shares = all
-      .flatMap((rs) => rs.filter((o) => o.what === r.what && o.of >= MINIMUM))
-      .map((o) => o.n / o.of)
-      .sort((a, b) => b - a);
-    const rank = shares.indexOf(r.n / r.of) + 1;
-    const fromEnd = Math.min(rank, shares.length + 1 - rank);
-    // An end of the list means something only among enough people, and when the rate is not nil for nearly everyone.
-    return shares.length >= 10 && fromEnd <= 3 && (shares[2] ?? 0) > 0.02
-      ? [
-          {
-            fromEnd,
-            line: `- ${r.what}: ${share(r.n, r.of)}, ${rank <= 3 ? `rank ${rank}` : `rank ${rank} (${shares.length + 1 - rank} from the lowest)`} of ${shares.length} people`,
-          },
-        ]
-      : [];
-  });
-  return lines.sort((a, b) => a.fromEnd - b.fromEnd).map((l) => l.line);
+    ...flagged.map((r) => row(r, r.lately, r.before)),
+    "",
+    "## Rates per side",
+    "",
+    "| | All time |",
+    "|---|---|",
+    ...rows.map((r) => row(r, r.all)),
+  ].join("\n");
 }
 
 if (import.meta.main) {
@@ -250,79 +93,67 @@ if (import.meta.main) {
   const people = await readPeople();
   const byPerson = new Map<
     string,
-    { relation: string | null; seen: Map<string, Seen> }
+    { reads: ReadOfCalls[]; relation: string | null }
   >();
-  const counts = { exchanges: 0, missing: 0, moves: 0 };
+  let missing = 0;
   const names = Object.keys(READS) as ReadName[];
   const wordings = await Promise.all(
-    names.map((name) => promptText(READS[name].prompt))
+    names.map((read) => promptText(READS[read].prompt))
   );
-  for (const [i, name] of names.entries()) {
+  for (const [i, read] of names.entries()) {
     const wording = wordings[i] ?? "";
     for (const call of allOf(events, people, wording)) {
       const kept = readJson<{ reply: unknown }>(
-        join(KEPT, name, "openrouter", `${call.key}.json`)
+        join(KEPT, read, "openrouter", `${call.key}.json`)
       );
       if (!kept) {
-        counts.missing += 1;
+        missing += 1;
         continue;
       }
-      const person = byPerson.get(call.input.with.name) ?? {
-        relation: call.input.with.relation,
-        seen: new Map<string, Seen>(),
-      };
-      byPerson.set(call.input.with.name, person);
-      const { exchanges } = checkedMoves(
-        kept.reply,
-        call.messages,
-        call.starts,
-        name
-      );
-      for (const x of exchanges) {
-        const first = call.messages[x.exchange];
-        if (!first) {
-          continue;
-        }
-        const id = `${first.source}|${first.id}`;
-        const end =
-          call.starts[call.starts.indexOf(x.exchange) + 1] ??
-          call.messages.length;
-        const seen = person.seen.get(id) ?? {
-          at: new Date(first.at),
-          moves: [],
-          tone: {},
-          wrote: new Set(
-            call.messages
-              .slice(x.exchange, end)
-              .filter((m) => !m.phoneCall)
-              .map((m): Side => (m.fromMe ? "me" : "them"))
-          ),
-        };
-        person.seen.set(id, seen);
-        seen.moves.push(...(x.moves as Seen["moves"]));
-        seen.conflict ??= x.conflict;
-        seen.tension ??= x.tension;
-        seen.tone = { ...seen.tone, ...x.tone };
-        counts.moves += x.moves.length;
-      }
+      const { name, relation } = call.input.with;
+      const person = byPerson.get(name) ?? { reads: [], relation };
+      byPerson.set(name, person);
+      person.reads.push({
+        checked: checkedMoves(kept.reply, call.messages, call.starts, read)
+          .exchanges,
+        messages: call.messages,
+        read,
+        starts: call.starts,
+      });
+    }
+  }
+  const month = localDate(iso(+clock())).slice(0, 7);
+  const rates = [...byPerson].map(([name, { reads, relation }]) => {
+    const seen = seenExchanges(reads);
+    return {
+      exchanges: seen.length,
+      name,
+      relation,
+      rows: moveRatesOf(seen, month),
+    };
+  });
+  const others = new Map<string, { name: string; rate: Rate }[]>();
+  for (const { name, rows } of rates) {
+    for (const r of rows) {
+      others.set(idOf(r), [
+        ...(others.get(idOf(r)) ?? []),
+        { name, rate: r.all },
+      ]);
     }
   }
   const dir = join(KEPT, "..", "readings");
   mkdirSync(dir, { recursive: true });
-  const pages = [...byPerson].flatMap(([name, { relation, seen }]) => {
-    const list = [...seen.values()].sort((a, b) => +a.at - +b.at);
-    counts.exchanges += list.length;
-    return list.length >= 2 * MINIMUM
-      ? [{ name, ...pageOf(name, relation, list) }]
-      : [];
-  });
-  const all = pages.map((p) => p.rates);
-  for (const p of pages) {
-    const standing = standingOf(p.rates, all);
+  for (const p of rates) {
     writeFileSync(
       join(dir, `${p.name.replace(/[^\p{L}\p{N}]+/gu, "-")}.md`),
-      `${[...p.head, "", "## What stands out among the people of his life", "", ...(standing.length ? standing : ["Nothing at either end."]), ...p.rest].join("\n")}\n`
+      `${pageOf(p.name, p.relation, p.rows, p.exchanges, others)}\n`
     );
   }
-  console.table([{ ...counts, pages: pages.length, people: byPerson.size }]);
+  console.table([
+    {
+      exchanges: rates.reduce((n, p) => n + p.exchanges, 0),
+      missing,
+      people: rates.length,
+    },
+  ]);
 }
