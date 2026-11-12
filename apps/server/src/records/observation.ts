@@ -366,3 +366,39 @@ export const Closeness = z
   .strict();
 
 export type Closeness = z.infer<typeof Closeness>;
+
+/** Someone beyond truth/, as every listing of people needs them: a contact person, or one Life inferred. */
+export interface Beyond {
+  /** A guess's confidence; a contact person has none. */
+  confidence?: number;
+  id: string;
+  kind: "contact" | "inferred";
+  name: string;
+  relation: string;
+  surfaces: string[];
+}
+
+/** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
+export const IN_CONTACTS = "in his Contacts";
+
+/** Everyone beyond truth/, folded or not (`unfoldedOf` for one id per person): the contact people, then the inferred. */
+export const beyondOf = (
+  contacts: { id: string; name: string; surfaces: string[] }[],
+  inferred: InferredPerson[]
+): Beyond[] => [
+  ...contacts.map((c) => ({
+    id: c.id,
+    kind: "contact" as const,
+    name: c.name,
+    relation: IN_CONTACTS,
+    surfaces: c.surfaces,
+  })),
+  ...inferred.map((p) => ({
+    confidence: p.confidence,
+    id: p.id,
+    kind: "inferred" as const,
+    name: p.name,
+    relation: p.relation,
+    surfaces: p.surfaces,
+  })),
+];

@@ -177,9 +177,12 @@ digest of it (`contactIdOf`), never a name (truth ids never start with `con_`). 
 and its surfaces (phones and emails, as written) only grow; a card deleted from Contacts appends nothing and keeps its
 person. Only a card with a handle that is a sender Life cannot name, or a surface of someone it guessed, gets a line:
 his address book is never copied. Two cards sharing a handle are one person when they share a name, else the first by
-card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's guesses (`readingOf`): a card that shares
-a handle, a name or an alias with someone in `truth/` is that person, and a guess made for one of its handles reads as
-the contact person (`foldsOf`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
+card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's guesses, a guess's link to
+`truth/` included (`readingOf`: his Contacts are his word on a number). A card that shares a handle with someone in
+`truth/` is that person and brings its other handles; one that shares only a name is them when it is their whole name,
+or any name of theirs when `truth/` gives them no phone or email to say otherwise (`namesTheSame`); a guess made for
+one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
+the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
 
 ## people-inferred.jsonl
 

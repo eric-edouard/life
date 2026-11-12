@@ -1,4 +1,5 @@
 import {
+  beyondOf,
   type Correction,
   INFERRED_USE_AT,
   type InferredPerson,
@@ -84,9 +85,10 @@ const handleIndex = (people: Person[]): Map<string, string> =>
 
 /**
  * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
- * (handles, then names and aliases), the person in truth/ its latest confident inferred guess links to, the person
- * his Contacts name (a handle of its card, else its name when one contact person alone goes by it), then the guess
- * itself. A `not-this-person` correction blocks that match.
+ * (handles, then names and aliases), the person his Contacts name (a handle of its card, else its name when one
+ * contact person alone goes by it), then its latest confident inferred guess (the person in truth/ it links to, else
+ * the guess). His Contacts are his word on a number: no guess outranks a card. A `not-this-person` correction blocks
+ * that match.
  */
 function readingOf(
   people: Person[],
@@ -138,8 +140,8 @@ function readingOf(
         ...ks.map((k) => said.get(k)),
         truth && `person:${truth}`,
         named && `person:${named}`,
-        ...guesses.map((g) => g?.person),
         card && `person:${card}`,
+        ...guesses.map((g) => g?.person),
         ...guesses.map((g) => g && `person:${g.id}`),
       ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`))) ?? null
     );
@@ -149,8 +151,8 @@ function readingOf(
 /**
  * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
- * the one person it reads as. A contact person folds the same way, by its handles then its name: a card of someone
- * in truth/ is that person, and a guess made for one of its handles is the contact person.
+ * the one person it reads as. A contact person folds the same way: by a handle it shares with someone in truth/, else
+ * by its name (`namesTheSame`), and a guess made for one of its handles is the contact person.
  */
 export function foldsOf(
   people: Person[],
@@ -160,12 +162,21 @@ export function foldsOf(
 ) {
   const read = readingOf(people, inferred, corrections, contacts);
   const into = new Map<string, string>();
-  for (const r of [
-    ...inferred,
-    ...contacts.map((c) => ({ id: c.id, surfaces: [...c.surfaces, c.name] })),
-  ]) {
+  for (const r of inferred) {
     const self = `person:${r.id}`;
     const to = r.surfaces.map(read).find((x) => x && x !== self);
+    if (to) {
+      into.set(self, to);
+    }
+  }
+  for (const c of contacts) {
+    const self = `person:${c.id}`;
+    const named = read(c.name);
+    const to =
+      c.surfaces.map(read).find((x) => x && x !== self) ??
+      (named && named !== self && namesTheSame(c, named, people)
+        ? named
+        : undefined);
     if (to) {
       into.set(self, to);
     }
@@ -188,6 +199,20 @@ export function foldsOf(
     return ref ? canon(ref) : null;
   };
   return { canon, resolve };
+}
+
+/**
+ * Whether a card that shares no handle with `ref` is still that person, going by its name: their whole name (a
+ * second number of theirs), or any name of theirs when truth/ gives them no phone or email to say otherwise. A card
+ * named only as an alias ("Paul") of someone whose numbers are known and differ is someone else.
+ */
+function namesTheSame(c: ContactNow, ref: string, people: Person[]) {
+  const person = people.find((p) => `person:${p.id}` === ref);
+  return (
+    !person ||
+    normalize(person.name) === normalize(c.name) ||
+    handlesOf(person).every((h) => !contactKeyOf(h))
+  );
 }
 
 /**
@@ -393,21 +418,24 @@ export async function readPeople() {
     corrections,
     contacts
   );
+  const beyond = beyondOf(contacts, inferred);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
       ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
-    ...[...truth.people, ...inferred, ...contacts].map(
+    ...[...truth.people, ...beyond].map(
       (p) => [`person:${p.id}`, p.name] as const
     ),
     ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
     ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
   ]);
   return {
+    /** Everyone beyond truth/ (`beyondOf`), folded or not: what every listing of people reads. */
+    beyond,
     canon,
-    /** The people his Contacts name (`contact-people.ts`), folded or not. */
+    /** The people his Contacts name (`contact-people.ts`), for the folds. */
     contacts,
     corrections,
     inferred,
@@ -520,18 +548,17 @@ export function nearNames<
  * another), going by their surfaces too.
  */
 function nameable({
+  beyond,
   canon,
-  contacts = [],
-  inferred,
   truth,
-}: Pick<People, "canon" | "inferred" | "truth"> &
-  Partial<Pick<People, "contacts">>) {
+}: Pick<People, "beyond" | "canon" | "truth">) {
   return [
     ...truth.people,
     ...new Map(
-      [...unfoldedOf(contacts, canon), ...unfoldedOf(inferred, canon)].map(
-        (p) => [p.id, { ...p, aliases: p.surfaces }]
-      )
+      unfoldedOf(beyond, canon).map((p) => [
+        p.id,
+        { ...p, aliases: p.surfaces },
+      ])
     ).values(),
   ];
 }
@@ -543,8 +570,7 @@ function nameable({
  */
 export function meant(
   name: string,
-  people: Pick<People, "canon" | "inferred" | "resolve" | "truth"> &
-    Partial<Pick<People, "contacts">>
+  people: Pick<People, "beyond" | "canon" | "resolve" | "truth">
 ) {
   const all = nameable(people);
   const resolved = people.resolve(name)?.replace(PERSON, "");

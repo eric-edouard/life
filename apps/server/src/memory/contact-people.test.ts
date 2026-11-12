@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { PersonRef } from "../records/fields";
 import {
+  beyondOf,
   ContactPerson,
   contactIdOf,
   type InferredPerson,
@@ -232,13 +233,55 @@ test("one person across every channel: a card of someone in truth/ is that perso
   // No question is spent on her number, and by name she is found.
   expect(answeredBy(resolve, inferred)("+33611111111")).toBe(true);
   const found = meant("Ana Lopez", {
+    beyond: beyondOf([bea, byName, ana], inferred),
     canon,
-    contacts: [bea, byName, ana],
-    inferred,
     resolve,
     truth: { people: truth } as never,
   });
   expect(found.known).toBe(ana.id);
   // Folded people are not listed twice.
   expect(found.all.map((p) => p.id)).toEqual(["bea", ana.id]);
+});
+
+test("a card renamed and nothing else is the same person under its new name", () => {
+  const first = after([ANA], [], seenOf(ANA_KEY));
+  const renamed = after(
+    [{ ...ANA, name: "Ana Maria" }],
+    first.stored,
+    seenOf()
+  );
+  expect(renamed.lines).toHaveLength(1);
+  expect(renamed.now.map((p) => [p.id, p.name])).toEqual([
+    [contactIdOf("card-ana"), "Ana Maria"],
+  ]);
+});
+
+test("his Contacts outrank a guess: a model's link of one number to someone in truth/ does not move the card", () => {
+  const ana = now("card-ana", "Ana Lopez", ["+33611111111", "+33612121212"]);
+  const linked = {
+    ...guess("inf_the-neighbour", ["+33611111111"]),
+    person: "person:bea",
+  };
+  const { canon, resolve } = foldsOf(truth, [linked], [], [ana]);
+  expect(resolve("+33611111111")).toBe(`person:${ana.id}`);
+  expect(resolve("+33612121212")).toBe(`person:${ana.id}`);
+  expect(canon("person:inf_the-neighbour")).toBe(`person:${ana.id}`);
+});
+
+test("a card that shares only a short name with someone whose numbers are known is someone else", () => {
+  // Bea's numbers are in truth/: a card "Bea" under another number is not her; a card under her whole name is.
+  const other = now("card-other-bea", "Bea", ["+33600000042"]);
+  const { canon, resolve } = foldsOf(truth, [], [], [other]);
+  expect(canon(`person:${other.id}`)).toBe(`person:${other.id}`);
+  expect(resolve("+33600000042")).toBe(`person:${other.id}`);
+  // Someone truth/ gives no number: nothing says otherwise, so a card under one of their names is them.
+  const cy = Person.parse({
+    aliases: ["Cy"],
+    id: "cyril",
+    name: "Cyril Blanc",
+  });
+  const cyCard = now("card-cy", "Cy", ["+33600000043"]);
+  expect(foldsOf([cy], [], [], [cyCard]).resolve("+33600000043")).toBe(
+    "person:cyril"
+  );
 });

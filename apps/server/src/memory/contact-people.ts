@@ -80,16 +80,22 @@ export function contactPeopleOf(
     .toSorted((a, b) => a.id.localeCompare(b.id));
   const now = new Map<string, { name: string; surfaces: string[] }>();
   for (const c of named) {
-    // The person this card is: whoever holds one of its handles under its name, else itself.
+    const holderOf = (h: string) => holder.get(contactKeyOf(h) ?? "");
+    // A person already kept is its card, whatever the card is called now; a new card is whoever holds one of its
+    // handles under its name, else itself.
+    const isKept = before.has(c.id);
     const kept = c.handles.filter((h) => {
-      const who = holder.get(contactKeyOf(h) ?? "");
-      return who && normalize(who.name) === normalize(c.name);
+      const who = holderOf(h);
+      return (
+        who &&
+        (isKept ? who.card === c.id : normalize(who.name) === normalize(c.name))
+      );
     });
-    const card =
-      kept
-        .map((h) => holder.get(contactKeyOf(h) ?? "")?.card)
-        .find((id) => id && before.has(id)) ??
-      holder.get(contactKeyOf(kept[0] ?? "") ?? "")?.card;
+    const card = isKept
+      ? c.id
+      : (kept
+          .map((h) => holderOf(h)?.card)
+          .find((id) => id && before.has(id)) ?? holderOf(kept[0] ?? "")?.card);
     if (!card) {
       continue;
     }

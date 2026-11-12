@@ -62,8 +62,8 @@ test("a name means who it resolves to, listed first among those going by it; a n
   ];
   const mean = (name: string, resolve: (s: string) => string | null) =>
     meant(name, {
+      beyond: [],
       canon: (r: string) => r,
-      inferred: [],
       resolve,
       truth: { people } as never,
     });

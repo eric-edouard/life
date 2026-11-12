@@ -8,14 +8,7 @@ import { chatGroups, type SourceEvent } from "../records/source";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
-import {
-  begin,
-  checkedEntries,
-  chunks,
-  IN_CONTACTS,
-  inBatches,
-  meContext,
-} from "./run";
+import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf, safely, tables } from "./sources";
 import { chatPerson, isLifeOutput } from "./units";
 import { meant, type People, readPeople } from "./who";
@@ -411,15 +404,14 @@ export function lastYearsOf(all: WithPeople): WithPeople {
 export async function closeness({ events, failed, since }: WithPeople) {
   const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
   const people = await readPeople();
-  const { contacts, inferred, names, resolve, truth } = people;
+  const { beyond, names, resolve, truth } = people;
   const today = localDate(step.now.toISOString());
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, since, days));
   const relation = new Map<string, string>([
-    ...contacts.map((p) => [`person:${p.id}`, IN_CONTACTS] as const),
-    ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
+    ...beyond.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
   const waiting = await waitingOf(truth, people.canon);

@@ -11,8 +11,8 @@ import { git } from "../core/proc";
 import { askOnce, hasQuota, llmFor, llmSpec, quota } from "../models/llm";
 import type { Tier } from "../models/model-call";
 import {
+  type Beyond,
   INFERRED_USE_AT,
-  type InferredPerson,
   unfoldedOf,
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
@@ -241,9 +241,6 @@ export function meContext(truth: Truth) {
   };
 }
 
-/** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
-export const IN_CONTACTS = "in his Contacts";
-
 /**
  * The map as the episodes, extract and pages prompts name it: the people on his map (with those Life inferred) and his
  * projects, every ref a reply may use (`map`). A call's `<context>` (the same for every call of a run, so it is cached)
@@ -252,16 +249,14 @@ export const IN_CONTACTS = "in his Contacts";
  */
 export function refContext(
   {
+    beyond,
     canon,
-    contacts = [],
-    inferred,
     truth,
   }: {
+    /** Everyone beyond truth/ (`readPeople`). */
+    beyond: Beyond[];
     /** Who a person ref is now (`readPeople`). */
     canon: (ref: string) => string;
-    /** The people his Contacts name (`readPeople`). */
-    contacts?: { id: string; name: string }[];
-    inferred: InferredPerson[];
     truth: Truth;
   },
   close: ReadonlySet<string>,
@@ -281,24 +276,18 @@ export function refContext(
         relation: p.relation,
         ...flag(`person:${p.id}`),
       })),
-      // One ref per person: an inferred id folded into another is that one.
-      ...unfoldedOf(inferred, canon)
-        .filter((p) => p.confidence >= INFERRED_USE_AT)
+      // One ref per person: an id folded into another is that one. A guess is used from INFERRED_USE_AT and says
+      // it is one; who his Contacts name is a name he gave a number, no relation known.
+      ...unfoldedOf(beyond, canon)
+        .filter((p) => (p.confidence ?? 1) >= INFERRED_USE_AT)
         .map((p) => ({
           aliases: [] as string[],
           name: p.name,
           ref: `person:${p.id}`,
-          relation: `${p.relation} (inferred)`,
+          relation:
+            p.kind === "inferred" ? `${p.relation} (inferred)` : p.relation,
           ...flag(`person:${p.id}`),
         })),
-      // Who his Contacts name: a name he gave a number, no relation known.
-      ...unfoldedOf(contacts, canon).map((p) => ({
-        aliases: [] as string[],
-        name: p.name,
-        ref: `person:${p.id}`,
-        relation: IN_CONTACTS,
-        ...flag(`person:${p.id}`),
-      })),
     ],
     projects: truth.projects.map((p) => ({
       area: p.area,
