@@ -160,9 +160,9 @@ function readingOf(
 /**
  * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
- * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/ (a number on that
- * card that truth/ gives someone else stays theirs and never makes the card them), else by a handle it shares with
- * someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact person.
+ * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
+ * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
+ * person. A card whose whole name and whose handle say two different people folds into no one (`apart`: his to say).
  */
 export function foldsOf(
   people: Person[],
@@ -187,19 +187,21 @@ export function foldsOf(
       into.set(self, to);
     }
   }
+  const apart: { card: string; handled: string; named: string }[] = [];
   for (const c of contacts) {
     const self = `person:${c.id}`;
     const named = read(c.name);
-    const byName =
-      named && named !== self && !isRuledOut(c, named) ? named : undefined;
-    // A card is first whoever its whole name says (his own label for it); then whoever shares a handle with it; then
-    // whoever its name may still be (`namesTheSame`).
-    const to =
-      (byName && isWholeNameOf(c, byName, people) ? byName : undefined) ??
-      c.surfaces.map(read).find((x) => x && x !== self) ??
-      (byName && namesTheSame(byName, people) ? byName : undefined);
-    if (to) {
-      into.set(self, to);
+    const placed = placeOf(self, {
+      byName:
+        named && named !== self && !isRuledOut(c, named) ? named : undefined,
+      handled: c.surfaces.map(read).find((x) => x && x !== self) ?? undefined,
+      isWhole: (ref) => isWholeNameOf(c, ref, people),
+      people,
+    });
+    if (typeof placed === "string") {
+      into.set(self, placed);
+    } else if (placed) {
+      apart.push(placed);
     }
   }
   for (const c of corrections) {
@@ -219,7 +221,34 @@ export function foldsOf(
     const ref = read(surface);
     return ref ? canon(ref) : null;
   };
-  return { canon, resolve };
+  return { apart, canon, resolve };
+}
+
+/**
+ * Who a contact card is, from who its name reads as (`byName`) and who one of its handles reads as (`handled`): whoever
+ * its whole name says, then whoever shares a handle with it, then whoever its name may still be (`namesTheSame`). A
+ * card whose whole name says one person and whose handle says another is not Life's to place (a card he renamed, two
+ * people merged in one card, a number two people share): it is returned apart, no one's until he says, and each
+ * handle truth/ knows still reads as its own person.
+ */
+function placeOf(
+  card: string,
+  o: {
+    byName: string | undefined;
+    handled: string | undefined;
+    isWhole: (ref: string) => boolean;
+    people: Person[];
+  }
+) {
+  const whole = o.byName && o.isWhole(o.byName) ? o.byName : undefined;
+  if (whole && o.handled && whole !== o.handled) {
+    return { card, handled: o.handled, named: whole };
+  }
+  return (
+    whole ??
+    o.handled ??
+    (o.byName && namesTheSame(o.byName, o.people) ? o.byName : undefined)
+  );
 }
 
 /**
@@ -435,7 +464,7 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const { canon, resolve } = foldsOf(
+  const { apart, canon, resolve } = foldsOf(
     truth.people,
     inferred,
     corrections,
@@ -455,6 +484,8 @@ export async function readPeople() {
     ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
   ]);
   return {
+    /** The Contacts cards Life cannot place: their whole name says one person, a handle another (`foldsOf`). */
+    apart,
     /** Everyone beyond truth/ (`beyondOf`), folded or not: what every listing of people reads. */
     beyond,
     canon,
