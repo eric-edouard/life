@@ -197,7 +197,7 @@ export function foldsOf(
     const to =
       (byName && isWholeNameOf(c, byName, people) ? byName : undefined) ??
       c.surfaces.map(read).find((x) => x && x !== self) ??
-      (byName && namesTheSame(c, byName, people) ? byName : undefined);
+      (byName && namesTheSame(byName, people) ? byName : undefined);
     if (to) {
       into.set(self, to);
     }
@@ -223,20 +223,16 @@ export function foldsOf(
 }
 
 /**
- * Whether a card that shares no handle with `ref` is still that person, going by its name: their whole name (a
- * second number of theirs), or any name of theirs when truth/ gives them no phone or email to say otherwise. A card
- * named only as an alias ("Paul") of someone whose numbers are known and differ is someone else.
+ * Whether a card that is not named, whole, as `ref` and shares no handle with them is still that person, going by one
+ * of their names: only when truth/ gives them no phone or email to say otherwise. A card named as an alias ("Paul")
+ * of someone whose numbers are known and differ is someone else.
  */
-function namesTheSame(c: ContactNow, ref: string, people: Person[]) {
+function namesTheSame(ref: string, people: Person[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
-  return (
-    !person ||
-    isWholeNameOf(c, ref, people) ||
-    handlesOf(person).every((h) => !contactKeyOf(h))
-  );
+  return !person || handlesOf(person).every((h) => !contactKeyOf(h));
 }
 
-/** Whether a card is named as someone in truth/ is, whole: his own label for the card. */
+/** Whether a card is named, whole, as someone in truth/: his own label for the card. */
 const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
   people.some(
     (p) => `person:${p.id}` === ref && normalize(p.name) === normalize(c.name)

@@ -316,4 +316,17 @@ test("a card named for someone in truth/ is theirs, even when it holds a number 
   expect(canon(`person:${mixed.id}`)).toBe("person:cyril");
   expect(resolve("cy@example.com")).toBe("person:cyril");
   expect(resolve("+33677777777")).toBe("person:bea");
+  // Unless he said the address is not Cyril: then the card is no one's by its name, and Bea's by her number.
+  const notCyril = {
+    at: AT,
+    kind: "not-this-person",
+    person: "person:cyril",
+    schemaVersion: 1,
+    surface: "cy@example.com",
+  };
+  expect(
+    foldsOf([...truth, cyril], [], [notCyril] as never, [mixed]).canon(
+      `person:${mixed.id}`
+    )
+  ).toBe("person:bea");
 });
