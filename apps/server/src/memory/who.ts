@@ -37,6 +37,15 @@ export const who = (x: { speaker: string; speakerName?: string }) =>
 const keysOf = (s: string) =>
   [s.trim(), s.trim().toLowerCase(), normalize(s)].filter(Boolean);
 
+/** Whether two surfaces are one: a key in common, or the same phone or email however written. */
+const isSameSurface = (a: string, b: string) => {
+  const key = contactKeyOf(a);
+  return (
+    (key !== undefined && key === contactKeyOf(b)) ||
+    keysOf(a).some((k) => keysOf(b).includes(k))
+  );
+};
+
 /** Each surface key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
 function guessesOf(inferred: InferredPerson[]) {
   const guessed = new Map<string, InferredPerson>();
@@ -158,9 +167,17 @@ export function foldsOf(
   people: Person[],
   inferred: InferredPerson[],
   corrections: Correction[],
-  contacts: ContactNow[] = []
+  contacts: ContactNow[]
 ) {
   const read = readingOf(people, inferred, corrections, contacts);
+  // His word that a handle is not someone: a card holding that handle is not them by its name either.
+  const isRuledOut = (c: ContactNow, ref: string) =>
+    corrections.some(
+      (x) =>
+        x.kind === "not-this-person" &&
+        x.person === ref &&
+        c.surfaces.some((s) => isSameSurface(s, x.surface))
+    );
   const into = new Map<string, string>();
   for (const r of inferred) {
     const self = `person:${r.id}`;
@@ -174,7 +191,10 @@ export function foldsOf(
     const named = read(c.name);
     const to =
       c.surfaces.map(read).find((x) => x && x !== self) ??
-      (named && named !== self && namesTheSame(c, named, people)
+      (named &&
+      named !== self &&
+      namesTheSame(c, named, people) &&
+      !isRuledOut(c, named)
         ? named
         : undefined);
     if (to) {
@@ -226,8 +246,8 @@ export function aboutNow(
   people: Person[],
   inferred: InferredPerson[],
   corrections: Correction[],
-  chatOf: Map<string, string> = new Map(),
-  contacts: ContactNow[] = []
+  contacts: ContactNow[],
+  chatOf: Map<string, string> = new Map()
 ) {
   const { canon, resolve } = foldsOf(people, inferred, corrections, contacts);
   const found = unresolved.flatMap((u) =>
@@ -237,7 +257,7 @@ export function aboutNow(
   );
   const named = Map.groupBy(found, (n) => n.observation);
   const namesOf = new Map<string, string[]>([
-    ...[...inferred, ...contacts].map((p): [string, string[]] => [
+    ...beyondOf(contacts, inferred).map((p): [string, string[]] => [
       `person:${p.id}`,
       [p.name],
     ]),
@@ -483,8 +503,8 @@ export async function observationsNow({
     truth.people,
     inferred,
     corrections,
-    chatHandles(units),
-    contacts
+    contacts,
+    chatHandles(units)
   );
   return { all, observations, standing };
 }

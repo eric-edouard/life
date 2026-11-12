@@ -556,8 +556,8 @@ export async function claim(id: string) {
     people.truth.people,
     people.inferred,
     people.corrections,
-    chats,
-    people.contacts
+    people.contacts,
+    chats
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
   const handle = o.speaker === OWNER ? "me" : (authorFrom(o, chats) ?? null);

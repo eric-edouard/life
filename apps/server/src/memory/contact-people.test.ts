@@ -274,6 +274,21 @@ test("a card that shares only a short name with someone whose numbers are known 
   const { canon, resolve } = foldsOf(truth, [], [], [other]);
   expect(canon(`person:${other.id}`)).toBe(`person:${other.id}`);
   expect(resolve("+33600000042")).toBe(`person:${other.id}`);
+  // Her whole name on another number is her second number, unless he said that number is not her.
+  const second = now("card-bea-2", "Beatrice Roy", ["+33 6 00 00 00 44"]);
+  expect(foldsOf(truth, [], [], [second]).resolve("0600000044")).toBe(
+    "person:bea"
+  );
+  const notHer = {
+    at: AT,
+    kind: "not-this-person",
+    person: "person:bea",
+    schemaVersion: 1,
+    surface: "+33600000044",
+  };
+  expect(
+    foldsOf(truth, [], [notHer] as never, [second]).resolve("0600000044")
+  ).toBe(`person:${second.id}`);
   // Someone truth/ gives no number: nothing says otherwise, so a card under one of their names is them.
   const cy = Person.parse({
     aliases: ["Cy"],

@@ -137,7 +137,7 @@ test("a level keeps a page when close or once close, never a service's; his word
     } as never,
   ] as Correction[];
   const levels = levelsNow(rows, {
-    canon: foldsOf([], [], corrections).canon,
+    canon: foldsOf([], [], corrections, []).canon,
     corrections,
   });
   expect(levels.get("person:joe")).toMatchObject({
