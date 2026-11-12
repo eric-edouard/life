@@ -167,7 +167,8 @@ and the feed show it with the switches):
 - `scribe` (the default): each block goes to ElevenLabs Scribe whole, as above.
 - `speech`: each block goes to the speech service (`apps/identity`, `POST /transcribe`), which answers Nemotron 3's
   speaker turns, VoxLingua107's scores per turn and Parakeet Ultra's words (`route-turns.ts`). Only Thai goes to
-  Scribe (the owner's rule, 24 Oct 2026). Each turn of a second or more gets a chance of being Thai, from VoxLingua's
+  Scribe (the owner's rule, 24 Oct 2026). Turns never overlap: when one voice speaks inside another's, the interrupted
+  speaker's turn goes on after it. Each turn of a second or more gets a chance of being Thai, from VoxLingua's
   scores, whether Parakeet wrote anything in it, its length and how Thai the rest of the block sounds. It is routed
   when that chance clears the bar of the zone the owner was in when the block was recorded (`ownerZoneAt`): lower
   where Thai is spoken. A block mostly routed goes to Scribe whole, as a `scribe` job (why: `docs/decisions.md`).
