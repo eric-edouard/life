@@ -148,6 +148,7 @@ const messageIdOf = (
 /**
  * The messages `<archive>/<source>.sqlite` first wrote from row `from` on (`incoming`): the first row of each message,
  * `key` naming its version's column (an edit or a delete is a later row of the same key), ids as `readArchived` makes them.
+ * An export row is no arrival: old messages an import wrote are left out.
  */
 export function incomingArchived(
   source: SourceEvent["source"],
@@ -168,7 +169,8 @@ export function incomingArchived(
         [number | null]
       >(
         `select m.rowid as row, m.chat, m.id, m.at from messages m
-          where m.rowid >= ? and m.rowid = (select min(x.rowid) from messages x
+          where m.rowid >= ? ${key === "eventId" ? `and not (${EXPORT_ROW})` : ""}
+            and m.rowid = (select min(x.rowid) from messages x
             where x.chat is m.chat and x.${key} = m.${key})
           order by m.rowid`
       )
@@ -229,6 +231,9 @@ export const matrixArchive = (
       join messages d on d.chat = m.chat and d.eventId = m.eventId and d.deleted = 1
      where m.deleted = 0
        and (m.text <> '' or exists (select 1 from files f where f.chat = m.chat and f.eventId = m.eventId))`;
+
+/** An export row (docs/glossary.md): a message an export's import wrote into a Matrix-shaped archive, not one a copier saw arrive. */
+export const EXPORT_ROW = "m.eventId like 'export:%'";
 
 /** From a Matrix-shaped archive: of each message's versions, the latest with a text or not deleted (a photo has no text), with its latest files. */
 export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type, m.text, f.files,

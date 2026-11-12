@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
+import { hold, release } from "../core/lock";
 import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
@@ -28,7 +29,10 @@ import {
   parsedExport,
   pruned,
 } from "../sources/assistants";
+import { NETWORKS, type Network, readBridged } from "../sources/bridged";
+import { copyInstagramExport } from "../sources/instagram-export";
 import { IMPORTED, keptConversations, readJudgments } from "./ledger";
+import { describeFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { spareQuota } from "./schedule";
@@ -323,4 +327,45 @@ export async function importExport(folder: string) {
     // A conversation a failed call left unjudged reads as not kept: the same import retries it.
     unjudged: plan.due().length,
   });
+}
+
+/**
+ * Brings an Instagram export into the Instagram archive (`copyInstagramExport`, as the one writer of the archive),
+ * then describes the photos it kept: an import describes its own files (the historical collection that follows is
+ * model-free and leaves old files as tags). Collection covers the export's days, whatever this run added: the same
+ * import again describes and collects what a stopped one left.
+ */
+export async function importInstagramExport(folder: string) {
+  const engine = settings().backfillEngine;
+  if (!engine) {
+    throw new Error("imports are off: set backfillEngine in settings first");
+  }
+  await spareQuota(engine);
+  // The archive's one writer only while the rows are written: describing and collecting need no archive lock, and
+  // the archiver must not wait on them.
+  await hold("archive");
+  const copied = copyInstagramExport(folder);
+  release("archive");
+  console.log(
+    `Instagram: ${copied.added} messages written to the archive; Life can run again`
+  );
+  if (!(copied.first && copied.last)) {
+    return { ...copied, failed: 0, units: undefined };
+  }
+  const network = NETWORKS.find((n) => n.name === "instagram") as Network;
+  const described = await describeFiles(
+    readBridged(network, new Date(copied.first)).filter((e) =>
+      e.files?.some((f) => f.ref.startsWith(`${network.name}:export:`))
+    ),
+    engine
+  );
+  return {
+    ...copied,
+    described: described.described,
+    failed: described.failed,
+    units: {
+      from: wall(copied.first, "UTC").day,
+      to: wall(copied.last, "UTC").day,
+    },
+  };
 }
