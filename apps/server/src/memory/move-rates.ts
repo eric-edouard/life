@@ -136,7 +136,9 @@ const readOf = (thing: Thing): ReadName => {
   return thing in CODE_READ ? CODE_READ[thing as Code] : "connection";
 };
 
-const STEERING: Code[] = ["directs", "proposes", "defers", "decides"];
+const STEERING = (Object.keys(CHANCE) as Thing[]).filter(
+  (t) => CHANCE[t] === "decision"
+);
 const isBid = (code: Code) => (BIDS as readonly string[]).includes(code);
 const SIDES: Side[] = ["me", "them"];
 const otherOf = (side: Side): Side => (side === "me" ? "them" : "me");
