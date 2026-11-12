@@ -300,3 +300,20 @@ test("a card that shares only a short name with someone whose numbers are known 
     "person:cyril"
   );
 });
+
+test("a card named for someone in truth/ is theirs, even when it holds a number truth/ gives to someone else", () => {
+  // A card under Cyril's whole name holds Bea's number and an address: the address is Cyril's, the number stays Bea's.
+  const cyril = Person.parse({
+    handles: { email: [], phone: ["+33600000050"], whatsapp: [] },
+    id: "cyril",
+    name: "Cyril Blanc",
+  });
+  const mixed = now("card-mixed", "Cyril Blanc", [
+    "+33677777777",
+    "cy@example.com",
+  ]);
+  const { canon, resolve } = foldsOf([...truth, cyril], [], [], [mixed]);
+  expect(canon(`person:${mixed.id}`)).toBe("person:cyril");
+  expect(resolve("cy@example.com")).toBe("person:cyril");
+  expect(resolve("+33677777777")).toBe("person:bea");
+});
