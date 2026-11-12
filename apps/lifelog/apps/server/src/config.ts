@@ -101,6 +101,11 @@ export const RECOGNITION = {
   ownerShortTurn: 0.5,
   ownerTurn: 0.6,
   shortTurnSeconds: 6,
+  // Likeness and lead needed to name a voice under `minSpeakerSeconds` (a person only, never a
+  // stranger). On 1,890 short clips he named: 36% named, 98.9% right; 1.7% of the voices he
+  // answered "Not anyone I know" got a name.
+  shortVoiceMargin: 0.2,
+  shortVoiceThreshold: 0.5,
   // A voice this much more like the strangers (his "Not anyone I know" answers) than like the person,
   // and at least `candidateThreshold` like them, is a stranger too (speakers.ts `decide`; a turn
   // needs only the lead). Nov 3 replay of his answers: 16 fewer turns credited to

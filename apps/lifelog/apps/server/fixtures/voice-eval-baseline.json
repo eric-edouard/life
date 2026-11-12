@@ -8,11 +8,11 @@
   "counts": {
     "ownerRight": 415,
     "ownerMissed": 27,
-    "otherRight": 1848,
+    "otherRight": 1865,
     "nobodyRight": 1843,
     "falseOwner": 113,
-    "wrongPerson": 44,
-    "leftUnnamed": 720
+    "wrongPerson": 45,
+    "leftUnnamed": 702
   },
   "rechecks": 7,
   "turns": 5010

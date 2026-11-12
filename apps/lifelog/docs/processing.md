@@ -223,6 +223,9 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   microphone and call, and a single centroid blurred a phone voice into the room it was learned in.
 - A speaker's clean turns together are the person their voice matches: likeness at least 0.6 and 0.1 ahead of the
   next person, with at least 8 s of clean speech.
+- A voice under 8 s of clean speech is compared too, at likeness 0.5 and 0.2 ahead of the next person, for a person
+  only: never a stranger, no unnamed group, no nearby reference (it has no voice vector). Measured on 1,890 short clips
+  he named: 36% named, 98.9% right.
 - A turn whose own voice is nearest the owner's, at 0.6 or more, is his, whoever the speaker is: the provider often
   puts him and someone else under one speaker. A turn under 6 s needs only 0.5 if it is also 0.1 ahead of the next
   person (short clips score lower, and his short requests said alone stayed unnamed). His own correction of a
