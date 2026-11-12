@@ -19,13 +19,6 @@ import {
   type ReadName,
 } from "./memory-pilot";
 
-/** The wording the whole history was read with (12 Nov 2026): the conflict read's first version. */
-const HISTORY_PROMPT: Record<ReadName, string> = {
-  ...(Object.fromEntries(
-    Object.entries(READS).map(([name, r]) => [name, r.prompt])
-  ) as Record<ReadName, string>),
-  conflict: "memory-conflict.v1",
-};
 /** Under this many chances a rate is not shown (spec 9: "too few to say"). */
 const MINIMUM = 15;
 const SIDES = ["me", "them"] as const;
@@ -265,8 +258,12 @@ if (import.meta.main) {
     { relation: string | null; seen: Map<string, Seen> }
   >();
   const counts = { exchanges: 0, missing: 0, moves: 0 };
-  for (const name of Object.keys(READS) as ReadName[]) {
-    const wording = await promptText(HISTORY_PROMPT[name]);
+  const names = Object.keys(READS) as ReadName[];
+  const wordings = await Promise.all(
+    names.map((name) => promptText(READS[name].prompt))
+  );
+  for (const [i, name] of names.entries()) {
+    const wording = wordings[i] ?? "";
     for (const call of allOf(events, people, wording)) {
       const kept = readJson<{ reply: unknown }>(
         join(KEPT, name, "openrouter", `${call.key}.json`)
