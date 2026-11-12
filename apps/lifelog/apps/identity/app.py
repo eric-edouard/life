@@ -9,8 +9,8 @@ POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
               -> {durationSeconds, turns: [{start, end, speaker, language, scores}], words: [{start, end,
                   text}], models: {name: "id@revision"}}
                   turns: Nemotron 3's speaker turns in time order, one speaker's joined across a
-                  gap under 0.5 s, made exclusive (the speaker who started last holds the turn; the one
-                  interrupted goes on when it ends); speaker
+                  gap under 0.5 s, made exclusive (whoever is speaking keeps the floor until their segment ends;
+                  the earliest-started still covering takes over); speaker
                   "0", "1"…; language VoxLingua107's top code ("en", "th"…) and scores its
                   probabilities of en, fr and th, for a turn of a second or more, else null.
                   words: Parakeet Ultra's over the whole block. Routing them is the caller's.
@@ -234,8 +234,9 @@ def words_of(tokens: list[tuple[str, float, float]]) -> list[dict]:
 def exclusive(turns_in: list[dict]) -> list[dict]:
     """Turns in time order that never overlap. One speaker's segments join across a gap under
     JOIN_GAP_SECONDS (as the bench's turns). At each instant the speaker is the covering segment that
-    started last (the later one on equal starts); when it ends, the segment it interrupted goes on.
-    Time no segment covers stays a gap; empty turns go."""
+    started first (the earlier in sorted order on equal starts): whoever is speaking keeps the floor, and
+    someone who starts meanwhile gets the words only once the first stops. Time no segment covers stays
+    a gap; empty turns go."""
     segments = []
     for turn in sorted(turns_in, key=lambda t: t["start"]):
         last = segments[-1] if segments else None
@@ -250,7 +251,7 @@ def exclusive(turns_in: list[dict]) -> list[dict]:
         covering = [i for i, s in enumerate(segments) if s["start"] <= start and s["end"] >= end]
         if not covering:
             continue
-        top = segments[max(covering)]
+        top = segments[min(covering)]
         last = turns[-1] if turns else None
         if last and last["speaker"] == top["speaker"] and start - last["end"] < JOIN_GAP_SECONDS:
             last["end"] = end

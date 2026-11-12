@@ -27,7 +27,7 @@ class Words(unittest.TestCase):
 
 
 class Turns(unittest.TestCase):
-    def test_turns_are_sorted_and_end_where_the_next_starts(self):
+    def test_the_speaker_keeps_the_floor_until_their_segment_ends(self):
         turns = [
             {"end": 9.0, "speaker": "1", "start": 4.0},
             {"end": 5.0, "speaker": "0", "start": 0.0},
@@ -35,7 +35,7 @@ class Turns(unittest.TestCase):
         ]
         self.assertEqual(
             app.exclusive(turns),
-            [{"end": 4.0, "speaker": "0", "start": 0.0}, {"end": 9.0, "speaker": "1", "start": 4.0}],
+            [{"end": 5.0, "speaker": "0", "start": 0.0}, {"end": 9.0, "speaker": "1", "start": 5.0}],
         )
 
     def test_one_speakers_turns_join_across_a_short_gap(self):
@@ -64,41 +64,31 @@ class Turns(unittest.TestCase):
             ],
         )
 
-    def test_an_interrupted_speaker_goes_on(self):
+    def test_a_nested_blip_yields_no_turn(self):
         turns = [{"end": 10.0, "speaker": "A", "start": 0.0}, {"end": 5.0, "speaker": "B", "start": 4.0}]
+        self.assertEqual(app.exclusive(turns), [{"end": 10.0, "speaker": "A", "start": 0.0}])
+
+    def test_a_crossing_speaker_gets_the_floor_when_the_first_stops(self):
+        turns = [{"end": 5.0, "speaker": "A", "start": 0.0}, {"end": 9.0, "speaker": "B", "start": 4.0}]
         self.assertEqual(
             app.exclusive(turns),
-            [
-                {"end": 4.0, "speaker": "A", "start": 0.0},
-                {"end": 5.0, "speaker": "B", "start": 4.0},
-                {"end": 10.0, "speaker": "A", "start": 5.0},
-            ],
+            [{"end": 5.0, "speaker": "A", "start": 0.0}, {"end": 9.0, "speaker": "B", "start": 5.0}],
         )
 
-    def test_nested_interruptions_resume_in_turn(self):
+    def test_three_deep_the_earliest_started_keeps_the_floor(self):
         turns = [
-            {"end": 10.0, "speaker": "A", "start": 0.0},
+            {"end": 6.0, "speaker": "A", "start": 0.0},
             {"end": 8.0, "speaker": "B", "start": 2.0},
-            {"end": 5.0, "speaker": "C", "start": 4.0},
+            {"end": 5.0, "speaker": "C", "start": 3.0},
         ]
         self.assertEqual(
             [(t["speaker"], t["start"], t["end"]) for t in app.exclusive(turns)],
-            [("A", 0.0, 2.0), ("B", 2.0, 4.0), ("C", 4.0, 5.0), ("B", 5.0, 8.0), ("A", 8.0, 10.0)],
+            [("A", 0.0, 6.0), ("B", 6.0, 8.0)],
         )
 
-    def test_equal_starts_go_to_the_later_segment(self):
+    def test_equal_starts_go_to_the_earlier_in_sorted_order(self):
         turns = [{"end": 5.0, "speaker": "A", "start": 0.0}, {"end": 3.0, "speaker": "B", "start": 0.0}]
-        self.assertEqual(
-            [(t["speaker"], t["start"], t["end"]) for t in app.exclusive(turns)],
-            [("B", 0.0, 3.0), ("A", 3.0, 5.0)],
-        )
-
-    def test_a_short_interjection_still_splits_the_speaker(self):
-        turns = [{"end": 10.0, "speaker": "A", "start": 0.0}, {"end": 4.2, "speaker": "B", "start": 4.0}]
-        self.assertEqual(
-            [(t["speaker"], t["start"], t["end"]) for t in app.exclusive(turns)],
-            [("A", 0.0, 4.0), ("B", 4.0, 4.2), ("A", 4.2, 10.0)],
-        )
+        self.assertEqual(app.exclusive(turns), [{"end": 5.0, "speaker": "A", "start": 0.0}])
 
     def test_ranges(self):
         self.assertEqual(app.parse_ranges("[[0, 1.5], [2, 3]]"), [(0, 1.5), (2, 3)])

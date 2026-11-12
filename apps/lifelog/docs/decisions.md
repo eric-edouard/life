@@ -120,12 +120,15 @@ reverse it, change its entry here in the same commit.
   sentences he gave someone else inside Scribe's voices (Nemotron 3.5: 56%). The run relabeled 2,856 jobs, found 2,459 already
   matching and left 648 with no speech; after it, the stored speakers separate 67% of those sentences. A block Scribe transcribes after the run
   (Thai, or a speech-service failure) still carries Scribe's speakers.
-- **The speech service's turns resume the interrupted speaker (13 Nov 2026).** Nemotron 3's diarizer hears overlapping
-  voices. The service used to cut a turn where the next one starts and never go back, so when B said "yeah" inside A's
+- **The speech service's turns follow the speaker who has the floor (13 Nov 2026).** Nemotron 3's diarizer hears
+  overlapping voices, but the transcriber writes one stream of words, and that stream follows whoever was already
+  speaking. The service used to cut a turn where the next one starts and never go back, so when B spoke inside A's
   sentence, the rest of A's sentence belonged to no turn and its words went to the nearest turn, usually B's. Now the
-  speaker who started last holds the instant, and the one interrupted goes on when it ends. Measured on 150 ordinary
-  blocks: 8.5% of speech seconds had lost their speaker and 6.7% of words changed speaker. A voice-print check agreed
-  with the interrupted speaker on 92 to 95% of those spans. Turns stay a partition, so nothing that reads them changed.
+  one speaking keeps the floor until their segment ends, then the earliest-started of the segments still covering
+  takes over; someone who starts meanwhile gets the words only once the first stops. Of the short runs of words that
+  fell inside another speaker's turn, 93% were pieces of that speaker's sentence, not reactions. Measured on 150
+  ordinary blocks: 8.5% of speech seconds had lost their speaker, and the new turns change the speaker of 6.9% of
+  words. Turns stay a partition, so nothing that reads them changed.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
   Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: $0.20/h like v2 now, its answers keep v2's shape, and it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
