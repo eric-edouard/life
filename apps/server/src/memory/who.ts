@@ -160,8 +160,9 @@ function readingOf(
 /**
  * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
- * the one person it reads as. A contact person folds the same way: by a handle it shares with someone in truth/, else
- * by its name (`namesTheSame`), and a guess made for one of its handles is the contact person.
+ * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/ (a number on that
+ * card that truth/ gives someone else stays theirs and never makes the card them), else by a handle it shares with
+ * someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact person.
  */
 export function foldsOf(
   people: Person[],
@@ -189,14 +190,14 @@ export function foldsOf(
   for (const c of contacts) {
     const self = `person:${c.id}`;
     const named = read(c.name);
+    const byName =
+      named && named !== self && !isRuledOut(c, named) ? named : undefined;
+    // A card is first whoever its whole name says (his own label for it); then whoever shares a handle with it; then
+    // whoever its name may still be (`namesTheSame`).
     const to =
+      (byName && isWholeNameOf(c, byName, people) ? byName : undefined) ??
       c.surfaces.map(read).find((x) => x && x !== self) ??
-      (named &&
-      named !== self &&
-      namesTheSame(c, named, people) &&
-      !isRuledOut(c, named)
-        ? named
-        : undefined);
+      (byName && namesTheSame(byName, people) ? byName : undefined);
     if (to) {
       into.set(self, to);
     }
@@ -222,18 +223,20 @@ export function foldsOf(
 }
 
 /**
- * Whether a card that shares no handle with `ref` is still that person, going by its name: their whole name (a
- * second number of theirs), or any name of theirs when truth/ gives them no phone or email to say otherwise. A card
- * named only as an alias ("Paul") of someone whose numbers are known and differ is someone else.
+ * Whether a card that is not named, whole, as `ref` and shares no handle with them is still that person, going by one
+ * of their names: only when truth/ gives them no phone or email to say otherwise. A card named as an alias ("Paul")
+ * of someone whose numbers are known and differ is someone else.
  */
-function namesTheSame(c: ContactNow, ref: string, people: Person[]) {
+function namesTheSame(ref: string, people: Person[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
-  return (
-    !person ||
-    normalize(person.name) === normalize(c.name) ||
-    handlesOf(person).every((h) => !contactKeyOf(h))
-  );
+  return !person || handlesOf(person).every((h) => !contactKeyOf(h));
 }
+
+/** Whether a card is named, whole, as someone in truth/: his own label for the card. */
+const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
+  people.some(
+    (p) => `person:${p.id}` === ref && normalize(p.name) === normalize(c.name)
+  );
 
 /**
  * What each observation is about today: the entities it was filed with, plus the names Life could not map when it was
