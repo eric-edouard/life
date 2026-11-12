@@ -176,7 +176,7 @@ test("14 chances say too few, 15 say share; a code not proven keeps its counts w
     rowOf(moveRatesOf(many(n, shares), NOVEMBER), thing, "me", "whatsapp")?.all;
   expect(rate(14, "shares")).toEqual({ n: 14, of: 14, says: "too few" });
   expect(rate(15, "shares")).toEqual({ n: 15, of: 15, says: "share" });
-  expect(rate(15, "explores")).toEqual({ n: 15, of: 15, says: "exploratory" });
+  expect(rate(15, "returns")).toEqual({ n: 15, of: 15, says: "exploratory" });
 });
 
 test("lately and before split on the month passed", () => {
