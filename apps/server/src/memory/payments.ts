@@ -75,12 +75,13 @@ export const euros = (n: number) => {
 const amount = (p: Payment) =>
   `${p.amount.toLocaleString("en", { maximumFractionDigits: 2 })} ${p.currency}`;
 
-/** A payment as the read path prints it: when, how much, to whom, its category, where he was, its episode. */
+/** A payment as the read path prints it: when, how much, to whom, its category, what it was, where he was, its episode. */
 // The merchant is a third party's words: one line, clipped.
 export const paymentLine = ({ episode, payment: p, stay }: Placed) =>
   [
     `- ${p.paidAt ? time(p.paidAt) : "(time unknown)"} ${amount(p)}${p.currency === "EUR" ? "" : ` (${euros(-p.eur)} paid)`} ${clip(redact(p.merchant.replace(/\s+/g, " ")), 80)}`,
     p.category ?? "no category yet",
+    ...(p.note ? [`"${clip(redact(p.note.replace(/\s+/g, " ")), 120)}"`] : []),
     ...(p.spending ? [] : ["not spending"]),
     ...(stay ? [`at ${where(stay)}`] : []),
     ...(episode ? [`in ${episode.id}`] : []),
