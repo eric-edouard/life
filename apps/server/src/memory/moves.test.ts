@@ -45,8 +45,7 @@ test("a move is kept with the words of its line, who wrote it and when; what is 
       // A quote too short for the quote check holds when it is on its short line, which is then quoted whole.
       { code: "affection", line: 1, quote: "Bravo" },
       ASKS,
-      // Dropped: words not in the exchange, words not on a short line, a code that is none, a line that is none, a
-      // second vote for one code by one person.
+      // Dropped: words not in the exchange, words not on a short line, a code that is none, a line that is none.
       { code: "thanks", line: 0, quote: "merci beaucoup pour tout" },
       { code: "thanks", line: 1, quote: "well done" },
       { code: "flatters", line: 0, quote: "j'ai eu le poste" },
@@ -67,8 +66,16 @@ test("a move is kept with the words of its line, who wrote it and when; what is 
     },
     { at: talk[1]?.at, by: "me", code: "affection", line: 1, quote: "bravo" },
     { ...ASKS, at: talk[2]?.at, by: "me" },
+    // A second move of one code by one person is kept: every move counts for the rates.
+    {
+      at: talk[2]?.at,
+      by: "me",
+      code: "affection",
+      line: 2,
+      quote: "tu peux me prêter 200 euros",
+    },
   ]);
-  expect([dropped, missing, offLine]).toEqual([5, 0, 0]);
+  expect([dropped, missing, offLine]).toEqual([4, 0, 0]);
 });
 
 test("a quote found on another line of its exchange moves there and is counted; an answer must be the other side's, later", () => {

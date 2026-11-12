@@ -213,13 +213,9 @@ function answeredOf(m: Listed, line: number, by: SourceEvent, span: Span) {
     : undefined;
 }
 
-/** What makes two moves of one person one: their code, and for a mention the person talked about. */
-const voteOf = (m: Listed) =>
-  "who" in m ? `${m.code}|${folded(String(m.who)).out}` : m.code;
-
 /**
  * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
- * there, one per code and person.
+ * there. Every one is kept: counting what a person did once or twice is the rates' (`memory/move-rates.ts`).
  */
 function movesOf(raw: unknown[], span: Span, read: ReadName) {
   const schema: z.ZodType<Listed> = MOVES[read];
@@ -232,16 +228,13 @@ function movesOf(raw: unknown[], span: Span, read: ReadName) {
       return line >= span.start && line < span.end;
     }
   );
-  const seen = new Set<string>();
   let offLine = 0;
   const moves = entries.flatMap((m) => {
     const found = quoted(m, span);
     const message = found ? span.messages[found.line - span.start] : undefined;
-    const vote = `${message?.fromMe}|${voteOf(m)}`;
-    if (!(found && message) || message.phoneCall || seen.has(vote)) {
+    if (!(found && message) || message.phoneCall) {
       return [];
     }
-    seen.add(vote);
     offLine += found.line === m.line ? 0 : 1;
     return [
       {
