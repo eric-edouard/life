@@ -88,7 +88,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
-  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), and asks lifelog
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), works every person's move rates out again from the stored reads (`move-rates.json`, derived, shown in the person read; by hand: `bun life memory move-rates`), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
   recorded-days`; a few seconds); closeness and the
   personas take its last three years. With his `history` setting on, the same read gives the histories their
@@ -313,10 +313,6 @@ first.
   is asked again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It prints
   counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
-- **Bringing in the pilot's replies:** once, `bun scripts/bring-in-read-replies.ts` (under the memory lock) appends to
-  `memory/read-replies/` each reply the pilot kept under the label `openrouter` that is of a read's current prompt,
-  covers one living one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
-  old folders stay, and a second run appends nothing.
 - **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
   (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
   it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads

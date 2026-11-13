@@ -198,7 +198,7 @@ Before adding a helper, use the one that exists:
 | A local day or time | `localDate`, `dayStart`, `time`, `localTime`, `dayRange` (`zones.ts`); a calendar day's arithmetic, no zone: `daysBefore` (`core/clock.ts`); in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`, lifelog included; a duration is `performance.now()` |
 | An event's key across sources | `eventKey` (`records/source.ts`), never an inline `source|id`; a chat's key is `chatGroups`' |
-| How often a person did something (a code, how a bid was met, tone, the flags) | `moveRatesOf` (`memory/move-rates.ts`) over `seenExchanges`: a share only of what `PROVEN` lists, per source for an exchange chance; `placeAmong` for where it stands among others |
+| How often a person did something (a code, how a bid was met, tone, the flags) | `readMoveRates` (`memory/move-rates-file.ts`), built each night from the stored reads by `moveRatesOf` (`memory/move-rates.ts`) over `seenExchanges`: a share only of what `PROVEN` lists, per source for an exchange chance; `placeAmong` for where it stands among others; the person read shows it (`moveRatesBlock`) |
 | An importance threshold | `SEARCHABLE_AT`, `KEEP_AT`, `TOP_AT` (`records/unit.ts`), never a bare number |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
