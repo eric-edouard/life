@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Person } from "../records/truth";
 import { candidateLines } from "./read-person-page";
 import { inferred, people as mapped, said } from "./record-fixtures";
 import { foldsOf, meant, namedLike, nearNames } from "./who";
@@ -184,4 +185,24 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
       "person:inf_gaston-x"
     )
   ).toBe("person:gaston");
+});
+
+test("a name in another script resolves to its own person only, never every word of any script", () => {
+  const thai = {
+    card: "card-thai",
+    id: "contact_thai",
+    name: "สมชาย ใจดี",
+    surfaces: [],
+  };
+  const truth = [
+    Person.parse({ aliases: [], id: "ivan", name: "Иван Петров" }),
+    Person.parse({ aliases: [], id: "gaston", name: "Gaston Roy" }),
+  ];
+  const { resolve } = foldsOf(truth, [], [], [thai]);
+  expect(resolve("Иван Петров")).toBe("person:ivan");
+  expect(resolve("สมชาย ใจดี")).toBe("person:contact_thai");
+  expect(resolve("gaston roy")).toBe("person:gaston");
+  for (const word of ["แม่", "王", "Москва", "()", "!!"]) {
+    expect(resolve(word)).toBeNull();
+  }
 });

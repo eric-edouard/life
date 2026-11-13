@@ -4,7 +4,7 @@ import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { LEDGER, readLedger } from "../memory/ledger";
 import { kindOf } from "../memory/sources";
-import { normalize } from "../memory/units";
+import { normalize, normalizeLatin } from "../memory/units";
 import { localDate } from "../memory/zones";
 import { type Instruction, LedgerEntry, stands } from "../records/ledger-entry";
 import type { Observation } from "../records/observation";
@@ -27,7 +27,7 @@ import { actFailedReport, sendReport } from "./report";
 // connector) decide that he asked.
 
 export const entryId = (ref: string, kind: string, title: string) =>
-  `entry_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
+  `entry_${digest("sha1", `${ref}|${kind}|${normalizeLatin(title)}`, 12)}`;
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
 export const Asked = Change.extend({

@@ -67,6 +67,9 @@ function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
   for (const p of people) {
     for (const n of [p.name, ...p.aliases]) {
       const k = normalize(n);
+      if (!k) {
+        continue;
+      }
       index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
     }
   }
@@ -138,12 +141,13 @@ function readingOf(
       handles.get(ks[1] ?? "") ??
       (key ? handles.get(key) : undefined);
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
-    const named = names.get(normalize(surface.trim().replace(PAREN, "")));
+    const bare = normalize(surface.trim().replace(PAREN, ""));
+    const named = bare ? names.get(bare) : undefined;
     const guesses = ks.map((k) => guessed.get(k));
     const card =
       (key ? carded.get(key) : undefined) ??
       ks.map((k) => carded.get(k)).find(Boolean) ??
-      cardNames.get(normalize(surface.trim().replace(PAREN, "")));
+      (bare ? cardNames.get(bare) : undefined);
     return (
       [
         ...ks.map((k) => said.get(k)),
