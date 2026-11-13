@@ -41,12 +41,14 @@ import {
   decide,
   exemplarsOf,
   likeness,
+  movedVoice,
   NO_PROFILES,
   nearbyMatch,
+  nearbyPerson,
   type Profiles,
 } from "./speakers";
 import { averageLinkage } from "./voice-linkage";
-import { cosine, type Vector } from "./voice-vectors";
+import type { Vector } from "./voice-vectors";
 
 type Assignment = typeof assignments.$inferSelect;
 
@@ -583,27 +585,6 @@ function nameFromNearby(
   }
 }
 
-// The person whose nearby voice is most like `r`, if alike enough and ahead of anyone else's.
-function nearbyPerson(
-  r: { model: string | null; vector: Vector | null },
-  nearby: NearbyVoice[]
-) {
-  const scores = nearby
-    .filter((n) => n.model === r.model)
-    .map((n) => ({
-      personId: n.personId,
-      score: cosine(n.vector, r.vector ?? []),
-    }))
-    .sort((a, b) => b.score - a.score);
-  const [best] = scores;
-  const runnerUp = scores.find((s) => s.personId !== best?.personId);
-  return best &&
-    best.score >= RECOGNITION.nearbyVoice &&
-    best.score - (runnerUp?.score ?? 0) >= RECOGNITION.margin
-    ? best.personId
-    : null;
-}
-
 // The owner's id, from his profile.
 const ownerIn = (profiles: ProfilesByModel) =>
   [...profiles.values()].flatMap((v) => v.people).find((p) => p.isOwner)
@@ -662,6 +643,22 @@ function recognizeJob(
     jobSamples.flatMap((s) =>
       s.clean && s.sample.speakerLabel === label ? [s.sample] : []
     );
+  // No clean sample left (each went to a turn row): judged on the moved turns' samples.
+  const judged = (label: string) => {
+    const own = clean(label);
+    const { model, samples } = speakerVoice(
+      jobSamples.flatMap((s) =>
+        kept.some(
+          (r) => r.speakerLabel === label && r.turnIndex === s.sample.turnIndex
+        ) && s.sample.speakerLabel === label
+          ? [s.sample]
+          : []
+      )
+    );
+    return own.length > 0
+      ? match(own, profiles)
+      : movedVoice(samples, profiles.get(model) ?? NO_PROFILES);
+  };
   const results = [...labels]
     .filter((label) => !answered.some((r) => r.speakerLabel === label))
     .flatMap((label): Recognition[] => {
@@ -669,7 +666,7 @@ function recognizeJob(
       if (old && !jobSamples.some((s) => s.sample.speakerLabel === label)) {
         return [lastKnown(old)];
       }
-      const matched = match(clean(label), profiles);
+      const matched = judged(label);
       const splits = [
         ...Map.groupBy(
           matched.turns.filter((t) => t.voice),
