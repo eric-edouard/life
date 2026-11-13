@@ -50,7 +50,7 @@ in the step that produced it: fix that step with its regression case, never a `c
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory unresolved` before asking him anything. His word beats the memory.
-- A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, LinkedIn, mail) needs the owner's OK on the exact text.
+- A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, Messenger, LinkedIn, mail) needs the owner's OK on the exact text.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
 - Rules for editing `truth/` are in the data repo's own `AGENTS.md`.
@@ -96,7 +96,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
-  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026).
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026; `screen.sqlite`, 4 Nov 2026; the table `phone_calls` in `whatsapp.sqlite`, his "any architectural change" for calls, 5 Nov 2026; `phone.sqlite`, table `calls`, 10 Nov 2026; `messenger.sqlite`, his ask for the Messenger bridge, 14 Nov 2026).
 - **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The one call given tools is the question cases' agent
   (`scripts/question-cases.ts`, his word of 10 Nov 2026): Codex, with Life's connector serving its reads only, and
@@ -228,7 +228,7 @@ Before adding a helper, use the one that exists:
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | A messaging network on a bridge | its entry in `NETWORKS` (`sources/bridged.ts`); copied by its bridge, else from Beeper Desktop's store when Beeper holds it (`copierOf`: LINE allows one session, and he keeps LINE in Beeper, his decision of 6 Nov 2026); set up, linked and removed only by `bun life bridge` (`host/bridges.ts`): a bridge is added when its folder holds its config; the homeserver and every bridge run in one launchd job, `bridges` (`RUN_BRIDGES`, restarted on every change and once a day, `healBridges`), outside Life.app (the homeserver holds deleted messages until the archive copies them) |
 | A phone call (including Phone & FaceTime) | an event of its chat, including call-only chats with `phoneCall` (`SourceEvent`), shown by `callLine` (`units.ts`); never a second record. Who he talked with on it is the model's reading of the call line and how voices were heard (`heardAs`), never a timing rule |
-| A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
+| A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Bringing in an export of his (an assistant's, Instagram's) | `bun life import <folder> [--dry]`, the one verb; Instagram's goes into its archive as export rows (`copyInstagramExport`, `sources/instagram-export.ts`), read by `readBridged` like any message (`AS_READ`) |
 | Whether Life is online (worth a run or an alert) | `isOnline` (`models/llm.ts`): his model provider answers; an offline tick runs nothing |
 | Whether a source is healthy | its `missing()` then its `newest()` (the snapshot's source card), never a second check |

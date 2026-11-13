@@ -12,7 +12,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 
 | | lifelog | Life |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, conversations, search | Memory across sources: voice (through lifelog), WhatsApp, LINE, Instagram, LinkedIn, Telegram, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations, search | Memory across sources: voice (through lifelog), WhatsApp, LINE, Instagram, Messenger, LinkedIn, Telegram, iMessage, mail, Apple Notes, git, imported assistant chats |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
 | Runs | Its own host and the phone | The Mac (WhatsApp, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |

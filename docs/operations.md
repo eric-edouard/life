@@ -57,7 +57,7 @@ every Keychain secret in its environment:
 
 | Service | What it does |
 |---|---|
-| `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
+| `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
@@ -415,5 +415,5 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
 - `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 
-Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`,
+Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`,
 `linkedin.sqlite`, `telegram.sqlite`, `notes.sqlite`, each with a `deleted` view, and `screen.sqlite`, Screen Time's records) and `~/Library/Messages/chat.db`, read-only.

@@ -74,7 +74,7 @@ Life reads what's already on your Mac, read-only, plus a few things it keeps on 
 | Your voice | Every conversation a wearable recorder hears, transcribed, with who spoke and where you were | [lifelog](apps/lifelog/README.md), in this repo: a Limitless Pendant or an Omi, and an iPhone. [Set up voice](docs/use/voice.md) |
 | WhatsApp | Every chat, including messages later deleted for everyone, and calls | WhatsApp's Mac app |
 | iMessage and SMS | Every chat, named from your contacts | Nothing |
-| LINE, Instagram, LinkedIn, Telegram | Every chat, deleted messages kept, and LINE and Instagram calls | Life's own bridges or Beeper Desktop. [Set up bridges](docs/use/bridges.md) |
+| LINE, Instagram, Messenger, LinkedIn, Telegram | Every chat, deleted messages kept, and LINE, Instagram and Messenger calls | Life's own bridges or Beeper Desktop. [Set up bridges](docs/use/bridges.md) |
 | Mail | Every account in Apple Mail: mail from people, bookings, bank and deliveries; no newsletters | Apple Mail |
 | Apple Notes | Every version of every note, checklists included | Nothing |
 | Contacts | Names for phone numbers and addresses | Nothing |
