@@ -30,6 +30,7 @@ import { reindex } from "../memory/index-writer";
 import { newSince, OUT, readLedger } from "../memory/ledger";
 import { links, readLinkWork } from "../memory/links";
 import { locked } from "../memory/memory-lock";
+import { writeMoveRates } from "../memory/move-rates-file";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { personas } from "../memory/personas";
@@ -238,7 +239,7 @@ export async function nightly(days: number, force = false) {
 }
 
 /**
- * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
+ * His chats and mail of every year, read once. The exchange counts and the move rates are written from all of it at once (derived; a
  * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
  * his `history` setting is on) and of the exchange reads (`readExchangeReadWork`, only while his `exchangeReads`
  * setting is on) is taken from it, so only the last years stay in memory for closeness and the personas.
@@ -247,6 +248,11 @@ async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
+  writeMoveRates(
+    everyYear,
+    people.resolve,
+    localDate(now.toISOString()).slice(0, 7)
+  );
   const { history } = settings();
   // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
   const pending = history
