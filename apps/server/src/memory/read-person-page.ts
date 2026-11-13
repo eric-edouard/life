@@ -23,6 +23,8 @@ import {
   withIndex,
 } from "./index-rows";
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
+import { CHANCE, type Chance, MINIMUM, type Thing } from "./move-rates";
+import { readMoveRates, type StoredMoveRate } from "./move-rates-file";
 import { parsePage, slugOf } from "./page-format";
 import { personaBlock, readPersona } from "./personas";
 import { openWithOf, reminderItems } from "./read-open-items";
@@ -193,6 +195,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   // opens (nothing awaits while it is).
   // What code counted between them, first page only, read before the index opens too.
   const counted = before || !known ? null : readExchangeCounts();
+  const rated = ratesFor(ref, Boolean(before) || !known);
   const more =
     before || !known
       ? []
@@ -260,6 +263,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...exchangeCountsBlock(
                 counted && { ...counted, rows: counted.people[ref] ?? [] }
               ),
+              ...moveRatesBlock(rated),
               ...history.block,
               ...entity(db, found?.text ?? null, obsLines),
               "",
@@ -344,6 +348,103 @@ export function exchangeCountsBlock(
     `Counted by code between them and him, through ${localDate(counted.built)} (their one-to-one chats and mail threads: ${counted.sources.join(", ")}; not groups nor recordings; a call counts as a message; an exchange lasts until ${EXCHANGE_ENDS_AFTER / HOUR} hours of quiet and is opened by whoever writes first):`,
     counts("all years", counted.rows),
     ...years.map(([year, rows]) => counts(year, rows)),
+    "",
+  ];
+}
+
+/** One person's stored move rates for their page, nothing when it is not the first page or there is no file. */
+const ratesFor = (ref: string, skip: boolean) => {
+  const file = skip ? null : readMoveRates();
+  return (
+    file && {
+      at: file.at,
+      exchanges: file.people[ref]?.exchanges ?? 0,
+      rows: file.people[ref]?.rows ?? [],
+    }
+  );
+};
+
+/** A chance in words, after "when" for the rows not proven and as the start of a heading (an exchange chance has its own: per source). */
+const WHEN: Record<Exclude<Chance, "exchange">, string> = {
+  bid: "of the other's bids",
+  decision: "when something is decided",
+  fault: "when the other raises a fault",
+};
+const SECTION_ORDER = ["exchange", "bid", "fault", "decision"];
+
+/**
+ * What code counted of how they and he act in their one-to-one chats (`move-rates-file.ts`, from Life's stored
+ * reads): per thing the share of its chances, all years, the last 12 months and before, and where it stands among
+ * the other people; then, as raw counts only, the few not proven rows kept. Nothing when no file or no row for them.
+ */
+export function moveRatesBlock(
+  rates: { at: string; exchanges: number; rows: StoredMoveRate[] } | null
+) {
+  if (!rates || rates.rows.length === 0) {
+    return [];
+  }
+  const percent = ({ n, of }: { n: number; of: number }) =>
+    of < MINIMUM ? "-" : `${Math.round((100 * n) / of)}%`;
+  const figures = (r: StoredMoveRate) =>
+    `${percent(r.all)} (${r.all.n}/${r.all.of}; ${percent(r.lately)} | ${percent(r.before)}; ${r.above} of ${r.among} higher)`;
+  const chanceOf = (r: StoredMoveRate) => CHANCE[r.thing as Thing];
+  const who = (r: StoredMoveRate) => {
+    if (!r.side) {
+      return "";
+    }
+    return r.side === "me" ? "he " : "they ";
+  };
+  // One line per thing (and source), "he" before "they".
+  const shown = (
+    rows: StoredMoveRate[],
+    text: (r: StoredMoveRate) => string,
+    label: (r: StoredMoveRate) => string
+  ) =>
+    [...Map.groupBy(rows, (r) => `${r.thing}|${r.source}`).values()].map(
+      (group) =>
+        `- ${group[0] ? label(group[0]) : ""}: ${group
+          .toSorted((a, b) => (a.side ?? "").localeCompare(b.side ?? ""))
+          .map((r) => who(r) + text(r))
+          .join(", ")}`
+    );
+  const sections = [
+    ...Map.groupBy(
+      rates.rows.filter((r) => r.says === "share"),
+      (r) => (chanceOf(r) === "exchange" ? `exchange|${r.source}` : chanceOf(r))
+    ),
+  ].sort(
+    ([a], [b]) =>
+      SECTION_ORDER.indexOf(a.split("|")[0] ?? "") -
+        SECTION_ORDER.indexOf(b.split("|")[0] ?? "") || a.localeCompare(b)
+  );
+  const heading = (key: string) => {
+    const [chance, source] = key.split("|");
+    if (chance === "exchange") {
+      return `Per exchange each wrote in, ${source}:`;
+    }
+    const when = WHEN[chance as keyof typeof WHEN];
+    return `${when.charAt(0).toUpperCase()}${when.slice(1)}:`;
+  };
+  const guessed = rates.rows.filter((r) => r.says === "exploratory");
+  return [
+    `## Counted from their one-to-one chats (Life's reads, built ${localDate(rates.at)}; ${rates.exchanges} exchanges read)`,
+    "Each line: share of chances (n/of) all years; last 12 months | before; N of M other people are higher.",
+    "Legend: toward = took up the other's bid; warm = the exchange read warm on that side; tension, conflict = the exchange held some.",
+    ...sections.flatMap(([key, rows]) => [
+      heading(key),
+      ...shown(rows, figures, (r) => r.thing),
+    ]),
+    ...(guessed.length > 0
+      ? [
+          "Counted, not proven (raw counts only: two models agree too little on these, or the test had too few cases):",
+          ...shown(
+            guessed,
+            (r) => `${r.all.n}/${r.all.of}`,
+            (r) =>
+              `${r.thing} (${chanceOf(r) === "exchange" ? `per exchange, ${r.source}` : WHEN[chanceOf(r) as keyof typeof WHEN]})`
+          ),
+        ]
+      : []),
     "",
   ];
 }

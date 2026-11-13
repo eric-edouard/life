@@ -33,12 +33,12 @@ const talk = (chat: string, count: number): SourceEvent[] =>
 function store(
   read: ReadName,
   events: SourceEvent[],
-  code: string,
+  codes: string[],
   n: number,
   prompt?: string
 ) {
   const starts = Array.from({ length: events.length / 2 }, (_, i) => i * 2);
-  const extra = code === "blames" ? { on: "self" } : {};
+  const extra = { on: "self", resource: "money" };
   storeReply(
     {
       at: "2026-11-01T00:00:00.000Z",
@@ -54,7 +54,14 @@ function store(
         exchanges: starts.map((exchange, i) => ({
           exchange,
           moves:
-            i < n ? [{ code, line: exchange + 1, quote: TEXT, ...extra }] : [],
+            i < n
+              ? codes.map((code) => ({
+                  code,
+                  line: exchange + 1,
+                  quote: TEXT,
+                  ...extra,
+                }))
+              : [],
         })),
       },
       schemaVersion: 1,
@@ -74,9 +81,9 @@ afterEach(() => {
 test("only share rows and the named conduct rows are kept, each with its place among the people", () => {
   const ann = talk("+1", 16);
   const bob = talk("+2", 16);
-  store("connection", ann, "asks_about", 16);
-  store("conflict", ann, "blames", 3);
-  store("connection", bob, "asks_about", 4);
+  store("connection", ann, ["asks_about", "returns"], 16);
+  store("conflict", ann, ["blames"], 3);
+  store("connection", bob, ["asks_about"], 4);
   const done = writeMoveRates(
     { events: [...ann, ...bob], failed: [] },
     resolve,
@@ -108,6 +115,8 @@ test("only share rows and the named conduct rows are kept, each with its place a
     says: "exploratory",
   });
   expect(row("person:ann", "blames", "them")).toBeUndefined();
+  // Not proven and not named: dropped, whatever the count.
+  expect(row("person:ann", "returns", "me")).toBeUndefined();
   expect(
     file?.people["person:bob"]?.rows.some((r) => r.says === "exploratory")
   ).toBe(false);
@@ -115,10 +124,10 @@ test("only share rows and the named conduct rows are kept, each with its place a
 
 test("an exchange with no reply of the current prompt counts nothing, nor one that gained a message since", () => {
   const carol = talk("+3", 16);
-  store("connection", carol, "asks_about", 16);
+  store("connection", carol, ["asks_about"], 16);
   // Ann's line was made by a prompt that is not the read's current one.
   const ann = talk("+1", 16);
-  store("connection", ann, "asks_about", 16, "memory-connection.v1");
+  store("connection", ann, ["asks_about"], 16, "memory-connection.v1");
   const grown: SourceEvent[] = [
     ...carol,
     {
@@ -140,7 +149,7 @@ test("an exchange with no reply of the current prompt counts nothing, nor one th
 
 test("a failed source keeps the last file", () => {
   const ann = talk("+1", 16);
-  store("connection", ann, "asks_about", 16);
+  store("connection", ann, ["asks_about"], 16);
   writeMoveRates({ events: ann, failed: [] }, resolve, "2026-11");
   const before = readMoveRates();
   expect(before?.people["person:ann"]).toBeDefined();
