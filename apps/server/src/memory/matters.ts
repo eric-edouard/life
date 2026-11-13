@@ -5,10 +5,18 @@ import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
 import { stamp } from "../models/llm";
+import type { Episode } from "../records/episode";
 import { type Matter, MatterBatch, type MatterMember } from "../records/matter";
-import { KEEP_AT } from "../records/unit";
+import { SEARCHABLE_AT } from "../records/unit";
 import { openLinked } from "../todo-list/linked";
-import { daysOf, episodesWhere, MATTERS, readBy, readLedger } from "./ledger";
+import {
+  daysOf,
+  episodesWhere,
+  MATTERS,
+  readBy,
+  readLedger,
+  readUnitsFor,
+} from "./ledger";
 import { foundQuotes } from "./observe";
 import { begin, meContext } from "./run";
 import { episodeNow, observationsNow, type People } from "./who";
@@ -16,7 +24,8 @@ import { localDate, type Window } from "./zones";
 
 // Matters (docs/glossary.md): the running things of his life he never declared (an errand for someone, a purchase, a
 // repair, a dispute, a trip being arranged). One model call reads a span's episodes not placed yet, with the facts read
-// from their units and his new reminders, and the matters already running, and says which belongs to which matter;
+// from their units and his new reminders, and the matters already running, and says which belongs to which matter (an
+// episode is stored as its units: a day's episodes are rewritten, a unit keeps its id);
 // code keeps a placement only when its record was shown and its words are found in that record's own text. Each call
 // is one appended line of memory/matters.jsonl: the matters it placed records in, and every record it was asked about,
 // so what is due is derived and nothing is paid twice. Nothing reads the matters yet (in shadow) but the listing
@@ -36,12 +45,17 @@ interface Fact {
   text: string;
   type: string;
 }
-/** An episode as a call is shown it: its units not placed yet, each with its facts not placed yet. */
+/**
+ * An episode as a call is shown it, with the facts of its units not placed yet. A unit no episode holds that has facts
+ * is shown as an episode of its own, by its id and title. `units` is code's: placing the episode places them.
+ */
 export interface ShownEpisode {
   day: string;
+  facts: Fact[];
+  id: string;
   people: { name: string; role: string }[];
   title: string;
-  units: { facts: Fact[]; id: string }[];
+  units: string[];
   what: string;
 }
 /** One of his reminders as a call is shown it, with the day it was made. */
@@ -57,8 +71,11 @@ export interface MatterWork {
   reminders: ShownReminder[];
   span: Window;
 }
-/** What a placement is checked against: for each record a call was shown, its day and the texts its quote may be found in. */
-type Known = Map<string, { day: string; texts: string[] }>;
+/**
+ * What a placement is checked against: for each record a call was shown, its day, the texts its quote may be found in
+ * and the refs it is stored as (an episode's are its units).
+ */
+type Known = Map<string, { day: string; refs: string[]; texts: string[] }>;
 
 /** Every stored line, in the order written. */
 export const readMatters = () =>
@@ -124,8 +141,8 @@ export function callsOf(work: MatterWork) {
 type Call = ReturnType<typeof callsOf>[number];
 
 /**
- * What is due in a span, from the records as they stand and what was offered (`mattersNow`): each episode with the
- * units, and the facts of those units, not offered yet; an episode with nothing left is not shown. Pure.
+ * What is due in a span, from the records as they stand and what was offered (`mattersNow`): each episode with a unit
+ * not offered yet or a fact not offered yet, shown with those facts only. Pure.
  */
 export function pendingOf(
   episodes: ShownEpisode[],
@@ -134,21 +151,80 @@ export function pendingOf(
 ) {
   return {
     episodes: episodes.flatMap((e) => {
-      const units = e.units.flatMap((u) => {
-        const facts = u.facts.filter((f) => !offered.has(f.id));
-        return facts.length > 0 || !offered.has(u.id) ? [{ ...u, facts }] : [];
-      });
-      return units.length > 0 ? [{ ...e, units }] : [];
+      const facts = e.facts.filter((f) => !offered.has(f.id));
+      return facts.length > 0 || e.units.some((u) => !offered.has(u))
+        ? [{ ...e, facts }]
+        : [];
     }),
     reminders: reminders.filter((r) => !offered.has(r.key)),
   };
 }
 
+/** A fact as `shownEpisodesOf` reads it. */
+type FactNow = Fact & { date: string; importance: number; unit: string };
+
 /**
- * What the matters step has to place in `span`, from the episodes that overlap it (a unit under the one episode that
- * holds it, `readBy`, as extraction reads it), their facts that show at importance `KEEP_AT` or more, the people the
- * episode names, and his open reminders made in it. Null when a source failed: an episode must never be placed from a
- * span read only in part.
+ * The episodes that overlap `span`, each with its units (a unit under the one episode that holds it, `readBy`, as
+ * extraction reads it), their facts at importance `SEARCHABLE_AT` or more (a small step of an errand is often rated low)
+ * and the people it names; then each unit no episode holds that has such a fact in the span, as an episode of its own
+ * titled `titleOf` it. In day order. Pure.
+ */
+export function shownEpisodesOf(
+  span: Window,
+  episodes: Episode[],
+  facts: FactNow[],
+  titleOf: (unit: string) => string,
+  people: Pick<People, "nameOf" | "refOf">
+): ShownEpisode[] {
+  const byEpisode = readBy(episodes);
+  const shown = facts.filter((o) => o.importance >= SEARCHABLE_AT);
+  const factsOf = Map.groupBy(shown, (o) => o.unit);
+  const asShown = (o: FactNow): Fact => ({
+    id: o.id,
+    text: o.text,
+    type: o.type,
+  });
+  const held = episodes
+    .filter((m) => daysOf(m)[1] >= span.from && daysOf(m)[0] <= span.to)
+    .map((m): ShownEpisode => {
+      const units = m.units.filter(
+        (u) => byEpisode.get(u) === m && !m.copies.includes(u)
+      );
+      return {
+        day: daysOf(m)[0],
+        facts: units.flatMap((u) => (factsOf.get(u) ?? []).map(asShown)),
+        id: m.id,
+        people: episodeNow(m, people.refOf).people.map((p) => ({
+          name: people.nameOf(p.ref),
+          role: p.role,
+        })),
+        title: m.title,
+        units,
+        what: m.what,
+      };
+    });
+  const lone = [...factsOf].flatMap(([unit, of]): ShownEpisode[] => {
+    const day = of[0]?.date ?? "";
+    return byEpisode.has(unit) || day < span.from || day > span.to
+      ? []
+      : [
+          {
+            day,
+            facts: of.map(asShown),
+            id: unit,
+            people: [],
+            title: titleOf(unit),
+            units: [unit],
+            what: "",
+          },
+        ];
+  });
+  return [...held, ...lone].toSorted((a, b) => a.day.localeCompare(b.day));
+}
+
+/**
+ * What the matters step has to place in `span`: its episodes (`shownEpisodesOf`) and his open reminders made in it,
+ * less what was offered. Null when a source failed: an episode must never be placed from a span read only in part.
  */
 export async function readMatterWork(
   span: Window,
@@ -162,35 +238,27 @@ export async function readMatterWork(
     episodesWhere(() => true),
     observationsNow(people),
   ]);
-  const byEpisode = readBy(episodes);
-  const facts = Map.groupBy(
-    observations.filter((o) => o.importance >= KEEP_AT),
-    (o) => o.unit
+  const held = new Set(episodes.flatMap((m) => m.units));
+  const lone = observations.filter(
+    (o) =>
+      !held.has(o.unit) &&
+      o.importance >= SEARCHABLE_AT &&
+      o.date >= span.from &&
+      o.date <= span.to
   );
-  const shown = episodes
-    .filter((m) => daysOf(m)[1] >= span.from && daysOf(m)[0] <= span.to)
-    .map((m): ShownEpisode => {
-      const { people: named } = episodeNow(m, people.refOf);
-      return {
-        day: daysOf(m)[0],
-        people: named.map((p) => ({
-          name: people.nameOf(p.ref),
-          role: p.role,
-        })),
-        title: m.title,
-        units: m.units
-          .filter((u) => byEpisode.get(u) === m && !m.copies.includes(u))
-          .map((id) => ({
-            facts: (facts.get(id) ?? []).map((o) => ({
-              id: o.id,
-              text: o.text,
-              type: o.type,
-            })),
-            id,
-          })),
-        what: m.what,
-      };
-    });
+  const titles = new Map(
+    readUnitsFor(
+      lone.map((o) => o.unit),
+      lone.map((o) => o.date)
+    ).map((u) => [u.id, u.title])
+  );
+  const shown = shownEpisodesOf(
+    span,
+    episodes,
+    observations,
+    (u) => titles.get(u) ?? "",
+    people
+  );
   const reminders = openLinked(readLedger()).flatMap((r) => {
     const day = localDate(r.at);
     const title = String(r.fields.title ?? "");
@@ -208,15 +276,13 @@ export async function readMatterWork(
 function knownOf(call: Call): Known {
   const known: Known = new Map();
   for (const e of call.episodes) {
-    for (const u of e.units) {
-      known.set(u.id, { day: e.day, texts: [e.title, e.what] });
-      for (const f of u.facts) {
-        known.set(f.id, { day: e.day, texts: [f.text] });
-      }
+    known.set(e.id, { day: e.day, refs: e.units, texts: [e.title, e.what] });
+    for (const f of e.facts) {
+      known.set(f.id, { day: e.day, refs: [f.id], texts: [f.text] });
     }
   }
   for (const r of call.reminders) {
-    known.set(r.key, { day: r.day, texts: [r.title] });
+    known.set(r.key, { day: r.day, refs: [r.key], texts: [r.title] });
   }
   return known;
 }
@@ -240,7 +306,7 @@ const Reply = z.object({
 /**
  * A reply's matters as kept: an id from `open` or `new-N` (a new matter's real id is `mint`'s, never the model's); each
  * member a record the call was shown, placed once, with its words found in that record's own text (stored as found
- * there); an area or project that is not on his map dropped. Anything else is dropped, never trusted. A matter left
+ * there, an episode as each of its units); an area or project that is not on his map dropped. Anything else is dropped, never trusted. A matter left
  * with no member, or no name, is dropped.
  */
 export function placedOf(
@@ -264,11 +330,16 @@ export function placedOf(
         [quote],
         item?.texts.map((text) => ({ text })) ?? []
       );
-      if (!(item && found) || seen.has(ref)) {
+      if (!(item && found)) {
         return [];
       }
-      seen.add(ref);
-      return [{ day: item.day, quote: found.text.slice(0, 300), ref }];
+      return item.refs.flatMap((r) => {
+        if (seen.has(r)) {
+          return [];
+        }
+        seen.add(r);
+        return [{ day: item.day, quote: found.text.slice(0, 300), ref: r }];
+      });
     });
     if (id && name && members.length > 0) {
       const was = byId.get(id);
@@ -322,7 +393,7 @@ export async function matters(work: MatterWork, people: People) {
           context,
           dir: join(step.dir, `call-${i + 1}`),
           input: {
-            episodes: call.episodes,
+            episodes: call.episodes.map(({ units: _, ...e }) => e),
             open,
             reminders: call.reminders.map(({ key, notes, title }) => ({
               key,
@@ -347,7 +418,7 @@ export async function matters(work: MatterWork, people: People) {
             at,
             madeBy: stamp(step.llm, PROMPT, step.run),
             matters: kept,
-            offered: [...known.keys()],
+            offered: [...new Set([...known.values()].flatMap((k) => k.refs))],
             schemaVersion: 1,
           },
         ]);
