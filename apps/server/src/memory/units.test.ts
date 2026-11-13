@@ -945,7 +945,7 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
   expect(mail && unitNow(mail.unit, refOf).people).toEqual([]);
 });
 
-test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
+test("with no source turned on, a processing run reads nothing and fails nothing", async () => {
   const before = readSettings().sources;
   try {
     setSettings({ sources: [] });
@@ -961,7 +961,7 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
   }
 });
 
-test("a sweep reads a stored chapter unit as stored, a marked one still saying so", async () => {
+test("a processing run reads a stored chapter unit as stored, a marked one still saying so", async () => {
   const before = readSettings().sources;
   const marked = {
     ...storedVoice("unit_00000000000d", "conv-1", "A summary."),

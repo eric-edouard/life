@@ -3,7 +3,7 @@ import { clock } from "../../core/clock";
 import { systemZone } from "../../core/platform";
 import { INDEX } from "../../memory/memory-files";
 import { lockedSince } from "../../memory/memory-lock";
-import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
+import { latestRuns, PROCESSING_RUNS, type Run } from "../../memory/run-log";
 import {
   MAX_ATTEMPTS,
   nextNight,
@@ -44,7 +44,7 @@ function lastOf(list: Run[], step: string) {
 /**
  * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
  * lifelog in as it arrives; the archive copies chats), extraction (nightly, backfill weeks), consolidation
- * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
+ * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every processing run: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
 export async function lifeStatus(now = clock()) {
@@ -86,14 +86,14 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          // The phase the sweep last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
+          // The phase the processing run last entered (`processingSteps`, run.ts), else the step running (runs from before 21 Oct).
           phase:
-            running.find((r) => SWEEPS.has(r.step))?.phases?.at(-1) ??
-            running.find((r) => !SWEEPS.has(r.step))?.step ??
+            running.find((r) => PROCESSING_RUNS.has(r.step))?.phases?.at(-1) ??
+            running.find((r) => !PROCESSING_RUNS.has(r.step))?.step ??
             null,
           since: lock.toISOString(),
           state: "running",
-          sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,
+          sweep: running.find((r) => PROCESSING_RUNS.has(r.step))?.id ?? null,
         }
       : { state: "idle" },
     // Read now: the long-running server's own zone can be the one it started in.

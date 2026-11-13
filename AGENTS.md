@@ -207,7 +207,7 @@ Before adding a helper, use the one that exists:
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
-| Units for a memory step | `gather` (`units.ts`), once per sweep |
+| Units for a memory step | `gather` (`units.ts`), once per processing run |
 | Today's units, before its night | the watcher: `syncLifelogUnits` for voice, `buildTodayUnits` every 5 min for the rest, no model call; read raw, no episodes or facts until the night rewrites the day (his decision, 11 Nov 2026: no midday runs) |
 | An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
@@ -239,7 +239,7 @@ Before adding a helper, use the one that exists:
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous); `buildIndex` (one WAL transaction, `writeIndex`) via `reindex`, or `reindexUnits` for units rewritten in place (only while no unit went or was dropped or taken back by a code rule) |
 | What an agent can wait for | `events.ts` (MCP's Events extension, by poll): computed from each source's `incoming` when polled; Life stores nothing for it, the agent keeps its cursor |
-| A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
+| A logged run's start and end | `recordRun` (`apps/server/src/memory/run.ts`) |
 | Life's own events in a calendar (the Past calendar, the appointments) | `googleCalendar` (`host/google-calendar.ts`), grouped by `heldOf` and brought in line by `reconcile` (`memory/calendar-events.ts`); each output finds only its own events |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |

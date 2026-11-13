@@ -91,7 +91,7 @@ export const step =
 
 type Handler = (values: Values, rest: string[]) => Promise<number>;
 
-/** A hand-run step's evidence: its last `--days` days, gathered once for it (a sweep gathers once for all its steps). */
+/** A hand-run step's evidence: its last `--days` days, gathered once for it (a processing run gathers once for all its steps). */
 const gathered = async (v: Values) =>
   gather(lastDays(clock(), Number(v.days ?? DAYS)), await readPeople());
 

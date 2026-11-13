@@ -30,7 +30,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
-| onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a run (a step's run). | |
+| onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a step run. | |
 | event | MCP's word (its Events extension, `events.ts`): what an agent waits for, `message.received` today, polled with the agent's own filter and cursor (`events/poll`). Computed when polled, never stored. Not `SourceEvent`, a source's record in code, nor a calendar's event (the Past calendar's, an appointment's: the calendar's own word, in `google-calendar.ts`, `calendar-events.ts`, `appointment-events.jsonl`). | |
 | mark | His words to Life, to keep: a promise that the unit is always read and every fact extracted, each at its own importance, not a claim that it matters (`marked` on the unit). Made by "hey Life" in a recording (Life's own wake, `LIFE_WAKE`; no ask), a message to himself, or `tell_life`. | |
 | told, `tell_life` | What he tells Life in a chat: the connector's tool appends his words verbatim to `memory/told.jsonl`, read back as the source `told` ("Told Life"). Refused for an agent's token. | |
@@ -133,8 +133,10 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
-| sweep | A scheduled batch of steps: `nightly`, `backfill`. | |
-| run | One step's run inside a sweep, logged with its counts. | |
+| processing run | One scheduled batch of processing steps: `nightly`, `backfill` (`PROCESSING_RUNS`). | |
+| processing step | One part of a processing run (`episodes`, `extract`, `pages`), shown as a step on the status card (`processingSteps`, tracked by `trackProcessingSteps`). Not a matter step. | |
+| step run | One processing step's execution inside a processing run, in prose only; the run log records it as a logged run. | |
+| logged run | A processing run, a step run or an eval, as the run log records it (`recordRun`, `RunRecorder`). | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources, read raw until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |

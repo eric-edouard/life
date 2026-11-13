@@ -674,7 +674,7 @@ export const DAYS = 7;
 /**
  * The evidence of a window of local days: every source (lifelog,
  * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
- * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
+ * what the later stages need around them. The one reader of the sources for the memory steps: a processing run gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
@@ -766,7 +766,7 @@ export type Evidence = Awaited<ReturnType<typeof gather>>;
 
 /**
  * Every readable source's events but lifelog's, from `since` to `before`, in the registry's order, each read through
- * `guard`: `safely` logs every read (a sweep's), `quietly` only a failure (the watcher's, every few minutes). A source
+ * `guard`: `safely` logs every read (a processing run's), `quietly` only a failure (the watcher's, every few minutes). A source
  * that throws is named in `failed` and gives no rows.
  */
 export async function readSourceEvents(

@@ -26,7 +26,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |
-| `indexBuiltAt` | last written: by the watcher on any lifelog change (its units' rows) or newer input (the whole index), and by each sweep: **not new memory** | index file time |
+| `indexBuiltAt` | last written: by the watcher on any lifelog change (its units' rows) or newer input (the whole index), and by each processing run: **not new memory** | index file time |
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
   health file).
@@ -45,7 +45,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 ## runs
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it is
-null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`,
+null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the processing runs `memory.nightly`,
 `memory.backfill` and the steps `memory.repos|files|episodes|extract|closeness|pages` (`memory.triage` and `memory.infer`
 until 18 Oct, `memory.details` 6–8 Nov 2026)).
 
@@ -53,22 +53,22 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`), `force`,
 `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's counters as
 it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a nightly's `listed`:
-the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases it entered, in order
+the observation ids its report held, sent or not), `errors`, and for a processing run `phases`: the phases it entered, in order
 (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being `read_life_status`'s `processing.phase`.
-A sweep lists its steps in `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`,
+A processing run lists its steps in `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`,
 what it spent of the owner's Codex plan, derived from the log (`useOf`): the `tokens` (`input`, cached included,
-`cached`, `output`) of its model calls (each `model.run` line's) and its steps'; a metered run (a sweep, the eval
+`cached`, `output`) of its model calls (each `model.run` line's) and its steps'; a metered run (a processing run, the eval
 `eval`: `metered`, run.ts) also has the `quota` it read as it started and ended
 (`before`, `after`: whole percents of the fuller window; null when unread, e.g. on the claude engine, and `after` while
-it runs). The nightly email has a line per sweep of the last 24 h.
+it runs). The nightly email has a line per processing run of the last 24 h.
 
-`outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
+`outcome`: `ok`; `failed` (it ended with failures, or a processing run's `outcome: failed` with `failedAt`, the phase that
 stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
 the lock: interrupted, or killed). Old errors with no run id are their own entries (`startedAt` null), or join the
-sweep they fell in.
+processing run they fell in.
 
 Each run in the list is whole; what a step wrote is `read_memory_changes` with its `run` (its `id` as given, or the bare run id). A
-sweep writes nothing itself: open its `children`.
+processing run writes nothing itself: open its `children`.
 
 ```json
 {"id":"memory.extract/2026-10-16T11-12-49.565Z","step":"memory.extract","outcome":"ok",
@@ -137,7 +137,7 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 
 ## What is not covered
 
-- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now episodes,
+- Processing runs before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now episodes,
   extract, infer, pages) are complete from 14 Oct. derived/log is never rotated.
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
   `run.error` when one starts, `run.end` when it ends), not in `read_life_status`.
@@ -179,6 +179,6 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the status snapshot.
-- **Details.** A card opens to its history (a sweep's runs, the memory's changes, the Mac's sleeps, else
+- **Details.** A card opens to its history (the nightly's or backfill's runs, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote.
