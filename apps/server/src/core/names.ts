@@ -22,6 +22,7 @@ export const SourceName = z.enum([
   "lifelog",
   "line",
   "instagram",
+  "messenger",
   "linkedin",
   "telegram",
   "whatsapp",

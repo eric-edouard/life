@@ -22,7 +22,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | Field | Clock | From |
 |---|---|---|
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
-| `capture.archive.{whatsapp,line,instagram,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
+| `capture.archive.{whatsapp,line,instagram,messenger,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |
@@ -173,7 +173,7 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
-  source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, LINE, Instagram,
+  source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, LINE, Instagram, Messenger,
   LinkedIn, Telegram and Git 3 d, Notes 7 d). A source's state is its real read: `missing()` (set up?), then its `newest()` (its own store
   read now); a failed read is red with its error. A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.

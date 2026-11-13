@@ -21,7 +21,7 @@ import {
 import { type Descriptor, sourceFile } from "./contract";
 import { BRIDGES, configOf, isBridgeAdded, OWNER, userOn } from "./matrix";
 
-// A network bridged on his local homeserver (LINE, Instagram: docs/use/bridges.md), read from Life's own archive. The
+// A network bridged on his local homeserver (LINE, Instagram, Messenger: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
 // archive copies from each pass, so a message deleted before a copy, or while Life is down, is still copied.
 
@@ -391,13 +391,26 @@ interface CallNotice {
   video: boolean;
 }
 
-const INSTAGRAM_CALL =
+const META_CALL =
   /^(?:(?<missed>You missed)|.+ started) an? (?<kind>audio call|video chat)$|^(?<ended>Audio call|Video chat) ended$/;
 // The length's form is the bridge's (`Voice call (5m33s)`, seen Nov 2026); the notice's time is taken as the call's.
 const LINE_CALL =
   /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
 
 const VIDEO = /video/i;
+
+/** A call in the notices of Meta's bridge (Instagram, Messenger): its start, its end, or a missed one. */
+function metaCallOf(text: string): CallNotice | undefined {
+  const g = META_CALL.exec(text)?.groups;
+  if (!g) {
+    return undefined;
+  }
+  const video = VIDEO.test(g.kind ?? g.ended ?? "");
+  if (g.ended) {
+    return { ends: true, video };
+  }
+  return g.missed ? { seconds: 0, video } : { video };
+}
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
@@ -421,20 +434,18 @@ export const NETWORKS = [
     repo: "beeper/line",
   },
   {
-    callOf: (text: string): CallNotice | undefined => {
-      const g = INSTAGRAM_CALL.exec(text)?.groups;
-      if (!g) {
-        return undefined;
-      }
-      const video = VIDEO.test(g.kind ?? g.ended ?? "");
-      if (g.ended) {
-        return { ends: true, video };
-      }
-      return g.missed ? { seconds: 0, video } : { video };
-    },
+    callOf: metaCallOf,
     cmd: "cmd/mautrix-instagram",
     label: "Instagram",
     name: "instagram",
+    repo: "mautrix/meta",
+  },
+  {
+    // ponytail: Instagram's call notices assumed; a Messenger call in another wording stays a plain notice until seen.
+    callOf: metaCallOf,
+    cmd: "cmd/mautrix-meta",
+    label: "Messenger",
+    name: "messenger",
     repo: "mautrix/meta",
   },
   {
