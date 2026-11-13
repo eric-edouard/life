@@ -15,7 +15,7 @@ import {
 } from "./memory-files";
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
-import { record } from "./run";
+import { recordStepRun } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";
 
@@ -160,7 +160,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
 
 /** Draws the `n` memory lines he should check first (`doubtful`) into memory/statements.jsonl, frozen as he is shown them. The caller holds the lock. */
 export async function drawFactChecks(n: number) {
-  const rec = record("memory.fact-checks", { n });
+  const rec = recordStepRun("memory.fact-checks", { n });
   const [claims, stated] = await Promise.all([
     memoryLinesNow(),
     readFactChecks(),

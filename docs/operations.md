@@ -123,7 +123,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no backfill week, and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
-  each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
+  each processing run, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
   is derived when read: `useOf` in `run-log.ts`.
 - **Failures:** a failed model call (one waits up to an hour, `MODEL_TIMEOUT_MS`) or a source that throws fails the
   whole night: non-zero exit, nothing committed, a failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
@@ -229,7 +229,7 @@ late with harm), or spoken asks above about one a day for a month.
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
-  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a sweep's steps under
+  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under
   it; the quota lines appear only for an engine that has one (`hasQuota`).
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction

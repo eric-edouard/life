@@ -49,7 +49,7 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   watcher: (e) => e.step === "watch",
 };
 
-/** The sweeps, whose history is their runs. */
+/** The processing runs, whose history is their runs. */
 const RUN_CARDS: Record<string, string> = {
   backfill: "memory.backfill",
   nightly: "memory.nightly",
@@ -112,7 +112,7 @@ function entryOf(e: LogLine): Entry {
 
 const PAGE = 40;
 
-/** A sweep's runs, newest first, each one the app can open. */
+/** A processing run's runs, newest first, each one the app can open. */
 async function runHistory(step: string, before?: string) {
   // runs' own cursor: the runs that started before `before`, a page of them.
   const { items } = await runs({
@@ -168,7 +168,7 @@ async function changeHistory(older: (at: string) => boolean, before?: string) {
 }
 
 /**
- * A history that is not its log lines: a sweep's runs and the memory's changes, which page back (`pages`); the open
+ * A history that is not its log lines: a processing run's runs and the memory's changes, which page back (`pages`); the open
  * tasks and the Mac's sleeps of the day, whole.
  */
 async function ownHistory(
@@ -194,7 +194,7 @@ async function ownHistory(
 }
 
 /**
- * A card's detail: its history (newest first, `PAGE` at a time before `before`), and its raw log lines. A sweep's
+ * A card's detail: its history (newest first, `PAGE` at a time before `before`), and its raw log lines. A processing run's
  * history is its runs; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {

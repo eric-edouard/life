@@ -2,10 +2,10 @@ import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
 import {
+  processingStepsOf,
   quietestAt,
   redCards,
   snapshot,
-  stationsOf,
   toneOf,
   waking,
   wokeAt,
@@ -64,7 +64,7 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
   expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
 });
 
-test("a sweep's stations are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
+test("a processing run's steps are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
   const run = (phases: string[], outcome: string, failedAt?: string) =>
     ({ outcome, phases, result: failedAt ? { failedAt } : {} }) as never;
   const all = [
@@ -81,7 +81,7 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
   const state = (list: { name: string; state: string }[]) =>
     list.map((x) => `${x.name}:${x.state}`);
   expect(
-    state(stationsOf({ lastOk: ok, latest: ok }, false, true)).slice(-3)
+    state(processingStepsOf({ lastOk: ok, latest: ok }, false, true)).slice(-3)
   ).toEqual(["actions:done", "commit:done", "email:done"]);
   const failed = run(
     [
@@ -98,11 +98,16 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
     "commit"
   );
   expect(
-    state(stationsOf({ lastOk: ok, latest: failed }, false, false)).slice(-2)
+    state(
+      processingStepsOf({ lastOk: ok, latest: failed }, false, false)
+    ).slice(-2)
   ).toEqual(["commit:todo", "email:todo"]);
   const running = run(["repos", "gather", "episodes"], "running");
   expect(
-    state(stationsOf({ lastOk: ok, latest: running }, true, null)).slice(1, 4)
+    state(processingStepsOf({ lastOk: ok, latest: running }, true, null)).slice(
+      1,
+      4
+    )
   ).toEqual(["gather:done", "episodes:now", "extract:todo"]);
 });
 

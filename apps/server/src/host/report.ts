@@ -65,7 +65,7 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: hand runs' included. */
   retired: number;
-  /** What the model calls of the last 24 h spent, a line per run and per sweep's step (`spent`, nightly.ts). */
+  /** What the model calls of the last 24 h spent, a line per run and per processing run's step (`spent`, nightly.ts). */
   spent: string[];
 }
 

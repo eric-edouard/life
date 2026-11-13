@@ -193,7 +193,7 @@ export const localTime = (iso: string) => `${localDate(iso)} ${time(iso)}`;
 
 export const time = (iso: string) => wall(iso).hms.slice(0, 5);
 
-/** Local days, both included: what a sweep reads. */
+/** Local days, both included: what a processing run reads. */
 export interface Window {
   from: string;
   to: string;

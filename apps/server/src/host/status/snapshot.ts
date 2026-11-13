@@ -62,8 +62,8 @@ export interface Card {
   headline: string;
   id: string;
   name: string;
-  /** A running sweep's stations and where it is. */
-  stations?: { name: string; state: "done" | "now" | "todo" }[];
+  /** A running processing run's processing steps and where it is. */
+  processingSteps?: { name: string; state: "done" | "now" | "todo" }[];
   tone: Tone;
   word: string;
 }
@@ -313,8 +313,8 @@ async function reads(now: Date) {
     cached("truth", MIN, () => truthState()),
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
-    // The runs that can spend, a sweep's steps inside it (its use counts theirs).
-    cached("sweeps", 15_000, async () => {
+    // The runs that can spend, a processing run's steps inside it (its use counts theirs).
+    cached("processing runs", 15_000, async () => {
       const page = await runs({ limit: 30, steps: SPENDING });
       return { ...page, items: page.items.filter((x) => !x.sweep) };
     }),
@@ -713,7 +713,7 @@ interface Processing {
   state: string;
   sweep?: string | null;
 }
-type Sweep =
+type ProcessingRun =
   | Reads["status"]["nightly"]
   | Omit<Reads["status"]["backfill"], "state">;
 
@@ -721,12 +721,12 @@ type Sweep =
 const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
 /**
- * A sweep's stations: the phases its last good run went through (its steps among them) and any its latest added,
+ * A processing run's processing steps: the phases its last good run went through (its steps among them) and any its latest added,
  * done as its latest went through them, the one it is in now, the one it failed at left to do; for the night, then
  * its report, done once that email went.
  */
-export function stationsOf(
-  s: Pick<Sweep, "lastOk" | "latest">,
+export function processingStepsOf(
+  s: Pick<ProcessingRun, "lastOk" | "latest">,
   running: boolean,
   reported: boolean | null
 ) {
@@ -737,17 +737,17 @@ export function stationsOf(
     s.latest?.outcome === "failed"
       ? String(s.latest.result?.failedAt)
       : undefined;
-  const stateOf = (name: string): "done" | "now" | "todo" => {
+  const stepStatusOf = (name: string): "done" | "now" | "todo" => {
     if (name === now) {
       return "now";
     }
     return latest.includes(name) && name !== failedAt ? "done" : "todo";
   };
-  const stations = names.map((name) => ({ name, state: stateOf(name) }));
+  const steps = names.map((name) => ({ name, state: stepStatusOf(name) }));
   return reported === null
-    ? stations
+    ? steps
     : [
-        ...stations,
+        ...steps,
         {
           name: "email",
           state: reported ? ("done" as const) : ("todo" as const),
@@ -755,8 +755,8 @@ export function stationsOf(
       ];
 }
 
-const sweepFacts = (
-  s: Sweep,
+const runFacts = (
+  s: ProcessingRun,
   next?: { earliest: string; why: string }
 ): Fact[] => [
   { at: s.lastOk?.endedAt, label: "Last ok" },
@@ -767,12 +767,12 @@ const sweepFacts = (
     : []),
 ];
 
-/** A sweep: its last run, its stations, what it spent, and when it runs next. */
-function sweepCard(
+/** A processing run: its last run, its processing steps, what it spent, and when it runs next. */
+function runCard(
   r: Reads,
   id: string,
   name: string,
-  s: Sweep,
+  s: ProcessingRun,
   next?: { earliest: string; why: string }
 ): Card {
   const proc = r.status.processing as Processing;
@@ -808,14 +808,14 @@ function sweepCard(
       latest?.outcome === "failed"
         ? [`Failed at ${String(latest.result?.failedAt ?? "?")}`]
         : undefined,
-    facts: sweepFacts(s, next),
+    facts: runFacts(s, next),
     group: "pipeline",
     headline,
     id,
     name,
-    stations:
+    processingSteps:
       running || latest
-        ? stationsOf(
+        ? processingStepsOf(
             s,
             running,
             id === "nightly"
@@ -939,8 +939,8 @@ function calendarCard(
 
 function pipelineCards(r: Reads): Card[] {
   return [
-    sweepCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
-    sweepCard(r, "backfill", "Backfill", r.status.backfill),
+    runCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
+    runCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
     engineCard(r),
     calendarCard(r, "past", "episode"),

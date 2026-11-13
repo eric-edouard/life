@@ -133,8 +133,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `past` setting). Life's output, never a source. | |
-| sweep | A scheduled batch of steps: `nightly`, `backfill`. | |
-| run | One step's run inside a sweep, logged with its counts. | |
+| processing run | One scheduled batch of processing steps: `nightly`, `backfill` (`PROCESSING_RUNS`). | |
+| processing step | One part of a processing run (`episodes`, `extract`, `pages`), shown as a step on the status card (`processingSteps`). Not a matter step. | |
+| step run | One processing step's execution inside a processing run, logged with its counts (`StepRun`, `recordStepRun`). | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list; every 5 minutes it builds today's units from the other sources, read raw until the night. | |
 | tick | The watcher's minute. Only that. | |
 | online | Life can reach his model provider (`isOnline`). Offline, nothing scheduled runs or alerts. | |

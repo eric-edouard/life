@@ -8,14 +8,14 @@ import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
 import { lastDays, localDate, localTime } from "./zones";
 
-// Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: sweeps, their steps,
+// Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: processing runs, their steps,
 // outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like changes.ts.
 
 // --- runs ----------------------------------------------------------------------------------------------------------
 
-/** The sweeps: one launchd start that runs several steps. */
-export const SWEEPS = new Set(["memory.nightly", "memory.backfill"]);
-/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
+/** The processing runs: one launchd start that runs several steps. */
+export const PROCESSING_RUNS = new Set(["memory.nightly", "memory.backfill"]);
+/** The steps a processing run runs, in their order (the night alone maps repos and judges closeness). */
 export const STEPS = [
   "memory.repos",
   "memory.files",
@@ -24,9 +24,9 @@ export const STEPS = [
   "memory.closeness",
   "memory.pages",
 ];
-/** Every run that can call a model: the sweeps, their steps (also run by hand), the night's readings of people, an import, the eval. */
+/** Every run that can call a model: the processing runs, their steps (also run by hand), the night's readings of people, an import, the eval. */
 export const SPENDING = [
-  ...SWEEPS,
+  ...PROCESSING_RUNS,
   ...STEPS,
   "memory.situation",
   "memory.persona",
@@ -38,7 +38,7 @@ export const SPENDING = [
 ];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
-  ...SWEEPS,
+  ...PROCESSING_RUNS,
   ...STEPS,
   // Until 18 Oct the verdicts had a step of their own, and inferring people another; 6–8 Nov 2026, tagging details.
   "memory.triage",
@@ -61,7 +61,7 @@ export interface Use {
 }
 
 export interface Run {
-  /** Steps that ran inside a sweep, by id. */
+  /** Steps that ran inside a processing run, by id. */
   children?: string[];
   endedAt: string | null;
   errors: Record<string, unknown>[];
@@ -69,12 +69,12 @@ export interface Run {
   input: Record<string, unknown> | null;
   /** ok | failed | running (it holds the lock now) | unfinished (no end recorded: interrupted, or still running unlocked). */
   outcome: "failed" | "ok" | "running" | "unfinished";
-  /** A sweep's phases in the order it entered them (`phases`, run.ts), its steps among them. */
+  /** A processing run's phases in the order it entered them (`phases`, run.ts), its steps among them. */
   phases?: string[];
   result: Record<string, unknown> | null;
   startedAt: string | null;
   step: string;
-  /** The sweep it ran in, if any. */
+  /** The processing run it ran in, if any. */
   sweep?: string;
   /** What it spent; null when it made no model call and read no quota. */
   use?: Use | null;
@@ -113,7 +113,7 @@ export function useText(u: Use | null) {
 }
 
 /**
- * What the runs started since `since` spent, oldest first, in words: a line per run, a sweep's steps each under it
+ * What the runs started since `since` spent, oldest first, in words: a line per run, a processing run's steps each under it
  * (every row, no cap). `night` is the run whose quota ends at the reading just made for the email.
  */
 export function spendLines(
@@ -164,9 +164,9 @@ function useOf(
   return { quota, tokens: parts.reduce(add, NONE) };
 }
 
-/** A sweep's sub-step (memory.nightly.actions) belongs to its sweep. */
+/** A processing run's sub-step (memory.nightly.actions) belongs to its processing run. */
 const stepOf = (s: string) =>
-  [...SWEEPS].find((w) => s.startsWith(`${w}.`)) ?? s;
+  [...PROCESSING_RUNS].find((w) => s.startsWith(`${w}.`)) ?? s;
 
 /** An error as a run lists it, naming the sub-step it came from. */
 const errorOf = (e: LogEvent) => ({
@@ -175,7 +175,7 @@ const errorOf = (e: LogEvent) => ({
   ...(e.step === stepOf(e.step) ? {} : { step: e.step }),
 });
 
-/** Folds one event of a run into it; a sub-step's start or end is not its sweep's. */
+/** Folds one event of a run into it; a sub-step's start or end is not its processing run's. */
 function apply(r: Run, e: LogEvent) {
   if (e.kind === "run.error") {
     r.errors.push(errorOf(e));
@@ -220,19 +220,22 @@ const blank = (id: string, step: string, startedAt: string | null): Run => ({
   step,
 });
 
-/** Puts each step in the sweep it ran in, and each run-less error (older logs) in its sweep, or on its own. */
+/** Puts each step in the processing run it ran in, and each run-less error (older logs) in its processing run, or on its own. */
 function nest(list: Run[], orphans: LogEvent[]) {
-  // Sweeps hold the lock, so they never overlap: one with no end (interrupted) ends where the next one starts.
-  const sweeps = list
-    .filter((r) => SWEEPS.has(r.step))
+  // Processing runs hold the lock, so they never overlap: one with no end (interrupted) ends where the next one starts.
+  const processingRuns = list
+    .filter((r) => PROCESSING_RUNS.has(r.step))
     .sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
   const until = (s: Run) =>
-    s.endedAt ?? sweeps[sweeps.indexOf(s) + 1]?.startedAt ?? "9999";
-  const inSweep = (at: string, s: Run) =>
+    s.endedAt ??
+    processingRuns[processingRuns.indexOf(s) + 1]?.startedAt ??
+    "9999";
+  const inProcessingRun = (at: string, s: Run) =>
     at >= (s.startedAt ?? "") && at <= until(s);
-  for (const s of sweeps) {
+  for (const s of processingRuns) {
     const mine = list.filter(
-      (r) => !SWEEPS.has(r.step) && inSweep(r.startedAt ?? "", s)
+      (r) =>
+        !PROCESSING_RUNS.has(r.step) && inProcessingRun(r.startedAt ?? "", s)
     );
     for (const r of mine) {
       r.sweep = s.id;
@@ -241,7 +244,9 @@ function nest(list: Run[], orphans: LogEvent[]) {
   }
   for (const e of orphans) {
     const step = stepOf(e.step);
-    const s = sweeps.find((w) => w.step === step && inSweep(e.at, w));
+    const s = processingRuns.find(
+      (w) => w.step === step && inProcessingRun(e.at, w)
+    );
     if (s) {
       s.errors.push(errorOf(e));
     } else {
@@ -329,7 +334,7 @@ export async function latestRuns(days: number, lock: Date | null) {
 export interface RunsQuery {
   cursor?: string;
   limit?: number;
-  /** Steps to list (memory.episodes, memory.intent…); default: the sweeps and the pipeline's steps. */
+  /** Steps to list (memory.episodes, memory.intent…); default: the processing runs and the pipeline's steps. */
   steps?: string[];
 }
 
@@ -366,7 +371,7 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
       continue;
     }
     next *= 2;
-    // Assembled with the whole pipeline, so a sweep lists its steps whatever `steps` shows.
+    // Assembled with the whole pipeline, so a processing run lists its steps whatever `steps` shows.
     const ready = assembleRuns(events, new Set([...PIPELINE, ...steps]), lock)
       .filter(
         (r) => steps.has(r.step) && (last || keyOf(r) >= `${day}T`) && older(r)

@@ -22,9 +22,9 @@ import { localDate } from "./zones";
 /**
  * A run of any kind, logged in derived/log as started now with `fields`: its id is its start instant (`runId`). `error`
  * logs a failure of the run (`what.step` names a sub-step: memory.nightly.actions); `end` logs its end with its duration
- * and returns what it logged (`step` aside). No model: the sweeps use it as is, the steps through `begin`.
+ * and returns what it logged (`step` aside). No model: the processing runs use it as is, the steps through `begin`.
  */
-export function record(step: string, fields: Record<string, unknown>) {
+export function recordStepRun(step: string, fields: Record<string, unknown>) {
   const now = clock();
   const run = runId(now);
   const started = performance.now();
@@ -46,10 +46,10 @@ export function record(step: string, fields: Record<string, unknown>) {
   };
 }
 
-export type RunRecord = ReturnType<typeof record>;
+export type StepRun = ReturnType<typeof recordStepRun>;
 
 /**
- * A run whose share of his engine's quota is measured (the sweeps, the eval), when the engine has one
+ * A run whose share of his engine's quota is measured (the processing runs, the eval), when the engine has one
  * (`hasQuota`): the quota read as it starts and as it ends, logged on its `run.start` and `run.end` (what it spent is
  * derived from them: `useOf`, run-log.ts). Its tokens are counted either way, from its calls.
  */
@@ -60,7 +60,7 @@ export async function metered(
 ) {
   const read = async () =>
     hasQuota(engine) ? { quota: (await quota(engine)) ?? null } : {};
-  const rec = record(step, { ...fields, ...(await read()) });
+  const rec = recordStepRun(step, { ...fields, ...(await read()) });
   return {
     ...rec,
     end: async <C extends Record<string, unknown>>(result: C) =>
@@ -86,10 +86,10 @@ export async function ended<T extends Record<string, unknown>>(
 }
 
 /**
- * A sweep's phases (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the sweep if
- * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
+ * A processing run's phases (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the processing run if
+ * it failed anything; `failed` logs the processing run's failure at the phase running and returns its end's fields.
  */
-export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
+export function processingSteps(rec: Pick<StepRun, "error" | "run" | "step">) {
   let at = "";
   const p = {
     /** The phase running; each one entered is logged (`run.phase`), so the run's record holds its phases in order. */
@@ -136,7 +136,7 @@ export async function begin(
 ) {
   const llm = llmFor(tier, engine);
   const model = llmSpec(llm);
-  const rec = record(`memory.${step}`, { ...fields, model });
+  const rec = recordStepRun(`memory.${step}`, { ...fields, model });
   const { now, run } = rec;
   const dir = join(OUT, "runs", `${step}-${run}`);
   await mkdir(dir, { recursive: true });
