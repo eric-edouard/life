@@ -12,6 +12,7 @@ import {
 } from "../sources/store-fixtures";
 import { personaPath } from "./memory-files";
 import {
+  backingOf,
   betweenOf,
   groupDaysOf,
   isDue,
@@ -23,7 +24,6 @@ import {
   sampleOf,
   shownDaysOf,
   spokenOf,
-  supportOf,
 } from "./personas";
 import type { Truth } from "./read-truth";
 import { unit as unitFixture } from "./record-fixtures";
@@ -150,12 +150,12 @@ test("a line is solid on 3 days, thin on fewer, old when its newest quote is ove
   const q = (day: string) => ({ at: `${day}T12:00:00.000Z`, text: "x" });
   const today = "2026-11-08";
   expect(
-    supportOf([q("2026-01-01"), q("2026-02-01"), q("2026-03-01")], today)
+    backingOf([q("2026-01-01"), q("2026-02-01"), q("2026-03-01")], today)
   ).toBe("solid");
-  expect(supportOf([q("2026-01-01"), q("2026-01-01")], today)).toBe("thin");
-  expect(supportOf([], today)).toBe("thin");
+  expect(backingOf([q("2026-01-01"), q("2026-01-01")], today)).toBe("thin");
+  expect(backingOf([], today)).toBe("thin");
   expect(
-    supportOf([q("2024-01-01"), q("2024-02-01"), q("2025-01-01")], today)
+    backingOf([q("2024-01-01"), q("2024-02-01"), q("2025-01-01")], today)
   ).toBe("old");
 });
 
@@ -172,7 +172,7 @@ test("a persona is rebuilt when there is none, or a week old with new messages",
   );
 });
 
-test("a reader shows the readings with their support, and the writing lines under Communication style", () => {
+test("a reader shows the readings with their backing, and the writing lines under Communication style", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
     {

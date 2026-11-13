@@ -5,7 +5,7 @@ import {
   EXCHANGE_ENDS_AFTER,
   exchangesOf,
   isFinished,
-  isLiving,
+  isTwoWay,
 } from "./exchanges";
 
 const START = Date.parse("2026-10-01T22:00:00.000Z");
@@ -54,8 +54,8 @@ test("no message, no exchange", () => {
   expect(exchangesOf([])).toEqual([]);
 });
 
-test("a chat is living when both sides wrote in it", () => {
-  expect(isLiving([msg(0), msg(1, true)])).toBe(true);
-  expect(isLiving([msg(0), msg(1)])).toBe(false);
-  expect(isLiving([msg(0, true)])).toBe(false);
+test("a chat is two-way when both sides wrote in it", () => {
+  expect(isTwoWay([msg(0), msg(1, true)])).toBe(true);
+  expect(isTwoWay([msg(0), msg(1)])).toBe(false);
+  expect(isTwoWay([msg(0, true)])).toBe(false);
 });

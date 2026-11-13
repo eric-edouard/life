@@ -38,8 +38,8 @@ export function exchangesOf(list: SourceEvent[]) {
 export const isFinished = (exchange: SourceEvent[], now: Date) =>
   now.getTime() - Date.parse(exchange.at(-1)?.at ?? "") >= EXCHANGE_ENDS_AFTER;
 
-/** A living chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
-export const isLiving = (chat: SourceEvent[]) =>
+/** A two-way chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
+export const isTwoWay = (chat: SourceEvent[]) =>
   chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
 
 /**

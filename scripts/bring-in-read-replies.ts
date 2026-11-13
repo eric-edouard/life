@@ -1,6 +1,6 @@
 // `bun scripts/bring-in-read-replies.ts`: brings the pilot's replies into memory once, each in the month file of its first message (docs/operations.md, "Exchange
 // reads"): each kept file of the label `openrouter` (`memory-pilot.ts`'s old per-key files, left where they are)
-// made by a read's current prompt, whose messages are all one living one-to-one chat's and that holds an exchange no
+// made by a read's current prompt, whose messages are all one two-way one-to-one chat's and that holds an exchange no
 // stored reply reads yet, becomes a line of memory/read-replies/. Under the memory lock. Prints counts, never a word.
 
 import { existsSync, readdirSync } from "node:fs";
@@ -13,7 +13,7 @@ import {
   replyOf,
   storeReply,
 } from "@life/server/src/memory/exchange-reads";
-import { exchangesOf, isLiving } from "@life/server/src/memory/exchanges";
+import { exchangesOf, isTwoWay } from "@life/server/src/memory/exchanges";
 import { runAt } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { readPeople } from "@life/server/src/memory/who";
@@ -32,8 +32,8 @@ import { KEPT } from "./memory-pilot";
 /** A pilot file: a stored line without what the pilot did not keep (when, which read, the schema). */
 const Kept = ReadReply.omit({ at: true, read: true, schemaVersion: true });
 
-/** The messages of his living one-to-one chats: the chat each is in, and each exchange by its first message's key. */
-export function livingChatsOf(
+/** The messages of his two-way one-to-one chats: the chat each is in, and each exchange by its first message's key. */
+export function twoWayChatsOf(
   events: SourceEvent[],
   resolve: (s: string) => string | null
 ) {
@@ -43,7 +43,7 @@ export function livingChatsOf(
   for (const [ref, messages] of directChats(events, resolve)) {
     if (ref.startsWith("person:")) {
       for (const [chat, list] of chatGroups(messages)) {
-        if (isLiving(list)) {
+        if (isTwoWay(list)) {
           for (const e of list) {
             chatOf.set(eventKey(e), chat);
             atOf.set(eventKey(e), e.at);
@@ -60,13 +60,13 @@ export function livingChatsOf(
 
 /**
  * What becomes of a pilot file: the stored line to append, or why it is left out. Taken when it is valid, made by
- * the read's current prompt, all of one living chat, and holds an exchange as it is today that `read` has no stored
+ * the read's current prompt, all of one two-way chat, and holds an exchange as it is today that `read` has no stored
  * reply for (`replyOf`); a second pass finds that reply and takes nothing.
  */
 export function takenOf(
   raw: unknown,
   read: ReadName,
-  chats: ReturnType<typeof livingChatsOf>,
+  chats: ReturnType<typeof twoWayChatsOf>,
   index: ReturnType<typeof readReplyIndex>
 ) {
   const kept = Kept.safeParse(raw);
@@ -79,7 +79,7 @@ export function takenOf(
   }
   const chat = chats.chatOf.get(messages[0] as string);
   if (!(chat && messages.every((k) => chats.chatOf.get(k) === chat))) {
-    return "not one living direct chat's";
+    return "not one two-way direct chat's";
   }
   const isUnread = starts.some((start, i) => {
     const keys = messages.slice(start, starts[i + 1]);
@@ -107,7 +107,7 @@ if (import.meta.main) {
   if (failed.length > 0) {
     throw new Error(`not read: ${failed.join(", ")}`);
   }
-  const chats = livingChatsOf(events, (await readPeople()).resolve);
+  const chats = twoWayChatsOf(events, (await readPeople()).resolve);
   const counts = new Map<string, number>();
   const count = (what: string) => counts.set(what, (counts.get(what) ?? 0) + 1);
   const done = await locked(() => {

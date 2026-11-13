@@ -8,13 +8,13 @@ import { promptText, stamp } from "../models/llm";
 import { READ_NAMES, type ReadName, ReadReply } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
-import { batchesOf, exchangesOf, isFinished, isLiving } from "./exchanges";
+import { batchesOf, exchangesOf, isFinished, isTwoWay } from "./exchanges";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { begin, inBatches, type Step } from "./run";
 import type { People } from "./who";
 import { batchLines } from "./words";
 
-// The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's living one-to-one chats,
+// The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's two-way one-to-one chats,
 // each reply stored as the model gave it in memory/read-replies/ (model output is expensive); the moves are worked out
 // from it when read (`checkedMoves`), never stored. What is pending is derived each night from the stored lines
 // (`replyOf`). Off until his `exchangeReads` setting, which gates the calls and never the reading of what is stored.
@@ -144,7 +144,7 @@ export type ExchangeReadWork = ReturnType<typeof readExchangeReadWork>;
 
 /**
  * What the exchange reads have to ask, from a read of every year (`readWithPeople(new Date(0))`): for each person's
- * living one-to-one chats, the finished exchanges a read has no stored reply for, batched per chat (`batchesOf`),
+ * two-way one-to-one chats, the finished exchanges a read has no stored reply for, batched per chat (`batchesOf`),
  * the newest calls first up to `NIGHT_CALLS`. Null when a source failed (an exchange must never be read without
  * one). `counts` is the whole of what is pending, before the cap: what a run would cost.
  */
@@ -165,7 +165,7 @@ export function readExchangeReadWork(
     }
     const withWhom = withOf(ref.slice("person:".length), people);
     for (const chat of chatGroups(messages).values()) {
-      const finished = isLiving(chat)
+      const finished = isTwoWay(chat)
         ? exchangesOf(chat).filter((x) => isFinished(x, now))
         : [];
       for (const read of READ_NAMES) {
