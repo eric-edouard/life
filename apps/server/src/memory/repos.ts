@@ -237,8 +237,8 @@ const ACTIVE_DAYS = 30;
 const SUGGESTION_MAX = 100;
 
 /**
- * `bun life memory repos [project|area|repo]`: the repos on his directory, by project, with where they are and the last 30 days
- * of commits (local, a few seconds). Repos not on the directory (upstream clones) are not shown.
+ * `bun life memory repos [project|area|repo]`: the repos in his directory, by project, with where they are and the last 30 days
+ * of commits (local, a few seconds). Repos not in the directory (upstream clones) are not shown.
  */
 export async function reposOf(filter?: string) {
   const [truth, inferredRepos] = await Promise.all([

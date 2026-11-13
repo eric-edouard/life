@@ -452,7 +452,7 @@ interface TurnRow {
 /**
  * The live conversations still going at `since` or after it that have words (silent ones and the owner's dictation
  * have none), with their turns, oldest first, whatever their state (late audio can reopen one: its units stay). A
- * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the directory.
+ * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name in the directory.
  */
 export function readConversations(
   store: Store,

@@ -656,7 +656,7 @@ export function builtFor(
   }
 }
 
-/** Lifelog person id -> the name on the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+/** Lifelog person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
 export const lifelogNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>

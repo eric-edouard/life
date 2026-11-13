@@ -184,7 +184,7 @@ export function readDetailsOf(
     });
 }
 
-/** The birthdays of the coming week (`birthdaysNear`) of everyone on his directory or with a page. */
+/** The birthdays of the coming week (`birthdaysNear`) of everyone in his directory or with a page. */
 export async function readBirthdaysNear(people: People, date: string) {
   const detailsFor = readDetailsOf(people);
   const refs = new Set([

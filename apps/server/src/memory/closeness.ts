@@ -20,7 +20,7 @@ type Folds = Pick<People, "canon" | "corrections">;
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
 // with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his
-// recordings, how recent. The fast model reads those counts with who they are on his directory and judges a level,
+// recordings, how recent. The fast model reads those counts with who they are in his directory and judges a level,
 // personal and work apart (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a
 // page. No model output is counted (a level never feeds the counts that judge it), so a level cannot raise itself.
 
@@ -298,7 +298,7 @@ const NOW = new Set<ClosenessLevel>(["inner", "regular"]);
 
 /**
  * The people every memory call's context shows (`refContext`): the owner and those close to him now, personally or at work, not a
- * service. Everyone else on the directory comes in a call's input when it involves them (`involvedOf`).
+ * service. Everyone else in the directory comes in a call's input when it involves them (`involvedOf`).
  */
 export const contextPeopleBy = (levels: ReturnType<typeof levelsNow>) =>
   new Set([
@@ -354,7 +354,7 @@ export async function pagedNow(people: Folds & Pick<People, "truth">) {
 export const levelsWith = (people: Folds) => levelsNow(readCloseness(), people);
 
 /**
- * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his directory (he
+ * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone in his directory (he
  * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
  * Each as the person they are now (one folded into another is that one).
  */

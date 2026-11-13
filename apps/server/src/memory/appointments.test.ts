@@ -20,7 +20,7 @@ const fact = (id: string, over: Partial<Observation> = {}) =>
     when: null,
     ...over,
   }) as Observation;
-const standing = (retired: string[] = []): ObservationStatusInputs => ({
+const statusInputs = (retired: string[] = []): ObservationStatusInputs => ({
   corrections: [],
   latest: new Map(),
   live: new Set([UNIT]),
@@ -43,7 +43,7 @@ test("the step reads what is ahead (plans and facts, never a hypothesis), recent
   ];
   const read = observationsAheadOf(
     facts,
-    standing(["obs_000000000007"]),
+    statusInputs(["obs_000000000007"]),
     "2026-11-08",
     new Set(["obs_000000000005"])
   );

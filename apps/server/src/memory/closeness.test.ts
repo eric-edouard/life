@@ -229,7 +229,7 @@ test("voice days are the days someone spoke in a live recording since the window
   ]);
 });
 
-test("judged again only when the rounded counts moved or the prompt changed; everyone on his directory, the rest from some lasting", () => {
+test("judged again only when the rounded counts moved or the prompt changed; everyone in his directory, the rest from some lasting", () => {
   const t = (lasting: number) => ({
     ...closenessTally(new Map(), "2026-10-20"),
     lasting,

@@ -343,7 +343,7 @@ export async function extract(evidence: Evidence) {
       ...b,
       unit: unitNow(b.unit, refOf),
     }));
-  const [written, { observations: known, standing }] = await Promise.all([
+  const [written, { observations: known, statusInputs }] = await Promise.all([
     readEpisodes(),
     observationsNow(people),
   ]);
@@ -356,7 +356,7 @@ export async function extract(evidence: Evidence) {
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
-    const s = observationStatusOf(o, standing);
+    const s = observationStatusOf(o, statusInputs);
     if (s.state === "retired") {
       // One he said is outdated (retired by itself: a rating or a correction) is closed for good.
       return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
@@ -401,7 +401,7 @@ export async function extract(evidence: Evidence) {
   const levels = levelsWith(people);
   const close = personallyClose(levels);
   const refs = refContext(people, close, contextPeopleBy(levels));
-  // Refs are checked against the whole map, not only what a call was shown.
+  // Refs are checked against the whole directory, not only what a call was shown.
   const candidates = new Set(
     [refs.directory.people, refs.directory.projects].flatMap((l) =>
       l.map((x) => x.ref)

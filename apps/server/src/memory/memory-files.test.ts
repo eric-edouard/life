@@ -215,15 +215,15 @@ test("the index, the pages and the status reads agree on where each observation 
 
 /** The fixture as each reader takes it: `observationsNow` and `buildIndex`, a page (`knownOn`), the status reads. */
 async function view(f: typeof fixture) {
-  const standing = {
+  const statusInputs = {
     corrections: f.corrections,
     latest: latestExtractions(f.extracted),
     live: f.live,
     retired: f.retired,
   };
-  const shown = shownOf(f.list, standing);
+  const shown = shownOf(f.list, statusInputs);
   const path = join(await mkdtemp(join(tmpdir(), "life-state-")), "i.sqlite");
-  buildIndex(shown, path, standing);
+  buildIndex(shown, path, statusInputs);
   const db = new Database(path, { readonly: true });
   const index = db
     .query("select id, superseded_by, valid_to from observations order by id")
@@ -232,7 +232,7 @@ async function view(f: typeof fixture) {
   const onPage = (page: string, found: Correction[] = []) => {
     const known = knownOn(
       shown,
-      { ...standing, corrections: [...f.corrections, ...found] },
+      { ...statusInputs, corrections: [...f.corrections, ...found] },
       page
     );
     return shown
@@ -240,7 +240,7 @@ async function view(f: typeof fixture) {
       .map((x) => [x.id, known.retired.has(x.id) ? "cited" : "new"]);
   };
   const statusReads = f.list.map((x) => {
-    const s = observationStatusOf(x, standing);
+    const s = observationStatusOf(x, statusInputs);
     const on = s.hiddenOn ?? [];
     return [
       x.id,
@@ -374,7 +374,10 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
       schemaVersion: 1,
     }) as FactCheckAnswer;
   const x = obs("obs_a", "unit_1", "h1");
-  const standing = (ratings: FactCheckAnswer[], first: Supersession[] = []) =>
+  const statusInputs = (
+    ratings: FactCheckAnswer[],
+    first: Supersession[] = []
+  ) =>
     ({
       corrections: [],
       latest: new Map(),
@@ -389,7 +392,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
         new Set(["obs_a", "obs_b"])
       ),
     }) as ObservationStatusInputs;
-  const outdated = standing([rate("obs_a", "outdated")]);
+  const outdated = statusInputs([rate("obs_a", "outdated")]);
   expect(observationStatusOf(x, outdated)).toEqual({
     at: "2026-10-19T08:00:00Z",
     by: "obs_a",
@@ -407,12 +410,12 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   expect(
     observationStatusOf(
       x,
-      standing([rate("obs_a", "outdated"), rate("obs_a", null)])
+      statusInputs([rate("obs_a", "outdated"), rate("obs_a", null)])
     ).state
   ).toBe("active");
   const closed = { by: "obs_b", observation: "obs_a" } as Supersession;
   expect(
-    observationStatusOf(x, standing([rate("obs_a", "outdated")], [closed]))
+    observationStatusOf(x, statusInputs([rate("obs_a", "outdated")], [closed]))
   ).toMatchObject({ by: "obs_b", state: "retired" });
 });
 
@@ -475,13 +478,13 @@ test("unit references read only indexed or cited days; a missing index entry che
         "\n"
       );
     }
-    const standing = {
+    const statusInputs = {
       corrections: [],
       latest: new Map(),
       live: new Set<string>(),
       retired: new Map(),
     };
-    buildIndex([], INDEX, standing, [{ unit: indexed }]);
+    buildIndex([], INDEX, statusInputs, [{ unit: indexed }]);
     expect(
       readUnitsFor([indexed.id, newer.id], [newer.date, newer.date])
     ).toEqual([indexed, newer]);

@@ -393,7 +393,7 @@ export function markedSince(
  */
 async function whatIsNew(since: string, from: string, built: Built[]) {
   const people = await readPeople();
-  const { all, observations, standing } = await observationsNow(people);
+  const { all, observations, statusInputs } = await observationsNow(people);
   const isNew = newSince(all, since);
   const fresh = observations.filter((o) => o.date >= from && isNew(o));
   const ids = new Set(fresh.map((o) => o.id));
@@ -401,14 +401,16 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   return {
     keyObservations: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
-        ids.has(o.id) && o.importance === TOP_AT && !standing.retired.has(o.id)
+        ids.has(o.id) &&
+        o.importance === TOP_AT &&
+        !statusInputs.retired.has(o.id)
           ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
           : []
       )
     ),
-    marked: markedSince(built, standing.latest, since, observations),
+    marked: markedSince(built, statusInputs.latest, since, observations),
     observed: fresh.length,
-    retired: [...standing.retired.values()].filter(
+    retired: [...statusInputs.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation
     ).length,
   };

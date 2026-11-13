@@ -10,7 +10,7 @@ import { textOf } from "./units";
 
 const RESOURCES = [
   "affection",
-  "standing",
+  "statusInputs",
   "information",
   "money",
   "goods",

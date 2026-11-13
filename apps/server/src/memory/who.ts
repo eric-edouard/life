@@ -531,12 +531,12 @@ export async function observationsNow({
   truth,
 }: People) {
   const read = readObservations();
-  const [all, standing, unresolved] = await Promise.all([
+  const [all, statusInputs, unresolved] = await Promise.all([
     read,
     readObservationStatusInputs(corrections, read),
     readUnresolved(),
   ]);
-  const shown = shownOf(all, standing);
+  const shown = shownOf(all, statusInputs);
   const needingHandles = shown.filter(
     (o) =>
       !o.speakerFrom && o.speaker !== OWNER && !o.speaker.startsWith(UNKNOWN)
@@ -554,10 +554,10 @@ export async function observationsNow({
     contacts,
     chatHandles(units)
   );
-  return { all, observations, standing };
+  return { all, observations, statusInputs };
 }
 
-/** Who goes by this name (or id): the people on the directory and the ones Life inferred, by name or alias. */
+/** Who goes by this name (or id): the people in the directory and the ones Life inferred, by name or alias. */
 export function namedLike<
   T extends { aliases: string[]; id: string; name: string },
 >(name: string, people: T[]) {
@@ -613,7 +613,7 @@ export function nearNames<
 }
 
 /**
- * Everyone a name can mean: the people on his directory, and those his Contacts name or Life inferred (not folded into
+ * Everyone a name can mean: the people in his directory, and those his Contacts name or Life inferred (not folded into
  * another), going by their surfaces too.
  */
 function nameable({

@@ -165,7 +165,7 @@ regrouped, Life's own mail).
 ## unresolved.jsonl
 
 Names Life could not map to `truth/`: `{schemaVersion: 1, surface, unit, observation?, date, via, at}`. `via` is
-`model` (the extractor named someone not on the directory) or `speaker` (lifelog named a voice the directory doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
+`model` (the extractor named someone not in the directory) or `speaker` (lifelog named a voice the directory doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
 could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and lifelog voices).
 
 ## people-contacts.jsonl

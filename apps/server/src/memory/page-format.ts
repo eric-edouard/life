@@ -323,11 +323,11 @@ export interface Known {
 /** What `page` may cite of its observations: those that show there (`observationStatusOf`); a retired one stays cited, never new. */
 export function knownOn(
   observations: Observation[],
-  standing: ObservationStatusInputs,
+  statusInputs: ObservationStatusInputs,
   page: string
 ): Known {
   const shown = observations.flatMap((o) => {
-    const s = observationStatusOf(o, standing);
+    const s = observationStatusOf(o, statusInputs);
     return shows(s, page) ? [{ o, retired: s.state === "retired" }] : [];
   });
   return {

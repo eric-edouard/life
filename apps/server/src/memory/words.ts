@@ -415,7 +415,7 @@ export async function fetchOf(
 }
 
 /**
- * What `--who` stands for: the words, and when they name a person (on the directory, inferred, as corrected), that person's names
+ * What `--who` stands for: the words, and when they name a person (in the directory, inferred, as corrected), that person's names
  * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
  */
 function needlesOf(who: string, people: People) {
@@ -592,7 +592,7 @@ export async function mailHits(
  * messages inside the range, from WhatsApp's and the bridges' archives and iMessage, today included; with no `from`, the
  * all available history for `--who` and 7 days for `--chat`. `before` (exclusive) pages back: each answer names the next one.
  * Messages deleted for everyone show their text marked (deleted). `--who` matches a chat's name or id or a sender, by
- * a name or handle on the directory too.
+ * a name or handle in the directory too.
  */
 export async function chatsOf(
   o: {

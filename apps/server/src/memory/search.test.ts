@@ -36,27 +36,31 @@ test("search: an observation hit names the unit it comes from and who is in it",
     source: "lifelog",
     title: "Improving output prompts before advertising tests",
   } as unknown as Unit;
-  const standing = {
+  const statusInputs = {
     corrections: [],
     latest: new Map(),
     live: new Set([unit.id]),
     retired: new Map(),
   };
-  buildIndex([o], path, standing, [{ unit }]);
+  buildIndex([o], path, statusInputs, [{ unit }]);
   const db = new Database(path, { readonly: true });
   const [hit] = searchMatches(db, "beautify");
   expect(hit).toEndWith(
     '(lifelog "Improving output prompts before advertising tests"; jerome, Bob)'
   );
   // A handle held across a rebuild reads the new index (one held across a file swap failed).
-  buildIndex([{ ...o, text: "Jean will polish the prompt." }], path, standing);
+  buildIndex(
+    [{ ...o, text: "Jean will polish the prompt." }],
+    path,
+    statusInputs
+  );
   expect(searchMatches(db, "beautify")).toEqual(["(nothing found)"]);
   expect(searchMatches(db, "polish")[0]).toContain("polish the prompt");
   // A table no schema has any more goes at the next rebuild.
   const writer = new Database(path);
   writer.run("create table stale (x)");
   writer.close();
-  buildIndex([o], path, standing, [{ unit }]);
+  buildIndex([o], path, statusInputs, [{ unit }]);
   expect(
     db.query("select name from sqlite_schema where name = 'stale'").get()
   ).toBeNull();
@@ -65,18 +69,18 @@ test("search: an observation hit names the unit it comes from and who is in it",
     buildIndex(
       [{ ...o, source: undefined } as unknown as Observation],
       path,
-      standing
+      statusInputs
     )
   ).toThrow();
   expect(searchMatches(db, "beautify")[0]).toBe(hit);
   // A unit's people are kept once each: the index takes them as reindex maps them today (two refs may fold into one).
-  buildIndex([o], path, standing, [
+  buildIndex([o], path, statusInputs, [
     { unit: { ...unit, people: ["person:jerome", "person:jerome"] } },
   ]);
   expect(
     db.query("select person from unit_people where unit = ?").all(unit.id)
   ).toEqual([{ person: "person:jerome" }]);
-  buildIndex([o], path, standing, [{ unit }]);
+  buildIndex([o], path, statusInputs, [{ unit }]);
   // `from`/`to` bound observations and units too, both days included.
   expect(searchMatches(db, "beautify", { from: "2026-10-14" })[0]).toBe(hit);
   expect(searchMatches(db, "beautify", { to: "2026-10-14" })[0]).toBe(hit);
@@ -187,7 +191,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       when: "2026-10-19",
       ...over,
     }) as unknown as Observation;
-  const standing = {
+  const statusInputs = {
     corrections: [],
     latest: new Map(),
     live: new Set(["unit_000000000001"]),
@@ -235,7 +239,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       loop("obs_000000000017", { date: "2026-10-17", when: undefined }),
     ],
     path,
-    standing as never
+    statusInputs as never
   );
   const lines = dueOf(new Database(path, { readonly: true }), "2026-10-19", {
     goals: [],

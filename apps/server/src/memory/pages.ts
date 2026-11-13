@@ -235,7 +235,7 @@ interface Run {
   rebuild: boolean;
   /** The directory, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
   refs: ReturnType<typeof refContext>;
-  standing: ObservationStatusInputs;
+  statusInputs: ObservationStatusInputs;
   step: Step;
   titles: Map<string, string>;
   today: string;
@@ -258,7 +258,7 @@ const asInput = (o: Observation, titles: Map<string, string>) => ({
 function newCorrections(ref: string, prev: Parsed, r: Run): Correction[] {
   const found = ownerEdits(prev);
   const have = new Set(
-    r.standing.corrections.flatMap((c) =>
+    r.statusInputs.corrections.flatMap((c) =>
       c.kind === "keep-mine" && c.page === ref ? [bare(c.text)] : []
     )
   );
@@ -293,10 +293,10 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const before = await readText(t.path);
   const prev = before ? parsePage(before) : null;
   const added = prev ? newCorrections(t.ref, prev, r) : [];
-  const everything = [...r.standing.corrections, ...added];
+  const everything = [...r.statusInputs.corrections, ...added];
   const known = knownOn(
     t.observations,
-    { ...r.standing, corrections: everything },
+    { ...r.statusInputs, corrections: everything },
     t.ref
   );
   const visible = t.observations.filter((o) => known.byId.has(o.id));
@@ -535,7 +535,7 @@ export async function pages(opts: PagesOptions) {
     often: oftenBy(units, verdicts, day, people.refOf),
     rebuild: opts.rebuild ?? false,
     refs,
-    standing: current.standing,
+    statusInputs: current.statusInputs,
     step,
     titles: new Map(
       [

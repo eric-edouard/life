@@ -517,8 +517,8 @@ export const shows = (s: ObservationStatus, page?: string) =>
 /** The observations that show in the index: neither hidden everywhere nor replaced. */
 export const shownOf = (
   list: Observation[],
-  standing: ObservationStatusInputs
-) => list.filter((o) => shows(observationStatusOf(o, standing)));
+  statusInputs: ObservationStatusInputs
+) => list.filter((o) => shows(observationStatusOf(o, statusInputs)));
 
 /** Stamps and checks what the owner said (the CLI's `correct` and the connector's) and appends it; throws when invalid. */
 export async function recordCorrection(said: unknown) {

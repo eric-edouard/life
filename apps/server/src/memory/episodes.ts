@@ -516,7 +516,7 @@ export async function episodes(evidence: Evidence) {
           spoken,
           (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
         );
-        // Who an unknown speaker could be, on the directory: shown with the rest of what the day involves beyond its context.
+        // Who an unknown speaker could be, in the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(
           [...unknown.keys()].map((k) => [
             k,

@@ -52,8 +52,8 @@ create table episode_search (id text primary key, at text, text text);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`observationStatusOf`). */
-function retirement(o: Observation, standing: ObservationStatusInputs) {
-  const s = observationStatusOf(o, standing);
+function retirement(o: Observation, statusInputs: ObservationStatusInputs) {
+  const s = observationStatusOf(o, statusInputs);
   return s.state === "retired" ? s : null;
 }
 
@@ -136,7 +136,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
 export function buildIndex(
   observations: Observation[],
   path: string,
-  standing: ObservationStatusInputs,
+  statusInputs: ObservationStatusInputs,
   units: IndexedUnit[] = [],
   builtAt = clock(),
   episodes: Episode[] = []
@@ -162,7 +162,7 @@ export function buildIndex(
       episodeRow.run(episode.id, daysOf(episode)[0], words);
     }
     for (const o of unique.values()) {
-      const retired = retirement(o, standing);
+      const retired = retirement(o, statusInputs);
       row.run(
         o.id,
         o.unit,
@@ -218,11 +218,11 @@ export async function reindex() {
   const at = clock();
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = indexedOf(await readUnits(), people, verdicts);
-  const { observations, standing } = await observationsNow(people);
+  const { observations, statusInputs } = await observationsNow(people);
   const n = buildIndex(
     observations,
     INDEX,
-    standing,
+    statusInputs,
     units,
     at,
     await episodesWhere(() => true)
