@@ -7,7 +7,7 @@ import { MemoryType } from "../records/unit";
 import { othersIn } from "./read-truth";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
-import { normalizeLatin, UNKNOWN } from "./units";
+import { normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of extraction (docs/architecture.md, "The pipeline"): what the extractor may return, the quote check, entity
@@ -140,7 +140,7 @@ export const observationId = (
   quote: string,
   text: string
 ) =>
-  `obs_${digest("sha1", [unit, type, normalizeLatin(quote), normalizeLatin(text)].join("|"), 12)}`;
+  `obs_${digest("sha1", [unit, type, normalize(quote), normalize(text)].join("|"), 12)}`;
 
 export interface Reject {
   quote?: string;

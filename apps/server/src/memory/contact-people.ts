@@ -14,7 +14,7 @@ import {
   readIndex,
   readInferred,
 } from "./ledger";
-import { normalize, UNKNOWN } from "./units";
+import { nameKey, UNKNOWN } from "./units";
 
 // The contact people (docs/glossary.md): who a handle is, as his Contacts name it, for the handles his messages hold.
 // Contacts answer once and Life keeps the answer (memory/people-contacts.jsonl, appended each night): no read opens
@@ -88,7 +88,9 @@ export function contactPeopleOf(
       const who = holderOf(h);
       return (
         who &&
-        (isKept ? who.card === c.id : normalize(who.name) === normalize(c.name))
+        (isKept
+          ? who.card === c.id
+          : nameKey(c.name) !== "" && nameKey(who.name) === nameKey(c.name))
       );
     });
     const card = isKept

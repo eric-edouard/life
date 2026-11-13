@@ -55,10 +55,7 @@ export const PERSON = /^person:/;
 export const UNKNOWN = "unknown:";
 const AGENT = "agent:";
 const MARKS = /\p{M}/gu;
-// Latin accents only: Thai vowels and tone marks, like other scripts' marks, tell words apart.
-const LATIN_MARKS = /[\u0300-\u036f]/g;
 const NON_ALNUM = /[^a-z0-9]+/g;
-const NON_WORD = /[^\p{L}\p{N}\p{M}]+/gu;
 const OTP =
   /\b(otp|code|passcode|verification|vérification|รหัส)\b[^\n]*\d{4,8}|\d{4,8}[^\n]*\b(otp|code|รหัส)\b/i;
 // A login-code mail says so in its subject; the code itself sits on a line of its own, below the first 200 characters.
@@ -96,22 +93,28 @@ export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
 
-/** Lower case, no Latin accents, letters and digits of every script only: how names, quotes and titles are compared. */
+/** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
 export const normalize = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(LATIN_MARKS, "")
-    .toLowerCase()
-    .replace(NON_WORD, " ")
-    .trim();
-
-/** `normalize` as it was, Latin letters and digits only: the recipe of ids already stored, never to change. */
-export const normalizeLatin = (s: string) =>
   s
     .normalize("NFD")
     .replace(MARKS, "")
     .toLowerCase()
     .replace(NON_ALNUM, " ")
+    .trim();
+
+const LATIN_ACCENTS = /[\u0300-\u036f]/g;
+const NOT_NAME = /[^\p{L}\p{N}\p{M}]+/gu;
+
+/**
+ * How a person's or a project's name is compared, computed fresh on both sides: lower case, Latin accents removed,
+ * letters, digits and marks of every script kept. Never stored, never an id: ids and stored text use `normalize`.
+ */
+export const nameKey = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(LATIN_ACCENTS, "")
+    .toLowerCase()
+    .replace(NOT_NAME, " ")
     .trim();
 
 const SUMMARY_MAX = 300;

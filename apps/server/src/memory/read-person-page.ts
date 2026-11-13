@@ -29,7 +29,7 @@ import { personaBlock, readPersona } from "./personas";
 import { openWithOf, reminderItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
-import { clip, normalize } from "./units";
+import { clip, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { repliesOwed } from "./words";
 import { dayNow, localDate, localTime, monthsOf } from "./zones";
@@ -204,7 +204,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
       const voices = speakers(store);
       const heard = known
         ? []
-        : voices.filter((s) => normalize(s.name).includes(normalize(name)));
+        : voices.filter((s) => nameKey(s.name).includes(nameKey(name)));
       if (!(known || heard.length > 0)) {
         return noOne(name, people, voices);
       }
