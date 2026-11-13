@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
@@ -8,7 +7,11 @@ import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import { type Matter, MatterBatch, type MatterStep } from "../records/matter";
 import { SEARCHABLE_AT } from "../records/unit";
-import { openTodoItemsOf } from "../todo-list/todo-items-from-ledger";
+import {
+  openTodoItemsOf,
+  todoItemsOf,
+} from "../todo-list/todo-items-from-ledger";
+import { type MatterRecords, matterBookOf } from "./matter-read";
 import {
   daysOf,
   episodesWhere,
@@ -29,16 +32,13 @@ import { localDate, type Window } from "./zones";
 // episode is stored as its units: a day's episodes are rewritten, a unit keeps its id);
 // code keeps a placement only when its record was shown and its words are found in that record's own text. Each call
 // is one appended line of memory/matters.jsonl: the matters it placed records in, and every record it was asked about,
-// so what is due is derived and nothing is paid twice. Nothing reads the matters yet (in shadow) but the listing
-// (`bun life memory matters list`). Off until his `matters` setting.
+// so what is due is derived and nothing is paid twice. What is open in a matter, its status and people are worked out when read (`matter-read.ts`). Off until his `matters` setting.
 
 const PROMPT = "memory-matters.v1";
 /** What a reply calls a matter that starts in it. */
 const NEW_ID = /^new-\d+$/;
 /** The most characters of episodes one call is shown: a longer span takes several calls, in order. */
 const CALL_CHARS = 60_000;
-/** A matter whose newest step is older than this, before the span's end, is no longer shown as running. */
-const OPEN_DAYS = 60;
 
 /** An observation as a call is shown it. */
 interface ShownObservation {
@@ -125,6 +125,44 @@ export function mattersNow(batches: MatterBatch[]) {
 /** A matter's newest step: the latest day, the last placed of a day. */
 const latestOf = (m: { steps: MatterStep[] }) =>
   m.steps.reduce((a, b) => (b.day >= a.day ? b : a));
+
+/**
+ * The records a matter's steps are read from, as they stand today (`matterBookOf`). `endingsFor`: what each observation
+ * was ended by, given which observations are current (`endingsNow`, links.ts); none without it.
+ */
+export async function readMatterRecords(
+  people: People,
+  endingsFor: (
+    isCurrent: (id: string) => boolean
+  ) => MatterRecords["endings"] = () => new Map()
+): Promise<MatterRecords> {
+  const [episodes, { observations }] = await Promise.all([
+    episodesWhere(() => true),
+    observationsNow(people),
+  ]);
+  const current = new Set(observations.map((o) => o.id));
+  const ledger = readLedger();
+  return {
+    endings: endingsFor((id) => current.has(id)),
+    episodeOf: readBy(episodes),
+    ledger,
+    observations,
+    refOf: people.refOf,
+    todoItems: [...todoItemsOf(ledger).values()],
+  };
+}
+
+/** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
+export const readMatterBook = async (
+  people: People,
+  today: string,
+  endingsFor?: Parameters<typeof readMatterRecords>[1]
+) =>
+  matterBookOf(
+    mattersNow(readMatters()).matters,
+    await readMatterRecords(people, endingsFor),
+    today
+  );
 
 /** The calls a span's work takes: its episodes packed by size, in order, the todoItems with the first. */
 export function callsOf(work: MatterWork) {
@@ -366,7 +404,11 @@ export function placedOf(
  * appended as one line once its reply is checked (a failed call leaves its records due). The only writer of
  * memory/matters.jsonl; callers hold the memory lock.
  */
-export async function matters(work: MatterWork, people: People) {
+export async function matters(
+  work: MatterWork,
+  people: People,
+  endingsFor?: Parameters<typeof readMatterRecords>[1]
+) {
   const step = await begin("matters", "fast", { prompt: PROMPT });
   const { truth } = people;
   const context = {
@@ -377,26 +419,33 @@ export async function matters(work: MatterWork, people: People) {
     areas: new Set(truth.areas.map((a) => a.id)),
     projects: new Set(truth.projects.map((p) => p.id)),
   };
+  const records = await readMatterRecords(people, endingsFor);
   let placed = 0;
   for (const [i, call] of callsOf(work).entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed
     await step.attempt(
       async () => {
-        const horizon = daysBefore(work.span.to, OPEN_DAYS);
-        const open = mattersNow(readMatters()).matters.flatMap((m) => {
-          const latest = latestOf(m);
-          return latest.day >= horizon
-            ? [
+        // What is still running: not done, not dormant (`matterOf`), as of the span's end.
+        const open = matterBookOf(
+          mattersNow(readMatters()).matters,
+          records,
+          work.span.to
+        ).flatMap((v) =>
+          v.lone || !v.open || v.status === "dormant"
+            ? []
+            : [
                 {
-                  areas: m.areas,
-                  id: m.id,
-                  latest: { day: latest.day, text: latest.quote },
-                  name: m.name,
-                  projects: m.projects,
+                  areas: v.areas,
+                  id: v.id,
+                  latest: {
+                    day: v.steps.at(-1)?.day ?? "",
+                    text: v.steps.at(-1)?.quote ?? "",
+                  },
+                  name: v.name,
+                  projects: v.projects,
                 },
               ]
-            : [];
-        });
+        );
         const reply = await step.ask({
           context,
           dir: join(step.dir, `call-${i + 1}`),

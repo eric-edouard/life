@@ -20,6 +20,7 @@ import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
+import { oneMatter, openMatters } from "../../memory/read-matters";
 import { person } from "../../memory/read-person-page";
 import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
@@ -203,9 +204,9 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   }
 }
 
-/** The ids an answer cites: observations, episodes, units, ledger entries (`entry_`: to-do items, tasks) and conversations (UUIDs). */
+/** The ids an answer cites: observations, episodes, units, matters, ledger entries (`entry_`: to-do items, tasks) and conversations (UUIDs). */
 const IDS =
-  /\b(?:obs|ep|unit|entry)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
+  /\b(?:obs|ep|unit|entry|matter)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
 /** The arguments with every string clipped to 200 chars. */
 const cut = (args: unknown) =>
@@ -353,6 +354,24 @@ export function buildServer(readsOnly = false) {
       name: z.string().optional().describe("Name, alias or id"),
     }),
     ({ name, before }) => person(name, { before })
+  );
+  tool(
+    server,
+    "read_matters",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the open matters, newest first, each with its id, name, matter status (done, waiting_on_someone, moving, stuck, dormant), who it is owed to, who is waited on and what is next. Optionally of one person, project or area. `read_matter` opens one.",
+    z.object({
+      area: z.string().optional().describe("Area id or name"),
+      person: z.string().optional().describe("Name, alias or id"),
+      project: z.string().optional().describe("Project id or name"),
+    }),
+    (q) => openMatters(q)
+  );
+  tool(
+    server,
+    "read_matter",
+    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, and every step in time order with its day and words (the episodes, observations and to-do items that belong to it).",
+    z.object({ id: z.string().min(1).describe("A matter id") }),
+    ({ id }) => oneMatter(id)
   );
   tool(
     server,

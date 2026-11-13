@@ -4,12 +4,14 @@ import { appendJsonl, readAppended } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
 import type { Observation } from "../records/observation";
-import { LINKS, readIndex } from "./memory-files";
+import { ACTIONABLE } from "./matter-read";
+import { readMatterBook } from "./matters";
+import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
-import { openCandidatesOf } from "./read-open-items";
 import { OWNER } from "./read-truth";
 import { begin, chunks, inBatches } from "./run";
 import { observationsNow, type People } from "./who";
+import { dayNow } from "./zones";
 
 // Links (docs/glossary.md): two observations tied. The one relation read so far is "ends": a later observation shows
 // that an open thing between him and a person (a promise, a wait, a to-do of his) happened or was dropped. One model
@@ -83,6 +85,10 @@ export function endingsOf(
   }
   return endings;
 }
+
+/** What each open thing is ended by, as `endingsOf` says, given which observations are current: what a matter reads. */
+export const endingsNow = (isCurrent: (id: string) => boolean) =>
+  endingsOf(readBatches(), isCurrent);
 
 /**
  * One person's work: the later observations about them that some open thing has not been judged against yet (a pair
@@ -167,18 +173,32 @@ export function keptLinks(reply: unknown, call: Call): Link[] {
 }
 
 /**
- * What the links step has to judge, from the index (the open things, as `openCandidatesOf` finds them: the one rule
- * of what is open) and the observations as they read today: for each person an open thing is with, the later
- * observations about them (what they or he said that names them; never a plan or a condition, never another open
- * thing). `counts` is the whole of what is due, before the night's cap. Null when the index is not built.
+ * The open things: the open to-dos, promises and waits of every open matter (`matterOf`, read without endings: this step
+ * is what finds them) with the person each is with, from the observations as they read today.
  */
-export async function readLinkWork(people: People) {
-  const candidates = readIndex((db) => openCandidatesOf(db, "1 = 1"));
-  if (!candidates) {
-    return null;
-  }
+async function readOpenThings(people: People) {
   const { observations } = await observationsNow(people);
   const byId = new Map(observations.map((o) => [o.id, o]));
+  const book = await readMatterBook(people, dayNow());
+  const open = book.flatMap((v) =>
+    v.open
+      ? v.steps.flatMap((s) =>
+          byId.has(s.ref) && ACTIONABLE.includes(s.kind) && !s.ended
+            ? [{ id: s.ref, person: s.with }]
+            : []
+        )
+      : []
+  );
+  return { byId, observations, open };
+}
+
+/**
+ * What the links step has to judge: the open things (`readOpenThings`) and the observations as they read today: for each person an open thing is with, the later
+ * observations about them (what they or he said that names them; never a plan or a condition, never another open
+ * thing). `counts` is the whole of what is due, before the night's cap.
+ */
+export async function readLinkWork(people: People) {
+  const { byId, observations, open: candidates } = await readOpenThings(people);
   const openIds = new Set(candidates.map((c) => c.id));
   const batches = readBatches();
   const bySubject = Map.groupBy(
@@ -280,16 +300,18 @@ export async function links(pending: LinkWork, people: People) {
  * by eye while nothing reads them (`bun life memory links <person>`).
  */
 export async function readEndings(people: People, ref: string) {
-  const { observations } = await observationsNow(people);
-  const byId = new Map(observations.map((o) => [o.id, o]));
-  const endings = endingsOf(readBatches(), (id) => byId.has(id));
-  const open =
-    readIndex((db) =>
-      openCandidatesOf(db, "1 = 1").filter((c) => c.person === ref)
-    ) ?? [];
-  return open.map((c) => {
-    const end = endings.get(c.id);
-    const by = end && byId.get(end.later);
-    return `${c.line}\n    ${by ? `ended ${by.date}: "${end.quote}" (${by.id})` : "no ending found"}`;
-  });
+  const { byId, open } = await readOpenThings(people);
+  const endings = endingsNow((id) => byId.has(id));
+  return open
+    .filter((c) => c.person === ref)
+    .flatMap((c) => {
+      const o = byId.get(c.id);
+      const end = endings.get(c.id);
+      const by = end && byId.get(end.later);
+      return o
+        ? [
+            `- ${o.id} ${o.date} ${o.type}: ${o.text}\n    ${by ? `ended ${by.date}: "${end.quote}" (${by.id})` : "no ending found"}`,
+          ]
+        : [];
+    });
 }

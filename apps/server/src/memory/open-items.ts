@@ -6,19 +6,18 @@ import { chatGroups, type SourceEvent } from "../records/source";
 // stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
 // The views: what `read_day` lists as due, and what a person's page lists as open with them (read-open-items.ts
-// gathers the candidates, each with its line). Copies merge,
-// timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
+// gathers the candidates, each with its line: an open matter, `matter-read.ts`, or a reply owed). Timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
 
 /** One candidate open item, with the line `read_day` shows for it. */
 export interface Candidate {
   /** When it was said or made: older first at the same rank. */
   at: string;
-  /** Life's id: an observation's, a to-do item's add (`entry_`), a chat message's. */
+  /** Life's id: a matter's (`matter_`, or the observation's or to-do item's of a matter of one), a chat message's. */
   id: string;
   kind: "promise" | "todo_item" | "reply" | "to_do" | "waiting_on_someone";
   line: string;
-  /** A to-do item made from an observation (the auto-add permission's): the two are one item. */
-  obs?: string;
+  /** Everyone in it, whatever their role: whose page lists it. */
+  people?: string[];
   /** Who it is with, for the rank: their closeness, inner first. */
   person?: string;
   priority?: string;
@@ -29,7 +28,7 @@ export interface Candidate {
   /** Its day, when it has one. */
   when?: string;
 }
-export type OpenItem = Candidate & { merged: string[]; overdue: boolean };
+export type OpenItem = Candidate & { overdue: boolean };
 
 /** When an item said with no day of its own is shown again, after the day after. */
 export const AGAIN_DAYS = 3;
@@ -82,7 +81,7 @@ const KIND = {
 /**
  * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves
  * (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older first.
- * Copies merge: a to-do item into the observation it came from. Overdue: its day is before `date`.
+ * Overdue: its day is before `date`.
  */
 export function rankedItems(
   candidates: Candidate[],
@@ -92,31 +91,13 @@ export function rankedItems(
     levels = new Map(),
   }: { date: string; goals?: string[][]; levels?: Map<string, number> }
 ): OpenItem[] {
-  const byId = new Map(candidates.map((c) => [c.id, c]));
-  const items = new Map<string, OpenItem>();
-  for (const c of candidates) {
-    const into = c.obs ? byId.get(c.obs) : undefined;
-    if (!into) {
-      items.set(c.id, { ...c, merged: [], overdue: false });
-    }
-  }
-  for (const c of candidates) {
-    const it = c.obs ? items.get(c.obs) : undefined;
-    if (it) {
-      it.merged.push(c.id);
-      it.urgent ||= c.urgent;
-      it.priority ??= c.priority;
-      // A to-do item with a due date gives an undated observation its day.
-      it.when ??= c.when;
-    }
-  }
   const goal = (c: Candidate) => {
     const g = goals.findIndex((ids) =>
       ids.some((p) => c.projects?.includes(p))
     );
     return g < 0 ? goals.length : g;
   };
-  const key = (c: OpenItem): number[] => [
+  const key = (c: Candidate): number[] => [
     c.urgent ? 0 : 1,
     c.priority && PRIORITY.includes(c.priority)
       ? PRIORITY.indexOf(c.priority)
@@ -125,12 +106,12 @@ export function rankedItems(
     goal(c),
     (c.person ? levels.get(c.person) : undefined) ?? 4,
   ];
-  const rank = (a: OpenItem, b: OpenItem) => {
+  const rank = (a: Candidate, b: Candidate) => {
     const [x, y] = [key(a), key(b)];
     const i = x.findIndex((v, k) => v !== y[k]);
     return i < 0 ? a.at.localeCompare(b.at) : (x[i] ?? 0) - (y[i] ?? 0);
   };
-  return [...items.values()]
+  return candidates
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
 }

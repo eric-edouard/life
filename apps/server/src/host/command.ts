@@ -13,7 +13,7 @@ import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
-import { links, readEndings, readLinkWork } from "../memory/links";
+import { endingsNow, links, readEndings, readLinkWork } from "../memory/links";
 import {
   callsOf,
   matterLines,
@@ -284,9 +284,6 @@ const HANDLERS: Record<string, Handler> = {
     }
     return step(async () => {
       const pending = await readLinkWork(people);
-      if (!pending) {
-        return { failed: 1 };
-      }
       return values.force
         ? links(pending, people)
         : { ...pending.counts, failed: 0 };
@@ -322,7 +319,7 @@ const HANDLERS: Record<string, Handler> = {
         sum.episodes += work.episodes.length;
         sum.todoItems += work.todoItems.length;
         if (values.force || values.since) {
-          const run = await matters(work, people);
+          const run = await matters(work, people, endingsNow);
           sum.calls += run.calls;
           sum.failed += run.failed;
           sum.placed += run.placed;

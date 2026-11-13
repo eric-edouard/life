@@ -16,9 +16,14 @@ import {
 import type { People } from "./who";
 
 const people = {
+  contacts: [],
+  corrections: [],
+  inferred: [],
+  refOf: (r: string) => r,
   truth: {
     areas: [{ id: "family", name: "Family" }],
     me: { text: "A shop owner." },
+    people: [],
     projects: [{ id: "shop-fit-out", name: "Shop fit-out" }],
   },
 } as unknown as People;
@@ -157,6 +162,29 @@ test("an errand over three spans lands in one matter, the call's episode with no
       };
     },
   ];
+  const DAYS = [
+    "2026-10-02",
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-09",
+    "2026-10-12",
+  ];
+  // The records the matters read back: the observations placed, as they stand today.
+  const who = await import("./who");
+  const now = spyOn(who, "observationsNow").mockResolvedValue({
+    observations: [f1, f2, f3, f4, f5].map((f, i) => ({
+      area: null,
+      at: `${DAYS[i]}T10:00:00.000Z`,
+      date: DAYS[i],
+      importance: 2,
+      quote: f.text,
+      speaker: "person:me",
+      subjects: [],
+      unit: unitId(i + 1),
+      when: null,
+      ...f,
+    })),
+  } as never);
   const ask = spyOn(models, "askOnce").mockImplementation(((o: {
     input: never;
   }) => Promise.resolve(replies.shift()?.(o.input))) as never);
@@ -205,6 +233,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
     await matters(again[0] as MatterWork, people);
     expect(ask).toHaveBeenCalledTimes(3);
   } finally {
+    now.mockRestore();
     ask.mockRestore();
   }
 });

@@ -27,7 +27,7 @@ import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
-import { links, readLinkWork } from "../memory/links";
+import { endingsNow, links, readLinkWork } from "../memory/links";
 import { matters, readMatterWork } from "../memory/matters";
 import {
   commitMemory,
@@ -282,14 +282,14 @@ async function readYears(now: Date) {
 async function judgeLinks() {
   const people = await readPeople();
   const pending = await readLinkWork(people);
-  return pending && links(pending, people);
+  return links(pending, people);
 }
 
 /** The night's matters: what is due in its days (`readMatterWork`), placed. */
 async function placeMatters(window: Window, failed: string[]) {
   const people = await readPeople();
   const pending = await readMatterWork(window, people, failed);
-  return pending && matters(pending, people);
+  return pending && matters(pending, people, endingsNow);
 }
 
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
