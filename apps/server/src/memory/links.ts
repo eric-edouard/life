@@ -3,8 +3,13 @@ import { z } from "zod";
 import { appendJsonl, readAppended } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
-import { ACTIONABLE, type MatterStepNow } from "./matter-read";
-import { readMatterBook } from "./matters";
+import { ACTIONABLE, type MatterStepNow, matterBookOf } from "./matter-read";
+import {
+  mattersNow,
+  readMatterBook,
+  readMatterRecords,
+  readMatters,
+} from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
@@ -15,8 +20,8 @@ import { dayNow } from "./zones";
 // Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later step of a matter (an
 // observation, or an episode) shows that an open step of it (a promise, a wait, a to-do of his) happened or was
 // dropped. One model call per matter is shown its open steps and its later steps; code keeps a link only when both
-// ends were shown, the later one is later, and the words given are found in the later one's own quote. A link never
-// ties two matters: a call sees one. Each judged batch is one appended line of memory/links.jsonl: the result, and the
+// ends were shown, the later one is later, and the words given are found in the later one's own quote. Since v2 a link
+// never ties two matters: a call sees one. Each judged batch is one appended line of memory/links.jsonl: the result, and the
 // record of which pairs were already judged, so what is due is derived and nothing is paid twice. A link never
 // deletes: what it ends is worked out when read (`endingsOf`). Off until his `links` setting.
 
@@ -326,18 +331,21 @@ export async function links(pending: LinkWork) {
  * by eye while nothing reads them (`bun life memory links <matter id>`).
  */
 export async function readEndings(people: People, id: string) {
-  const { observations } = await observationsNow(people);
-  const byId = new Map(observations.map((o) => [o.id, o]));
-  const matter = (await readMatterBook(people, dayNow())).find(
-    (m) => m.id === id
-  );
-  const stepsByRef = new Map(matter?.steps.map((s) => [s.ref, s]));
-  const endings = endingsNow((ref) => byId.has(ref) || stepsByRef.has(ref));
+  const records = await readMatterRecords(people, endingsNow);
+  const matter = matterBookOf(
+    mattersNow(readMatters()).matters,
+    records,
+    dayNow()
+  ).find((m) => m.id === id);
+  // `endingsNow` made them: links.
+  const endings = records.endings as ReadonlyMap<string, Link>;
+  const byRef = new Map(matter?.steps.map((s) => [s.ref, s]));
+  const isObservation = new Set(records.observations.map((o) => o.id));
   return (matter?.steps ?? [])
-    .filter((s) => byId.has(s.ref) && ACTIONABLE.includes(s.kind))
+    .filter((s) => isObservation.has(s.ref) && ACTIONABLE.includes(s.kind))
     .map((s) => {
       const end = endings.get(s.ref);
-      const by = end && stepsByRef.get(end.later);
+      const by = end && byRef.get(end.later);
       return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${by ? `ended ${by.day}: "${end.quote}" (${by.ref})` : "no ending found"}`;
     });
 }

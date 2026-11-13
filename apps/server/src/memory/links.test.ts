@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { LinkBatch } from "../records/link";
+import { type LinkBatch, LinkBatch as LinkBatchSchema } from "../records/link";
 import {
   endingsOf,
   keptLinks,
@@ -244,4 +244,8 @@ test("the call's episode ends the promise, a link ties steps of one matter only,
     "obs_000000000005",
   ]);
   expect(split.later.map((s) => s.ref)).toEqual([call.id, sent.id]);
+});
+
+test("a batch that offered an episode is a valid line", () => {
+  expect(() => LinkBatchSchema.parse(batch([promise], [call]))).not.toThrow();
 });

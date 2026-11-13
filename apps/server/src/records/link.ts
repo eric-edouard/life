@@ -26,7 +26,7 @@ export const LinkBatch = z
     at: isoDateTime,
     links: z.array(Link),
     madeBy: MadeBy,
-    offered: z.array(ObservationId),
+    offered: z.array(z.union([ObservationId, EpisodeId])),
     open: z.array(ObservationId),
     schemaVersion: z.literal(1),
     subject: z.union([MatterId, SubjectRef]),
