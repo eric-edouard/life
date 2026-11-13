@@ -490,7 +490,7 @@ test("mail reaches memory only from someone Jean knows, in a thread he wrote in,
         mail(
           "m6",
           LIFE_MAIL.from as string,
-          "Life · 17 Oct · 108 new facts, 20 pages",
+          "Life · 17 Oct · 108 new observations, 20 pages",
           "Facts: Jean must pay the cladding deposit."
         ),
         mail(

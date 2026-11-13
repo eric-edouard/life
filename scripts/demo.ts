@@ -105,8 +105,8 @@ people:
 `
 );
 
-/** A fact: type, claim, quote, who said it, who else it is about, and its date when it has one. */
-type Fact = [string, string, string, string, string[], string?];
+/** An observation: type, text, quote, who said it, who else it is about, and its date when it has one. */
+type DemoObservation = [string, string, string, string, string[], string?];
 interface Demo {
   at: string;
   episode?: {
@@ -115,8 +115,8 @@ interface Demo {
     title: string;
     with?: string;
   };
-  facts: Fact[];
   key: string;
+  observations: DemoObservation[];
   ref: string;
   source: "git" | "lifelog" | "mail" | "whatsapp";
   title: string;
@@ -124,7 +124,8 @@ interface Demo {
 const DEMO: Demo[] = [
   {
     at: "2026-10-13 09:12",
-    facts: [
+    key: "351910000001@s.whatsapp.net",
+    observations: [
       [
         "promise",
         "Sam promised Jean Dupont to pay the October rent by Friday 16 October.",
@@ -142,7 +143,6 @@ const DEMO: Demo[] = [
         "2026-10-17",
       ],
     ],
-    key: "351910000001@s.whatsapp.net",
     ref: "whatsapp:351910000001@s.whatsapp.net/A1",
     source: "whatsapp",
     title: "Jean Dupont",
@@ -154,7 +154,8 @@ const DEMO: Demo[] = [
       title: "Paid the October rent to Jean Dupont",
       with: "jean-dupont",
     },
-    facts: [
+    key: "351910000001@s.whatsapp.net",
+    observations: [
       [
         "news",
         "Sam sent the October rent to Jean Dupont on 15 October.",
@@ -170,7 +171,6 @@ const DEMO: Demo[] = [
         ["hans"],
       ],
     ],
-    key: "351910000001@s.whatsapp.net",
     ref: "whatsapp:351910000001@s.whatsapp.net/B7",
     source: "whatsapp",
     title: "Jean Dupont",
@@ -182,7 +182,8 @@ const DEMO: Demo[] = [
       title: "Hans fixed the kitchen sink at the flat",
       with: "hans",
     },
-    facts: [
+    key: "conv-demo-1",
+    observations: [
       [
         "news",
         "Hans fixed the kitchen sink on 17 October by replacing the cracked drain pipe.",
@@ -191,7 +192,6 @@ const DEMO: Demo[] = [
         [],
       ],
     ],
-    key: "conv-demo-1",
     ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
     source: "lifelog",
     title: "Kitchen sink repair with the plumber",
@@ -203,8 +203,8 @@ const DEMO: Demo[] = [
       place: "Ribeira das Naus",
       title: "Morning run along the river",
     },
-    facts: [],
     key: "conv-demo-run-1",
+    observations: [],
     ref: "job-demo-2:0@2026-10-15T06:30:00.000Z",
     source: "lifelog",
     title: "Morning run",
@@ -216,15 +216,16 @@ const DEMO: Demo[] = [
       place: "home",
       title: "Worked on Tidepool: the tide chart",
     },
-    facts: [],
     key: "tidepool",
+    observations: [],
     ref: "git:tidepool/2026-10-16",
     source: "git",
     title: "tidepool",
   },
   {
     at: "2026-10-18 09:20",
-    facts: [
+    key: "351910000002@s.whatsapp.net",
+    observations: [
       [
         "news",
         "Sam told Ana he skipped his Sunday run because he went to bed at 2.",
@@ -233,7 +234,6 @@ const DEMO: Demo[] = [
         ["ana"],
       ],
     ],
-    key: "351910000002@s.whatsapp.net",
     ref: "whatsapp:351910000002@s.whatsapp.net/C1",
     source: "whatsapp",
     title: "Ana",
@@ -245,7 +245,8 @@ const DEMO: Demo[] = [
       place: "home",
       title: "Fixed Tidepool's crash and sent the beta to three friends",
     },
-    facts: [
+    key: "351910000002@s.whatsapp.net",
+    observations: [
       [
         "news",
         "Sam sent the first Tidepool beta to three friends on 19 October, after fixing the tide chart crash.",
@@ -254,7 +255,6 @@ const DEMO: Demo[] = [
         ["ana"],
       ],
     ],
-    key: "351910000002@s.whatsapp.net",
     ref: "whatsapp:351910000002@s.whatsapp.net/C2",
     source: "whatsapp",
     title: "Ana",
@@ -262,7 +262,8 @@ const DEMO: Demo[] = [
   {
     at: "2026-10-20 21:30",
     episode: { place: "Luna", title: "Ana's birthday dinner", with: "ana" },
-    facts: [
+    key: "351910000002@s.whatsapp.net",
+    observations: [
       [
         "promise",
         "Sam told Ana he would bring the cake to her birthday dinner on Saturday 24 October.",
@@ -272,7 +273,6 @@ const DEMO: Demo[] = [
         "2026-10-24",
       ],
     ],
-    key: "351910000002@s.whatsapp.net",
     ref: "whatsapp:351910000002@s.whatsapp.net/C3",
     source: "whatsapp",
     title: "Ana",
@@ -284,15 +284,16 @@ const DEMO: Demo[] = [
       place: "Ribeira das Naus",
       title: "Morning run along the river",
     },
-    facts: [],
     key: "conv-demo-run-2",
+    observations: [],
     ref: "job-demo-3:0@2026-10-21T06:40:00.000Z",
     source: "lifelog",
     title: "Morning run",
   },
   {
     at: "2026-10-21 11:02",
-    facts: [
+    key: "thread-lease",
+    observations: [
       [
         "waiting_on_someone",
         "Claire Dupont will send the 2027 lease for Sam to sign by the end of October.",
@@ -302,7 +303,6 @@ const DEMO: Demo[] = [
         "2026-10-31",
       ],
     ],
-    key: "thread-lease",
     ref: "mail:<lease-2027@example.test>",
     source: "mail",
     title: "Lease renewal 2027",
@@ -328,7 +328,7 @@ for (const d of DEMO) {
   write(join(data, `memory/units/${day}.jsonl`), [u]);
   write(
     join(data, "memory/observations/2026-10.jsonl"),
-    d.facts.map(([type, text, quote, speaker, people, when]) => ({
+    d.observations.map(([type, text, quote, speaker, people, when]) => ({
       about: `person:${speaker}`,
       area: null,
       at,
@@ -357,7 +357,7 @@ for (const d of DEMO) {
   write(join(data, "memory/extracted.jsonl"), [
     {
       at: "2026-10-22T02:30:00.000Z",
-      observations: d.facts.length,
+      observations: d.observations.length,
       prompt: extract.prompt,
       run: extract.run,
       schemaVersion: 1,
@@ -366,7 +366,7 @@ for (const d of DEMO) {
     },
   ]);
   // A plan is a fact with its date, never an episode.
-  if (d.episode && !d.facts.some((f) => f[5])) {
+  if (d.episode && !d.observations.some((f) => f[5])) {
     const { end, place, title } = d.episode;
     write(join(data, `memory/episodes/${day}.jsonl`), [
       {

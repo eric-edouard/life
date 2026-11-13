@@ -2,10 +2,10 @@ import { parseArgs } from "node:util";
 import { clock } from "../core/clock";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { changeFeed, claim } from "../memory/changes";
+import { changeFeed, readObservation } from "../memory/changes";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
-import { drawDoubtful } from "../memory/doubts";
+import { drawFactChecks } from "../memory/doubts";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
@@ -14,7 +14,10 @@ import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
-import { recordCorrection, recordRating } from "../memory/memory-files";
+import {
+  recordCorrection,
+  recordFactCheckAnswer,
+} from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -34,7 +37,7 @@ import { DAYS, gather } from "../memory/units";
 import { meant, readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import { dayNow, firstZoneDay, isDay, lastDays } from "../memory/zones";
-import { Rating } from "../records/fact-check";
+import { FactCheckAnswer } from "../records/fact-check";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -120,6 +123,21 @@ const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
 
 const HANDLERS: Record<string, Handler> = {
+  /** `answer-fact-check <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/ratings.jsonl). */
+  async "answer-fact-check"(_values, [ref = "", answer = "", ...note]) {
+    const said = FactCheckAnswer.shape.answer.safeParse(answer);
+    if (!(ref && said.success && said.data)) {
+      return usage();
+    }
+    try {
+      await recordFactCheckAnswer(ref, said.data, words(note) || undefined);
+      console.log(`recorded ${said.data} for ${ref} in memory/ratings.jsonl`);
+      return 0;
+    } catch (e) {
+      console.error((e as Error).message);
+      return 1;
+    }
+  },
   appointments: step(() => appointments()),
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
   backfill(v) {
@@ -151,7 +169,6 @@ const HANDLERS: Record<string, Handler> = {
       })
     ),
   chats: (values) => printed(chatsOf(values)),
-  claim: (_values, [id = ""]) => json(claim(id)),
   closeness: step(async () => closeness(await readWithPeople())),
   /** `contact-people`: names the senders his Contacts know (the night does; this is its first build and a replay). */
   "contact-people": step(() => Promise.resolve(writeContactPeople())),
@@ -167,13 +184,6 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   day: (_values, [date = ""]) => printed(isDay(date) ? day(date) : null),
-  /** `doubtful <n>`: draws the n claims he should check first into memory/statements.jsonl and prints them with their doubts. */
-  doubtful: (_values, [n = ""]) =>
-    Number(n) > 0
-      ? locked(() => drawDoubtful(Number(n))).then((drawn) =>
-          drawn ? json(Promise.resolve(drawn)) : 1
-        )
-      : usage(),
   episodes: step(async (v) => episodes(await gathered(v))),
   /** `exchange-counts`: counts every exchange of every year again (the night does; this is its first build and a replay). */
   "exchange-counts": step(async () =>
@@ -198,10 +208,18 @@ const HANDLERS: Record<string, Handler> = {
     return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
   }),
   extract: step(async (v) => extract(await gathered(v))),
+  /** `fact-checks <n>`: draws the n memory lines he should check first into memory/statements.jsonl and prints them with their doubts. */
+  "fact-checks": (_values, [n = ""]) =>
+    Number(n) > 0
+      ? locked(() => drawFactChecks(Number(n))).then((drawn) =>
+          drawn ? json(Promise.resolve(drawn)) : 1
+        )
+      : usage(),
   fetch: (values, [id]) =>
     printed(
       id ? fetchOf(id, count(values["from-turn"]), count(values.limit)) : null
     ),
+  "historical-units": step((v) => collectHistorical(v)),
   /**
    * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
    * with no model; `--force` reads it, as the night does once his `history` setting is on.
@@ -251,6 +269,7 @@ const HANDLERS: Record<string, Handler> = {
     })(values, rest);
   },
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
+  observation: (_values, [id = ""]) => json(readObservation(id)),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
   person: (values, rest) => printed(person(words(rest) || undefined, values)),
@@ -264,20 +283,9 @@ const HANDLERS: Record<string, Handler> = {
         radiusM: count(v.radius),
       })
     ),
-  /** `rate <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/ratings.jsonl). */
-  async rate(_values, [ref = "", answer = "", ...note]) {
-    const said = Rating.shape.answer.safeParse(answer);
-    if (!(ref && said.success && said.data)) {
-      return usage();
-    }
-    try {
-      await recordRating(ref, said.data, words(note) || undefined);
-      console.log(`recorded ${said.data} for ${ref} in memory/ratings.jsonl`);
-      return 0;
-    } catch (e) {
-      console.error((e as Error).message);
-      return 1;
-    }
+  async questions() {
+    console.log(await unresolved());
+    return 0;
   },
   /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
   "recorded-days": step(writeRecordedDays),
@@ -295,16 +303,11 @@ const HANDLERS: Record<string, Handler> = {
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
-  units: step((v) => collectHistorical(v)),
-  async unresolved() {
-    console.log(await unresolved());
-    return 0;
-  },
 };
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

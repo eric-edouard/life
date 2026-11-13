@@ -4,7 +4,7 @@ import { clock } from "../core/clock";
 import { filesIn, linesOf, readLineCount } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { Rating } from "../records/fact-check";
+import { FactCheckAnswer } from "../records/fact-check";
 import {
   isBookkeeping,
   isTaskLine,
@@ -20,6 +20,7 @@ import {
 } from "../records/observation";
 import {
   CORRECTIONS,
+  FACT_CHECK_ANSWERS,
   hides,
   hiding,
   INFERRED,
@@ -28,7 +29,6 @@ import {
   OBSERVATIONS,
   PAGE_KINDS,
   PAGES,
-  RATINGS,
   readCorrections,
   readIndex,
   readInferred,
@@ -47,7 +47,7 @@ import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for the status reads: `read_memory_changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `read_observation` (one observation with its evidence).
-// With run-log.ts (`read_processing_runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|claim|status|runs`.
+// With run-log.ts (`read_processing_runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|observation|status|runs`.
 // Read-only: no model, no write, no source except `read_observation`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/status-reads.md.
 
@@ -423,7 +423,7 @@ function itemOf(
     };
   }
   if (source === "ratings") {
-    const r = Rating.parse(raw);
+    const r = FactCheckAnswer.parse(raw);
     return {
       about: [],
       happenedAt: null,
@@ -487,7 +487,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
     fileSource(SUPERSESSIONS, "supersessions"),
     fileSource(INFERRED, "inferred"),
     fileSource(LEDGER, "ledger"),
-    fileSource(RATINGS, "ratings"),
+    fileSource(FACT_CHECK_ANSWERS, "ratings"),
     ...months.map((m) => fileSource(join(OBSERVATIONS, m), monthName(m))),
     listSource("pages", pageLines),
   ];
@@ -521,7 +521,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
   };
 }
 
-// --- one claim with its evidence -----------------------------------------------------------------------------------
+// --- one observation with its evidence -----------------------------------------------------------------------------------
 
 /**
  * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
@@ -529,7 +529,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
  * whether the index still holds it. Every version of the claim in the ledger is listed.
  */
-export async function claim(id: string) {
+export async function readObservation(id: string) {
   if (!ObservationId.safeParse(id).success) {
     throw new Error("an observation id is obs_ and 12 hex");
   }

@@ -49,7 +49,7 @@ its work: the agent keeps its own list.
   actions backend per install**, Apple Reminders (remctl) or Google Tasks (`gog`): add, edit, done, undone, remove,
   restore, through `act` (`apps/server/src/host/change-todo-item.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
-- When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
+- When the owner asks for a reminder change, use `bun life change-todo-item '<json>'` (kinds, fields and `said`: `Change` in
   `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time.
@@ -114,7 +114,7 @@ Its first block is what their time together was about: the titles of the last 60
 
 ### The standing grant
 
-The only other authority, off until the owner's words in a Claude session turn it on (`bun life grant on|off '<their
+The only other authority, off until the owner's words in a Claude session turn it on (`bun life auto-add on|off '<their
 words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
 takes authority away.
 

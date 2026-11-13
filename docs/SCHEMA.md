@@ -183,7 +183,7 @@ is that person and brings its handles; else a card that shares a handle with som
 one that shares only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`). A
 card whose whole name and whose handles say more than one person is no one's, a card **apart** (he renamed a card,
 two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and
-`bun life memory unresolved` lists the card for him to say; a guess made for
+`bun life memory questions` lists the card for him to say; a guess made for
 one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
 the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
 
@@ -283,7 +283,7 @@ never his.
 
 ## corrections.jsonl
 
-His corrections, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false
+His corrections, append-only, and the one place the owner's word is kept (with the owner's fact-check answers: a memory line the owner answered false
 or partly reads as a `wrong` here, `ratings.jsonl`). A Claude session appends it when the owner says
 something in conversation (`bun life memory correct '<json>'`, which checks and stamps it), and the pages step adds
 `keep-mine` and `not-important` when it finds the owner editing a page file. Every rebuild respects it. Each line has
@@ -455,10 +455,10 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## statements.jsonl
 
-The fact checks: the claims the owner is asked about, one per claim, append-only, written by
-`drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory doubtful <n>`):
+The fact checks: the memory lines the owner is asked about, one per line, append-only, written by
+`drawFactChecks` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory fact-checks <n>`):
 `{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/doubts.ts`),
-no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
+no model, from `memoryLinesNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
 `<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
 about it: that home page (`homeOf`), or for an episode the one person with a page it was with, else `episodes`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
@@ -471,19 +471,19 @@ before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
 
-The owner's answers to the fact checks, append-only, written by `recordRating` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory rate <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
+The owner's answers to the fact checks (a `FactCheckAnswer`), append-only, written by `recordFactCheckAnswer` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory answer-fact-check <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
-`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
-rated. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
+`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a fact check he was shown can be
+answered. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction
 (`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on an
-episode it changes nothing. A skipped statement is not asked again.
+episode it changes nothing. A skipped fact check is not asked again.
 
 ## scores.jsonl
 
-How the memory scored against the owner's ratings, one line per run of `bun scripts/eval.ts --ratings` with something to judge,
+How the memory scored against the owner's fact-check answers, one line per run of `bun scripts/eval.ts --fact-check-answers` with something to judge,
 append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, both, ungraded, outdated, gone}`: of `rated`
 statements judged (`trues` of them true), each as of its own day (against the claims said by then), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
 contradicts, `restated` false ones it says again, `both` ones it states and contradicts (kept both: counted apart since 28 Oct 2026, before in
@@ -553,4 +553,4 @@ table `observations` (with `superseded_by` and its end date in `valid_to` for re
 `detail` it states), full-text table
 `search` (claim and quote, accent-insensitive) and table `observation_entities` (observation, entity: who or what each is about); and the units: table `units`,
 full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
-`-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).
+`-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|questions|chats|places` (read-only).

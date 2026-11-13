@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import {
-  type Claim,
   doubtful,
   doubtsOf,
   episodeGroup,
   episodeText,
+  type MemoryLine,
 } from "./doubts";
 
-const claim = (ref: string, over: Partial<Claim> = {}): Claim => ({
+const claim = (ref: string, over: Partial<MemoryLine> = {}): MemoryLine => ({
   date: "2026-10-01",
   doubts: ["guessed-person"],
   group: "area:shop",

@@ -47,7 +47,7 @@ bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"i
 ## Older months
 
 ```sh
-bun life memory units --from 2026-01-01 --to 2026-09-30
+bun life memory historical-units --from 2026-01-01 --to 2026-09-30
 ```
 
 Each night reads the last 7 days. Older months can be collected for search without model calls, one month at a time;

@@ -63,7 +63,7 @@ const isRefused = (
  * plans said in the last `UNDATED_DAYS`, and every
  * active fact a held appointment cites, whatever its age.
  */
-export function factsAheadOf(
+export function observationsAheadOf(
   observations: Observation[],
   standing: Standing,
   today: string,
@@ -150,11 +150,12 @@ export function checkedAppointments(
       a.end.slice(0, 10) >= ctx.today &&
       a.end >= a.start
   );
-  const factsOf = (facts: readonly string[]) => facts.toSorted().join(" ");
+  const observationIdsKeyOf = (facts: readonly string[]) =>
+    facts.toSorted().join(" ");
   const { entries, invalid } = checkedEntries(
     z.object({ appointments: z.array(z.unknown()) }).parse(reply).appointments,
     valid,
-    (a) => factsOf(a.facts),
+    (a) => observationIdsKeyOf(a.facts),
     () => true
   );
   const ids = heldIdsOf(
@@ -167,7 +168,7 @@ export function checkedAppointments(
   // A new id is its facts' hash, hashed again while another appointment has it (a held one first read from them).
   const used = new Set([...ctx.held.map((h) => h.id), ...ids.filter(Boolean)]);
   const newId = (facts: readonly string[]) => {
-    let id = `apt_${digest("sha1", factsOf(facts), 12)}`;
+    let id = `apt_${digest("sha1", observationIdsKeyOf(facts), 12)}`;
     while (used.has(id)) {
       id = `apt_${digest("sha1", id, 12)}`;
     }
@@ -202,7 +203,7 @@ export async function appointments() {
   const last = readAppointments();
   const held = last?.appointments ?? [];
   const { refused } = readAppointmentEvents();
-  const facts = factsAheadOf(
+  const facts = observationsAheadOf(
     observations,
     standing,
     step.today,

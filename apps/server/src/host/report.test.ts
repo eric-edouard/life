@@ -103,11 +103,6 @@ const night = (facts: number) =>
       units: 9,
     },
     extracted: { added: 2, model: "codex/m/high", read: 3, retired: 1 },
-    facts: Array.from({ length: facts }, (_, i) => ({
-      id: `obs_${i}`,
-      page: "Shop",
-      text: `fact ${i}`,
-    })),
     files: {
       copied: 1,
       described: 4,
@@ -116,6 +111,11 @@ const night = (facts: number) =>
       read: 2,
     },
     from: "2026-10-12",
+    keyObservations: Array.from({ length: facts }, (_, i) => ({
+      id: `obs_${i}`,
+      page: "Shop",
+      text: `fact ${i}`,
+    })),
     marked: [],
     paged: {
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
@@ -139,7 +139,7 @@ test("the success email includes every fact, counts pages and lists models once"
     221_000,
     night(564)
   );
-  expect(subject).toBe("Life · 15 Oct · 564 new facts, 1 page");
+  expect(subject).toBe("Life · 15 Oct · 564 new key observations, 1 page");
   expect(text).toContain("What it found (564)");
   for (let i = 0; i < 564; i += 1) {
     expect(text).toContain(`- fact ${i} [Shop]`);
@@ -259,7 +259,7 @@ test("the Code section lists yesterday's rows and this night's new repos", () =>
 
 test("the HTML email escapes everything that comes from data", () => {
   const n = night(1);
-  n.facts[0] = {
+  n.keyObservations[0] = {
     id: "obs_0",
     page: "<b>Pg</b>",
     text: `<script>alert("x")</script> & co`,
@@ -298,6 +298,16 @@ test("a failed action's alert carries his words and the error", () => {
   expect(mail.subject).toBe("Life · could not add: Buy checked baggage");
   expect(mail.text).toContain("remctl is not installed");
   expect(mail.text).toContain("write that down in the to-dos");
+});
+
+test("the subject counts the key observations it lists, not every new observation", () => {
+  const n = night(3);
+  (n as { observed: number }).observed = 90;
+  const { subject, text } = successReport("2026-10-18", 1000, n);
+  expect(subject).toContain("3 new key observations");
+  expect(subject).not.toContain("90");
+  expect(text).toContain("What it found (3)");
+  expect(text).toContain("90 new observations since the last night");
 });
 
 test("the success email says the window it read and counts the new observations", () => {

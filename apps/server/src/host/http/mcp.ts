@@ -10,9 +10,12 @@ import { log } from "../../core/log";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
-import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
-import { readFactChecks } from "../../memory/fact-checks";
-import { recordCorrection, recordRating } from "../../memory/memory-files";
+import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
+import { readOpenFactChecks } from "../../memory/fact-checks";
+import {
+  recordCorrection,
+  recordFactCheckAnswer,
+} from "../../memory/memory-files";
 import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
@@ -103,7 +106,7 @@ async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
         "Not done: with `obs`, only an add, with title, list, due and section."
       );
     }
-    done = await actGranted(await claim(obs), granted.data);
+    done = await actGranted(await readObservation(obs), granted.data);
   } else if (said) {
     done = await actAsked(
       { ...change, said, why: "asked in a chat" },
@@ -159,7 +162,7 @@ export async function correct(a: z.infer<typeof Correct>, agent?: string) {
     if (!(a.ref && a.answer)) {
       throw new Error("Not done: a fact_check needs `ref` and `answer`.");
     }
-    recordRating(a.ref, a.answer, a.note);
+    recordFactCheckAnswer(a.ref, a.answer, a.note);
   } else {
     await (a.kind === "memory"
       ? recordCorrection(a.correction)
@@ -431,7 +434,7 @@ export function buildServer(readsOnly = false) {
     "read_observation",
     "To check one fact a tool cited (obs_ id): the observation with its evidence (JSON): the claim and its status, source, speaker and quote, who it is about now, corrections, supersessions, the pages citing it, and how to read the source (`fetch`, `read_chats`).",
     z.object({ id: z.string().describe("obs_…") }),
-    ({ id }) => claim(id)
+    ({ id }) => readObservation(id)
   );
   tool(
     server,
@@ -446,7 +449,7 @@ export function buildServer(readsOnly = false) {
     "read_fact_checks",
     "The facts Life is least sure of, open for the owner to check (JSON): each claim word for word, why Life doubts it, where it came from and the words it was read from. Ask him; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
     z.object({}),
-    async () => ({ factChecks: await readFactChecks() })
+    async () => ({ factChecks: await readOpenFactChecks() })
   );
   // What he tells Life in a chat, only while the `told` source is on: off, nothing would read it.
   if (isTold()) {
