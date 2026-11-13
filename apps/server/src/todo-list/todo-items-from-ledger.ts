@@ -123,13 +123,17 @@ export function todoItemsOf(actions: readonly LedgerEntry[]) {
   return items;
 }
 
-/** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
+/** Whether an item is still open: not ticked, not removed, not lost. */
+export const isOpenTodoItem = ({ fields: f }: Pick<LedgerTodoItem, "fields">) =>
+  !(f.completed || f.deleted || f.lost);
+
+/** His items still open, as the ledger holds them: of one backend (`prefix`) or all. */
 export const openTodoItemsOf = (
   actions: readonly LedgerEntry[],
   prefix?: string
 ) =>
   [...todoItemsOf(actions).values()].filter(
-    ({ fields: f, target }) =>
-      !(f.completed || f.deleted || f.lost) &&
-      (prefix === undefined || target.startsWith(`${prefix}:`))
+    (it) =>
+      isOpenTodoItem(it) &&
+      (prefix === undefined || it.target.startsWith(`${prefix}:`))
   );

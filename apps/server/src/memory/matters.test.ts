@@ -8,6 +8,7 @@ import {
   matters,
   mattersNow,
   pendingOf,
+  readMatterRecords,
   readMatters,
   readMatterWork,
   type ShownEpisode,
@@ -16,9 +17,14 @@ import {
 import type { People } from "./who";
 
 const people = {
+  contacts: [],
+  corrections: [],
+  inferred: [],
+  refOf: (r: string) => r,
   truth: {
     areas: [{ id: "family", name: "Family" }],
     me: { text: "A shop owner." },
+    people: [],
     projects: [{ id: "shop-fit-out", name: "Shop fit-out" }],
   },
 } as unknown as People;
@@ -157,11 +163,39 @@ test("an errand over three spans lands in one matter, the call's episode with no
       };
     },
   ];
+  const DAYS = [
+    "2026-10-02",
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-09",
+    "2026-10-12",
+  ];
+  // The records the matters read back: the observations placed, as they stand today.
+  const who = await import("./who");
+  const now = spyOn(who, "observationsNow").mockResolvedValue({
+    observations: [f1, f2, f3, f4, f5].map((f, i) => ({
+      area: null,
+      at: `${DAYS[i]}T10:00:00.000Z`,
+      date: DAYS[i],
+      importance: 2,
+      quote: f.text,
+      speaker: "person:me",
+      subjects: [],
+      unit: unitId(i + 1),
+      when: null,
+      ...f,
+    })),
+    statusInputs: { retired: new Map() },
+  } as never);
   const ask = spyOn(models, "askOnce").mockImplementation(((o: {
     input: never;
   }) => Promise.resolve(replies.shift()?.(o.input))) as never);
   try {
-    await matters(workOf(week1, "2026-10-01", "2026-10-07"), people);
+    await matters(
+      workOf(week1, "2026-10-01", "2026-10-07"),
+      people,
+      await readMatterRecords(people)
+    );
     const first = mattersNow(readMatters());
     expect(first.matters).toHaveLength(1);
     const [m1] = first.matters;
@@ -175,8 +209,16 @@ test("an errand over three spans lands in one matter, the call's episode with no
       [f1.id, f2.id, f3.id, f6.id, unit1, unit2, unit6].sort()
     );
 
-    await matters(workOf(week2, "2026-10-08", "2026-10-14"), people);
-    await matters(workOf(week3, "2026-10-15", "2026-10-21"), people);
+    await matters(
+      workOf(week2, "2026-10-08", "2026-10-14"),
+      people,
+      await readMatterRecords(people)
+    );
+    await matters(
+      workOf(week3, "2026-10-15", "2026-10-21"),
+      people,
+      await readMatterRecords(people)
+    );
     expect(ask).toHaveBeenCalledTimes(3);
     const [matter, ...rest] = mattersNow(readMatters()).matters;
     expect(rest).toEqual([]);
@@ -202,9 +244,14 @@ test("an errand over three spans lands in one matter, the call's episode with no
       workOf(week3, "2026-10-15", "2026-10-21"),
     ];
     expect(again.map((w) => callsOf(w))).toEqual([[], [], []]);
-    await matters(again[0] as MatterWork, people);
+    await matters(
+      again[0] as MatterWork,
+      people,
+      await readMatterRecords(people)
+    );
     expect(ask).toHaveBeenCalledTimes(3);
   } finally {
+    now.mockRestore();
     ask.mockRestore();
   }
 });

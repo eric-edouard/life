@@ -27,7 +27,7 @@ export const episodeTextNow = (m: Episode) =>
 export const episodeLine = (m: Episode) =>
   `- ${m.id} ${episodeTextNow(m)}${m.start ? "" : ` (${m.day}, undated)`} [${m.units.slice(0, 3).join(" ")}]`;
 
-const QUOTE_MAX = 140;
+export const QUOTE_MAX = 140;
 const TITLE_MAX = 50;
 
 export interface Row {

@@ -26,12 +26,11 @@ import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
 import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
 import { personaBlock, readPersona } from "./personas";
-import { openWithOf, todoItemCandidates } from "./read-open-items";
+import { openWithOf, readOpenItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
 import { clip, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
-import { repliesOwed } from "./words";
 import { dayNow, localDate, localTime, monthsOf } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
@@ -190,14 +189,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
   );
   // Their history, read before the index opens: its newest months on the first page, the earlier ones in the timeline.
   const history = historyOf(readHistory(ref));
-  // What may be open with them besides the observations (someone Life knows, first page only), read before the index
-  // opens (nothing awaits while it is).
+  // What is open with them (the open matters and the replies he owes; someone Life knows, first page only), read before
+  // the index opens (nothing awaits while it is).
   // What code counted between them, first page only, read before the index opens too.
   const counted = before || !known ? null : readExchangeCounts();
-  const more =
-    before || !known
-      ? []
-      : [...todoItemCandidates(), ...(await repliesOwed(clock()))];
+  const items = before || !known ? [] : await readOpenItems(folks, clock());
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor directory entry: the lifelog speakers it is part of.
@@ -252,9 +248,9 @@ export async function person(name?: string, o: { before?: string } = {}) {
               ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
               ...details,
               ...close,
-              ...openWithOf(db, ref, {
+              ...openWithOf(ref, {
                 goals: goalProjects(truth.me.goals),
-                more,
+                items,
                 today: dayNow(),
               }),
               ...situationBlock("Situation", readSituationNow(ref, live)),

@@ -178,7 +178,7 @@ export async function day(date: string) {
       actions,
       born,
       covered: readCoverage(db, date, date).days.get(date),
-      due: dueOf(db, date, context),
+      due: dueOf(date, context),
       episodes: episodes.map((episode) => {
         const s = span(episode);
         const stay = s.allDay

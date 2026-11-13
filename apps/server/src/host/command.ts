@@ -284,9 +284,6 @@ const HANDLERS: Record<string, Handler> = {
     }
     return step(async () => {
       const pending = await readLinkWork(people);
-      if (!pending) {
-        return { failed: 1 };
-      }
       return values.force
         ? links(pending, people)
         : { ...pending.counts, failed: 0 };
@@ -322,7 +319,7 @@ const HANDLERS: Record<string, Handler> = {
         sum.episodes += work.episodes.length;
         sum.todoItems += work.todoItems.length;
         if (values.force || values.since) {
-          const run = await matters(work, people);
+          const run = await matters(work, people, records);
           sum.calls += run.calls;
           sum.failed += run.failed;
           sum.placed += run.placed;
