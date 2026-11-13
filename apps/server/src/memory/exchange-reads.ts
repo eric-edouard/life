@@ -196,6 +196,14 @@ export function readExchangeReadWork(
   };
 }
 
+/** Stores one reply line: the one writer of memory/read-replies/ (or of a trial file). */
+export const storeReply = (line: ReadReply, where = READ_REPLIES) =>
+  appendJsonl(
+    where === READ_REPLIES ? readReplyPath(line.at) : where,
+    ReadReply,
+    [line]
+  );
+
 /**
  * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
  * digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that is not one (an
@@ -221,21 +229,18 @@ export async function makeReplies(
         const { prompt } = READS[read];
         const reply = await step.ask({ dir, input: call.input, prompt });
         const at = clock().toISOString();
-        appendJsonl(
-          where === READ_REPLIES ? readReplyPath(at) : where,
-          ReadReply,
-          [
-            {
-              at,
-              madeBy: stamp(step.llm, prompt, step.run),
-              messages: call.messages.map(eventKey),
-              read,
-              reply: reply as ReadReply["reply"],
-              schemaVersion: 1,
-              starts: call.starts,
-              wording: wordings[read] as string,
-            },
-          ]
+        storeReply(
+          {
+            at,
+            madeBy: stamp(step.llm, prompt, step.run),
+            messages: call.messages.map(eventKey),
+            read,
+            reply: reply as ReadReply["reply"],
+            schemaVersion: 1,
+            starts: call.starts,
+            wording: wordings[read] as string,
+          },
+          where
         );
         stored += 1;
       },
