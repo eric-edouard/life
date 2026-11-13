@@ -1,9 +1,9 @@
 import {
-  beyondOf,
   type Correction,
   INFERRED_USE_AT,
   type InferredPerson,
   type Observation,
+  peopleOutsideDirectoryOf,
   type Unresolved,
   unfoldedOf,
 } from "../records/observation";
@@ -15,8 +15,8 @@ import {
   readContactLines,
   readCorrections,
   readInferred,
+  readObservationStatusInputs,
   readObservations,
-  readStanding,
   readUnitsFor,
   readUnresolved,
   shownOf,
@@ -77,7 +77,7 @@ function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
 }
 
 /**
- * Index of every handle in the map to the person who owns it: as written, and a phone or an email by its Contacts key
+ * Index of every handle in the directory to the person who owns it: as written, and a phone or an email by its Contacts key
  * too (`contactKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets.
  */
 const handleIndex = (people: Person[]): Map<string, string> =>
@@ -166,7 +166,7 @@ function readingOf(
  * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
  * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
  * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
- * person. A card whose whole name and whose handles say more than one person folds into no one (`apart`: his to say).
+ * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
  */
 export function foldsOf(
   people: Person[],
@@ -216,9 +216,9 @@ export function foldsOf(
     return r;
   };
   // A card he settled himself (`same-person`) is placed; one whose name and handles are one person after all (a
-  // guess folded into them) is theirs; the rest is not Life's to place: no one's until he says (`apart`), and each
+  // guess folded into them) is theirs; the rest is not Life's to place: no one's until he says (an ambiguous card), and each
   // handle truth/ knows still reads as its own person.
-  const apart = torn.flatMap((t) => {
+  const ambiguousCards = torn.flatMap((t) => {
     if (canon(t.card) !== t.card) {
       return [];
     }
@@ -233,7 +233,7 @@ export function foldsOf(
     const ref = read(surface);
     return ref ? canon(ref) : null;
   };
-  return { apart, canon, resolve };
+  return { ambiguousCards, canon, resolve };
 }
 
 /**
@@ -303,10 +303,9 @@ export function aboutNow(
   );
   const named = Map.groupBy(found, (n) => n.observation);
   const namesOf = new Map<string, string[]>([
-    ...beyondOf(contacts, inferred).map((p): [string, string[]] => [
-      `person:${p.id}`,
-      [p.name],
-    ]),
+    ...peopleOutsideDirectoryOf(contacts, inferred).map(
+      (p): [string, string[]] => [`person:${p.id}`, [p.name]]
+    ),
     ...people.map((p): [string, string[]] => [
       `person:${p.id}`,
       [p.name, ...p.aliases],
@@ -317,7 +316,7 @@ export function aboutNow(
     const was = canon(o.speaker);
     const unknown = was.startsWith(UNKNOWN);
     const from = authorFrom(o, chatOf);
-    // A voice keeps lifelog's id, which the map may not know: then, for an unknown one, the name lifelog gave it.
+    // A voice keeps lifelog's id, which the directory may not know: then, for an unknown one, the name lifelog gave it.
     const now =
       (from && resolve(from)) ||
       (unknown && resolve(was.slice(UNKNOWN.length))) ||
@@ -356,7 +355,7 @@ export function aboutNow(
       // has not read it (`pages.ts` offers it once).
       refiled: entities.join() !== o.entities.toSorted().join(),
       speaker: a.now,
-      // A chat title named an unknown author; once they resolve, their name is the map's.
+      // A chat title named an unknown author; once they resolve, their name is the directory's.
       speakerName: resolvedNow ? undefined : o.speakerName,
       // ponytail: a sentence written before tokens names people; a move swaps their names in it as it is read (never
       // stored). Tokenized sentences (extract v6) will make this a no-op for new facts.
@@ -390,7 +389,7 @@ const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
 /**
  * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or surface)
  * or that is a project's name. What a call involves beyond its people (`involvedOf`); a word that is also a name only
- * adds a map entry to the call's input.
+ * adds a directory entry to the call's input.
  */
 export function namedIn(
   texts: string[],
@@ -479,20 +478,20 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const { apart, canon, resolve } = foldsOf(
+  const { ambiguousCards, canon, resolve } = foldsOf(
     truth.people,
     inferred,
     corrections,
     contacts
   );
-  const beyond = beyondOf(contacts, inferred);
+  const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
       ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
       : canon(ref);
   const names = new Map<string, string>([
-    ...[...truth.people, ...beyond].map(
+    ...[...truth.people, ...outsideDirectory].map(
       (p) => [`person:${p.id}`, p.name] as const
     ),
     ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
@@ -500,9 +499,7 @@ export async function readPeople() {
   ]);
   return {
     /** The Contacts cards Life cannot place: their whole name and their handles say more than one person (`foldsOf`). */
-    apart,
-    /** Everyone beyond truth/ (`beyondOf`), folded or not: what every listing of people reads. */
-    beyond,
+    ambiguousCards,
     canon,
     /** The people his Contacts name (`contact-people.ts`), for the folds. */
     contacts,
@@ -513,6 +510,8 @@ export async function readPeople() {
       names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
     /** A readable name for each person (inferred ones too), project and area ref. */
     names,
+    /** Everyone outside the directory (`peopleOutsideDirectoryOf`), folded or not: what every listing of people reads. */
+    outsideDirectory,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
     refOf,
     resolve,
@@ -522,7 +521,7 @@ export async function readPeople() {
 export type People = Awaited<ReturnType<typeof readPeople>>;
 
 /**
- * The observations the pages and the index go by, those that show (`stateOf`: neither hidden everywhere nor replaced),
+ * The observations the pages and the index go by, those that show (`observationStatusOf`: neither hidden everywhere nor replaced),
  * filed as they read today; with the ledgers that say where each stands, and every observation in the ledger.
  */
 export async function observationsNow({
@@ -532,12 +531,12 @@ export async function observationsNow({
   truth,
 }: People) {
   const read = readObservations();
-  const [all, standing, unresolved] = await Promise.all([
+  const [all, statusInputs, unresolved] = await Promise.all([
     read,
-    readStanding(corrections, read),
+    readObservationStatusInputs(corrections, read),
     readUnresolved(),
   ]);
-  const shown = shownOf(all, standing);
+  const shown = shownOf(all, statusInputs);
   const needingHandles = shown.filter(
     (o) =>
       !o.speakerFrom && o.speaker !== OWNER && !o.speaker.startsWith(UNKNOWN)
@@ -555,10 +554,10 @@ export async function observationsNow({
     contacts,
     chatHandles(units)
   );
-  return { all, observations, standing };
+  return { all, observations, statusInputs };
 }
 
-/** Who goes by this name (or id): the people on the map and the ones Life inferred, by name or alias. */
+/** Who goes by this name (or id): the people in the directory and the ones Life inferred, by name or alias. */
 export function namedLike<
   T extends { aliases: string[]; id: string; name: string },
 >(name: string, people: T[]) {
@@ -614,18 +613,18 @@ export function nearNames<
 }
 
 /**
- * Everyone a name can mean: the people on his map, and those his Contacts name or Life inferred (not folded into
+ * Everyone a name can mean: the people in his directory, and those his Contacts name or Life inferred (not folded into
  * another), going by their surfaces too.
  */
 function nameable({
-  beyond,
+  outsideDirectory,
   canon,
   truth,
-}: Pick<People, "beyond" | "canon" | "truth">) {
+}: Pick<People, "outsideDirectory" | "canon" | "truth">) {
   return [
     ...truth.people,
     ...new Map(
-      unfoldedOf(beyond, canon).map((p) => [
+      unfoldedOf(outsideDirectory, canon).map((p) => [
         p.id,
         { ...p, aliases: p.surfaces },
       ])
@@ -640,7 +639,7 @@ function nameable({
  */
 export function meant(
   name: string,
-  people: Pick<People, "beyond" | "canon" | "resolve" | "truth">
+  people: Pick<People, "outsideDirectory" | "canon" | "resolve" | "truth">
 ) {
   const all = nameable(people);
   const resolved = people.resolve(name)?.replace(PERSON, "");

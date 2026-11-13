@@ -8,9 +8,9 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { callCharsOf, stamp } from "../models/llm";
 import {
-  type Beyond,
   Correction,
   type Observation,
+  type PersonOutsideDirectory,
 } from "../records/observation";
 import { type Area, isUnderway, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
@@ -23,13 +23,13 @@ import {
 } from "./closeness";
 import {
   CORRECTIONS,
+  type ObservationStatusInputs,
   PAGE_KINDS,
   PAGES,
   pagePath,
   readUnits,
   readUnitsFor,
   readVerdicts,
-  type Standing,
   type Verdicts,
   verdictOf,
 } from "./memory-files";
@@ -71,7 +71,7 @@ import {
 } from "./who";
 
 // `bun life memory pages`: the pages step (docs/architecture.md, "The pipeline"). One page per person who has enough to
-// say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
+// say and per area. Each observation has one home page (`homePageOf`). A page is rebuilt from its previous version: lines
 // whose observations are unchanged stay word for word, the model only adds lines for new observations, finishes
 // lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
 // its word budget. Code checks every citation. Nothing is sent.
@@ -112,7 +112,7 @@ export function ownerHold(me: Truth["me"]) {
   return `${quote(me.text.split("\n").slice(1).join("\n"))}\n\n_From truth/me.md: yours. Life never edits it._`;
 }
 
-function inferredHold(p: Beyond) {
+function inferredHold(p: PersonOutsideDirectory) {
   return `${quote(`**${p.name}** · ${p.relation}`)}\n\n_Inferred by Life from messages (confidence ${p.confidence}), not in truth/: it may be wrong. Tell Claude who this is and it is recorded._`;
 }
 
@@ -150,7 +150,7 @@ const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
 async function targets(observations: Shown[], folks: People) {
-  const { beyond, truth } = folks;
+  const { outsideDirectory, truth } = folks;
   const levels = levelsWith(folks);
   const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
   const close = personallyClose(levels);
@@ -171,7 +171,7 @@ async function targets(observations: Shown[], folks: People) {
           },
         ] as const
     ),
-    ...beyond.map(
+    ...outsideDirectory.map(
       (p) =>
         [
           `person:${p.id}`,
@@ -233,9 +233,9 @@ interface Run {
   /** Topic counts of units over the last 90 days, by person ref: "Often talk about". */
   often: (t: Target) => string[];
   rebuild: boolean;
-  /** The map, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
+  /** The directory, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
   refs: ReturnType<typeof refContext>;
-  standing: Standing;
+  statusInputs: ObservationStatusInputs;
   step: Step;
   titles: Map<string, string>;
   today: string;
@@ -258,7 +258,7 @@ const asInput = (o: Observation, titles: Map<string, string>) => ({
 function newCorrections(ref: string, prev: Parsed, r: Run): Correction[] {
   const found = ownerEdits(prev);
   const have = new Set(
-    r.standing.corrections.flatMap((c) =>
+    r.statusInputs.corrections.flatMap((c) =>
       c.kind === "keep-mine" && c.page === ref ? [bare(c.text)] : []
     )
   );
@@ -293,10 +293,10 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const before = await readText(t.path);
   const prev = before ? parsePage(before) : null;
   const added = prev ? newCorrections(t.ref, prev, r) : [];
-  const everything = [...r.standing.corrections, ...added];
+  const everything = [...r.statusInputs.corrections, ...added];
   const known = knownOn(
     t.observations,
-    { ...r.standing, corrections: everything },
+    { ...r.statusInputs, corrections: everything },
     t.ref
   );
   const visible = t.observations.filter((o) => known.byId.has(o.id));
@@ -535,7 +535,7 @@ export async function pages(opts: PagesOptions) {
     often: oftenBy(units, verdicts, day, people.refOf),
     rebuild: opts.rebuild ?? false,
     refs,
-    standing: current.standing,
+    statusInputs: current.statusInputs,
     step,
     titles: new Map(
       [

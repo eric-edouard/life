@@ -138,15 +138,15 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Arcs are assembled when asked** (the relationship section, History, paged evidence, episodes, a month timeline),
   never stored as a summary; the present is (the situation), and what keeps repeating is (the persona).
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
-- **Details** are only what is already a field (his map, then his Contacts: `detailsOf`, the one place for them and
+- **Details** are only what is already a field (his directory, then his Contacts: `detailsOf`, the one place for them and
   for a birthday). Everything else known about someone is a line of their page: models read prose, and a field earns
   its place only when code computes with it (a birthday, a handle). A model step that tagged facts as details (6–8 Nov
   2026) only copied page lines, and went.
 - **What a model call is shown:** its context (the same for every call of a run, so it is cached) holds the people close
   to him now, personally or at work, and the projects underway (`refContext`, `contextPeopleBy`). Everyone else on the
-  map comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
-  (`namedIn`), earlier facts' or episodes' refs (`involvedOf`). So a call stays small as the map grows by hundreds a
-  year, and nothing is forgotten: replies are checked and names resolved against the whole map.
+  directory comes in a call's input as `involved` when the call involves them: its units' people, the names their words use
+  (`namedIn`), earlier facts' or episodes' refs (`involvedOf`). So a call stays small as the directory grows by hundreds a
+  year, and nothing is forgotten: replies are checked and names resolved against the whole directory.
 - **Historical collection:** `bun life memory historical-units` collects bounded owner-local months without models, voice writes or file descriptions, ending before the nightly window. Historical zones use the offsets of photos that place him and of sent mail; gap rules are in [operations](operations.md#historical-collection). Imports and model backfills require the optional `backfillEngine`; scheduled model backfill is paused until prompts are frozen. The night keeps the ordinary engine.
 
 **Phone calls** are events of their chat, including call-only chats, never a second record: a call reads as a line of its chat-day ("(audio call

@@ -3,7 +3,7 @@ import { DAY, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { Closeness, Level } from "../records/observation";
+import { Closeness, ClosenessLevel } from "../records/observation";
 import { chatGroups, type SourceEvent } from "../records/source";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, writtenPeople } from "./memory-files";
@@ -20,7 +20,7 @@ type Folds = Pick<People, "canon" | "corrections">;
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
 // with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his
-// recordings, how recent. The fast model reads those counts with who they are on his map and judges a level,
+// recordings, how recent. The fast model reads those counts with who they are in his directory and judges a level,
 // personal and work apart (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a
 // page. No model output is counted (a level never feeds the counts that judge it), so a level cannot raise itself.
 
@@ -211,10 +211,10 @@ export function dueFor(
 
 const Entry = z.object({
   person: z.string(),
-  personal: Level,
+  personal: ClosenessLevel,
   service: z.boolean().default(false),
   why: z.string().min(1).max(300),
-  work: Level,
+  work: ClosenessLevel,
 });
 
 /** The model's reply checked: one line per person asked about, once; anything else counted, never trusted. */
@@ -252,7 +252,12 @@ export function levelsNow(
 ) {
   const out = new Map<
     string,
-    { personal: Level; service: boolean; why: string; work: Level }
+    {
+      personal: ClosenessLevel;
+      service: boolean;
+      why: string;
+      work: ClosenessLevel;
+    }
   >();
   // A person folded into another (`same-person`) is that one: only the kept person's own judgment counts (their counts
   // took the folded one's in).
@@ -287,13 +292,13 @@ export function levelsNow(
 }
 
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
-const PAGED = new Set<Level>(["inner", "regular", "faded"]);
+const PAGED = new Set<ClosenessLevel>(["inner", "regular", "faded"]);
 /** The levels of someone close now. */
-const NOW = new Set<Level>(["inner", "regular"]);
+const NOW = new Set<ClosenessLevel>(["inner", "regular"]);
 
 /**
  * The people every memory call's context shows (`refContext`): the owner and those close to him now, personally or at work, not a
- * service. Everyone else on the map comes in a call's input when it involves them (`involvedOf`).
+ * service. Everyone else in the directory comes in a call's input when it involves them (`involvedOf`).
  */
 export const contextPeopleBy = (levels: ReturnType<typeof levelsNow>) =>
   new Set([
@@ -349,7 +354,7 @@ export async function pagedNow(people: Folds & Pick<People, "truth">) {
 export const levelsWith = (people: Folds) => levelsNow(readCloseness(), people);
 
 /**
- * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his map (he
+ * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone in his directory (he
  * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
  * Each as the person they are now (one folded into another is that one).
  */
@@ -405,14 +410,14 @@ export function lastYearsOf(all: WithPeople): WithPeople {
 export async function closeness({ events, failed, since }: WithPeople) {
   const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
   const people = await readPeople();
-  const { beyond, names, resolve, truth } = people;
+  const { outsideDirectory, names, resolve, truth } = people;
   const today = localDate(step.now.toISOString());
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, since, days));
   const relation = new Map<string, string>([
-    ...beyond.map((p) => [`person:${p.id}`, p.relation] as const),
+    ...outsideDirectory.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
   const waiting = await waitingOf(truth, people.canon);

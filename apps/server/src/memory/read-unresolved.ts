@@ -13,8 +13,8 @@ const EXAMPLE_MAX = 80;
  */
 export async function unresolved(top = 25) {
   const [rows, people] = await Promise.all([readUnresolved(), readPeople()]);
-  const { apart, inferred, names: nameOf, resolve } = people;
-  const cards = apart.map(
+  const { ambiguousCards, inferred, names: nameOf, resolve } = people;
+  const cards = ambiguousCards.map(
     (a) =>
       `- ${nameOf.get(a.card) ?? a.card} (${a.card}): its name and handles say ${a.people.map((p) => nameOf.get(p) ?? p).join(" and ")}`
   );

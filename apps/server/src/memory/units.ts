@@ -620,7 +620,7 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 }
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
-/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
+/** A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
 const readOf = (
   s: Read,
   since: Date,
@@ -656,7 +656,7 @@ export function builtFor(
   }
 }
 
-/** Lifelog person id -> the name on the map, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+/** Lifelog person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
 export const lifelogNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>

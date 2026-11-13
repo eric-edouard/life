@@ -32,7 +32,7 @@ const ana = {
   projects: [],
 } as Person;
 
-test("details: his map, then Contacts; one birthday (his map's first); a work address is no home; each handle once; handles last", () => {
+test("details: his directory, then Contacts; one birthday (his directory's first); a work address is no home; each handle once; handles last", () => {
   const lines = detailsOf({
     contacts: [
       contact({
@@ -41,7 +41,7 @@ test("details: his map, then Contacts; one birthday (his map's first); a work ad
           "1 quai Ouest, Lyon (Work)",
         ],
         birthday: "1990-04-01",
-        // Her phone as his map has it, written two other ways, and one email in two cases: each shows once.
+        // Her phone as his directory has it, written two other ways, and one email in two cases: each shows once.
         handles: [
           "+33 6 11 11 11 11",
           "06 11 11 11 11",
@@ -56,10 +56,10 @@ test("details: his map, then Contacts; one birthday (his map's first); a work ad
   });
   expect(detailsBlock(lines, "2026-03-10")).toEqual([
     "Details:",
-    "- Birthday: 12 Mar (in 2 days) (his map)",
+    "- Birthday: 12 Mar (in 2 days) (his directory)",
     "- Lives in: 12 rue Neuve, 44000 Nantes (Home) (Contacts)",
     "- Work: Designer, Acme (Contacts)",
-    "- Handles: +33611111111 (his map)",
+    "- Handles: +33611111111 (his directory)",
     "- Handles: Ana@Example.com, Facebook: ana.t (Contacts)",
     "",
   ]);

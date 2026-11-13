@@ -23,7 +23,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | likeness | A voice's mean cosine to a person's closest profile exemplars; a score, not an identity or evidence. | |
 | bench answer | What the owner says of a turn in the voice bench's review (one answer there names every turn of a voice's card): a person, nobody he knows, several people, not a person, or a skip. Several people and not a person leave the scoring. Kept in the bench's own file until `bench apply` sends it to lifelog's server as his correction. | |
 | sender | Who wrote a message in a chat or mail. | |
-| detail | A field about someone that his map or his Contacts already holds (birthday, where they live, work, family, handles), shown on their page (`memory/details.ts`). Never stored apart from where it lives; anything else about them is a page line. | |
+| detail | A field about someone that his directory or his Contacts already holds (birthday, where they live, work, family, handles), shown on their page (`memory/details.ts`). Never stored apart from where it lives; anything else about them is a page line. | |
 
 ## The agent's work
 
@@ -115,7 +115,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | memory line | An observation or an episode in the words he is shown and the eval judge reads (`MemoryLine`, `memoryLinesNow`, `memory/doubts.ts`). | |
 | doubt | Why a memory line may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `low-confidence`. | |
 | fold | One person ref read as another (`foldsOf`'s `canon`): his `same-person`, and every inferred id a surface was given read as what the surface reads as now. | |
-| contact person | Someone his Contacts name whose handle appears in his messages: a line of `memory/people-contacts.jsonl`, id `con_…` from the card's own id, read below `truth/` and above a guess. Not inferred: no model said it, and a card of someone in `truth/` is that person. A card **apart** is one whose whole name and whose handles say more than one person (a card he renamed, two people in one card, a number two people share): Life places it under no one and `bun life memory questions` lists it for him (`memory/contact-people.ts`, `who.ts` `foldsOf`). | |
+| contact person | Someone his Contacts name whose handle appears in his messages: a line of `memory/people-contacts.jsonl`, id `con_…` from the card's own id, read below `truth/` and above a guess. Not inferred: no model said it, and a card of someone in `truth/` is that person. An **ambiguous card** is one whose whole name and whose handles say more than one person (a card he renamed, two people in one card, a number two people share): Life places it under no one and `bun life memory questions` lists it for him (`memory/contact-people.ts`, `who.ts` `foldsOf`). | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`; `person` when it is someone in `truth/`, then read as them), `repos-inferred.jsonl` (`InferredRepo`). | |
 | link | Two observations tied by the links step: today only `ends` (a later observation shows that an open thing between him and a person happened or was dropped), with the words of the later one that show it (`memory/links.jsonl`, `memory/links.ts`). Not a summary, not a new claim, never a deletion: what it ends is worked out when read. Not a to-do item's `link` (its id in his list), not a bridge linking an account, not who an observation is about (`observation_entities`). | |
 | ending | How an open thing closed: the link that ends it (`endingsOf`), or his word. Never inferred from silence or age: an item past its time is lapsed, which no record says. | |
@@ -123,9 +123,10 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | persona | What someone with a page is like, wants and can give, what keeps happening between them and him, and how each writes to the other (his own: across everyone); read weekly from 3 years of their messages, group chats and his recordings with them (his own also from his own writing); its lines' `facet`: `traits`, `wants`, `offers`, `balance` (whether what goes each way, in Foa's six resources, evens out), `reacts`, `pattern`, `approach`, `writes`. Not a page, not facts, not the situation (the present), never a diagnosis (`memory/personas/`). | communication style (its `writes` lines; the connector still says "Communication style") |
 | gist | A persona's 2 or 3 sentences, from the same call as its lines: what they are like, what keeps happening between them and him, what works with them; shown first. Not the page's who they are to him. | |
 | backing | How well a persona line is backed, counted when read from its quotes' days (`backingOf`): `solid` (3 days or more), `thin`, `old` (newest quote over a year old). Never stored. | |
-| closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
-| map | Everyone and every project a model reply may name: the people of `truth/` and those Life inferred (not folded into another), and his projects (`refContext`'s `map`). A call's context shows only part of it. | |
-| involved | The map entries a model call involves that its context leaves out, given in its input (`involvedOf`). Everyone not close now (once close, not yet judged, inferred) and every project not underway reaches a model only this way. | |
+| observation status | Where an observation stands: `active`, `retired`, `replaced`, `gone` or `hidden` (`observationStatusOf`, `memory/memory-files.ts`; its inputs are `ObservationStatusInputs`). | |
+| closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. Its type is `ClosenessLevel`. | |
+| directory | Everyone and every project, area and goal Life knows: the people of `truth/` and those Life inferred (not folded into another), and his projects, areas and goals; a model reply may name its people and projects (`refContext`'s `directory`). A call's context shows only part of it. | |
+| involved | The directory entries a model call involves that its context leaves out, given in its input (`involvedOf`). Everyone not close now (once close, not yet judged, inferred) and every project not underway reaches a model only this way. | |
 
 ## Running
 

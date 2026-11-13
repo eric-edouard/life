@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { PersonRef } from "../records/fields";
 import {
-  beyondOf,
   ContactPerson,
   contactIdOf,
   type InferredPerson,
+  peopleOutsideDirectoryOf,
 } from "../records/observation";
 import { Person } from "../records/truth";
 import type { Contact } from "../sources/contacts";
@@ -233,8 +233,8 @@ test("one person across every channel: a card of someone in truth/ is that perso
   // No question is spent on her number, and by name she is found.
   expect(answeredBy(resolve, inferred)("+33611111111")).toBe(true);
   const found = meant("Ana Lopez", {
-    beyond: beyondOf([bea, byName, ana], inferred),
     canon,
+    outsideDirectory: peopleOutsideDirectoryOf([bea, byName, ana], inferred),
     resolve,
     truth: { people: truth } as never,
   });
@@ -313,8 +313,13 @@ test("a card whose whole name says one person and whose number says another is n
     "cy@example.com",
   ]);
   const self = `person:${mixed.id}`;
-  const { apart, canon, resolve } = foldsOf([...truth, cyril], [], [], [mixed]);
-  expect(apart).toEqual([
+  const { ambiguousCards, canon, resolve } = foldsOf(
+    [...truth, cyril],
+    [],
+    [],
+    [mixed]
+  );
+  expect(ambiguousCards).toEqual([
     { card: self, people: ["person:cyril", "person:bea"] },
   ]);
   // Whatever the order of its handles, and with Cyril's own number on it too.
@@ -323,9 +328,9 @@ test("a card whose whole name says one person and whose number says another is n
     "cy@example.com",
     "+33677777777",
   ]);
-  expect(foldsOf([...truth, cyril], [], [], [reordered]).apart).toEqual([
-    { card: self, people: ["person:cyril", "person:bea"] },
-  ]);
+  expect(
+    foldsOf([...truth, cyril], [], [], [reordered]).ambiguousCards
+  ).toEqual([{ card: self, people: ["person:cyril", "person:bea"] }]);
   // Once he says whose the card is, it is placed and no longer listed.
   const settled = foldsOf(
     [...truth, cyril],
@@ -341,7 +346,7 @@ test("a card whose whole name says one person and whose number says another is n
     ] as never,
     [mixed]
   );
-  expect(settled.apart).toEqual([]);
+  expect(settled.ambiguousCards).toEqual([]);
   expect(settled.resolve("cy@example.com")).toBe("person:bea");
   expect(canon(self)).toBe(self);
   // The number truth/ knows is still Bea's; the address is the card's own, neither Bea's nor Cyril's.

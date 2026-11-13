@@ -157,7 +157,7 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
  * about them by source and month; then their observations (every
  * one linked to them, whatever page it lives on) and the episodes with them, newest first by whole days, and their
  * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
- * two people go by lists them, then shows the first; a name on no page nor map is looked for among lifelog's
+ * two people go by lists them, then shows the first; a name on no page nor directory entry is looked for among lifelog's
  * speakers; a name no one goes by says so and lists the names near it.
  */
 export async function person(name?: string, o: { before?: string } = {}) {
@@ -200,7 +200,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
       : [...reminderItems(), ...(await repliesOwed(clock()))];
   return withStore((store) =>
     withIndex((db) => {
-      // A name on no page nor map: the lifelog speakers it is part of.
+      // A name on no page nor directory entry: the lifelog speakers it is part of.
       const voices = speakers(store);
       const heard = known
         ? []
@@ -350,7 +350,7 @@ export function exchangeCountsBlock(
   ];
 }
 
-/** `heard`: the lifelog speakers a name on no page nor map was found among. */
+/** `heard`: the lifelog speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
   `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 

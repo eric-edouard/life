@@ -105,7 +105,7 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
   expect(inferredId("", "k", new Set())).toBe("inf_person");
 });
 
-test("a surface is asked about until it reads as someone in truth/ or as a guess judged against the map", () => {
+test("a surface is asked about until it reads as someone in truth/ or as a guess judged against the directory", () => {
   const guess = (surface: string, person?: string | null) =>
     ({ person, surfaces: [surface] }) as InferredPerson;
   const reads: Record<string, string> = {

@@ -411,7 +411,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
-- `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
+- `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the directory is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
 - `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 

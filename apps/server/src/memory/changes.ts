@@ -27,18 +27,18 @@ import {
   isCurrent,
   LEDGER,
   OBSERVATIONS,
+  observationStatusOf,
   PAGE_KINDS,
   PAGES,
   readCorrections,
   readIndex,
   readInferred,
+  readObservationStatusInputs,
   readOrigins,
-  readStanding,
   readUnit,
   readUnresolved,
   runAt,
   SUPERSESSIONS,
-  stateOf,
 } from "./memory-files";
 import { type Key, PageMeta, parsePage, readLine } from "./page-format";
 import { OWNER } from "./read-truth";
@@ -260,8 +260,8 @@ const indexed = () =>
 
 /** What decides where an observation stands and whether a correction shows yet: the small ledgers, the pages, the index. */
 async function readContext() {
-  const [standing, inferred, pages] = await Promise.all([
-    readStanding(readCorrections()),
+  const [statusInputs, inferred, pages] = await Promise.all([
+    readObservationStatusInputs(readCorrections()),
     readInferred(),
     readPages(),
   ]);
@@ -273,7 +273,7 @@ async function readContext() {
     }
   }
   return {
-    ...standing,
+    ...statusInputs,
     index: indexed(),
     inferredLatest,
     pages,
@@ -442,7 +442,7 @@ function itemOf(
     record: o,
     recordedAt: runAt(o.madeBy.run),
     run: o.madeBy.run,
-    status: stateOf(o, ctx),
+    status: observationStatusOf(o, ctx),
     type: "observation.extracted",
   };
 }
@@ -604,7 +604,7 @@ export async function readObservation(id: string) {
       name: now.speakerName ?? people.names.get(now.speaker) ?? null,
       now: now.speaker,
     },
-    status: stateOf(o, ctx),
+    status: observationStatusOf(o, ctx),
     unit: unit
       ? {
           date: unit.date,
@@ -619,7 +619,7 @@ export async function readObservation(id: string) {
       prompt: v.o.madeBy.prompt,
       recordedAt: runAt(v.o.madeBy.run),
       run: v.o.madeBy.run,
-      status: stateOf(v.o, ctx).state,
+      status: observationStatusOf(v.o, ctx).state,
     })),
   };
 }

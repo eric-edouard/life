@@ -96,7 +96,7 @@ test("a turn is his while the store credits him now: one lifelog later names som
   expect(ownerSpoke(s, "msg-1")).toBe(false);
 });
 
-test("a conversation holds its turns, in order, with the names the map gives its people", () => {
+test("a conversation holds its turns, in order, with the names the directory gives its people", () => {
   const s = store();
   apply(
     s,

@@ -13,8 +13,8 @@ import { ObservationId } from "../records/observation";
 import {
   APPOINTMENT_EVENTS,
   APPOINTMENTS,
-  type Standing,
-  stateOf,
+  type ObservationStatusInputs,
+  observationStatusOf,
 } from "./memory-files";
 import { begin, checkedEntries, inputsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
@@ -65,14 +65,14 @@ const isRefused = (
  */
 export function observationsAheadOf(
   observations: Observation[],
-  standing: Standing,
+  statusInputs: ObservationStatusInputs,
   today: string,
   held: ReadonlySet<string>
 ) {
   const since = daysBefore(today, UNDATED_DAYS);
   return observations.filter(
     (o) =>
-      stateOf(o, standing).state === "active" &&
+      observationStatusOf(o, statusInputs).state === "active" &&
       (held.has(o.id) ||
         (o.when
           ? o.when >= today && o.modality !== "conditional"
@@ -199,13 +199,15 @@ export async function appointments() {
   const step = await begin("appointments", "main", {
     prompt: APPOINTMENTS_PROMPT,
   });
-  const { observations, standing } = await observationsNow(await readPeople());
+  const { observations, statusInputs } = await observationsNow(
+    await readPeople()
+  );
   const last = readAppointments();
   const held = last?.appointments ?? [];
   const { refused } = readAppointmentEvents();
   const facts = observationsAheadOf(
     observations,
-    standing,
+    statusInputs,
     step.today,
     new Set(held.flatMap((a) => a.observations))
   );
@@ -242,7 +244,7 @@ export async function appointments() {
           const c = checkedAppointments(reply, {
             held,
             refused,
-            replacedBy: (f) => standing.retired.get(f)?.by,
+            replacedBy: (f) => statusInputs.retired.get(f)?.by,
             shown: new Set(facts.map((o) => o.id)),
             today: step.today,
           });

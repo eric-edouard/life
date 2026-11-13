@@ -107,7 +107,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
   no longer exists, a conversation regrouped, or a code rule drops it now), `replaced` (its unit was read again; the
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner said it is outdated (a rating or a correction); still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
-  hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`stateOf`,
+  hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`observationStatusOf`,
   `apps/server/src/memory/memory-files.ts`), so it says what they show. An observation is a model's reading of the source with its quote
   checked against it: `active` is not "verified", and `confidence` is the model's own.
 - **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`
@@ -130,7 +130,7 @@ One observation with its evidence: `observation` (the version that counts: the l
 key, title), `read` (how to open the source with the existing readers: `{tool: "fetch", id}`, and for a chat
 `{tool: "chats", chat, from, to}`; these redact secrets), `speaker` (`filed` at extraction with its readable `name`;
 `handle`, the cited message's sender read again from its chat-day, as `fetch` and extraction see it; `now`, who that
-is with today's map and corrections, so a mapping corrected since shows here),
+is with today's directory and corrections, so a mapping corrected since shows here),
 `entities` (as resolved today, each `filed` or not, an inferred person with its `confidence`), `corrections` (that hide
 it, or about its speaker's handle), `replaces` (the observations it retired; if it was retired, `status` says by
 what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededBy`).

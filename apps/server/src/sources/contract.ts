@@ -96,7 +96,7 @@ export type Descriptor = {
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date, before?: Date) => SourceEvent[];
     }
-  /** His commits (whose repos are whose and who he is from his map): one unit per repo and day, never extracted. */
+  /** His commits (whose repos are whose and who he is from his directory): one unit per repo and day, never extracted. */
   | {
       kind: "repo";
       read: (
@@ -123,7 +123,7 @@ export const isWithin = (since: Date, before?: Date) => {
   return (item: { at: string }) => item.at >= from && (!to || item.at < to);
 };
 
-/** Which project and area a repo belongs to: his map (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
+/** Which project and area a repo belongs to: his directory (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
 export interface Placement {
   area: string | null;
   inferred?: InferredRepo;

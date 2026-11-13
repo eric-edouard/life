@@ -30,7 +30,7 @@ export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
 
-/** The people beyond truth/ (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
+/** The people outside the directory (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
 export const unfoldedOf = <P extends { id: string }>(
   people: P[],
   canon: (ref: string) => string
@@ -142,9 +142,14 @@ export const Supersession = z
 export type Supersession = z.infer<typeof Supersession>;
 
 /** How close someone is to the owner, in his personal life or his work: `faded` was close, not any more. */
-export const Level = z.enum(["inner", "regular", "acquaintance", "faded"]);
+export const ClosenessLevel = z.enum([
+  "inner",
+  "regular",
+  "acquaintance",
+  "faded",
+]);
 
-export type Level = z.infer<typeof Level>;
+export type ClosenessLevel = z.infer<typeof ClosenessLevel>;
 
 /** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
@@ -227,8 +232,8 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("closeness"),
         person: PersonRef,
-        personal: Level.optional(),
-        work: Level.optional(),
+        personal: ClosenessLevel.optional(),
+        work: ClosenessLevel.optional(),
       })
       .strict(),
   ])
@@ -238,7 +243,7 @@ export const Correction = z
 
 export type Correction = z.infer<typeof Correction>;
 
-/** What a person beyond truth/ goes by: handles (a phone, an email, a network's id) or names, at least one. */
+/** What a person outside the directory goes by: handles (a phone, an email, a network's id) or names, at least one. */
 const Surfaces = z.array(z.string().min(1)).min(1);
 
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
@@ -357,18 +362,18 @@ export const Closeness = z
     counts: z.string(),
     madeBy: MadeBy,
     person: PersonRef,
-    personal: Level,
+    personal: ClosenessLevel,
     schemaVersion: z.literal(1),
     service: z.boolean(),
     why: z.string().min(1).max(300),
-    work: Level,
+    work: ClosenessLevel,
   })
   .strict();
 
 export type Closeness = z.infer<typeof Closeness>;
 
-/** Someone beyond truth/, as every listing of people needs them: a contact person, or one Life inferred. */
-export interface Beyond {
+/** Someone outside the directory, as every listing of people needs them: a contact person, or one Life inferred. */
+export interface PersonOutsideDirectory {
   /** A guess's confidence; a contact person has none. */
   confidence?: number;
   id: string;
@@ -381,11 +386,11 @@ export interface Beyond {
 /** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
 export const IN_CONTACTS = "in his Contacts";
 
-/** Everyone beyond truth/, folded or not (`unfoldedOf` for one id per person): the contact people, then the inferred. */
-export const beyondOf = (
+/** Everyone outside the directory, folded or not (`unfoldedOf` for one id per person): the contact people, then the inferred. */
+export const peopleOutsideDirectoryOf = (
   contacts: { id: string; name: string; surfaces: string[] }[],
   inferred: InferredPerson[]
-): Beyond[] => [
+): PersonOutsideDirectory[] => [
   ...contacts.map((c) => ({
     id: c.id,
     kind: "contact" as const,

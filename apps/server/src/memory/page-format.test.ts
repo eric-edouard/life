@@ -8,7 +8,7 @@ import {
   checkReply,
   fit,
   generated,
-  homeOf,
+  homePageOf,
   type Known,
   layoutOf,
   lineHash,
@@ -158,7 +158,7 @@ test("one fact, one page: a person who has a page owns what is only about them, 
     area: string | null = null,
     type: Observation["type"] = "news",
     unmapped = false
-  ) => homeOf({ area, entities, type, unmapped }, truth, paged);
+  ) => homePageOf({ area, entities, type, unmapped }, truth, paged);
   expect(home(["person:me", "person:hans"], "shop")).toBe("person:hans");
   expect(home(["person:hans", "project:house"])).toBe("person:hans");
   // Two people, or a person without a page: the project's area, then its own.
@@ -178,7 +178,7 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   expect(home(["person:me"])).toBe("person:me");
   // Who extraction said it is about wins: Jean's goal that names Dad is Jean's, a fact about Dad told Hans is Dad's.
   const about = (a: string, entities: string[]) =>
-    homeOf(
+    homePageOf(
       { about: a, area: "shop", entities, type: "news", unmapped: false },
       truth,
       paged

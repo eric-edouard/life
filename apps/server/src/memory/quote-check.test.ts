@@ -284,7 +284,7 @@ test("two authors filed as one person who now resolve to two different people: n
   expect(now[2]?.text).toBe("Jean asked Gaston.");
 });
 
-test("a voice kept by lifelog's id resolves by the name lifelog gave it when the map does not know the id", () => {
+test("a voice kept by lifelog's id resolves by the name lifelog gave it when the directory does not know the id", () => {
   const facts = [
     {
       entities: [],
@@ -715,12 +715,14 @@ test("a unit read before and no longer kept is unkept once (its facts replaced b
   expect(run(3, [read, emptied], reread).pending).toHaveLength(1);
   // A fact of the earlier reading is no longer current once the unkept line is the latest.
   const fact = { madeBy: { run: read.run, unitHash: lou.hash }, unit: lou.id };
-  const standing = (lines: ReturnType<typeof line>[]) => ({
+  const statusInputs = (lines: ReturnType<typeof line>[]) => ({
     latest: latestExtractions(lines),
     live: new Set([lou.id]),
   });
-  expect(isCurrent(standing([read]), fact as Observation)).toBe(true);
-  expect(isCurrent(standing([read, emptied]), fact as Observation)).toBe(false);
+  expect(isCurrent(statusInputs([read]), fact as Observation)).toBe(true);
+  expect(isCurrent(statusInputs([read, emptied]), fact as Observation)).toBe(
+    false
+  );
 });
 
 test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {
