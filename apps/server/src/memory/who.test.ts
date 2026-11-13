@@ -68,8 +68,8 @@ test("a name means who it resolves to, listed first among those going by it; a n
   ];
   const mean = (name: string, resolve: (s: string) => string | null) =>
     meant(name, {
-      beyond: [],
       canon: (r: string) => r,
+      outsideDirectory: [],
       resolve,
       truth: { people } as never,
     });
@@ -183,7 +183,7 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
   expect(foldsOf(mapped, both, [not], []).resolve("Gas B")).toBe(
     "person:inf_gas-1"
   );
-  // A surface that is a name on the map reads as them, and so does a guess made for it before.
+  // A surface that is a name on the directory reads as them, and so does a guess made for it before.
   expect(
     foldsOf(mapped, [inferred("inf_gaston-x", ["Gaston"])], [], []).canon(
       "person:inf_gaston-x"

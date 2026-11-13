@@ -46,7 +46,7 @@ const episode = (over: Partial<Episode> = {}): Episode => ({
   ...over,
 });
 
-test("a day's reply is checked: verdicts and episodes for its own units only, people from the map, ids kept or minted", () => {
+test("a day's reply is checked: verdicts and episodes for its own units only, people from the directory, ids kept or minted", () => {
   const u1 = unit({ id: U1 });
   const commits = unit({ id: U2, source: "git" });
   const ctx = {

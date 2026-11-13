@@ -263,7 +263,7 @@ const isLived = (units: Unit[]) =>
 /**
  * The model's reply for one day, checked: a verdict for a unit of the day (its content hash in `units`), its area one
  * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); an episode of the day's units
- * (`isLived`), people resolved through the map (the owner left out), an earlier episode's id kept, a new one minted from
+ * (`isLived`), people resolved through the directory (the owner left out), an earlier episode's id kept, a new one minted from
  * the day and its units, `within` mapped from the reply's own ids (`new-1`) to the minted ones; `gone`, episodes of
  * `earlier` he did not hide (`dayFileOf` drops only this day's). Anything else is dropped; `invalid` counts the verdicts dropped.
  */
@@ -448,7 +448,7 @@ export async function episodes(evidence: Evidence) {
     await publishUnits(evidence);
   }
   let verdicts = readVerdicts();
-  const { beyond, canon, corrections, inferred, refOf, resolve } =
+  const { outsideDirectory, canon, corrections, inferred, refOf, resolve } =
     await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
@@ -459,11 +459,11 @@ export async function episodes(evidence: Evidence) {
   }
   const levels = levelsWith({ canon, corrections });
   const refs = refContext(
-    { beyond, canon, truth },
+    { canon, outsideDirectory, truth },
     personallyClose(levels),
     contextPeopleBy(levels)
   );
-  const onMap = refs.map.people.map((p) => ({ ...p, id: p.ref }));
+  const inDirectory = refs.directory.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
   const answered = answeredBy(resolve, inferred);
   const projects = new Set(truth.projects.map((p) => p.id));
@@ -494,7 +494,7 @@ export async function episodes(evidence: Evidence) {
     // The new conversations' words, fetched once for the day: each part takes the ones still new.
     let heard: Built[] | undefined;
     while (unread(units, verdicts, rereads)) {
-      // Who they are today, as the units and the map show them.
+      // Who they are today, as the units and the directory show them.
       const earlier = earlierFor(day, lines, corrections).map((m) =>
         episodeNow(m, refOf)
       );
@@ -516,11 +516,11 @@ export async function episodes(evidence: Evidence) {
           spoken,
           (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
         );
-        // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
+        // Who an unknown speaker could be, on the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(
           [...unknown.keys()].map((k) => [
             k,
-            nearNames(k, onMap).map((p) => p.ref),
+            nearNames(k, inDirectory).map((p) => p.ref),
           ])
         );
         const involved = involvedOf(
@@ -530,7 +530,7 @@ export async function episodes(evidence: Evidence) {
             ...namedIn(
               [...texts.values(), ...units.map((b) => b.unit.title)],
               resolve,
-              refs.map.projects
+              refs.directory.projects
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
             ...[...near.values()].flat(),
@@ -601,7 +601,7 @@ export async function episodes(evidence: Evidence) {
           earlier: new Set(earlier.map((m) => m.id)),
           hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
           madeBy,
-          people: new Set(refs.map.people.map((p) => p.ref)),
+          people: new Set(refs.directory.people.map((p) => p.ref)),
           resolve,
           units: new Map(shown.map((b) => [b.unit.id, b.unit])),
         });

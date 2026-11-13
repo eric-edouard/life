@@ -18,10 +18,10 @@ import {
   episodesWhere,
   INDEX,
   MEMORY,
+  type ObservationStatusInputs,
+  observationStatusOf,
   readUnits,
   readVerdicts,
-  type Standing,
-  stateOf,
   type Verdicts,
   verdictOf,
 } from "./memory-files";
@@ -51,9 +51,9 @@ create table search_hashes (id text primary key, hash text not null);
 create table episode_search (id text primary key, at text, text text);
 create table rebuilt (at text);`;
 
-/** The supersession that retired `o`, if any (`stateOf`). */
-function retirement(o: Observation, standing: Standing) {
-  const s = stateOf(o, standing);
+/** The supersession that retired `o`, if any (`observationStatusOf`). */
+function retirement(o: Observation, standing: ObservationStatusInputs) {
+  const s = observationStatusOf(o, standing);
   return s.state === "retired" ? s : null;
 }
 
@@ -136,7 +136,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
 export function buildIndex(
   observations: Observation[],
   path: string,
-  standing: Standing,
+  standing: ObservationStatusInputs,
   units: IndexedUnit[] = [],
   builtAt = clock(),
   episodes: Episode[] = []

@@ -4,7 +4,11 @@ import { digest } from "../core/hash";
 import { MadeBy } from "../records/fields";
 import { type Observation, PageSection } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
-import { type Standing, shows, stateOf } from "./memory-files";
+import {
+  type ObservationStatusInputs,
+  observationStatusOf,
+  shows,
+} from "./memory-files";
 import { OWNER, othersIn, type Truth } from "./read-truth";
 import { normalize } from "./units";
 
@@ -239,7 +243,7 @@ const PROFILE = new Set<Observation["type"]>(["about_a_person", "preference"]);
  * it is about him alone (`unmapped`: it names someone Life can't map) and says what he is like or has no area, else its
  * own area, else none. Other pages may mention a fact; only its home says it.
  */
-export function homeOf(
+export function homePageOf(
   o: Pick<Observation, "about" | "area" | "entities" | "type"> & {
     unmapped: boolean;
   },
@@ -272,7 +276,7 @@ export function homeOf(
 }
 
 /**
- * The page lines by home page (`homeOf`), given who has a page (`paged`: the closeness levels, `pagedNow`). A
+ * The page lines by home page (`homePageOf`), given who has a page (`paged`: the closeness levels, `pagedNow`). A
  * conditional claim (a hypothesis, a quote, an AI's text read aloud) stays searchable, never a page line.
  */
 export function placed<T extends Observation & { unmapped: boolean }>(
@@ -285,7 +289,7 @@ export function placed<T extends Observation & { unmapped: boolean }>(
   );
   const homes = Map.groupBy(
     lines.flatMap((o) => {
-      const home = homeOf(o, truth, paged);
+      const home = homePageOf(o, truth, paged);
       return home ? [{ home, o }] : [];
     }),
     (h) => h.home
@@ -316,14 +320,14 @@ export interface Known {
   retired: Set<string>;
 }
 
-/** What `page` may cite of its observations: those that show there (`stateOf`); a retired one stays cited, never new. */
+/** What `page` may cite of its observations: those that show there (`observationStatusOf`); a retired one stays cited, never new. */
 export function knownOn(
   observations: Observation[],
-  standing: Standing,
+  standing: ObservationStatusInputs,
   page: string
 ): Known {
   const shown = observations.flatMap((o) => {
-    const s = stateOf(o, standing);
+    const s = observationStatusOf(o, standing);
     return shows(s, page) ? [{ o, retired: s.state === "retired" }] : [];
   });
   return {

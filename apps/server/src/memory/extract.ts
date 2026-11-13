@@ -20,12 +20,12 @@ import {
   isRereadSince,
   latestBy,
   OBSERVATIONS,
+  observationStatusOf,
   readBy,
   readEpisodes,
   readVerdicts,
   rereadAt,
   SUPERSESSIONS,
-  stateOf,
   UNRESOLVED,
   type Verdicts,
   verdictOf,
@@ -356,7 +356,7 @@ export async function extract(evidence: Evidence) {
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
-    const s = stateOf(o, standing);
+    const s = observationStatusOf(o, standing);
     if (s.state === "retired") {
       // One he said is outdated (retired by itself: a rating or a correction) is closed for good.
       return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
@@ -403,7 +403,9 @@ export async function extract(evidence: Evidence) {
   const refs = refContext(people, close, contextPeopleBy(levels));
   // Refs are checked against the whole map, not only what a call was shown.
   const candidates = new Set(
-    [refs.map.people, refs.map.projects].flatMap((l) => l.map((x) => x.ref))
+    [refs.directory.people, refs.directory.projects].flatMap((l) =>
+      l.map((x) => x.ref)
+    )
   );
 
   const madeBy = stamp(step.llm, EXTRACT_PROMPT, step.run);
@@ -461,7 +463,7 @@ export async function extract(evidence: Evidence) {
             ...namedIn(
               sources.flatMap((s) => s.lines.map((l) => l.text)),
               resolve,
-              refs.map.projects
+              refs.directory.projects
             ),
             ...prior.flatMap((o) => o.entities),
           ])
@@ -515,7 +517,7 @@ export async function extract(evidence: Evidence) {
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);
     }
   });
-  // Names lifelog gave a voice that the map doesn't know (a chat's unknown senders are handles, not names).
+  // Names lifelog gave a voice that the directory doesn't know (a chat's unknown senders are handles, not names).
   for (const { unit } of finished.filter(
     (s) => kindOf(s.unit.source) === "voice"
   )) {

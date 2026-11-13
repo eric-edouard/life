@@ -13,8 +13,8 @@ import { ObservationId } from "../records/observation";
 import {
   APPOINTMENT_EVENTS,
   APPOINTMENTS,
-  type Standing,
-  stateOf,
+  type ObservationStatusInputs,
+  observationStatusOf,
 } from "./memory-files";
 import { begin, checkedEntries, inputsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
@@ -65,14 +65,14 @@ const isRefused = (
  */
 export function observationsAheadOf(
   observations: Observation[],
-  standing: Standing,
+  standing: ObservationStatusInputs,
   today: string,
   held: ReadonlySet<string>
 ) {
   const since = daysBefore(today, UNDATED_DAYS);
   return observations.filter(
     (o) =>
-      stateOf(o, standing).state === "active" &&
+      observationStatusOf(o, standing).state === "active" &&
       (held.has(o.id) ||
         (o.when
           ? o.when >= today && o.modality !== "conditional"

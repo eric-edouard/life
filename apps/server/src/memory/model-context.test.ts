@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
-import { beyondOf, type InferredPerson } from "../records/observation";
+import {
+  type InferredPerson,
+  peopleOutsideDirectoryOf,
+} from "../records/observation";
 import { Person, Project } from "../records/truth";
 import { involvedOf, refContext } from "./model-context";
 
-test("a call's context shows the people close now and the projects underway; the rest of the map comes as involved", () => {
+test("a call's context shows the people close now and the projects underway; the rest of the directory comes as involved", () => {
   const person = (id: string) => Person.parse({ id, name: id.toUpperCase() });
   const project = (id: string, status: Project["status"]) => ({
     ...Project.parse({ area: "work", id, name: id, schemaVersion: 1, status }),
@@ -11,8 +14,8 @@ test("a call's context shows the people close now and the projects underway; the
   });
   const refs = refContext(
     {
-      beyond: [],
       canon: (ref) => ref,
+      outsideDirectory: [],
       truth: {
         areas: [],
         chats: [],
@@ -26,7 +29,7 @@ test("a call's context shows the people close now and the projects underway; the
   );
   expect(refs.context.people.map((p) => p.ref)).toEqual(["person:ann"]);
   expect(refs.context.projects.map((p) => p.ref)).toEqual(["project:app"]);
-  expect(refs.map.people.map((p) => p.ref)).toEqual([
+  expect(refs.directory.people.map((p) => p.ref)).toEqual([
     "person:ann",
     "person:bob",
     "person:cy",
@@ -43,7 +46,7 @@ test("a call's context shows the people close now and the projects underway; the
   ]);
 });
 
-test("the map shows each person once: an inferred id folded into another is left out", () => {
+test("the directory shows each person once: an inferred id folded into another is left out", () => {
   const guess = (id: string) =>
     ({
       confidence: 0.9,
@@ -54,8 +57,11 @@ test("the map shows each person once: an inferred id folded into another is left
     }) as InferredPerson;
   const refs = refContext(
     {
-      beyond: beyondOf([], [guess("inf_ann"), guess("inf_dee")]),
       canon: (ref) => (ref === "person:inf_ann" ? "person:ann" : ref),
+      outsideDirectory: peopleOutsideDirectoryOf(
+        [],
+        [guess("inf_ann"), guess("inf_dee")]
+      ),
       truth: {
         areas: [],
         chats: [],
@@ -67,7 +73,7 @@ test("the map shows each person once: an inferred id folded into another is left
     new Set(),
     new Set()
   );
-  expect(refs.map.people.map((p) => p.ref)).toEqual([
+  expect(refs.directory.people.map((p) => p.ref)).toEqual([
     "person:ann",
     "person:inf_dee",
   ]);

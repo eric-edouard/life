@@ -31,7 +31,7 @@ import {
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 
 // memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
-// say of an observation (`stateOf`: where it stands), and commits them to the data repo (`commitMemory`). It appends only what
+// say of an observation (`observationStatusOf`: where it stands), and commits them to the data repo (`commitMemory`). It appends only what
 // the steps that write hand it.
 
 export const MEMORY = join(OWNER_DATA_DIR, "memory");
@@ -262,7 +262,7 @@ export const readOrigins = async () =>
  * in the ledger, replaced; a unit gone (a conversation regrouped) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
-  { latest, live }: Pick<Standing, "latest" | "live">,
+  { latest, live }: Pick<ObservationStatusInputs, "latest" | "live">,
   o: Pick<Origin, "madeBy" | "unit">
 ) {
   const l = latest.get(o.unit);
@@ -285,7 +285,7 @@ export function newSince(all: Observation[], at?: string) {
   return (o: Observation) => !cited.has(o.source.ref);
 }
 
-/** A supersession as `stateOf` reads it: a line of supersessions.jsonl, or one his `outdated` correction retires (`outdatedBy`). */
+/** A supersession as `observationStatusOf` reads it: a line of supersessions.jsonl, or one his `outdated` correction retires (`outdatedBy`). */
 type Retirement = Omit<Supersession, "madeBy">;
 
 /**
@@ -368,7 +368,7 @@ export const readCorrections = (): Correction[] => [
 ];
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
-export interface Standing {
+export interface ObservationStatusInputs {
   corrections: Correction[];
   latest: Map<string, Extracted>;
   live: Set<string>;
@@ -379,10 +379,10 @@ export interface Standing {
  * The extraction, unit and supersession ledgers (with what his `outdated` corrections retire after them), with the
  * corrections (and the observations, else their origins) the caller already holds.
  */
-export async function readStanding(
+export async function readObservationStatusInputs(
   corrections: Correction[],
   read?: Promise<Observation[]>
-): Promise<Standing> {
+): Promise<ObservationStatusInputs> {
   const [live, observations] = await Promise.all([
     readLiveUnits(),
     read ?? readOrigins().then((months) => [...months.values()].flat()),
@@ -465,7 +465,10 @@ export const hiding = (corrections: Correction[], id: string) => {
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */
-export function stateOf(o: Observation, s: Standing) {
+export function observationStatusOf(
+  o: Observation,
+  s: ObservationStatusInputs
+) {
   const hid = hiding(s.corrections, o.id);
   const everywhere = hid.find((c) => !c.page);
   if (everywhere) {
@@ -504,16 +507,18 @@ export function stateOf(o: Observation, s: Standing) {
   }
   return { hiddenOn, state: "active" as const };
 }
-type State = ReturnType<typeof stateOf>;
+type ObservationStatus = ReturnType<typeof observationStatusOf>;
 
 /** Whether an observation in that state shows: in the index (no page), or on `page`. */
-export const shows = (s: State, page?: string) =>
+export const shows = (s: ObservationStatus, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
 
 /** The observations that show in the index: neither hidden everywhere nor replaced. */
-export const shownOf = (list: Observation[], standing: Standing) =>
-  list.filter((o) => shows(stateOf(o, standing)));
+export const shownOf = (
+  list: Observation[],
+  standing: ObservationStatusInputs
+) => list.filter((o) => shows(observationStatusOf(o, standing)));
 
 /** Stamps and checks what the owner said (the CLI's `correct` and the connector's) and appends it; throws when invalid. */
 export async function recordCorrection(said: unknown) {

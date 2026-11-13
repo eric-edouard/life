@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, daysBefore } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
-import { Level } from "../records/observation";
+import { ClosenessLevel } from "../records/observation";
 import { TOP_AT } from "../records/unit";
 import { openLinked } from "../todo-list/todo-items-from-ledger";
 import { levelsWith } from "./closeness";
@@ -155,8 +155,8 @@ export async function dueContext(date: string, people: People) {
     [...levelsWith(people)].map(([p, l]) => [
       p,
       Math.min(
-        Level.options.indexOf(l.personal),
-        Level.options.indexOf(l.work)
+        ClosenessLevel.options.indexOf(l.personal),
+        ClosenessLevel.options.indexOf(l.work)
       ),
     ])
   );

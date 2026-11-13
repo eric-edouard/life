@@ -284,7 +284,7 @@ test("two authors filed as one person who now resolve to two different people: n
   expect(now[2]?.text).toBe("Jean asked Gaston.");
 });
 
-test("a voice kept by lifelog's id resolves by the name lifelog gave it when the map does not know the id", () => {
+test("a voice kept by lifelog's id resolves by the name lifelog gave it when the directory does not know the id", () => {
   const facts = [
     {
       entities: [],

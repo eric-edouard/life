@@ -167,7 +167,7 @@ function checkGoals(
   }
 }
 
-/** Empty means the map is consistent: every reference points at something that exists. */
+/** Empty means the directory is consistent: every reference points at something that exists. */
 export function integrity({
   areas,
   people,

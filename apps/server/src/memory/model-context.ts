@@ -1,6 +1,6 @@
 import {
-  type Beyond,
   INFERRED_USE_AT,
+  type PersonOutsideDirectory,
   unfoldedOf,
 } from "../records/observation";
 import { isUnderway } from "../records/truth";
@@ -17,19 +17,19 @@ export function meContext(truth: Truth) {
 }
 
 /**
- * The map as the episodes, extract and pages prompts name it: the people on his map (with those Life inferred) and his
+ * The directory as the episodes, extract and pages prompts name it: the people in his directory (with those Life inferred) and his
  * projects, every ref a reply may use (`map`). A call's `<context>` (the same for every call of a run, so it is cached)
  * shows the owner, his areas, the people close to him now (`shown`, `contextPeopleBy`) and the projects underway; the
- * others a call involves come in its input (`involvedOf`), so the context stays small as the map grows.
+ * others a call involves come in its input (`involvedOf`), so the context stays small as the directory grows.
  */
 export function refContext(
   {
-    beyond,
+    outsideDirectory,
     canon,
     truth,
   }: {
-    /** Everyone beyond truth/ (`readPeople`). */
-    beyond: Beyond[];
+    /** Everyone outside the directory (`readPeople`). */
+    outsideDirectory: PersonOutsideDirectory[];
     /** Who a person ref is now (`readPeople`). */
     canon: (ref: string) => string;
     truth: Truth;
@@ -42,7 +42,7 @@ export function refContext(
   const underway = new Set(
     truth.projects.filter(isUnderway).map((p) => `project:${p.id}`)
   );
-  const map = {
+  const directory = {
     people: [
       ...truth.people.map((p) => ({
         aliases: p.aliases,
@@ -53,7 +53,7 @@ export function refContext(
       })),
       // One ref per person: an id folded into another is that one. A guess is used from INFERRED_USE_AT and says
       // it is one; who his Contacts name is a name he gave a number, no relation known.
-      ...unfoldedOf(beyond, canon)
+      ...unfoldedOf(outsideDirectory, canon)
         .filter((p) => (p.confidence ?? 1) >= INFERRED_USE_AT)
         .map((p) => ({
           aliases: [] as string[],
@@ -76,16 +76,16 @@ export function refContext(
   return {
     context: {
       ...meContext(truth),
-      people: map.people.filter((p) => shown.has(p.ref)),
-      projects: map.projects.filter((p) => underway.has(p.ref)),
+      people: directory.people.filter((p) => shown.has(p.ref)),
+      projects: directory.projects.filter((p) => underway.has(p.ref)),
     },
-    map,
+    directory,
   };
 }
 
-/** The map's entries a call involves (`refs`) that its context leaves out: its input's `involved`. */
+/** The directory's entries a call involves (`refs`) that its context leaves out: its input's `involved`. */
 export function involvedOf(
-  { context, map }: ReturnType<typeof refContext>,
+  { context, directory }: ReturnType<typeof refContext>,
   refs: ReadonlySet<string>
 ) {
   const inContext = new Set(
@@ -93,5 +93,5 @@ export function involvedOf(
   );
   const pick = <T extends { ref: string }>(list: T[]) =>
     list.filter((x) => refs.has(x.ref) && !inContext.has(x.ref));
-  return { people: pick(map.people), projects: pick(map.projects) };
+  return { people: pick(directory.people), projects: pick(directory.projects) };
 }

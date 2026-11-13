@@ -245,7 +245,7 @@ export function voiceLines(
 
 /**
  * A chat, mail or git unit read again from its source: its messages and their lines, each with who wrote it as
- * extraction sees it (today's map and corrections). The one way `fetch` and the status reads' `read_observation` re-read a unit.
+ * extraction sees it (today's directory and corrections). The one way `fetch` and the status reads' `read_observation` re-read a unit.
  */
 export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
@@ -415,18 +415,18 @@ export async function fetchOf(
 }
 
 /**
- * What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names
+ * What `--who` stands for: the words, and when they name a person (on the directory, inferred, as corrected), that person's names
  * and handles. A word search, wider than who wrote a message (`speakerOf`, which events match on).
  */
 function needlesOf(who: string, people: People) {
-  const { beyond, canon, corrections, truth } = people;
+  const { outsideDirectory, canon, corrections, truth } = people;
   // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
   const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
     who,
     ...(person ? [person.name, ...person.aliases, ...handlesOf(person)] : []),
-    ...beyond.flatMap((p) =>
+    ...outsideDirectory.flatMap((p) =>
       canon(`person:${p.id}`) === ref ? [p.name, ...p.surfaces] : []
     ),
     // A handle the owner said is them ("Ann K on Instagram is Claire").
@@ -592,7 +592,7 @@ export async function mailHits(
  * messages inside the range, from WhatsApp's and the bridges' archives and iMessage, today included; with no `from`, the
  * all available history for `--who` and 7 days for `--chat`. `before` (exclusive) pages back: each answer names the next one.
  * Messages deleted for everyone show their text marked (deleted). `--who` matches a chat's name or id or a sender, by
- * a name or handle on the map too.
+ * a name or handle on the directory too.
  */
 export async function chatsOf(
   o: {
@@ -660,7 +660,7 @@ const notShown = (n: number) =>
 const unread = (names: string[]) =>
   names.length > 0 ? [`(could not read: ${names.join(", ")})`] : [];
 
-/** Who wrote a message, named as everywhere else: the map, inferred people, and the handles the owner named. */
+/** Who wrote a message, named as everywhere else: the directory, inferred people, and the handles the owner named. */
 function senderOf(e: SourceEvent, { names, resolve }: People) {
   const who = e.fromMe ? null : resolve(e.sender);
   return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);

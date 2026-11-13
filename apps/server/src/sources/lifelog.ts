@@ -452,7 +452,7 @@ interface TurnRow {
 /**
  * The live conversations still going at `since` or after it that have words (silent ones and the owner's dictation
  * have none), with their turns, oldest first, whatever their state (late audio can reopen one: its units stay). A
- * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the map.
+ * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the directory.
  */
 export function readConversations(
   store: Store,
@@ -562,7 +562,7 @@ export function turnsBetween(
     .map((t) => lifelogTurn(t, byId));
 }
 
-/** Who spoke a turn, as lifelog names them: its person id (the map may move it later), else its name; null for him or nobody. */
+/** Who spoke a turn, as lifelog names them: its person id (the directory may move it later), else its name; null for him or nobody. */
 export const authorOf = (t: LifelogTurn) =>
   t.owner ? null : (t.personId ?? t.name);
 

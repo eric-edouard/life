@@ -73,7 +73,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` from Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units, `memory-episodes.v7` since 5 Nov 2026, which links an unknown handle or name to the person on the map it is) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` from Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units, `memory-episodes.v7` since 5 Nov 2026, which links an unknown handle or name to the person in the directory it is) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -139,9 +139,9 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 | `text` | The claim, one English sentence, self-contained (names, absolute dates). |
 | `quote` | The source's own words for it, verbatim (original language, original spelling). Code checked it is in the source text the model read, comparing without case, accents, quote style or spacing, and stores the source's exact substring. That text has secrets (passwords, card numbers, IBANs, codes) replaced by `[… removed]` first. |
 | `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `line`, `instagram`, `messenger`, `linkedin`, `telegram`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
-| `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the map doesn't). |
+| `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the directory doesn't). |
 | `speakerName` | Optional, from 11 Oct: a readable name for an `unknown:` chat sender, the title of the 1:1 chat they wrote in. |
-| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, entities), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps lifelog's id; an unknown voice whose id the map lacks resolves by lifelog's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
+| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, entities), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps lifelog's id; an unknown voice whose id the directory lacks resolves by lifelog's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
 | `at`, `date`, `tz` | When the cited line was said or written (ISO with zone), its local day, and the IANA time zone that day is in (`zones.jsonl` at `at`; before 18 Oct, the Mac's when the record was made). |
 | `about` | From `memory-extract.v3`: the one person or project the claim is about (`person:me` for the owner), also in `entities`. |
 | `modality` | From `memory-extract.v3`: `fact`, `plan` (settled for later), `reported` (someone says it of a third person) or `conditional` (a hypothesis, a joke, a quote, an AI's text read aloud). |
@@ -165,7 +165,7 @@ regrouped, Life's own mail).
 ## unresolved.jsonl
 
 Names Life could not map to `truth/`: `{schemaVersion: 1, surface, unit, observation?, date, via, at}`. `via` is
-`model` (the extractor named someone not on the map) or `speaker` (lifelog named a voice the map doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
+`model` (the extractor named someone not on the directory) or `speaker` (lifelog named a voice the directory doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
 could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and lifelog voices).
 
 ## people-contacts.jsonl
@@ -181,7 +181,7 @@ card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's gues
 `truth/` included (`readingOf`: his Contacts are his word on a number). A card named, whole, as someone in `truth/`
 is that person and brings its handles; else a card that shares a handle with someone in `truth/` is that person; else
 one that shares only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`). A
-card whose whole name and whose handles say more than one person is no one's, a card **apart** (he renamed a card,
+card whose whole name and whose handles say more than one person is no one's, an **ambiguous card** (he renamed a card,
 two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and
 `bun life memory questions` lists the card for him to say; a guess made for
 one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
@@ -209,7 +209,7 @@ nightly's first step), append-only: `{schemaVersion: 1, repo, project, area, new
 folder name under the `repos` setting's folder (worktrees fold into their main repo; the first run also mapped `owner/name` repos only on GitHub); `project` an
 id from `truth/projects/`, else null; `area` the project's area, else the repo's own; `newProject` ("Cove: macOS call
 recorder") a project the owner might want, only a suggestion; `why` one sentence. Only a repo with the owner's commits is asked about,
-once per prompt version. Model-owned: used at once, below `Project.repos` in `truth/` (the owner's map); the latest record for a
+once per prompt version. Model-owned: used at once, below `Project.repos` in `truth/` (the owner's directory); the latest record for a
 repo wins. A repo on a project (either way) counts every author's commits in its git units. It never writes `truth/`.
 
 ## imported.jsonl
@@ -230,7 +230,7 @@ How close each person is to the owner, written by the nightly's `closeness` step
 counts, for everyone over the last 3 years, the days a 1:1 chat went both ways, the days a mail thread did (apart:
 mostly work; never a group nor a mailing list) and the days they spoke in the owner's recordings (lifelog's speakers, live
 conversations), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model judges those
-counts with who they are on the owner's map (everyone on it, and anyone with a page, is judged, counts or not; close family is close whatever the
+counts with who they are on the owner's directory (everyone on it, and anyone with a page, is judged, counts or not; close family is close whatever the
 counts, the prompt's rule). `counts` is what it judged, rounded, so a person is asked about again only when their counts
 move or the prompt changes. The latest record per person wins (a person folded into another: the kept one's); the owner's
 `closeness` correction wins over it. No model output feeds the counts. Model-owned: who has a page follows it at once.
@@ -342,7 +342,7 @@ the owner's reminders, waiting items and the replies the owner owes; an undated 
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
 
-- **One fact, one page.** Each observation has a home, computed on every run and never stored (`homeOf`): the person's
+- **One fact, one page.** Each observation has a home, computed on every run and never stored (`homePageOf`): the person's
   page when it is about exactly one other person who has a page, else the area of its project (`Project.area`), else
   the owner's own page when it is about the owner alone (filed with them, no other person, no name Life could not map) and is a
   `about_a_person` or `preference` or has no area, else its own area. Another page may mention a fact, not repeat it.
@@ -461,7 +461,7 @@ The fact checks: the memory lines the owner is asked about, one per line, append
 no model, from `memoryLinesNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
 `<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
-about it: that home page (`homeOf`), or for an episode the one person with a page it was with, else `episodes`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
+about it: that home page (`homePageOf`), or for an episode the one person with a page it was with, else `episodes`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
 `episode`), `source` (its channel; null for an episode), `date` (the claim's day) and `units` (what it was read from:
 where a later run's claims about the same thing are). Only doubtful claims are drawn (`doubtsOf`: who it is about is

@@ -11,7 +11,7 @@ import { PERSON } from "./units";
 import type { People } from "./who";
 import { when } from "./zones";
 
-// A person's details: what his map and his Contacts already hold about someone as fields (docs/glossary.md, "detail").
+// A person's details: what his directory and his Contacts already hold about someone as fields (docs/glossary.md, "detail").
 // Everything else known about them is a line of their page. This module is the one place that merges the two, and
 // decides a person's birthday.
 
@@ -37,8 +37,8 @@ export interface DetailLine {
 }
 
 /**
- * Someone's details, in page order (birthday, home, work, family, handles), each kind from his map first, then his
- * Contacts. One birthday: his map's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
+ * Someone's details, in page order (birthday, home, work, family, handles), each kind from his directory first, then his
+ * Contacts. One birthday: his directory's, else the first in Contacts. A Contacts address labelled Work is not a home. A line
  * two Contacts cards repeat shows once; a handle shows once, however it is written.
  */
 export function detailsOf({
@@ -144,7 +144,7 @@ export const birthdaysNear = (
     .toSorted((x, y) => x.b.left - y.b.left)
     .map(({ b, p }) => ({ id: p.id, name: p.name, text: birthdayText(b) }));
 
-const SOURCE_NAMES = { contacts: "Contacts", truth: "his map" };
+const SOURCE_NAMES = { contacts: "Contacts", truth: "his directory" };
 
 /** Someone's details as their page shows them, one line each, with where each comes from; `today` dates a birthday. */
 export function detailsBlock(lines: DetailLine[], today: string) {
@@ -184,7 +184,7 @@ export function readDetailsOf(
     });
 }
 
-/** The birthdays of the coming week (`birthdaysNear`) of everyone on his map or with a page. */
+/** The birthdays of the coming week (`birthdaysNear`) of everyone on his directory or with a page. */
 export async function readBirthdaysNear(people: People, date: string) {
   const detailsFor = readDetailsOf(people);
   const refs = new Set([

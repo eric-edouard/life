@@ -185,13 +185,13 @@ Before adding a helper, use the one that exists:
 
 | Need | Use |
 |---|---|
-| Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`memory-files.ts`): index, pages and status reads alike |
+| Where an observation stands (hidden, gone, replaced, retired) | `observationStatusOf` (`memory-files.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
 | Comparing a person's or a project's name when read | `nameKey` (`memory/units.ts`), never stored; stored text and ids: `normalize` |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`): his word, `truth/`, the people his Contacts name (`memory/contact-people.ts`, `people-contacts.jsonl`, appended by the night, never read from Contacts at read time), then Life's guesses; one person across every channel is `foldsOf`'s to say |
-| A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his map, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
+| A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his directory, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held, what each publication read (`memory/publications.jsonl`) and, for the pendant, the recorded days (`memory/recorded-days.ts`, the night's copy of lifelog's `GET /recorded`: no read asks lifelog); over a range of days, a day being a range of one; by month, `notCapturedOf` |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` is the one place that decides what a link ends; in shadow, off until his `links` setting, read by nothing but `bun life memory links <person>` |

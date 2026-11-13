@@ -24,18 +24,18 @@ import {
   latestFactCheckAnswers,
   newSince,
   OBSERVATIONS,
+  type ObservationStatusInputs,
+  observationStatusOf,
   outdatedBy,
   readFactCheckAnswers,
   readIndex,
+  readObservationStatusInputs,
   readOrigins,
-  readStanding,
   readUnit,
   readUnitsFor,
   recordFactCheckAnswer,
   retiredBy,
-  type Standing,
   shownOf,
-  stateOf,
   UNITS,
 } from "./memory-files";
 import { knownOn } from "./page-format";
@@ -240,7 +240,7 @@ async function view(f: typeof fixture) {
       .map((x) => [x.id, known.retired.has(x.id) ? "cited" : "new"]);
   };
   const statusReads = f.list.map((x) => {
-    const s = stateOf(x, standing);
+    const s = observationStatusOf(x, standing);
     const on = s.hiddenOn ?? [];
     return [
       x.id,
@@ -256,7 +256,9 @@ async function view(f: typeof fixture) {
 
 test("hidden beats gone beats replaced beats retired beats active", () => {
   const x = obs("obs_000000000001", "unit_1", "h1");
-  const at = (over: Partial<Standing>): Standing => ({
+  const at = (
+    over: Partial<ObservationStatusInputs>
+  ): ObservationStatusInputs => ({
     corrections: [],
     latest: new Map(),
     live: new Set(["unit_1"]),
@@ -269,17 +271,22 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
     [x.id, { at: "t", by: "obs_000000000002" } as Supersession],
   ]);
   const latest = new Map([["unit_1", read("unit_1", "other", "r2")]]);
-  expect(stateOf(x, at({}))).toEqual({ hiddenOn: [], state: "active" });
-  expect(stateOf(x, at({ retired }))).toMatchObject({
+  expect(observationStatusOf(x, at({}))).toEqual({
+    hiddenOn: [],
+    state: "active",
+  });
+  expect(observationStatusOf(x, at({ retired }))).toMatchObject({
     by: "obs_000000000002",
     state: "retired",
   });
-  expect(stateOf(x, at({ latest, retired })).state).toBe("replaced");
-  expect(stateOf(x, at({ latest, live: new Set(), retired })).state).toBe(
-    "gone"
+  expect(observationStatusOf(x, at({ latest, retired })).state).toBe(
+    "replaced"
   );
   expect(
-    stateOf(x, at({ corrections: [wrong()], latest, retired }))
+    observationStatusOf(x, at({ latest, live: new Set(), retired })).state
+  ).toBe("gone");
+  expect(
+    observationStatusOf(x, at({ corrections: [wrong()], latest, retired }))
   ).toMatchObject({ correction: "wrong", state: "hidden" });
 });
 
@@ -346,8 +353,8 @@ test("audit-7-close-kept-promise: a promise he says he kept is retired by itself
     latest: new Map(),
     live: new Set(["unit_1"]),
     retired: retiredBy(outdatedBy([kept]), new Set(["obs_a"])),
-  } as Standing;
-  expect(stateOf(obs("obs_a", "unit_1", "h1"), s)).toEqual({
+  } as ObservationStatusInputs;
+  expect(observationStatusOf(obs("obs_a", "unit_1", "h1"), s)).toEqual({
     at: "2026-10-27T14:50:00Z",
     by: "obs_a",
     hiddenOn: [],
@@ -381,9 +388,9 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
         ],
         new Set(["obs_a", "obs_b"])
       ),
-    }) as Standing;
+    }) as ObservationStatusInputs;
   const outdated = standing([rate("obs_a", "outdated")]);
-  expect(stateOf(x, outdated)).toEqual({
+  expect(observationStatusOf(x, outdated)).toEqual({
     at: "2026-10-19T08:00:00Z",
     by: "obs_a",
     hiddenOn: [],
@@ -398,11 +405,14 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
     ).map((c) => c.kind)
   ).toEqual(["outdated"]);
   expect(
-    stateOf(x, standing([rate("obs_a", "outdated"), rate("obs_a", null)])).state
+    observationStatusOf(
+      x,
+      standing([rate("obs_a", "outdated"), rate("obs_a", null)])
+    ).state
   ).toBe("active");
   const closed = { by: "obs_b", observation: "obs_a" } as Supersession;
   expect(
-    stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
+    observationStatusOf(x, standing([rate("obs_a", "outdated")], [closed]))
   ).toMatchObject({ by: "obs_b", state: "retired" });
 });
 
@@ -512,8 +522,8 @@ test("unit references read only indexed or cited days; a missing index entry che
     );
     const origins = await readOrigins();
     expect(origins.get("2026-10.jsonl")?.map((o) => o.n)).toEqual([0, 2]);
-    expect(await readStanding([])).toEqual(
-      await readStanding([], Promise.resolve(facts))
+    expect(await readObservationStatusInputs([])).toEqual(
+      await readObservationStatusInputs([], Promise.resolve(facts))
     );
   } finally {
     rmSync(UNITS, { force: true, recursive: true });

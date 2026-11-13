@@ -22,7 +22,10 @@ const line = (from: string, to: string, sources: Published["sources"]) =>
   }) satisfies Published;
 // The record starts with the night of 13 Nov, which read its last 7 days.
 const lines = [line("2026-11-07", "2026-11-13", ["imessage", "whatsapp"])];
-const stateOf = (day: string, o: Partial<Parameters<typeof coverageOf>[1]>) =>
+const coverageOfDay = (
+  day: string,
+  o: Partial<Parameters<typeof coverageOf>[1]>
+) =>
   Object.fromEntries(
     coverageOf(day, {
       isPublished: true,
@@ -35,7 +38,7 @@ const stateOf = (day: string, o: Partial<Parameters<typeof coverageOf>[1]>) =>
 
 test("a day is captured only when something says so: a unit that day, or a publication that read the source", () => {
   expect(
-    stateOf("2026-11-10", {
+    coverageOfDay("2026-11-10", {
       sources: [source("imessage"), source("line", { hasUnit: true })],
     })
   ).toEqual({ imessage: "captured", line: "captured" });
@@ -43,21 +46,26 @@ test("a day is captured only when something says so: a unit that day, or a publi
 
 test("not seen: before a source's first day, a day never published, a source the publication did not read, a week no night read", () => {
   expect(
-    stateOf("2026-11-10", {
+    coverageOfDay("2026-11-10", {
       sources: [source("line", { firstDay: "2026-10-30" })],
     })
   ).toEqual({ line: "not_seen: Life did not read it this day" });
   expect(
-    stateOf("2026-10-01", {
+    coverageOfDay("2026-10-01", {
       sources: [source("line", { firstDay: "2026-10-30" })],
     })
   ).toEqual({ line: "not_seen: before its first day, 2026-10-30" });
   // A day the history could not date: no units file.
   expect(
-    stateOf("2026-11-10", { isPublished: false, sources: [source("imessage")] })
+    coverageOfDay("2026-11-10", {
+      isPublished: false,
+      sources: [source("imessage")],
+    })
   ).toEqual({ imessage: "not_seen: Life read nothing this day" });
   // After the record began, a day no publication covers (the nights failed for a week): never "quiet".
-  expect(stateOf("2026-11-16", { sources: [source("imessage")] })).toEqual({
+  expect(
+    coverageOfDay("2026-11-16", { sources: [source("imessage")] })
+  ).toEqual({
     imessage: "not_seen: Life read nothing this day",
   });
 });
@@ -70,7 +78,7 @@ test("the pendant with nothing held: what lifelog said it recorded, never the re
     since: "2026-10-08T03:00:00.000Z",
   };
   const pendant = (recorded: Parameters<typeof recordingOf>[0], day: string) =>
-    stateOf(day, {
+    coverageOfDay(day, {
       lines: [line("2026-11-07", "2026-11-13", ["lifelog"])],
       sources: [source("lifelog", { recorded })],
     }).lifelog;
@@ -94,20 +102,24 @@ test("the pendant with nothing held: what lifelog said it recorded, never the re
   );
   // A unit that day needs no asking; today is being captured, whatever last night's file says.
   expect(
-    stateOf("2026-11-10", { sources: [source("lifelog", { hasUnit: true })] })
+    coverageOfDay("2026-11-10", {
+      sources: [source("lifelog", { hasUnit: true })],
+    })
   ).toEqual({ lifelog: "captured" });
   expect(pendant(kept, "2026-11-20")).toBe("captured");
 });
 
 test("unknown: a day before the record with no unit", () => {
-  expect(stateOf("2026-10-01", { sources: [source("imessage")] })).toEqual({
+  expect(
+    coverageOfDay("2026-10-01", { sources: [source("imessage")] })
+  ).toEqual({
     imessage: "unknown: Life kept no record of what it read before 2026-11-13",
   });
 });
 
 test("today: a readable source is being captured, one that can't be read is not seen", () => {
   expect(
-    stateOf("2026-11-20", {
+    coverageOfDay("2026-11-20", {
       sources: [
         source("imessage"),
         source("whatsapp", { missing: "Full Disk Access for Life" }),

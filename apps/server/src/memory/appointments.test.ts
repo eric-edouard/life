@@ -6,7 +6,7 @@ import {
   heldIdsOf,
   observationsAheadOf,
 } from "./appointments";
-import type { Standing } from "./memory-files";
+import type { ObservationStatusInputs } from "./memory-files";
 
 const UNIT = "unit_000000000001";
 const NEW_ID = /^apt_[0-9a-f]{12}$/;
@@ -20,13 +20,13 @@ const fact = (id: string, over: Partial<Observation> = {}) =>
     when: null,
     ...over,
   }) as Observation;
-const standing = (retired: string[] = []): Standing => ({
+const standing = (retired: string[] = []): ObservationStatusInputs => ({
   corrections: [],
   latest: new Map(),
   live: new Set([UNIT]),
   retired: new Map(
     retired.map((id) => [id, { by: "obs_ffffffffffff" }])
-  ) as Standing["retired"],
+  ) as ObservationStatusInputs["retired"],
 });
 
 test("the step reads what is ahead (plans and facts, never a hypothesis), recent undated plans, and what a held appointment cites", () => {

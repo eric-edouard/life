@@ -8,10 +8,10 @@ import { pagedNow } from "./closeness";
 import {
   episodesNow,
   FACT_CHECKS,
+  observationStatusOf,
   readEpisodes,
   readFactChecks,
   shows,
-  stateOf,
 } from "./memory-files";
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
@@ -120,7 +120,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   );
   const episodes = episodesNow(await readEpisodes(), people.corrections);
   const facts = observations.flatMap((o) => {
-    const s = stateOf(o, standing);
+    const s = observationStatusOf(o, standing);
     if (s.state !== "active") {
       return [];
     }
