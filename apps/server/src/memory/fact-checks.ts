@@ -2,7 +2,13 @@ import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { settings } from "../core/settings";
 import { FactCheck, isEndingCheck } from "../records/fact-check";
-import { type Doubt, doubtsOf, drawFactChecks, kindOf, plain } from "./doubts";
+import {
+  type Doubt,
+  doubtsOf,
+  drawFactChecks,
+  factCheckKindOf,
+  plain,
+} from "./doubts";
 import { readBatches } from "./endings";
 import { readMatterRecords } from "./matters";
 import {
@@ -68,7 +74,7 @@ export async function drawEndingChecks(now = clock()) {
               date: o.date,
               endedBy: link.later,
               group: o.subjects[0] ?? "episodes",
-              kind: kindOf(o),
+              kind: factCheckKindOf(o),
               ref,
               schemaVersion: 1 as const,
               source: o.source.channel,

@@ -106,7 +106,7 @@ export const doubtful = (
     .slice(0, n);
 
 /** A fact check's `kind` for an observation: its modality when plan or reported, else a fact. */
-export const kindOf = (o: {
+export const factCheckKindOf = (o: {
   modality?: string | null;
 }): "fact" | "plan" | "reported" =>
   o.modality === "plan" || o.modality === "reported" ? o.modality : "fact";
@@ -137,7 +137,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
         doubts: doubtsOf(o, people.refOf),
         group: page && shows(s, page) ? page : null,
         importance: o.importance,
-        kind: kindOf(o),
+        kind: factCheckKindOf(o),
         ref: o.id,
         source: o.source.channel,
         text: o.when ? `${o.text} (for ${plain(o.when)})` : o.text,
