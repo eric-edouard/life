@@ -19,8 +19,8 @@ import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";
 
-// The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful claims drawn from
-// it for the owner to answer, one per claim, frozen as he is shown them (memory/statements.jsonl).
+// The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful memory lines drawn from
+// it for the owner to answer, one per line, frozen as he is shown them (memory/statements.jsonl).
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
@@ -56,7 +56,7 @@ export function episodeGroup(
 }
 type Draft = Omit<FactCheck, "at" | "schemaVersion">;
 
-/** Why a claim may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
+/** Why a memory line may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
 export type Doubt = "guessed-person" | "low-confidence";
 
 /** An observation's doubts (the one place "doubtful" is decided): low confidence counts only beside another doubt. */
@@ -83,7 +83,7 @@ export type MemoryLine = Omit<Draft, "group"> & {
   importance: number;
 };
 
-/** The `n` claims he should check first: doubtful, importance 3 then 2 (never 1), more doubts, newest; none stated before or without a page. */
+/** The `n` memory lines he should check first: doubtful, importance 3 then 2 (never 1), more doubts, newest; none stated before or without a page. */
 export const doubtful = (
   claims: MemoryLine[],
   stated: ReadonlySet<string>,
@@ -158,9 +158,9 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   ];
 }
 
-/** Draws the `n` claims he should check first (`doubtful`) into memory/statements.jsonl, frozen as he is shown them. The caller holds the lock. */
+/** Draws the `n` memory lines he should check first (`doubtful`) into memory/statements.jsonl, frozen as he is shown them. The caller holds the lock. */
 export async function drawFactChecks(n: number) {
-  const rec = record("memory.statements", { n });
+  const rec = record("memory.fact-checks", { n });
   const [claims, stated] = await Promise.all([
     memoryLinesNow(),
     readFactChecks(),
@@ -168,7 +168,7 @@ export async function drawFactChecks(n: number) {
   const drawn = doubtful(claims, new Set(stated.map((s) => s.ref)), n).map(
     ({ doubts, group, importance, ...c }) => ({
       doubts,
-      statement: {
+      factCheck: {
         ...c,
         at: rec.now.toISOString(),
         group,
@@ -179,7 +179,7 @@ export async function drawFactChecks(n: number) {
   await appendJsonl(
     FACT_CHECKS,
     FactCheck,
-    drawn.map((d) => d.statement)
+    drawn.map((d) => d.factCheck)
   );
   rec.end({
     added: drawn.length,

@@ -22,7 +22,7 @@ import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
 import { memoryLinesNow } from "@life/server/src/memory/doubts";
 import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
-import { answeredObservations } from "@life/server/src/memory/memory-files";
+import { answeredFactChecks } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import type { tally } from "@life/server/src/memory/tally";
@@ -226,7 +226,7 @@ async function bench(models: string[], runs: number, judge?: string) {
     const days = windows.map((w) =>
       w.from === w.to ? w.from : `${w.from}–${w.to}`
     );
-    const rated = answeredObservations()
+    const rated = answeredFactChecks()
       .filter((f) => windows.some((w) => f.date >= w.from && f.date <= w.to))
       .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
     const ratedFile = join(tmp, "rated.json");

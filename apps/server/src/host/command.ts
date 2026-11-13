@@ -208,7 +208,7 @@ const HANDLERS: Record<string, Handler> = {
     return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
   }),
   extract: step(async (v) => extract(await gathered(v))),
-  /** `fact-checks <n>`: draws the n observations he should check first into memory/statements.jsonl and prints them with their doubts. */
+  /** `fact-checks <n>`: draws the n memory lines he should check first into memory/statements.jsonl and prints them with their doubts. */
   "fact-checks": (_values, [n = ""]) =>
     Number(n) > 0
       ? locked(() => drawFactChecks(Number(n))).then((drawn) =>

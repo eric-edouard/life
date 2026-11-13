@@ -394,7 +394,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   const ids = new Set(fresh.map((o) => o.id));
   const { homes } = placed(observations, people.truth, await pagedNow(people));
   return {
-    facts: [...homes].flatMap(([home, lines]) =>
+    keyObservations: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
         ids.has(o.id) && o.importance === TOP_AT && !standing.retired.has(o.id)
           ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
@@ -478,7 +478,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     await writeRecordedDays();
     const { pending, reads, withPeople } = await readYears(now);
     await phase.step("closeness", () => closeness(withPeople));
-    const { facts, marked, observed, retired } = await whatIsNew(
+    const { keyObservations, marked, observed, retired } = await whatIsNew(
       since,
       window.from,
       evidence.built
@@ -539,9 +539,9 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       code: commits,
       episodes: found,
       extracted,
-      facts,
       files: evidence.files,
       from: window.from,
+      keyObservations,
       marked,
       observed,
       paged,
@@ -550,7 +550,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       retired,
       spent: await spent(rec, q),
     });
-    listed = facts.map((f) => f.id);
+    listed = keyObservations.map((f) => f.id);
   } catch (e) {
     failure = phase.failed(e);
     mail = failureReport(

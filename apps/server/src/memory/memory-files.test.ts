@@ -14,14 +14,14 @@ import type {
 } from "../records/observation";
 import { buildIndex } from "./index-writer";
 import {
-  answeredCorrections,
-  answeredObservations,
+  answeredFactCheckCorrections,
+  answeredFactChecks,
   FACT_CHECKS,
   hiding,
   INDEX,
   isCurrent,
-  latestAnswers,
   latestExtractions,
+  latestFactCheckAnswers,
   newSince,
   OBSERVATIONS,
   outdatedBy,
@@ -149,8 +149,8 @@ const fixture = {
   ).set(
     "O",
     outdatedBy(
-      answeredCorrections(
-        latestAnswers([
+      answeredFactCheckCorrections(
+        latestFactCheckAnswers([
           { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
         ] as FactCheckAnswer[])
       )
@@ -311,8 +311,8 @@ test("a claim he rated false or partly is hidden as wrong, with his why, until a
     answer: FactCheckAnswer["answer"],
     note?: string
   ) => ({ answer, at, note, ref: claim, schemaVersion: 1 }) as FactCheckAnswer;
-  const wrong = answeredCorrections(
-    latestAnswers([
+  const wrong = answeredFactCheckCorrections(
+    latestFactCheckAnswers([
       rate("obs_a", "false"),
       rate("obs_b", "false"),
       rate("obs_b", null),
@@ -373,7 +373,12 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
       latest: new Map(),
       live: new Set(["unit_1"]),
       retired: retiredBy(
-        [...first, ...outdatedBy(answeredCorrections(latestAnswers(ratings)))],
+        [
+          ...first,
+          ...outdatedBy(
+            answeredFactCheckCorrections(latestFactCheckAnswers(ratings))
+          ),
+        ],
         new Set(["obs_a", "obs_b"])
       ),
     }) as Standing;
@@ -388,9 +393,9 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
     why: "rated outdated",
   });
   expect(
-    answeredCorrections(latestAnswers([rate("obs_a", "outdated")])).map(
-      (c) => c.kind
-    )
+    answeredFactCheckCorrections(
+      latestFactCheckAnswers([rate("obs_a", "outdated")])
+    ).map((c) => c.kind)
   ).toEqual(["outdated"]);
   expect(
     stateOf(x, standing([rate("obs_a", "outdated"), rate("obs_a", null)])).state
@@ -433,7 +438,7 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
   await recordFactCheckAnswer(old, "outdated");
   await recordFactCheckAnswer(passed, "skip");
   expect(readFactCheckAnswers().get(half)?.note).toBe("it was Tuesday");
-  const facts = new Map(answeredObservations().map((f) => [f.id, f]));
+  const facts = new Map(answeredFactChecks().map((f) => [f.id, f]));
   expect([right, half, old, passed].map((r) => facts.get(r)?.true)).toEqual([
     true,
     undefined,

@@ -302,15 +302,15 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
   return out;
 };
 
-/** The owner's answers to the fact checks: the latest for each claim (null: taken back). */
-export const latestAnswers = (list: FactCheckAnswer[]) =>
+/** The owner's answers to the fact checks: the latest for each memory line (null: taken back). */
+export const latestFactCheckAnswers = (list: FactCheckAnswer[]) =>
   latestBy(list, (r) => r.ref);
 
 export const readFactCheckAnswers = () =>
-  latestAnswers(rowsOf(FACT_CHECK_ANSWERS, FactCheckAnswer));
+  latestFactCheckAnswers(rowsOf(FACT_CHECK_ANSWERS, FactCheckAnswer));
 
 /**
- * What each answer means, decided here only: the correction it reads as (false and partly hide the claim as wrong,
+ * What each answer means, decided here only: the correction it reads as (false and partly hide the memory line as wrong,
  * outdated retires it as history), and what it says to the eval (`fact`: true, false, or null to leave it out).
  */
 const ANSWERS: Record<
@@ -325,7 +325,7 @@ const ANSWERS: Record<
 };
 
 /** His latest answers as the corrections they read as (`ANSWERS`), his note with them: an undo or a later answer lifts one. */
-export const answeredCorrections = (
+export const answeredFactCheckCorrections = (
   latest: Map<string, FactCheckAnswer>
 ): Correction[] =>
   [...latest.values()].flatMap(({ answer, at, note, ref }) => {
@@ -361,10 +361,10 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
       : []
   );
 
-/** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredCorrections`). */
+/** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredFactCheckCorrections`). */
 export const readCorrections = (): Correction[] => [
   ...rowsOf(CORRECTIONS, Correction),
-  ...answeredCorrections(readFactCheckAnswers()),
+  ...answeredFactCheckCorrections(readFactCheckAnswers()),
 ];
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
@@ -527,24 +527,25 @@ export async function recordCorrection(said: unknown) {
   return correction;
 }
 
-/** The fact checks he was shown: every statement, in the order it was drawn. */
+/** The fact checks he was shown: every one, in the order it was drawn. */
 export const readFactChecks = () => rowsOf(FACT_CHECKS, FactCheck);
 
 /** How long a drawn fact check stays open; after that it counts as skipped (derived, nothing written). */
 const FACT_CHECK_OPEN = 7 * DAY;
 /** The fact checks open now (the one place it is decided): drawn under 7 days ago, not answered. */
 export function openFactChecks(now = clock().getTime()) {
-  const rated = readFactCheckAnswers();
+  const answers = readFactCheckAnswers();
   return readFactChecks().filter(
-    (s) => !rated.get(s.ref)?.answer && now - Date.parse(s.at) < FACT_CHECK_OPEN
+    (s) =>
+      !answers.get(s.ref)?.answer && now - Date.parse(s.at) < FACT_CHECK_OPEN
   );
 }
 
-/** His rated statements as facts, true or false as `ANSWERS` says (skip and partly left out). */
-export function answeredObservations() {
-  const ratings = readFactCheckAnswers();
+/** The fact checks he answered, as the eval's facts: true or false as `ANSWERS` says (skip and partly left out); episodes' too. */
+export function answeredFactChecks() {
+  const answers = readFactCheckAnswers();
   return readFactChecks().flatMap((s) => {
-    const answer = ratings.get(s.ref)?.answer;
+    const answer = answers.get(s.ref)?.answer;
     const fact = answer ? ANSWERS[answer].fact : null;
     return answer && fact !== null
       ? [

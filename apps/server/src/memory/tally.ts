@@ -1,4 +1,4 @@
-// How the memory did on facts whose truth is known (the hand-made evals, his ratings): a judge's grades, and what
+// How the memory did on facts whose truth is known (the hand-made evals, his fact-check answers): a judge's grades, and what
 // they come to.
 import { join } from "node:path";
 import { z } from "zod";
@@ -19,11 +19,11 @@ const Grades = z.object({
 });
 export type Grade = z.infer<typeof Grades>["grades"][number];
 const JUDGE_PROMPT = "eval-judge.v2";
-/** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--ratings`, scripts/eval.ts). */
+/** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--fact-check-answers`, scripts/eval.ts). */
 export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
 
 /**
- * A grade kept between `--ratings` runs: the key of what it was judged on (its fact, the claims on its units as of its
+ * A grade kept between `--fact-check-answers` runs: the key of what it was judged on (its fact, the claims on its units as of its
  * day, the judge), and the claims it cited as they read then (null: gone).
  */
 export interface KeptGrade {
@@ -48,15 +48,15 @@ interface JudgedFact {
   id: string;
 }
 /** A claim as the judge reads it: what was said, and the day it was said. */
-export const JudgeLine = z.object({
+export const JudgeMemoryLine = z.object({
   date: z.string(),
   id: z.string(),
   text: z.string(),
 });
-type JudgeLine = z.infer<typeof JudgeLine>;
+type JudgeMemoryLine = z.infer<typeof JudgeMemoryLine>;
 
 /** The judge's calls: the facts of each day with the claims said by then; facts with no day with every claim. */
-export const asOf = (facts: JudgedFact[], claims: JudgeLine[]) =>
+export const asOf = (facts: JudgedFact[], claims: JudgeMemoryLine[]) =>
   [...Map.groupBy(facts, (f) => f.date)].map(([date, group]) => ({
     claims: date === undefined ? claims : claims.filter((c) => c.date <= date),
     date,
@@ -67,12 +67,12 @@ export const asOf = (facts: JudgedFact[], claims: JudgeLine[]) =>
  * A judge's grades (his engine's main tier) of `facts` against `claims` (`text` is what was said, `id` names it, `date`
  * the day it was said). A fact with a `date` is judged as of that day, against the claims said on or before it, so a
  * later change never contradicts a state true then; one call per date (`asOf`), facts without one against every claim.
- * The calls run together: a caller sorting its facts by date keeps them few (`--ratings`, scripts/eval.ts).
+ * The calls run together: a caller sorting its facts by date keeps them few (`--fact-check-answers`, scripts/eval.ts).
  * Inputs and replies kept in `dir`. Facts go without their truth: the judge isn't told which should hold.
  */
 export async function judge(
   facts: JudgedFact[],
-  claims: JudgeLine[],
+  claims: JudgeMemoryLine[],
   o: { dir: string; engine?: Parameters<typeof llmFor>[1]; run: string }
 ) {
   const calls = await Promise.all(

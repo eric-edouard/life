@@ -204,7 +204,7 @@ export function grantRefusal(g: {
   }
 }
 
-/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
+/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life auto-add`: one ledger line, the latest standing. Never from the connector. */
 export async function setGrant(on: boolean, said: string) {
   const instruction = requested("session", said);
   const line: LedgerEntry = {

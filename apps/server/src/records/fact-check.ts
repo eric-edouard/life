@@ -3,9 +3,9 @@ import { SourceName } from "../core/names";
 import { EntityRef, EpisodeId, isoDate, isoDateTime, UnitId } from "./fields";
 import { ObservationId } from "./observation";
 
-// The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
+// The fact checks, the owner's answers to them and the eval's scores (docs/SCHEMA.md).
 
-/** memory/statements.jsonl: the fact checks, one statement per claim, frozen as he was shown it (docs/SCHEMA.md). */
+/** memory/statements.jsonl: the fact checks, one per memory line, frozen as he was shown it (docs/SCHEMA.md). */
 export const FactCheck = z
   .object({
     at: isoDateTime,
@@ -22,7 +22,7 @@ export const FactCheck = z
 
 export type FactCheck = z.infer<typeof FactCheck>;
 
-/** memory/ratings.jsonl: his answers to the fact checks, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
+/** memory/ratings.jsonl: his answers to the fact checks, the latest per memory line counting; null is an undo (docs/SCHEMA.md). */
 export const FactCheckAnswer = z
   .object({
     answer: z.enum(["true", "false", "partly", "outdated", "skip"]).nullable(),
@@ -36,7 +36,7 @@ export const FactCheckAnswer = z
 
 export type FactCheckAnswer = z.infer<typeof FactCheckAnswer>;
 
-/** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --ratings`), its counts (docs/SCHEMA.md). */
+/** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --fact-check-answers`), its counts (docs/SCHEMA.md). */
 export const EvalScore = z
   .object({
     at: isoDateTime,

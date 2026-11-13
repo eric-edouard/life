@@ -283,7 +283,7 @@ never his.
 
 ## corrections.jsonl
 
-His corrections, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false
+His corrections, append-only, and the one place the owner's word is kept (with the owner's fact-check answers: a memory line the owner answered false
 or partly reads as a `wrong` here, `ratings.jsonl`). A Claude session appends it when the owner says
 something in conversation (`bun life memory correct '<json>'`, which checks and stamps it), and the pages step adds
 `keep-mine` and `not-important` when it finds the owner editing a page file. Every rebuild respects it. Each line has
@@ -471,19 +471,19 @@ before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
 
-The owner's answers to the fact checks, append-only, written by `recordFactCheckAnswer` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory answer-fact-check <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
+The owner's answers to the fact checks (a `FactCheckAnswer`), append-only, written by `recordFactCheckAnswer` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory answer-fact-check <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
-`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
-rated. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
+`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a fact check he was shown can be
+answered. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction
 (`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on an
-episode it changes nothing. A skipped statement is not asked again.
+episode it changes nothing. A skipped fact check is not asked again.
 
 ## scores.jsonl
 
-How the memory scored against the owner's ratings, one line per run of `bun scripts/eval.ts --ratings` with something to judge,
+How the memory scored against the owner's fact-check answers, one line per run of `bun scripts/eval.ts --fact-check-answers` with something to judge,
 append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, both, ungraded, outdated, gone}`: of `rated`
 statements judged (`trues` of them true), each as of its own day (against the claims said by then), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
 contradicts, `restated` false ones it says again, `both` ones it states and contradicts (kept both: counted apart since 28 Oct 2026, before in

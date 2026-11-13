@@ -284,7 +284,7 @@ first.
 - **Timeline score:** `bun scripts/timeline.ts <truth.json>` scores the episodes memory holds for a truth file's days
   (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
   missed, extra, duplicates, and start, end and place against lifelog's stays.
-- **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
+- **Fact checks:** `bun scripts/eval.ts --fact-check-answers` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 05:00.
   A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of

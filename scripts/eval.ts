@@ -1,6 +1,6 @@
-// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
-// checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`memoryLinesNow`, the words the owner rates);
-// a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--ratings` grades the statements the owner rated
+// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
+// checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
+// a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--fact-check-answers` grades the fact checks the owner answered
 // (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
 // `--json` prints the counts alone, for the bench (scripts/bench.ts). `--judge-cases` measures the judge itself: cases
 // whose grade the owner settled (~/Life/docs/evals/judge-cases-*.json), each judged alone, and how many it gets right.
@@ -13,7 +13,7 @@ import {
   memoryLinesNow,
 } from "@life/server/src/memory/doubts";
 import {
-  answeredObservations,
+  answeredFactChecks,
   OUT,
   readLiveUnits,
   SCORES,
@@ -26,7 +26,7 @@ import {
   GRADES,
   type Grade,
   isGradeKept,
-  JudgeLine,
+  JudgeMemoryLine,
   judge,
   judgedBy,
   type KeptGrade,
@@ -53,7 +53,7 @@ const Facts = z.object({
 const JudgeCases = z.object({
   cases: z.array(
     z.object({
-      claims: z.array(JudgeLine),
+      claims: z.array(JudgeMemoryLine),
       date: z.iso.date().optional(),
       expect: z.enum(GRADES),
       fact: z.string(),
@@ -68,23 +68,23 @@ const lines = (claims: MemoryLine[], keep: (c: MemoryLine) => boolean) =>
     keep(c) ? [{ date: c.date, id: c.ref, text: c.text }] : []
   );
 
-/** Rated statements per judge call. */
+/** Answered fact checks per judge call. */
 const PER_CALL = 30;
-/** The `--ratings` grades kept between runs, by fact id: derived, a lost file means one full run. */
+/** The `--fact-check-answers` grades kept between runs, by fact id: derived, a lost file means one full run. */
 const GRADES_KEPT = join(OUT, "fact-check-grades.json");
 
 /**
- * `--ratings`: the statements he rated true or false, judged against what the memory holds now of the same units, 30
+ * `--fact-check-answers`: the fact checks he answered true or false, judged against what the memory holds now of the same units, 30
  * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own claim
  * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
- * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A statement none of whose units exist any more (a conversation regrouped) can't be judged: it is
+ * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A fact check none of whose units exist any more (a conversation regrouped) can't be judged: it is
  * listed apart and left out of the score. A grade is kept (`GRADES_KEPT`) while its key (the fact, the claims on its
  * units as of its day, the judge) holds and every claim it cites says the same (a batch also shows its other facts'
  * claims, which a grade may rest on); only the rest are judged again.
  */
-async function ratedRun() {
+async function factCheckAnswersRun() {
   const [claims, live] = await Promise.all([memoryLinesNow(), readLiveUnits()]);
-  const rated = answeredObservations();
+  const rated = answeredFactChecks();
   const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
@@ -194,7 +194,7 @@ async function factsRun(factsPath: string, claimsPath?: string) {
     ? (await Bun.file(claimsPath).text())
         .split("\n")
         .filter(Boolean)
-        .map((l) => JudgeLine.parse(JSON.parse(l)))
+        .map((l) => JudgeMemoryLine.parse(JSON.parse(l)))
     : lines(await memoryLinesNow(), (c) => c.date >= from && c.date <= to);
   return {
     facts,
@@ -209,7 +209,7 @@ const asJson = args.includes("--json");
 const [mode, claimsFile] = args.filter((a) => a !== "--json");
 if (!mode) {
   throw new Error(
-    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings | --judge-cases <cases.json>"
+    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --fact-check-answers | --judge-cases <cases.json>"
   );
 }
 // The bench (`--json`) checked before it started: its grading is the cheap end of a run already paid for.
@@ -230,8 +230,8 @@ await ended(rec, async () => {
     return await judgeCasesRun(claimsFile);
   }
   const result =
-    mode === "--ratings"
-      ? await locked(ratedRun)
+    mode === "--fact-check-answers"
+      ? await locked(factCheckAnswersRun)
       : await factsRun(mode, claimsFile);
   if (!result) {
     throw new Error("a run holds the lock: score when it is done");
