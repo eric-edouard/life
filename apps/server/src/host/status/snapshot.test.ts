@@ -159,6 +159,37 @@ test(
 );
 
 test(
+  "a calendar whose sync failed within the hour says failing, whatever it wrote before",
+  async () => {
+    const { setSettings, settings } = await import("../../core/settings");
+    const { log } = await import("../../core/log");
+    const { past } = settings();
+    // Past the snapshot's cache of the log, which earlier tests filled.
+    const later = performance.now() + HOUR;
+    const timer = spyOn(performance, "now").mockReturnValue(later);
+    try {
+      setSettings({
+        past: { account: "owner@example.com", calendar: "past@example.com" },
+      });
+      log("run.error", {
+        error: "Error: gog calendar: no token",
+        step: "past",
+      });
+      const card = (await snapshot()).cards.find((c) => c.id === "past");
+      expect(card).toMatchObject({
+        content: ["Error: gog calendar: no token"],
+        tone: "warn",
+        word: "failing",
+      });
+    } finally {
+      timer.mockRestore();
+      setSettings({ past });
+    }
+  },
+  MIN
+);
+
+test(
   "143-email-card: the Email card follows the mail setting: sending with an address, kept on the Mac without",
   async () => {
     const { setSettings, settings } = await import("../../core/settings");
