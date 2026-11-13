@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { oggOpusSeconds } from "../audio";
 import { sha256Hex } from "../config";
 import { verifySignature } from "../elevenlabs";
+import { rediarize } from "../rediarize";
 import type { Services } from "../services";
 import { usageSummary } from "../usage";
 import { type ApiError, IdParam, json, notFound, router } from "./common";
@@ -162,6 +163,52 @@ export function transcriptionRoutes({
         responses: { 200: json(UsageSummary, "Spending by day and service") },
       }),
       async (c) => c.json(await usageSummary(db, config), 200)
+    )
+    .openapi(
+      createRoute({
+        description:
+          "Who spoke when in a completed speech job, redone from the speech service's corrected turns " +
+          "(words, turns and indexes kept; each stored turn takes the label of the new turn holding most of its " +
+          "seconds; owner answers, names, samples and summary guesses follow their voices). The owner's one-off " +
+          "of 13 Nov 2026; refused for another job (a Scribe job included) or no turns.",
+        method: "post",
+        path: "/transcription-jobs/{id}/speakers",
+        request: {
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  turns: z.array(
+                    z.object({
+                      end: z.number(),
+                      speaker: z.string(),
+                      start: z.number(),
+                    })
+                  ),
+                }),
+              },
+            },
+          },
+          params: IdParam,
+        },
+        responses: {
+          200: json(
+            z.object({ outcome: z.enum(["done", "unchanged", "refused"]) }),
+            "What happened"
+          ),
+        },
+      }),
+      (c) =>
+        c.json(
+          {
+            outcome: rediarize(
+              db,
+              c.req.valid("param").id,
+              c.req.valid("json").turns
+            ),
+          },
+          200
+        )
     )
     .openapi(
       createRoute({

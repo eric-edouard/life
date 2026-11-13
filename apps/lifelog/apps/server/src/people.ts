@@ -150,7 +150,7 @@ export const keepServerSamples = (
   });
 
 // A sample is evidence only of the one person the owner's answer for its turn or speaker names.
-function evidenceFromAnswer(tx: Db, sample: Sample) {
+export function evidenceFromAnswer(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
       .select()

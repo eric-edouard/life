@@ -9,7 +9,8 @@ POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
               -> {durationSeconds, turns: [{start, end, speaker, language, scores}], words: [{start, end,
                   text}], models: {name: "id@revision"}}
                   turns: Nemotron 3's speaker turns in time order, one speaker's joined across a
-                  gap under 0.5 s, made exclusive (a turn ends where the next starts); speaker
+                  gap under 0.5 s, made exclusive (whoever is speaking keeps the floor until their segment ends;
+                  the earliest-started still covering takes over); speaker
                   "0", "1"…; language VoxLingua107's top code ("en", "th"…) and scores its
                   probabilities of en, fr and th, for a turn of a second or more, else null.
                   words: Parakeet Ultra's over the whole block. Routing them is the caller's.
@@ -231,18 +232,32 @@ def words_of(tokens: list[tuple[str, float, float]]) -> list[dict]:
 
 
 def exclusive(turns_in: list[dict]) -> list[dict]:
-    """Turns in time order, a turn joined to the one before when it is the same speaker's within
-    JOIN_GAP_SECONDS (as the bench's turns), each ending where the next starts; empty ones go."""
-    turns = []
+    """Turns in time order that never overlap. One speaker's segments join across a gap under
+    JOIN_GAP_SECONDS (as the bench's turns). At each instant the speaker is the covering segment that
+    started first (the earlier in sorted order on equal starts): whoever is speaking keeps the floor, and
+    someone who starts meanwhile gets the words only once the first stops. Time no segment covers stays
+    a gap; empty turns go."""
+    segments = []
     for turn in sorted(turns_in, key=lambda t: t["start"]):
-        last = turns[-1] if turns else None
+        last = segments[-1] if segments else None
         if last and last["speaker"] == turn["speaker"] and turn["start"] - last["end"] < JOIN_GAP_SECONDS:
             last["end"] = max(last["end"], turn["end"])
         else:
-            turns.append(dict(turn))
-    for previous, following in zip(turns, turns[1:]):
-        previous["end"] = min(previous["end"], following["start"])
-    return [t for t in turns if t["end"] > t["start"]]
+            segments.append(dict(turn))
+    # ponytail: quadratic in the segments of one block; a heap if blocks ever hold thousands
+    edges = sorted({edge for s in segments for edge in (s["start"], s["end"])})
+    turns: list[dict] = []
+    for start, end in zip(edges, edges[1:]):
+        covering = [i for i, s in enumerate(segments) if s["start"] <= start and s["end"] >= end]
+        if not covering:
+            continue
+        top = segments[min(covering)]
+        last = turns[-1] if turns else None
+        if last and last["speaker"] == top["speaker"] and start - last["end"] < JOIN_GAP_SECONDS:
+            last["end"] = end
+        else:
+            turns.append({**top, "end": end, "start": start})
+    return turns
 
 
 def embed(models: Models, samples) -> list[float]:
