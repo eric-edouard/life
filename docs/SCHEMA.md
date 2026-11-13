@@ -254,6 +254,18 @@ person), `offered` (the ids of the later observations about them judged against 
 `schemaVersion`. A pair in a line is never judged again. A link deletes nothing: what it ends is worked out when read
 (`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
 
+## read-replies/<YYYY-MM>.jsonl
+
+What a model answered when it read exchanges of a one-to-one chat (`memory/exchange-reads.ts`), one line per call,
+append-only, in the file of the month of `at`: `read` (`connection`, `mentions` or `conflict`), `reply` (the object
+the model gave, as given: only its `exchanges` list is required, the rest is checked when read), `messages` (the
+`eventKey` of every message the call showed, in order), `starts` (where each exchange begins in them), `madeBy` (its
+`prompt` is the prompt's versioned name), `wording` (a 16-hex digest of the prompt's text, kept beside the name and
+never matched on), `at`, `schemaVersion`. No person and no moves: both are worked out when read. An exchange is
+read by a read when a line of the read's current prompt lists it in `starts` with exactly the messages it has now
+(`replyOf`; the newest such line wins). A grown or filled exchange is asked again as a new line; a new prompt version
+adds lines; nothing is rewritten.
+
 ## publications.jsonl
 
 What each publication of units read (`publishUnits`: a night's 7 days, a historical month), one line each,

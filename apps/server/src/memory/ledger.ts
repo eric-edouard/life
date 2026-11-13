@@ -70,6 +70,10 @@ export const LINKS = join(MEMORY, "links.jsonl");
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
   join(HISTORIES, `${ref.slice("person:".length)}.json`);
+/** What each read of an exchange answered (`memory/exchange-reads.ts`): one file per month of `at`, append-only. */
+export const READ_REPLIES = join(MEMORY, "read-replies");
+export const readReplyPath = (at: string) =>
+  join(READ_REPLIES, `${at.slice(0, 7)}.jsonl`);
 /** What each publication of units read: its days and sources (`publishUnits`, read by `coverage.ts`). Append-only. */
 export const PUBLICATIONS = join(MEMORY, "publications.jsonl");
 export const EPISODES = join(MEMORY, "episodes");

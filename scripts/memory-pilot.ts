@@ -20,7 +20,6 @@ import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
 import {
   type CheckedExchange,
   checkedMoves,
-  type ReadName,
 } from "@life/server/src/memory/moves";
 import {
   begin,
@@ -39,6 +38,7 @@ import {
   promptText,
   stamp,
 } from "@life/server/src/models/llm";
+import type { ReadName } from "@life/server/src/records/read-reply";
 import {
   chatGroups,
   eventKey,

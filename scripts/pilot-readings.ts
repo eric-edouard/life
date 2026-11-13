@@ -18,10 +18,11 @@ import {
   seenExchanges,
   type Thing,
 } from "@life/server/src/memory/move-rates";
-import { checkedMoves, type ReadName } from "@life/server/src/memory/moves";
+import { checkedMoves } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
 import { localDate } from "@life/server/src/memory/zones";
 import { promptText } from "@life/server/src/models/llm";
+import type { ReadName } from "@life/server/src/records/read-reply";
 import { allOf, KEPT, READS } from "./memory-pilot";
 
 /** Standings are listed for a rate within this many places of either end. */

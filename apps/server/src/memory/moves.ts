@@ -1,11 +1,12 @@
 import { z } from "zod";
+import type { ReadName } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { folded, locate } from "./observe";
 import { checkedEntries } from "./run";
 import { textOf } from "./units";
 
 // The moves a model lists when it reads an exchange: their shapes by read, and the code that checks a reply's moves
-// against the messages. Stored nowhere in `memory/` yet; the rework's pilot (`scripts/memory-pilot.ts`) keeps replies.
+// against the messages. Never stored: the replies are (`memory/exchange-reads.ts`), the moves are worked out when read.
 
 const RESOURCES = [
   "affection",
@@ -135,8 +136,7 @@ export const MOVES = {
   conflict: ConflictMove,
   connection: ConnectionMove,
   mentions: MentionsMove,
-};
-export type ReadName = keyof typeof MOVES;
+} satisfies Record<ReadName, z.ZodType>;
 type Listed = z.infer<(typeof MOVES)[ReadName]>;
 /** The code of a move, of any read. */
 export type Code = Listed["code"];

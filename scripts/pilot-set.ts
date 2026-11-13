@@ -11,9 +11,10 @@ import { digest } from "@life/server/src/core/hash";
 import { packed } from "@life/server/src/core/lists";
 import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
 import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
-import type { CheckedExchange, ReadName } from "@life/server/src/memory/moves";
+import type { CheckedExchange } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
 import { promptText } from "@life/server/src/models/llm";
+import type { ReadName } from "@life/server/src/records/read-reply";
 import {
   chatGroups,
   eventKey,
