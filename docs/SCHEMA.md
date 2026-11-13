@@ -257,13 +257,13 @@ person), `offered` (the ids of the later observations about them judged against 
 ## matters.jsonl
 
 The matters step's calls (`memory/matters.ts`), one line each, append-only, while his `matters` setting is on: `matters`
-(each `id`, `matter_` and 12 hex, minted by code; `name`; `area`, an id of his map or null; `projects`, ids of his map;
-`members`, each a `ref` (a unit id, an observation id or a reminder's ledger key, never an episode id: a day's episodes
+(each `id`, `matter_` and 12 hex, minted by code; `name`; `areas`, ids of his areas, possibly none; `projects`, ids of his projects;
+`steps`, each a `ref` (a unit id, an observation id or a to-do item's ledger key, never an episode id: a day's episodes
 are rewritten), its `day` and a `quote`, words found in that record's own text), `offered` (every unit, observation and
-reminder key the call was asked to place: one placed nowhere is so known as asked, and is not asked again), `at`,
+to-do item key the call was asked to place: one placed nowhere is so known as asked, and is not asked again), `at`,
 `madeBy`, `schemaVersion`. A matter is worked out when read (`mattersNow`): the latest line naming it gives its name,
-area and projects, its members are the union over the lines, a later line's placement of a record winning. A line holds
-membership only, never a status. Nothing reads it yet but `bun life memory matters list`.
+areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
+its steps only, never a status. Nothing reads it yet but `bun life memory matters list`.
 
 ## read-replies/<YYYY-MM>.jsonl
 

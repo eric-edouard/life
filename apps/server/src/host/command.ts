@@ -15,15 +15,15 @@ import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
 import {
-  recordCorrection,
-  recordFactCheckAnswer,
-} from "../memory/memory-files";
-import {
   callsOf,
   matterLines,
   matters,
   readMatterWork,
 } from "../memory/matters";
+import {
+  recordCorrection,
+  recordFactCheckAnswer,
+} from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -295,7 +295,7 @@ const HANDLERS: Record<string, Handler> = {
   },
   /**
    * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
-   * episodes, reminders), with no model; `--force` places it, as the night does once his `matters` setting is on;
+   * episodes, to-do items), with no model; `--force` places it, as the night does once his `matters` setting is on;
    * `--since` places every week from that day to today, in order (each week sees the matters of the weeks before);
    * `list` prints each matter.
    */
@@ -315,7 +315,7 @@ const HANDLERS: Record<string, Handler> = {
       const { failed } = await readWithPeople(
         dayStart(values.since ?? lastDays(clock(), DAYS).from)
       );
-      const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, reminders: 0 };
+      const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, todoItems: 0 };
       for (const span of spans) {
         // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
         const work = await readMatterWork(span, people, failed);
@@ -323,7 +323,7 @@ const HANDLERS: Record<string, Handler> = {
           return { failed: 1 };
         }
         sum.episodes += work.episodes.length;
-        sum.reminders += work.reminders.length;
+        sum.todoItems += work.todoItems.length;
         if (values.force || values.since) {
           const run = await matters(work, people);
           sum.calls += run.calls;

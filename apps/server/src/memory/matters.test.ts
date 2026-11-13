@@ -23,7 +23,7 @@ const people = {
   },
 } as unknown as People;
 
-const fact = (n: number, type: string, text: string) => ({
+const observation = (n: number, type: string, text: string) => ({
   id: `obs_${String(n).padStart(12, "0")}`,
   text,
   type,
@@ -34,23 +34,23 @@ const episode = (
   title: string,
   what: string,
   unit: number,
-  facts: ShownEpisode["facts"] = []
+  observations: ShownEpisode["observations"] = []
 ): ShownEpisode => ({
   day,
-  facts,
   id: `ep_${pad(unit)}`,
+  observations,
   people: [{ name: "Gran", role: "with" }],
   title,
   units: [`unit_${pad(unit)}`],
   what,
 });
 const [f1, f2, f3, f4, f5, f6] = [
-  fact(1, "to_do", "Get Gran's watch repaired"),
-  fact(2, "event", "Gran says the strap broke last week"),
-  fact(3, "event", "His partner suggests the shop on Elm Street"),
-  fact(4, "event", "The shopkeeper says the repair takes ten days"),
-  fact(5, "promise", "He will call the shop on Monday"),
-  fact(6, "event", "Birthday dinner on Saturday"),
+  observation(1, "to_do", "Get Gran's watch repaired"),
+  observation(2, "event", "Gran says the strap broke last week"),
+  observation(3, "event", "His partner suggests the shop on Elm Street"),
+  observation(4, "event", "The shopkeeper says the repair takes ten days"),
+  observation(5, "promise", "He will call the shop on Monday"),
+  observation(6, "event", "Birthday dinner on Saturday"),
 ];
 const week1 = [
   episode(
@@ -88,31 +88,31 @@ const workOf = (
   episodes: ShownEpisode[],
   from: string,
   to: string,
-  reminders: MatterWork["reminders"] = []
+  todoItems: MatterWork["todoItems"] = []
 ): MatterWork => ({
-  ...pendingOf(episodes, reminders, mattersNow(readMatters()).offered),
+  ...pendingOf(episodes, todoItems, mattersNow(readMatters()).offered),
   span: span(from, to),
 });
 
-test("an errand over three spans lands in one matter, the call's episode with no fact included", async () => {
+test("an errand over three spans lands in one matter, the call's episode with no observation included", async () => {
   const models = await import("../models/llm");
   let minted = "";
   const replies = [
-    // Span 1: a new matter; one member whose words are not in its record, one ref never shown, an area and a project not on his map.
+    // Span 1: a new matter; one step whose words are not in its record, one ref never shown, an area and a project not in his directory.
     () => ({
       matters: [
         {
-          area: "nowhere",
+          areas: ["nowhere"],
           id: "new-1",
-          members: [
+          name: "Mend Gran's watch",
+          projects: ["ghost", "shop-fit-out"],
+          steps: [
             { quote: "get Gran's watch repaired", ref: f1.id },
             { quote: "strap broke last week", ref: f2.id },
             { quote: "the clock tower", ref: `ep_${pad(1)}` },
             { quote: "a shop", ref: "obs_ffffffffffff" },
             { quote: "shop on Elm Street", ref: f3.id },
           ],
-          name: "Mend Gran's watch",
-          projects: ["ghost", "shop-fit-out"],
         },
       ],
     }),
@@ -121,31 +121,31 @@ test("an errand over three spans lands in one matter, the call's episode with no
       return {
         matters: [
           {
-            area: "family",
+            areas: ["family"],
             id: minted,
-            members: [
+            name: "Mend Gran's watch",
+            projects: [],
+            steps: [
               { quote: "repair takes ten days", ref: f4.id },
               { quote: "call the shop on Monday", ref: f5.id },
             ],
-            name: "Mend Gran's watch",
-            projects: [],
           },
         ],
       };
     },
     (input: { open: { id: string; latest: { day: string } }[] }) => {
-      // The third span sees the matter and the day of its newest member.
+      // The third span sees the matter and the day of its newest step.
       expect(input.open.map((m) => [m.id, m.latest.day])).toEqual([
         [minted, "2026-10-12"],
       ]);
       return {
         matters: [
           {
-            area: "family",
+            areas: ["family"],
             id: minted,
-            // The call is placed as its episode, and stored as the episode's unit.
-            members: [{ quote: "phone the shopkeeper", ref: `ep_${pad(5)}` }],
             name: "Mend Gran's watch for Gran",
+            // The call is placed as its episode, and stored as the episode's unit.
+            steps: [{ quote: "phone the shopkeeper", ref: `ep_${pad(5)}` }],
           },
         ],
       };
@@ -159,11 +159,11 @@ test("an errand over three spans lands in one matter, the call's episode with no
     const first = mattersNow(readMatters());
     expect(first.matters).toHaveLength(1);
     const [m1] = first.matters;
-    // The id is minted by code; what is not on his map, not shown or not found in its record is dropped.
+    // The id is minted by code; what is not in his directory, not shown or not found in its record is dropped.
     expect(m1?.id).toMatch(MINTED);
-    expect(m1?.area).toBeNull();
+    expect(m1?.areas).toEqual([]);
     expect(m1?.projects).toEqual(["shop-fit-out"]);
-    expect(m1?.members.map((m) => m.ref)).toEqual([f1.id, f2.id, f3.id]);
+    expect(m1?.steps.map((m) => m.ref)).toEqual([f1.id, f2.id, f3.id]);
     // Everything offered is known as asked, the unplaced dinner and the dropped unit included.
     expect([...first.offered].sort()).toEqual(
       [f1.id, f2.id, f3.id, f6.id, unit1, unit2, unit6].sort()
@@ -176,8 +176,8 @@ test("an errand over three spans lands in one matter, the call's episode with no
     expect(rest).toEqual([]);
     expect(matter?.id).toBe(minted);
     expect(matter?.name).toBe("Mend Gran's watch for Gran");
-    expect(matter?.area).toBe("family");
-    expect(matter?.members.map((m) => m.ref)).toEqual([
+    expect(matter?.areas).toEqual(["family"]);
+    expect(matter?.steps.map((m) => m.ref)).toEqual([
       f1.id,
       f2.id,
       f3.id,
@@ -186,7 +186,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
       unit5,
     ]);
     expect(matterLines()).toEqual([
-      "Mend Gran's watch for Gran · area family · projects none · 6 members · newest 2026-10-16",
+      "Mend Gran's watch for Gran · areas family · projects none · 6 steps · newest 2026-10-16",
     ]);
 
     // A second run over the same spans asks nothing: the ones placed nowhere were asked once.
@@ -209,7 +209,7 @@ test("a source that failed gives no work: a span is never placed from half a rea
   ).toBeNull();
 });
 
-test("a matter is its latest name and the union of its members, a later placement of a record winning", () => {
+test("a matter is its latest name and the union of its steps, a later placement of a record winning", () => {
   const line = (
     at: string,
     id: string,
@@ -221,11 +221,11 @@ test("a matter is its latest name and the union of its members, a later placemen
     madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
     matters: [
       {
-        area: null,
+        areas: [],
         id,
-        members: refs.map(([ref, day]) => ({ day, quote: "q", ref })),
         name,
         projects: [],
+        steps: refs.map(([ref, day]) => ({ day, quote: "q", ref })),
       },
     ],
     offered,
@@ -248,7 +248,7 @@ test("a matter is its latest name and the union of its members, a later placemen
     line("2026-10-13T10:00:00.000Z", b, "Other", [["r2", "2026-10-02"]]),
   ]);
   expect(
-    now.matters.map((m) => [m.id, m.name, m.members.map((x) => x.ref)])
+    now.matters.map((m) => [m.id, m.name, m.steps.map((x) => x.ref)])
   ).toEqual([
     [a, "New name", ["r1", "r4"]],
     [b, "Other", ["r2"]],
@@ -256,7 +256,7 @@ test("a matter is its latest name and the union of its members, a later placemen
   expect([...now.offered].sort()).toEqual(["r1", "r2", "r3"]);
 });
 
-test("the errand's small steps are shown: a fact rated 1, and a mail no episode holds as an episode of its own", () => {
+test("the errand's small steps are shown: an observation rated 1, and a mail no episode holds as an episode of its own", () => {
   const ep = (
     id: number,
     day: string,
@@ -274,7 +274,7 @@ test("the errand's small steps are shown: a fact rated 1, and a mail no episode 
       units,
       what: "",
     }) as unknown as Episode;
-  const factNow = (
+  const observationNow = (
     n: number,
     unit: number,
     date: string,
@@ -283,7 +283,7 @@ test("the errand's small steps are shown: a fact rated 1, and a mail no episode 
     date,
     id: `obs_${pad(n)}`,
     importance,
-    text: `fact ${n}`,
+    text: `observation ${n}`,
     type: "news",
     unit: unitId(unit),
   });
@@ -294,16 +294,16 @@ test("the errand's small steps are shown: a fact rated 1, and a mail no episode 
       ep(2, "2026-10-20", [unitId(3)]),
     ],
     [
-      factNow(1, 1, "2026-10-09", 1), // the address, rated 1: shown
-      factNow(2, 1, "2026-10-09", 0), // rated 0: not shown
-      factNow(3, 9, "2026-10-11", 1), // the photos by mail, in no episode: an episode of its own
-      factNow(4, 8, "2026-10-30", 2), // in no episode, outside the span
+      observationNow(1, 1, "2026-10-09", 1), // the address, rated 1: shown
+      observationNow(2, 1, "2026-10-09", 0), // rated 0: not shown
+      observationNow(3, 9, "2026-10-11", 1), // the photos by mail, in no episode: an episode of its own
+      observationNow(4, 8, "2026-10-30", 2), // in no episode, outside the span
     ],
     (u) => `title of ${u}`,
     { nameOf: (r) => r, refOf: (r) => r }
   );
   expect(
-    shown.map((e) => [e.id, e.title, e.units, e.facts.map((f) => f.id)])
+    shown.map((e) => [e.id, e.title, e.units, e.observations.map((f) => f.id)])
   ).toEqual([
     [`ep_${pad(1)}`, "Episode 1", [unitId(1)], [`obs_${pad(1)}`]],
     [unitId(9), `title of ${unitId(9)}`, [unitId(9)], [`obs_${pad(3)}`]],

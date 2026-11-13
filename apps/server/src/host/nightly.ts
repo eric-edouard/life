@@ -28,13 +28,13 @@ import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
+import { matters, readMatterWork } from "../memory/matters";
 import {
   commitMemory,
   newSince,
   OUT,
   readLedger,
 } from "../memory/memory-files";
-import { matters, readMatterWork } from "../memory/matters";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";

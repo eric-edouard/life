@@ -185,7 +185,7 @@ Before adding a helper, use the one that exists:
 
 | Need | Use |
 |---|---|
-| What running things of his life exist and what belongs to each | the matters (`memory/matters.ts`): `mattersNow` over `readMatters`; members are units, observations and reminder keys, never episodes; found by the matters step only (in shadow, off until his `matters` setting) |
+| What running things of his life exist and what belongs to each | the matters (`memory/matters.ts`): `mattersNow` over `readMatters`; steps are units, observations and to-do item keys, never episodes; found by the matters step only (in shadow, off until his `matters` setting) |
 | Where an observation stands (hidden, gone, replaced, retired) | `observationStatusOf` (`memory-files.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
