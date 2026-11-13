@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
+import { Person } from "../records/truth";
+import { inferredId } from "./people";
 import { candidateLines } from "./read-person-page";
 import { inferred, people as mapped, said } from "./record-fixtures";
+import { nameKey } from "./units";
 import { foldsOf, meant, namedLike, nearNames } from "./who";
+
+const INFERRED_ID = /^inf_[a-z0-9-]+$/;
 
 test("person: a name two people go by lists both, with relation and count", () => {
   const people = [
@@ -184,4 +189,39 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
       "person:inf_gaston-x"
     )
   ).toBe("person:gaston");
+});
+
+test("a name in another script resolves to its own person only, never every word of any script", () => {
+  const thai = {
+    card: "card-thai",
+    id: "contact_thai",
+    name: "สมชาย ใจดี",
+    surfaces: [],
+  };
+  const truth = [
+    Person.parse({ aliases: [], id: "ivan", name: "Иван Петров" }),
+    Person.parse({ aliases: [], id: "gaston", name: "Gaston Roy" }),
+  ];
+  const { resolve } = foldsOf(truth, [], [], [thai]);
+  expect(resolve("Иван Петров")).toBe("person:ivan");
+  expect(resolve("สมชาย ใจดี")).toBe("person:contact_thai");
+  expect(resolve("gaston roy")).toBe("person:gaston");
+  for (const word of ["แม่", "王", "Москва", "()", "!!"]) {
+    expect(resolve(word)).toBeNull();
+  }
+});
+
+test("nameKey folds Latin accents and keeps every script's letters apart", () => {
+  expect(nameKey("Élodie")).toBe(nameKey("elodie"));
+  expect(nameKey("sœur")).toBe("sœur");
+  const names = ["สมชาย ใจดี", "王小明", "Иван Петров"];
+  expect(names.every((n) => nameKey(n) !== "")).toBe(true);
+  expect(new Set(names.map(nameKey)).size).toBe(names.length);
+  expect(nameKey("น้ำ")).not.toBe(nameKey("นำ"));
+  expect(nameKey("Maman ❤️")).toBe(nameKey("Maman"));
+  expect(nameKey("❤️")).toBe("");
+});
+
+test("an inferred id from a Thai name is still a plain slug", () => {
+  expect(inferredId("สมชาย ใจดี", "k", new Set())).toMatch(INFERRED_ID);
 });

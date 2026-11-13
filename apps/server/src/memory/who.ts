@@ -23,7 +23,7 @@ import {
 } from "./ledger";
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import { normalize, PERSON, UNKNOWN } from "./units";
+import { nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -35,7 +35,7 @@ export const who = (x: { speaker: string; speakerName?: string }) =>
 
 /** A surface's lookup keys: as given, lowercased, normalized. */
 const keysOf = (s: string) =>
-  [s.trim(), s.trim().toLowerCase(), normalize(s)].filter(Boolean);
+  [s.trim(), s.trim().toLowerCase(), nameKey(s)].filter(Boolean);
 
 /** Whether two surfaces are one: a key in common, or the same phone or email however written. */
 const isSameSurface = (a: string, b: string) => {
@@ -66,7 +66,10 @@ function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
   const index = new Map<string, string | null>();
   for (const p of people) {
     for (const n of [p.name, ...p.aliases]) {
-      const k = normalize(n);
+      const k = nameKey(n);
+      if (!k) {
+        continue;
+      }
       index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
     }
   }
@@ -138,12 +141,13 @@ function readingOf(
       handles.get(ks[1] ?? "") ??
       (key ? handles.get(key) : undefined);
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
-    const named = names.get(normalize(surface.trim().replace(PAREN, "")));
+    const bare = nameKey(surface.trim().replace(PAREN, ""));
+    const named = bare ? names.get(bare) : undefined;
     const guesses = ks.map((k) => guessed.get(k));
     const card =
       (key ? carded.get(key) : undefined) ??
       ks.map((k) => carded.get(k)).find(Boolean) ??
-      cardNames.get(normalize(surface.trim().replace(PAREN, "")));
+      (bare ? cardNames.get(bare) : undefined);
     return (
       [
         ...ks.map((k) => said.get(k)),
@@ -271,7 +275,10 @@ function namesTheSame(ref: string, people: Person[]) {
 /** Whether a card is named, whole, as someone in truth/: his own label for the card. */
 const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
   people.some(
-    (p) => `person:${p.id}` === ref && normalize(p.name) === normalize(c.name)
+    (p) =>
+      `person:${p.id}` === ref &&
+      nameKey(c.name) !== "" &&
+      nameKey(p.name) === nameKey(c.name)
   );
 
 /**
@@ -390,13 +397,14 @@ export function namedIn(
   resolve: (surface: string) => string | null,
   projects: { name: string; ref: string }[]
 ) {
-  const projectNamed = new Map(projects.map((p) => [normalize(p.name), p.ref]));
+  const projectNamed = new Map(projects.map((p) => [nameKey(p.name), p.ref]));
   const found = new Set<string>();
   for (const words of texts.map((t) => t.match(WORD) ?? [])) {
     for (const [i] of words.entries()) {
       for (let n = 1; n <= 3 && i + n <= words.length; n += 1) {
         const s = words.slice(i, i + n).join(" ");
-        const ref = resolve(s) ?? projectNamed.get(normalize(s));
+        const ref =
+          resolve(s) ?? (nameKey(s) ? projectNamed.get(nameKey(s)) : undefined);
         if (ref) {
           found.add(ref);
         }
@@ -557,7 +565,8 @@ export function namedLike<
   return people.filter(
     (p) =>
       p.id === name ||
-      [p.name, ...p.aliases].some((n) => normalize(n) === normalize(name))
+      (nameKey(name) !== "" &&
+        [p.name, ...p.aliases].some((n) => nameKey(n) === nameKey(name)))
   );
 }
 
@@ -585,11 +594,11 @@ function distance(a: string, b: string) {
 export function nearNames<
   T extends { aliases: string[]; id: string; name: string },
 >(name: string, people: T[]) {
-  const q = normalize(name);
+  const q = nameKey(name);
   const max = q.length <= 4 ? 1 : 2;
   const best = new Map<string, { d: number; p: T }>();
   for (const p of people) {
-    for (const n of [p.name, ...p.aliases].map(normalize)) {
+    for (const n of [p.name, ...p.aliases].map(nameKey)) {
       for (const w of new Set([n, ...n.split(" ")])) {
         const d = distance(q, w);
         if (d <= max && d < (best.get(p.id)?.d ?? max + 1)) {

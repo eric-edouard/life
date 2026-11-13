@@ -55,11 +55,11 @@ import {
   renderPage,
   type Sections,
   settle,
-  slugOf,
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
+import { nameKey } from "./units";
 import {
   observationsNow,
   type People,
@@ -526,7 +526,7 @@ export async function pages(opts: PagesOptions) {
         (t) =>
           t.ref === `person:${only}` ||
           t.ref === `area:${only}` ||
-          slugOf(t.name) === slugOf(only)
+          (nameKey(only) !== "" && nameKey(t.name) === nameKey(only))
       )
     : all;
   const r: Run = {

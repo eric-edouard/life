@@ -19,7 +19,7 @@ import { episodesWhere, readIndex } from "./ledger";
 import { OWNER } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
-import { normalize } from "./units";
+import { nameKey } from "./units";
 import { embedQuery, readNearest } from "./vectors";
 import { readPeople } from "./who";
 import { chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./words";
@@ -240,7 +240,7 @@ export async function readSituationsOf(
   isNow: boolean
 ) {
   const { names, nameOf, truth } = await readPeople();
-  const said = ` ${normalize(words).split(SPACES).join(" ")} `;
+  const said = ` ${nameKey(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
     truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
   const refs = await situated();
@@ -248,7 +248,7 @@ export async function readSituationsOf(
     (ref) =>
       ref !== OWNER &&
       [names.get(ref), ...aliases(ref)].some(
-        (n) => n && said.includes(` ${normalize(n)} `)
+        (n) => n && said.includes(` ${nameKey(n)} `)
       )
   );
   const whole = mentioned.length > 0 || !isNow ? mentioned : [OWNER];
