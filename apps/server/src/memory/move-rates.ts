@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ReadName } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import {
   BIDS,
@@ -6,7 +7,6 @@ import {
   type Code,
   MOVES,
   type Move,
-  type ReadName,
   type SeenExchange,
   type Side,
 } from "./moves";

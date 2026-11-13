@@ -6,13 +6,14 @@
 import { parseArgs } from "node:util";
 import { writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
+import { withOf } from "@life/server/src/memory/exchange-reads";
 import { OWNER } from "@life/server/src/memory/read-truth";
 import { lifelogNames } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { transcripts, voiceLines } from "@life/server/src/memory/words";
 import type { SourceEvent } from "@life/server/src/records/source";
 import { turnsBetween, withStore } from "@life/server/src/sources/lifelog";
-import { setFile, type TestSet, withOf } from "./memory-pilot";
+import { setFile, type TestSet } from "./memory-pilot";
 
 const [LEAST, MOST, PER_PERSON] = [20, 480, 8];
 /** Turns in a row that stand as one exchange (a chat's exchange is about ten messages), and exchanges a call. */

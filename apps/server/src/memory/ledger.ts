@@ -70,6 +70,13 @@ export const LINKS = join(MEMORY, "links.jsonl");
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
   join(HISTORIES, `${ref.slice("person:".length)}.json`);
+/**
+ * What each read of an exchange answered (`memory/exchange-reads.ts`), append-only, one file per month of the batch's
+ * first message, read as an instant (UTC on purpose: a file's name never moves), so old history is never touched again.
+ */
+export const READ_REPLIES = join(MEMORY, "read-replies");
+export const readReplyPath = (firstAt: string, dir = READ_REPLIES) =>
+  join(dir, `${firstAt.slice(0, 7)}.jsonl`);
 /** What each publication of units read: its days and sources (`publishUnits`, read by `coverage.ts`). Append-only. */
 export const PUBLICATIONS = join(MEMORY, "publications.jsonl");
 export const EPISODES = join(MEMORY, "episodes");

@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
-  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
+  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet; `read-replies/` only by the exchange reads (`memory/exchange-reads.ts`; its one-time bring-in goes through `storeReply`), a line never rewritten. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/`, `histories/` (a month or a story replaced only by its re-read, its last version left to the data repo's git history; a file is never removed) and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his ratings and corrections cite them, and a re-read
@@ -211,7 +211,10 @@ Before adding a helper, use the one that exists:
 | Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
 | Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isLiving` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
 | Messages by chat | `chatGroups` (`records/source.ts`) |
-| Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input |
+| Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input. For an exchange's read: `replyOf` (`memory/exchange-reads.ts`), which matches the prompt's versioned name and the exchange's messages, never the text's digest |
+| What a read of an exchange answered (stored, pending, counted) | `replyOf`, `readReplies`, `storeReply` (`memory/exchange-reads.ts`): the only code that builds the calls, appends the replies (`memory/read-replies/`) and reads them; the pilot passes a trial folder |
+| An exchange's end | `isFinished` (`memory/exchanges.ts`): nothing written for `EXCHANGE_ENDS_AFTER`; only a finished exchange is read |
+| The newest of a night's work within a call cap | `newestWithin` (`core/lists.ts`) |
 | The one-to-one messages of people named on a command line | `directOf` (`closeness.ts`) |
 | A reply checked for the points it must hold and must not say | `judge` then `tally` (`memory/tally.ts`): the points as true and false facts, the reply as the one claim; a misgrade becomes a judge case |
 | Packing items into calls by size | `packed` (`core/lists.ts`): in order, an item never split; a step passes its own size |

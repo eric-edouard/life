@@ -18,6 +18,11 @@ import { writeContactPeople } from "../memory/contact-people";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
+import {
+  type ExchangeReadWork,
+  exchangeReads,
+  readExchangeReadWork,
+} from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
@@ -234,8 +239,9 @@ export async function nightly(days: number, force = false) {
 
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
- * failure is logged and the last file stands), and the histories' pending months are taken from it (`readHistoryWork`:
- * only while his `history` setting is on), so only the last years stay in memory for closeness and the personas.
+ * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
+ * his `history` setting is on) and of the exchange reads (`readExchangeReadWork`, only while his `exchangeReads`
+ * setting is on) is taken from it, so only the last years stay in memory for closeness and the personas.
  */
 async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
@@ -252,7 +258,19 @@ async function readYears(now: Date) {
         return null;
       })
     : null;
-  return { pending, withPeople: lastYearsOf(everyYear) };
+  // Off until his `exchangeReads` setting. A failure is logged and the night goes on, its exchanges read another night.
+  let reads: ExchangeReadWork = null;
+  if (settings().exchangeReads) {
+    try {
+      reads = readExchangeReadWork(everyYear, people, now);
+    } catch (e) {
+      log("run.error", {
+        error: (e as Error).message,
+        step: "memory.exchange-reads",
+      });
+    }
+  }
+  return { pending, reads, withPeople: lastYearsOf(everyYear) };
 }
 
 /** The night's links: what is due (`readLinkWork`), judged. */
@@ -459,7 +477,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();
-    const { pending, withPeople } = await readYears(now);
+    const { pending, reads, withPeople } = await readYears(now);
     await phase.step("closeness", () => closeness(withPeople));
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
@@ -483,6 +501,13 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       phase.at = "histories";
       await histories(pending).catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.history" })
+      );
+    }
+    // The exchange reads not stored yet: a failure is logged and never stops the night.
+    if (reads) {
+      phase.at = "exchange reads";
+      await exchangeReads(reads).catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.exchange-reads" })
       );
     }
     phase.at = "fact checks";

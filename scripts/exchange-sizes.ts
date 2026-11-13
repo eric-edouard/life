@@ -8,6 +8,7 @@ import {
   batchesOf,
   charsOf,
   EXCHANGE_BATCH_CHARS,
+  exchangesOf,
   isLiving,
 } from "@life/server/src/memory/exchanges";
 import { readPeople } from "@life/server/src/memory/who";
@@ -55,7 +56,7 @@ function quietOf(chats: SourceEvent[][]) {
 /** One chat's exchanges and batches added to the rows they started in. */
 function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
   const living = isLiving(chat);
-  for (const batch of batchesOf(chat)) {
+  for (const batch of batchesOf(exchangesOf(chat))) {
     const all = batch.flat();
     if (living && all[0]) {
       const row = rowOf(all[0]);

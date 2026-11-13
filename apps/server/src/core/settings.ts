@@ -83,6 +83,12 @@ export const Settings = z
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /**
+     * The exchange reads (`memory/exchange-reads.ts`): each night asks the three reads of the finished exchanges of
+     * his living one-to-one chats it has no stored reply for. Absent means off: no call is made; what is stored is
+     * read all the same.
+     */
+    exchangeReads: z.literal(true).optional(),
+    /**
      * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
      * not read, for whoever has a page. Absent means off: no month is read.
      */

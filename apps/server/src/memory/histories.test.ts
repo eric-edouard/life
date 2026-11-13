@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
+import { newestWithin } from "../core/lists";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import {
   isStoryDue,
   type MonthCalls,
   monthCallsOf,
-  newestWithin,
   partOf,
   readHistoryWork,
   storyInputOf,
@@ -143,17 +143,21 @@ test("a night takes the newest months first, within its calls; a failed source r
   const pending = (month: string, calls: number) => ({
     m: { calls: new Array(calls).fill({}), inputs: month, month } as MonthCalls,
   });
+  const byMonth = {
+    at: (p: ReturnType<typeof pending>) => p.m.month,
+    size: (p: ReturnType<typeof pending>) => p.m.calls.length,
+  };
   const all = [
     pending("2024-01", 1),
     pending("2026-09", 2),
     pending("2026-10", 2),
   ];
-  expect(newestWithin(all, 4).map((p) => p.m.month)).toEqual([
+  expect(newestWithin(all, 4, byMonth).map((p) => p.m.month)).toEqual([
     "2026-10",
     "2026-09",
   ]);
   // A month too big for what is left waits; a smaller, older one still goes.
-  expect(newestWithin(all, 3).map((p) => p.m.month)).toEqual([
+  expect(newestWithin(all, 3, byMonth).map((p) => p.m.month)).toEqual([
     "2026-10",
     "2024-01",
   ]);

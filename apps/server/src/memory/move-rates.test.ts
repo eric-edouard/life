@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { ReadName } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import {
   type MoveRate,
@@ -8,7 +9,7 @@ import {
   type Thing,
   votesOf,
 } from "./move-rates";
-import type { Code, Move, ReadName, SeenExchange, Side } from "./moves";
+import type { Code, Move, SeenExchange, Side } from "./moves";
 
 const READS: ReadName[] = ["conflict", "connection", "mentions"];
 const move = (by: Side, code: Code, extra: Partial<Move> = {}): Move => ({
