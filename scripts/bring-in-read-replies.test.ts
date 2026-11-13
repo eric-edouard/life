@@ -9,7 +9,7 @@ import {
   storeReply,
 } from "@life/server/src/memory/exchange-reads";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
-import { livingChatsOf, takenOf } from "./bring-in-read-replies";
+import { takenOf, twoWayChatsOf } from "./bring-in-read-replies";
 
 const START = Date.parse("2026-10-01T12:00:00.000Z");
 const msg = (ms: number, fromMe: boolean, chat = "+1"): SourceEvent => ({
@@ -29,9 +29,9 @@ const talk = [
   msg(30 * HOUR, false),
   msg(30 * HOUR + 1000, true),
 ];
-// Only she ever wrote in this chat: not living.
+// Only she ever wrote in this chat: not two-way.
 const alone = [msg(0, false, "+2"), msg(1000, false, "+2")];
-const chats = livingChatsOf([...talk, ...alone], resolve);
+const chats = twoWayChatsOf([...talk, ...alone], resolve);
 const kept = (messages: SourceEvent[], over: Record<string, unknown> = {}) => ({
   madeBy: {
     engine: "codex",
@@ -46,7 +46,7 @@ const kept = (messages: SourceEvent[], over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-test("which pilot files are brought in: valid, of the current prompt, one living direct chat, an unread exchange; a second pass takes none", () => {
+test("which pilot files are brought in: valid, of the current prompt, one two-way direct chat, an unread exchange; a second pass takes none", () => {
   const dir = mkdtempSync(join(tmpdir(), "bring-"));
   const where = join(dir, "lines");
   try {
@@ -72,8 +72,8 @@ test("which pilot files are brought in: valid, of the current prompt, one living
     expect(first_.map((v) => (typeof v === "string" ? v : "taken"))).toEqual([
       "taken",
       "another prompt",
-      "not one living direct chat's",
-      "not one living direct chat's",
+      "not one two-way direct chat's",
+      "not one two-way direct chat's",
       "no unread exchange",
       "invalid",
     ]);

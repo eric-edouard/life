@@ -14,8 +14,8 @@ import { folded } from "./quote-check";
 import { localDate } from "./zones";
 
 // How often each thing a person did turns up, from the moves the reads listed (`memory/moves.ts`): rows of `n` of
-// `of` chances, per side, all time, the last 12 months and before. Pure: it counts the exchanges it is given, and
-// stores nothing. A share is said only for what the test set proved (`PROVEN`) and only over `MINIMUM` chances.
+// `of` opportunities, per side, all time, the last 12 months and before. Pure: it counts the exchanges it is given, and
+// stores nothing. A share is said only for what the test set proved (`PROVEN`) and only over `MINIMUM` opportunities.
 
 /** How a bid was met, by the other side: toward it, away from it, against it, or not at all. */
 type Met = "toward" | "away" | "against" | "unanswered";
@@ -26,13 +26,13 @@ export type Thing = Code | Met | "warm" | "tension" | "conflict";
  * saw; `bid`, the bids the other side made; `fault`, the exchanges the conflict read saw where the other side
  * raised a fault; `decision`, those holding any steering code by either side.
  */
-export type Chance = "exchange" | "bid" | "fault" | "decision";
+export type Opportunity = "exchange" | "bid" | "fault" | "decision";
 
-const chance = <T extends Thing>(is: Chance, ...things: T[]) =>
-  Object.fromEntries(things.map((t) => [t, is])) as Record<T, Chance>;
-/** The chance of every thing counted. */
-export const CHANCE: Record<Thing, Chance> = {
-  ...chance(
+const opportunity = <T extends Thing>(is: Opportunity, ...things: T[]) =>
+  Object.fromEntries(things.map((t) => [t, is])) as Record<T, Opportunity>;
+/** The opportunity of every thing counted. */
+export const OPPORTUNITY: Record<Thing, Opportunity> = {
+  ...opportunity(
     "exchange",
     "shares",
     "good_news",
@@ -64,8 +64,8 @@ export const CHANCE: Record<Thing, Chance> = {
     "tension",
     "conflict"
   ),
-  ...chance("bid", "toward", "away", "against", "unanswered"),
-  ...chance(
+  ...opportunity("bid", "toward", "away", "against", "unanswered"),
+  ...opportunity(
     "fault",
     "engages",
     "apologises",
@@ -75,10 +75,10 @@ export const CHANCE: Record<Thing, Chance> = {
     "yields",
     "moves_on"
   ),
-  ...chance("decision", "directs", "proposes", "defers", "decides"),
+  ...opportunity("decision", "directs", "proposes", "defers", "decides"),
 };
 
-/** Under this many chances a rate says "too few" (spec 9). A reading's own higher bar is its reader's. */
+/** Under this many opportunities a rate says "too few" (spec 9). A reading's own higher bar is its reader's. */
 const MINIMUM = 15;
 
 const both = (...things: Thing[]) =>
@@ -144,8 +144,8 @@ const readOf = (thing: Thing): ReadName => {
   return thing in CODE_READ ? CODE_READ[thing as Code] : "connection";
 };
 
-const STEERING = (Object.keys(CHANCE) as Thing[]).filter(
-  (t) => CHANCE[t] === "decision"
+const STEERING = (Object.keys(OPPORTUNITY) as Thing[]).filter(
+  (t) => OPPORTUNITY[t] === "decision"
 );
 const isBid = (code: Code) => (BIDS as readonly string[]).includes(code);
 const SIDES: Side[] = ["me", "them"];
@@ -155,18 +155,18 @@ const otherOf = (side: Side): Side => (side === "me" ? "them" : "me");
  * The moves that count as one each: the first of a code by a side, and a mention once per person talked about. A
  * person who shares twice in an exchange shared.
  */
-export function votesOf(moves: Move[]) {
+export function occurrencesOf(moves: Move[]) {
   const seen = new Set<string>();
   return moves.filter((m) => {
-    const vote = `${m.by}|${m.code}|${m.who ? folded(m.who).out : ""}`;
-    return seen.has(vote) ? false : !!seen.add(vote);
+    const occurrence = `${m.by}|${m.code}|${m.who ? folded(m.who).out : ""}`;
+    return seen.has(occurrence) ? false : !!seen.add(occurrence);
   });
 }
 
-/** An exchange with the votes of its moves, worked out once, and the month it began in. */
+/** An exchange with the occurrences of its moves, worked out once, and the month it began in. */
 interface Prepared {
   month: string;
-  votes: Move[];
+  occurrences: Move[];
   x: SeenExchange;
 }
 interface Count {
@@ -176,12 +176,12 @@ interface Count {
 
 const NONE: Count = { n: 0, of: 0 };
 const one = (taken: boolean): Count => ({ n: taken ? 1 : 0, of: 1 });
-const did = (votes: Move[], side: Side, code: Thing) =>
-  votes.some((m) => m.by === side && m.code === code);
+const did = (occurrences: Move[], side: Side, code: Thing) =>
+  occurrences.some((m) => m.by === side && m.code === code);
 
-/** The chance of an exchange chance: the exchange, if the side wrote in it (a flag has no side). */
+/** The opportunity of an exchange opportunity: the exchange, if the side wrote in it (a flag has no side). */
 function exchangeIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
-  const { votes, x } = p;
+  const { occurrences, x } = p;
   if (thing === "conflict" || thing === "tension") {
     return x[thing] === undefined ? NONE : one(!!x[thing]);
   }
@@ -192,43 +192,45 @@ function exchangeIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
     const tone = x.tone[side];
     return tone ? one(tone === "warm") : NONE;
   }
-  return one(did(votes, side, thing));
+  return one(did(occurrences, side, thing));
 }
 
-/** What one exchange adds to a rate of `thing` by `side`: chances, and the ones taken. */
+/** What one exchange adds to a rate of `thing` by `side`: opportunities, and the ones taken. */
 function chancesIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
-  const { votes, x } = p;
+  const { occurrences, x } = p;
   if (!x.reads.has(readOf(thing))) {
     return NONE;
   }
-  switch (CHANCE[thing]) {
+  switch (OPPORTUNITY[thing]) {
     case "bid": {
-      const bids = votes.filter(
+      const bids = occurrences.filter(
         (m) => m.by === otherOf(side as Side) && isBid(m.code)
       );
       const met = (m: Move) => (m.answer?.kind ?? "unanswered") === thing;
       return { n: bids.filter(met).length, of: bids.length };
     }
     case "fault":
-      return did(votes, otherOf(side as Side), "fault")
-        ? one(did(votes, side as Side, thing))
+      return did(occurrences, otherOf(side as Side), "fault")
+        ? one(did(occurrences, side as Side, thing))
         : NONE;
     case "decision":
-      return STEERING.some((c) => did(votes, "me", c) || did(votes, "them", c))
-        ? one(did(votes, side as Side, thing))
+      return STEERING.some(
+        (c) => did(occurrences, "me", c) || did(occurrences, "them", c)
+      )
+        ? one(did(occurrences, side as Side, thing))
         : NONE;
     default:
       return exchangeIn(thing, side, p);
   }
 }
 
-/** What a count says: a share, too few chances for one, or a thing not proven on the test set. */
+/** What a count says: a share, too few opportunities for one, or a thing not proven on the test set. */
 type Says = "share" | "too few" | "exploratory";
-/** A count of `n` in `of` chances, and what it says. */
+/** A count of `n` in `of` opportunities, and what it says. */
 export interface Rate extends Count {
   says: Says;
 }
-/** A row: one thing by one side (a flag has none), for one source when its chance is an exchange. */
+/** A row: one thing by one side (a flag has none), for one source when its opportunity is an exchange. */
 export interface MoveRate {
   all: Rate;
   before: Rate;
@@ -284,8 +286,8 @@ function rowOf(
 }
 
 /**
- * The rates of what a person did, from the exchanges seen: a row for each thing and side with a chance, and for an
- * exchange chance one row per source, never pooled (a bid, a fault or a decision is counted across sources). Each
+ * The rates of what a person did, from the exchanges seen: a row for each thing and side with a opportunity, and for an
+ * exchange opportunity one row per source, never pooled (a bid, a fault or a decision is counted across sources). Each
  * has all time, the 12 local months before `month` (`YYYY-MM`, the caller's, so people compare over one window) and
  * the time before those.
  */
@@ -293,15 +295,15 @@ export function moveRatesOf(seen: SeenExchange[], month: string): MoveRate[] {
   const prepared = seen.map(
     (x): Prepared => ({
       month: localDate(x.at).slice(0, 7),
-      votes: votesOf(x.moves),
+      occurrences: occurrencesOf(x.moves),
       x,
     })
   );
   const sources = [...new Set(seen.map((x) => x.source))];
-  return (Object.keys(CHANCE) as Thing[]).flatMap((thing) => {
+  return (Object.keys(OPPORTUNITY) as Thing[]).flatMap((thing) => {
     const sides =
       thing === "conflict" || thing === "tension" ? [undefined] : SIDES;
-    const from = CHANCE[thing] === "exchange" ? sources : [undefined];
+    const from = OPPORTUNITY[thing] === "exchange" ? sources : [undefined];
     return sides.flatMap((side) =>
       from.flatMap((source) => rowOf(thing, side, source, prepared, month))
     );

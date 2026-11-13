@@ -37,13 +37,13 @@ test("sizes: a row per source and year an exchange started in; one-sided exchang
       chars: 9,
       exchanges: 2,
       key: "whatsapp 2025",
-      living: 7,
       median: 7,
       messages: 4,
       ninetieth: 7,
       oneSided: 1,
       oversized: 0,
       tokensAtMost: 3,
+      twoWay: 7,
     },
     {
       // Its exchange went in the batch that started in 2025: no call of its own.
@@ -51,13 +51,13 @@ test("sizes: a row per source and year an exchange started in; one-sided exchang
       chars: 6,
       exchanges: 1,
       key: "whatsapp 2026",
-      living: 6,
       median: 6,
       messages: 1,
       ninetieth: 6,
       oneSided: 1,
       oversized: 0,
       tokensAtMost: 2,
+      twoWay: 6,
     },
   ]);
   expect(s.quiet.filter((q) => q.count > 0)).toEqual([

@@ -308,7 +308,7 @@ export interface SeenExchange {
   moves: Move[];
   /** The reads that listed it, so a code is counted only over the exchanges its own read saw. */
   reads: Set<ReadName>;
-  /** Its first message's source: rates of an exchange chance are kept apart by it. */
+  /** Its first message's source: rates of an exchange opportunity are kept apart by it. */
   source: string;
   tension?: boolean;
   tone: { me?: string | null; them?: string | null };

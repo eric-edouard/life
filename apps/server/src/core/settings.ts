@@ -84,7 +84,7 @@ export const Settings = z
     engine: Engine.default("claude"),
     /**
      * The exchange reads (`memory/exchange-reads.ts`): each night asks the three reads of the finished exchanges of
-     * his living one-to-one chats it has no stored reply for. Absent means off: no call is made; what is stored is
+     * his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is stored is
      * read all the same.
      */
     exchangeReads: z.literal(true).optional(),

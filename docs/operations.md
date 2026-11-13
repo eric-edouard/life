@@ -315,7 +315,7 @@ first.
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
 - **Bringing in the pilot's replies:** once, `bun scripts/bring-in-read-replies.ts` (under the memory lock) appends to
   `memory/read-replies/` each reply the pilot kept under the label `openrouter` that is of a read's current prompt,
-  covers one living one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
+  covers one two-way one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
   old folders stay, and a second run appends nothing.
 - **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
   (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those

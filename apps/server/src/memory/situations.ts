@@ -14,7 +14,7 @@ import {
   situationPath,
 } from "./memory-files";
 import { refContext } from "./model-context";
-import { readingsOf, readPersona, supportOf } from "./personas";
+import { backingOf, readingsOf, readPersona } from "./personas";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
@@ -104,8 +104,8 @@ export async function situations() {
           },
           // To tell what repeats from what is new.
           persona: readingsOf(readPersona(t.ref)?.lines ?? []).map((l) => ({
+            backing: backingOf(l.quotes, step.today),
             facet: l.facet,
-            support: supportOf(l.quotes, step.today),
             text: l.text,
           })),
         };
