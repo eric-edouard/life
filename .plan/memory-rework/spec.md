@@ -1,10 +1,11 @@
 # Life's memory: the spec
 
-Third draft, 10 Nov 2026. Two independent reviews the same day: the first draft scored 38 out of 100 as ready for
-a pilot, the second 57. This draft answers both (section 20 says how). There is no third review: his rule is one
-confirming review, then stop. Written by the designer; he left
-the shape to the designer and can overrule any line. The names are section 18's and need his yes. Nothing here is
-built or run before the pilot, and the pilot waits for his credits.
+Fourth draft, 14 Nov 2026: the pilot ran and his decisions of 12 to 14 Nov changed the order, the open things, who
+is meant and the reads of recordings, so section 22 holds them and every line they changed is marked "(amended 14
+Nov, section 22)". The third draft (10 Nov) had two independent reviews: the first draft scored 38 out of 100 as
+ready for a pilot, the second 57 (section 20 says how it answered). There is no third review: his rule is one
+confirming review, then stop. Written by the designer; he left the shape to the designer and can overrule any line.
+The names are section 18's and need his yes.
 
 Read first: [what he wants, and where Life stands](./assets/00-what-he-wants.md).
 
@@ -39,7 +40,8 @@ Every layer is a hypothesis with a claim, a baseline and a pass mark (section 15
 |---|---|---|---|
 | Raw | Sources, the archive, lifelog. The only truth | the apps | always |
 | Units | A stable address for a piece of raw; the exchange is a slice over them | code | as data lands |
-| Evidence | Small dated records with a checked quote or a measured number | a model, once per piece and per family; code for measures | once the piece is complete |
+| Evidence | Small dated records with a checked quote or a measured number; one read for every source, chats, mail and recordings alike (amended 14 Nov, section 22) | a model, once per piece and per family; code for measures | once the piece is complete |
+| Matters | Which units, facts and reminders belong to one open thing; whether it is open, for whom, its progress and what is next are worked out when read (amended 14 Nov, section 22) | a model reading episodes, their facts and his reminders | nightly |
 | Links | Two records tied, with the reason | a model reading evidence only, never raw | nightly, for new records that can be tied |
 | Counted readings | Meters, patterns, track records, time and money, closeness, ties | code | when read |
 | Histories | Per subject: month, year, story; where it stands | a model, from the level just below | the night after it is first asked; kept warm for what the overview shows |
@@ -78,6 +80,17 @@ forecasts. Each part works without the ones after it.
   name is trusted (his word, 11 Nov 2026: the names in Photos are his own), so it is that person, worked out when
   read like a handle; it is never a speaker. Apple's scenes and the words it finds in a picture stay guesses.
   Today's day and claims reads keep today's rule: a voice named late re-reads its days. That cost is counted.
+- **Who is meant is a reference, everywhere** (amended 14 Nov, section 22). Whoever is talked about, by him or by
+  anyone, by a name, a relation word or a pronoun, is kept as a reference to one person, with the words used beside
+  it, and shown by that person's proper name. Names and his own relation words ("my father") are placed first, by
+  code, from his map, his contacts and the people Life inferred; a relation word is his own, never any person whose
+  description holds the word. Pronouns come second: a model places them, and only with a proof code can check. Ties
+  between two other people are data, not free text. Text Life writes (episodes, facts, pages, histories, situations,
+  personas) holds references and shows them as names.
+- **One read for every source** (amended 14 Nov, section 22). Chats, mail threads and recordings are read by the
+  same reads in one shape (section 5). Group chats where he writes and mail threads he wrote in are read like a
+  one-to-one chat; a recording is read once the background voices (lifelog's screen, speaker and nearby) are left
+  out. Nothing branches on the source.
 - What his devices recorded is not an exchange either: a photo-day, a night's sleep, a workout, a day of commits or
   of Screen Time (today's "activity" units). No focused read runs on them: they say where he was, with whom and
   doing what, and they are read as evidence by the day's read near now and by the month's summary in old years.
@@ -148,13 +161,18 @@ context, and nothing else: never an earlier reading. Each move names who did it 
 - **Three reads, not four.** Connection with giving and asking is one read; mentions and self-reports is one;
   conflict and steering is one. The first two run on every exchange that is read: nearly every real conversation
   holds a question, a thanks or a word about oneself, so routing them would save nothing.
-- **Routing, for conflict only.** The connection read, which sees every exchange, also answers one yes or no: is
-  there any tension, disagreement or fault raised here? The conflict read runs where it says yes. One exchange in
-  twenty gets the conflict read anyway, for ever, to measure what the flag misses, per code, per language and per
-  source. The day's read is not the router: it judges a whole day at once and is told to pass over small talk.
-- A rate is counted only over exchanges the read actually saw. So two rates are never mixed: how often conflict
-  happens is counted over all exchanges, from the flag, corrected by what the one in twenty shows it misses; what
-  happens inside a conflict (who presses, who yields, how it ends) is counted over the conflict reads only.
+- **No routing** (amended 14 Nov, section 22). The tension flag missed 18 in 100 conflicts, against a mark of 10
+  (section 15), so the conflict read runs on every exchange read, as that row's fallback says. The flag stays a
+  code of the connection read, not a router.
+- A rate is counted only over exchanges the read actually saw. How often conflict happens and what happens inside a
+  conflict (who presses, who yields, how it ends) are still two rates, now both over the conflict reads.
+- **One shape, any number of speakers** (amended 14 Nov, section 22). A read sees lines, each with its speaker
+  (a handle, a named voice, or an unnamed voice's label), and each move says whom it is aimed at (`toward`). A
+  two-person chat is the special case. On recordings the background voices are left out first. Tried on recordings
+  with several voices: what is told about others and what people say of themselves hold as in chats; whom a move is
+  aimed at agrees between two models on 70 to 88 in 100 of the moves both list; asking for, bids and warm tone do
+  not hold on speech yet. Still open: what stands as one exchange in speech, a reply between two other people, and
+  an unknown voice that gets a new label in each recording.
 - The unit of a re-read under a better model is a read. The connection and conflict reads hold the graded codes;
   the mentions read is mostly surface.
 - **Batching**: short exchanges of one chat go in one call, up to about 8,000 tokens, their edges marked, kept under
@@ -188,6 +206,13 @@ fix, "let's move on" and the reopening, the same complaint coming back, one stor
 - **A wrong link is the dear mistake**: a false ending hides a live promise. So an item closed by a link shows
   what closed it, with the quote; "that's not done" from him removes the link for good; and links are judged on two
   marks, nothing stale left open and nothing live closed (section 15).
+- **Links run on matters** (amended 14 Nov, section 22). A matter's subject is the matter itself (section 7); its
+  later members, units included (shown as their episode), are what can end its earlier ones. A member that only
+  repeats a promise ends nothing.
+- **Endings are confirmed by his word** (amended 14 Nov, section 22). After a link finds an ending, he is asked in
+  conversation, at most three questions a day, "done?" with the quote. Until the two marks pass, a matter ended by a
+  link shows "maybe done", with the quote, and stays open. Built so far: endings only, in shadow, one night run (16
+  endings for 209 open things), never judged.
 - Until links pass those marks, extraction retires facts as today. After, links are the one place a later record
   ends an earlier one, and the window of 14 days goes.
 
@@ -199,6 +224,14 @@ Three kinds of subject: he himself, a person, a part of his life (an area, a pro
 - A part of his life he never declared (a dispute, a purchase, a trip) is found by a small step that reads episodes only
   and groups those that belong to one running thing. It is kept in Life's list and used at once. The day's read is
   not changed, so no stored day is read again. Two names for one matter are folded by a link or by his word, as two people are.
+- **The matter is every open thing, brought forward** (amended 14 Nov, section 22). Open items and reminders are
+  one concept, and it is the matter. Stored: only its membership, which units, facts and reminders belong to it,
+  each placed with a quote, by a step that reads episodes, their facts and his reminders. Worked out when read: open
+  or not, who it is for and who it waits on (several people, each with a role), its projects and areas (several),
+  its timeline (the members in time order), its progress (done, waiting on someone, moving, stuck, dormant; dormant
+  is not an ending) and what is next. A lone open fact or reminder is a matter of one. A reminder in Reminders or
+  Google Tasks is a view of a matter, never a second list. No board is built; the structure a board would read is,
+  for every part of Life that needs open things, his agents' loops per area among them.
 - Which reads a subject needs: a person, all of them. A part of his life: claims, endings, measures; not the moves
   between people.
 
@@ -286,11 +319,25 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
   the need.
 - A code two model families agree on less than half the time (kappa under 0.5) is exploratory: kept, shown as such,
   feeding no meter.
+- **A rate is evidence for a reading, never shown raw** (amended 14 Nov, section 22). The counting code is built
+  (one vote per code, side and exchange; 15 chances for a share; only codes that held say a share). Shown to an agent
+  on the person read, as a table and then as sentences, the rates did not improve answers, and an unproven count
+  became a claim the agent repeated. So a rate feeds a reading of section 10 and is never handed to an agent as a
+  number by itself. Section 15's bar (0.5 between two families, on 30 cases) stays the gate for a code to feed a share.
 
 ## 10. The readings
 
 **A persona** (today's word) is the view of what a person is like: the rates below, the patterns, wants and offers,
 the track record, how they write, a gist and what works with them. His own is the same, cut by counterpart.
+
+**The goal stands** (amended 14 Nov, section 22): personas built on what psychology accepts today, so that
+projections can rest on them later. What changed is how a reading reaches an agent (section 9) and what chats can
+prove today. Held between two model families on his chats: thanks, invitations, asking about the other, affection,
+good news, ideas explored, a deep disclosure, warm tone, a bid taken up, a judgement in a mention, a strong fault,
+directs, proposes, decides, defers, pressing, his apology, his denial, his excuse. Not proven: a bid brushed off,
+cold tone, support asked, returns, yielding, contempt, blame, counters, and most answers of the other person to a
+fault. Conflict is rare in his chats and lives in recordings, so the conduct lines and "how it mends" wait for more
+recorded data; what cannot be measured yet is not shown (his word).
 
 **About a person**
 
@@ -334,7 +381,7 @@ lets things be (the same code as taking the lead, shown once). Impulsivity: one 
 | Who reaches out | Who started (code) | Starts after a silence | 50 starts |
 | Who carries the effort | Shares, delays against the pair's usual (code) | Exchanges | 3 months |
 | How personal each gets | Depth of disclosures | Exchanges, within one channel | 20 |
-| How often it turns tense | The tension flag, corrected by the one-in-twenty sample | All exchanges | A trend only, no threshold; shown only once the flag's misses are measured |
+| How often it turns tense | The conflict read, run on every exchange read (amended 14 Nov, section 22) | All exchanges | A trend only, no threshold |
 | Who presses and who pulls back | Pressing; left unanswered after it | A fault raised, per topic, against how often it happens anyway | 15 conflicts |
 | How it mends | Mending attempt and whether taken; contact resuming with no word said, marked apart | After a conflict | 10 |
 | Mixed tone | Warm and tense in the same span | Spans | Family mostly |
@@ -357,6 +404,14 @@ above the evidence that looks at raw words.
 
 ## 11. Histories and situations
 
+**One standard for every subject** (amended 14 Nov, section 22). This section is the one way a summary over time is
+made, for a person, an area, a project, a matter and himself alike: the recent past in detail, compressing as it
+ages (month, year, story), and what matters most (turning points, major life events, high importance) kept at any
+age. A situation is where the subject stands now, kept current. Nothing in it branches on the kind of subject. Built
+so far: months and the story of the years for people with a page, shown in the person read. Not built: areas,
+projects, matters and himself; a situation read from the history (tried for people on 12 Nov, it came out the same as
+today's, so today's stays until a subject shows a use for it).
+
 - A level exists only where the one below is too big to read whole. A month too big for one call is read in parts,
   as a long day is today.
 - A month is read from that month's evidence for the subject, and from nothing else. A year from its months. The
@@ -372,7 +427,8 @@ above the evidence that looks at raw words.
   carries the gap between his declared goals and his hours, with what it means, written once, there.
 - A part of his life also carries one word, by code: done (ended by his word or by its last open thing); waiting on
   someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
-  dormant (none for 45 covered days); drifting (falling against its own usual).
+  dormant (none for 45 covered days); drifting (falling against its own usual). A matter carries the first five,
+  as its progress (amended 14 Nov, section 22).
 - **Old years have no episodes** (section 16), so there matters and his own month are read from the evidence
   itself: the claims, mentions and self-reports of the month, and its photo-days (places, who was pictured, his
   captions: for most days before 2011 the only record), grouped by the same small step that groups episodes
@@ -430,6 +486,11 @@ beat them. The trigger and the outcomes of each sort are written with its build.
 5. **The raw**: the messages and turns.
 
 - Search covers every level: a broad question lands on a summary, a narrow one on a quote.
+- **This path now carries more weight** (amended 14 Nov, section 22). Most failing questions ask for one thing
+  said in person, and for most of them the fact is already in memory: an agent does not find it among more than a
+  thousand facts per person (for one close person, about 1,400 in two months). Condensing (section 11) and this path matter more
+  than reading more. Dated quotes of speech added at the top of the person read did not help either. The agent
+  never called `read_day` in 492 tool calls.
 - The sizes above are starting numbers; the pilot sets them. Agents read Life about as much as Life reads the raw,
   so a small read matters as much as a cheap write.
 - The connector changes in one batch: three reads added (the overview, a span, the evidence); the person and area
@@ -447,7 +508,7 @@ What bounds it now:
 
 | Where it multiplied | Bound |
 |---|---|
-| Four reads of every exchange | Three reads; two on every exchange read, the conflict read only where flagged |
+| Four reads of every exchange | Three reads on every exchange read; the conflict read is no longer routed (amended 14 Nov, section 22), so the target of about five times below does not hold and is measured again |
 | Links, a call per record | One call per subject and night, twenty candidates at most |
 | A full prompt for three lines | Batching short exchanges of one chat |
 | Situations nightly, from the whole tail | Only for subjects kept current, only on evidence that matters, once a night |
@@ -503,6 +564,21 @@ Every comparison reports, beside its mark: unsupported claims, important omissio
 time. A layer that only ties a simpler one earns its place by a clear cost or retrieval advantage, or not at all.
 The first gate is better answers on his questions; meters, cursors and forecasts follow only on what passes it.
 
+**Results so far** (amended 14 Nov, section 22). The steady measure is 24 relationship cases from his own words,
+run twice per change (55 and 57 of 76 points at the baseline); a change worth one point needs several runs.
+
+| Check | Result |
+|---|---|
+| Two model families agree per code | Run on three test sets of his chats (1,100 to 1,500 exchanges per read): the codes that held are in the code (section 10 lists them); on recordings, see section 5 |
+| The conflict flag | Misses 18 in 100: failed; the conflict read runs on every exchange |
+| A batch reads like single exchanges | Checked another way: batches of about 8,000 tokens hold every code small calls hold, 0.03 to 0.1 lower |
+| The first gate, for counts | Failed: rates on the person read, as a table and as sentences, moved nothing (55 and 57 of 76 with or without) |
+| Histories | Inside the noise on the cases; kept in the person read for a small, steady gain on two people |
+| Coverage | Passed |
+| The practical answers | Passed on every merge |
+| Who is meant | Names and relation words: two model families never placed a mention on a different person (0 of 47 shared). Pronouns: a proof by the line that names the person kept 6 of 55, too strict |
+| Owed | The same exchange read twice and ids; per language; the whole-thread yardstick; links' two marks; counts stable between halves; his blind rating (a page was sent, no rating yet); a first ask; time against goals; the overview; closeness; his word surviving a re-read; forecasts |
+
 - **Who grades.** A judge model, first measured on cases he settled. For facts those cases exist. For relationship
   and arc answers none do: the judge is measured on ten answers he gives a verdict on, in conversation (his call).
   The model that checks never comes from the family that wrote; which families the pilot uses is his choice.
@@ -538,6 +614,10 @@ After this spec and its second review, once his credits are back; never before.
   history (102 people) is at most 2.4 million tokens per read. Not yet sized: recordings, group chats, the third
   person, his assistant chats (about 4,400 kept conversation-days, his words only). The table is in his data repo, `docs/memory-rework/experiments/2026-11-10-pilot-sizes.md`.
 - Then: the build (the path), and the history.
+- **As it ran** (amended 14 Nov, section 22): it went further than above and less wide. The three reads ran over
+  his whole one-to-one chat history (about $30 in all) and their replies are stored; the project and the goal were
+  cut on 12 Nov; of the recent month, six days of recordings got one read. His order of 12 Nov: read the whole
+  history first and judge by the end result. Group chats, mail and recordings are not read yet.
 
 ### The history, read once
 
@@ -590,7 +670,7 @@ everything stands on. No model layer has read them, and none should yet.
 | Today | Becomes |
 |---|---|
 | Units, the archive | Unchanged |
-| Episodes, verdicts | Stay; the day's read also routes |
+| Episodes, verdicts | Stay (no routing: amended 14 Nov, section 22) |
 | Observations | Stay as read; endings by links |
 | Pages | Still files, drawn by code from the history and the readings |
 | Situations (30 days, close people) | For every subject kept current |
@@ -598,7 +678,8 @@ everything stands on. No model layer has read them, and none should yet.
 | Closeness by volume | Depth; the four levels kept |
 | `truth/` | Life's list and his word |
 | Fact checks | The questions for him; what he was shown stays frozen |
-| Open items, appointments, search, the connector, the mails | Stay |
+| Open items, reminders | One concept, the matter (section 7): what is open, due and owed is worked out from matters; a reminder is a view of one; Life still acts only through `act` (amended 14 Nov, section 22) |
+| Appointments, search, the connector, the mails | Stay |
 
 - Every feature of ticket 01's checklist stays, among them: his page edits, "what changed" in the nightly and in
   the connector, the frozen fact checks and the eval's scores, "what works with them", the closeness levels.
@@ -618,6 +699,12 @@ everything stands on. No model layer has read them, and none should yet.
   signals only (kept for what feeds a model, section 10).
 
 ## 18. Names (approved by him, 10 Nov 2026)
+
+**Placeholder: the naming pass** (amended 14 Nov, section 22). A separate naming pass is being written. His word:
+words already in use may be renamed, everywhere, if that makes it clean. Until it lands, this table stands, and the
+words the work of 12 to 14 Nov uses are working words only: `progress` (a matter's one word), `members` (what
+belongs to a matter), the roles `for` and `waiting_on`, `toward` (whom a move is aimed at), and "reference" (who is
+meant). "Matter" also now means every open thing, declared or not (section 7), wider than the row below.
 
 | Word | What it is | What it is not |
 |---|---|---|
@@ -666,6 +753,14 @@ checks (his note); the ten verdicts stay at yes.
 | 11 | Impulsivity: the pilot runs with a conduct line; the research note comes when he wants it | Yes |
 | 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word: DeepSeek reads, Claude checks |
 | 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | Yes |
+
+**As three of them turned out** (amended 14 Nov, section 22):
+
+| # | Outcome |
+|---|---|
+| 1 | Reversed by the measure: the flag missed 18 in 100, so the conflict read runs on every exchange read |
+| 3 | Not run yet: the whole-thread yardstick is owed |
+| 12 | Kept: DeepSeek reads, a Claude model checks (Fable as the reference, Sonnet where Fable's quota was saved); GPT as a third |
 
 The names of section 18 and the meters' wording he left as written (same page, same day), except two he set in
 conversation: "distant or warm" for the meter of care (he saw that matter-of-fact was no opposite of warm), and
@@ -742,3 +837,109 @@ several sources' hashes move late, hence the one re-read of a changed exchange (
 the written history is thin before 2018 (WhatsApp holds 2 to 50 chat-days a year from 2012 to 2017, iMessage
 starts mid-2015), so an old year is mostly mail and photos; and Apple names 22 people in his photos, so time
 together by picture exists only for them.
+
+## 22. What 12 to 14 Nov changed
+
+The pilot ran, further than section 16 planned, and his decisions of 12 to 14 Nov changed the order of the work and
+three parts of the shape. Each line changed above is marked "(amended 14 Nov, section 22)". The working notes are
+in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/2026-11-13-holes.md`.
+
+### His decisions and steers
+
+1. **Order (12 Nov).** Read the whole history first and judge by the end result. Section 15's bar (two model
+   families, 0.5 on 30 cases) stays the gate for a code to feed a share. Changes: sections 9 and 16.
+2. **Counts are evidence, not something shown raw (13 Nov).** On the question cases, move rates shown on the person
+   read, first as a table and then as sentences code wrote, did not improve answers: the agent answers in prose and
+   used a number in 2 replies of 16, and an unproven count shown to it became a claim. That first reader was closed,
+   by the spec's own rule that a layer failing its check is dropped. The stored read replies stay: they are the
+   evidence personas and patterns are built from. The nightly step stays off. Changes: sections 9, 10 and 15.
+3. **The benchmark.** 24 relationship cases, run twice, are the steady measure: 55 and 57 of 76 points, 18 of 24
+   cases scoring the same in both runs. The earlier 8 cases moved by 3 of 24 between runs of the same code. A change
+   worth one point needs several runs. Changes: section 15.
+4. **Who is meant is a reference everywhere, shown by its proper name.** His words: "whenever there is a subject, a
+   person that is being mentioned by me or by other people, it is not properly identified… the system should know
+   that she is that person". Names and his own relation words first, placed by code: in two trials two model
+   families never placed a mention on a different person. Pronouns second, placed by a model with a proof code can
+   check: the proof "the earlier line names the person" held for 6 of 55, so a looser proof is needed (a relation
+   word or a known nickname on the earlier line; who is talked about carried across the calls of one
+   conversation). Ties between two other people as data. References inside text Life writes, shown as names. A
+   name lookup bug with non-Latin scripts was fixed on the way. Changes: sections 3 and 10.
+5. **Open things are one concept: the matter.** Open items and reminders merge (his words: "I agree with the
+   merge"). Membership is stored (which units, facts and reminders belong to a matter); everything else is worked
+   out when read: open, who it is for and who is waited on (several people, roles), projects and areas (several),
+   its timeline, its progress (done, waiting on someone, moving, stuck, dormant) and what is next. A reminder is a
+   view of it. No board is built; the structure a board would read is. He expects this layer to be used by many
+   parts of the app, his agents' loops per area included. Built in four small PRs (the path). Changes: sections 2,
+   6, 7, 11, 17 and 18.
+6. **Names.** His words: "if the words are already used we are fine to do a renaming of everything if needed… any
+   added change, if we have to rebuild the entire project to make it clean we do it." A separate naming pass is
+   being written; section 18 holds its placeholder.
+7. **One standard for summaries over time, for every subject.** His words: "histories and situations… areas,
+   projects and matters we definitely need that. We need something that is constantly updated with how things are
+   going… situations with episodic memory that compresses over time, so the most recent things are more important
+   and it gets smaller and smaller as you go back in time, but major life events, importance, still matters… there
+   should be a golden standard that we should apply across everywhere. I want this to be standardized as much as
+   possible." Section 11 is that standard, for a person, an area, a project, a matter and himself. Built only for
+   people with a page. Changes: section 11.
+8. **One read for every source.** His words: "I don't want a system that is customized based on the input source
+   types; I want something that is as abstract and as agnostic as possible and just works across the board." Moves
+   "should definitely be in the groups"; mail exchanges with a person can be read too; recordings: "let's consider
+   it, let's look into it". The trials on recordings with several voices: with background voices left out and each
+   move saying whom it is aimed at, what is told about others and self-reports hold; whom a move is aimed at agrees
+   70 to 88 in 100 between two models; asking, bids and warm tone do not hold on speech yet. So the one shape is any
+   number of speakers, each line with its speaker, each move with whom it is aimed at; a two-person chat is the
+   special case. Reading the history again under that one wording costs about $18 for chats and needs his yes.
+   Changes: sections 2, 3 and 5.
+9. **Personas stay the goal.** His words: "what mattered to me was the personas, with all of the research that we
+   had regarding psychology, the state of the art of what is currently accepted in science, so that based on that
+   later on we can create proper projections". Section 10 stands. What changed is only how a reading reaches an
+   agent (not as raw rates) and what chats can prove today: the conduct lines live in recordings. His words on what
+   cannot be measured yet: "I'm fine to not measure anything that can't be measured… we can come back to that once
+   we have more data". Changes: sections 9 and 10.
+10. **How the work is run.** The main session holds the goal and this spec; execution goes to subagents; when the
+    direction changes, this spec is amended first.
+
+### What the work found
+
+- Most failing questions ask for one thing said in person: of the 12 dated points never found on the 24 cases, 9
+  were said in person, in recordings no focused read covers. For most of them the fact is already in memory and an
+  agent does not find it among more than a thousand per person. So condensing (section 11) and the read path
+  (section 13) matter more than reading more.
+- What Life hears as open and what sits in Reminders never met: 107 open things against 54 reminders, no overlap.
+  An errand for a relative over a month was invisible: a request made to him is not an open item, his promise sat
+  under the importance bar, the call that settled a step produced no fact, and endings were found by a step nothing
+  reads.
+- The conflict flag misses 18 in 100, so the conflict read runs on every exchange (section 15's own fallback).
+- Files (a photo, a document, a voice note) were never shown to the reads: about 4 in 100 messages read as empty.
+  Shown as lines, the codes hold or rise. The re-read priced in decision 8 includes them.
+- A name lookup bug with non-Latin scripts sent every such name to one person; fixed.
+
+### What it changes, by section
+
+| Section | Change |
+|---|---|
+| Header | Fourth draft |
+| 2 | The evidence row reads every source; the matters row added |
+| 3 | Who is meant as a reference; one read for every source |
+| 5 | No routing; one shape with speakers and `toward` |
+| 6 | Links on matters; endings confirmed by his word, "maybe done" until the marks pass |
+| 7 | The matter is every open thing |
+| 9, 10 | Rates are evidence for readings, never shown raw; what chats prove, what waits for recordings |
+| 11 | One standard for every subject |
+| 13 | The read path carries more weight |
+| 14 | The conflict read is no longer routed; the cost target is measured again |
+| 15 | The checks run, their results, and those owed |
+| 16 | The pilot as it ran |
+| 17 | Open items and reminders become the matter |
+| 18 | Placeholder for the naming pass |
+| 19 | Calls 1, 3 and 12 as they turned out |
+
+### The order agreed on 14 Nov
+
+1. Open things as matters (links on matters, endings judged), an errand as the test.
+2. Who is meant, as a reference.
+3. Condensing: situations and histories for every subject (section 11), and the read path (section 13), judged on
+   the 24 cases.
+4. The reads on every source: recordings, groups, mail, in one shape.
+5. Then, untouched: personas, patterns and track record, closeness, his own month, the overview, his word and
+   Life's list, forecasts.

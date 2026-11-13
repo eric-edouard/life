@@ -92,7 +92,17 @@ night, and outputs already have an on and off switch (`core/outputs.ts`).
 
 ## The stages
 
-Each line is one PR unless it says otherwise. "Shadow" means rule 2. "Deletes" is what goes once it has moved.
+### The order agreed on 14 Nov (spec, section 22)
+
+| # | What | State |
+|---|---|---|
+| 1 | **Open things as matters**, four small PRs (plan: the `stored-reads` worktree's `PLAN.md`): (1) the matters step in shadow, setting `matters`, membership only; (2) `matterOf`, worked out when read (open, roles, progress, next), and the readers of open items, due and the person read moved to it; (3) links on matters, prompt `memory-links` v2 (his yes); (4) endings checked by his word, at most 3 questions a day, "maybe done" until the two marks pass, setting `endings`. Backfill: the things open today, since 1 Sep, under $1 (his OK) | PR 1 built, not merged |
+| 2 | **Who is meant**, as a reference: names and his relation words by code, then pronouns with a looser proof; ties between other people as data; references in Life's own text shown as names | Two trials on six days of recordings; the non-Latin name bug fixed (PR 483) |
+| 3 | **Condensing**: situations and histories for every subject by one standard (spec 11), and the read path (spec 13), judged on the 24 cases | Histories for people with a page only |
+| 4 | **The reads on every source**: one shape, any number of speakers, `toward`; recordings, groups, mail. The history read again under that wording, about $18 for chats, needs his yes | Trials on recordings; nothing stored |
+| 5 | Then: personas, patterns and track record, closeness, his own month, the overview, his word and Life's list, forecasts | Stages 5 to 7 below |
+
+Each line below is one PR unless it says otherwise. "Shadow" means rule 2. "Deletes" is what goes once it has moved.
 
 ### Stage 0, re-read against today's code (10 Nov, at the start of the build)
 
@@ -181,7 +191,7 @@ one-sided, how they batch). The map branch is merged with `main`, so the spec no
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
 | 1.1 | **Merged 12 Nov (PR 456), switched on in shadow (his yes):** `memory/links.jsonl`, nothing reads it yet. Originally: The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
-| 1.2 | Open items read endings. **His word, 12 Nov: check how the shadow performs first, and leave shadow only when its results hold** (the endings judged on real nights: right, wrong, missed) | The same cases pass; a sample he would check | Stale items stop showing as open |
+| 1.2 | **14 Nov: folded into the matters work** (order item 1, PRs 3 and 4). Open items read endings. **His word, 12 Nov: check how the shadow performs first, and leave shadow only when its results hold** (the endings judged on real nights: right, wrong, missed) | The same cases pass; a sample he would check | Stale items stop showing as open |
 | 1.3 | Problems and their fixes; a repeat of the same complaint | Cases | The 14-day retire window can go |
 
 ### Stage 2. Histories from the evidence Life already has
@@ -196,20 +206,27 @@ where an answer failed (spec 1).
 |---|---|---|---|
 | 2.1 | **Merged 11 Nov (PR 446), in shadow, off until his `history` setting:** `memory/histories.ts`, a person's closed months summarised once from their one-to-one exchanges (quotes checked, kept apart), then the story of the years; pending work derived from stored hashes, 200 calls a night. Dry count on his data: 42 calls from 2026-09, 205 from 2025-11, 1,103 for every year (27 people). On for every year since 11 Nov night (his answer: "every year"; `history.from` 2007-01), 200 calls a night. The reader is merged (PR 449, 12 Nov): the story and the newest 12 months on the person read's first page, earlier months paged with its timeline. First check live, 12 Nov (`…/2026-11-12-v3-live-1.md`): 16 and 15 of 24 on the 8 cases with counts and the partly built history, against a mean of 13.6 before; to repeat once every month is built. Originally: A month's summary for a subject, built when asked, shadow; an old month reads its photo-days too (spec 11) | Against the raw read whole for one person and one month | None yet |
 | 2.2 | **Tested before building, 12 Nov: not built.** The open month in the person read moved the 8 cases inside their noise (14, 15 of 24), and a situation read from history plus episodes came out the same, line for line, as today's (`…/experiments/2026-11-12-situation-v3.md`). Reopen if 2.3's areas show a use for it. Originally: The situation reads summary plus what came since, in place of the page plus 30 days | Today's situations side by side | The 30-day window goes |
-| 2.3 | Situations for parts of his life | A project he knows well | New: where each area stands |
+| 2.3 | **14 Nov: under the one standard for every subject** (order item 3). Situations for parts of his life | A project he knows well | New: where each area stands |
 | 2.4 | Year and story; the persona's gist written with the story | His arc questions | Arcs have an answer for the first time |
-| 2.5 | Matters: parts of his life Life names itself, like unknown people today | A dispute and a trip from his data | Things that run for months get a home |
+| 2.5 | **14 Nov: brought forward as every open thing** (order item 1). Matters: parts of his life Life names itself, like unknown people today | A dispute and a trip from his data | Things that run for months get a home |
 
 ### Stage 3. The pilot (no change to the running Life)
+
+**Done, 13 Nov.** The three reads over the whole one-to-one chat history (about $30), three test sets checked
+between two model families, the conflict wording v2, six days of recordings; the project and the goal cut on 12 Nov.
+Results in the spec, sections 15 and 22.
 
 Scripts on a copy of his data, as the benches run today. Every run logs tokens and time per step (spec 16). Four pieces (spec section 16). It freezes the wording of
 the focused reads, sets the numbers, and prices the backfill. Stages 0 to 2 feed it and do not wait for it.
 
 ### Stage 4. The focused reads, one family per PR, each in shadow
 
+**Stored for one-to-one chats, 13 Nov (PR 478):** the three reads' replies in `memory/read-replies/` (1,920 lines),
+a nightly step in shadow, off. Not on recordings, groups or mail: order item 4.
+
 | Step | What ships | Proven by |
 |---|---|---|
-| 4.0 | The day's read flags which families an exchange holds (a prompt version change: his yes first) | What the one-in-twenty full read finds |
+| 4.0 | **Dropped, 14 Nov:** no routing, the conflict read runs on every exchange (spec 5). The day's read flags which families an exchange holds (a prompt version change: his yes first) | What the one-in-twenty full read finds |
 | 4.1 | Mentions and self-reports | The pilot's marks for that family |
 | 4.2 | Conflict and steering | Same |
 | 4.3 | Connection | Same |
@@ -222,7 +239,7 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 | Step | What ships | Value / deletes |
 |---|---|---|
 | 5.1 | **Merged 13 Nov (PR 473):** `memory/moves.ts` (the move shapes and their checking) and `memory/move-rates.ts` (one vote per code, side and exchange; a chance per counted thing; 15 chances for a share; only what the test sets proved says a share; per source for an exchange chance; the last 12 months against before; the place among people), used by the pilot's page script. The reads stay scripts until stage 4. Originally: The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
-| 5.2 | The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
+| 5.2 | **Tried and closed, 13 Nov (PR 479 closed):** the rates on the person read, as a table and as sentences, moved nothing on the question cases; rates feed readings, never shown raw (spec 9). Kept from the try: episode titles by month in the person read (PR 481). Originally: The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
 | 5.3 | Patterns and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
 | 5.5 | The persona's traits and patterns come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
