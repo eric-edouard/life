@@ -2,8 +2,7 @@ import { clock, daysBefore } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { levelsWith } from "./closeness";
-import { section } from "./index-rows";
-import { endingsNow } from "./links";
+import { QUOTE_MAX, section } from "./index-rows";
 import type { MatterStepNow, MatterView } from "./matter-read";
 import { readMatterBook } from "./matters";
 import {
@@ -15,6 +14,7 @@ import {
   rankedItems,
 } from "./open-items";
 import { goalProjects } from "./read-truth";
+import { clip } from "./units";
 import type { People } from "./who";
 import { repliesOwed } from "./words";
 import { dayNow, dayStart, localDate } from "./zones";
@@ -22,25 +22,23 @@ import { dayNow, dayStart, localDate } from "./zones";
 // The open items the read path shows, read from the matters and the chats: what `read_day` lists as due and what a
 // person's page lists as open with them. `open-items.ts` times and ranks them.
 
-const QUOTE_MAX = 140;
-
 /** An open matter as `read_day` and a person's page list it: its newest open step, who it is with, where it stands. */
 function lineOf(v: MatterView, nameOf: (ref: string) => string) {
   const next = v.next as MatterStepNow;
   const who = (label: string, refs: string[]) =>
     refs.length > 0 ? `; ${label} ${refs.map(nameOf).join(", ")}` : "";
-  const q = next.quote.replace(/\s+/g, " ");
-  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${q.length > QUOTE_MAX ? `${q.slice(0, QUOTE_MAX)}…` : q}" (${next.ref})`;
+  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${clip(next.quote.replace(/\s+/g, " "), QUOTE_MAX)}" (${next.ref})`;
 }
 
 /**
  * The open matters as open items (`matterOf`: one rule of what is open), one each, by its newest open step: due on
- * its earliest date, else said on the day of that step. Who it is with is the step's person, else who it is owed to,
+ * its earliest open date not more than `OVERDUE_DAYS` before `date`, else said on the day of that step. Who it is with is the step's person, else who it is owed to,
  * waited on, or with.
  */
 export const matterItems = (
   book: MatterView[],
-  nameOf: (ref: string) => string
+  nameOf: (ref: string) => string,
+  date: string
 ): Candidate[] =>
   book.flatMap((v): Candidate[] => {
     const { next } = v;
@@ -49,6 +47,10 @@ export const matterItems = (
       return [];
     }
     const open = v.steps.filter((s) => !s.ended);
+    const since = daysBefore(date, OVERDUE_DAYS);
+    const dates = open.flatMap((s) => (s.when ? [s.when] : [])).toSorted();
+    // A date too old to list stays its date (never said again as undated).
+    const due = dates.find((d) => d >= since) ?? dates.at(0);
     const people = [...v.owedTo, ...v.waitingOn, ...v.with, ...v.told];
     return [
       {
@@ -60,9 +62,9 @@ export const matterItems = (
         person: next.with ?? people[0],
         priority: open.find((s) => s.priority)?.priority,
         projects: v.projects,
-        said: v.due ? undefined : next.day,
+        said: due ? undefined : next.day,
         urgent: open.some((s) => s.urgent),
-        when: v.due,
+        when: due,
       },
     ];
   });
@@ -109,13 +111,14 @@ export function openWithOf(
     : [];
 }
 
-/** Every open matter on `today` (`readMatterBook`, its endings the links step found), with the replies he owes up to `end`. */
-export async function readOpenItems(people: People, end: Date) {
+/** Every open matter on `today` (`readMatterBook`), with the replies he owes up to `end`. */
+export async function readOpenItems(
+  people: People,
+  end: Date,
+  date = dayNow()
+) {
   return [
-    ...matterItems(
-      await readMatterBook(people, dayNow(), endingsNow),
-      people.nameOf
-    ),
+    ...matterItems(await readMatterBook(people, dayNow()), people.nameOf, date),
     ...(await repliesOwed(end)),
   ];
 }
@@ -140,7 +143,7 @@ export async function dueContext(date: string, people: People) {
   );
   return {
     goals: goalProjects(truth.me.goals),
-    items: await readOpenItems(people, new Date(end)),
+    items: await readOpenItems(people, new Date(end), date),
     levels,
     shown: await shownDays(date),
     today,

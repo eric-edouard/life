@@ -358,7 +358,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the open matters, newest first, each with its id, name, matter status (done, waiting_on_someone, moving, stuck, dormant), who it is owed to, who is waited on and what is next. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on and what is next. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),

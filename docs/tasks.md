@@ -98,14 +98,14 @@ each minute as state only: one `via: "todo_list"` line each, with no `instructio
 
 ### Open things
 
-What is open is a matter (`matterOf`, `apps/server/src/memory/matter-read.ts`): open until its newest to-do, promise or wait has an ending (a to-do item ticked or removed, or an observation a link ended, `endingsOf`). It is worked out when read from the matters step's lines (`matters.jsonl`), the observations, the ledger's to-do items (`todoItemsOf`: what `changeTodoItem` wrote and
+What is open is a matter (`matterOf`, `apps/server/src/memory/matter-read.ts`): open until its newest to-do, promise or wait has an ending (a to-do item ticked or removed, or an observation retired: replaced by a newer one or said outdated; links stay in shadow until the open rule reads them). It is worked out when read from the matters step's lines (`matters.jsonl`), the observations, the ledger's to-do items (`todoItemsOf`: what `changeTodoItem` wrote and
 what sync read back) and the chats; an open observation or to-do item no matter holds is a matter of one, and a to-do item made from an observation joins it. `openItems` (`apps/server/src/memory/open-items.ts`) times them and code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to an agent's review at most twice (counted from the ids its `read_day` calls were logged
 with). `read_day`'s Due and `changeTodoItem`'s duplicate check read the ledger, never Reminders; a to-do item made by hand counts once sync read
 it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
-`read_matters` (the open matters, of a person, project or area: id, name, matter status, owed to, waiting on, next) and `read_matter` (one matter: its steps in time order with dates and quotes, its people by role, projects, areas and status) are the connector's reads of them; they read only.
+`read_matters` (the running matters, open and not dormant, of a person, project or area: id, name, matter status, owed to, waiting on, next) and `read_matter` (one matter: its steps in time order with dates and quotes, its people by role, projects, areas and status) are the connector's reads of them; they read only.
 
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way

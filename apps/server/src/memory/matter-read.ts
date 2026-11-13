@@ -14,7 +14,7 @@ import {
   type LedgerTodoItem,
 } from "../todo-list/todo-items-from-ledger";
 import { OWNER } from "./read-truth";
-import { localDate } from "./zones";
+import { dayStart, localDate } from "./zones";
 
 // A matter as it reads now (docs/glossary.md: matter, matter status): everything about it is worked out here from the
 // stored line (its steps, `matters.ts`) and the records as they stand, never stored. One rule for "open": a matter is
@@ -28,12 +28,10 @@ export const STATUSES = [
   "stuck",
   "dormant",
 ] as const;
-export type MatterStatus = (typeof STATUSES)[number];
+type MatterStatus = (typeof STATUSES)[number];
 
 /** A step in this many days or less: the matter is moving. */
 export const MOVING_DAYS = 14;
-/** Nothing for more than this many days: dormant (still open: only an ending closes a matter). */
-export const DORMANT_DAYS = 45;
 
 type StepObservation = Pick<
   Observation,
@@ -57,8 +55,8 @@ type Line = Pick<Matter, "areas" | "id" | "name" | "projects"> & {
 
 /** The records a matter's steps are read from, as they stand today. */
 export interface MatterRecords {
-  /** What ended each observation (`endingsOf`, by the earlier one's id). */
-  endings: ReadonlyMap<string, unknown>;
+  /** The observations that ended: retired, replaced by a newer one or said outdated. */
+  endings: ReadonlySet<string>;
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
   ledger: readonly LedgerEntry[];
@@ -87,8 +85,6 @@ export interface MatterStepNow {
 
 export interface MatterView {
   areas: string[];
-  /** Its earliest date on an open step. */
-  due?: string;
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
@@ -116,7 +112,7 @@ export const ACTIONABLE: MatterStepNow["kind"][] = [
 const isPerson = (r: string) =>
   r.startsWith("person:") || r.startsWith("unknown:");
 const uniq = <T>(list: T[]) => [...new Set(list)];
-const daysFrom = (from: string, to: string) =>
+export const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
 /** The lookups over the records, built once for every matter. `placed`: the observations some matter line names. */
@@ -146,10 +142,10 @@ function recordsOf(line: Line, ix: Index) {
     const item = ix.todo.get(ref);
     if (episode) {
       episodes.set(episode.id, episode);
-      for (const o of ix.byUnit.get(ref) ?? []) {
-        if (o.importance >= KEEP_AT && !ix.placed.has(o.id)) {
-          observations.set(o.id, o);
-        }
+    }
+    for (const o of ix.byUnit.get(ref) ?? []) {
+      if (o.importance >= KEEP_AT && !ix.placed.has(o.id)) {
+        observations.set(o.id, o);
       }
     }
     if (observation) {
@@ -171,7 +167,7 @@ function recordsOf(line: Line, ix: Index) {
   };
 }
 
-/** Where a matter stands on `today`: done when its newest to-do, promise or wait is ended; else by how old its newest step is and what is open. */
+/** Where a matter stands on `today`: done when ended; stuck when an open step's date has passed; waiting when the next step is a wait; moving with a step in `MOVING_DAYS`; else dormant. Silence alone is never stuck. */
 function statusOf(
   open: boolean,
   openSteps: MatterStepNow[],
@@ -179,12 +175,8 @@ function statusOf(
   newest: MatterStepNow,
   today: string
 ): MatterStatus {
-  const age = daysFrom(newest.day, today);
   if (!open) {
     return "done";
-  }
-  if (age > DORMANT_DAYS) {
-    return "dormant";
   }
   if (openSteps.some((s) => s.when && s.when < today)) {
     return "stuck";
@@ -192,7 +184,7 @@ function statusOf(
   if (next?.kind === "waiting_on_someone") {
     return "waiting_on_someone";
   }
-  return age <= MOVING_DAYS ? "moving" : "stuck";
+  return daysFrom(newest.day, today) <= MOVING_DAYS ? "moving" : "dormant";
 }
 
 /** The steps of a matter's records, in time order. */
@@ -209,7 +201,10 @@ function stepsOf(
   return [
     ...episodes.map(
       (m): MatterStepNow => ({
-        at: (m.start ?? m.day).replace(" ", "T"),
+        // An instant, like the others: its local start in the zone of that day, else the day's start (before the day's timed steps).
+        at: dayStart(m.day, undefined, m.start?.slice(11, 16) || undefined)
+          .toISOString()
+          .replace(".000", ""),
         day: (m.start ?? m.day).slice(0, 10),
         ended: false,
         kind: "episode",
@@ -291,10 +286,15 @@ export function matterOf(
   const open = !last?.ended;
   const next = open ? last : undefined;
   const openSteps = open ? actionable.filter((s) => !s.ended) : [];
-  const roleOf = (kinds: MatterStepNow["kind"][]) =>
+  const roleOf = (
+    kinds: MatterStepNow["kind"][],
+    byOthers: (s: MatterStepNow) => boolean = () => true
+  ) =>
     uniq(
       openSteps.flatMap((s) =>
-        s.with && kinds.includes(s.kind) ? [rec.refOf(s.with)] : []
+        s.with && kinds.includes(s.kind) && byOthers(s)
+          ? [rec.refOf(s.with)]
+          : []
       )
     );
   const peopleOf = (...roles: string[]) =>
@@ -311,16 +311,15 @@ export function matterOf(
       ...line.areas,
       ...records.observations.flatMap((o) => (o.area ? [o.area] : [])),
     ]),
-    due: openSteps
-      .flatMap((s) => (s.when ? [s.when] : []))
-      .toSorted()
-      .at(0),
     id: line.id,
     lone,
     name: line.name,
     next,
     open,
-    owedTo: roleOf(["promise", "to_do"]),
+    owedTo: roleOf(
+      ["promise", "to_do"],
+      (s) => s.kind !== "to_do" || ix.byId.get(s.ref)?.speaker !== OWNER
+    ),
     projects: uniq([
       ...line.projects,
       ...records.observations.flatMap((o) =>
@@ -336,6 +335,10 @@ export function matterOf(
     with: peopleOf("with", "organizer"),
   };
 }
+
+/** Running: open and not dormant. What the matters step shows the model and what `read_matters` lists. */
+export const isRunning = (v: Pick<MatterView, "open" | "status">) =>
+  v.open && v.status !== "dormant";
 
 /** What a lone observation is: his own promise, wait or to-do, at the top importance. */
 const isOpenKind = (o: StepObservation) =>

@@ -185,6 +185,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
       when: null,
       ...f,
     })),
+    statusInputs: { retired: new Map() },
   } as never);
   const ask = spyOn(models, "askOnce").mockImplementation(((o: {
     input: never;
