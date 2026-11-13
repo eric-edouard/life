@@ -110,7 +110,7 @@ the observations linked to them, the replies he owes them and the reminders made
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`). A reminder made by hand names no one, so it
 is not on any page.
 
-Its first block is what their time together was about: the titles of the last 60 episodes with them, by month (`talkLines`).
+Its first block is what their time together was about: the titles of the last 60 episodes they took part in, by month (`episodeTitleLines`).
 
 ### The standing grant
 
