@@ -65,7 +65,9 @@ export const recorded = async (id: string) =>
  * so he can do it by hand. The same words asking for the same thing change it once (the old record comes back), unless that
  * try failed: then they try again.
  */
-export async function changeTodoItem(a: InstructedChange): Promise<LedgerEntry> {
+export async function changeTodoItem(
+  a: InstructedChange
+): Promise<LedgerEntry> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const b = backend();
