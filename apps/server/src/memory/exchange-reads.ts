@@ -6,9 +6,9 @@ import { digest } from "../core/hash";
 import { newestWithin } from "../core/lists";
 import { promptText, stamp } from "../models/llm";
 import { READ_NAMES, type ReadName, ReadReply } from "../records/read-reply";
-import { chatGroups, eventKey, type SourceEvent } from "../records/source";
+import { eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
-import { batchesOf, exchangesOf, isFinished, isLiving } from "./exchanges";
+import { batchesOf, isFinished, livingExchanges } from "./exchanges";
 import { READ_REPLIES, readReplyPath } from "./ledger";
 import { begin, inBatches, type Step } from "./run";
 import type { People } from "./who";
@@ -164,10 +164,8 @@ export function readExchangeReadWork(
       continue;
     }
     const withWhom = withOf(ref.slice("person:".length), people);
-    for (const chat of chatGroups(messages).values()) {
-      const finished = isLiving(chat)
-        ? exchangesOf(chat).filter((x) => isFinished(x, now))
-        : [];
+    for (const exchanges of livingExchanges(messages)) {
+      const finished = exchanges.filter((x) => isFinished(x, now));
       for (const read of READ_NAMES) {
         const unread = finished.filter((x) => !replyOf(x, read, index));
         for (const batch of batchesOf(unread)) {

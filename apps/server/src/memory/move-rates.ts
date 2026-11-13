@@ -79,7 +79,9 @@ export const CHANCE: Record<Thing, Chance> = {
 };
 
 /** Under this many chances a rate says "too few" (spec 9). A reading's own higher bar is its reader's. */
-export const MINIMUM = 15;
+const MINIMUM = 15;
+/** Whether `of` chances are too few for a share. */
+export const isTooFew = (of: number) => of < MINIMUM;
 
 const both = (...things: Thing[]) =>
   things.flatMap((t) => [`${t}|me`, `${t}|them`]);
@@ -267,7 +269,7 @@ function rowOf(
     if (!proven) {
       return { n, of, says: "exploratory" };
     }
-    return { n, of, says: of < MINIMUM ? "too few" : "share" };
+    return { n, of, says: isTooFew(of) ? "too few" : "share" };
   };
   return total.all.of === 0
     ? []
@@ -309,11 +311,11 @@ export function moveRatesOf(seen: SeenExchange[], month: string): MoveRate[] {
 }
 
 /**
- * Where a rate stands among the same rate of others: how many of those with a share are above it and how many
- * below; a tie counts as neither. A rate with no share has no place.
+ * Where a rate stands among the same rate of others: how many of those with a share are above it, how many below
+ * (a tie counts as neither) and how many there are. A rate with no share has no place.
  */
 export function placeAmong(rate: Rate, others: Rate[]) {
-  const place = { above: 0, below: 0 };
+  const place = { above: 0, among: 0, below: 0 };
   if (rate.says !== "share") {
     return place;
   }
@@ -321,6 +323,7 @@ export function placeAmong(rate: Rate, others: Rate[]) {
     if (o.says === "share") {
       const diff = o.n * rate.of - rate.n * o.of;
       place.above += diff > 0 ? 1 : 0;
+      place.among += 1;
       place.below += diff < 0 ? 1 : 0;
     }
   }

@@ -23,7 +23,13 @@ import {
   withIndex,
 } from "./index-rows";
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
-import { CHANCE, type Chance, MINIMUM, type Thing } from "./move-rates";
+import {
+  channelsOf,
+  isExtreme,
+  LOW_SHARE,
+  moveRateLines,
+} from "./move-rate-lines";
+import { CHANCE, type Chance, isTooFew, type Thing } from "./move-rates";
 import { readMoveRates, type StoredMoveRate } from "./move-rates-file";
 import { parsePage, slugOf } from "./page-format";
 import { personaBlock, readPersona } from "./personas";
@@ -251,6 +257,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
         ...(before
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
+              ...moveRateLines(rated?.rows ?? []),
               ...details,
               ...close,
               ...openWithOf(db, ref, {
@@ -384,7 +391,7 @@ export function moveRatesBlock(
     return [];
   }
   const percent = ({ n, of }: { n: number; of: number }) =>
-    of < MINIMUM ? "-" : `${Math.round((100 * n) / of)}%`;
+    isTooFew(of) ? "-" : `${Math.round((100 * n) / of)}%`;
   const figures = (r: StoredMoveRate) =>
     `${percent(r.all)} (${r.all.n}/${r.all.of}; ${percent(r.lately)} | ${percent(r.before)}; ${r.above} of ${r.among} higher)`;
   const chanceOf = (r: StoredMoveRate) => CHANCE[r.thing as Thing];
@@ -407,38 +414,14 @@ export function moveRatesBlock(
           .map((r) => who(r) + text(r))
           .join(", ")}`
     );
-  // A channel is shown when active lately (its tension row, else its busiest row); when none is, the busiest one.
-  const channels = [
-    ...Map.groupBy(
-      rates.rows.filter((r) => r.source),
-      (r) => r.source ?? ""
-    ),
-  ].map(([source, rows]) => {
-    const own = rows.filter((r) => r.thing === "tension");
-    const pool = own.length > 0 ? own : rows;
-    return {
-      all: Math.max(...pool.map((r) => r.all.of)),
-      lately: Math.max(...pool.map((r) => r.lately.of)),
-      source,
-    };
-  });
-  const active = channels.filter((c) => c.lately >= MINIMUM);
-  const busiest = channels.toSorted((a, b) => b.all - a.all).slice(0, 1);
-  const kept = new Set(
-    (active.length > 0 ? active : busiest).map((c) => c.source)
-  );
-  const left = channels.filter((c) => !kept.has(c.source));
+  const { left, shown: kept } = channelsOf(rates.rows);
   const inShown = (r: StoredMoveRate) => !r.source || kept.has(r.source);
   // A line low everywhere and not at an extreme of the people is left out; flags and warm tone always stay.
   const ALWAYS = ["tension", "conflict", "warm"];
   const isWorth = (group: StoredMoveRate[]) =>
     chanceOf(group[0] as StoredMoveRate) !== "exchange" ||
     ALWAYS.includes(group[0]?.thing ?? "") ||
-    group.some(
-      (r) =>
-        r.all.n >= 0.05 * r.all.of ||
-        (r.among >= 6 && (r.above < 3 || r.below < 3))
-    );
+    group.some((r) => r.all.n >= LOW_SHARE * r.all.of || isExtreme(r));
   const worth = [
     ...Map.groupBy(
       rates.rows.filter((r) => r.says === "share" && inShown(r)),
@@ -475,7 +458,10 @@ export function moveRatesBlock(
       ? [
           `Not shown: ${left
             .toSorted((a, b) => a.source.localeCompare(b.source))
-            .map((c) => `${c.source} (${c.all} exchanges, none lately)`)
+            .map(
+              (c) =>
+                `${c.source} (${c.all} exchanges, ${c.lately} in the last 12 months)`
+            )
             .join("; ")}`,
         ]
       : []),

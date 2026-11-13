@@ -122,7 +122,7 @@ test("only share rows and the named conduct rows are kept, each with its place a
   ).toBe(false);
 });
 
-test("an exchange with no reply of the current prompt counts nothing, nor one that gained a message since", () => {
+test("an exchange with no reply of the current prompt counts nothing, nor one that gained a message since (its line's other exchanges still count)", () => {
   const carol = talk("+3", 16);
   store("connection", carol, ["asks_about"], 16);
   // Ann's line was made by a prompt that is not the read's current one.

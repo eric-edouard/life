@@ -4,10 +4,10 @@ import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { isoDateTime } from "../records/fields";
 import { READ_NAMES, type ReadReply } from "../records/read-reply";
-import { chatGroups, eventKey, type SourceEvent } from "../records/source";
+import { eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import { readReplyIndex, replyOf } from "./exchange-reads";
-import { exchangesOf, isLiving } from "./exchanges";
+import { livingExchanges } from "./exchanges";
 import { MOVE_RATES } from "./ledger";
 import {
   CHANCE,
@@ -72,16 +72,14 @@ function readsOf(events: SourceEvent[], index = readReplyIndex()) {
     ReadReply,
     { first: SourceEvent; starts: Set<number> }
   >();
-  for (const chat of chatGroups(events).values()) {
-    for (const x of isLiving(chat) ? exchangesOf(chat) : []) {
-      for (const read of READ_NAMES) {
-        const h = replyOf(x, read, index);
-        const start = h?.line.starts[h.index];
-        if (h && start !== undefined && x[0]) {
-          const got = held.get(h.line) ?? { first: x[0], starts: new Set() };
-          held.set(h.line, got);
-          got.starts.add(start);
-        }
+  for (const x of livingExchanges(events).flat()) {
+    for (const read of READ_NAMES) {
+      const h = replyOf(x, read, index);
+      const start = h?.line.starts[h.index];
+      if (h && start !== undefined && x[0]) {
+        const got = held.get(h.line) ?? { first: x[0], starts: new Set() };
+        held.set(h.line, got);
+        got.starts.add(start);
       }
     }
   }
@@ -127,17 +125,10 @@ function keptRows(rates: Map<string, MoveRate[]>) {
         const others = [...(rows.get(rowKey(r)) ?? [])]
           .filter(([who]) => who !== ref)
           .map(([, o]) => o.all);
-        const place =
-          all.says === "share"
-            ? {
-                ...placeAmong(all, others),
-                among: others.filter((o) => o.says === "share").length,
-              }
-            : { above: 0, among: 0, below: 0 };
         const count = ({ n, of }: { n: number; of: number }) => ({ n, of });
         return [
           {
-            ...place,
+            ...placeAmong(all, others),
             all: count(all),
             before: count(r.before),
             lately: count(r.lately),

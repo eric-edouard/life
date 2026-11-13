@@ -1,6 +1,6 @@
 import { HOUR } from "../core/clock";
 import { packed } from "../core/lists";
-import type { SourceEvent } from "../records/source";
+import { chatGroups, type SourceEvent } from "../records/source";
 
 /** With no message for this long an exchange is over: the next message opens a new one. */
 export const EXCHANGE_ENDS_AFTER = 6 * HOUR;
@@ -41,6 +41,10 @@ export const isFinished = (exchange: SourceEvent[], now: Date) =>
 /** A living chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
 export const isLiving = (chat: SourceEvent[]) =>
   chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
+
+/** The exchanges of a person's living chats, one list per chat (`chatGroups`, `isLiving`, `exchangesOf`). */
+export const livingExchanges = (messages: SourceEvent[]) =>
+  [...chatGroups(messages).values()].filter(isLiving).map(exchangesOf);
 
 /**
  * Exchanges in batches, each what one call reads: consecutive exchanges up to `EXCHANGE_BATCH_CHARS`. An exchange is

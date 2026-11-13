@@ -87,7 +87,7 @@ test("a channel with nothing lately is named, not shown; a low unremarkable line
     ],
   });
   expect(block.slice(3)).toEqual([
-    "Not shown: mail (80 exchanges, none lately)",
+    "Not shown: mail (80 exchanges, 0 in the last 12 months)",
     "Per exchange each wrote in, whatsapp:",
     "- tension: 34% (51/150; 40% | 31%; 12 of 27 higher)",
     "- gives: he 1% (2/150; 40% | 31%; 1 of 27 higher)",

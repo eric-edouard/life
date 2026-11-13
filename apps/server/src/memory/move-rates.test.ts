@@ -202,8 +202,8 @@ test("the place among others: those above and below, ties neither, no share no p
   const few = { n: 1, of: 2, says: "too few" as const };
   expect(
     placeAmong(share(10), [share(2), share(10), share(5, 10), share(15), few])
-  ).toEqual({ above: 1, below: 1 });
-  expect(placeAmong(few, [share(2)])).toEqual({ above: 0, below: 0 });
+  ).toEqual({ above: 1, among: 4, below: 1 });
+  expect(placeAmong(few, [share(2)])).toEqual({ above: 0, among: 0, below: 0 });
 });
 
 test("three reads of one exchange merge into one seen exchange; a call line is no one's writing", () => {
