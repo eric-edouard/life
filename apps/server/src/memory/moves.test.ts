@@ -161,3 +161,13 @@ test("two people talked about on one line are two mentions", () => {
   );
   expect(exchanges[0]?.moves.map((m) => m.who)).toEqual(["Marc", "Julie"]);
 });
+
+test("a move whose resource is `standing` (praise, respect) parses: the stored replies carry it", () => {
+  const { dropped, exchanges } = checkedMoves(
+    replyOf([{ code: "gives", line: 1, quote: "Bravo", resource: "standing" }]),
+    talk,
+    [0]
+  );
+  expect(dropped).toBe(0);
+  expect(exchanges[0]?.moves).toHaveLength(1);
+});
