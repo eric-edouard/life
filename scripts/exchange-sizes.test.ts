@@ -43,7 +43,7 @@ test("sizes: a row per source and year an exchange started in; one-sided exchang
       oneSided: 1,
       oversized: 0,
       tokensAtMost: 3,
-      twoWay: 7,
+      twoWayChars: 7,
     },
     {
       // Its exchange went in the batch that started in 2025: no call of its own.
@@ -57,7 +57,7 @@ test("sizes: a row per source and year an exchange started in; one-sided exchang
       oneSided: 1,
       oversized: 0,
       tokensAtMost: 2,
-      twoWay: 6,
+      twoWayChars: 6,
     },
   ]);
   expect(s.quiet.filter((q) => q.count > 0)).toEqual([

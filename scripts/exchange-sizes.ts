@@ -36,7 +36,7 @@ interface Row {
   oneSided: number;
   oversized: number;
   sizes: number[];
-  twoWay: number;
+  twoWayChars: number;
 }
 
 /** How many times each quiet came between two messages of one chat. */
@@ -70,7 +70,7 @@ function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
       row.messages += exchange.length;
       row.oneSided += oneSided ? 1 : 0;
       row.sizes.push(charsOf(exchange));
-      row.twoWay += twoWay ? charsOf(exchange) : 0;
+      row.twoWayChars += twoWay ? charsOf(exchange) : 0;
     }
   }
 }
@@ -88,14 +88,14 @@ function shown([key, r]: [string, Row]) {
     ninetieth: centile(sizes, 0.9),
     oneSided: r.oneSided,
     oversized: r.oversized,
-    tokensAtMost: Math.ceil(r.twoWay / CHARS_PER_TOKEN),
-    twoWay: r.twoWay,
+    tokensAtMost: Math.ceil(r.twoWayChars / CHARS_PER_TOKEN),
+    twoWayChars: r.twoWayChars,
   };
 }
 
 /**
  * The counts of a set of messages: a row per source and year an exchange started in, and the quiet between messages.
- * For the chats both sides wrote in, the ones a read is for: their characters (`twoWay`), at most how many tokens
+ * For the chats both sides wrote in, the ones a read is for: their characters (`twoWayChars`), at most how many tokens
  * that is, the calls that read them a batch at a time (a batch counts in the row of its first exchange), and how
  * many of those batches are over the size (one exchange too long for a call).
  */
@@ -109,7 +109,7 @@ export function sizesOf(events: SourceEvent[]) {
       oneSided: 0,
       oversized: 0,
       sizes: [],
-      twoWay: 0,
+      twoWayChars: 0,
     };
     rows.set(key, row);
     return row;

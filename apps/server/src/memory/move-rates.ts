@@ -179,7 +179,7 @@ const one = (taken: boolean): Count => ({ n: taken ? 1 : 0, of: 1 });
 const did = (occurrences: Move[], side: Side, code: Thing) =>
   occurrences.some((m) => m.by === side && m.code === code);
 
-/** The opportunity of an exchange opportunity: the exchange, if the side wrote in it (a flag has no side). */
+/** What an exchange adds when the opportunity is the exchange: the exchange, if the side wrote in it (a flag has no side). */
 function exchangeIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
   const { occurrences, x } = p;
   if (thing === "conflict" || thing === "tension") {
@@ -196,7 +196,11 @@ function exchangeIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
 }
 
 /** What one exchange adds to a rate of `thing` by `side`: opportunities, and the ones taken. */
-function chancesIn(thing: Thing, side: Side | undefined, p: Prepared): Count {
+function opportunitiesIn(
+  thing: Thing,
+  side: Side | undefined,
+  p: Prepared
+): Count {
   const { occurrences, x } = p;
   if (!x.reads.has(readOf(thing))) {
     return NONE;
@@ -254,7 +258,7 @@ function rowOf(
     if (source && p.x.source !== source) {
       continue;
     }
-    const c = chancesIn(thing, side, p);
+    const c = opportunitiesIn(thing, side, p);
     let span = total.lately;
     if (p.month < since) {
       span = total.before;
@@ -286,7 +290,7 @@ function rowOf(
 }
 
 /**
- * The rates of what a person did, from the exchanges seen: a row for each thing and side with a opportunity, and for an
+ * The rates of what a person did, from the exchanges seen: a row for each thing and side with an opportunity, and for an
  * exchange opportunity one row per source, never pooled (a bid, a fault or a decision is counted across sources). Each
  * has all time, the 12 local months before `month` (`YYYY-MM`, the caller's, so people compare over one window) and
  * the time before those.
