@@ -24,6 +24,7 @@ import {
 } from "./index-rows";
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
 import { parsePage, slugOf } from "./page-format";
+import { latelyLines, talkLines } from "./person-episode-lines";
 import { personaBlock, readPersona } from "./personas";
 import { openWithOf, reminderItems } from "./read-open-items";
 import { goalProjects } from "./read-truth";
@@ -248,6 +249,8 @@ export async function person(name?: string, o: { before?: string } = {}) {
         ...(before
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
+              ...latelyLines(episodes, dayNow()),
+              ...talkLines(episodes, (r) => refOf(r) === ref),
               ...details,
               ...close,
               ...openWithOf(db, ref, {
