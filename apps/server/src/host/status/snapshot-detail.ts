@@ -112,7 +112,7 @@ function entryOf(e: LogLine): Entry {
 
 const PAGE = 40;
 
-/** A processing run's runs, newest first, each one the app can open. */
+/** Its runs, newest first, each one the app can open. */
 async function runHistory(step: string, before?: string) {
   // runs' own cursor: the runs that started before `before`, a page of them.
   const { items } = await runs({
@@ -168,7 +168,7 @@ async function changeHistory(older: (at: string) => boolean, before?: string) {
 }
 
 /**
- * A history that is not its log lines: a processing run's runs and the memory's changes, which page back (`pages`); the open
+ * A history that is not its log lines: the nightly's or backfill's runs and the memory's changes, which page back (`pages`); the open
  * tasks and the Mac's sleeps of the day, whole.
  */
 async function ownHistory(

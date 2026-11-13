@@ -296,7 +296,7 @@ async function reads(now: Date) {
     truth,
     contacts,
     sleepList,
-    swept,
+    spendingRuns,
     actions,
     actionChecks,
     newest,
@@ -314,7 +314,7 @@ async function reads(now: Date) {
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
     // The runs that can spend, a processing run's steps inside it (its use counts theirs).
-    cached("processing runs", 15_000, async () => {
+    cached("spending runs", 15_000, async () => {
       const page = await runs({ limit: 30, steps: SPENDING });
       return { ...page, items: page.items.filter((x) => !x.sweep) };
     }),
@@ -350,8 +350,8 @@ async function reads(now: Date) {
     quotas: of("quota.read", 8),
     sent: of("email.sent", 2),
     sleepList,
+    spendingRuns,
     status,
-    swept,
     t,
     truth,
     turn,
@@ -721,7 +721,7 @@ type ProcessingRun =
 const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
 /**
- * A processing run's processing steps: the phases its last good run went through (its steps among them) and any its latest added,
+ * A processing run's processing steps: the processing steps its last good run went through (its steps among them) and any its latest added,
  * done as its latest went through them, the one it is in now, the one it failed at left to do; for the night, then
  * its report, done once that email went.
  */
@@ -755,7 +755,7 @@ export function processingStepsOf(
       ];
 }
 
-const runFacts = (
+const processingRunFacts = (
   s: ProcessingRun,
   next?: { earliest: string; why: string }
 ): Fact[] => [
@@ -768,7 +768,7 @@ const runFacts = (
 ];
 
 /** A processing run: its last run, its processing steps, what it spent, and when it runs next. */
-function runCard(
+function processingRunCard(
   r: Reads,
   id: string,
   name: string,
@@ -808,7 +808,7 @@ function runCard(
       latest?.outcome === "failed"
         ? [`Failed at ${String(latest.result?.failedAt ?? "?")}`]
         : undefined,
-    facts: runFacts(s, next),
+    facts: processingRunFacts(s, next),
     group: "pipeline",
     headline,
     id,
@@ -862,7 +862,7 @@ function engineCard(r: Reads): Card {
         | { resetsAt?: string; used: number }
         | undefined)
     : undefined;
-  const week = r.swept.items.filter(
+  const week = r.spendingRuns.items.filter(
     (x) => spent(x.use) && r.t - Date.parse(x.startedAt ?? "") < 7 * DAY
   );
   const tokens = week.reduce(
@@ -939,8 +939,14 @@ function calendarCard(
 
 function pipelineCards(r: Reads): Card[] {
   return [
-    runCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
-    runCard(r, "backfill", "Backfill", r.status.backfill),
+    processingRunCard(
+      r,
+      "nightly",
+      "Nightly",
+      r.status.nightly,
+      r.status.nightly.next
+    ),
+    processingRunCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
     engineCard(r),
     calendarCard(r, "past", "episode"),
@@ -1141,7 +1147,7 @@ function macCards(r: Reads): Card[] {
 /** The last 24 h: runs, failures (the watcher's retries apart), sends and the Mac's sleeps. */
 function todayOf(r: Reads): Tick[] {
   return [
-    ...r.swept.items
+    ...r.spendingRuns.items
       .filter((x) => x.startedAt && r.t - Date.parse(x.startedAt) < DAY)
       .map((x) => ({
         at: x.startedAt ?? "",

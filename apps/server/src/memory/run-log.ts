@@ -69,7 +69,7 @@ export interface Run {
   input: Record<string, unknown> | null;
   /** ok | failed | running (it holds the lock now) | unfinished (no end recorded: interrupted, or still running unlocked). */
   outcome: "failed" | "ok" | "running" | "unfinished";
-  /** A processing run's phases in the order it entered them (`phases`, run.ts), its steps among them. */
+  /** A processing run's processing steps in the order it entered them (`processingSteps`, run.ts), its steps among them. */
   phases?: string[];
   result: Record<string, unknown> | null;
   startedAt: string | null;

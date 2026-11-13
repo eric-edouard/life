@@ -179,6 +179,6 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the status snapshot.
-- **Details.** A card opens to its history (a processing run's runs, the memory's changes, the Mac's sleeps, else
+- **Details.** A card opens to its history (the nightly's or backfill's runs, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote.

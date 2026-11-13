@@ -86,7 +86,7 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          // The phase the processing run last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
+          // The phase the processing run last entered (`processingSteps`, run.ts), else the step running (runs from before 21 Oct).
           phase:
             running.find((r) => PROCESSING_RUNS.has(r.step))?.phases?.at(-1) ??
             running.find((r) => !PROCESSING_RUNS.has(r.step))?.step ??

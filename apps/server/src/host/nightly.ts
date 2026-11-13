@@ -43,8 +43,8 @@ import { codeOn, mapRepos } from "../memory/repos";
 import {
   type Metered,
   metered,
-  processingSteps,
-  type StepRun,
+  type RunRecorder,
+  trackProcessingSteps,
 } from "../memory/run";
 import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
 import {
@@ -95,7 +95,7 @@ import {
 import { redCards, snapshot } from "./status/snapshot";
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
-async function acted(now: Date, rec: Pick<StepRun, "error">) {
+async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
   const problems = await checks();
   let actions: readonly LedgerEntry[] = [];
   try {
@@ -114,7 +114,7 @@ async function acted(now: Date, rec: Pick<StepRun, "error">) {
 }
 
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
-function coded(day: string, rec: Pick<StepRun, "error">) {
+function coded(day: string, rec: Pick<RunRecorder, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
     rec.error(e.message, { step: "memory.nightly.code" });
     return [];
@@ -306,7 +306,7 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const failure = await processingRun("memory.backfill", week, engine);
+    const failure = await runProcessing("memory.backfill", week, engine);
     if (await isOfflineFailure(failure)) {
       return 1;
     }
@@ -334,22 +334,22 @@ async function backfilled(day: string) {
  * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
  * caller holds the lock.
  */
-async function processingRun(name: string, window: Window, engine?: Engine) {
+async function runProcessing(name: string, window: Window, engine?: Engine) {
   const rec = await metered(name, { ...window }, engine);
-  const phase = processingSteps(rec);
+  const steps = trackProcessingSteps(rec);
   try {
-    phase.at = "gather";
+    steps.at = "gather";
     const evidence = await gather(window, await readPeople(), { engine });
-    const found = await phase.step("episodes", () => episodes(evidence));
+    const found = await steps.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
-    const extracted = await phase.step("extract", () => extract(evidence));
+    const extracted = await steps.step("extract", () => extract(evidence));
     console.log(JSON.stringify(extracted));
-    phase.at = "index";
+    steps.at = "index";
     await reindex();
     await rec.end({ outcome: "ok" });
     return null;
   } catch (e) {
-    const failure = phase.failed(e);
+    const failure = steps.failed(e);
     await rec.end(failure);
     return { ...failure, ms: rec.ms(), run: rec.run };
   }
@@ -463,74 +463,74 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   const last = readState();
   const since =
     last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();
-  const phase = processingSteps(rec);
+  const steps = trackProcessingSteps(rec);
   let mail: Mail;
   // The observations the report lists, in the run record: an audit can tell what he was told.
   let listed: string[] = [];
-  let failure: ReturnType<typeof phase.failed> | undefined;
+  let failure: ReturnType<typeof steps.failed> | undefined;
   try {
-    const repos = await phase.step("repos", () => mapRepos());
+    const repos = await steps.step("repos", () => mapRepos());
     // Who his Contacts name among the senders Life cannot: before the sources are read, so tonight's units and
     // counts already go by them (derived from Contacts; a failure is logged and the people kept still read).
     writeContactPeople();
     // Every source is read once and handed to each step.
-    phase.at = "gather";
+    steps.at = "gather";
     const evidence = await gather(window, await readPeople());
-    const found = await phase.step("episodes", () => episodes(evidence));
-    const extracted = await phase.step("extract", () => extract(evidence));
+    const found = await steps.step("episodes", () => episodes(evidence));
+    const extracted = await steps.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();
     const { pending, reads, withPeople } = await readYears(now);
-    await phase.step("closeness", () => closeness(withPeople));
+    await steps.step("closeness", () => closeness(withPeople));
     const { keyObservations, marked, observed, retired } = await whatIsNew(
       since,
       window.from,
       evidence.built
     );
-    const paged = await phase.step("pages", () => pages({ rebuild: false }));
+    const paged = await steps.step("pages", () => pages({ rebuild: false }));
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
-    phase.at = "situations";
+    steps.at = "situations";
     await situations();
-    phase.at = "appointments";
+    steps.at = "appointments";
     // Only while his calendar takes them: nothing else reads the file.
     if (isOn("appointments")) {
       await appointments();
     }
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
-    phase.at = "personas";
+    steps.at = "personas";
     await personas(withPeople);
     // The histories' months not read yet: a failure is logged and never stops the night.
     if (pending) {
-      phase.at = "histories";
+      steps.at = "histories";
       await histories(pending).catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.history" })
       );
     }
     // The exchange reads not stored yet: a failure is logged and never stops the night.
     if (reads) {
-      phase.at = "exchange reads";
+      steps.at = "exchange reads";
       await exchangeReads(reads).catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.exchange-reads" })
       );
     }
-    phase.at = "fact checks";
+    steps.at = "fact checks";
     await topUpFactChecks();
-    phase.at = "index";
+    steps.at = "index";
     await reindex();
     // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open
     // tonight. A failure is logged and never stops the night.
     if (settings().links) {
-      phase.at = "links";
+      steps.at = "links";
       await judgeLinks().catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.links" })
       );
     }
-    phase.at = "actions";
+    steps.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);
     const archive = await archiveLine(since);
-    phase.at = "commit";
+    steps.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     await dropOld(now);
     const q = await quota();
@@ -557,7 +557,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     });
     listed = keyObservations.map((f) => f.id);
   } catch (e) {
-    failure = phase.failed(e);
+    failure = steps.failed(e);
     mail = failureReport(
       clock().toISOString(),
       rec.ms(),

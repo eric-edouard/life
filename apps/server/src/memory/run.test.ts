@@ -8,8 +8,8 @@ import {
   inBatches,
   inputsOf,
   metered,
-  processingSteps,
-  recordStepRun,
+  recordRun,
+  trackProcessingSteps,
 } from "./run";
 import { runs } from "./run-log";
 
@@ -19,7 +19,7 @@ const read = async (step: string, run: string) =>
 
 test("a run is logged as started, then ended with its duration, under its start instant", async () => {
   const step = "memory.test-ok";
-  const rec = recordStepRun(step, { days: 1 });
+  const rec = recordRun(step, { days: 1 });
   const summary = rec.end({ calls: 2, outcome: "ok" });
   expect(summary).toEqual({
     calls: 2,
@@ -38,7 +38,7 @@ test("a run is logged as started, then ended with its duration, under its start 
 
 test("a failure is the run's error, and its end says it failed", async () => {
   const step = "memory.test-failed";
-  const rec = recordStepRun(step, {});
+  const rec = recordRun(step, {});
   rec.error("offline", { unit: "u1" });
   rec.end({ error: "offline", failedAt: "triage", outcome: "failed" });
   expect(await read(step, rec.run)).toMatchObject({
@@ -48,15 +48,15 @@ test("a failure is the run's error, and its end says it failed", async () => {
   });
 });
 
-test("a processing run fails at the phase whose step failed anything, its errors and sub-steps' under its run", async () => {
+test("a processing run fails at the processing step whose step failed anything, its errors and sub-steps' under its run", async () => {
   const step = "memory.backfill";
-  const rec = recordStepRun(step, {});
-  const phase = processingSteps(rec);
-  await phase.step("triage", async () => ({ failed: 0 }));
+  const rec = recordRun(step, {});
+  const steps = trackProcessingSteps(rec);
+  await steps.step("triage", async () => ({ failed: 0 }));
   rec.error("offline", { step: `${step}.push` });
-  const failure = await phase
+  const failure = await steps
     .step("extract", async () => ({ failed: 2 }))
-    .catch(phase.failed);
+    .catch(steps.failed);
   rec.end(failure);
   expect(failure).toEqual({
     error: "2 failed",

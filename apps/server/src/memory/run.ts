@@ -24,7 +24,7 @@ import { localDate } from "./zones";
  * logs a failure of the run (`what.step` names a sub-step: memory.nightly.actions); `end` logs its end with its duration
  * and returns what it logged (`step` aside). No model: the processing runs use it as is, the steps through `begin`.
  */
-export function recordStepRun(step: string, fields: Record<string, unknown>) {
+export function recordRun(step: string, fields: Record<string, unknown>) {
   const now = clock();
   const run = runId(now);
   const started = performance.now();
@@ -46,7 +46,7 @@ export function recordStepRun(step: string, fields: Record<string, unknown>) {
   };
 }
 
-export type StepRun = ReturnType<typeof recordStepRun>;
+export type RunRecorder = ReturnType<typeof recordRun>;
 
 /**
  * A run whose share of his engine's quota is measured (the processing runs, the eval), when the engine has one
@@ -60,7 +60,7 @@ export async function metered(
 ) {
   const read = async () =>
     hasQuota(engine) ? { quota: (await quota(engine)) ?? null } : {};
-  const rec = recordStepRun(step, { ...fields, ...(await read()) });
+  const rec = recordRun(step, { ...fields, ...(await read()) });
   return {
     ...rec,
     end: async <C extends Record<string, unknown>>(result: C) =>
@@ -86,13 +86,15 @@ export async function ended<T extends Record<string, unknown>>(
 }
 
 /**
- * A processing run's phases (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the processing run if
- * it failed anything; `failed` logs the processing run's failure at the phase running and returns its end's fields.
+ * A processing run's processing steps (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the processing run if
+ * it failed anything; `failed` logs the processing run's failure at the processing step running and returns its end's fields.
  */
-export function processingSteps(rec: Pick<StepRun, "error" | "run" | "step">) {
+export function trackProcessingSteps(
+  rec: Pick<RunRecorder, "error" | "run" | "step">
+) {
   let at = "";
   const p = {
-    /** The phase running; each one entered is logged (`run.phase`), so the run's record holds its phases in order. */
+    /** The processing step running; each one entered is logged (`run.phase`), so the run's record holds them in order. */
     get at() {
       return at;
     },
@@ -136,7 +138,7 @@ export async function begin(
 ) {
   const llm = llmFor(tier, engine);
   const model = llmSpec(llm);
-  const rec = recordStepRun(`memory.${step}`, { ...fields, model });
+  const rec = recordRun(`memory.${step}`, { ...fields, model });
   const { now, run } = rec;
   const dir = join(OUT, "runs", `${step}-${run}`);
   await mkdir(dir, { recursive: true });
