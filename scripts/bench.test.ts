@@ -25,10 +25,10 @@ const row = (label: string, model: string, held?: number) => ({
     ? { error: "exited 1" }
     : {
         calls: 46,
-        claims: 700,
         cost: "subscription",
         failed: 0,
         held: counts(held),
+        memoryLines: 700,
         minutes: 40,
         stated: counts(90),
         timeline: {

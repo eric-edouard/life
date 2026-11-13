@@ -1,4 +1,4 @@
-// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
+// `bun scripts/eval.ts <facts.json> [memory-lines.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
 // checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--fact-check-answers` grades the fact checks the owner answered
 // (memory/fact-check-answers.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
@@ -95,7 +95,7 @@ async function factCheckAnswersRun() {
     memoryLines.flatMap((c) => c.units.map((u) => ({ c, u }))),
     (x) => x.u
   );
-  const claimsOn = (units: string[]) =>
+  const memoryLinesOn = (units: string[]) =>
     lines(
       [...new Set(units.flatMap((u) => onUnit.get(u)?.map((x) => x.c) ?? []))],
       () => true
@@ -108,7 +108,7 @@ async function factCheckAnswersRun() {
         JSON.stringify([
           by,
           f.fact,
-          asOf([f], claimsOn(f.units))[0]?.memoryLines,
+          asOf([f], memoryLinesOn(f.units))[0]?.memoryLines,
         ])
       )
     );
@@ -128,7 +128,7 @@ async function factCheckAnswersRun() {
     .filter((f) => keys.has(f.id) && !kept[f.id])
     .toSorted((a, b) => a.date.localeCompare(b.date));
   await inBatches(chunks(asked, PER_CALL), JUDGING, async (part, dir) => {
-    const seen = claimsOn(part.flatMap((f) => f.units));
+    const seen = memoryLinesOn(part.flatMap((f) => f.units));
     for (const grade of await judge(part, seen, { dir, run })) {
       const key = keys.get(grade.fact);
       if (key) {
@@ -142,7 +142,7 @@ async function factCheckAnswersRun() {
     // Each batch's grades saved at once, so a later failed batch costs only its own calls.
     writeJson(GRADES_KEPT, kept);
   });
-  // Again at the end: a run that asked nothing still drops the grades of statements gone.
+  // Again at the end: a run that asked nothing still drops the grades of fact checks gone.
   writeJson(GRADES_KEPT, kept);
   const t = tally(
     judged,
@@ -194,11 +194,11 @@ async function judgeCasesRun(path: string) {
   return { agreed, cases: cases.length };
 }
 
-/** `<facts.json> [claims.jsonl]`: hand-checked facts against the window's memory lines, or a candidate pipeline's. */
-async function factsRun(factsPath: string, claimsPath?: string) {
+/** `<facts.json> [memory-lines.jsonl]`: hand-checked facts against the window's memory lines, or a candidate pipeline's. */
+async function factsRun(factsPath: string, memoryLinesPath?: string) {
   const { facts, from, to } = Facts.parse(await Bun.file(factsPath).json());
-  const memoryLines = claimsPath
-    ? (await Bun.file(claimsPath).text())
+  const memoryLines = memoryLinesPath
+    ? (await Bun.file(memoryLinesPath).text())
         .split("\n")
         .filter(Boolean)
         .map((l) => JudgeMemoryLine.parse(JSON.parse(l)))
@@ -213,10 +213,10 @@ async function factsRun(factsPath: string, claimsPath?: string) {
 
 const args = process.argv.slice(2);
 const asJson = args.includes("--json");
-const [mode, claimsFile] = args.filter((a) => a !== "--json");
+const [mode, memoryLinesFile] = args.filter((a) => a !== "--json");
 if (!mode) {
   throw new Error(
-    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --fact-check-answers | --judge-cases <cases.json>"
+    "usage: bun scripts/eval.ts <facts.json> [memory-lines.jsonl] | --fact-check-answers | --judge-cases <cases.json>"
   );
 }
 // The bench (`--json`) checked before it started: its grading is the cheap end of a run already paid for.
@@ -231,15 +231,15 @@ const DIR = join(OUT, "evals", run);
 const JUDGING = { dir: DIR, llm: llmFor("main") };
 await ended(rec, async () => {
   if (mode === "--judge-cases") {
-    if (!claimsFile) {
+    if (!memoryLinesFile) {
       throw new Error("usage: bun scripts/eval.ts --judge-cases <cases.json>");
     }
-    return await judgeCasesRun(claimsFile);
+    return await judgeCasesRun(memoryLinesFile);
   }
   const result =
     mode === "--fact-check-answers"
       ? await locked(factCheckAnswersRun)
-      : await factsRun(mode, claimsFile);
+      : await factsRun(mode, memoryLinesFile);
   if (!result) {
     throw new Error("a run holds the lock: score when it is done");
   }

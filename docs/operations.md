@@ -91,7 +91,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
   recorded-days`; a few seconds); closeness and the
-  personas take its last three years. With his `history` setting on, the same read gives the histories their
+  personas take its last three years. With his `histories` setting on, the same read gives the histories their
   months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
   costs its month only). With his `exchangeReads` setting on, it also gives the exchange reads their finished
   exchanges without a stored reply (200 calls a night across the three reads, newest first, after the histories; a
@@ -142,7 +142,7 @@ starts at the earliest available history and stops before the nightly seven-day 
 reaches that window is rejected. Voice is skipped entirely; existing voice chapters and unavailable-source units stay
 as stored. Files retain existing descriptions or tags. A failed source aborts the month's publication; retries reconcile
 the same days, including empty ones. Completion explicitly rebuilds the index. No verdict, episode, observation,
-inferred person, extraction marker or processed state is written, so pages, ratings, appointments, open items and the
+inferred person, extraction marker or processed state is written, so pages, fact-check answers, appointments, open items and the
 nightly new-fact count do not change.
 
 Before earlier units are created, each day's zone is derived from its own evidence as `Etc/GMT±N`, with IANA's reversed
@@ -285,11 +285,11 @@ first.
   (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
   missed, extra, duplicates, and start, end and place against lifelog's stays.
 - **Fact checks:** `bun scripts/eval.ts --fact-check-answers` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
-  From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
+  From 29 Oct 2026 the fact checks he answers are the doubtful ones, not a random spread: don't compare a score across that day.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 05:00.
-  A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of
-  its day, the judge and the claims it cites are unchanged; only the rest are judged again. A batch now holds only those,
-  so a grade sees other neighbours' claims than before: from 5 Nov 2026 a score may shift a little for that alone.
+  A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its fact check, the memory lines on its units as of
+  its day, the judge and the memory lines it cites are unchanged; only the rest are judged again. A batch now holds only those,
+  so a grade sees other neighbours' memory lines than before: from 5 Nov 2026 a score may shift a little for that alone.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real episodes and
   extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
   timeline (about 40 minutes;
@@ -330,7 +330,7 @@ first.
   prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
   for the judge: show him the count of cases first. A regression case of status `scenario` may name a question case
   as its `check`.
-- To trace a wrong claim to its step: `bun life memory observation <obs_id>`, and `day` for an episode.
+- To trace a wrong observation to its step: `bun life memory observation <obs_id>`, and `day` for an episode.
 
 ## Audits
 
@@ -374,7 +374,7 @@ when that folder exists:
 - model stages: facts graded by `bun scripts/eval.ts`, rerun when a prompt changes (a flaky case passes 2 runs of 3);
 - the judge itself: judge cases (`docs/evals/judge-cases-*.json`, `bun scripts/eval.ts --judge-cases <file>`), the grades
   the owner settled for facts a judge got wrong; a judge prompt or model changes only when it agrees with at least 9
-  of 10. A fact with a `date` (every rated statement has one) is judged as of that day, against the claims said by then:
+  of 10. A fact with a `date` (every answered fact check has one) is judged as of that day, against the memory lines said by then:
   true then is never wrong because it changed later;
 
 Cases only accumulate. The stage letters: capture (C), hearing and routing (H), extraction (E), ownership (O), task
@@ -413,7 +413,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the directory is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
-- `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
+- `status`, `runs`, `changes`, `observation`: the status reads (`docs/status-reads.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`,
 `linkedin.sqlite`, `telegram.sqlite`, `notes.sqlite`, each with a `deleted` view, and `screen.sqlite`, Screen Time's records) and `~/Library/Messages/chat.db`, read-only.

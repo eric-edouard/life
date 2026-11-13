@@ -70,8 +70,8 @@ its work: the agent keeps its own list.
   restore.
 - Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `changeTodoItem` (`host/change-todo-item.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
-- **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
-  `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every
+- **The to-do list output** is on only with the `todoList` setting, which names the backend: `{"backend": "reminders"}` or
+  `{"backend": "google", "account": "<his Google account>"}` (`isOn("todoList")`). Off: `backend()`, the one gate, refuses every
   call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `changeTodoItem` refuses, and the
   rest of Life runs the same. The read-back and the auto-add permission exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
@@ -87,10 +87,10 @@ its work: the agent keeps its own list.
 ### Reading the backend back
 
 The owner's changes in the backend (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
-each minute as state only: one `via: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
+each minute as state only: one `via: "todo_list"` line each, with no `instruction` (they are not the owner's quoted words).
 
 - They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
-  or grant).
+  or auto-add permission).
 - A value Life wrote or tried to write since the field last settled is Life's own, whatever Reminders shows; so is a
   partial write's, and anything read within 30 s of one of Life's writes (reads lag writes).
 - Section, order and a repeating to-do item's next due are Apple's, never read. Shared lists are never read. The first
@@ -115,7 +115,7 @@ Its first block is what their time together was about: the titles of the last 60
 ### The auto-add permission
 
 The only other authority, off until the owner's words in a Claude session turn it on (`bun life auto-add on|off '<their
-words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
+words>'`, an `auto_add` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
 takes authority away.
 
 - While on, `change_todo_item` with `obs` in place of `said` adds a to-do item (title, list, due, section) from the owner's current
@@ -127,7 +127,7 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
+A one-way projection of the episodes (`apps/server/src/memory/past-events.ts`), kept by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `pastCalendar` setting: each tick brings in line the episodes ending in the last 3 days (the calendar listed from a day before), the night's turn the whole calendar (a backfill, his corrections, renames);
 one event per episode, overlapping as they happened (a big episode holds smaller ones), found by its private
 properties `lifeEpisode` and `lifeHash`. A changed episode is updated in place, a gone one deleted; events without
 `lifeHash` are never touched; one with no `lifeEpisode` (an older Life's) is deleted. It reads nothing back and never alerts. If that calendar ever becomes a source, its
@@ -140,7 +140,7 @@ week. Each night `appointments` (`apps/server/src/memory/appointments.ts`) reads
 bookings, never a hypothesis; recent undated plans too) with the appointments held, and writes `memory/appointments.json`: a trip and the dinner in it are two;
 a later message (his tickets) moves the same appointment, which keeps its id by the facts it shares; a guessed time
 says so. `syncAppointments`
-(`apps/server/src/host/appointments-calendar.ts`, the `appointments` setting: account and calendar) brings that
+(`apps/server/src/host/appointments-calendar.ts`, the `appointmentsCalendar` setting: account and calendar) brings that
 calendar in line each tick, through the client the Past calendar shares (`google-calendar.ts`, `reconcile` in
 `calendar-events.ts`), touching only events with `lifeOutput=appointments`:
 
@@ -162,20 +162,20 @@ A mark is his words to Life, to keep: the unit is always read, every fact extrac
 (`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and makes no ask; agents
 may not use "life" or "live" as wake or misheard words. A message to himself (mail he sent only to his own addresses; every
 message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
-(`tell_life`) is the source `told`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
+(`tell_life`) is the source `told-life`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
 hash moves and only it is read again, with no prompt change. Extraction shows its lines `(marked)`. The nightly lists
 each once read, with the observations citing it ("Told Life").
 
 ## The connector
 
 `apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`) and acts
-only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
-auto-add permission.
+only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the auto-add
+permission.
 
 - **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
-  in `said`, or an `obs` for the auto-add permission) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told.jsonl`, `memory/told.ts`; offered only while the `told` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
+  in `said`, or an `obs` for the auto-add permission) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
 - **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names

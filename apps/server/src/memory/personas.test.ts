@@ -172,7 +172,7 @@ test("a persona is rebuilt when there is none, or a week old with new messages",
   );
 });
 
-test("a reader shows the readings with their backing, and the writing lines under Communication style", () => {
+test("a reader shows the readings with their backing, and the writing lines under How each writes", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
     {

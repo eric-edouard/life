@@ -15,7 +15,7 @@ import {
 
 // His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked to-do item is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
-// They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or grant. Section, order and
+// They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or change the auto-add permission. Section, order and
 // a repeating to-do item's due are Apple's own, never compared; a shared list is never read.
 
 /** A live to-do item's fields, as a change writes them: the compared ones (`pickCompared`). */
