@@ -24,7 +24,7 @@ import {
   readExchangeReadWork,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { topUpFactChecks } from "../memory/fact-checks";
+import { drawEndingChecks, topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
@@ -543,6 +543,7 @@ export async function runNight(
       );
     }
     steps.at = "fact checks";
+    await drawEndingChecks();
     await topUpFactChecks();
     steps.at = "index";
     await reindex();

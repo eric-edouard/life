@@ -82,6 +82,12 @@ export const Settings = z
     describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
+    /**
+     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): readers learn of links as "maybe done" and, at most
+     * three a day, he is asked in conversation whether one is right. Absent means off: nothing is asked, readers
+     * ignore links. Needs `links`.
+     */
+    endings: z.literal(true).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /**

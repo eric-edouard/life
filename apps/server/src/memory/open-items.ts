@@ -1,5 +1,5 @@
-import { DAY } from "../core/clock";
 import { chatGroups, type SourceEvent } from "../records/source";
+import { daysFrom } from "./matter-read";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
@@ -38,9 +38,6 @@ export const OVERDUE_DAYS = 7;
 
 /** Owed to him (he can only chase it); every other open item is his to do, a promise included (decision 11b). */
 export const isOwedToHim = (c: Candidate) => c.kind === "waiting_on_someone";
-
-const daysFrom = (from: string, to: string) =>
-  Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
 /**
  * Whether an item shows on `date`, each at most twice: a dated one on its day (the daily review reads tomorrow too, so

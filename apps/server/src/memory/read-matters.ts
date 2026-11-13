@@ -20,6 +20,12 @@ const WHO = [
   ["told", (v: MatterView) => v.told],
 ] as const;
 
+/** A matter whose next step a link found done (not yet his word): still open, said so. */
+export const maybeOf = (v: Pick<MatterView, "maybe">) =>
+  v.maybe
+    ? `; maybe done: "${clip(v.maybe.replace(/\s+/g, " "), QUOTE_MAX)}"`
+    : "";
+
 const stepLine = (s: MatterStepNow) =>
   `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""} "${clip(s.quote.replace(/\s+/g, " "), QUOTE_MAX)}"`;
 
@@ -62,7 +68,7 @@ export async function openMatters(q: {
               ? [`${label} ${of(v).map(people.nameOf).join(", ")}`]
               : []
           );
-          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}`;
+          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}${maybeOf(v)}`;
         })
         .join("\n");
 }
@@ -83,7 +89,7 @@ export async function oneMatter(id: string) {
     ),
     ...(v.projects.length > 0 ? [`Projects: ${v.projects.join(", ")}`] : []),
     ...(v.areas.length > 0 ? [`Areas: ${v.areas.join(", ")}`] : []),
-    ...(v.next ? [`Next: ${v.next.text}`] : []),
+    ...(v.next ? [`Next: ${v.next.text}${maybeOf(v)}`] : []),
     "Steps, oldest first:",
     ...v.steps.map(stepLine),
   ].join("\n");

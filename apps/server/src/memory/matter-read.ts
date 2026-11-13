@@ -21,7 +21,7 @@ import { dayStart, localDate } from "./zones";
 // open while its newest to-do, promise or wait has no ending. A lone open observation or to-do item that no matter
 // holds is a matter of one.
 
-export const STATUSES = [
+const STATUSES = [
   "done",
   "waiting_on_someone",
   "moving",
@@ -31,7 +31,7 @@ export const STATUSES = [
 type MatterStatus = (typeof STATUSES)[number];
 
 /** A step in this many days or less: the matter is moving. */
-export const MOVING_DAYS = 14;
+const MOVING_DAYS = 14;
 
 type StepObservation = Pick<
   Observation,
@@ -55,11 +55,15 @@ type Line = Pick<Matter, "areas" | "id" | "name" | "projects"> & {
 
 /** The records a matter's steps are read from, as they stand today. */
 export interface MatterRecords {
+  /** Every record id as it stands now: observations and episodes (what a link's two ends must be). */
+  current: ReadonlySet<string>;
   /** The observations that ended: retired, replaced by a newer one or said outdated. */
   endings: ReadonlySet<string>;
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
   ledger: readonly LedgerEntry[];
+  /** The links' endings not yet his word (`endingsRead`), by the observation they end: shown "maybe done", ending nothing. */
+  maybe: ReadonlyMap<string, { quote: string }>;
   observations: readonly StepObservation[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
@@ -73,6 +77,8 @@ export interface MatterStepNow {
   /** Whether it ended: an observation by a link, a to-do item by being ticked or removed. */
   ended: boolean;
   kind: "episode" | "ledger" | "todo_item" | Observation["type"];
+  /** The words of a later step a link found to end it, not yet his word. */
+  maybe?: string;
   priority?: string;
   quote: string;
   ref: string;
@@ -88,6 +94,8 @@ export interface MatterView {
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
+  /** The words that show its next step maybe done (a link, not yet his word); the matter stays open. */
+  maybe?: string;
   name: string;
   /** The newest open step: what is next. */
   next?: MatterStepNow;
@@ -219,6 +227,7 @@ function stepsOf(
         day: o.date,
         ended: rec.endings.has(o.id),
         kind: o.type,
+        maybe: rec.maybe.get(o.id)?.quote,
         quote: o.quote,
         ref: o.id,
         text: o.text,
@@ -313,6 +322,7 @@ export function matterOf(
     ]),
     id: line.id,
     lone,
+    maybe: next?.maybe,
     name: line.name,
     next,
     open,
