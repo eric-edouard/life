@@ -130,7 +130,7 @@ export function openWithOf(
 }
 
 /** His open to-do items in the ledger (`openTodoItemsOf`), as open items: one made from an observation merges into it. */
-export const reminderItems = (): Candidate[] =>
+export const todoItemCandidates = (): Candidate[] =>
   openTodoItemsOf(readLedger()).map(({ at, fields: f, key, ref }) => ({
     at,
     id: key,
@@ -163,7 +163,7 @@ export async function dueContext(date: string, people: People) {
   return {
     goals: goalProjects(truth.me.goals),
     levels,
-    more: [...reminderItems(), ...(await repliesOwed(new Date(end)))],
+    more: [...todoItemCandidates(), ...(await repliesOwed(new Date(end)))],
     shown: await shownDays(date),
     today,
   };

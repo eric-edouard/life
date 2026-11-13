@@ -239,7 +239,7 @@ test("the auto-add permission switches off when he deletes one of its to-do item
   expect(autoAddRefusal({ ...g, actions: ledger })).toBeUndefined();
   const removed = inbound(snap([], { deleted: [rem()] }), ledger, AT);
   expect(autoAddRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
-    "the grant is off: he undid one of its reminders"
+    "the auto-add permission is off: he undid one of its to-do items"
   );
 });
 

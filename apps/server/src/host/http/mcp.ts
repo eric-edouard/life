@@ -91,7 +91,7 @@ const WRITES = {
  */
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
-const TodoChange = Change.extend({
+const ChangeTodoItemArgs = Change.extend({
   obs: ObservationId.optional().describe(
     "Instead of `said`, for an add only (the standing grant): the obs_ id of his own spoken to-do or promise. Life checks it and quotes it; at most 3 a day, off once he undoes one."
   ),
@@ -99,7 +99,7 @@ const TodoChange = Change.extend({
 });
 
 /** Does what the owner asked for in a chat, through `changeTodoItem`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
-async function request({ obs, said, ...change }: z.infer<typeof TodoChange>) {
+async function request({ obs, said, ...change }: z.infer<typeof ChangeTodoItemArgs>) {
   if (obs && said) {
     throw new Error("Not done: pass `said` or `obs`, not both.");
   }
@@ -498,7 +498,7 @@ export function buildServer(readsOnly = false) {
       server,
       "change_todo_item",
       `Change the owner's to-do list (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, for an add only, with \`obs\`, a to-do or promise he said aloud (the standing grant): add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. \`target\` is an item's id as \`read_open_todo_items\` gives it (all but add). Logged in Life's history; \`read_day\` shows it.`,
-      TodoChange,
+      ChangeTodoItemArgs,
       (a) => request(a),
       REVERSIBLE
     );

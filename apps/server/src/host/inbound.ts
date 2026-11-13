@@ -21,7 +21,7 @@ import {
 /** A live to-do item's fields, as a change writes them: the compared ones (`pickCompared`). */
 const fieldsNow = (r: TodoItem) =>
   pickCompared({ ...r, deleted: false, due: openOf(r).due, lost: false });
-const linkOf = (r: TodoItem) => r.deepLink?.split("/").at(-1);
+const deepLinkIdOf = (r: TodoItem) => r.deepLink?.split("/").at(-1);
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
 const his = (
@@ -99,7 +99,7 @@ function linesOf(
             "import",
             id,
             at,
-            { ...of(now, unknown), link: r && linkOf(r) },
+            { ...of(now, unknown), link: r && deepLinkIdOf(r) },
             rekey
           ),
         ]
@@ -120,19 +120,19 @@ export function inbound(
   const actions = ledger.filter((a) => a.target.startsWith(`${s.prefix}:`));
   const first = !actions.some((a) => a.kind === "import");
   const byId = new Map(s.live.map((r) => [r.id, r]));
-  const byLink = new Map(s.live.map((r) => [linkOf(r), r]));
+  const byLink = new Map(s.live.map((r) => [deepLinkIdOf(r), r]));
   const lines: LedgerEntry[] = [];
   for (const it of todoItemsOf(actions).values()) {
     const r =
       byId.get(itemId(it)) ??
-      (it.deepLink ? byLink.get(it.deepLink) : undefined);
+      (it.deepLinkId ? byLink.get(it.deepLinkId) : undefined);
     if (r) {
       byId.delete(r.id);
     }
     const gone = s.deleted.some(
       (d) =>
         d.id === itemId(it) ||
-        (it.deepLink !== undefined && linkOf(d) === it.deepLink)
+        (it.deepLinkId !== undefined && deepLinkIdOf(d) === it.deepLinkId)
     );
     // Left alone: one Life wrote to moments ago (reads lag writes, and a write may land during the read), one on a
     // shared list (never read), one removed and then purged.
@@ -152,7 +152,7 @@ export function inbound(
       const after = {
         ...fieldsNow(r),
         created: r.createdDate,
-        link: linkOf(r),
+        link: deepLinkIdOf(r),
       };
       lines.push(
         his(s.prefix, first || tried ? "import" : "add", r.id, at, after)

@@ -142,8 +142,8 @@ export const reminders: TodoListBackend = {
         error ??= `partial: section: ${(e as Error).message}`;
       }
     }
-    // `link`, the deepLink's UUID, finds it again after a move gives it a new id.
-    return { deepLink: String(r.id), error, id };
+    // `deepLinkId`, the deepLink's UUID, finds it again after a move gives it a new id.
+    return { deepLinkId: String(r.id), error, id };
   },
   can: new Set([
     "alarms",
@@ -204,7 +204,7 @@ export const reminders: TodoListBackend = {
       .map((l) => ({ id: String(l.id), title: l.title })),
   prefix: "reminder",
   remove: (id) => remctl(["delete", num(id), "--force"]),
-  // Back in `list`, under its id and deepLink (checked 21 Oct).
+  // Back in `list`, under its id and deepLinkId (checked 21 Oct).
   restore: (id, list) =>
     remctl(["restore", "--private", `--list=${list}`, "--", num(id)]),
   sections: () => remctl<Record<string, string[]>>(["sections"]),

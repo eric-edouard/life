@@ -14,7 +14,7 @@ import {
   requested,
 } from "./change-todo-item";
 
-test("an add repeats an open reminder with the same title, whatever the case and accents; nothing else is a duplicate", () => {
+test("an add repeats an open to-do item with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;
   const open = [
     { completed: false, target: "reminder:9", title: " dîner AVEC gaston" },

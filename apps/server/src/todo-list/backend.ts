@@ -182,7 +182,7 @@ export async function write(c: Change): Promise<Done> {
   if (c.kind === "add") {
     const w = await b.add(c);
     return {
-      after: { ...fieldsOf(c), id: w.id, link: w.deepLink },
+      after: { ...fieldsOf(c), id: w.id, link: w.deepLinkId },
       error: w.error,
       target: target(w.id),
     };

@@ -115,7 +115,7 @@ export function entryLine(a: LedgerEntry) {
       ? `“${was}” → “${a.after.title}”`
       : `“${was}”: ${changed}`,
     // Until 19 Oct Life also emailed Instinct; those lines stay in ledger.jsonl.
-    grant: `the standing grant ${a.after.on ? "on" : "off"}`,
+    grant: `the auto-add permission ${a.after.on ? "on" : "off"}`,
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
     restore: `restored ${a.target}`,

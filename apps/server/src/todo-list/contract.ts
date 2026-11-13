@@ -40,9 +40,9 @@ export interface TodoItem {
   urgent?: boolean;
 }
 
-/** What a write left: the item's id now (a move can change it), its link (finds it again after a move), a partial's words. */
+/** What a write left: the item's id now (a move can change it), its deepLinkId (finds it again after a move), a partial's words. */
 export interface Written {
-  deepLink?: string;
+  deepLinkId?: string;
   error?: string;
   id: string;
 }

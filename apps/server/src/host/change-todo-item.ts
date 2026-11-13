@@ -39,7 +39,7 @@ export const Asked = Change.extend({
 });
 export type Asked = z.infer<typeof Asked>;
 
-interface TodoItemChange {
+interface InstructedChange {
   change: Change;
   instruction: Instruction;
   via: LedgerEntry["via"];
@@ -65,7 +65,7 @@ export const recorded = async (id: string) =>
  * so he can do it by hand. The same words asking for the same thing change it once (the old record comes back), unless that
  * try failed: then they try again.
  */
-export async function changeTodoItem(a: TodoItemChange): Promise<LedgerEntry> {
+export async function changeTodoItem(a: InstructedChange): Promise<LedgerEntry> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const b = backend();
@@ -188,7 +188,7 @@ export function autoAddRefusal(g: {
 }) {
   const on = g.actions.findLast((a) => a.kind === "grant");
   if (!on?.after.on) {
-    return "the grant is off: only his own words in a conversation turn it on";
+    return "the auto-add permission is off: only his own words in a conversation turn it on";
   }
   const made = g.actions.filter((a) => isAutoAdded(a) && a.result === "ok");
   // The auto-add permission's to-do items as the ledger follows them (through moves, his removals in Reminders too).
@@ -197,7 +197,7 @@ export function autoAddRefusal(g: {
     (it) => keys.has(it.key) && (it.removedAt ?? "") >= on.at
   );
   if (undone) {
-    return "the grant is off: he undid one of its reminders";
+    return "the auto-add permission is off: he undid one of its to-do items";
   }
   if (g.state !== "active") {
     return `the observation is ${g.state}, not current`;

@@ -50,7 +50,7 @@ export type Field = (typeof COMPARED)[number];
 export interface LedgerTodoItem {
   /** When it was made, and the observation or words it came from (open items' age and merge). */
   at: string;
-  deepLink?: string;
+  deepLinkId?: string;
   fields: Fields;
   key: string;
   ref?: string;
@@ -60,7 +60,7 @@ export interface LedgerTodoItem {
   wrote?: string;
 }
 
-/** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
+/** One line's mark on a linked to-do item: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
 function apply(it: LedgerTodoItem, a: LedgerEntry) {
   const after = pickFrom(KEPT, a.after);
   const tried = !stands(a);
@@ -79,7 +79,7 @@ function apply(it: LedgerTodoItem, a: LedgerEntry) {
     }
   }
   if (!tried) {
-    it.deepLink = (a.after.link as string | undefined) ?? it.deepLink;
+    it.deepLinkId = (a.after.link as string | undefined) ?? it.deepLinkId;
     it.removedAt = after.deleted ? a.at : it.removedAt;
   }
   return tried;
