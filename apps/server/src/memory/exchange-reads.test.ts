@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { readdirSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
-import { appendJsonl } from "../core/files";
-import { ReadReply } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import {
   makeReplies,
@@ -13,6 +12,7 @@ import {
   readReplies,
   readReplyIndex,
   replyOf,
+  storeReply,
 } from "./exchange-reads";
 import { exchangesOf } from "./exchanges";
 import type { People } from "./who";
@@ -52,7 +52,7 @@ afterAll(() => rm(dir, { force: true, recursive: true }));
 // A trial file of its own for each test.
 const fresh = () => {
   n += 1;
-  where = join(dir, `${n}.jsonl`);
+  where = join(dir, `trial-${n}`);
 };
 
 let asked = 0;
@@ -134,14 +134,20 @@ test("a new prompt version asks again and rewrites nothing; the same version wit
     starts: [0, 2],
     wording,
   });
-  appendJsonl(where, ReadReply, [line("memory-connection.v2", "a".repeat(16))]);
+  storeReply(
+    line("memory-connection.v2", "a".repeat(16)),
+    talk[0]?.at ?? "",
+    where
+  );
   expect(heldBy(first)).toBeUndefined();
   expect(
     workOf(talk)?.work.filter((w) => w.read === "connection")
   ).toHaveLength(1);
-  appendJsonl(where, ReadReply, [
+  storeReply(
     line(READS.connection.prompt, "b".repeat(16)),
-  ]);
+    talk[0]?.at ?? "",
+    where
+  );
   expect(heldBy(first)?.line.wording).toBe("b".repeat(16));
   expect(
     workOf(talk)
@@ -204,4 +210,28 @@ test("a night asks the newest calls first within its cap; a failed source gives 
       where
     )
   ).toBeNull();
+});
+
+test("a reply is filed under the month of its first message, not of when it was made; folders read oldest month first", () => {
+  fresh();
+  const line = (first: SourceEvent[]) => ({
+    at: "2026-11-13T09:00:00.000Z",
+    madeBy: { engine: "codex" as const, model: "m", prompt: "p", run: "r" },
+    messages: first.map(eventKey),
+    read: "connection" as const,
+    reply: GIVEN,
+    schemaVersion: 1 as const,
+    starts: [0],
+    wording: "a".repeat(16),
+  });
+  const [oct] = talk;
+  const spring = msg(-200 * 24 * HOUR, false);
+  // Made today, both: the later month is stored first, yet comes back second.
+  storeReply(line([oct as SourceEvent]), oct?.at ?? "", where);
+  storeReply(line([spring]), spring.at, where);
+  expect(readdirSync(where).sort()).toEqual(["2026-03.jsonl", "2026-10.jsonl"]);
+  expect(readReplies(where).map((f) => f.map((l) => l.messages[0]))).toEqual([
+    [eventKey(spring)],
+    [eventKey(oct as SourceEvent)],
+  ]);
 });

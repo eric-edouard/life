@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isoDateTime, MadeBy } from "./fields";
 
-// A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, docs/SCHEMA.md): what a model answered when it read
+// A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, the month of its first message, docs/SCHEMA.md): what a model answered when it read
 // exchanges of a one-to-one chat, as given.
 
 /** The three reads of an exchange; the shape of each one's moves is `MOVES` (`memory/moves.ts`). */

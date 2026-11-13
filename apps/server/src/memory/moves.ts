@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ReadName } from "../records/read-reply";
+import { type ReadName, ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { folded, locate } from "./observe";
 import { checkedEntries } from "./run";
@@ -165,8 +165,6 @@ const ExchangeEntry = z.object({
   // A tone that is none of the three is no tone: it never costs the exchange its moves.
   tone: z.object({ me: Tone, them: Tone }).catch({}),
 });
-/** What makes a reply one, and so worth keeping: an object with its exchanges. The rest is checked when read. */
-const Reply = z.object({ exchanges: z.array(z.unknown()) });
 
 /** An exchange of a batch: its messages, from line `start` of the batch. */
 interface Span {
@@ -271,7 +269,7 @@ export function checkedMoves(
     })
   );
   const { entries } = checkedEntries(
-    Reply.parse(reply).exchanges,
+    ReadReply.shape.reply.parse(reply).exchanges,
     ExchangeEntry,
     (x) => String(x.exchange),
     (key) => spans.has(Number(key))

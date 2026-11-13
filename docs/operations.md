@@ -305,11 +305,11 @@ first.
   tries one of the rework's reads (`connection`, `mentions`, `conflict`; `READS` names each one's prompt) on a saved
   test set (`pilot-set.ts`, which picks batches from the replies memory stores, or `pilot-voice-set.ts` for recorded
   conversations), so a wording is tried in minutes; `--model`, `--effort` and `--label` name another model of the
-  engine and the trial file its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
+  engine and the trial folder its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
   far two readers agree, by code and side. Without `--run` it asks nothing: how many batches it would make and at
   most how many tokens. With `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by
   another family), as one `memory.pilot` run, and appends each reply that is one, as the exchange reads do, to a trial
-  file in his data, `docs/memory-rework/pilot/<read>/<label>-<wording>.jsonl`: a reworded prompt is a new file, so it
+  folder in his data, `docs/memory-rework/pilot/<read>/<label>-<wording>/`: a reworded prompt is a new folder, so it
   is asked again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It prints
   counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.

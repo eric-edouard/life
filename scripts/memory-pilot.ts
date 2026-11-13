@@ -1,6 +1,6 @@
 // `bun scripts/memory-pilot.ts <read> --set <name> [--run] [--engine <engine>] [--label <label>] [--model <model>]
 // [--effort <effort>]`: the memory rework's pilot (docs/operations.md, "Measuring"): a read tried on a saved test set
-// (`pilot-set.ts`, `pilot-voice-set.ts`), its replies kept in a trial file of their own by read, label and wording,
+// (`pilot-set.ts`, `pilot-voice-set.ts`), its replies kept in a trial folder of their own by read, label and wording,
 // never in `memory/`. Calls, storing and "already read" are the exchange reads' (`memory/exchange-reads.ts`). Without
 // `--run` it only counts what it would ask. Prints counts, never a word or a name.
 
@@ -53,9 +53,9 @@ export const readSet = (name: string) => {
   return set;
 };
 
-/** The trial file of a read tried by `label` with this wording: a reworded prompt of the same name is a new file, so it is asked again. */
-export const trialFile = (read: ReadName, label: string, wording: string) =>
-  join(KEPT, read, `${label}-${wordingOf(wording)}.jsonl`);
+/** The trial folder of a read tried by `label` with this wording: a reworded prompt of the same name is a new folder, so it is asked again. */
+export const trialDir = (read: ReadName, label: string, wording: string) =>
+  join(KEPT, read, `${label}-${wordingOf(wording)}`);
 
 /** Every exchange the stored lines hold for `read`, checked (`checkedMoves`), by its first message's key; only lines whose messages are all in `events`. */
 export function checkedOf(
@@ -76,14 +76,14 @@ export function checkedOf(
   return out;
 }
 
-/** What a trial read stored under `label` with this wording, checked: `checkedOf` over its file. */
+/** What a trial read stored under `label` with this wording, checked: `checkedOf` over its folder. */
 export const readKept = (
   read: ReadName,
   label: string,
   events: Map<string, SourceEvent>,
   wording: string
 ) =>
-  checkedOf(readReplies(trialFile(read, label, wording)).flat(), read, events);
+  checkedOf(readReplies(trialDir(read, label, wording)).flat(), read, events);
 
 if (import.meta.main) {
   const { positionals, values } = parseArgs({
@@ -106,7 +106,7 @@ if (import.meta.main) {
   }
   const engine = Engine.optional().parse(values.engine);
   // `--model` and `--effort` name another model of the engine (the reference, a second family); `--label` names the
-  // trial file its replies are kept in, so two models of one engine never share one.
+  // trial folder its replies are kept in, so two models of one engine never share one.
   const main = llmFor("main", engine);
   const llm = {
     ...main,
@@ -115,8 +115,8 @@ if (import.meta.main) {
   };
   console.log(`${name} on ${llmSpec(llm)}`);
   const wording = await promptText(read.prompt);
-  const file = trialFile(name, values.label ?? llm.engine, wording);
-  const index = readReplyIndex(file);
+  const trial = trialDir(name, values.label ?? llm.engine, wording);
+  const index = readReplyIndex(trial);
   const toAsk = readSet(values.set).filter(
     (s) => !s.batch.every((x) => replyOf(x, name, index))
   );
@@ -151,6 +151,6 @@ if (import.meta.main) {
         askOnce({ ...o, llm, run: begun.run }),
       llm,
     };
-    console.table([step.end(await makeReplies(asked, step, file))]);
+    console.table([step.end(await makeReplies(asked, step, trial))]);
   }
 }

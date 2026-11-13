@@ -22,6 +22,7 @@ const msg = (ms: number, fromMe: boolean, chat = "+1"): SourceEvent => ({
   text: "hello",
 });
 const resolve = (s: string) => (s === "+1" || s === "+2" ? "person:ann" : null);
+const START_AT = new Date(START).toISOString();
 const talk = [
   msg(0, false),
   msg(1000, true),
@@ -47,7 +48,7 @@ const kept = (messages: SourceEvent[], over: Record<string, unknown> = {}) => ({
 
 test("which pilot files are brought in: valid, of the current prompt, one living direct chat, an unread exchange; a second pass takes none", () => {
   const dir = mkdtempSync(join(tmpdir(), "bring-"));
-  const where = join(dir, "lines.jsonl");
+  const where = join(dir, "lines");
   try {
     const first = talk.slice(0, 2);
     const files = [
@@ -82,7 +83,7 @@ test("which pilot files are brought in: valid, of the current prompt, one living
       "2026-10-05T10:00:00.000Z"
     );
     if (line && typeof line !== "string") {
-      storeReply(line, where);
+      storeReply(line, START_AT, where);
     }
     expect(verdicts(files).filter((v) => typeof v !== "string")).toEqual([]);
   } finally {

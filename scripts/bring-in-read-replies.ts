@@ -1,4 +1,4 @@
-// `bun scripts/bring-in-read-replies.ts`: brings the pilot's replies into memory once (docs/operations.md, "Exchange
+// `bun scripts/bring-in-read-replies.ts`: brings the pilot's replies into memory once, each in the month file of its first message (docs/operations.md, "Exchange
 // reads"): each kept file of the label `openrouter` (`memory-pilot.ts`'s old per-key files, left where they are)
 // made by a read's current prompt, whose messages are all one living one-to-one chat's and that holds an exchange no
 // stored reply reads yet, becomes a line of memory/read-replies/. Under the memory lock. Prints counts, never a word.
@@ -38,6 +38,7 @@ export function livingChatsOf(
   resolve: (s: string) => string | null
 ) {
   const chatOf = new Map<string, string>();
+  const atOf = new Map<string, string>();
   const todays = new Map<string, SourceEvent[]>();
   for (const [ref, messages] of directChats(events, resolve)) {
     if (ref.startsWith("person:")) {
@@ -45,6 +46,7 @@ export function livingChatsOf(
         if (isLiving(list)) {
           for (const e of list) {
             chatOf.set(eventKey(e), chat);
+            atOf.set(eventKey(e), e.at);
           }
           for (const x of exchangesOf(list)) {
             todays.set(eventKey(x[0] as SourceEvent), x);
@@ -53,7 +55,7 @@ export function livingChatsOf(
       }
     }
   }
-  return { chatOf, todays };
+  return { atOf, chatOf, todays };
 }
 
 /**
@@ -121,7 +123,7 @@ if (import.meta.main) {
         count("seen");
         count(typeof taken === "string" ? taken : "appended");
         if (typeof taken !== "string") {
-          storeReply(taken);
+          storeReply(taken, chats.atOf.get(taken.messages[0] as string) ?? "");
         }
       }
     }

@@ -212,7 +212,7 @@ Before adding a helper, use the one that exists:
 | Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isLiving` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
 | Messages by chat | `chatGroups` (`records/source.ts`) |
 | Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input. For an exchange's read: `replyOf` (`memory/exchange-reads.ts`), which matches the prompt's versioned name and the exchange's messages, never the text's digest |
-| What a read of an exchange answered (stored, pending, counted) | `replyOf`, `readReplies`, `storeReply` (`memory/exchange-reads.ts`): the only code that builds the calls, appends the replies (`memory/read-replies/`) and reads them; the pilot passes a trial file |
+| What a read of an exchange answered (stored, pending, counted) | `replyOf`, `readReplies`, `storeReply` (`memory/exchange-reads.ts`): the only code that builds the calls, appends the replies (`memory/read-replies/`) and reads them; the pilot passes a trial folder |
 | An exchange's end | `isFinished` (`memory/exchanges.ts`): nothing written for `EXCHANGE_ENDS_AFTER`; only a finished exchange is read |
 | The newest of a night's work within a call cap | `newestWithin` (`core/lists.ts`) |
 | The one-to-one messages of people named on a command line | `directOf` (`closeness.ts`) |

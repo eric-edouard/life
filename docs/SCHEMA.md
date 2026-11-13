@@ -257,7 +257,7 @@ person), `offered` (the ids of the later observations about them judged against 
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/exchange-reads.ts`), one line per call,
-append-only, in the file of the month of `at`: `read` (`connection`, `mentions` or `conflict`), `reply` (the object
+append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions` or `conflict`), `reply` (the object
 the model gave, as given: only its `exchanges` list is required, the rest is checked when read), `messages` (the
 `eventKey` of every message the call showed, in order), `starts` (where each exchange begins in them), `madeBy` (its
 `prompt` is the prompt's versioned name), `wording` (a 16-hex digest of the prompt's text, kept beside the name and

@@ -57,20 +57,16 @@ export interface Asked {
   read: ReadName;
 }
 
-/** The files replies are kept in: memory's folder of month files, or else one trial file (`scripts/memory-pilot.ts`). */
-const filesOf = (where: string) => {
-  if (where !== READ_REPLIES) {
-    return [where];
-  }
-  return existsSync(where)
-    ? readdirSync(where)
+/** The month files of a folder of replies (memory's, or a trial's), oldest month first. */
+const filesOf = (dir: string) =>
+  existsSync(dir)
+    ? readdirSync(dir)
         .filter((n) => n.endsWith(".jsonl"))
         .sort()
-        .map((n) => join(where, n))
+        .map((n) => join(dir, n))
     : [];
-};
 
-/** The stored lines of each file of `where`, oldest first; a file is read by `readAppended` (its new lines only). */
+/** The stored lines of each file of the folder `where`, oldest first; a file is read by `readAppended` (its new lines only). */
 export const readReplies = (where = READ_REPLIES) =>
   filesOf(where).map((file) =>
     readAppended(
@@ -196,13 +192,15 @@ export function readExchangeReadWork(
   };
 }
 
-/** Stores one reply line: the one writer of memory/read-replies/ (or of a trial file). */
-export const storeReply = (line: ReadReply, where = READ_REPLIES) =>
-  appendJsonl(
-    where === READ_REPLIES ? readReplyPath(line.at) : where,
-    ReadReply,
-    [line]
-  );
+/**
+ * Stores one reply line in the month file of its batch's first message (`firstAt`): the one writer of
+ * memory/read-replies/ (or of a trial folder).
+ */
+export const storeReply = (
+  line: ReadReply,
+  firstAt: string,
+  where = READ_REPLIES
+) => appendJsonl(readReplyPath(firstAt, where), ReadReply, [line]);
 
 /**
  * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
@@ -240,6 +238,7 @@ export async function makeReplies(
             starts: call.starts,
             wording: wordings[read] as string,
           },
+          call.messages[0]?.at ?? "",
           where
         );
         stored += 1;
