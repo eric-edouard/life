@@ -218,6 +218,8 @@ test("nameKey folds Latin accents and keeps every script's letters apart", () =>
   expect(names.every((n) => nameKey(n) !== "")).toBe(true);
   expect(new Set(names.map(nameKey)).size).toBe(names.length);
   expect(nameKey("น้ำ")).not.toBe(nameKey("นำ"));
+  expect(nameKey("Maman ❤️")).toBe(nameKey("Maman"));
+  expect(nameKey("❤️")).toBe("");
 });
 
 test("an inferred id from a Thai name is still a plain slug", () => {

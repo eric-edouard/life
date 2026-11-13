@@ -9,7 +9,7 @@ import {
 import { pagePath } from "./ledger";
 import { loadTruth, type Truth } from "./read-truth";
 import { normalizeTopics } from "./tags";
-import { normalize } from "./units";
+import { nameKey } from "./units";
 
 // `bun life memory area <id>` and the connector's `read_area_page`: an area's page and latest observations; and
 // `bun life memory topics [tag]`: the top topics, or the units tagged so, by date.
@@ -20,7 +20,8 @@ export function areaFor(
   { areas, projects }: Pick<Truth, "areas" | "projects">
 ) {
   const is = (x: { id: string; name: string }) =>
-    x.id === name || normalize(x.name) === normalize(name);
+    x.id === name ||
+    (nameKey(name) !== "" && nameKey(x.name) === nameKey(name));
   const project = projects.find(is);
   return { id: project?.area ?? areas.find(is)?.id, project };
 }

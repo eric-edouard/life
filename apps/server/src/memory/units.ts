@@ -93,7 +93,10 @@ export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
 
-/** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
+/**
+ * Lower case, no accents, Latin letters and digits only: the recipe of stored text and ids (observation ids, entry ids,
+ * slugs, the passages column, topic tags), never to change. Names are compared with `nameKey`.
+ */
 export const normalize = (s: string) =>
   s
     .normalize("NFD")
@@ -102,7 +105,8 @@ export const normalize = (s: string) =>
     .replace(NON_ALNUM, " ")
     .trim();
 
-const LATIN_ACCENTS = /[\u0300-\u036f]/g;
+// Latin accents and variation selectors (the emoji "❤️" is two characters): dropped; other scripts' marks tell words apart.
+const DROPPED_MARKS = /[\u0300-\u036f\ufe00-\ufe0f]/g;
 const NOT_NAME = /[^\p{L}\p{N}\p{M}]+/gu;
 
 /**
@@ -112,7 +116,7 @@ const NOT_NAME = /[^\p{L}\p{N}\p{M}]+/gu;
 export const nameKey = (s: string) =>
   s
     .normalize("NFD")
-    .replace(LATIN_ACCENTS, "")
+    .replace(DROPPED_MARKS, "")
     .toLowerCase()
     .replace(NOT_NAME, " ")
     .trim();

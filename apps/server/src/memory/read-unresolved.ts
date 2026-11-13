@@ -25,7 +25,7 @@ export async function unresolved(top = 25) {
   );
   const byId = new Map(units.map((u) => [u.id, u]));
   const resolved = rows.length - open.length;
-  const names = Map.groupBy(open, (r) => nameKey(r.surface));
+  const names = Map.groupBy(open, (r) => nameKey(r.surface) || r.surface);
   const lines = [...names.values()]
     .sort((a, b) => b.length - a.length)
     .slice(0, top)

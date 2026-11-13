@@ -43,6 +43,7 @@ import {
   lifelogNames,
   lineOf,
   MARKED,
+  nameKey,
   normalize,
   oneToOne,
   type Resolve,
@@ -433,7 +434,7 @@ function needlesOf(who: string, people: People) {
       c.kind === "this-is" && canon(c.person) === ref ? [c.surface] : []
     ),
   ]
-    .map(normalize)
+    .map(nameKey)
     .filter(Boolean);
 }
 
@@ -625,7 +626,7 @@ export async function chatsOf(
     if (!o.who) {
       return true;
     }
-    const hay = ` ${normalize(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
+    const hay = ` ${nameKey(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
     return needles.some((n) => hay.includes(` ${n} `));
   });
   // Newest first by instant, the edge instant kept whole: `before` names where the next page starts.
