@@ -331,14 +331,17 @@ export async function links(pending: LinkWork) {
  * by eye while nothing reads them (`bun life memory links <matter id>`).
  */
 export async function readEndings(people: People, id: string) {
-  const records = await readMatterRecords(people, endingsNow);
+  const records = await readMatterRecords(people);
+  const current = new Set([
+    ...records.observations.map((o) => o.id),
+    ...records.episodes.map((e) => e.id),
+  ]);
+  const endings = endingsNow((ref) => current.has(ref));
   const matter = matterBookOf(
     mattersNow(readMatters()).matters,
     records,
     dayNow()
   ).find((m) => m.id === id);
-  // `endingsNow` made them: links.
-  const endings = records.endings as ReadonlyMap<string, Link>;
   const byRef = new Map(matter?.steps.map((s) => [s.ref, s]));
   const isObservation = new Set(records.observations.map((o) => o.id));
   return (matter?.steps ?? [])

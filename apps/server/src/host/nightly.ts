@@ -27,7 +27,7 @@ import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
-import { endingsNow, links, readLinkWork } from "../memory/links";
+import { links, readLinkWork } from "../memory/links";
 import { matters, readMatterRecords, readMatterWork } from "../memory/matters";
 import {
   commitMemory,
@@ -288,7 +288,7 @@ async function judgeLinks() {
 /** The night's matters: what is due in its days (`readMatterWork`), placed. */
 async function placeMatters(window: Window, failed: string[]) {
   const people = await readPeople();
-  const records = await readMatterRecords(people, endingsNow);
+  const records = await readMatterRecords(people);
   const pending = await readMatterWork(window, people, failed, records);
   return pending && matters(pending, people, records);
 }

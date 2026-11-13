@@ -13,7 +13,7 @@ import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
-import { endingsNow, links, readEndings, readLinkWork } from "../memory/links";
+import { links, readEndings, readLinkWork } from "../memory/links";
 import {
   callsOf,
   matterLines,
@@ -303,7 +303,7 @@ const HANDLERS: Record<string, Handler> = {
       : [lastDays(clock(), DAYS)];
     return step(async () => {
       const people = await readPeople();
-      const records = await readMatterRecords(people, endingsNow);
+      const records = await readMatterRecords(people);
       const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, todoItems: 0 };
       for (const span of spans) {
         // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before

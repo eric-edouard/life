@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import type { Episode } from "../records/episode";
 import { type LinkBatch, LinkBatch as LinkBatchSchema } from "../records/link";
+import type { Observation } from "../records/observation";
 import {
   endingsOf,
   keptLinks,
@@ -7,7 +9,7 @@ import {
   splitSteps,
   subjectWorkOf,
 } from "./links";
-import type { MatterStepNow } from "./matter-read";
+import { type MatterStepNow, matterBookOf } from "./matter-read";
 
 const matter = { id: "matter_0000000000a1", name: "The contract with Ann" };
 const step = (n: number, at: string, quote: string, type = "promise") => ({
@@ -36,16 +38,59 @@ const unrelated = step(
   "See you at the gym on Friday",
   "idea"
 );
-// The day's call, an episode: a later step of the matter like any other.
+// The day's call, an episode as `matterOf` makes it a step of the matter (same shape as any other).
+const callStep = matterBookOf(
+  [
+    {
+      areas: [],
+      id: matter.id,
+      name: matter.name,
+      projects: [],
+      steps: [{ ref: "unit_000000000009" }, { ref: promise.id }],
+    },
+  ],
+  {
+    endings: new Set(),
+    episodeOf: new Map([
+      [
+        "unit_000000000009",
+        {
+          day: "2026-10-02",
+          id: "ep_0123456789ab",
+          people: [],
+          start: "2026-10-02",
+          title: "Call with Ann",
+          what: "Ann confirmed the contract arrived and is signed",
+        } as unknown as Episode,
+      ],
+    ]),
+    ledger: [],
+    observations: [
+      {
+        at: promise.at,
+        date: promise.day,
+        id: promise.id,
+        importance: 3,
+        quote: promise.quote,
+        speaker: "person:me",
+        subjects: [],
+        text: promise.text,
+        type: "promise",
+        unit: "unit_000000000001",
+      } as unknown as Observation,
+    ],
+    refOf: (r) => r,
+    todoItems: [],
+  },
+  "2026-10-10"
+)[0]?.steps.find((x) => x.kind === "episode");
 const call = {
-  ...step(
-    0,
-    "2026-10-02T15:00:00.000Z",
-    "Ann confirmed the contract arrived and is signed",
-    "episode"
-  ),
-  id: "ep_0123456789ab",
-  said_by: undefined,
+  at: callStep?.at ?? "",
+  day: callStep?.day ?? "",
+  id: callStep?.ref ?? "",
+  quote: callStep?.quote ?? "",
+  text: callStep?.text ?? "",
+  type: "episode",
 };
 const batch = (
   open: { id: string }[],

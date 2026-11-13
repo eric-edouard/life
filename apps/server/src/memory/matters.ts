@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
@@ -11,7 +12,7 @@ import {
   openTodoItemsOf,
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
-import { type MatterRecords, matterBookOf } from "./matter-read";
+import { isRunning, matterBookOf } from "./matter-read";
 import {
   daysOf,
   episodesWhere,
@@ -39,6 +40,8 @@ const PROMPT = "memory-matters.v1";
 const NEW_ID = /^new-\d+$/;
 /** The most characters of episodes one call is shown: a longer span takes several calls, in order. */
 const CALL_CHARS = 60_000;
+/** A running matter the model is shown has a step in this many days. */
+const SHOWN_DAYS = 45;
 
 /** An observation as a call is shown it. */
 interface ShownObservation {
@@ -128,26 +131,17 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
- * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. `endingsFor`: what each
- * observation was ended by, given which observations and episodes are current (`endingsNow`, links.ts); none without it.
+ * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation is its
+ * being retired (a newer one replaced it, or he said it is outdated); links stay in shadow until they are read.
  */
-export async function readMatterRecords(
-  people: People,
-  endingsFor: (
-    isCurrent: (id: string) => boolean
-  ) => MatterRecords["endings"] = () => new Map()
-) {
-  const [episodes, { observations }] = await Promise.all([
+export async function readMatterRecords(people: People) {
+  const [episodes, { observations, statusInputs }] = await Promise.all([
     episodesWhere(() => true),
     observationsNow(people),
   ]);
-  const current = new Set([
-    ...observations.map((o) => o.id),
-    ...episodes.map((e) => e.id),
-  ]);
   const ledger = readLedger();
   return {
-    endings: endingsFor((id) => current.has(id)),
+    endings: new Set(statusInputs.retired.keys()),
     episodeOf: readBy(episodes),
     episodes,
     ledger,
@@ -158,14 +152,10 @@ export async function readMatterRecords(
 }
 
 /** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
-export const readMatterBook = async (
-  people: People,
-  today: string,
-  endingsFor?: Parameters<typeof readMatterRecords>[1]
-) =>
+export const readMatterBook = async (people: People, today: string) =>
   matterBookOf(
     mattersNow(readMatters()).matters,
-    await readMatterRecords(people, endingsFor),
+    await readMatterRecords(people),
     today
   );
 
@@ -420,13 +410,14 @@ export async function matters(
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed
     await step.attempt(
       async () => {
-        // What is still running: not done, not dormant (`matterOf`), as of the span's end.
+        // What is still running (`isRunning`), as of the span's end, with a step in the last `SHOWN_DAYS`.
+        const since = daysBefore(work.span.to, SHOWN_DAYS);
         const open = matterBookOf(
           mattersNow(readMatters()).matters,
           records,
           work.span.to
         ).flatMap((v) =>
-          v.lone || !v.open || v.status === "dormant"
+          v.lone || !isRunning(v) || (v.steps.at(-1)?.day ?? "") < since
             ? []
             : [
                 {
