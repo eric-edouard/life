@@ -99,7 +99,11 @@ const ChangeTodoItemArgs = Change.extend({
 });
 
 /** Does what the owner asked for in a chat, through `changeTodoItem`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
-async function request({ obs, said, ...change }: z.infer<typeof ChangeTodoItemArgs>) {
+async function request({
+  obs,
+  said,
+  ...change
+}: z.infer<typeof ChangeTodoItemArgs>) {
   if (obs && said) {
     throw new Error("Not done: pass `said` or `obs`, not both.");
   }
