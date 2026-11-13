@@ -109,25 +109,25 @@ test("a dated item shows on its day, then late only while a daily review has not
   ).toEqual([]);
 });
 
-test("copies merge: a reminder into its observation", () => {
+test("copies merge: a to-do item into its observation", () => {
   const said = item({});
-  const reminder = item({
+  const todoItem = item({
     id: "entry_0000000000r1",
-    kind: "reminder",
+    kind: "todo_item",
     obs: "obs_000000000001",
     urgent: true,
     when: undefined,
   });
-  const [one, ...rest] = openItems([said, reminder], { date: DATE });
+  const [one, ...rest] = openItems([said, todoItem], { date: DATE });
   expect(rest).toEqual([]);
   expect(one).toMatchObject({
     id: "obs_000000000001",
     merged: ["entry_0000000000r1"],
     urgent: true,
   });
-  // A reminder with a due date gives an undated observation its day: shown on it, not lost.
+  // A to-do item with a due date gives an undated observation its day: shown on it, not lost.
   const undated = item({ said: "2026-10-15", when: undefined });
-  expect(ids([undated, { ...reminder, when: DATE }])).toEqual([
+  expect(ids([undated, { ...todoItem, when: DATE }])).toEqual([
     "obs_000000000001",
   ]);
 });

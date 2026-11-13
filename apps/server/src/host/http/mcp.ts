@@ -35,7 +35,12 @@ import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { asksFor } from "../asks";
-import { Asked, actAsked, actGranted, Granted } from "../change-todo-item";
+import {
+  Asked,
+  AutoAdded,
+  autoAddTodoItem,
+  changeAskedTodoItem,
+} from "../change-todo-item";
 import { EVENTS, eventTypes, PollParams, pollEvents } from "../events";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
@@ -44,7 +49,7 @@ import { text } from "./http";
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
-// chat changes his Reminders (`change_todo_item`, through `act`); nothing else. An agent pulls its asks (`read_agent_asks`).
+// chat changes his Reminders (`change_todo_item`, through `changeTodoItem`); nothing else. An agent pulls its asks (`read_agent_asks`).
 // Built with `readsOnly` (`buildServer(true)`), for the question cases' agent over stdio, it registers only the reads.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
@@ -86,29 +91,33 @@ const WRITES = {
  */
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
-const Reminders = Change.extend({
+const ChangeTodoItemArgs = Change.extend({
   obs: ObservationId.optional().describe(
     "Instead of `said`, for an add only (the standing grant): the obs_ id of his own spoken to-do or promise. Life checks it and quotes it; at most 3 a day, off once he undoes one."
   ),
   said: Asked.shape.said.optional(),
 });
 
-/** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
-async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
+/** Does what the owner asked for in a chat, through `changeTodoItem`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
+async function request({
+  obs,
+  said,
+  ...change
+}: z.infer<typeof ChangeTodoItemArgs>) {
   if (obs && said) {
     throw new Error("Not done: pass `said` or `obs`, not both.");
   }
   let done: LedgerEntry;
   if (obs) {
-    const granted = Granted.safeParse(change);
-    if (!granted.success) {
+    const autoAdded = AutoAdded.safeParse(change);
+    if (!autoAdded.success) {
       throw new Error(
         "Not done: with `obs`, only an add, with title, list, due and section."
       );
     }
-    done = await actGranted(await readObservation(obs), granted.data);
+    done = await autoAddTodoItem(await readObservation(obs), autoAdded.data);
   } else if (said) {
-    done = await actAsked(
+    done = await changeAskedTodoItem(
       { ...change, said, why: "asked in a chat" },
       "connector"
     );
@@ -194,7 +203,7 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   }
 }
 
-/** The ids an answer cites: observations, episodes, units, ledger entries (`entry_`: reminders, tasks) and conversations (UUIDs). */
+/** The ids an answer cites: observations, episodes, units, ledger entries (`entry_`: to-do items, tasks) and conversations (UUIDs). */
 const IDS =
   /\b(?:obs|ep|unit|entry)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
@@ -493,7 +502,7 @@ export function buildServer(readsOnly = false) {
       server,
       "change_todo_item",
       `Change the owner's to-do list (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, for an add only, with \`obs\`, a to-do or promise he said aloud (the standing grant): add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. \`target\` is an item's id as \`read_open_todo_items\` gives it (all but add). Logged in Life's history; \`read_day\` shows it.`,
-      Reminders,
+      ChangeTodoItemArgs,
       (a) => request(a),
       REVERSIBLE
     );
@@ -503,11 +512,11 @@ export function buildServer(readsOnly = false) {
       `To find an item's id or a list before \`change_todo_item\`, or when he asks what is on his list (what is due on a day: \`read_day\`). The owner's open to-do items (JSON, from Apple Reminders or Google Tasks, whichever this install uses), of one list or all: each one's id, title, notes, due, list and section, and every list's sections (none in Google Tasks), empty ones too.`,
       z.object({ list: z.string().optional().describe("A list's name") }),
       async ({ list }) => {
-        const [reminders, sections] = await Promise.all([
+        const [items, sections] = await Promise.all([
           openItemsNow(list),
           sectionsOf(list),
         ]);
-        return { reminders: reminders.map(openOf), sections };
+        return { reminders: items.map(openOf), sections };
       }
     );
   }

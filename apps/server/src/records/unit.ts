@@ -48,7 +48,7 @@ export const KEEP_AT = 2;
 /** The importance from which a unit is worth a searchable line, and is read with its episode. */
 export const SEARCHABLE_AT = 1;
 
-/** The top importance: what must not be missed (an open item, a reminder the grant may make, a new fact the nightly email lists). */
+/** The top importance: what must not be missed (an open item, a to-do item the auto-add permission may make, a new fact the nightly email lists). */
 export const TOP_AT = 3;
 
 /**

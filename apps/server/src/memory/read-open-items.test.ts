@@ -66,9 +66,9 @@ test("a person's page lists everything open with them, what he owes first, then 
       more: [
         thing("m_ana", { person: "person:ana" }),
         thing("m_bob", { person: "person:bob" }),
-        thing("entry_1", { kind: "reminder", obs: "obs_000000000001" }),
-        thing("entry_3", { kind: "reminder", obs: "obs_000000000003" }),
-        thing("entry_x", { kind: "reminder" }),
+        thing("entry_1", { kind: "todo_item", obs: "obs_000000000001" }),
+        thing("entry_3", { kind: "todo_item", obs: "obs_000000000003" }),
+        thing("entry_x", { kind: "todo_item" }),
       ],
       today: "2026-11-08",
     }

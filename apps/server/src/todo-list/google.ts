@@ -3,7 +3,7 @@ import type { List, TodoItem, TodoListBackend } from "./contract";
 
 // The Google Tasks backend: his tasks through `gog tasks … --json` as `account`. Only `backend.ts` uses it. A task's
 // id in the contract is `<list id>/<task id>`: Google names a task within its list. It has notes, a day (no time),
-// subtasks (a parent), and none of Reminders' sections, urgent, priority, alarms, moves, restore, recurrence or sharing.
+// subtasks (a parent), and none of Reminders' sections, urgent, priority, alarms, `listMoves`, restore, recurrence or sharing.
 
 /** A task as gog gives it (the Tasks API's resource). */
 export interface GoogleTask {

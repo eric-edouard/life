@@ -3,7 +3,7 @@ import { clock, daysBefore } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { TOP_AT } from "../records/unit";
-import { openLinked } from "../todo-list/todo-items-from-ledger";
+import { openTodoItemsOf } from "../todo-list/todo-items-from-ledger";
 import { levelsWith } from "./closeness";
 import { COLUMNS, CURRENT, line, type Row, section } from "./index-rows";
 import { readLedger } from "./memory-files";
@@ -26,7 +26,7 @@ import { dayNow, dayStart, localDate } from "./zones";
 
 /**
  * What `read_day` lists as due on `date` (`openItems`, apps/server/src/memory/open-items.ts, which merges, times and ranks): the importance-3 promises
- * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
+ * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his to-do items in the
  * ledger; the replies he owes. Who said each, when not him, is labelled.
  */
 export function dueOf(
@@ -93,7 +93,7 @@ const itemLine = (i: OpenItem) =>
 /**
  * What is open between him and `ref`, every item ranked (`rankedItems`), as the person page's section: what he owes
  * them, then what he waits on (`isOwedToHim`). Theirs are the observations linked to them, the replies he owes them
- * and the reminders made from one of those (`more`: replies owed and reminders, every one).
+ * and the to-do items made from one of those (`more`: replies owed and to-do items, every one).
  */
 export function openWithOf(
   db: Database,
@@ -129,13 +129,13 @@ export function openWithOf(
     : [];
 }
 
-/** His open reminders in the ledger (`openLinked`), as open items: one made from an observation merges into it. */
-export const reminderItems = (): Candidate[] =>
-  openLinked(readLedger()).map(({ at, fields: f, key, ref }) => ({
+/** His open to-do items in the ledger (`openTodoItemsOf`), as open items: one made from an observation merges into it. */
+export const todoItemCandidates = (): Candidate[] =>
+  openTodoItemsOf(readLedger()).map(({ at, fields: f, key, ref }) => ({
     at,
     id: key,
-    kind: "reminder",
-    line: `- ${key} reminder: "${f.title}"${f.due ? ` (for ${f.due})` : ""}${f.list ? ` in ${f.list}` : ""}`,
+    kind: "todo_item",
+    line: `- ${key} to-do item: "${f.title}"${f.due ? ` (for ${f.due})` : ""}${f.list ? ` in ${f.list}` : ""}`,
     obs: ref?.startsWith("obs_") ? ref : undefined,
     priority: (f.priority as string | null) ?? undefined,
     urgent: Boolean(f.urgent || f.flagged),
@@ -163,7 +163,7 @@ export async function dueContext(date: string, people: People) {
   return {
     goals: goalProjects(truth.me.goals),
     levels,
-    more: [...reminderItems(), ...(await repliesOwed(new Date(end)))],
+    more: [...todoItemCandidates(), ...(await repliesOwed(new Date(end)))],
     shown: await shownDays(date),
     today,
   };

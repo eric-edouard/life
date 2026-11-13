@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { linked, pickCompared } from "./todo-items-from-ledger";
+import { pickCompared, todoItemsOf } from "./todo-items-from-ledger";
 
 const action = (over: Partial<LedgerEntry>): LedgerEntry => ({
   after: {},
@@ -38,14 +38,14 @@ test("the fold keeps section, recurrence and every subtask written; 'clear' stop
     id: "entry_0123456789ad",
     kind: "edit",
   });
-  const kept = linked([add, more]).get("reminder:12")?.fields;
+  const kept = todoItemsOf([add, more]).get("reminder:12")?.fields;
   expect(kept).toMatchObject({
     recurrence: "weekly mon",
     section: "Visa",
     subtasks: [{ title: "Photos" }, { title: "Form" }],
   });
   expect(
-    linked([add, more, stop]).get("reminder:12")?.fields.recurrence
+    todoItemsOf([add, more, stop]).get("reminder:12")?.fields.recurrence
   ).toBeNull();
   expect(
     pickCompared({

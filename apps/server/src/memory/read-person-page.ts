@@ -26,7 +26,7 @@ import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
 import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
 import { personaBlock, readPersona } from "./personas";
-import { openWithOf, reminderItems } from "./read-open-items";
+import { openWithOf, todoItemCandidates } from "./read-open-items";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
 import { clip, nameKey } from "./units";
@@ -197,7 +197,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const more =
     before || !known
       ? []
-      : [...reminderItems(), ...(await repliesOwed(clock()))];
+      : [...todoItemCandidates(), ...(await repliesOwed(clock()))];
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor directory entry: the lifelog speakers it is part of.

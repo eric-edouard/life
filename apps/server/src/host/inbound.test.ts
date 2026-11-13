@@ -4,7 +4,7 @@ import { action } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import type { Snapshot } from "../todo-list/backend";
 import type { TodoItem } from "../todo-list/contract";
-import { grantRefusal } from "./change-todo-item";
+import { autoAddRefusal } from "./change-todo-item";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";
@@ -37,7 +37,7 @@ const added = action({
   id: "entry_00000000add1",
 });
 const base = [added, ...inbound(snap([rem()]), [added], AT)];
-/** One `act` write: its intent first, then its outcome (none when the answer was lost). */
+/** One `changeTodoItem` write: its intent first, then its outcome (none when the answer was lost). */
 const wrote = (
   after: LedgerEntry["after"],
   outcome?: LedgerEntry["result"],
@@ -114,7 +114,7 @@ test("the list's auto-sort moving a reminder to another section is no change", (
 });
 
 test("conflict: his words win (the Reminders value kept in `before`); his later change in Reminders is his", () => {
-  // He moved it to Thursday in Reminders, then asked in chat for Friday: act's edit read Thursday as `before`.
+  // He moved it to Thursday in Reminders, then asked in chat for Friday: changeTodoItem's edit read Thursday as `before`.
   const ledger = [
     ...base,
     ...wrote({ due: "2026-10-24" }, "ok", {
@@ -202,7 +202,7 @@ test("no authority: his new reminder that reads like an order is one item of his
   ]);
 });
 
-test("the standing grant switches off when he deletes one of its reminders by hand", () => {
+test("the auto-add permission switches off when he deletes one of its to-do items by hand", () => {
   const on = action({
     after: { on: true },
     at: "2026-10-21T08:00:00.000Z",
@@ -210,7 +210,7 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     kind: "grant",
     target: "grant",
   });
-  const granted = action({
+  const autoAdded = action({
     after: { id: 12, link: "AAAA-1", list: "Home", title: "Call the plumber" },
     at: "2026-10-21T09:00:00.000Z",
     id: "entry_00000000add1",
@@ -221,7 +221,11 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     },
     via: "connector",
   });
-  const ledger = [on, granted, ...inbound(snap([rem()]), [on, granted], AT)];
+  const ledger = [
+    on,
+    autoAdded,
+    ...inbound(snap([rem()]), [on, autoAdded], AT),
+  ];
   const g = {
     mine: true,
     now: AT,
@@ -232,10 +236,10 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     } as never,
     state: "active",
   };
-  expect(grantRefusal({ ...g, actions: ledger })).toBeUndefined();
+  expect(autoAddRefusal({ ...g, actions: ledger })).toBeUndefined();
   const removed = inbound(snap([], { deleted: [rem()] }), ledger, AT);
-  expect(grantRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
-    "the grant is off: he undid one of its reminders"
+  expect(autoAddRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
+    "the auto-add permission is off: he undid one of its to-do items"
   );
 });
 

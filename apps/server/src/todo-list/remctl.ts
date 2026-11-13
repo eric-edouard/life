@@ -5,7 +5,7 @@ import type { Change, TodoItem, TodoListBackend } from "./contract";
 
 // The Reminders backend: his Apple Reminders through remctl (its signed host, `--json`). Only `backend.ts` uses it.
 // Its check (`checks`) is one `lists` read, not `remctl doctor` (its Tailscale probe times out while Reminders are
-// fine); a broken private helper (sections, subtasks) shows as a partial on an act.
+// fine); a broken private helper (sections, subtasks) shows as a partial on a change.
 
 /** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
 const REMCTL = join(HOME, "bin", "remctl");
@@ -55,7 +55,7 @@ export const partial = (r: Record<string, unknown>) =>
     ? `partial: ${r.message ?? r.error ?? "a private step failed"}`
     : undefined;
 
-/** Whether a list is plainly nobody else's: the grant never adds to a shared one (that would be a send). Fails closed. */
+/** Whether a list is plainly nobody else's: the auto-add permission never adds to a shared one (that would be a send). Fails closed. */
 export const unshared = (list: { sharees?: unknown[]; shared?: boolean }) =>
   list.shared === false && list.sharees?.length === 0;
 
@@ -142,13 +142,13 @@ export const reminders: TodoListBackend = {
         error ??= `partial: section: ${(e as Error).message}`;
       }
     }
-    // `link`, the deepLink's UUID, finds it again after a move gives it a new id.
-    return { error, id, link: String(r.id) };
+    // `deepLinkId`, the deepLink's UUID, finds it again after a move gives it a new id.
+    return { deepLinkId: String(r.id), error, id };
   },
   can: new Set([
     "alarms",
     "links",
-    "moves",
+    "listMoves",
     "priority",
     "recurrence",
     "sections",
@@ -204,7 +204,7 @@ export const reminders: TodoListBackend = {
       .map((l) => ({ id: String(l.id), title: l.title })),
   prefix: "reminder",
   remove: (id) => remctl(["delete", num(id), "--force"]),
-  // Back in `list`, under its id and deepLink (checked 21 Oct).
+  // Back in `list`, under its id and deepLinkId (checked 21 Oct).
   restore: (id, list) =>
     remctl(["restore", "--private", `--list=${list}`, "--", num(id)]),
   sections: () => remctl<Record<string, string[]>>(["sections"]),

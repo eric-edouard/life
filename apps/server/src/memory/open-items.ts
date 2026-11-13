@@ -13,11 +13,11 @@ import { chatGroups, type SourceEvent } from "../records/source";
 export interface Candidate {
   /** When it was said or made: older first at the same rank. */
   at: string;
-  /** Life's id: an observation's, a reminder's add (`entry_`), a chat message's. */
+  /** Life's id: an observation's, a to-do item's add (`entry_`), a chat message's. */
   id: string;
-  kind: "promise" | "reminder" | "reply" | "to_do" | "waiting_on_someone";
+  kind: "promise" | "todo_item" | "reply" | "to_do" | "waiting_on_someone";
   line: string;
-  /** A reminder made from an observation (the grant's): the two are one item. */
+  /** A to-do item made from an observation (the auto-add permission's): the two are one item. */
   obs?: string;
   /** Who it is with, for the rank: their closeness, inner first. */
   person?: string;
@@ -73,16 +73,16 @@ const PRIORITY = ["high", "medium", "low"];
 /** Who owes whom: a reply he owes and his promise first, owed to him last (he can only chase it). */
 const KIND = {
   promise: 0,
-  reminder: 1,
   reply: 0,
   to_do: 1,
+  todo_item: 1,
   waiting_on_someone: 2,
 };
 
 /**
  * Every open item, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it serves
  * (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older first.
- * Copies merge: a reminder into the observation it came from. Overdue: its day is before `date`.
+ * Copies merge: a to-do item into the observation it came from. Overdue: its day is before `date`.
  */
 export function rankedItems(
   candidates: Candidate[],
@@ -106,7 +106,7 @@ export function rankedItems(
       it.merged.push(c.id);
       it.urgent ||= c.urgent;
       it.priority ??= c.priority;
-      // A reminder with a due date gives an undated observation its day.
+      // A to-do item with a due date gives an undated observation its day.
       it.when ??= c.when;
     }
   }
