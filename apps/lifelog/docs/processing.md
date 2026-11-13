@@ -226,6 +226,7 @@ frozen copy of them, and the gate fails when a change moves its committed counts
 - A voice under 8 s of clean speech is compared too, at likeness 0.5 and 0.2 ahead of the next person, for a person
   only: never a stranger, no unnamed group, no nearby reference (it has no voice vector). Measured on 1,890 short clips
   he named: 36% named, 98.9% right.
+- A voice whose clean samples all went to turn rows recognition wrote is compared the same way on those turns' samples, so its other turns follow it; turns the owner answered are left out.
 - A turn whose own voice is nearest the owner's, at 0.6 or more, is his, whoever the speaker is: the provider often
   puts him and someone else under one speaker. A turn under 6 s needs only 0.5 if it is also 0.1 ahead of the next
   person (short clips score lower, and his short requests said alone stayed unnamed). His own correction of a

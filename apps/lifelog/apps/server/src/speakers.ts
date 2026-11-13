@@ -210,6 +210,45 @@ function shortNameOf(
     : null;
 }
 
+// The person whose nearby voice is most like `r`, if alike enough and ahead of anyone else's.
+export function nearbyPerson(
+  r: { model: string | null; vector: Vector | null },
+  nearby: { model: string; personId: string; vector: Vector }[]
+) {
+  const scores = nearby
+    .filter((n) => n.model === r.model)
+    .map((n) => ({
+      personId: n.personId,
+      score: cosine(n.vector, r.vector ?? []),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const [best] = scores;
+  const runnerUp = scores.find((s) => s.personId !== best?.personId);
+  return best &&
+    best.score >= RECOGNITION.nearbyVoice &&
+    best.score - (runnerUp?.score ?? 0) >= RECOGNITION.margin
+    ? best.personId
+    : null;
+}
+
+// A voice whose clean samples all left for turn rows: named at the short bar from the samples of
+// the turns recognition moved. A person only: no turns, no vector (it is no reference), no group.
+export const movedVoice = (
+  samples: { embedding: Vector }[],
+  voices: Profiles
+) => {
+  const named = shortNameOf(samples, null, voices);
+  return {
+    isStranger: false,
+    margin: named?.best?.margin ?? null,
+    model: null,
+    personId: named?.personId ?? null,
+    score: named?.best?.score ?? null,
+    turns: [],
+    vector: null,
+  };
+};
+
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little

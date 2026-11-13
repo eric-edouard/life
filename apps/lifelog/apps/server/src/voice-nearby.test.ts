@@ -202,6 +202,45 @@ test("presence from another embedding revision cannot break a profile tie", () =
   expect(row(ambiguous)?.personId).toBeNull();
 });
 
+test("a voice whose every sample left for a turn row is still named, once", () => {
+  enroll();
+  const id = job(holder(), [[1, 0, 0]]);
+  db.insert(speakerAssignments)
+    .values({
+      jobId: id,
+      personId: "known",
+      source: "recognized",
+      speakerLabel: "speaker_0",
+      status: "person",
+      turnIndex: 0,
+    })
+    .run();
+  recognize(db, id);
+  expect(row(id)?.personId).toBe("known");
+  expect(
+    db
+      .select()
+      .from(speakerAssignments)
+      .where(
+        and(
+          eq(speakerAssignments.jobId, id),
+          eq(speakerAssignments.turnIndex, 0)
+        )
+      )
+      .all()
+  ).toHaveLength(1);
+  // A turn the owner answered covers that turn, not the voice.
+  const answered = job(holder(), [[1, 0, 0]]);
+  assign(db, {
+    jobId: answered,
+    speakerLabel: "speaker_0",
+    target: { kind: "person", personId: "known" },
+    turnIndex: 0,
+  });
+  recognize(db, answered);
+  expect(row(answered)?.personId).toBeNull();
+});
+
 test("upkeep queues another night while an earlier pass yields", async () => {
   const upkeep = voiceUpkeep(db);
   const first = upkeep.nightly(new Date("2026-01-01T04:00:00Z"));
