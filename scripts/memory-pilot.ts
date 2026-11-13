@@ -16,7 +16,11 @@ import {
   directOf,
   readWithPeople,
 } from "@life/server/src/memory/closeness";
-import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
+import {
+  batchesOf,
+  exchangesOf,
+  isLiving,
+} from "@life/server/src/memory/exchanges";
 import {
   type CheckedExchange,
   checkedMoves,
@@ -95,7 +99,9 @@ export const callsOf = (
   [...chatGroups(messages).values()]
     .filter(isLiving)
     .flatMap((chat) =>
-      batchesOf(chat).map((batch) => callOf(batch, withWhom, wording))
+      batchesOf(exchangesOf(chat)).map((batch) =>
+        callOf(batch, withWhom, wording)
+      )
     );
 
 /** The calls whose reply is not kept yet, each once. */

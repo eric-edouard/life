@@ -10,7 +10,11 @@ import { writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { packed } from "@life/server/src/core/lists";
 import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
-import { batchesOf, isLiving } from "@life/server/src/memory/exchanges";
+import {
+  batchesOf,
+  exchangesOf,
+  isLiving,
+} from "@life/server/src/memory/exchanges";
 import type { CheckedExchange } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
 import { promptText } from "@life/server/src/models/llm";
@@ -98,14 +102,16 @@ if (import.meta.main) {
       return [...chatGroups(messages).values()]
         .filter(isLiving)
         .flatMap((chat) =>
-          packed(batchesOf(chat).flat(), PER_CALL, (x) => x.length).map(
-            (batch) => ({
-              batch,
-              id: batch[0] ? idOf(batch[0]) : "",
-              score: batch.reduce((n, x) => n + (score.get(idOf(x)) ?? 0), 0),
-              with: withWhom,
-            })
-          )
+          packed(
+            batchesOf(exchangesOf(chat)).flat(),
+            PER_CALL,
+            (x) => x.length
+          ).map((batch) => ({
+            batch,
+            id: batch[0] ? idOf(batch[0]) : "",
+            score: batch.reduce((n, x) => n + (score.get(idOf(x)) ?? 0), 0),
+            with: withWhom,
+          }))
         );
     });
   // With `--codes a,b --read <read> [--each <n>]`: for each code in turn, the `n` batches not taken yet holding it in

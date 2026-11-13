@@ -14,6 +14,26 @@ export function within<T>(list: T[], budget: number, size: (x: T) => number) {
 }
 
 /**
+ * The items a night takes, the newest first (`at`, a string that sorts by time), while their `size`s fit `cap`. An item
+ * too big for what is left waits; a smaller, older one still goes.
+ */
+export function newestWithin<P>(
+  pending: P[],
+  cap: number,
+  o: { at: (p: P) => string; size: (p: P) => number }
+) {
+  const taken: P[] = [];
+  let room = cap;
+  for (const p of pending.toSorted((a, b) => o.at(b).localeCompare(o.at(a)))) {
+    if (o.size(p) <= room) {
+      taken.push(p);
+      room -= o.size(p);
+    }
+  }
+  return taken;
+}
+
+/**
  * A list packed in order into groups whose sizes add up to `budget` at most. An item is never split: one over the
  * budget is a group alone.
  */

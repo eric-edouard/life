@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { readJson } from "../core/files";
+import { newestWithin } from "../core/lists";
 import { callCharsOf, stamp } from "../models/llm";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
@@ -69,8 +70,8 @@ export function monthCallsOf(
       if (said.length === 0) {
         return [];
       }
-      // The month's own exchanges, cut again the same way (the same quiet between them) into what one call reads.
-      const batches = batchesOf(exchanges.flat());
+      // The month's own exchanges, packed into what one call reads.
+      const batches = batchesOf(exchanges);
       const calls = batches.map((batch, i) => {
         const shown = batchLines(batch, (e) => (e.fromMe ? "me" : name));
         return {
@@ -105,24 +106,6 @@ export const readHistory = (ref: string): History =>
     story: null,
   };
 
-/** The pending months a night takes: the newest first across everyone, while their calls fit `cap`. */
-export function newestWithin<P extends { m: MonthCalls }>(
-  pending: P[],
-  cap: number
-) {
-  const taken: P[] = [];
-  let room = cap;
-  for (const p of pending.toSorted((a, b) =>
-    b.m.month.localeCompare(a.m.month)
-  )) {
-    if (p.m.calls.length <= room) {
-      taken.push(p);
-      room -= p.m.calls.length;
-    }
-  }
-  return taken;
-}
-
 /** One person's months still to read, and whether the night's cap left some of them for a later night. */
 interface PersonWork {
   isWhole: boolean;
@@ -156,7 +139,10 @@ export async function readHistoryWork(
       .map((m) => ({ m, name, ref }));
   });
   const calls = pending.flatMap((p) => p.m.calls);
-  const taken = newestWithin(pending, NIGHT_CALLS);
+  const taken = newestWithin(pending, NIGHT_CALLS, {
+    at: (p) => p.m.month,
+    size: (p) => p.m.calls.length,
+  });
   const took = new Set(taken);
   const waiting = new Set(
     pending.filter((p) => !took.has(p)).map((p) => p.ref)

@@ -43,8 +43,8 @@ export const isLiving = (chat: SourceEvent[]) =>
   chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
 
 /**
- * A stream's exchanges in batches, each what one call reads: consecutive exchanges up to `EXCHANGE_BATCH_CHARS`. An
- * exchange is never cut, so one over the size is a batch alone.
+ * Exchanges in batches, each what one call reads: consecutive exchanges up to `EXCHANGE_BATCH_CHARS`. An exchange is
+ * never cut, so one over the size is a batch alone.
  */
-export const batchesOf = (stream: SourceEvent[]) =>
-  packed(exchangesOf(stream), EXCHANGE_BATCH_CHARS, charsOf);
+export const batchesOf = (exchanges: SourceEvent[][]) =>
+  packed(exchanges, EXCHANGE_BATCH_CHARS, charsOf);
