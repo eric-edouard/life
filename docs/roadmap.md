@@ -29,7 +29,7 @@ What Life is building next, in order, and what is parked. Each item gets its own
 
 ## Now
 
-- The naming pass: one word per concept ([glossary](glossary.md)), then the renames it plans, in three PRs: code-only
+- The naming pass: one name per concept ([glossary](glossary.md)), then the renames it plans, in three PRs: code-only
   names, stored names with their backfill (AGENTS.md, "A rename backfills"), the connector's tools in one batch.
 - A one-time import of the owner's claude.ai and ChatGPT history: the reader is merged, and a scheduled task imports
   the exports once they land.

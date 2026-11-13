@@ -1,6 +1,6 @@
 # Glossary
 
-Reference: every word Life uses for one of its concepts, with what it means. One word per concept, the same in the
+Reference: every name Life uses for one of its concepts, with what it means. One name per concept, the same in the
 docs, the app, the email, the connector and the code. A name that is not here is a plain English word.
 
 **Word** is the name in code and stored data today. **Planned** is a decided rename that hasn't landed yet: until it

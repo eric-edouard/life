@@ -10,7 +10,7 @@ Life reads it only through its REST contract (`apps/lifelog/apps/server/openapi.
 lifelog may use Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`); lifelog
 reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of 90 days). One gate, `bun run check` at the root, covers both.
 
-Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
+Read before changing an area: `docs/glossary.md` (every concept's name), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions), `docs/operations.md` (schedule, locks,
 backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/rethinking-memory.md` (read first when a stronger model
@@ -164,12 +164,15 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 ## Names
 
 A name is a decision about what a thing is. Before naming or renaming anything, say in one sentence what it is and
-what it is not, then find its word in `docs/glossary.md` (its Word column is what the code uses today): one word per
+what it is not, then find its name in `docs/glossary.md` (its Word column is what the code uses today): one name per
 concept, the same in docs, app, email, connector and code. A new concept gets its glossary line in the same PR.
 
-- Clarity beats brevity: a name the reader doesn't have to look up (the connector's `read_agent_asks`, not
-  `asks`).
-- One meaning per word. When a word already means something else (state, item, run, zone), pick another.
+- The most descriptive name that makes sense, for the concept and for someone who has never read the code: reading
+  it, they know what we are talking about (the connector's `read_agent_asks`, not `asks`). Longer and clear beats
+  short and vague.
+- Names never clash: one concept has one name, and one name means one concept. Two names may share a plain word
+  (`matter step`, `night step`): qualify the word by what it belongs to, never pick a weaker word to avoid sharing
+  one.
 - New and renamed functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
   recent of a set, booleans start with `is` or `has`.
 - Files: a file names what it does, and no two of the server's files share a name (a capability's `contract.ts` and `backend.ts` aside; `scripts/imports.test.ts` checks).
