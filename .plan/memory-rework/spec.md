@@ -25,13 +25,13 @@ is enough to answer about as well as reading all the raw.
 
 How information flows back to him is not part of the memory. It holds and serves.
 
-Every layer is a hypothesis with a claim, a baseline and a pass mark (section 15). One that fails is dropped.
+Every layer is a hypothesis with a claim, a baseline and a bar (section 15). One that fails is dropped.
 
 ## 2. The shape
 
 1. **One evidence log.** What is read from the raw is written once, as small dated records close to the words.
 2. **Links.** A later record tied to an earlier one: this ends that, repeats it, reopens it, tells the same story.
-3. **Counts by code.** Meters, patterns, track records, time against goals.
+3. **Counts by code.** Meters, move sequences, track records, time against goals.
 4. **Histories where needed.** A subject's month, year and story, built only where its evidence is too big to read
    whole, when it is first asked for, then kept.
 5. **An overview on top.** An agent reads down: overview, subject, span, evidence, raw quotes.
@@ -41,10 +41,10 @@ Every layer is a hypothesis with a claim, a baseline and a pass mark (section 15
 | Raw | Sources, the archive, lifelog. The only truth | the apps | always |
 | Units | A stable address for a piece of raw; the exchange is a slice over them | code | as data lands |
 | Evidence | Small dated records with a checked quote or a measured number; one read for every source, chats, mail and recordings alike (amended 14 Nov, section 22) | a model, once per piece and per family; code for measures | once the piece is complete |
-| Matters | Which units, facts and reminders belong to one open thing; whether it is open, for whom, its progress and what is next are worked out when read (amended 14 Nov, section 22) | a model reading episodes, their facts and his reminders | nightly |
+| Matters | Which units, observations and to-do items belong to one open thing, as its steps; whether it is open, whom it is owed to, its matter status and what is next are worked out when read (amended 14 Nov, section 22) | a model reading episodes, their observations and his to-do items | nightly |
 | Links | Two records tied, with the reason | a model reading evidence only, never raw | nightly, for new records that can be tied |
-| Counted readings | Meters, patterns, track records, time and money, closeness, ties | code | when read |
-| Histories | Per subject: month, year, story; where it stands | a model, from the level just below | the night after it is first asked; kept warm for what the overview shows |
+| Counted readings | Meters, move sequences, track records, time and money, closeness, ties | code | when read |
+| Histories | Per subject: month, year, story; where it stands | a model, from the summary level just below | the night after it is first asked; kept warm for what the overview shows |
 | Forecasts | A dated expectation, its check day, its score | code first | nightly |
 | Overview | Where things stand across his life | a model, from the situations | when a situation it shows changed |
 
@@ -61,7 +61,7 @@ forecasts. Each part works without the ones after it.
   - A recording: lifelog's conversation, with lifelog's edges. Only assigned and matched turns are a person's own
     evidence.
   - One channel per exchange; the episode joins across channels.
-- An exchange is complete when its silence has passed. The day's read (episodes, claims) runs the same night as
+- An exchange is complete when its silence has passed. The day's read (episodes, observations) runs the same night as
   today; the focused reads run once the exchange is complete, so at most a night later, never twice on the same
   messages. An exchange whose messages change afterwards (a late backup fill, mail that arrives late) is read
   again once, known by its messages' hash as today's cache knows a unit.
@@ -76,16 +76,16 @@ forecasts. Each part works without the ones after it.
   guess, marked as a guess, made with the people in his life then given as context. Who a handle or a voice is, is
   worked out when read: merging two people, or naming a voice, relabels the focused reads' records with no re-read,
   since they are kept under the words and the voices, not the names. A voice still unnamed has its moves recorded.
-  A third surface, from Photos: who Apple's People names in a picture, with the Contacts card Apple links. The
+  Beside handles and voices, a name as written from Photos: who Apple's People names in a picture, with the Contacts card Apple links. The
   name is trusted (his word, 11 Nov 2026: the names in Photos are his own), so it is that person, worked out when
   read like a handle; it is never a speaker. Apple's scenes and the words it finds in a picture stay guesses.
-  Today's day and claims reads keep today's rule: a voice named late re-reads its days. That cost is counted.
+  Today's day and observations reads keep today's rule: a voice named late re-reads its days. That cost is counted.
 - **Who is meant is a reference, everywhere** (amended 14 Nov, section 22). Whoever is talked about, by him or by
   anyone, by a name, a relation word or a pronoun, is kept as a reference to one person, with the words used beside
   it, and shown by that person's proper name. Names and his own relation words ("my father") are placed first, by
-  code, from his map, his contacts and the people Life inferred; a relation word is his own, never any person whose
+  code, from the directory, his contacts and the people Life inferred; a relation word is his own, never any person whose
   description holds the word. Pronouns come second: a model places them, and only with a proof code can check. Ties
-  between two other people are data, not free text. Text Life writes (episodes, facts, pages, histories, situations,
+  between two other people are data, not free text. Text Life writes (episodes, observations, pages, histories, situations,
   personas) holds references and shows them as names.
 - **One read for every source** (amended 14 Nov, section 22). Chats, mail threads and recordings are read by the
   same reads in one shape (section 5). Group chats where he writes and mail threads he wrote in are read like a
@@ -106,29 +106,29 @@ One append-only log. Each record has a day, the handles or voices in it, and eit
 messages or a number code measured. The people in it are worked out when read. The project or matter it belongs to
 is a reading, stored as a guess as today and corrected by his word.
 
-| Form | What it holds | Today |
+| Evidence kind | What it holds | Today |
 |---|---|---|
 | What happened | An episode | episodes |
-| What was said | A claim: a to-do, a promise, news, a problem, a choice, a preference, a fact about someone | observations |
+| What was said | An observation: a to-do, a promise, news, a problem, a choice, a preference, a fact about someone | observations |
 | What was done | A move between people in an exchange (section 5) | missing |
 | What was told about someone | A mention: who is meant, who tells it, who listens | missing |
 | What someone says of themselves | A feeling, an intention, a want, a belief, in their words | partly |
 | What code measured | Per exchange: who started, delays, shares, last word, left unanswered, reactions, deletions, call length. Per day: hours, money paid, places (his phone's, and his photos' before it), sleep and workouts, who was pictured with him | scattered |
 | What was covered | Per source and day: was it captured or not | missing |
-| His word | What he tells Life (section 8) | corrections, labels, told, ratings |
+| His word | What he tells Life (section 8) | corrections, labels, told-life, fact-check answers |
 
 Rules:
-- A new record's id: its unit, its first message, its form, and its rank among the same in that message. The pilot
+- A new record's id: its unit, its first message, its evidence kind, and its rank among the same in that message. The pilot
   measures how many ids survive a second run; summaries cite messages, which never move, not record ids.
 - Records stored today keep their ids and stay as read. The changed reads apply from the day they switch on; the
-  last months' open promises get their endings from links, with no re-read. His ratings keep what they point at.
-- Nothing is deleted. A claim stops holding when a link or his word says so; a move never stops having happened.
+  last months' open promises get their endings from links, with no re-read. His fact-check answers keep what they point at.
+- Nothing is deleted. An observation stops holding when a link or his word says so; a move never stops having happened.
 - "Lapsed" is not a record: code works it out when read (a promise with no ending past its time), and never over
   days a source was not covered.
-- Which reads run at which age: moves, mentions, self-reports, lasting claims and promises with their endings, both
+- Which reads run at which age: moves, mentions, self-reports, lasting observations and promises with their endings, both
   ways (his and theirs to him), at every age. To-dos and appointments only near now.
 - **The hour rule**: an episode owns its hours; a night's sleep and a workout own theirs (measured spans);
-  commits, Screen Time and voice minutes fill only what no episode covers. An app, a site or a repo maps to a project through Life's list; what maps to nothing is shown as
+  commits, Screen Time and voice minutes fill only what no episode covers. An app, a site or a repo maps to a project through the directory; what maps to nothing is shown as
   unassigned.
 - **Coverage** is read by every count, every summary and every forecast: a week with no capture is "not seen",
   never "quiet". Only a source that captures on its own covers a day (a chat archive, mail, the pendant, the phone's
@@ -142,26 +142,26 @@ Rules:
 
 ## 5. The reads of an exchange
 
-Today's two stay: the day's read (episodes and verdicts) and the claims read, by episode as today.
+Today's two stay: the day's read (episodes and verdicts) and the observations read, by episode as today.
 
 Beside them, focused reads of an exchange. Each sees the exchange, the people's names and roles, the lines before as
 context, and nothing else: never an earlier reading. Each move names who did it and to whom, with the quote.
 
-| Family | Surface (seen in the words) | Graded (a judgement) |
+| Family | Literal (seen in the words) | Graded (a judgement) |
 |---|---|---|
 | Connection | Good news shared. A question about the other. Thanks, affection said. Support asked, support given. An invitation. A request for reassurance. Ideas or questions explored | A bid and its answer: toward, away, against. How personal a disclosure is. Tone: warm to cold, per side |
-| Conflict and steering | A fault raised (the chance for all the rest). An apology and its parts. "Let's move on". A plan or schedule proposed. A decision at stake, and who made it | Contempt. Where blame is placed. The answer to a fault: engages, excuses, denies, counters. Pressing. Appeal to one's own distress. Yielding. Directs, proposes, defers. How strong, 1 to 3 |
+| Conflict and steering | A fault raised (the opportunity for all the rest). An apology and its parts. "Let's move on". A plan or schedule proposed. A decision at stake, and who made it | Contempt. Where blame is placed. The answer to a fault: engages, excuses, denies, counters. Pressing. Appeal to one's own distress. Yielding. Directs, proposes, defers. How strong, 1 to 3 |
 | Giving and asking | Asks for, offers, gives, refuses, returns: affection, standing, information, money, goods, a service | |
 | Mentions and self-reports | Who is meant, teller, listener. Reported speech, flagged. Feels, intends, wants, believes, in their words | A fact or a judgement; its tone; one thing they did or the whole person; why it is told |
 
-- **Surface or graded.** A surface move is what a better model would read the same. A graded one is what a better
+- **Literal or graded.** A literal move is what a better model would read the same. A graded one is what a better
   model reads better: those families are the ones read again under a new model, and their price over the whole
   history is counted at the pilot.
 - "Going silent" is not coded: code sees a fault raised or a pressing left unanswered.
 - **Three reads, not four.** Connection with giving and asking is one read; mentions and self-reports is one;
   conflict and steering is one. The first two run on every exchange that is read: nearly every real conversation
   holds a question, a thanks or a word about oneself, so routing them would save nothing.
-- **No routing** (amended 14 Nov, section 22). The tension flag missed 18 in 100 conflicts, against a mark of 10
+- **No routing** (amended 14 Nov, section 22). The tension flag missed 18 in 100 conflicts, against a bar of 10
   (section 15), so the conflict read runs on every exchange read, as that row's fallback says. The flag stays a
   code of the connection read, not a router.
 - A rate is counted only over exchanges the read actually saw. How often conflict happens and what happens inside a
@@ -174,7 +174,7 @@ context, and nothing else: never an earlier reading. Each move names who did it 
   not hold on speech yet. Still open: what stands as one exchange in speech, a reply between two other people, and
   an unknown voice that gets a new label in each recording.
 - The unit of a re-read under a better model is a read. The connection and conflict reads hold the graded codes;
-  the mentions read is mostly surface.
+  the mentions read is mostly literal.
 - **Batching**: short exchanges of one chat go in one call, up to about 8,000 tokens, their edges marked, kept under
   the batch's own text. It bounds the backfill; a live night has little to batch.
 - **Compared on the pilot** (section 16): these three reads against one model reading a whole thread and listing
@@ -191,7 +191,7 @@ fix, "let's move on" and the reopening, the same complaint coming back, one stor
 
 - A nightly step, reading evidence only: one call per subject and night, for that subject's new records that can be
   tied. Code gives it the subject's open things (promises, waits, plans, problems), the newest forty at most, and its past
-  records of the same form closest in meaning, twenty at most. The call says which belong together and why: ends, repeats, reopens, same
+  records of the same evidence kind closest in meaning, twenty at most. The call says which belong together and why: ends, repeats, reopens, same
   story, same matter.
 - What starts it: a new record; and a new day of commits or a payment on a person or project that has open things,
   so a fix nobody announced can still end a problem.
@@ -205,15 +205,15 @@ fix, "let's move on" and the reopening, the same complaint coming back, one stor
   earlier record reached the call (retrieval), and whether the call judged it right.
 - **A wrong link is the dear mistake**: a false ending hides a live promise. So an item closed by a link shows
   what closed it, with the quote; "that's not done" from him removes the link for good; and links are judged on two
-  marks, nothing stale left open and nothing live closed (section 15).
+  bars, nothing stale left open and nothing live closed (section 15).
 - **Links run on matters** (amended 14 Nov, section 22). A matter's subject is the matter itself (section 7); its
-  later members, units included (shown as their episode), are what can end its earlier ones. A member that only
+  later steps, units included (shown as their episode), are what can end its earlier ones. A step that only
   repeats a promise ends nothing.
 - **Endings are confirmed by his word** (amended 14 Nov, section 22). After a link finds an ending, he is asked in
-  conversation, at most three questions a day, "done?" with the quote. Until the two marks pass, a matter ended by a
+  conversation, at most three questions a day, "done?" with the quote. Until the two bars pass, a matter ended by a
   link shows "maybe done", with the quote, and stays open. Built so far: endings only, in shadow, one night run (16
   endings for 209 open things), never judged.
-- Until links pass those marks, extraction retires facts as today. After, links are the one place a later record
+- Until links pass those bars, extraction retires observations as today. After, links are the one place a later record
   ends an earlier one, and the window of 14 days goes.
 
 ## 7. Subjects, and who acts toward whom
@@ -221,18 +221,18 @@ fix, "let's move on" and the reopening, the same complaint coming back, one stor
 Three kinds of subject: he himself, a person, a part of his life (an area, a project, a goal).
 
 - Everyone has their evidence. No gate decides who gets it.
-- A part of his life he never declared (a dispute, a purchase, a trip) is found by a small step that reads episodes only
-  and groups those that belong to one running thing. It is kept in Life's list and used at once. The day's read is
+- A part of his life he never declared (a dispute, a purchase, a trip) is found by a small processing step that reads episodes only
+  and groups those that belong to one running thing. It is kept in the directory and used at once. The day's read is
   not changed, so no stored day is read again. Two names for one matter are folded by a link or by his word, as two people are.
-- **The matter is every open thing, brought forward** (amended 14 Nov, section 22). Open items and reminders are
-  one concept, and it is the matter. Stored: only its membership, which units, facts and reminders belong to it,
-  each placed with a quote, by a step that reads episodes, their facts and his reminders. Worked out when read: open
-  or not, who it is for and who it waits on (several people, each with a role), its projects and areas (several),
-  its timeline (the members in time order), its progress (done, waiting on someone, moving, stuck, dormant; dormant
-  is not an ending) and what is next. A lone open fact or reminder is a matter of one. A reminder in Reminders or
+- **The matter is every open thing, brought forward** (amended 14 Nov, section 22). Open items and to-do items are
+  one concept, and it is the matter. Stored: only its steps, which units, observations and to-do items belong to it,
+  each placed with a quote, by a processing step that reads episodes, their observations and his to-do items. Worked out when read: open
+  or not, who it is owed to and who it waits on (several people, each with a role), its projects and areas (several),
+  its timeline (the steps in time order), its matter status (done, waiting on someone, moving, stuck, dormant; dormant
+  is not an ending) and what is next. A lone open observation or to-do item is a matter of one. A to-do item in Reminders or
   Google Tasks is a view of a matter, never a second list. No board is built; the structure a board would read is,
   for every part of Life that needs open things, his agents' loops per area among them.
-- Which reads a subject needs: a person, all of them. A part of his life: claims, endings, measures; not the moves
+- Which reads a subject needs: a person, all of them. A part of his life: observations, endings, measures; not the moves
   between people.
 
 He is not one person in the data. So:
@@ -245,23 +245,26 @@ He is not one person in the data. So:
   event, with no fault raised to that person.
 - His own words about someone are always shown, quoted, with who heard them. A meter of his view needs at least
   two listeners; one story retold counts once.
+- **What he says about them** (amended 14 Nov, section 22): for each person, his words about that person, dated, with
+  who heard them, from every source (chats, mail, recordings, his notes, his assistant chats as his own writing),
+  kept apart from how he acts with them.
 - What a person tells him about someone is that person's view, never the someone's own words.
 
-## 8. His word, and Life's list
+## 8. His word, and the directory
 
 `truth/` goes as a folder he is supposed to write. What it was for stays.
 
 - **His word is what he tells Life**: in a chat with an agent, with "hey Life", in a correction, in an answer.
   What he says to other people is evidence about him, not his word.
-- **Life's list** holds the subjects: people, parts of his life, his goals in order, and what code computes with
+- **The directory** holds the subjects: people, parts of his life, his goals in order, and what code computes with
   (handles, repos, sites, a birthday, a role such as parent or client). Life fills it, uses it at once, and his word
   corrects it. What `truth/` holds today is its seed.
 - **The declared side**: his vision, his goals in order, the plan for each, who people are to him. It moves only
   when he tells Life; a remark heard in passing is "heard, not confirmed" and becomes a question.
 - **A new Life starts with an interview**: what the person wants out of life, their goals, how they plan to get
   there, then the parts of their life and the people who matter.
-- **Questions for him** are worked out by code rules from what is stored: a hole in the list, a contradiction, a
-  doubtful claim, a code two models disagree on where it matters. A template words them; no model. An agent talking
+- **Questions for him** are worked out by code rules from what is stored: a hole in the directory, a contradiction, a
+  doubtful observation, a code two models disagree on where it matters. A template words them; no model. An agent talking
   with him about a subject gets its questions. Once a question is shown, what he was shown is frozen and kept with
   his answer, as fact checks are today. His answer is recorded only in a chat where he is present, never from an
   agent's own token.
@@ -272,9 +275,9 @@ How each kind of his word survives a rebuild:
 |---|---|---|
 | "This is wrong", with his why | The messages it was read from | The read of that exchange is given his words as an input, so a re-read cannot say it again |
 | "Not important" | The messages, or the subject | Readers hide it |
-| "It's done", "outdated" | The claim's messages | An ending, by his word |
+| "It's done", "outdated" | The observation's messages | An ending, by his word |
 | A line he wrote on a page | The subject | Shown first on the view, in his words |
-| Who someone is; two are one | Life's list | Worked out at every read |
+| Who someone is; two are one | The directory | Worked out at every read |
 | "Read this again" | The exchange | The night's reads |
 | How close someone is | The subject | Above the count, always |
 | An answer to a question | The frozen text he was shown | Kept; the eval's scores rest on it |
@@ -282,11 +285,11 @@ How each kind of his word survives a rebuild:
 | "This meter is wrong" | The subject and the meter | Shown beside the meter as his view; he can mark the quotes that are wrong, and the count moves |
 | "That's not done", "these are not the same" | The two records' messages | The link is removed and that pair is never tied again |
 | "This line of the summary is wrong" | The subject and the span | Given to the next build as an input |
-| A label, a told line, a mark | As today | As today |
+| A label, a told-life line, a mark | As today | As today |
 
 **Which record counts** is one rule, applied by code before any count or summary: for each exchange and family,
 the records of its latest read by the current prompt; then his corrections on top. A corrected record stays hidden
-in every later reading where a record of the same form sits on the same messages and its quote or its words match
+in every later reading where a record of the same evidence kind sits on the same messages and its quote or its words match
 the one he rejected (the quote check's comparison); only his word lifts it. The prompt being told is a help, never
 the guarantee. A "wrong" hides the record at once, as today, and also feeds the next read. It is matched by its messages and by
 what the record said: one message can hold several records, and correcting one never hides the others. Each row gets its regression case when
@@ -296,22 +299,22 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
 
 ## 9. Counted readings: how a count is made
 
-- **The unit is the exchange**: one vote per code, per actor and target, per exchange. One blow-up is one exchange.
-- **The chance** is recorded, never assumed. For an answer: the move it answers (a fault raised, a bid, an ask, a
+- **The unit is the exchange**: one occurrence per code, per actor and target, per exchange. One blow-up is one exchange.
+- **The opportunity** is recorded, never assumed. For an answer: the move it answers (a fault raised, a bid, an ask, a
   decision at stake). For a move that starts something (a bid, a fault raised, a disclosure, an ask): each exchange
   the person took part in, counted apart per channel, so a long recording and a three-line chat are never pooled.
   It is shown as a level (the share) and as a trend (against that pair's usual), with the volume.
-- **A meter is one rate of one code**: a share of chances, in one vantage (with him, with others, as he tells it, as
+- **A meter is one rate of one code**: a share of opportunities, in one perspective (with him, with others, as he tells it, as
   others tell it). The cursor is that share. A reading of section 10 that lists several codes shows one rate for
-  each, side by side, the first listed leading. Tone is counted as the share of exchanges that read warm. Beside it: how many chances, and where it sits among the people of his life who
+  each, side by side, the first listed leading. Tone is counted as the share of exchanges that read warm. Beside it: how many opportunities, and where it sits among the people of his life who
   have enough. Below the minimum: "too few to say".
 - **Never pulled to the middle.** Nothing shown is averaged toward a typical person. "At its strongest" is the
   strongest level reached in at least two exchanges, with a quote; a single case is shown as "once".
 - **No composite until it is earned.** A trait made of several rates shows those rates side by side. One cursor for
   the trait is drawn only if the pilot shows the two halves of the evidence give the same answer.
-- **A role** comes from Life's list (parent, client, boss); a reading the role explains is labelled so, by code.
+- **A role** comes from the directory (parent, client, boss); a reading the role explains is labelled so, by code.
 - **Lately against before**, and the month it changed, from monthly counts.
-- **A pattern** is one of a fixed list of sequences, found by code within an exchange or across links, always with
+- **A move sequence** is one of a fixed list of sequences, found by code within an exchange or across links, always with
   how often the second move follows anyway: a fault raised then denied; blames then denies blaming; presses until
   the other yields; "let's move on" then reopens; an apology then the same fault again. The same list is counted for
   him across people (does he yield when pressed with everyone, or with one person), and for what he resolves and
@@ -320,14 +323,14 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
 - A code two model families agree on less than half the time (kappa under 0.5) is exploratory: kept, shown as such,
   feeding no meter.
 - **A rate is evidence for a reading, never shown raw** (amended 14 Nov, section 22). The counting code is built
-  (one vote per code, side and exchange; 15 chances for a share; only codes that held say a share). Shown to an agent
+  (one occurrence per code, side and exchange; 15 opportunities for a share; only codes that held say a share). Shown to an agent
   on the person read, as a table and then as sentences, the rates did not improve answers, and an unproven count
   became a claim the agent repeated. So a rate feeds a reading of section 10 and is never handed to an agent as a
   number by itself. Section 15's bar (0.5 between two families, on 30 cases) stays the gate for a code to feed a share.
 
 ## 10. The readings
 
-**A persona** (today's word) is the view of what a person is like: the rates below, the patterns, wants and offers,
+**A persona** (today's word) is the view of what a person is like: the rates below, the move sequences, wants and offers,
 the track record, how they write, a gist and what works with them. His own is the same, cut by counterpart.
 
 **The goal stands** (amended 14 Nov, section 22): personas built on what psychology accepts today, so that
@@ -341,7 +344,7 @@ recorded data; what cannot be measured yet is not shown (his word).
 
 **About a person**
 
-| Reading (poles need his words) | Codes in | Chance | Accepted construct | Seen in text |
+| Reading (poles need his words) | Codes in | Opportunity | Accepted construct | Seen in text |
 |---|---|---|---|---|
 | Reserved or expressive | Starts, invitations, length, reactions (code) | Exchanges taken part in | Extraversion: enthusiasm | Well |
 | Takes the lead or goes along | Directs, proposes, defers; who made the decision | A decision at stake | Extraversion: assertiveness | Well; role named |
@@ -372,7 +375,7 @@ lets things be (the same code as taking the lead, shown once). Impulsivity: one 
 
 **Between him and a person**, each direction, his part always
 
-| Reading | Codes in | Chance | Minimum to show |
+| Reading | Codes in | Opportunity | Minimum to show |
 |---|---|---|---|
 | Bids met or ignored | Bid, its answer; left unanswered (code) | A bid | 30 bids |
 | Attuned or dismissive | The answer to a disclosure or to good news | A disclosure, good news | 20 |
@@ -396,7 +399,7 @@ and it is shown as that: pictured together, never "close". His view of each pers
 so "the one he is hardest on" has an answer. Ties between other people.
 
 **Closeness** is depth: what is confided each way, support exchanged, the personal against the practical; personal
-and work apart; his word above it. It keeps today's four levels, which other steps use. What decides who is in a
+and work apart; his word above it. It keeps today's four closeness levels, which other steps use. What decides who is in a
 model call's context stays counted from code measures only, so a model's reading never feeds itself.
 
 **How each writes** stays: read from their messages, in full where they fit one call, rebuilt rarely. The one read
@@ -412,7 +415,7 @@ so far: months and the story of the years for people with a page, shown in the p
 projects, matters and himself; a situation read from the history (tried for people on 12 Nov, it came out the same as
 today's, so today's stays until a subject shows a use for it).
 
-- A level exists only where the one below is too big to read whole. A month too big for one call is read in parts,
+- A summary level exists only where the one below is too big to read whole. A month too big for one call is read in parts,
   as a long day is today.
 - A month is read from that month's evidence for the subject, and from nothing else. A year from its months. The
   story from its years, rebuilt when a year closes or a turning point is marked, not at every month.
@@ -428,16 +431,16 @@ today's, so today's stays until a subject shows a use for it).
 - A part of his life also carries one word, by code: done (ended by his word or by its last open thing); waiting on
   someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
   dormant (none for 45 covered days); drifting (falling against its own usual). A matter carries the first five,
-  as its progress (amended 14 Nov, section 22).
+  as its matter status (amended 14 Nov, section 22).
 - **Old years have no episodes** (section 16), so there matters and his own month are read from the evidence
-  itself: the claims, mentions and self-reports of the month, and its photo-days (places, who was pictured, his
-  captions: for most days before 2011 the only record), grouped by the same small step that groups episodes
+  itself: the observations, mentions and self-reports of the month, and its photo-days (places, who was pictured, his
+  captions: for most days before 2011 the only record), grouped by the same small processing step that groups episodes
   near now. A person's old month takes the days they were pictured with him the same way.
 - A summary is kept under everything it read: its evidence, the prompt, his word on it. When one of those changes,
   it is rebuilt at the next build and the old version stays in the data repo's history. After an import, each
   touched summary is rebuilt once, from the bottom up.
 - Carried up by rule: turning points (from the month where a count changed, an ending, or his word; a model only
-  names them), patterns with counts, the facts of his biography, what he corrected, his decisions, what was never
+  names them), move sequences with counts, the facts of his biography, what he corrected, his decisions, what was never
   closed.
 - The persona's gist and "what works with them" are written with the story, in the same call.
 - A page stays a file, drawn by code from the subject's history and readings each night, so "what changed" still
@@ -447,28 +450,28 @@ today's, so today's stays until a subject shows a use for it).
 
 Code first. A forecast is a rate counted on past cases like this one: the same pair, the same day of the week, as
 long since the last contact, the same sort of promise. Its baselines ignore those conditions; that is how it can
-beat them. The trigger and the outcomes of each sort are written with its build.
+beat them. The trigger and the outcomes of each forecast kind are written with its build.
 
-| Sort | Settled by | Must beat |
+| Forecast kind | Settled by | Must beat |
 |---|---|---|
 | Who reaches out next, and by when | Who started (code) | The pair's own rate; the same as last time |
 | A reply within a window | Delays (code) | The pair's own rate |
 | A dated promise kept | Its ending (a link, a payment, a commit) | All promises of that sort; the person's own count |
 | A plan followed | The episode that happened | All plans; his own count |
 | A project moving or going quiet | Evidence on covered days | The same as last month |
-| A pattern recurring | The sequence, counted | How often the second move follows anyway |
+| A move sequence recurring | The sequence, counted | How often the second move follows anyway |
 
 - Every forecast is "based on past behaviour": what happened in cases like this before. It never claims what would
   happen if he did nothing. Where he acted (he did the outcome himself first, or told Life he would), the case is
   set aside, not scored. One in ten is never shown, to keep an honest sample.
-- A sort settled by a link or by an episode is settled by a model's reading, and says so.
+- A forecast kind settled by a link or by an episode is settled by a model's reading, and says so.
 - Void when the days were not covered or the outcome could not be seen (a call nobody recorded).
-- Small counts: the forecast may lean on the rate of everyone for that sort, with the person's own count shown
+- Small counts: the forecast may lean on the rate of everyone for that forecast kind, with the person's own count shown
   beside it. This is arithmetic for a forecast, never a meter.
-- Three open forecasts per person at most. The track record is shown by sort; per person only as counts.
+- Three open forecasts per person at most. The track record is shown by forecast kind; per person only as counts.
 - The backtest is the same code "as of" a past day, on a sample of past triggers, using only what was known then:
   who a voice or handle was then, his corrections as of then, evidence dated before.
-- A model adjusts a sort only after a year of settled cases, or a backtest on a sample, shows a gain.
+- A model adjusts a forecast kind only after a year of settled cases, or a backtest on a sample, shows a gain.
 - Nothing about a third person's health, money or beliefs.
 - **The loop**: what happened is new evidence, so counts move. A run of misses about someone flags that subject for
   a rebuild and becomes a question for him. It never writes a turning point by itself.
@@ -482,13 +485,13 @@ beat them. The trigger and the outcomes of each sort are written with its build.
    questions about it. The agent says which part it wants; a person's default is the relationship, never the
    logistics. Each part about 1,500 tokens.
 3. **A span** of that subject: a year, a month.
-4. **The evidence** for a subject, a form and a span, with quotes, by page.
+4. **The evidence** for a subject, an evidence kind and a span, with quotes, by page.
 5. **The raw**: the messages and turns.
 
 - Search covers every level: a broad question lands on a summary, a narrow one on a quote.
 - **This path now carries more weight** (amended 14 Nov, section 22). Most failing questions ask for one thing
-  said in person, and for most of them the fact is already in memory: an agent does not find it among more than a
-  thousand facts per person (for one close person, about 1,400 in two months). Condensing (section 11) and this path matter more
+  said in person, and for most of them the observation is already in memory: an agent does not find it among more than a
+  thousand observations per person (for one close person, about 1,400 in two months). Condensing (section 11) and this path matter more
   than reading more. Dated quotes of speech added at the top of the person read did not help either. The agent
   never called `read_day` in 492 tool calls.
 - The sizes above are starting numbers; the pilot sets them. Agents read Life about as much as Life reads the raw,
@@ -554,13 +557,13 @@ Before anything runs, this table is filled with numbers and kept beside the resu
 | Closeness | Depth ranks as he would | His word on ten people | 8 pairs in 10 in his order | Today's levels stay |
 | His word | It survives a re-read | 20 exchanges he corrected, read again | None of the 20 comes back | Blocks the build |
 | The practical answers | Not worse than today | Every regression case | All pass | Blocks the build |
-| Forecasts | A sort beats its baseline | The baselines of section 12 | A better score on 50 settled cases | The sort is not shown |
+| Forecasts | A forecast kind beats its baseline | The baselines of section 12 | A better score on 50 settled cases | The forecast kind is not shown |
 
-These numbers are the designer's starting marks, written before any run; he can move any of them, before the run.
+These numbers are the designer's starting bars, written before any run; he can move any of them, before the run.
 **"Not proven" is a result.** A code, a meter or a language with fewer than 15 positive cases, besides its
-chances, is reported as not proven, never as passing. A minimum is set before a run and never raised during it
+opportunities, is reported as not proven, never as passing. A minimum is set before a run and never raised during it
 to make a check pass; dropping a person or a meter from a check is reported as such.
-Every comparison reports, beside its mark: unsupported claims, important omissions, and its cost in tokens and
+Every comparison reports, beside its bar: unsupported claims, important omissions, and its cost in tokens and
 time. A layer that only ties a simpler one earns its place by a clear cost or retrieval advantage, or not at all.
 The first gate is better answers on his questions; meters, cursors and forecasts follow only on what passes it.
 
@@ -577,7 +580,7 @@ run twice per change (55 and 57 of 76 points at the baseline); a change worth on
 | Coverage | Passed |
 | The practical answers | Passed on every merge |
 | Who is meant | Names and relation words: two model families never placed a mention on a different person (0 of 47 shared). Pronouns: a proof by the line that names the person kept 6 of 55, too strict |
-| Owed | The same exchange read twice and ids; per language; the whole-thread yardstick; links' two marks; counts stable between halves; his blind rating (a page was sent, no rating yet); a first ask; time against goals; the overview; closeness; his word surviving a re-read; forecasts |
+| Owed | The same exchange read twice and ids; per language; the whole-thread yardstick; links' two bars; counts stable between halves; his blind rating (a page was sent, no rating yet); a first ask; time against goals; the overview; closeness; his word surviving a re-read; forecasts |
 
 - **Who grades.** A judge model, first measured on cases he settled. For facts those cases exist. For relationship
   and arc answers none do: the judge is measured on ten answers he gives a verdict on, in conversation (his call).
@@ -603,7 +606,7 @@ After this spec and its second review, once his credits are back; never before.
 
 - It runs the comparisons of section 15, measures the numbers of section 14, and prices the backfill. Every run
   logs tokens and time per step, and how long a first answer takes.
-- Forecasts in the pilot: only the sorts code settles, pooled.
+- Forecasts in the pilot: only the forecast kinds code settles, pooled.
 - **It does not prove**: his whole history; the year and story levels of his own life; a cursor per trait;
   forecasts about one person; anything in a language the sample lacks.
 - Each change of a read's wording re-reads the pilot's set: three rounds at most, counted in its budget.
@@ -626,8 +629,8 @@ everything stands on. No model layer has read them, and none should yet.
 
 - **Free, at once, on every year**: what code measures (who started, delays, shares, deletions) works on the whole
   history the day it ships, with no model.
-- **No model reads the old years before the wording is frozen** on the pilot: not today's day and claims reads
-  either, since the pilot may still change what the claims read keeps for old years (lasting claims, no to-dos).
+- **No model reads the old years before the wording is frozen** on the pilot: not today's day and observations reads
+  either, since the pilot may still change what the observations read keeps for old years (lasting observations, no to-dos).
   His rule: old data is read once.
 - **Before it starts**: the imports are in, Photos on (about 2,940 photo-days, 2003 to 2026); each source's first
   day is known, so earlier days are "not seen"; the voice model switch has run (his answer, 11 Nov: MECT-B2 before
@@ -640,12 +643,12 @@ everything stands on. No model layer has read them, and none should yet.
   imported years stand as they are and are never built again.
 - **Old years get no day's read and no episodes.** The night's steps read day by day: over fifteen years that is
   thousands of calls that mostly pay for the prompt, to build the middle layers he said old data skips. Before the
-  day the units pipeline started (Sep 2026), every read, the claims read included, runs by exchange batch: about
-  3,300 calls for one read of everything written. The claims read keeps only what lasts there. What happened in
+  day the units pipeline started (Sep 2026), every read, the observations read included, runs by exchange batch: about
+  3,300 calls for one read of everything written. The observations read keeps only what lasts there. What happened in
   an old month comes from its summary.
 - **Order**: by year, the newest first, so stopping anywhere leaves the most useful part done. Links follow per
   subject in time order. Then the histories of those kept ahead.
-- **His assistant chats** are read for what he says of himself and of others, by the mentions read and the claims
+- **His assistant chats** are read for what he says of himself and of others, by the mentions read and the observations
   read; the passages where he reacts to Life's own readings are set apart as his word about them.
 - **Engines**: Codex, his subscription; the old WhatsApp years on OpenRouter's DeepSeek after an estimate he
   approves (his words). The checking model is from another family.
@@ -655,7 +658,7 @@ everything stands on. No model layer has read them, and none should yet.
     sides wrote in: 5.4 million.
   - Mail with people (newsletters left out) is 210 million characters, and 98 in 100 of its exchanges are
     one-sided. The rule "only threads he wrote in" is what makes mail small: it keeps 2.5% of the text.
-  - Chats: 24,300 exchanges, and 45 in 100 have one side only. So reading the one-sided sittings of a living chat
+  - Chats: 24,300 exchanges, and 45 in 100 have one side only. So reading the one-sided sittings of a two-way chat
     matters: it is nearly half of them.
   - Read together by chat and year, in calls of 30,000 characters: about 3,300 calls for one read of everything,
     against 103,000 if each exchange were its own call.
@@ -676,9 +679,9 @@ everything stands on. No model layer has read them, and none should yet.
 | Situations (30 days, close people) | For every subject kept current |
 | Personas (three years re-read weekly) | A view over the counts and the story; the weekly re-read goes; how each writes stays |
 | Closeness by volume | Depth; the four levels kept |
-| `truth/` | Life's list and his word |
+| `truth/` | The directory and his word |
 | Fact checks | The questions for him; what he was shown stays frozen |
-| Open items, reminders | One concept, the matter (section 7): what is open, due and owed is worked out from matters; a reminder is a view of one; Life still acts only through `act` (amended 14 Nov, section 22) |
+| Open items, to-do items | One concept, the matter (section 7): what is open, due and owed is worked out from matters; a to-do item is a view of one; Life still acts only through `change-todo-item` (amended 14 Nov, section 22) |
 | Appointments, search, the connector, the mails | Stay |
 
 - Every feature of ticket 01's checklist stays, among them: his page edits, "what changed" in the nightly and in
@@ -694,43 +697,56 @@ everything stands on. No model layer has read them, and none should yet.
   does not need it.
 - **Rules of `AGENTS.md` this changes**, each rewritten with the build on his yes: only he writes `truth/`; his
   goals live there only; a new key lands in code first; code rewrites only five named places (histories,
-  situations for every subject, the overview, Life's list are added); extraction alone retires an observation
+  situations for every subject, the overview, the directory are added); extraction alone retires an observation
   (links and his word now end things); `doubtful` alone decides what he is asked; closeness is counted from raw
   signals only (kept for what feeds a model, section 10).
 
-## 18. Names (approved by him, 10 Nov 2026)
+## 18. Names (approved by him, 10 Nov 2026; final names 14 Nov)
 
-**Placeholder: the naming pass** (amended 14 Nov, section 22). A separate naming pass is being written. His word:
-words already in use may be renamed, everywhere, if that makes it clean. Until it lands, this table stands, and the
-words the work of 12 to 14 Nov uses are working words only: `progress` (a matter's one word), `members` (what
-belongs to a matter), the roles `for` and `waiting_on`, `toward` (whom a move is aimed at), and "reference" (who is
-meant). "Matter" also now means every open thing, declared or not (section 7), wider than the row below.
+**The final names** (amended 14 Nov, section 22). His naming pass of 14 Nov set them, under the corrected rule:
+the most descriptive name, names that never clash, and a plain word shared only when each use is qualified. The
+working words of 12 to 14 Nov are replaced: a matter's dated things are its steps, where it stands is its matter
+status, and its roles are `owed_to`, `waiting_on`, `with` and `told`. `toward` (whom a move is aimed at) and
+"reference" (who is meant) stay.
 
 | Word | What it is | What it is not |
 |---|---|---|
 | evidence | One small dated record read or measured from the raw | A summary, a meaning |
-| move | Something one person did toward another in an exchange, quoted | The `act` command; a trait |
+| evidence kind | What an evidence record is: one row of section 4's table | A forecast kind |
+| observation | What Life read as said, with its checked quote (today's word; "fact" and "claim" are not other names for it) | A summary |
+| fact check | A doubtful observation asked to him, frozen as he was shown it; his reply is a fact-check answer | A queue |
+| move | Something one person did toward another in an exchange, quoted | The `change-todo-item` command; a trait |
+| literal move | A move a better model would read the same: what is seen in the words | A graded move (a judgement) |
 | mention | Talk about someone absent, with teller and listener | That person's own words |
-| ending | How a promise, a wait, a plan, a problem or a choice closed | A new claim |
+| name as written | The name, relation word or pronoun a source used for someone, as written or said, before Life places it on a person | A handle (a phone or an email) |
+| ending | How a promise, a wait, a plan, a problem or a choice closed | A new observation |
 | link | Two records tied: ends, repeats, reopens, same story, same matter | A summary |
 | coverage | Whether a source was captured on a day | Silence |
 | exchange | One sitting of talk, cut by code | A unit, an episode |
+| two-way chat | A chat both sides wrote in | A chat only one side wrote in |
 | subject | Who or what a history is about | A topic, a place |
-| matter | A part of his life Life named because he never declared it | A project he declared |
+| matter | Every open thing in his life, declared or not, held as its steps (section 7) | A project he declared |
+| matter step | One dated thing in a matter: a unit, an observation or a to-do item, placed with a quote | A processing step of the night |
+| matter status | Where a matter stands: done, waiting on someone, moving, stuck, dormant | An ending |
+| to-do item | An entry of his list, in Reminders or Google Tasks; a view of a matter | A second list |
+| auto-add permission | His standing permission for Life to add the to-dos he says aloud | An action |
 | history | A subject's summaries in time: month, year, story | A page (the file drawn from it) |
 | situation | Where a subject stands now (today's word, now for every subject) | A page section |
-| persona | What a person is like, as a view over the counts (today's word) | A stored verdict |
-| meter | One counted rate between two poles, in one vantage | A score, a type |
-| vantage | Whose conduct toward whom, or whose telling, a reading rests on | A source |
-| pattern | One of a fixed list of sequences, with its count | A trait |
+| Earlier | The page section of lines over or no longer true | A history |
+| persona | What a person is like, as a view over the counts (today's word); its facet "pattern" is a relationship pattern | A stored verdict |
+| meter | One counted rate between two poles, in one perspective | A score, a type |
+| opportunity | What a rate is a share of: a move it answers, or an exchange taken part in | An occurrence |
+| occurrence | One count of a code by one side in one exchange | A rate |
+| perspective | Whose conduct toward whom, or whose telling, a reading rests on | A source; an opinion |
+| move sequence | One of a fixed list of sequences, with its count | A trait; the persona's relationship pattern |
 | track record | Promises and plans by how they ended | A meter |
 | forecast | A dated expectation that gets settled and scored | Advice |
+| forecast kind | What a forecast is about, with its trigger and outcomes (section 12) | An evidence kind |
+| bar | The number a check must reach to pass (section 15) | A mark (his words to Life, to keep) |
 | overview | Where things stand across his life | A page, a mail |
-| his word | What he tells Life | What he says to others |
-| map | Life's own list of subjects, written "Life's list" in this spec (today's word, widened to hold what `truth/` held) | Files he writes |
+| his word | What he tells Life: told-life (his words to Life), his corrections, his answers | What he says to others |
+| directory | Life's own list of subjects: people, areas, projects, goals, and what code computes with (today's word "map"; what `truth/` holds is its seed) | Files he writes |
 | question | Something Life needs from him, asked in conversation (widens the fact check) | A queue, a task |
-
-In this spec, evidence comes in "forms" and forecasts in "sorts", because "kind" and "type" already mean something.
 
 ## 19. His calls
 
@@ -749,7 +765,7 @@ checks (his note); the ten verdicts stay at yes.
 | 7 | Summaries made ahead every night only for whoever has a page today, him and his areas; everyone else when first asked. He had confirmed "made ahead, every night"; scale asks for a limit | Yes |
 | 8 | The Big Five cursor appears person by person, when that person's evidence is stable; until then the rates under each name | Yes |
 | 9 | Attachment as two behaviours only, never a style. Today's persona writes about attachment in prose; that goes | Yes |
-| 10 | Forecasts start with six sorts code can count. From both personas, his own usual move, longer horizons, a free question, testing a message: later | Yes |
+| 10 | Forecasts start with six forecast kinds code can count. From both personas, his own usual move, longer horizons, a free question, testing a message: later | Yes |
 | 11 | Impulsivity: the pilot runs with a conduct line; the research note comes when he wants it | Yes |
 | 12 | The pilot uses at least two model families, one to code and another to check and judge: a model and a spend choice | His word: DeepSeek reads, Claude checks |
 | 13 | Ten of his own verdicts on relationship answers, in conversation, to measure the judge | Yes |
@@ -774,13 +790,13 @@ flaws and what answers them:
 
 | Flaw | Answer |
 |---|---|
-| The pilot could not fail: no claim, baseline, grader or pass mark | Section 15 |
+| The pilot could not fail: no claim, baseline, grader or bar | Section 15 |
 | The pilot's two people could not build his history, the overview, a project or forecasts | Section 16: four pieces, and what it does not prove |
-| A count had no definition: no table from codes to meters, no unit, no recorded chance, no scale | Sections 9 and 10 |
+| A count had no definition: no table from codes to meters, no unit, no recorded opportunity, no scale | Sections 9 and 10 |
 | Nothing tied a promise to its ending or a complaint to its return | Section 6 |
 
 Its eleven serious flaws are answered in sections 3 (ids, exchanges, unanswered messages, people worked out when
-read), 5 (surface or graded), 8 (how each kind of his word survives), 11 (keys, no story as hidden input), 12
+read), 5 (literal or graded), 8 (how each kind of his word survives), 11 (keys, no story as hidden input), 12
 (forecasts), 14 (scale), 15 (what replaces the safeguards he declined) and 17 (the rules and features it had not
 named, the boundary as a target, the honest count). The full review is in his data repo:
 `docs/memory-rework/experiments/2026-11-10-spec-review-1.md`.
@@ -790,25 +806,25 @@ not ready, for five reasons, each answered in this draft:
 
 | Flaw | Answer |
 |---|---|
-| Most pass marks were still words | Section 15: a number and a consequence in every row, and eight rows added |
+| Most bars were still words | Section 15: a number and a consequence in every row, and eight rows added |
 | Routing by the day's read was the wrong reader, untestable, and a miss bent the counts | Section 5: three reads, two on everything, only conflict routed, by the read that sees every exchange; a rate counts only what was read |
-| A wrong link could hide a live promise, unseen | Section 6: what closed it is shown, his word removes it, two marks |
+| A wrong link could hide a live promise, unseen | Section 6: what closed it is shown, his word removes it, two bars |
 | "People never written into a record" could not be built | Section 3: the words and the guess are kept; a named voice relabels without a re-read |
 | Things he asked for were narrowed without telling him | Section 19: calls 7 to 13 |
 
 Left for the build plan, by the reviewer's own sorting: the batch's exact key; coverage for past years beyond each
-source's first day; hours for work done alone, which no episode holds; the exact forecast per sort; the rule from
-depth to closeness levels; patterns beyond conflict; wording churn on drawn pages; measuring today's own cost.
+source's first day; hours for work done alone, which no episode holds; the exact forecast per forecast kind; the rule from
+depth to closeness levels; move sequences beyond conflict; wording churn on drawn pages; measuring today's own cost.
 
 Not answered: the impulsivity research note; the test set's answer for "goals month by month", which predates his
 decision that goals move only on his word; the hand pilot of 8 and 9 Nov is still not written up in
 `experiments/`.
 
 **An outside read** (his ChatGPT, same day), brought by him: for the direction, with five corrections. Taken: the
-first gate is better answers, meters follow (section 15, and the "prove first" order of the build path); pass marks
+first gate is better answers, meters follow (section 15, and the "prove first" order of the build path); bars
 report wins, ties and losses apart, and a tie needs a cost advantage (section 15); conflict frequency and what
 happens inside a conflict are counted apart (sections 5 and 10); a targeted raw re-read is allowed (section 1); a
-correction matches its claim, not every claim of its messages (section 8); open things are capped per link call and
+correction matches its observation, not every observation of its messages (section 8); open things are capped per link call and
 every run logs tokens and time (sections 6 and 16); forecasts say "based on past behaviour" (section 12). Not taken:
 separate busy-night and import experiments beyond the pilot's own runs. A second outside read the same evening
 added five precise gaps, all taken as single lines: matters and his month in old years come from evidence
@@ -826,7 +842,7 @@ The data session's sources checked against this spec, at his ask: Apple Health (
 until the phone build), Photos (a photo-day per local day since 2003, off until his yes), newer assistant exports.
 Nothing in the shape moves: they are evidence of what his devices recorded, beside the talk the reads are built
 for. Taken, each as a line above: activity is never an exchange and gets no focused read (section 3); who is
-pictured is a third surface, trusted on his word (section 3); sleep, workouts, photo places and who was pictured are code's
+pictured is a name as written from Photos, trusted on his word (section 3); sleep, workouts, photo places and who was pictured are code's
 measures (section 4), and sleep and workouts own their hours; a source that records only when he acts covers no day
 (section 4); time together by person and month, shown apart from contact (section 10); old months read their
 photo-days (section 11); the rebuild waits for Photos and the voice model switch, and a moved photo-day rebuilds
@@ -852,7 +868,7 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
    read, first as a table and then as sentences code wrote, did not improve answers: the agent answers in prose and
    used a number in 2 replies of 16, and an unproven count shown to it became a claim. That first reader was closed,
    by the spec's own rule that a layer failing its check is dropped. The stored read replies stay: they are the
-   evidence personas and patterns are built from. The nightly step stays off. Changes: sections 9, 10 and 15.
+   evidence personas and move sequences are built from. The nightly step stays off. Changes: sections 9, 10 and 15.
 3. **The benchmark.** 24 relationship cases, run twice, are the steady measure: 55 and 57 of 76 points, 18 of 24
    cases scoring the same in both runs. The earlier 8 cases moved by 3 of 24 between runs of the same code. A change
    worth one point needs several runs. Changes: section 15.
@@ -864,16 +880,16 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
    word or a known nickname on the earlier line; who is talked about carried across the calls of one
    conversation). Ties between two other people as data. References inside text Life writes, shown as names. A
    name lookup bug with non-Latin scripts was fixed on the way. Changes: sections 3 and 10.
-5. **Open things are one concept: the matter.** Open items and reminders merge (his words: "I agree with the
-   merge"). Membership is stored (which units, facts and reminders belong to a matter); everything else is worked
-   out when read: open, who it is for and who is waited on (several people, roles), projects and areas (several),
-   its timeline, its progress (done, waiting on someone, moving, stuck, dormant) and what is next. A reminder is a
+5. **Open things are one concept: the matter.** Open items and to-do items merge (his words: "I agree with the
+   merge"). Its steps are stored (which units, observations and to-do items belong to a matter); everything else is worked
+   out when read: open, who it is owed to and who is waited on (several people, roles), projects and areas (several),
+   its timeline, its matter status (done, waiting on someone, moving, stuck, dormant) and what is next. A to-do item is a
    view of it. No board is built; the structure a board would read is. He expects this layer to be used by many
    parts of the app, his agents' loops per area included. Built in four small PRs (the path). Changes: sections 2,
    6, 7, 11, 17 and 18.
 6. **Names.** His words: "if the words are already used we are fine to do a renaming of everything if needed… any
-   added change, if we have to rebuild the entire project to make it clean we do it." A separate naming pass is
-   being written; section 18 holds its placeholder.
+   added change, if we have to rebuild the entire project to make it clean we do it." The naming pass
+   decided the final names on 14 Nov (below); section 18 holds them.
 7. **One standard for summaries over time, for every subject.** His words: "histories and situations… areas,
    projects and matters we definitely need that. We need something that is constantly updated with how things are
    going… situations with episodic memory that compresses over time, so the most recent things are more important
@@ -899,15 +915,29 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
 10. **How the work is run.** The main session holds the goal and this spec; execution goes to subagents; when the
     direction changes, this spec is amended first.
 
+### The final names, and two reads for matters (14 Nov)
+
+- **The final names** were decided by him on 14 Nov, under the corrected naming rule: the most descriptive name, for
+  the concept and for someone who never read the code; one concept has one name, and one name means one concept; a
+  plain word may be shared when each use is qualified by what it belongs to, never swapped for a weaker word.
+  Section 18 holds them; every line above uses them. Stored names change by one migration, the connector's in one
+  batch.
+- A stored field that holds either a name as written or a handle is `nameOrHandle` (several: `namesAndHandles`); a
+  field of names only is `nameAsWritten`. The page section "What I hold" and the `mentions` read keep their names.
+- **The connector gains two reads for matters**, in the same batch as the renames, so his assistant apps reconnect
+  once: `read_matters` (the open matters, optionally of one person, project or area: name, matter status, owed to,
+  waiting on, next) and `read_matter` (one matter: its steps in time order with their dates and quotes, its people
+  by role, its projects and areas, its status). Reads only, no board.
+
 ### What the work found
 
 - Most failing questions ask for one thing said in person: of the 12 dated points never found on the 24 cases, 9
-  were said in person, in recordings no focused read covers. For most of them the fact is already in memory and an
+  were said in person, in recordings no focused read covers. For most of them the observation is already in memory and an
   agent does not find it among more than a thousand per person. So condensing (section 11) and the read path
   (section 13) matter more than reading more.
-- What Life hears as open and what sits in Reminders never met: 107 open things against 54 reminders, no overlap.
+- What Life hears as open and what sits in Reminders never met: 107 open things against 54 to-do items, no overlap.
   An errand for a relative over a month was invisible: a request made to him is not an open item, his promise sat
-  under the importance bar, the call that settled a step produced no fact, and endings were found by a step nothing
+  under the importance bar, the call that settled a matter step produced no observation, and endings were found by a step nothing
   reads.
 - The conflict flag misses 18 in 100, so the conflict read runs on every exchange (section 15's own fallback).
 - Files (a photo, a document, a voice note) were never shown to the reads: about 4 in 100 messages read as empty.
@@ -922,16 +952,16 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
 | 2 | The evidence row reads every source; the matters row added |
 | 3 | Who is meant as a reference; one read for every source |
 | 5 | No routing; one shape with speakers and `toward` |
-| 6 | Links on matters; endings confirmed by his word, "maybe done" until the marks pass |
-| 7 | The matter is every open thing |
+| 6 | Links on matters; endings confirmed by his word, "maybe done" until the bars pass |
+| 7 | The matter is every open thing; what he says about each person, dated, with who heard it |
 | 9, 10 | Rates are evidence for readings, never shown raw; what chats prove, what waits for recordings |
 | 11 | One standard for every subject |
 | 13 | The read path carries more weight |
 | 14 | The conflict read is no longer routed; the cost target is measured again |
 | 15 | The checks run, their results, and those owed |
 | 16 | The pilot as it ran |
-| 17 | Open items and reminders become the matter |
-| 18 | Placeholder for the naming pass |
+| 17 | Open items and to-do items become the matter |
+| 18 | The final names |
 | 19 | Calls 1, 3 and 12 as they turned out |
 
 ### The order agreed on 14 Nov
@@ -941,5 +971,5 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
 3. Condensing: situations and histories for every subject (section 11), and the read path (section 13), judged on
    the 24 cases.
 4. The reads on every source: recordings, groups, mail, in one shape.
-5. Then, untouched: personas, patterns and track record, closeness, his own month, the overview, his word and
-   Life's list, forecasts.
+5. Then, untouched: personas, move sequences and track record, closeness, his own month, the overview, his word and
+   the directory, forecasts.

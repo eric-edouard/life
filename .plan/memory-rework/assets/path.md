@@ -10,7 +10,7 @@ properly only when it moves the score. The bet most at risk: that stored summari
    questions (`docs/memory-rework/02b-`, `02c-`), each stating today's truth.
 2. **Counts in the person read** (who starts, reply times, deletions per pair: `pairCountsOf` already computes them
    for personas). Test: does C1's "he reaches out first" pass once an agent can see them.
-3. **One history by hand** for his father and his close friend (month, year, story, from facts Life holds), served
+3. **One history by hand** for his father and his close friend (month, year, story, from observations Life holds), served
    to the agent beside the connector. Test: C1, C4, C19 and the new arc cases, with and without it.
    **Done 10 Nov, night** (`docs/memory-rework/experiments/2026-11-10-prove-first-1.md` in his data): points held,
    of 40, none 22, counts 23, history 24, both 24. Counts fixed "who reaches out" (C1); a history fixed the friend
@@ -96,11 +96,11 @@ night, and outputs already have an on and off switch (`core/outputs.ts`).
 
 | # | What | State |
 |---|---|---|
-| 1 | **Open things as matters**, four small PRs (plan: the `stored-reads` worktree's `PLAN.md`): (1) the matters step in shadow, setting `matters`, membership only; (2) `matterOf`, worked out when read (open, roles, progress, next), and the readers of open items, due and the person read moved to it; (3) links on matters, prompt `memory-links` v2 (his yes); (4) endings checked by his word, at most 3 questions a day, "maybe done" until the two marks pass, setting `endings`. Backfill: the things open today, since 1 Sep, under $1 (his OK) | PR 1 built, not merged |
+| 1 | **Open things as matters**, four small PRs (plan: the `stored-reads` worktree's `PLAN.md`): (1) the matters step in shadow, setting `matters`, steps only; (2) `matterOf`, worked out when read (open, roles, matter status, next), and the readers of open items, due and the person read moved to it; (3) links on matters, prompt `memory-links` v2 (his yes); (4) endings checked by his word, at most 3 questions a day, "maybe done" until the two bars pass, setting `endings`. Backfill: the things open today, since 1 Sep, under $1 (his OK) | PR 1 built, not merged |
 | 2 | **Who is meant**, as a reference: names and his relation words by code, then pronouns with a looser proof; ties between other people as data; references in Life's own text shown as names | Two trials on six days of recordings; the non-Latin name bug fixed (PR 483) |
 | 3 | **Condensing**: situations and histories for every subject by one standard (spec 11), and the read path (spec 13), judged on the 24 cases | Histories for people with a page only |
 | 4 | **The reads on every source**: one shape, any number of speakers, `toward`; recordings, groups, mail. The history read again under that wording, about $18 for chats, needs his yes | Trials on recordings; nothing stored |
-| 5 | Then: personas, patterns and track record, closeness, his own month, the overview, his word and Life's list, forecasts | Stages 5 to 7 below |
+| 5 | Then: personas, move sequences and track record, closeness, his own month, the overview, his word and the directory, forecasts | Stages 5 to 7 below |
 
 Each line below is one PR unless it says otherwise. "Shadow" means rule 2. "Deletes" is what goes once it has moved.
 
@@ -143,7 +143,7 @@ refuses without a search index).
 **First paid run, 10 Nov** (his word): B5, C21, C6, all three passed. Per case: one Codex call of about 32,000 to
 56,000 input tokens (most cached) and 100 to 170 output, 15 to 20 seconds, one or two connector reads; one judge call
 on his engine of about 600 input and 200 to 1,700 output tokens, a fraction of a cent. Results in his data,
-`docs/evals/question-cases/2026-11-10T08-46-05.632Z.json`. These three are facts Life already holds; the baseline
+`docs/evals/question-cases/2026-11-10T08-46-05.632Z.json`. These three are observations Life already holds; the baseline
 must include the hard ones (relationships, arcs).
 
 **Baseline, 10 Nov** (today's Life, 12 cases): 8 passed. Failed: C1 (his father: hostile and blaming found;
@@ -190,13 +190,13 @@ one-sided, how they batch). The map branch is merged with `main`, so the spec no
 
 | Step | What ships | Proven by | Value / deletes |
 |---|---|---|---|
-| 1.1 | **Merged 12 Nov (PR 456), switched on in shadow (his yes):** `memory/links.jsonl`, nothing reads it yet. Originally: The link record and a nightly step, shadow: endings for open promises and waits, read from today's facts; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
+| 1.1 | **Merged 12 Nov (PR 456), switched on in shadow (his yes):** `memory/links.jsonl`, nothing reads it yet. Originally: The link record and a nightly step, shadow: endings for open promises and waits, read from today's observations; every open thing offered again at least once a month, whatever its age; retrieval measured apart from judgement (spec 6) | His marked failures on stale open items, as regression cases | None yet |
 | 1.2 | **14 Nov: folded into the matters work** (order item 1, PRs 3 and 4). Open items read endings. **His word, 12 Nov: check how the shadow performs first, and leave shadow only when its results hold** (the endings judged on real nights: right, wrong, missed) | The same cases pass; a sample he would check | Stale items stop showing as open |
 | 1.3 | Problems and their fixes; a repeat of the same complaint | Cases | The 14-day retire window can go |
 
 ### Stage 2. Histories from the evidence Life already has
 
-Episodes and facts exist today. Months, years and a story can be built from them before any new read exists; they
+Episodes and observations exist today. Months, years and a story can be built from them before any new read exists; they
 get richer, with no change of shape, as stage 4 adds evidence. Proved first (11 Nov): a history read month by month
 from raw one-to-one messages helped only once inside the person read, never as notes beside it. Old years have no
 episodes: their matters and his month are read from the evidence itself (spec 11). A targeted raw re-read is allowed
@@ -227,7 +227,7 @@ a nightly step in shadow, off. Not on recordings, groups or mail: order item 4.
 | Step | What ships | Proven by |
 |---|---|---|
 | 4.0 | **Dropped, 14 Nov:** no routing, the conflict read runs on every exchange (spec 5). The day's read flags which families an exchange holds (a prompt version change: his yes first) | What the one-in-twenty full read finds |
-| 4.1 | Mentions and self-reports | The pilot's marks for that family |
+| 4.1 | Mentions and self-reports | The pilot's bars for that family |
 | 4.2 | Conflict and steering | Same |
 | 4.3 | Connection | Same |
 | 4.4 | Giving and asking | Same |
@@ -238,12 +238,12 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 
 | Step | What ships | Value / deletes |
 |---|---|---|
-| 5.1 | **Merged 13 Nov (PR 473):** `memory/moves.ts` (the move shapes and their checking) and `memory/move-rates.ts` (one vote per code, side and exchange; a chance per counted thing; 15 chances for a share; only what the test sets proved says a share; per source for an exchange chance; the last 12 months against before; the place among people), used by the pilot's page script. The reads stay scripts until stage 4. Originally: The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per chance over exchanges the read saw, a vantage, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
+| 5.1 | **Merged 13 Nov (PR 473):** `memory/moves.ts` (the move shapes and their checking) and `memory/move-rates.ts` (one occurrence per code, side and exchange; an opportunity per counted thing; 15 opportunities for a share; only what the test sets proved says a share; per source for an exchange opportunity; the last 12 months against before; the place among people), used by the pilot's page script. The reads stay scripts until stage 4. Originally: The counting code: which record counts (one rule, by code, before any count: spec 8), a rate per opportunity over exchanges the read saw, a perspective, a minimum fixed before a run (under 15 positive cases is "not proven"); how often conflict happens counted apart from what happens inside one. Tests on made-up data | None alone |
 | 5.2 | **Tried and closed, 13 Nov (PR 479 closed):** the rates on the person read, as a table and as sentences, moved nothing on the question cases; rates feed readings, never shown raw (spec 9). Kept from the try: episode titles by month in the person read (PR 481). Originally: The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
-| 5.3 | Patterns and the track record | "Will they do what they said" |
+| 5.3 | Move sequences and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
-| 5.5 | The persona's traits and patterns come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
-| 5.6 | Pages drawn by code from history and readings, one section per PR (Now, History, Between us, his own page) | When the last section moved: deletes the page-writing prompt and its no-churn rules |
+| 5.5 | The persona's traits and move sequences come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
+| 5.6 | Pages drawn by code from history and readings, one section per PR (Now, Earlier, Between us, his own page) | When the last section moved: deletes the page-writing prompt and its no-churn rules |
 
 **A case stage 5.3 and step 1.2 must pass (12 Nov, life issue 470; with its names in his data,
 `docs/memory-rework/cases/2026-11-12-obligation-forward.md`):** a request someone made to him, extracted at importance
@@ -252,13 +252,13 @@ among chatter, and the wait it hung on was met without raising the next step. In
 person that he has not done stays open at any importance until a message ends it (Links), and a wait that is met
 raises the step it was waiting for. The fixture: the forward is due from the day after until the day it was sent.
 
-### Stage 6. His word and Life's list
+### Stage 6. His word and the directory
 
 | Step | What ships |
 |---|---|
-| 6.1 | His correction is an input to the read of that exchange, and code keeps the record hidden in every later reading where one of the same form on the same messages matches it, until his word lifts it; it never hides another record of the same message (spec 8). One kind of his word per PR |
+| 6.1 | His correction is an input to the read of that exchange, and code keeps the record hidden in every later reading where one of the same evidence kind on the same messages matches it, until his word lifts it; it never hides another record of the same message (spec 8). One kind of his word per PR |
 | 6.2 | Questions for him: one new rule per PR on top of today's fact checks, same connector tools |
-| 6.3 | Life's list learns projects, goals and roles beside `truth/`, which stays its seed |
+| 6.3 | The directory learns projects, goals and roles beside `truth/`, which stays its seed |
 | 6.4 | The rules of `AGENTS.md` rewritten (his yes), and the interview that seeds a new Life |
 
 ### Stage 7. Forecasts, by code
@@ -266,13 +266,13 @@ raises the step it was waiting for. The fixture: the forward is due from the day
 | Step | What ships |
 |---|---|
 | 7.1 | The forecast record, the code that settles one, the scoring, all in shadow; each "based on past behaviour", a case where he acted set aside, one in ten never shown (spec 12). The backtest is the same code run on the past |
-| 7.2 | One sort at a time shown in the person read, once it beat its baseline |
+| 7.2 | One forecast kind at a time shown in the person read, once it beat its baseline |
 
 ### Stage 8. The connector's one batch
 
 The overview, a span, the evidence, and the "which part" argument: one PR, one reconnect, when everything they
 return already exists and has been read through the old tools. Also in that batch: `read_processing_runs`'s description
-(`mcp.ts`) still names the midday sweep, removed 11 Nov (left so his ChatGPT needs no reconnect for it).
+(`mcp.ts`) still names the midday processing run, removed 11 Nov (left so his ChatGPT needs no reconnect for it).
 
 ### Stage 9. The boundary
 
@@ -318,7 +318,7 @@ The rules above do not change: they are what makes a fast build safe. What chang
 | Links | 1.1 to 1.3 | A new file; open items |
 | Histories | 2.1 to 2.5 | A new file; situations |
 | The pilot | Stage 3 | `scripts/` only |
-| His word and questions | 6.1, 6.2 | Statements, corrections |
+| His word and questions | 6.1, 6.2 | Fact checks, corrections |
 | Forecasts | 7.1 | New files |
 
 - **One PR first, alone**: new night steps register themselves in a small list instead of each editing the night's
@@ -356,5 +356,5 @@ right thing at the right time: stage 0 and the pilot both stand on them.
 | The pilot | Two or three people in full, across all their years: needs the imports |
 | After the pilot | The frozen reads, newest year first; then links; then histories |
 
-One thing to settle with that session: it should not run today's model layers (the day's read, the claims read,
+One thing to settle with that session: it should not run today's model layers (the day's read, the observations read,
 personas) over the old years in the meantime. Those would be read again once the wording is frozen.
