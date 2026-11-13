@@ -93,8 +93,11 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   recorded-days`; a few seconds); closeness and the
   personas take its last three years. With his `history` setting on, the same read gives the histories their
   months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
-  costs its month only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
-  prints the people, months, calls and a token ceiling, with no model. With his `links` setting on, after the index
+  costs its month only). With his `exchangeReads` setting on, it also gives the exchange reads their finished
+  exchanges without a stored reply (200 calls a night across the three reads, newest first, after the histories; a
+  failure costs its call only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
+  prints the people, months, calls and a token ceiling, with no model; `bun life memory exchange-reads` prints the
+  calls and exchanges pending, and `--force` asks the night's share. With his `links` setting on, after the index
   the night reads how open things ended (`links.jsonl`, in shadow); `bun life memory links` prints what is due
   (people, open things, calls, a token ceiling) with no model, `bun life memory links <person>` each open thing with
   the ending found.
@@ -298,24 +301,22 @@ first.
   a batch at a time; then the quiet between messages by band. With people named, one table for each one's
   one-to-one chats and mail, in the order given. Counts only, by code, no model; it reads the sources as the night
   does and writes nothing of his. Run it before sizing a read of his history.
-- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> <person>… [--run] [--engine <engine>]` reads
-  the one-to-one chats of the people named, a batch of exchanges per call, with one of the rework's reads
-  (`connection`, `mentions`, `conflict`; `READS` names each one's prompt). `--all` reads every one-to-one chat both
-  sides wrote in; `--set <name>` a saved test set (`pilot-set.ts`, or `pilot-voice-set.ts` for recorded
+- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> --set <name> [--run] [--engine <engine>] [--model <m>] [--effort <e>] [--label <l>]`
+  tries one of the rework's reads (`connection`, `mentions`, `conflict`; `READS` names each one's prompt) on a saved
+  test set (`pilot-set.ts`, which picks batches from the replies memory stores, or `pilot-voice-set.ts` for recorded
   conversations), so a wording is tried in minutes; `--model`, `--effort` and `--label` name another model of the
-  engine and the folder its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
-  far two readers agree, by code and side; `pilot-readings.ts` writes a trial page per person in his data from
-  what `memory/move-rates.ts` counts. Without `--run` it asks nothing: per
-  person, by position, how many calls it would make, how many are kept already, and at most how many tokens. With
-  `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by another family), as one
-  `memory.pilot` run, and keeps each reply that is one in his data,
-  `docs/memory-rework/pilot/<read>/<engine>/<key>.json`: the reply as given, what made it, the wording's digest and
-  the messages it read. The key is the prompt's text and the input, so a batch is never asked twice for the same
-  wording, and a reworded prompt asks again. Moves are worked out from a kept reply when read, never stored: each
-  must sit in an exchange the batch holds, with its words found there. It writes nothing in `memory/`, so it holds
-  no lock; `LIFE_LLM` stays refused on his data. It prints counts only. A run spends: on Codex it is refused over
-  the quota reserve, like an eval; an API engine has no such reserve, so the dry run's numbers, shown to him first,
-  are the only guard on cash.
+  engine and the trial file its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
+  far two readers agree, by code and side. Without `--run` it asks nothing: how many batches it would make and at
+  most how many tokens. With `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by
+  another family), as one `memory.pilot` run, and appends each reply that is one, as the exchange reads do, to a trial
+  file in his data, `docs/memory-rework/pilot/<read>/<label>-<wording>.jsonl`: a reworded prompt is a new file, so it
+  is asked again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It prints
+  counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
+  reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
+- **Bringing in the pilot's replies:** once, `bun scripts/bring-in-read-replies.ts` (under the memory lock) appends to
+  `memory/read-replies/` each reply the pilot kept under the label `openrouter` that is of a read's current prompt,
+  covers one living one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
+  old folders stay, and a second run appends nothing.
 - **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
   (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
   it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads
