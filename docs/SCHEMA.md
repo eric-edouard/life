@@ -248,12 +248,12 @@ writes it any more; it stays on disk.
 ## links.jsonl
 
 The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
-`subject` (the matter's id, `matter_<12 hex>`; the first lines hold a `person:<id>`, still read), `open` (the ids
+`subject` (a matter's id, `matter_<12 hex>`, since v2; the first lines hold a `person:<id>` from v1, still read), `open` (the ids
 of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later steps judged
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
 `schemaVersion`. A pair in a line is never judged again, whatever the subject. A link deletes nothing: what it ends is worked out when read
-(`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
+(`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). While his `endings` setting is off only `bun life memory links` reads it; on, the readers do (a link is "maybe done" until his word).
 
 ## matters.jsonl
 
@@ -469,7 +469,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 The fact checks: the memory lines the owner is asked about, one per line, append-only, written by
 `drawFactChecks` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory fact-checks <n>`):
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/doubts.ts`),
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` and, from 14 Nov 2026, an optional `later` (`ref`: the observation's or episode's id). A line with `later` is not a doubt but an ask about an ending (`askEndings`, `memory/fact-checks.ts`, at most 3 a day while his `endings` setting is on): `ref` is the open step, `later` the step a link says ended it, `text` "Done? <the step>"; his answer is about that link, never a correction of the step: true is his word that it is done, false removes that link for good. Code draws them (`doubtful`, `apps/server/src/memory/doubts.ts`),
 no model, from `memoryLinesNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
 `<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked

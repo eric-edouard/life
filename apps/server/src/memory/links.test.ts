@@ -2,13 +2,8 @@ import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import { type LinkBatch, LinkBatch as LinkBatchSchema } from "../records/link";
 import type { Observation } from "../records/observation";
-import {
-  endingsOf,
-  keptLinks,
-  nightOf,
-  splitSteps,
-  subjectWorkOf,
-} from "./links";
+import { endingsOf } from "./endings";
+import { keptLinks, nightOf, splitSteps, subjectWorkOf } from "./links";
 import { type MatterStepNow, matterBookOf } from "./matter-read";
 
 const matter = { id: "matter_0000000000a1", name: "The contract with Ann" };
@@ -50,6 +45,7 @@ const callStep = matterBookOf(
     },
   ],
   {
+    current: new Set(),
     endings: new Set(),
     episodeOf: new Map([
       [
@@ -65,6 +61,7 @@ const callStep = matterBookOf(
       ],
     ]),
     ledger: [],
+    maybe: new Map(),
     observations: [
       {
         at: promise.at,

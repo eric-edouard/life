@@ -105,9 +105,11 @@ const line = {
   ],
 };
 const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
+  current: new Set(),
   endings: new Set(),
   episodeOf: new Map(episodes.flatMap((m) => m.units.map((u) => [u, m]))),
   ledger: [],
+  maybe: new Map(),
   observations,
   refOf: (r) => r,
   todoItems: [],
@@ -337,9 +339,11 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
   const all = matterBookOf(
     [],
     {
+      current: new Set(),
       endings: new Set(["obs_000000000006"]),
       episodeOf: new Map(),
       ledger: [],
+      maybe: new Map(),
       observations: loops,
       refOf: (r) => r,
       todoItems: [],
@@ -427,4 +431,15 @@ test("a unit no episode holds still gives its observations; a retired one is end
     "2026-10-19"
   );
   expect(other?.owedTo).toEqual([]);
+});
+
+test("a link's ending is maybe done until his word: the matter stays open; his right closes it", () => {
+  const promise = obs(5, "", {}).id;
+  const [maybe] = book({
+    maybe: new Map([[promise, { quote: "I called the shop" }]]),
+  });
+  expect(maybe).toMatchObject({ maybe: "I called the shop", open: true });
+  const [closed] = book({ endings: new Set([promise]) });
+  expect(closed).toMatchObject({ open: false, status: "done" });
+  expect(closed?.maybe).toBeUndefined();
 });

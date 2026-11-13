@@ -12,6 +12,8 @@ export const FactCheck = z
     date: isoDate,
     group: z.union([SubjectRef, z.literal("episodes")]),
     kind: z.enum(["fact", "plan", "reported", "episode"]),
+    /** An ask about an ending (from 14 Nov 2026): the later step a link says ended `ref`; `text` is "Done? …". Absent for a doubt. */
+    later: z.union([ObservationId, EpisodeId]).optional(),
     ref: z.union([ObservationId, EpisodeId]),
     schemaVersion: z.literal(1),
     source: SourceName.nullable(),

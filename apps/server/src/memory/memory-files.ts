@@ -364,10 +364,20 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
   );
 
 /** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredFactCheckCorrections`). */
-export const readCorrections = (): Correction[] => [
-  ...rowsOf(CORRECTIONS, Correction),
-  ...answeredFactCheckCorrections(readFactCheckAnswers()),
-];
+export const readCorrections = (): Correction[] => {
+  // His answer to an ending ask is about a link, never about the memory line: it corrects nothing (`endingsNow`).
+  const asked = new Set(
+    readFactChecks()
+      .filter((s) => s.later)
+      .map((s) => s.ref)
+  );
+  return [
+    ...rowsOf(CORRECTIONS, Correction),
+    ...answeredFactCheckCorrections(
+      new Map([...readFactCheckAnswers()].filter(([ref]) => !asked.has(ref)))
+    ),
+  ];
+};
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface ObservationStatusInputs {
@@ -552,7 +562,7 @@ export function openFactChecks(now = clock().getTime()) {
 export function answeredFactChecks() {
   const answers = readFactCheckAnswers();
   return readFactChecks().flatMap((s) => {
-    const answer = answers.get(s.ref)?.answer;
+    const answer = s.later ? null : answers.get(s.ref)?.answer;
     const fact = answer ? ANSWERS[answer].fact : null;
     return answer && fact !== null
       ? [

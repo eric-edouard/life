@@ -65,6 +65,14 @@ person with a page, from your one-to-one chats and mail; a month is read again o
 assistant sees it on each person's page. Before turning it on or moving `from` back, `bun life memory histories --from 2026-09` prints how many
 people, months and model calls that is, calling no model.
 
+## Endings
+
+```sh
+bun life settings set '{"endings":true}'
+```
+
+Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, the matter shows "maybe done" and stays open. At most three a day your assistant asks you ("Done? ..."): right, and the matter closes; wrong, and Life never ties that pair again. `bun life memory links` prints, from your answers, whether Life's endings can be trusted yet.
+
 ## Your claude.ai and ChatGPT history
 
 ```sh

@@ -162,5 +162,3 @@ test("a search opens with his situation when it names no one, then others' lines
     rmSync(situationPath(ANA), { force: true });
   }
 });
-
-// audit-1-apple-open-loop moved to matter-read.test.ts (remove this line once its case points there).

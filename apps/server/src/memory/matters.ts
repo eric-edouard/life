@@ -12,6 +12,7 @@ import {
   openTodoItemsOf,
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
+import { endingsRead } from "./endings";
 import { isRunning, matterBookOf } from "./matter-read";
 import {
   daysOf,
@@ -132,7 +133,7 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
  * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation is its
- * being retired (a newer one replaced it, or he said it is outdated); links stay in shadow until they are read.
+ * being retired (a newer one replaced it, or he said it is outdated); his word that a link's ending is right closes it too (`endingsRead`); a link not yet his word is `maybe`, and ends nothing.
  */
 export async function readMatterRecords(people: People) {
   const [episodes, { observations, statusInputs }] = await Promise.all([
@@ -140,11 +141,19 @@ export async function readMatterRecords(people: People) {
     observationsNow(people),
   ]);
   const ledger = readLedger();
+  // The one rule for "current": the records as they stand now (an end re-read away counts for nothing).
+  const current = new Set([
+    ...observations.map((o) => o.id),
+    ...episodes.map((e) => e.id),
+  ]);
+  const { confirmed, maybe } = endingsRead((ref) => current.has(ref));
   return {
-    endings: new Set(statusInputs.retired.keys()),
+    current,
+    endings: new Set([...statusInputs.retired.keys(), ...confirmed]),
     episodeOf: readBy(episodes),
     episodes,
     ledger,
+    maybe,
     observations,
     refOf: people.refOf,
     todoItems: [...todoItemsOf(ledger).values()],

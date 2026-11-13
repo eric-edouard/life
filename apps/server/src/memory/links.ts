@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { appendJsonl, readAppended } from "../core/files";
+import { appendJsonl } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
+import { endingsNow, readBatches } from "./endings";
 import { ACTIONABLE, type MatterStepNow, matterBookOf } from "./matter-read";
 import {
   mattersNow,
@@ -57,44 +58,6 @@ export interface SubjectWork {
   open: Shown[];
   subject: string;
 }
-
-const readBatches = () =>
-  readAppended(
-    LINKS,
-    LinkBatch,
-    (last?: LinkBatch[]) => [...(last ?? [])],
-    (all, b) => {
-      all.push(b);
-    }
-  );
-
-/**
- * What each open thing is ended by: its first link, in the order judged, whose two ends are both current (`isCurrent`:
- * an end re-read away counts for nothing, as a replacement re-read away retires nothing; the pair is judged again
- * under its new ids). The one place that decides what a link ends.
- */
-export function endingsOf(
-  batches: LinkBatch[],
-  isCurrent: (id: string) => boolean
-) {
-  const endings = new Map<string, Link & { at: string }>();
-  for (const b of batches) {
-    for (const l of b.links) {
-      if (
-        !endings.has(l.earlier) &&
-        isCurrent(l.earlier) &&
-        isCurrent(l.later)
-      ) {
-        endings.set(l.earlier, { ...l, at: b.at });
-      }
-    }
-  }
-  return endings;
-}
-
-/** What each open thing is ended by, as `endingsOf` says, given which observations are current: what a matter reads. */
-export const endingsNow = (isCurrent: (id: string) => boolean) =>
-  endingsOf(readBatches(), isCurrent);
 
 /**
  * One matter's work: the later steps that some open step has not been judged against yet (a pair is judged once a
@@ -332,11 +295,7 @@ export async function links(pending: LinkWork) {
  */
 export async function readEndings(people: People, id: string) {
   const records = await readMatterRecords(people);
-  const current = new Set([
-    ...records.observations.map((o) => o.id),
-    ...records.episodes.map((e) => e.id),
-  ]);
-  const endings = endingsNow((ref) => current.has(ref));
+  const { endings } = endingsNow((ref) => records.current.has(ref));
   const matter = matterBookOf(
     mattersNow(readMatters()).matters,
     records,
