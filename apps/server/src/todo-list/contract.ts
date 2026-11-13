@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { REMINDER_KINDS } from "../records/ledger-entry";
+import { TODO_CHANGE_KINDS } from "../records/ledger-entry";
 
 // The to-do list contract: what a backend is (`TodoListBackend`, with what it `can`) and what a change asks of it
 // (`Change`). The backends implement it; `backend.ts` picks this install's one.
@@ -8,7 +8,7 @@ import { REMINDER_KINDS } from "../records/ledger-entry";
 export type Can =
   | "alarms"
   | "links"
-  | "moves"
+  | "listMoves"
   | "priority"
   | "recurrence"
   | "sections"
@@ -40,11 +40,11 @@ export interface TodoItem {
   urgent?: boolean;
 }
 
-/** What a write left: the item's id now (a move can change it), its link (finds it again after a move), a partial's words. */
+/** What a write left: the item's id now (a move can change it), its deepLinkId (finds it again after a move), a partial's words. */
 export interface Written {
+  deepLinkId?: string;
   error?: string;
   id: string;
-  link?: string;
 }
 
 export interface TodoListBackend {
@@ -85,7 +85,7 @@ const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
 export const Change = z.object({
   // With a time it alerts then; null clears it (edit only).
   due: Due.nullish(),
-  kind: z.enum(REMINDER_KINDS),
+  kind: z.enum(TODO_CHANGE_KINDS),
   list: z.string().optional(),
   notes: z.string().max(2000).nullish(),
   priority: z.enum(["high", "medium", "low"]).optional(),

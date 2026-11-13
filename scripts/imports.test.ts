@@ -91,9 +91,9 @@ const importers = (names: string[], module: string) =>
 const running = (program: RegExp) =>
   files.filter((f) => program.test(texts.get(f) ?? ""));
 
-// 2 Nov 2026: the agent boards wrote his Reminders beside `act`, so the minute pass read each of their items back as
-// his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `act` reaches a backend.
-test("only act writes his to-do list: it alone imports the backend, only the backend imports its implementations, and only they run remctl or gog tasks", () => {
+// 2 Nov 2026: the agent boards wrote his Reminders beside `changeTodoItem`, so the minute pass read each of their items back as
+// his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `changeTodoItem` reaches a backend.
+test("only changeTodoItem writes his to-do list: it alone imports the backend, only the backend imports its implementations, and only they run remctl or gog tasks", () => {
   expect(importers(["backend", "write"], "backend")).toEqual([
     "apps/server/src/host/change-todo-item.ts",
   ]);

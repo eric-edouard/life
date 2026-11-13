@@ -23,7 +23,7 @@ import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
 import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
-import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
+import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
@@ -1016,7 +1016,7 @@ function outputCards(r: Reads): Card[] {
   const byClient = Map.groupBy(calls, (c) => callerOf(c.agent));
   const acts = r.actions.filter(
     (a) =>
-      (REMINDER_KINDS as readonly string[]).includes(a.kind) &&
+      (TODO_CHANGE_KINDS as readonly string[]).includes(a.kind) &&
       !isBookkeeping(a) &&
       r.t - Date.parse(a.at) < DAY
   );

@@ -46,7 +46,7 @@ in the step that produced it: fix that step with its regression case, never a `c
 - When he states or changes a goal or priority, offer to put it in `truth/me.md` `## Goals` (numbered, his order, each
   with the project ids it serves) and do it on his yes. His goals live there only.
 - When he says which project a repo belongs to, put it in that project's `repos:` in `truth/`, then `bun life validate`.
-- Reminder changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his agent:
+- To-do item changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his agent:
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory questions` before asking him anything. His word beats the memory.
@@ -69,7 +69,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/quote-check.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
-  labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
+  labels). `ledger.jsonl` is appended only by `changeTodoItem`, `setAutoAdd`, `ask` and the sync
   pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet; `read-replies/` only by the exchange reads (`memory/exchange-reads.ts`; its one-time bring-in goes through `storeReply`), a line never rewritten. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/`, `histories/` (a month or a story replaced only by its re-read, its last version left to the data repo's git history; a file is never removed) and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
@@ -113,7 +113,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
-  setting), through `act` alone (`scripts/imports.test.ts` checks), on his clear request or the standing grant. What a backend lacks is a capability (`can`),
+  setting), through `changeTodoItem` alone (`scripts/imports.test.ts` checks), on his clear request or the auto-add permission. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
   2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked

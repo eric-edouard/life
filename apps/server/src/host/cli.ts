@@ -31,7 +31,12 @@ import { archiveCommand } from "./archive";
 import { ask, timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
-import { Asked, actAsked, requested, setGrant } from "./change-todo-item";
+import {
+  Asked,
+  changeAskedTodoItem,
+  requested,
+  setAutoAdd,
+} from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
@@ -160,8 +165,8 @@ const commands: Record<string, () => number | Promise<number>> = {
     return 0;
   },
   /**
-   * The standing grant (decision 2), only on his own words in this conversation: `auto-add on|off '<his words>'`. Off
-   * until he says yes; his undo of one of its reminders turns it off again.
+   * The auto-add permission (decision 2), only on his own words in this conversation: `auto-add on|off '<his words>'`. Off
+   * until he says yes; his undo of one of its to-do items turns it off again.
    */
   async "auto-add"() {
     if (pluginOff()) {
@@ -173,7 +178,7 @@ const commands: Record<string, () => number | Promise<number>> = {
       console.error("usage: bun life auto-add on|off '<his words>'");
       return 2;
     }
-    const done = await setGrant(state === "on", said);
+    const done = await setAutoAdd(state === "on", said);
     console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
@@ -183,7 +188,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   bridge: () => bridgeCommand(process.argv.slice(3)),
   /**
    * Acts on the owner's clear request, for a Claude session: `change-todo-item '<json>'` (a change with `said`, his words, and
-   * `why`); `change-todo-item --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
+   * `why`); `change-todo-item --check` (read-only: can the actions backend write now?). Every action is recorded in memory/ledger.jsonl.
    */
   async "change-todo-item"() {
     const [arg] = process.argv.slice(3);
@@ -204,7 +209,7 @@ const commands: Record<string, () => number | Promise<number>> = {
       );
       return 2;
     }
-    const done = await actAsked(asked, "session");
+    const done = await changeAskedTodoItem(asked, "session");
     console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
     return done.result === "failed" ? 1 : 0;
   },

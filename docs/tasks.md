@@ -47,11 +47,11 @@ its work: the agent keeps its own list.
 
 - **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: his items in one
   actions backend per install**, Apple Reminders (remctl) or Google Tasks (`gog`): add, edit, done, undone, remove,
-  restore, through `act` (`apps/server/src/host/change-todo-item.ts`). `act` is the only code that decides an action. It records its intent
+  restore, through `changeTodoItem` (`apps/server/src/host/change-todo-item.ts`). `changeTodoItem` is the only code that decides an action. It records its intent
   before each write and its outcome after.
-- When the owner asks for a reminder change, use `bun life change-todo-item '<json>'` (kinds, fields and `said`: `Change` in
+- When the owner asks for a to-do item change, use `bun life change-todo-item '<json>'` (kinds, fields and `said`: `Change` in
   `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
-- `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
+- `changeTodoItem` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time.
 - **One contract, `TodoListBackend`** (`apps/server/src/todo-list/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
@@ -63,17 +63,17 @@ its work: the agent keeps its own list.
 - **Ids are strings** (Google Tasks' are `<list>/<task>`); the connector's `target` takes one, or a Reminders number as
   it first did, and `read_open_todo_items` gives ids as strings. The tools say what they do (`change_todo_item`,
   `read_open_todo_items`), whichever backend the install uses.
-- **What a backend lacks is a capability (`can`), never a branch on its name**: `act` refuses a change that needs one
-  (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
+- **What a backend lacks is a capability (`can`), never a branch on its name**: `changeTodoItem` refuses a change that needs one
+  (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, `listMoves`, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore.
-- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/change-todo-item.ts`) decides and
+- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `changeTodoItem` (`host/change-todo-item.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every
-  call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `act` refuses, and the
-  rest of Life runs the same. The read-back and the grant exist only while
+  call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `changeTodoItem` refuses, and the
+  rest of Life runs the same. The read-back and the auto-add permission exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
   tools keep their names and arguments whatever the backend (a change forces a costly reconnect).
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
@@ -93,35 +93,35 @@ each minute as state only: one `via: "reminders"` line each, with no `instructio
   or grant).
 - A value Life wrote or tried to write since the field last settled is Life's own, whatever Reminders shows; so is a
   partial write's, and anything read within 30 s of one of Life's writes (reads lag writes).
-- Section, order and a repeating reminder's next due are Apple's, never read. Shared lists are never read. The first
+- Section, order and a repeating to-do item's next due are Apple's, never read. Shared lists are never read. The first
   pass imports a baseline.
 
 ### Open items
 
-`openItems` (`apps/server/src/memory/open-items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
+`openItems` (`apps/server/src/memory/open-items.ts`) builds them from the observations, the ledger's to-do items (`todoItemsOf`: what `changeTodoItem` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to an agent's review at most twice (counted from the ids its `read_day` calls were logged
-with). `read_day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
+with). `read_day`'s Due and `changeTodoItem`'s duplicate check read it, never Reminders; a to-do item made by hand counts once sync read
 it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
 A person's page (`read_person_page`) lists every open item with them, whatever its day (`openWithOf`, `read-open-items.ts`):
-the observations linked to them, the replies he owes them and the reminders made from those, ranked the same way
-(`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`). A reminder made by hand names no one, so it
+the observations linked to them, the replies he owes them and the to-do items made from those, ranked the same way
+(`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`). A to-do item made by hand names no one, so it
 is not on any page.
 
 Its first block is what their time together was about: the titles of the last 60 episodes they took part in, by month (`episodeTitleLines`).
 
-### The standing grant
+### The auto-add permission
 
 The only other authority, off until the owner's words in a Claude session turn it on (`bun life auto-add on|off '<their
 words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
 takes authority away.
 
-- While on, `change_todo_item` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
+- While on, `change_todo_item` with `obs` in place of `said` adds a to-do item (title, list, due, section) from the owner's current
   importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
-  by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
+  by hand) until the owner's next yes (`autoAddRefusal`, all derived from the ledger).
 - Its authority is the observation alone: never a fact-check answer or a chat `said`. It binds the connector, not
   the agent's terminal.
 
@@ -170,12 +170,12 @@ each once read, with the observations citing it ("Told Life").
 
 `apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`) and acts
 only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
-grant.
+auto-add permission.
 
 - **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
-  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `act`, with the owner's words
-  in `said`, or an `obs` for the grant) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told.jsonl`, `memory/told.ts`; offered only while the `told` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
+  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
+  in `said`, or an `obs` for the auto-add permission) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told.jsonl`, `memory/told.ts`; offered only while the `told` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
 - **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names
