@@ -69,13 +69,13 @@ export interface Run {
   input: Record<string, unknown> | null;
   /** ok | failed | running (it holds the lock now) | unfinished (no end recorded: interrupted, or still running unlocked). */
   outcome: "failed" | "ok" | "running" | "unfinished";
-  /** A processing run's processing steps in the order it entered them (`processingSteps`, run.ts), its steps among them. */
-  phases?: string[];
+  /** The processing run it ran in, if any. */
+  processingRun?: string;
+  /** A processing run's steps in the order it entered them (`trackProcessingSteps`, run.ts), its steps among them. */
+  processingSteps?: string[];
   result: Record<string, unknown> | null;
   startedAt: string | null;
   step: string;
-  /** The processing run it ran in, if any. */
-  sweep?: string;
   /** What it spent; null when it made no model call and read no quota. */
   use?: Use | null;
   /** The local days its sources were read for. */
@@ -126,13 +126,13 @@ export function spendLines(
     .toSorted((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
   const name = (r: Run) => r.step.replace("memory.", "");
   return used
-    .filter((r) => !r.sweep)
+    .filter((r) => !r.processingRun)
     .flatMap((r) => [
       r.id === night.id && r.use
         ? `Model use, this night: ${useText({ ...r.use, quota: r.use.quota && { after: night.quota ?? null, before: r.use.quota.before } })}`
         : `Model use, ${name(r)} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`,
       ...used
-        .filter((c) => c.sweep === r.id)
+        .filter((c) => c.processingRun === r.id)
         .map((c) => `  ${name(c)}: ${useText(c.use ?? null)}`),
     ]);
 }
@@ -180,7 +180,7 @@ function apply(r: Run, e: LogEvent) {
   if (e.kind === "run.error") {
     r.errors.push(errorOf(e));
   } else if (e.step === r.step && e.kind === "run.entered") {
-    r.phases = [...(r.phases ?? []), String(e.entered)];
+    r.processingSteps = [...(r.processingSteps ?? []), String(e.entered)];
   } else if (e.step === r.step && e.kind === "run.end") {
     r.result = omit(e);
     r.endedAt = e.at;
@@ -238,7 +238,7 @@ function nest(list: Run[], orphans: LogEvent[]) {
         !PROCESSING_RUNS.has(r.step) && inProcessingRun(r.startedAt ?? "", s)
     );
     for (const r of mine) {
-      r.sweep = s.id;
+      r.processingRun = s.id;
     }
     s.children = mine.map((r) => r.id);
   }

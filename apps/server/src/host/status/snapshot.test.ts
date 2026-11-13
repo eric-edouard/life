@@ -64,9 +64,13 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
   expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
 });
 
-test("a processing run's steps are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
-  const run = (phases: string[], outcome: string, failedAt?: string) =>
-    ({ outcome, phases, result: failedAt ? { failedAt } : {} }) as never;
+test("a processing run's steps are the steps it recorded: done, now, the one it failed at still to do, then the night's report", () => {
+  const run = (processingSteps: string[], outcome: string, failedAt?: string) =>
+    ({
+      outcome,
+      processingSteps,
+      result: failedAt ? { failedAt } : {},
+    }) as never;
   const all = [
     "repos",
     "gather",

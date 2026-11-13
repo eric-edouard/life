@@ -316,7 +316,7 @@ async function reads(now: Date) {
     // The runs that can spend, a processing run's steps inside it (its use counts theirs).
     cached("spending runs", 15_000, async () => {
       const page = await runs({ limit: 30, steps: SPENDING });
-      return { ...page, items: page.items.filter((x) => !x.sweep) };
+      return { ...page, items: page.items.filter((x) => !x.processingRun) };
     }),
     readLedger(),
     cached("actionChecks", MIN, checks),
@@ -708,10 +708,10 @@ function captureCards(r: Reads): Card[] {
 }
 
 interface Processing {
-  phase?: string | null;
+  processingRun?: string | null;
+  processingStep?: string | null;
   since?: string;
   state: string;
-  sweep?: string | null;
 }
 type ProcessingRun =
   | Reads["status"]["nightly"]
@@ -729,8 +729,8 @@ export function processingStepsOf(
   running: boolean,
   reported: boolean | null
 ) {
-  const latest = s.latest?.phases ?? [];
-  const names = [...new Set([...(s.lastOk?.phases ?? []), ...latest])];
+  const latest = s.latest?.processingSteps ?? [];
+  const names = [...new Set([...(s.lastOk?.processingSteps ?? []), ...latest])];
   const now = running ? latest.at(-1) : undefined;
   const failedAt =
     s.latest?.outcome === "failed"
@@ -776,7 +776,9 @@ function processingRunCard(
 ): Card {
   const proc = r.status.processing as Processing;
   const running =
-    proc.state === "running" && !!proc.sweep?.startsWith(`memory.${id}/`);
+    proc.state === "running" &&
+    !!proc.processingRun?.startsWith(`memory.${id}/`);
+  const step = proc.processingStep?.replace("memory.", "") ?? "running";
   const { latest } = s;
   const headline = firstOf(
     [running, { tone: "busy", word: "running since" }],
@@ -785,10 +787,7 @@ function processingRunCard(
   ).word;
   return {
     ...firstOf(
-      [
-        running,
-        { tone: "busy", word: proc.phase?.replace("memory.", "") ?? "running" },
-      ],
+      [running, { tone: "busy", word: step }],
       [
         latest?.outcome === "failed",
         {

@@ -46,7 +46,7 @@ import { kindOf } from "./sources";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for the status reads: `read_memory_changes` (every observation, supersession,
-// correction, inferred identity, action and page change, by cursor) and `read_observation` (one observation with its evidence).
+// correction, inferred person, action and page change, by cursor) and `read_observation` (one observation with its evidence).
 // With run-log.ts (`read_processing_runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|observation|status|runs`.
 // Read-only: no model, no write, no source except `read_observation`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/status-reads.md.
@@ -398,7 +398,7 @@ function itemOf(
       record: p,
       recordedAt: p.at,
       run: p.madeBy.run,
-      type: "identity.inferred",
+      type: "inferred_person",
       used: p.confidence >= INFERRED_USE_AT,
     };
   }
@@ -431,7 +431,7 @@ function itemOf(
       record: r,
       recordedAt: r.at,
       run: null,
-      type: `rating.${r.answer ?? "undone"}`,
+      type: `fact_check_answer.${r.answer ?? "undone"}`,
     };
   }
   const o = Observation.parse(raw);
@@ -456,7 +456,7 @@ export interface ChangeFilter {
   run?: string;
   /** Recorded at or after this ISO instant. */
   since?: string;
-  /** Types or type prefixes: observation, observation.superseded, correction, identity, ledger, ledger.ask, ledger.update, ledger.nudge, ledger.steer, ledger.failed, rating, page. */
+  /** Types or type prefixes: observation, observation.superseded, correction, inferred_person, ledger, ledger.ask, ledger.update, ledger.nudge, ledger.steer, ledger.failed, fact_check_answer, page. */
   types?: string[];
 }
 
@@ -524,10 +524,10 @@ export async function changeFeed(f: ChangeFilter = {}) {
 // --- one observation with its evidence -----------------------------------------------------------------------------------
 
 /**
- * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
+ * One observation with everything that says how far to trust it: the observation and its lifecycle, the source (channel,
  * ref, time, speaker, quote), the unit to read it in (`fetch`, `read_chats`), who it is about as filed and as resolved now
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
- * whether the index still holds it. Every version of the claim in the ledger is listed.
+ * whether the index still holds it. Every version of the observation in the ledger is listed.
  */
 export async function readObservation(id: string) {
   if (!ObservationId.safeParse(id).success) {

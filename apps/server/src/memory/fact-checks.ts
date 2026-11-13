@@ -30,11 +30,11 @@ export async function readOpenFactChecks(now = clock().getTime()) {
   return open.map((s) => {
     const o = byId.get(s.ref);
     return {
-      claim: s.text,
       doubts: o ? doubtsOf(o, people.refOf).map((d) => WHY[d]) : [],
       from: `${s.source ?? "an episode"}, ${plain(s.date)}`,
       quote: o?.quote ?? null,
       ref: s.ref,
+      text: s.text,
     };
   });
 }

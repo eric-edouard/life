@@ -37,7 +37,7 @@ test("a fact check is open for 7 days from its draw until he answers it", async 
   expect(open()).toEqual(["obs_000000000001"]);
   const [asked] = await readOpenFactChecks(NOW);
   expect(asked).toMatchObject({
-    claim: "Zoé runs the bakery obs_000000000001.",
     ref: "obs_000000000001",
+    text: "Zoé runs the bakery obs_000000000001.",
   });
 });

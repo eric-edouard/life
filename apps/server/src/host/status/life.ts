@@ -86,14 +86,17 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          // The phase the processing run last entered (`processingSteps`, run.ts), else the step running (runs from before 21 Oct).
-          phase:
-            running.find((r) => PROCESSING_RUNS.has(r.step))?.phases?.at(-1) ??
+          processingRun:
+            running.find((r) => PROCESSING_RUNS.has(r.step))?.id ?? null,
+          // The step the processing run last entered (`trackProcessingSteps`, run.ts), else the step running (runs from before 21 Oct).
+          processingStep:
+            running
+              .find((r) => PROCESSING_RUNS.has(r.step))
+              ?.processingSteps?.at(-1) ??
             running.find((r) => !PROCESSING_RUNS.has(r.step))?.step ??
             null,
           since: lock.toISOString(),
           state: "running",
-          sweep: running.find((r) => PROCESSING_RUNS.has(r.step))?.id ?? null,
         }
       : { state: "idle" },
     // Read now: the long-running server's own zone can be the one it started in.
