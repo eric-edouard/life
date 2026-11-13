@@ -298,3 +298,49 @@ test("refused without turns or for a job the speech service did not transcribe",
     .run();
   expect(rediarize(db, jobId, DIARIZED)).toBe("done");
 });
+
+test("a voice with no corrected turn of its own joins the voice holding it, its answer turn by turn", () => {
+  const { jobId, owner } = seed();
+  const turns = [
+    { end: 4, speakerId: "speaker_0", start: 0, text: "One." },
+    { end: 6, speakerId: "speaker_1", start: 4, text: "Two." },
+    { end: 10, speakerId: "speaker_0", start: 6, text: "Three." },
+    { end: 14, speakerId: "speaker_2", start: 10, text: "Four." },
+  ];
+  const words = turns.map((t) =>
+    word(t.text, t.start, t.start + 1, t.speakerId)
+  );
+  db.update(transcripts)
+    .set({ parsed: { duration: 14, language: "eng", turns, words } as never })
+    .where(eq(transcripts.jobId, jobId))
+    .run();
+  db.delete(assignments).where(eq(assignments.jobId, jobId)).run();
+  db.insert(assignments)
+    .values({
+      jobId,
+      personId: owner,
+      source: "owner",
+      speakerLabel: "speaker_1",
+      status: "person",
+    })
+    .run();
+  // The speech service heard only two voices: speaker_1's seconds lie inside the first one's turn.
+  expect(
+    rediarize(db, jobId, [
+      { end: 10, speaker: "a", start: 0 },
+      { end: 14, speaker: "b", start: 10 },
+    ])
+  ).toBe("done");
+  const row = db
+    .select()
+    .from(transcripts)
+    .where(eq(transcripts.jobId, jobId))
+    .get();
+  expect(row?.parsed.turns.map((t) => t.speakerId)).toEqual([
+    "speaker_0",
+    "speaker_0",
+    "speaker_0",
+    "speaker_1",
+  ]);
+  expect(ownerRows(jobId)).toEqual([["speaker_0", 1, owner]]);
+});
