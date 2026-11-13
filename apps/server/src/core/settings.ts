@@ -109,6 +109,11 @@ export const Settings = z
     links: z.literal(true).optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
+    /**
+     * The matters (`memory/matters.ts`): each night places the episodes, facts and reminders not placed yet in the
+     * running things of his life. Absent means off: nothing is read. Nothing reads the matters yet.
+     */
+    matters: z.literal(true).optional(),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })

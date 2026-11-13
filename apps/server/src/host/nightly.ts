@@ -34,6 +34,7 @@ import {
   OUT,
   readLedger,
 } from "../memory/memory-files";
+import { matters, readMatterWork } from "../memory/matters";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
@@ -284,6 +285,13 @@ async function judgeLinks() {
   return pending && links(pending, people);
 }
 
+/** The night's matters: what is due in its days (`readMatterWork`), placed. */
+async function placeMatters(window: Window, failed: string[]) {
+  const people = await readPeople();
+  const pending = await readMatterWork(window, people, failed);
+  return pending && matters(pending, people);
+}
+
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
 const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
@@ -343,6 +351,14 @@ async function runProcessing(name: string, window: Window, engine?: Engine) {
     const found = await steps.step("episodes", () => episodes(evidence));
     console.log(JSON.stringify(found));
     const extracted = await steps.step("extract", () => extract(evidence));
+    // The running things of his life, in shadow and off until his `matters` setting. A failure is logged and never
+    // stops the night.
+    if (settings().matters) {
+      steps.at = "matters";
+      await placeMatters(window, evidence.failed).catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.matters" })
+      );
+    }
     console.log(JSON.stringify(extracted));
     steps.at = "index";
     await reindex();

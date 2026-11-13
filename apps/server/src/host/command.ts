@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { clock } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
@@ -18,6 +18,12 @@ import {
   recordCorrection,
   recordFactCheckAnswer,
 } from "../memory/memory-files";
+import {
+  callsOf,
+  matterLines,
+  matters,
+  readMatterWork,
+} from "../memory/matters";
 import { locked } from "../memory/memory-lock";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -36,7 +42,14 @@ import { situations } from "../memory/situations";
 import { DAYS, gather } from "../memory/units";
 import { meant, readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
-import { dayNow, firstZoneDay, isDay, lastDays } from "../memory/zones";
+import {
+  dayNow,
+  dayStart,
+  firstZoneDay,
+  isDay,
+  lastDays,
+  type Window,
+} from "../memory/zones";
 import { FactCheckAnswer } from "../records/fact-check";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
@@ -96,6 +109,16 @@ const gathered = async (v: Values) =>
   gather(lastDays(clock(), Number(v.days ?? DAYS)), await readPeople());
 
 const scan = step(() => mapRepos());
+
+/** The weeks from `since` to `today`, oldest first: seven days each, the last cut at today. */
+function weeksFrom(since: string, today: string) {
+  const weeks: Window[] = [];
+  for (let from = since; from <= today; from = daysBefore(from, -7)) {
+    const end = daysBefore(from, -6);
+    weeks.push({ from, to: end < today ? end : today });
+  }
+  return weeks;
+}
 
 /** Prints a read command's answer; no answer (arguments missing) is a usage error. */
 async function printed(answer: Promise<string | null> | string | null) {
@@ -270,6 +293,49 @@ const HANDLERS: Record<string, Handler> = {
         : { ...pending.counts, failed: 0 };
     })(values, rest);
   },
+  /**
+   * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
+   * episodes, reminders), with no model; `--force` places it, as the night does once his `matters` setting is on;
+   * `--since` places every week from that day to today, in order (each week sees the matters of the weeks before);
+   * `list` prints each matter.
+   */
+  async matters(values, rest) {
+    if (rest[0] === "list") {
+      return printed(matterLines().join("\n") || "(no matters)");
+    }
+    const today = dayNow();
+    if (values.since !== undefined && !isDay(values.since)) {
+      return usage();
+    }
+    const spans = values.since
+      ? weeksFrom(values.since, today)
+      : [lastDays(clock(), DAYS)];
+    return step(async () => {
+      const people = await readPeople();
+      const { failed } = await readWithPeople(
+        dayStart(values.since ?? lastDays(clock(), DAYS).from)
+      );
+      const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, reminders: 0 };
+      for (const span of spans) {
+        // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
+        const work = await readMatterWork(span, people, failed);
+        if (!work) {
+          return { failed: 1 };
+        }
+        sum.episodes += work.episodes.length;
+        sum.reminders += work.reminders.length;
+        if (values.force || values.since) {
+          const run = await matters(work, people);
+          sum.calls += run.calls;
+          sum.failed += run.failed;
+          sum.placed += run.placed;
+        } else {
+          sum.calls += callsOf(work).length;
+        }
+      }
+      return sum;
+    })(values, rest);
+  },
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   observation: (_values, [id = ""]) => json(readObservation(id)),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
@@ -309,7 +375,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }
