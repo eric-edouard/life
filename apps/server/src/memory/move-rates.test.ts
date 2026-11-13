@@ -4,10 +4,10 @@ import type { SourceEvent } from "../records/source";
 import {
   type MoveRate,
   moveRatesOf,
+  occurrencesOf,
   placeAmong,
   seenExchanges,
   type Thing,
-  votesOf,
 } from "./move-rates";
 import type { Code, Move, SeenExchange, Side } from "./moves";
 
@@ -46,7 +46,7 @@ const many = (n: number, make: () => SeenExchange) =>
 const NOVEMBER = "2026-11";
 
 test("two moves of one code count once; a mention counts per person talked about", () => {
-  const votes = votesOf([
+  const occurrences = occurrencesOf([
     move("me", "shares"),
     move("me", "shares"),
     move("them", "shares"),
@@ -54,7 +54,7 @@ test("two moves of one code count once; a mention counts per person talked about
     move("me", "mention", { who: "MARC" }),
     move("me", "mention", { who: "Ana" }),
   ]);
-  expect(votes.map((m) => [m.by, m.code, m.who])).toEqual([
+  expect(occurrences.map((m) => [m.by, m.code, m.who])).toEqual([
     ["me", "shares", undefined],
     ["them", "shares", undefined],
     ["me", "mention", "Marc"],
@@ -71,7 +71,7 @@ test("two moves of one code count once; a mention counts per person talked about
   });
 });
 
-test("an exchange a side did not write in is no chance for that side; two sources are never pooled", () => {
+test("an exchange a side did not write in is no opportunity for that side; two sources are never pooled", () => {
   const rows = moveRatesOf(
     [
       exchange([move("me", "shares")], { took: new Set<Side>(["me"]) }),
@@ -171,7 +171,7 @@ test("steering counts only where a decision is at stake; an answer to a fault on
   expect(rowOf(rows, "engages", "me")).toBeUndefined();
 });
 
-test("14 chances say too few, 15 say share; a code not proven keeps its counts with no share", () => {
+test("14 opportunities say too few, 15 say share; a code not proven keeps its counts with no share", () => {
   const shares = () => exchange([move("me", "shares"), move("me", "returns")]);
   const rate = (n: number, thing: Thing) =>
     rowOf(moveRatesOf(many(n, shares), NOVEMBER), thing, "me", "whatsapp")?.all;

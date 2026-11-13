@@ -202,7 +202,7 @@ Before adding a helper, use the one that exists:
 | A local day or time | `localDate`, `dayStart`, `time`, `localTime`, `dayRange` (`zones.ts`); a calendar day's arithmetic, no zone: `daysBefore` (`core/clock.ts`); in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`, lifelog included; a duration is `performance.now()` |
 | An event's key across sources | `eventKey` (`records/source.ts`), never an inline `source|id`; a chat's key is `chatGroups`' |
-| How often a person did something (a code, how a bid was met, tone, the flags) | `moveRatesOf` (`memory/move-rates.ts`) over `seenExchanges`: a share only of what `PROVEN` lists, per source for an exchange chance; `placeAmong` for where it stands among others |
+| How often a person did something (a code, how a bid was met, tone, the flags) | `moveRatesOf` (`memory/move-rates.ts`) over `seenExchanges`: a share only of what `PROVEN` lists, per source for an exchange opportunity; `placeAmong` for where it stands among others |
 | An importance threshold | `SEARCHABLE_AT`, `KEEP_AT`, `TOP_AT` (`records/unit.ts`), never a bare number |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`, `payments/`): implementations import it, its registry imports them, never back |
@@ -213,7 +213,7 @@ Before adding a helper, use the one that exists:
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
-| Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isLiving` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
+| Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isTwoWay` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
 | Messages by chat | `chatGroups` (`records/source.ts`) |
 | Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input. For an exchange's read: `replyOf` (`memory/exchange-reads.ts`), which matches the prompt's versioned name and the exchange's messages, never the text's digest |
 | What a read of an exchange answered (stored, pending, counted) | `replyOf`, `readReplies`, `storeReply` (`memory/exchange-reads.ts`): the only code that builds the calls, appends the replies (`memory/read-replies/`) and reads them; the pilot passes a trial folder |

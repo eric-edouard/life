@@ -18,7 +18,7 @@ import {
 import {
   batchesOf,
   exchangesOf,
-  isLiving,
+  isTwoWay,
 } from "@life/server/src/memory/exchanges";
 import type { CheckedExchange } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
@@ -106,7 +106,7 @@ if (import.meta.main) {
     .flatMap(([ref, messages]) => {
       const withWhom = withOf(ref.slice("person:".length), people);
       return [...chatGroups(messages).values()]
-        .filter(isLiving)
+        .filter(isTwoWay)
         .flatMap((chat) =>
           packed(
             batchesOf(exchangesOf(chat)).flat(),

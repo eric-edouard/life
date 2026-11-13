@@ -9,7 +9,7 @@ import {
   charsOf,
   EXCHANGE_BATCH_CHARS,
   exchangesOf,
-  isLiving,
+  isTwoWay,
 } from "@life/server/src/memory/exchanges";
 import { readPeople } from "@life/server/src/memory/who";
 import { CHARS_PER_TOKEN } from "@life/server/src/models/llm";
@@ -32,11 +32,11 @@ const centile = (sorted: number[], share: number) =>
 
 interface Row {
   calls: number;
-  living: number;
   messages: number;
   oneSided: number;
   oversized: number;
   sizes: number[];
+  twoWayChars: number;
 }
 
 /** How many times each quiet came between two messages of one chat. */
@@ -55,10 +55,10 @@ function quietOf(chats: SourceEvent[][]) {
 
 /** One chat's exchanges and batches added to the rows they started in. */
 function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
-  const living = isLiving(chat);
+  const twoWay = isTwoWay(chat);
   for (const batch of batchesOf(exchangesOf(chat))) {
     const all = batch.flat();
-    if (living && all[0]) {
+    if (twoWay && all[0]) {
       const row = rowOf(all[0]);
       row.calls += 1;
       row.oversized += charsOf(all) > EXCHANGE_BATCH_CHARS ? 1 : 0;
@@ -70,7 +70,7 @@ function addChat(chat: SourceEvent[], rowOf: (first: SourceEvent) => Row) {
       row.messages += exchange.length;
       row.oneSided += oneSided ? 1 : 0;
       row.sizes.push(charsOf(exchange));
-      row.living += living ? charsOf(exchange) : 0;
+      row.twoWayChars += twoWay ? charsOf(exchange) : 0;
     }
   }
 }
@@ -83,19 +83,19 @@ function shown([key, r]: [string, Row]) {
     chars: sizes.reduce((x, y) => x + y, 0),
     exchanges: sizes.length,
     key,
-    living: r.living,
     median: centile(sizes, 0.5),
     messages: r.messages,
     ninetieth: centile(sizes, 0.9),
     oneSided: r.oneSided,
     oversized: r.oversized,
-    tokensAtMost: Math.ceil(r.living / CHARS_PER_TOKEN),
+    tokensAtMost: Math.ceil(r.twoWayChars / CHARS_PER_TOKEN),
+    twoWayChars: r.twoWayChars,
   };
 }
 
 /**
  * The counts of a set of messages: a row per source and year an exchange started in, and the quiet between messages.
- * For the chats both sides wrote in, the ones a read is for: their characters (`living`), at most how many tokens
+ * For the chats both sides wrote in, the ones a read is for: their characters (`twoWayChars`), at most how many tokens
  * that is, the calls that read them a batch at a time (a batch counts in the row of its first exchange), and how
  * many of those batches are over the size (one exchange too long for a call).
  */
@@ -105,11 +105,11 @@ export function sizesOf(events: SourceEvent[]) {
     const key = `${first.source} ${first.at.slice(0, 4)}`;
     const row = rows.get(key) ?? {
       calls: 0,
-      living: 0,
       messages: 0,
       oneSided: 0,
       oversized: 0,
       sizes: [],
+      twoWayChars: 0,
     };
     rows.set(key, row);
     return row;

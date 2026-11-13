@@ -21,7 +21,7 @@ The user message is one JSON object:
   first: `id`, `day`, `title`, `what`, `place`, `people`.
 - `persona`: what Life read about them and between them and him over years of their messages (his
   own across everyone for `person:me`): `facet` (`traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`,
-  `approach`), `text`, `support` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
+  `approach`), `text`, `backing` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
   empty.
 - `today`: the local date.
 

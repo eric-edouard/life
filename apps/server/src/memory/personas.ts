@@ -50,7 +50,7 @@ export const readPersona = (ref: string) => {
 };
 
 /** How well a line is backed, from its quotes' days: a pattern seen once is a guess, one not seen for a year may be over. */
-export function supportOf(quotes: FoundQuote[], today: string) {
+export function backingOf(quotes: FoundQuote[], today: string) {
   const days = [...new Set(quotes.map((q) => localDate(q.at)))].sort();
   const newest = days.at(-1);
   if (newest && newest < daysBefore(today, OLD_AFTER_DAYS)) {
@@ -69,7 +69,7 @@ export const readingsOf = (lines: PersonaLine[]) =>
   lines.flatMap((l) => (l.facet === "writes" ? [] : [l]));
 
 /**
- * A persona as a reader shows it: its gist, then the readings under Persona, each with its support; the writing lines
+ * A persona as a reader shows it: its gist, then the readings under Persona, each with its backing; the writing lines
  * under Communication style (the connector's word for them). Nothing when there is none.
  */
 export function personaBlock(
@@ -86,7 +86,7 @@ export function personaBlock(
           `- in short: ${persona?.gist}`,
           ...readings.map(
             (l) =>
-              `- ${l.facet} (${supportOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`
+              `- ${l.facet} (${backingOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`
           ),
           "",
         ]
