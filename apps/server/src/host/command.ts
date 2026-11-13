@@ -7,6 +7,7 @@ import { closeness, readWithPeople } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
+import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
@@ -181,6 +182,21 @@ const HANDLERS: Record<string, Handler> = {
       (await readPeople()).resolve
     )
   ),
+  /**
+   * `exchange-reads [--force]`: what the exchange reads would ask (calls and exchanges, before the night's cap), with no
+   * model; `--force` asks the night's share, as the night does once his `exchangeReads` setting is on.
+   */
+  "exchange-reads": step(async (v) => {
+    const pending = readExchangeReadWork(
+      await readWithPeople(new Date(0)),
+      await readPeople(),
+      clock()
+    );
+    if (!pending) {
+      return { failed: 1 };
+    }
+    return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
+  }),
   extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
     printed(
@@ -288,7 +304,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<person>] [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
