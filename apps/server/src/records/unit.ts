@@ -39,7 +39,7 @@ export const RecordingKind = z.enum([
 
 /**
  * The importance policy: the importance from which a unit is kept and its observations are shown. Extraction reads a kept unit
- * in full; pages and searches list its claims. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
+ * in full; pages and searches list its observations. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
  * mostly right. A importance-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with an episode that
  * holds a kept unit.
  */

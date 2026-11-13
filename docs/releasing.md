@@ -33,7 +33,7 @@ Life: Life reads lifelog only through that contract, and an older Host refuses t
 
 ## A release that migrates stored data
 
-A release that ships a migration (`host/migrate.ts`) runs it from Life.app at its next start: install the app first
+A release that ships a migration (`host/migrate.ts`, written fresh each time) runs it from Life.app at its next start: install the app first
 and let it start, then pull the live checkout. Before that, a checkout's `bun life …` refuses to run on his data (only
 the app migrates it).
 

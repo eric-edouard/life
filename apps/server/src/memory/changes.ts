@@ -265,7 +265,7 @@ async function readContext() {
     readInferred(),
     readPages(),
   ]);
-  // The latest record for a surface wins (who.ts): its line number.
+  // The latest record for a name as written wins (who.ts): its line number.
   const inferredLatest = new Map<string, number>();
   for (const [n, p] of inferred.entries()) {
     for (const s of p.namesAndHandles) {
@@ -391,7 +391,7 @@ function itemOf(
     const p = InferredPerson.parse(raw);
     return {
       about: refs([`person:${p.id}`, p.area && `area:${p.area}`]),
-      // The latest record for a surface wins: an older one no longer decides any surface.
+      // The latest record for a name as written wins: an older one no longer decides any name.
       current: p.namesAndHandles.some((s) => ctx.inferredLatest.get(s) === n),
       happenedAt: null,
       id,

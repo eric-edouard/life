@@ -21,7 +21,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
   removes through those links.
 - Every worktree reads and writes the same `OWNER_DATA_DIR` and shares its one lock (`OWNER_DATA_DIR/.nightly.lock`). Point `LIFE_OWNER_DATA_DIR` at
   a copy to experiment, and copy `derived/settings.json` into a worktree before model runs (without it, calls go to the
-  default engine).
+  default engine); copy settings.json again after a rename.
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`apps/server/src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing. It has its own home folder too (`HOME`,
   `apps/server/src/core/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,

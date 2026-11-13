@@ -130,7 +130,7 @@ function indexUnits(db: Database, units: IndexedUnit[]) {
 
 /**
  * derived/memory/index.sqlite, rebuilt from scratch (`writeIndex`): observations (with the observation that replaced
- * each retired one, and its end date), full-text search over claims and quotes, who each is about; the units (`indexUnits`), so
+ * each retired one, and its end date), full-text search over observations and quotes, who each is about; the units (`indexUnits`), so
  * today's material is searchable before the nightly pass; and `rebuilt`, when its reads began (`readStaleness`).
  */
 export function buildIndex(

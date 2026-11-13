@@ -171,7 +171,7 @@ export function splitSteps(
 }
 
 /**
- * The open matters (`readMatterBook`: only his confirmed endings close one; a "maybe done" matter is still judged), each with its open steps
+ * The open matters (`readMatterBook`: only his word close one; a "maybe done" matter is still judged), each with its open steps
  * (promises, waits and to-dos of his: the observations no link ended) and its later steps (`splitSteps`), as a call
  * is shown them. A matter of one has no later step and no work.
  */

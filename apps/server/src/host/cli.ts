@@ -44,7 +44,6 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
-import { migrateFor } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -400,8 +399,6 @@ const crashed = (e: unknown) => {
 process.on("uncaughtException", crashed);
 process.on("unhandledRejection", crashed);
 try {
-  // The names' rename (names-2026-11) before the command reads anything (AGENTS.md, "A rename or a new field backfills").
-  await migrateFor(name);
   process.exit(await command());
 } catch (e) {
   crashed(e);

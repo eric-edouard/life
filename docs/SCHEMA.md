@@ -557,7 +557,7 @@ name their agent (agents-2026-10-31)" hold both sides.
 became `memory/episodes/`, a line not `happened` went, `why` became `what`, ids `mom_` became `ep_` wherever cited, a
 fact check's kind `moment` became `episode` and its group `events` `episodes`; "Memory: before moments become episodes" and "Memory: moments are
 episodes, what happened, with what came of it (episodes-2026-11)" hold both sides.
-`names-2026-11` (`apps/server/src/host/migrate.ts`, until its release has run on the data): one word per concept, S1 to S27 of its
+`names-2026-11` (the same file, since removed): one word per concept, S1 to S27 of its
 pull request: `statements.jsonl`, `ratings.jsonl` and `told.jsonl` became `fact-checks.jsonl`, `fact-check-answers.jsonl` and
 `told-life.jsonl` (the told units and what cites them by their new ids); `entities` became `subjects`, `surface` and
 `surfaces` `nameOrHandle`, `nameAsWritten`, `namesAndHandles` or `handles` by the file; `matters` `important`, `wording`
