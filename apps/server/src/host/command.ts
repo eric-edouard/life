@@ -270,7 +270,7 @@ const HANDLERS: Record<string, Handler> = {
   },
   /**
    * `links [<matter id>] [--force]`: what the links step would judge (matters, open steps, calls, a token ceiling), with
-   * no model, then the spec's two marks from his answers (`endingMarks`); with a matter, its open steps and the ending found for each; `--force` judges, as the night does
+   * no model, then the marks from his answers (`endingMarks`); with a matter, its open steps and the ending found for each; `--force` judges, as the night does
    * once his `links` setting is on.
    */
   async links(values, rest) {

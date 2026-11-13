@@ -3,7 +3,7 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { LinkBatch } from "../records/link";
 import { endingMarks, endingsNow, endingsRead } from "./endings";
-import { askEndings } from "./fact-checks";
+import { drawEndingChecks, topUpFactChecks } from "./fact-checks";
 import {
   FACT_CHECK_ANSWERS,
   FACT_CHECKS,
@@ -48,8 +48,8 @@ const linked = (n: number) =>
   ]);
 const everything = () => true;
 
-/** Runs `askEndings` over `n` open promises each ended by a link, with `endings` on or off. */
-async function asked(n: number, on: boolean) {
+/** Runs `drawEndingChecks` over `n` open promises each ended by a link, with `endings` on or off. */
+async function drawn(n: number, on: boolean) {
   const settings = await import("../core/settings");
   const matters = await import("./matters");
   const on_ = spyOn(settings, "settings").mockReturnValue(
@@ -80,8 +80,8 @@ async function asked(n: number, on: boolean) {
   } as never);
   const spies = [on_, records];
   try {
-    const first = await askEndings(NOW);
-    const second = await askEndings(NOW);
+    const first = await drawEndingChecks(NOW);
+    const second = await drawEndingChecks(NOW);
     return { first, second };
   } finally {
     for (const s of spies) {
@@ -90,11 +90,11 @@ async function asked(n: number, on: boolean) {
   }
 }
 
-test("at most 3 endings are asked a day, once each, in conversation", async () => {
+test("at most 3 ending checks are drawn a day, once each", async () => {
   reset();
-  expect(await asked(5, true)).toEqual({ first: 3, second: 0 });
+  expect(await drawn(5, true)).toEqual({ first: 3, second: 0 });
   expect(
-    openFactChecks(NOW.getTime()).map((s) => [s.ref, s.text, s.later])
+    openFactChecks(NOW.getTime()).map((s) => [s.ref, s.text, s.endedBy])
   ).toEqual([
     [promise(1), "Done? Call the shop 1", later(101)],
     [promise(2), "Done? Call the shop 2", later(102)],
@@ -103,46 +103,74 @@ test("at most 3 endings are asked a day, once each, in conversation", async () =
   reset();
 });
 
-test("with endings off nothing is asked and readers ignore links", async () => {
+test("with endings off nothing is drawn and readers ignore links", async () => {
   reset();
   linked(2);
-  expect(await asked(2, false)).toEqual({ first: 0, second: 0 });
+  expect(await drawn(2, false)).toEqual({ first: 0, second: 0 });
   const settings = await import("../core/settings");
   const off = spyOn(settings, "settings").mockReturnValue({} as never);
   try {
-    const read = endingsRead(everything);
-    expect([read.confirmed.size, read.maybe.size]).toEqual([0, 0]);
+    expect(endingsRead(everything).maybe.size).toBe(0);
   } finally {
     off.mockRestore();
   }
   reset();
 });
 
-test("wrong removes that link for good, and corrects nothing; right is his word", async () => {
+test("wrong removes those two ids' link for good and shows no further maybe on the step; right retires it", async () => {
   reset();
   linked(2);
-  await asked(2, true);
+  await drawn(2, true);
   recordFactCheckAnswer(promise(1), "false");
   recordFactCheckAnswer(promise(2), "true");
-  // A later batch ties the same pair again: still refused.
+  // A later batch ties the same ids again: still refused, and the step shows no maybe.
   linked(1);
-  const { confirmed, endings } = endingsNow(everything);
+  const { endings, refused } = endingsNow(everything);
   expect(endings.has(promise(1))).toBe(false);
-  expect([...confirmed]).toEqual([promise(2)]);
-  // His answers are about the links: the promises themselves stay as they were.
-  expect(readCorrections()).toEqual([]);
+  expect([...refused]).toEqual([promise(1)]);
+  const settings = await import("../core/settings");
+  const on = spyOn(settings, "settings").mockReturnValue({
+    endings: true,
+  } as never);
+  try {
+    expect([...endingsRead(everything).maybe.keys()]).toEqual([promise(2)]);
+  } finally {
+    on.mockRestore();
+  }
+  // His right is the existing outdated word on the open step; his wrong corrects nothing.
+  expect(
+    readCorrections().map((c) => [
+      c.kind,
+      "observations" in c ? c.observations : [],
+    ])
+  ).toEqual([["outdated", [promise(2)]]]);
   reset();
 });
 
-test("the marks: a wrong ending is a live matter closed; an outdated thing no link found is a stale one left open", async () => {
+test("ending checks never take a doubt's room", async () => {
+  reset();
+  await drawn(5, true);
+  const doubts = await import("./doubts");
+  const draw = spyOn(doubts, "drawFactChecks").mockResolvedValue([]);
+  try {
+    await topUpFactChecks(NOW.getTime());
+    expect(draw).toHaveBeenCalledWith(5);
+  } finally {
+    draw.mockRestore();
+  }
+  reset();
+});
+
+test("the marks: a wrong ending is a live matter closed; his answers to ending checks are not the open side", async () => {
   reset();
   linked(2);
-  await asked(2, true);
+  await drawn(2, true);
   recordFactCheckAnswer(promise(1), "false");
   recordFactCheckAnswer(promise(2), "true");
   expect(endingMarks()).toMatchObject({
     closed: 2,
     liveClosed: 1,
+    open: 0,
     pass: false,
     staleOpen: 0,
   });

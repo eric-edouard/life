@@ -10,10 +10,10 @@ export const FactCheck = z
   .object({
     at: isoDateTime,
     date: isoDate,
+    /** An ending check (from 14 Nov 2026): the step a link says ended `ref`; `text` is "Done? …". Absent for a doubt. */
+    endedBy: z.union([ObservationId, EpisodeId]).optional(),
     group: z.union([SubjectRef, z.literal("episodes")]),
     kind: z.enum(["fact", "plan", "reported", "episode"]),
-    /** An ask about an ending (from 14 Nov 2026): the later step a link says ended `ref`; `text` is "Done? …". Absent for a doubt. */
-    later: z.union([ObservationId, EpisodeId]).optional(),
     ref: z.union([ObservationId, EpisodeId]),
     schemaVersion: z.literal(1),
     source: SourceName.nullable(),
@@ -23,6 +23,10 @@ export const FactCheck = z
   .strict();
 
 export type FactCheck = z.infer<typeof FactCheck>;
+
+/** Whether a fact check asks if an open step ended (it names `endedBy`); every other one is a doubt. */
+export const isEndingCheck = (s: { endedBy?: string }) =>
+  s.endedBy !== undefined;
 
 /** memory/fact-check-answers.jsonl: his answers to the fact checks, the latest per memory line counting; null is an undo (docs/SCHEMA.md). */
 export const FactCheckAnswer = z

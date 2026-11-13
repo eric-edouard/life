@@ -105,6 +105,12 @@ export const doubtful = (
     )
     .slice(0, n);
 
+/** A fact check's `kind` for an observation: its modality when plan or reported, else a fact. */
+export const kindOf = (o: {
+  modality?: string | null;
+}): "fact" | "plan" | "reported" =>
+  o.modality === "plan" || o.modality === "reported" ? o.modality : "fact";
+
 /**
  * What the memory holds now, in the words it is stated and judged in: the active observations and the episodes.
  * `group` is where the owner would rate it, or null: an observation's home page when it is a line there (`placed`,
@@ -131,10 +137,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
         doubts: doubtsOf(o, people.refOf),
         group: page && shows(s, page) ? page : null,
         importance: o.importance,
-        kind:
-          o.modality === "plan" || o.modality === "reported"
-            ? o.modality
-            : ("fact" as const),
+        kind: kindOf(o),
         ref: o.id,
         source: o.source.channel,
         text: o.when ? `${o.text} (for ${plain(o.when)})` : o.text,

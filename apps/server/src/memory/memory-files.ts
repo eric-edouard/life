@@ -15,7 +15,11 @@ import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { Episode } from "../records/episode";
-import { FactCheck, FactCheckAnswer } from "../records/fact-check";
+import {
+  FactCheck,
+  FactCheckAnswer,
+  isEndingCheck,
+} from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import {
   ContactPerson,
@@ -326,12 +330,29 @@ const ANSWERS: Record<
   true: { correction: null, fact: true },
 };
 
+/** What his answer to an ending check reads as: right (or outdated) is his word the open step is done; wrong only removes the link (`endingsNow`); partly and skip say nothing. */
+const ENDING_ANSWERS: Record<
+  NonNullable<FactCheckAnswer["answer"]>,
+  "outdated" | null
+> = {
+  false: null,
+  outdated: "outdated",
+  partly: null,
+  skip: null,
+  true: "outdated",
+};
+
 /** His latest answers as the corrections they read as (`ANSWERS`), his note with them: an undo or a later answer lifts one. */
 export const answeredFactCheckCorrections = (
-  latest: Map<string, FactCheckAnswer>
+  latest: Map<string, FactCheckAnswer>,
+  endingChecks: ReadonlySet<string> = new Set()
 ): Correction[] =>
   [...latest.values()].flatMap(({ answer, at, note, ref }) => {
-    const kind = answer && ANSWERS[answer].correction;
+    const kind =
+      answer &&
+      (endingChecks.has(ref)
+        ? ENDING_ANSWERS[answer]
+        : ANSWERS[answer].correction);
     return kind
       ? [
           {
@@ -364,20 +385,17 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
   );
 
 /** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredFactCheckCorrections`). */
-export const readCorrections = (): Correction[] => {
-  // His answer to an ending ask is about a link, never about the memory line: it corrects nothing (`endingsNow`).
-  const asked = new Set(
-    readFactChecks()
-      .filter((s) => s.later)
-      .map((s) => s.ref)
-  );
-  return [
-    ...rowsOf(CORRECTIONS, Correction),
-    ...answeredFactCheckCorrections(
-      new Map([...readFactCheckAnswers()].filter(([ref]) => !asked.has(ref)))
-    ),
-  ];
-};
+export const readCorrections = (): Correction[] => [
+  ...rowsOf(CORRECTIONS, Correction),
+  ...answeredFactCheckCorrections(
+    readFactCheckAnswers(),
+    new Set(
+      readFactChecks()
+        .filter(isEndingCheck)
+        .map((s) => s.ref)
+    )
+  ),
+];
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface ObservationStatusInputs {
@@ -562,7 +580,7 @@ export function openFactChecks(now = clock().getTime()) {
 export function answeredFactChecks() {
   const answers = readFactCheckAnswers();
   return readFactChecks().flatMap((s) => {
-    const answer = s.later ? null : answers.get(s.ref)?.answer;
+    const answer = isEndingCheck(s) ? null : answers.get(s.ref)?.answer;
     const fact = answer ? ANSWERS[answer].fact : null;
     return answer && fact !== null
       ? [

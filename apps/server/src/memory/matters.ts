@@ -133,7 +133,7 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
  * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation is its
- * being retired (a newer one replaced it, or he said it is outdated); his word that a link's ending is right closes it too (`endingsRead`); a link not yet his word is `maybe`, and ends nothing.
+ * being retired (a newer one replaced it, or he said it is outdated); his right to an ending check is the same `outdated` word; a link not yet his word is `maybe` (`endingsRead`), and ends nothing.
  */
 export async function readMatterRecords(people: People) {
   const [episodes, { observations, statusInputs }] = await Promise.all([
@@ -146,10 +146,10 @@ export async function readMatterRecords(people: People) {
     ...observations.map((o) => o.id),
     ...episodes.map((e) => e.id),
   ]);
-  const { confirmed, maybe } = endingsRead((ref) => current.has(ref));
+  const { maybe } = endingsRead((ref) => current.has(ref));
   return {
     current,
-    endings: new Set([...statusInputs.retired.keys(), ...confirmed]),
+    endings: new Set(statusInputs.retired.keys()),
     episodeOf: readBy(episodes),
     episodes,
     ledger,
