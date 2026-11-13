@@ -194,6 +194,9 @@ test("the night places matters after extraction, with the evidence's failed sour
     spyOn(mods.models, "isOnline").mockResolvedValue(false),
   ];
   const work = spyOn(mods.matters, "readMatterWork").mockResolvedValue(null);
+  const records = spyOn(mods.matters, "readMatterRecords").mockResolvedValue(
+    {} as never
+  );
   try {
     // The backfill's run: no matters.
     await runProcessing("memory.backfill", {
@@ -207,6 +210,7 @@ test("the night places matters after extraction, with the evidence's failed sour
     expect(work.mock.calls[0]?.[2]).toEqual(["mail"]);
   } finally {
     work.mockRestore();
+    records.mockRestore();
     for (const spy of spies) {
       spy.mockRestore();
     }

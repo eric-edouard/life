@@ -308,7 +308,7 @@ const HANDLERS: Record<string, Handler> = {
       : [lastDays(clock(), DAYS)];
     return step(async () => {
       const people = await readPeople();
-      const records = await readMatterRecords(people);
+      const records = await readMatterRecords(people, endingsNow);
       const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, todoItems: 0 };
       for (const span of spans) {
         // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
@@ -319,7 +319,7 @@ const HANDLERS: Record<string, Handler> = {
         sum.episodes += work.episodes.length;
         sum.todoItems += work.todoItems.length;
         if (values.force || values.since) {
-          const run = await matters(work, people, endingsNow);
+          const run = await matters(work, people, records);
           sum.calls += run.calls;
           sum.failed += run.failed;
           sum.placed += run.placed;

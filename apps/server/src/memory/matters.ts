@@ -127,15 +127,16 @@ const latestOf = (m: { steps: MatterStep[] }) =>
   m.steps.reduce((a, b) => (b.day >= a.day ? b : a));
 
 /**
- * The records a matter's steps are read from, as they stand today (`matterBookOf`). `endingsFor`: what each observation
- * was ended by, given which observations are current (`endingsNow`, links.ts); none without it.
+ * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
+ * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. `endingsFor`: what each
+ * observation was ended by, given which observations are current (`endingsNow`, links.ts); none without it.
  */
 export async function readMatterRecords(
   people: People,
   endingsFor: (
     isCurrent: (id: string) => boolean
   ) => MatterRecords["endings"] = () => new Map()
-): Promise<MatterRecords> {
+) {
   const [episodes, { observations }] = await Promise.all([
     episodesWhere(() => true),
     observationsNow(people),
@@ -145,6 +146,7 @@ export async function readMatterRecords(
   return {
     endings: endingsFor((id) => current.has(id)),
     episodeOf: readBy(episodes),
+    episodes,
     ledger,
     observations,
     refOf: people.refOf,
@@ -264,15 +266,6 @@ export function shownEpisodesOf(
         ];
   });
   return [...held, ...lone].toSorted((a, b) => a.day.localeCompare(b.day));
-}
-
-/** The records every span of a run is read from: all episodes, all observations. Read once, a backfill's weeks share it. */
-export async function readMatterRecords(people: People) {
-  const [episodes, { observations }] = await Promise.all([
-    episodesWhere(() => true),
-    observationsNow(people),
-  ]);
-  return { episodes, observations };
 }
 
 /**
@@ -407,7 +400,7 @@ export function placedOf(
 export async function matters(
   work: MatterWork,
   people: People,
-  endingsFor?: Parameters<typeof readMatterRecords>[1]
+  records: Awaited<ReturnType<typeof readMatterRecords>>
 ) {
   const step = await begin("matters", "fast", { prompt: PROMPT });
   const { truth } = people;
@@ -419,7 +412,6 @@ export async function matters(
     areas: new Set(truth.areas.map((a) => a.id)),
     projects: new Set(truth.projects.map((p) => p.id)),
   };
-  const records = await readMatterRecords(people, endingsFor);
   let placed = 0;
   for (const [i, call] of callsOf(work).entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed

@@ -8,6 +8,7 @@ import {
   matters,
   mattersNow,
   pendingOf,
+  readMatterRecords,
   readMatters,
   readMatterWork,
   type ShownEpisode,
@@ -189,7 +190,11 @@ test("an errand over three spans lands in one matter, the call's episode with no
     input: never;
   }) => Promise.resolve(replies.shift()?.(o.input))) as never);
   try {
-    await matters(workOf(week1, "2026-10-01", "2026-10-07"), people);
+    await matters(
+      workOf(week1, "2026-10-01", "2026-10-07"),
+      people,
+      await readMatterRecords(people)
+    );
     const first = mattersNow(readMatters());
     expect(first.matters).toHaveLength(1);
     const [m1] = first.matters;
@@ -203,8 +208,16 @@ test("an errand over three spans lands in one matter, the call's episode with no
       [f1.id, f2.id, f3.id, f6.id, unit1, unit2, unit6].sort()
     );
 
-    await matters(workOf(week2, "2026-10-08", "2026-10-14"), people);
-    await matters(workOf(week3, "2026-10-15", "2026-10-21"), people);
+    await matters(
+      workOf(week2, "2026-10-08", "2026-10-14"),
+      people,
+      await readMatterRecords(people)
+    );
+    await matters(
+      workOf(week3, "2026-10-15", "2026-10-21"),
+      people,
+      await readMatterRecords(people)
+    );
     expect(ask).toHaveBeenCalledTimes(3);
     const [matter, ...rest] = mattersNow(readMatters()).matters;
     expect(rest).toEqual([]);
@@ -230,7 +243,11 @@ test("an errand over three spans lands in one matter, the call's episode with no
       workOf(week3, "2026-10-15", "2026-10-21"),
     ];
     expect(again.map((w) => callsOf(w))).toEqual([[], [], []]);
-    await matters(again[0] as MatterWork, people);
+    await matters(
+      again[0] as MatterWork,
+      people,
+      await readMatterRecords(people)
+    );
     expect(ask).toHaveBeenCalledTimes(3);
   } finally {
     now.mockRestore();
