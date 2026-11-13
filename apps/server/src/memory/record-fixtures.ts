@@ -2,7 +2,7 @@ import type { LedgerEntry } from "../records/ledger-entry";
 import type { Correction, InferredPerson } from "../records/observation";
 import { Person } from "../records/truth";
 import type { Unit, Verdict } from "../records/unit";
-import { type Verdicts, verdictKey } from "./ledger";
+import { type Verdicts, verdictKey } from "./memory-files";
 
 // Records to test the memory steps and the actions with.
 

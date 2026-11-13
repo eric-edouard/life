@@ -2,7 +2,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { LEDGER, readLedger } from "../memory/ledger";
+import { LEDGER, readLedger } from "../memory/memory-files";
 import { kindOf } from "../memory/sources";
 import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
@@ -18,7 +18,7 @@ import {
   write,
 } from "../todo-list/backend";
 import { Change } from "../todo-list/contract";
-import { linked, openLinked } from "../todo-list/linked";
+import { linked, openLinked } from "../todo-list/todo-items-from-ledger";
 import { actFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
@@ -80,7 +80,7 @@ export async function act(a: Act): Promise<LedgerEntry> {
   if (old) {
     return old;
   }
-  // Read from the ledger (apps/server/src/todo-list/linked.ts), never from Reminders: his hand-made ones are there once sync read them.
+  // Read from the ledger (apps/server/src/todo-list/todo-items-from-ledger.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open =
     c.kind === "add"
       ? openLinked(await readLedger(), b.prefix).map((it) => ({

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { type Appointment, Appointments } from "../records/appointment";
 import type { Observation } from "../records/observation";
 import { checkedAppointments, factsAheadOf, heldIdsOf } from "./appointments";
-import type { Standing } from "./ledger";
+import type { Standing } from "./memory-files";
 
 const UNIT = "unit_000000000001";
 const NEW_ID = /^apt_[0-9a-f]{12}$/;

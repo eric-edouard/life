@@ -64,7 +64,7 @@ import {
   readWhatsapp,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
-import { readFiles } from "./ledger";
+import { readFiles } from "./memory-files";
 import { showFiles } from "./message-files";
 import { newestTold, readEarliestTold, readTold } from "./told";
 

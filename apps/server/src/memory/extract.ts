@@ -29,10 +29,11 @@ import {
   UNRESOLVED,
   type Verdicts,
   verdictOf,
-} from "./ledger";
-import { parseObservations, type Reject, type Source } from "./observe";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
+import { parseObservations, type Reject, type Source } from "./quote-check";
 import { othersIn } from "./read-truth";
-import { begin, inBatches, involvedOf, refContext } from "./run";
+import { begin, inBatches } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup } from "./tags";
 import { type Built, type Evidence, MARKED, UNKNOWN } from "./units";
@@ -549,7 +550,7 @@ export async function extract(evidence: Evidence) {
     ...[...finished, ...copies].map(({ unit }) =>
       line(unit, perUnit.get(unit.id) ?? 0)
     ),
-    // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, ledger.ts).
+    // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, memory-files.ts).
     ...unkept.map(({ unit }) => ({ ...line(unit, 0), unkept: true as const })),
   ]);
   await appendJsonl(UNRESOLVED, Unresolved, unresolved);

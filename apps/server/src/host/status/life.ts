@@ -1,7 +1,7 @@
 import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
 import { systemZone } from "../../core/platform";
-import { INDEX } from "../../memory/ledger";
+import { INDEX } from "../../memory/memory-files";
 import { lockedSince } from "../../memory/memory-lock";
 import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
 import {

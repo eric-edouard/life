@@ -13,7 +13,7 @@ import {
   vectorOf,
 } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
-import { VECTORS } from "./ledger";
+import { VECTORS } from "./memory-files";
 import { listening } from "./sources";
 
 // Search by meaning's vectors (derived/memory/vectors.sqlite): one per text, kept under its hash (`textHashOf`), so a

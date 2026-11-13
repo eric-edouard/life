@@ -46,7 +46,7 @@ export const LedgerEntry = z
       "instinct",
       ...TASK_LINES,
     ]),
-    // "intent": a write outside Life is about to make (`attempt`, act.ts), recorded before it (its outcome is a later line with the same id).
+    // "intent": a write outside Life is about to make (`attempt`, change-todo-item.ts), recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
     // "<prefix>:<id>" (an item of the actions backend: "reminder:<numericId>", "gtask:<list>/<task>"), "<prefix>:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).

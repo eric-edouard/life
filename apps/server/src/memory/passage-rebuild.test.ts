@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { filesIn } from "../core/files";
 import type { SourceEvent } from "../records/source";
-import { UNITS, ZONES } from "./ledger";
+import { UNITS, ZONES } from "./memory-files";
 import { rebuildPassages } from "./passage-rebuild";
 import { readPassages } from "./passages";
 import { dayStart, localDate } from "./zones";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { linked, pickCompared } from "./linked";
+import { linked, pickCompared } from "./todo-items-from-ledger";
 
 const action = (over: Partial<LedgerEntry>): LedgerEntry => ({
   after: {},

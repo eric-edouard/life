@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { setSettings, settings } from "../core/settings";
-import { LEDGER } from "../memory/ledger";
+import { LEDGER } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { unshared } from "../todo-list/remctl";
 import {
@@ -12,7 +12,7 @@ import {
   grantedFrom,
   grantRefusal,
   requested,
-} from "./act";
+} from "./change-todo-item";
 
 test("an add repeats an open reminder with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;

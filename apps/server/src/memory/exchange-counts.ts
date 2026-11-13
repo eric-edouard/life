@@ -6,7 +6,7 @@ import { isoDateTime } from "../records/fields";
 import type { SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import { exchangesOf } from "./exchanges";
-import { EXCHANGE_COUNTS } from "./ledger";
+import { EXCHANGE_COUNTS } from "./memory-files";
 import { tables } from "./sources";
 import { localDate } from "./zones";
 

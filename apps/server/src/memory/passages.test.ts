@@ -7,7 +7,7 @@ import { iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { buildIndex } from "./index-writer";
-import { PASSAGES } from "./ledger";
+import { PASSAGES } from "./memory-files";
 import {
   passagesOf,
   preparePassages,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type ReadName, ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
-import { folded, locate } from "./observe";
+import { folded, locate } from "./quote-check";
 import { checkedEntries } from "./run";
 import { textOf } from "./units";
 

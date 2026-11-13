@@ -36,12 +36,13 @@ import {
   runAt,
   type Verdicts,
   verdictOf,
-} from "./ledger";
-import { entityOf } from "./observe";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
+import { entityOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries, involvedOf, refContext } from "./run";
+import { begin, checkedEntries } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
 import { publishUnits } from "./unit-writer";

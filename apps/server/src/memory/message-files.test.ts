@@ -10,7 +10,7 @@ import { readImessage } from "../sources/imessage";
 import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { showFiles, triage } from "./message-files";
-import { locate } from "./observe";
+import { locate } from "./quote-check";
 
 const madeBy = {
   engine: "codex" as const,

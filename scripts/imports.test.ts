@@ -29,7 +29,7 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/people.ts": 1179,
   "apps/lifelog/packages/db/src/schema/index.ts": 1078,
   "apps/server/src/host/status/snapshot.ts": 1218,
-  "apps/server/src/memory/units.test.ts": 1291,
+  "apps/server/src/memory/units.test.ts": 1189,
   "apps/server/src/sources/lifelog.ts": 938,
 };
 
@@ -95,7 +95,7 @@ const running = (program: RegExp) =>
 // his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `act` reaches a backend.
 test("only act writes his to-do list: it alone imports the backend, only the backend imports its implementations, and only they run remctl or gog tasks", () => {
   expect(importers(["backend", "write"], "backend")).toEqual([
-    "apps/server/src/host/act.ts",
+    "apps/server/src/host/change-todo-item.ts",
   ]);
   expect([
     ...importers(["reminders"], "remctl"),

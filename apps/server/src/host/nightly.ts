@@ -27,21 +27,20 @@ import { extract } from "../memory/extract";
 import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
-import { newSince, OUT, readLedger } from "../memory/ledger";
 import { links, readLinkWork } from "../memory/links";
+import {
+  commitMemory,
+  newSince,
+  OUT,
+  readLedger,
+} from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { personas } from "../memory/personas";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
-import {
-  commitMemory,
-  type Metered,
-  metered,
-  phases,
-  type RunRecord,
-} from "../memory/run";
+import { type Metered, metered, phases, type RunRecord } from "../memory/run";
 import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
 import {
   afterNightDue,

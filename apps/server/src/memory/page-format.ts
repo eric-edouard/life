@@ -4,7 +4,7 @@ import { digest } from "../core/hash";
 import { MadeBy } from "../records/fields";
 import { type Observation, PageSection } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
-import { type Standing, shows, stateOf } from "./ledger";
+import { type Standing, shows, stateOf } from "./memory-files";
 import { OWNER, othersIn, type Truth } from "./read-truth";
 import { normalize } from "./units";
 

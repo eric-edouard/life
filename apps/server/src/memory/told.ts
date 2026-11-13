@@ -5,7 +5,7 @@ import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import type { SourceEvent } from "../records/source";
 import type { Newest } from "../sources/contract";
-import { MEMORY } from "./ledger";
+import { MEMORY } from "./memory-files";
 
 // What he told Life in a chat with ChatGPT or Claude (`tell_life`, the connector): his words, verbatim, and the question
 // he answered, if any. Append-only, one synchronous line each, outside the lock like a correction. Read back as the

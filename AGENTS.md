@@ -67,7 +67,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   names, places, project names, `.env` values and git history are on you. The domain in Life's own infrastructure
   labels (sender, LaunchAgent labels) is kept on purpose.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
-  (`apps/server/src/memory/observe.ts`).
+  (`apps/server/src/memory/quote-check.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
   pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet; `read-replies/` only by the exchange reads (`memory/exchange-reads.ts`; its one-time bring-in goes through `storeReply`), a line never rewritten. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
@@ -128,7 +128,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
-- **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
+- **What the memory holds, in words, is `claimsNow`** (`doubts.ts`): the statements he rates and the eval judge the
   same text. Which claims are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
   he is asked about, only by `doubtful`.
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
@@ -185,7 +185,7 @@ Before adding a helper, use the one that exists:
 
 | Need | Use |
 |---|---|
-| Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`ledger.ts`): index, pages and status reads alike |
+| Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`memory-files.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |

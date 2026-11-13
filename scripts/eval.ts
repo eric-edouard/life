@@ -8,16 +8,16 @@
 import { join } from "node:path";
 import { clock } from "@life/server/src/core/clock";
 import { appendJsonl, readJson, writeJson } from "@life/server/src/core/files";
+import { type Claim, claimsNow } from "@life/server/src/memory/doubts";
 import {
   OUT,
   ratedFacts,
   readLiveUnits,
   SCORES,
-} from "@life/server/src/memory/ledger";
+} from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { chunks, ended, inBatches, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
-import { type Claim, claimsNow } from "@life/server/src/memory/statements";
 import {
   asOf,
   ClaimLine,
@@ -30,7 +30,7 @@ import {
   tally,
 } from "@life/server/src/memory/tally";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
-import { EvalScore } from "@life/server/src/records/statement";
+import { EvalScore } from "@life/server/src/records/fact-check";
 import { z } from "zod";
 
 const Facts = z.object({

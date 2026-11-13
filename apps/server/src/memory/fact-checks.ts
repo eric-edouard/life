@@ -1,6 +1,6 @@
 import { clock } from "../core/clock";
-import { openFactChecks, readObservations } from "./ledger";
-import { type Doubt, doubtsOf, drawDoubtful, plain } from "./statements";
+import { type Doubt, doubtsOf, drawDoubtful, plain } from "./doubts";
+import { openFactChecks, readObservations } from "./memory-files";
 import { readPeople } from "./who";
 
 // His fact checks: the claims Life is least sure of (`doubtful` only, never recorded text), drawn each night, put to

@@ -11,7 +11,7 @@ import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { emlxPart } from "../sources/mail";
-import { FILES, readFiles } from "./ledger";
+import { FILES, readFiles } from "./memory-files";
 import { begin, chunks, inBatches } from "./run";
 
 // A message's files: each read once into memory/files.jsonl (`describeFiles`, from `gather`), then shown as a line of

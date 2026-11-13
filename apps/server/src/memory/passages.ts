@@ -5,7 +5,7 @@ import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
-import { PASSAGES } from "./ledger";
+import { PASSAGES } from "./memory-files";
 import {
   enabledSources,
   isSearched,

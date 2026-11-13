@@ -4,7 +4,7 @@ import { daysBefore } from "../core/clock";
 import { readAppended } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
-import { PUBLICATIONS, UNITS } from "./ledger";
+import { PUBLICATIONS, UNITS } from "./memory-files";
 import { type RecordedDays, readRecordedDays } from "./recorded-days";
 import { enabledSources } from "./sources";
 import { dayNow, localDate } from "./zones";

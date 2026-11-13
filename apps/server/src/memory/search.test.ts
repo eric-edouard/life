@@ -8,7 +8,7 @@ import { writeJson } from "../core/files";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { buildIndex, reindexUnits } from "./index-writer";
-import { situationPath } from "./ledger";
+import { situationPath } from "./memory-files";
 import { dayLines } from "./read-day";
 import { dueOf } from "./read-open-items";
 import { heldLines } from "./read-person-page";

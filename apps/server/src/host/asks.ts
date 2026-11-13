@@ -4,11 +4,11 @@ import { AGENT_WORD } from "../core/names";
 import { startDetached } from "../core/proc";
 import { settings } from "../core/settings";
 import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
-import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
+import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/memory-files";
 import { clip } from "../memory/units";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import { notifyPhone } from "../sources/lifelog";
-import { entryId } from "./act";
+import { entryId } from "./change-todo-item";
 
 // His asks of his agents: each "hey <agent>" (`hear.ts`) or `bun life ask` is one `ask` line in memory/ledger.jsonl,
 // and the agent pulls its own (`read_agent_asks`) and keeps its own list. Life keeps no state of an ask past that line

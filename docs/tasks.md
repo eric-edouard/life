@@ -47,7 +47,7 @@ its work: the agent keeps its own list.
 
 - **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: his items in one
   actions backend per install**, Apple Reminders (remctl) or Google Tasks (`gog`): add, edit, done, undone, remove,
-  restore, through `act` (`apps/server/src/host/act.ts`). `act` is the only code that decides an action. It records its intent
+  restore, through `act` (`apps/server/src/host/change-todo-item.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
   `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
@@ -68,7 +68,7 @@ its work: the agent keeps its own list.
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore.
-- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
+- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/change-todo-item.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every

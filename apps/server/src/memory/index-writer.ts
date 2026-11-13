@@ -24,7 +24,7 @@ import {
   stateOf,
   type Verdicts,
   verdictOf,
-} from "./ledger";
+} from "./memory-files";
 import { readPassageTexts } from "./passages";
 import { TRUTH } from "./read-truth";
 import { observationsNow, type People, readPeople, unitNow } from "./who";

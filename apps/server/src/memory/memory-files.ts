@@ -12,8 +12,10 @@ import {
   rowsOf,
 } from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { git } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { Episode } from "../records/episode";
+import { Rating, Statement } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import {
   ContactPerson,
@@ -26,11 +28,11 @@ import {
   Supersession,
   Unresolved,
 } from "../records/observation";
-import { Rating, Statement } from "../records/statement";
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 
 // memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
-// say of an observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
+// say of an observation (`stateOf`: where it stands), and commits them to the data repo (`commitMemory`). It appends only what
+// the steps that write hand it.
 
 export const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
@@ -698,3 +700,38 @@ export const episodesWhere = async (keep: (m: Episode) => boolean) => {
     .filter(keep)
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
+
+/** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
+export function commitMemory(all: string[], message: string) {
+  // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
+  if (!existsSync(join(OWNER_DATA_DIR, ".git"))) {
+    throw new Error(
+      `${OWNER_DATA_DIR} is not a repo of its own: nothing is committed`
+    );
+  }
+  if (git(OWNER_DATA_DIR, ["remote"]).stdout.toString().trim()) {
+    throw new Error(
+      `${OWNER_DATA_DIR}'s repo has a remote: his data is never pushed`
+    );
+  }
+  const paths = all.filter((p) => existsSync(join(OWNER_DATA_DIR, p)));
+  git(OWNER_DATA_DIR, ["add", "--", ...paths]);
+  if (
+    git(OWNER_DATA_DIR, ["diff", "--cached", "--quiet", "--", ...paths])
+      .exitCode === 0
+  ) {
+    return false;
+  }
+  const out = git(OWNER_DATA_DIR, [
+    "commit",
+    "-q",
+    "-m",
+    message,
+    "--",
+    ...paths,
+  ]);
+  if (out.exitCode !== 0) {
+    throw new Error(`git commit failed: ${out.stderr.toString().trim()}`);
+  }
+  return true;
+}

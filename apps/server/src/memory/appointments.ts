@@ -15,7 +15,7 @@ import {
   APPOINTMENTS,
   type Standing,
   stateOf,
-} from "./ledger";
+} from "./memory-files";
 import { begin, checkedEntries, inputsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";

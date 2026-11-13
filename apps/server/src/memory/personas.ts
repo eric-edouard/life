@@ -13,10 +13,11 @@ import {
   type PairCounts,
   pairCountsOf,
 } from "./exchange-counts";
-import { PERSONAS, pagePath, personaPath, readUnits } from "./ledger";
-import { foundQuotes } from "./observe";
+import { PERSONAS, pagePath, personaPath, readUnits } from "./memory-files";
+import { meContext } from "./model-context";
+import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
-import { begin, inBatches, inputsOf, meContext } from "./run";
+import { begin, inBatches, inputsOf } from "./run";
 import { isDirect, kindOf, safely, tables } from "./sources";
 import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "./units";
 import { type People, readPeople, unitNow } from "./who";

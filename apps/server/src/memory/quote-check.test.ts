@@ -11,8 +11,8 @@ import {
 import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
 import { buildIndex } from "./index-writer";
-import { isCurrent, latestExtractions } from "./ledger";
-import { locate, parseObservations, type Source } from "./observe";
+import { isCurrent, latestExtractions } from "./memory-files";
+import { locate, parseObservations, type Source } from "./quote-check";
 import {
   inferred,
   ledger,

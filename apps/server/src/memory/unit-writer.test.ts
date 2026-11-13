@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Unit } from "../records/unit";
-import { readUnits, UNITS } from "./ledger";
+import { readUnits, UNITS } from "./memory-files";
 import {
   diffUnits,
   keptToday,

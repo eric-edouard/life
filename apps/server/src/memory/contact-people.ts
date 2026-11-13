@@ -13,7 +13,7 @@ import {
   readContactLines,
   readIndex,
   readInferred,
-} from "./ledger";
+} from "./memory-files";
 import { nameKey, UNKNOWN } from "./units";
 
 // The contact people (docs/glossary.md): who a handle is, as his Contacts name it, for the handles his messages hold.

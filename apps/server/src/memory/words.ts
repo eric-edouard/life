@@ -20,10 +20,10 @@ import {
   voiceKey,
   withStore,
 } from "../sources/lifelog";
-import { readInferredRepos, readJudgments, readUnit } from "./ledger";
-import type { SourceLine } from "./observe";
+import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
+import type { SourceLine } from "./quote-check";
 import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
 import {
   isDirect,

@@ -10,7 +10,7 @@ import {
 } from "../memory/appointments";
 import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
-import { APPOINTMENT_EVENTS } from "../memory/ledger";
+import { APPOINTMENT_EVENTS } from "../memory/memory-files";
 import { dayNow, dayStart } from "../memory/zones";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
