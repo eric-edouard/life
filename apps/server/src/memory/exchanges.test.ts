@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { HOUR } from "../core/clock";
 import type { SourceEvent } from "../records/source";
-import { EXCHANGE_ENDS_AFTER, exchangesOf, isLiving } from "./exchanges";
+import {
+  EXCHANGE_ENDS_AFTER,
+  exchangesOf,
+  isFinished,
+  isLiving,
+} from "./exchanges";
 
 const START = Date.parse("2026-10-01T22:00:00.000Z");
 const msg = (ms: number, fromMe = false): SourceEvent => ({
@@ -25,6 +30,13 @@ test("a talk that crosses midnight is one exchange, in time order whatever the o
 test("nothing written for the quiet ends an exchange: the very next message opens a new one", () => {
   expect(sizes([msg(0), msg(EXCHANGE_ENDS_AFTER - 1)])).toEqual([2]);
   expect(sizes([msg(0), msg(EXCHANGE_ENDS_AFTER)])).toEqual([1, 1]);
+});
+
+test("an exchange is finished once nothing was written for the quiet, counted from its last message", () => {
+  const talk = exchangesOf([msg(0), msg(HOUR, true)])[0] ?? [];
+  const at = (ms: number) => new Date(START + HOUR + ms);
+  expect(isFinished(talk, at(EXCHANGE_ENDS_AFTER - 60_000))).toBe(false);
+  expect(isFinished(talk, at(EXCHANGE_ENDS_AFTER))).toBe(true);
 });
 
 test("the quiet counts from the last message, not from the exchange's start", () => {

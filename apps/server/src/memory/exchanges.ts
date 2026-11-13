@@ -34,6 +34,10 @@ export function exchangesOf(list: SourceEvent[]) {
   return exchanges;
 }
 
+/** An exchange nothing was written in for `EXCHANGE_ENDS_AFTER` as of `now`: the next message would open a new one, so it can no longer grow. */
+export const isFinished = (exchange: SourceEvent[], now: Date) =>
+  now.getTime() - Date.parse(exchange.at(-1)?.at ?? "") >= EXCHANGE_ENDS_AFTER;
+
 /** A living chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
 export const isLiving = (chat: SourceEvent[]) =>
   chat.some((e) => e.fromMe) && chat.some((e) => !e.fromMe);
