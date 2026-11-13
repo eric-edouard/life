@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import {
-  PHOTOS_PROMPT,
+  PHOTO_DESCRIPTION_PROMPT,
   readDescriptions,
   readHandled,
   writeDescriptions,
@@ -81,7 +81,7 @@ test("rows of another prompt are not read", () => {
   const path = store();
   writeDescriptions([row("A")], path);
   const db = new Database(path);
-  db.run(`update descriptions set prompt = '${PHOTOS_PROMPT}.old'`);
+  db.run(`update descriptions set prompt = '${PHOTO_DESCRIPTION_PROMPT}.old'`);
   db.close();
   expect(readDescriptions(["A"], path).size).toBe(0);
 });

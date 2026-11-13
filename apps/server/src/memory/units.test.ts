@@ -1039,7 +1039,7 @@ test("his pruned messages are read; only the conversations the import kept becom
       at: "2026-10-21T00:00:00.000Z",
       conversation: "claude:c1",
       keep: true,
-      madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
+      madeBy: { model: "m", prompt: "import-keep.v1", run: "r" } as never,
       schemaVersion: 1,
       why: "His sister's move.",
     },

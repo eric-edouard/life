@@ -38,7 +38,12 @@ test("fetch gives an imported conversation back whole, dropped ones too, both si
       at: "2026-03-03T00:00:00.000Z",
       conversation: "claude:w1",
       keep: false,
-      madeBy: { engine: "claude", model: "m", prompt: "import.v1", run: "r" },
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: "import-keep.v1",
+        run: "r",
+      },
       schemaVersion: 1,
       why: "Only code.",
     },

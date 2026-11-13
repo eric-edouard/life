@@ -15,7 +15,7 @@ import { locate } from "./quote-check";
 const madeBy = {
   engine: "codex" as const,
   model: "m",
-  prompt: "files.v1",
+  prompt: "message-file-description.v1",
   run: "r",
 };
 const hashOf = (s: string) => digest("sha256", s, 16);

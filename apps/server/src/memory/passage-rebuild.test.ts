@@ -97,6 +97,7 @@ test("rebuild checks uncertainty over expanded edge days and defers their whole 
 
 test("what he told Life is written again as passages under the told-life source", async () => {
   const day = localDate(recordToldLife("Rebuild told-life amber note").at);
+  await Bun.sleep(5); // a window reads only what is older than now
   const read = tables().SEARCHED[TOLD_LIFE_NAME];
   expect(read).toBeDefined();
   const out = await rebuildPassages(

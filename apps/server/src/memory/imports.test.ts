@@ -116,7 +116,12 @@ test("a judging reply is checked: one line per conversation asked about", () => 
     new Map([["c1", "h1"]]),
     {
       at: "2026-10-21T00:00:00.000Z",
-      madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
+      madeBy: {
+        engine: "codex",
+        model: "m",
+        prompt: "import-keep.v1",
+        run: "r",
+      },
       source: "claude",
     }
   );
@@ -139,7 +144,7 @@ test("an import without a historical engine stops before copying or any model wo
   }
 });
 
-test("imports route quota and calls to the historical engine and keep import.v1 judgments across engines", async () => {
+test("imports route quota and calls to the historical engine and keep import-keep.v1 judgments across engines", async () => {
   const json = exportOf("My sister Ada moves to Lyon in May.");
   const first = json.at(0);
   if (!first) {
@@ -184,7 +189,7 @@ test("imports route quota and calls to the historical engine and keep import.v1 
       madeBy: {
         engine: "claude",
         model: "old",
-        prompt: "import.v1",
+        prompt: "import-keep.v1",
         run: "old",
       },
       schemaVersion: 1,
@@ -197,7 +202,7 @@ test("imports route quota and calls to the historical engine and keep import.v1 
       madeBy: {
         engine: "claude",
         model: "old",
-        prompt: "import.v1",
+        prompt: "import-keep.v1",
         run: "old",
       },
       schemaVersion: 1,
@@ -366,7 +371,12 @@ test("a judgment line from before hashes stands for the first version: a newer c
     at: "2026-03-04T00:00:00Z",
     conversation: `claude:${id}`,
     keep: true,
-    madeBy: { engine: "claude", model: "old", prompt: "import.v1", run: "old" },
+    madeBy: {
+      engine: "claude",
+      model: "old",
+      prompt: "import-keep.v1",
+      run: "old",
+    },
     schemaVersion: 1 as const,
     why: "About family.",
   });

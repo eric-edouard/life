@@ -54,7 +54,7 @@ const DATA: Record<string, [string, string]> = {
   ],
   "memory/closeness.jsonl": [
     jsonl(
-      { madeBy: madeBy("closeness.v1"), person: "person:ana" },
+      { madeBy: madeBy("memory-closeness.v1"), person: "person:ana" },
       { madeBy: madeBy("other.v1") }
     ),
     jsonl(
@@ -105,7 +105,12 @@ const DATA: Record<string, [string, string]> = {
   ],
   "memory/files.jsonl": [
     jsonl(
-      { hash: "h", madeBy: madeBy("files.v1"), ref: "f", what: "A receipt." },
+      {
+        hash: "h",
+        madeBy: madeBy("message-file-description.v1"),
+        ref: "f",
+        what: "A receipt.",
+      },
       { hash: "h2", ref: "g", text: "words" }
     ),
     jsonl(
@@ -119,7 +124,7 @@ const DATA: Record<string, [string, string]> = {
     ),
   ],
   "memory/imported.jsonl": [
-    jsonl({ madeBy: madeBy("import.v1") }),
+    jsonl({ madeBy: madeBy("import-keep.v1") }),
     jsonl({ madeBy: madeBy("import-keep.v1") }),
   ],
   "memory/labels.jsonl": [
@@ -261,7 +266,7 @@ const DATA: Record<string, [string, string]> = {
     jsonl({ promptDigest: "0123456789abcdef", read: "conflict" }),
   ],
   "memory/repos-inferred.jsonl": [
-    jsonl({ madeBy: madeBy("repos.v1") }),
+    jsonl({ madeBy: madeBy("repo-project.v1") }),
     jsonl({ madeBy: madeBy("repo-project.v1") }),
   ],
   "memory/scores.jsonl": [

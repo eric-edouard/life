@@ -9,7 +9,7 @@ import { promptText } from "../models/llm";
 import {
   DESCRIPTIONS,
   type Description,
-  PHOTOS_PROMPT,
+  PHOTO_DESCRIPTION_PROMPT,
   writeDescriptions,
 } from "../sources/photo-descriptions";
 import { LIBRARY, waitingPhotos } from "../sources/photos";
@@ -63,7 +63,7 @@ export async function describePhotos(
       }
     }
     if (images.size > 0) {
-      const prompt = (await promptText(PHOTOS_PROMPT)).trim();
+      const prompt = (await promptText(PHOTO_DESCRIPTION_PROMPT)).trim();
       const describer = await start();
       try {
         for (const [uuid, image] of images) {

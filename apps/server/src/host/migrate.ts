@@ -216,12 +216,18 @@ const rulesOf = (ids: Map<string, string>): [string, Rule][] => {
       "memory/files.jsonl",
       all(
         rename("what", "description"),
-        prompt("files.v1", "message-file-description.v1")
+        prompt("message-file-description.v1", "message-file-description.v1")
       ),
     ],
-    ["memory/imported.jsonl", prompt("import.v1", "import-keep.v1")],
-    ["memory/repos-inferred.jsonl", prompt("repos.v1", "repo-project.v1")],
-    ["memory/closeness.jsonl", prompt("closeness.v1", "memory-closeness.v1")],
+    ["memory/imported.jsonl", prompt("import-keep.v1", "import-keep.v1")],
+    [
+      "memory/repos-inferred.jsonl",
+      prompt("repo-project.v1", "repo-project.v1"),
+    ],
+    [
+      "memory/closeness.jsonl",
+      prompt("memory-closeness.v1", "memory-closeness.v1"),
+    ],
     ["memory/scores.jsonl", rename("rated", "answered")],
     [
       "memory/units",

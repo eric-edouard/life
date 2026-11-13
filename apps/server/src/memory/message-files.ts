@@ -18,7 +18,7 @@ import { begin, chunks, inBatches } from "./run";
 // its message (`showFiles`) with what was read off it, so every step, search and the connector see it with no path of
 // their own. Video, voice notes and a file never read on this Mac stay a tag.
 
-const FILES_PROMPT = "files.v1";
+const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
 const PER_CALL = 8;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
@@ -191,11 +191,16 @@ const Reply = z.object({
  * night for a week); the nightly email counts it.
  */
 export async function describeFiles(events: SourceEvent[], engine?: Engine) {
-  const step = await begin("files", "fast", { prompt: FILES_PROMPT }, engine);
+  const step = await begin(
+    "files",
+    "fast",
+    { prompt: MESSAGE_FILE_DESCRIPTION_PROMPT },
+    engine
+  );
   const { copies, fresh } = await triage(
     events,
     [...readFiles().values()].filter(
-      (e) => !e.madeBy || e.madeBy.prompt === FILES_PROMPT
+      (e) => !e.madeBy || e.madeBy.prompt === MESSAGE_FILE_DESCRIPTION_PROMPT
     )
   );
   /** The ledger's lines for one content, one per ref it was met under. */
@@ -218,7 +223,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     );
     await appendJsonl(FILES, FileEntry, [...copies, ...read]);
     const shown = prepared.filter((p) => "image" in p);
-    const madeBy = stamp(step.llm, FILES_PROMPT, step.run);
+    const madeBy = stamp(step.llm, MESSAGE_FILE_DESCRIPTION_PROMPT, step.run);
     let described = 0;
     /** One call on `batch`; a failed call on several files tries each alone, so a bad image leaves only itself a tag. */
     const describe = async (batch: typeof shown, dir: string) => {
@@ -234,7 +239,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
                 type: b.file.mime,
               })),
             },
-            prompt: FILES_PROMPT,
+            prompt: MESSAGE_FILE_DESCRIPTION_PROMPT,
           })
         )
       );

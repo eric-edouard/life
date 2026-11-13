@@ -19,7 +19,7 @@ The user message is one JSON object with `files`, then the images, one per file,
 
 For each file, one entry:
 
-- `what`: one sentence in English: what it is and what it shows, with the names, places, dates and amounts that can be
+- `description`: one sentence in English: what it is and what it shows, with the names, places, dates and amounts that can be
   read on it. "French national identity card of Marie Dupont, born 3 May 1998.", "Screenshot of an airline
   booking: Lisbon to Oslo, 4 Mar 2031, 2 passengers.", "Photo of a wooden fence being painted." Say only what
   you see; never guess who sent it or why.
@@ -34,8 +34,8 @@ Reply with one JSON object and nothing else, one entry per file:
 ```json
 {
   "files": [
-    {"id": "1", "what": "…", "text": "…"},
-    {"id": "2", "what": "…", "text": ""}
+    {"id": "1", "description": "…", "text": "…"},
+    {"id": "2", "description": "…", "text": ""}
   ]
 }
 ```

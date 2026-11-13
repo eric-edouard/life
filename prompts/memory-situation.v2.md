@@ -15,7 +15,7 @@ The `<context>` at the end of these instructions is one JSON object: `me` (who t
 The user message is one JSON object:
 
 - `page`: `ref` (`person:me` is the owner himself, else someone close to him) and `text`, the page as it is: what he
-  wrote about them, where things stand, what lasts between them ("Between us"), History. Lines he wrote or kept are
+  wrote about them, where things stand, what lasts between them ("Between us"), Earlier. Lines he wrote or kept are
   his word: when an episode disagrees, his line wins.
 - `episodes`: the last 30 days' episodes (all of them for his own situation, those with this person otherwise), oldest
   first: `id`, `day`, `title`, `what`, `place`, `people`.

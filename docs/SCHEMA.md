@@ -83,7 +83,7 @@ What Life read off the files messages carry, append-only, one line per file and 
 (`describeFiles`, `apps/server/src/memory/message-files.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
 was met (`imessage:<attachment guid>`, `whatsapp:<chat>/<message>`, `line:<mxc url>`, `mail:<Message-ID>#<MIME part>`, `notes:<attachment id>`);
 `hash`: 16 hex of SHA-256 over its bytes. `what`: the model's one sentence on what it is and shows (`madeBy` as for
-verdicts, prompt `files.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,
+verdicts, prompt `message-file-description.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,
 without document or card numbers; a document's or a PDF's text layer read by code, with no `madeBy`). The latest line
 for a ref is how its message shows the file (`[photo IMG_2910.HEIC, described by Life: … | text: …]`), also once the
 file is gone from the Mac. A file met under a new ref with a known hash (a forward) gets a copy of that line, with no

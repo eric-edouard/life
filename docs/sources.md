@@ -13,7 +13,7 @@ path when the file is on this Mac). One place, `showFiles` in `apps/server/src/m
 such as `[photo IMG_2910.HEIC, described by Life: … | text: …]` or `[video clip.mp4, not on this Mac]`, so every memory
 step, search and the connector see them. Each file on this Mac is read once into `memory/files.jsonl`: a document's text
 (`textutil`) and a PDF's text layer (`pdftotext`) by code, a photo or a scanned PDF's first page (`sips`, as JPEG) by
-the fast model (`prompts/files.v1.md`), 8 per call. Video and voice notes stay a tag. Originals stay in their app (or
+the fast model (`prompts/message-file-description.v1.md`), 8 per call. Video and voice notes stay a tag. Originals stay in their app (or
 the archive's media copy); Life copies none, and a description outlives its file.
 
 | Source | Where it lives | Reader | Notes |

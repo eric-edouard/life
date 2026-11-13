@@ -24,7 +24,7 @@ type Folds = Pick<People, "canon" | "corrections">;
 // personal and work apart (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a
 // page. No model output is counted (a level never feeds the counts that judge it), so a level cannot raise itself.
 
-const CLOSENESS_PROMPT = "closeness.v1";
+const MEMORY_CLOSENESS_PROMPT = "memory-closeness.v1";
 const PER_CALL = 40;
 /** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
 const YEARS = 3;
@@ -205,7 +205,7 @@ export function dueFor(
       ref !== OWNER &&
       (waiting.has(ref) || t.lasting >= JUDGED_FROM) &&
       (judged.get(ref)?.counts !== bucket(t) ||
-        judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
+        judged.get(ref)?.madeBy.prompt !== MEMORY_CLOSENESS_PROMPT)
   );
 }
 
@@ -408,7 +408,9 @@ export function lastYearsOf(all: WithPeople): WithPeople {
  * the fast model about those whose counts moved since their last judgment (or never judged, or under an older prompt).
  */
 export async function closeness({ events, failed, since }: WithPeople) {
-  const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
+  const step = await begin("closeness", "fast", {
+    prompt: MEMORY_CLOSENESS_PROMPT,
+  });
   const people = await readPeople();
   const { outsideDirectory, names, resolve, truth } = people;
   const today = localDate(step.now.toISOString());
@@ -435,7 +437,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
   const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, CLOSENESS_PROMPT, step.run),
+    madeBy: stamp(step.llm, MEMORY_CLOSENESS_PROMPT, step.run),
   };
   let written = 0;
   let invalid = 0;
@@ -454,7 +456,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
             })),
             today,
           },
-          prompt: CLOSENESS_PROMPT,
+          prompt: MEMORY_CLOSENESS_PROMPT,
         });
         const checked = parseLevels(
           json,
