@@ -1,38 +1,55 @@
 import { expect, test } from "bun:test";
 import type { LinkBatch } from "../records/link";
-import type { Observation } from "../records/observation";
-import { endingsOf, keptLinks, nightOf, subjectWorkOf } from "./links";
+import {
+  endingsOf,
+  keptLinks,
+  nightOf,
+  splitSteps,
+  subjectWorkOf,
+} from "./links";
+import type { MatterStepNow } from "./matter-read";
 
-const ann = "person:ann";
-const obs = (n: number, at: string, quote: string): Observation =>
-  ({
-    at,
-    date: at.slice(0, 10),
-    id: `obs_${String(n).padStart(12, "0")}`,
-    quote,
-    speaker: "person:me",
-    subjects: [ann],
-    text: quote,
-    type: "promise",
-  }) as Observation;
-const promise = obs(
+const matter = { id: "matter_0000000000a1", name: "The contract with Ann" };
+const step = (n: number, at: string, quote: string, type = "promise") => ({
+  at,
+  day: at.slice(0, 10),
+  id: `obs_${String(n).padStart(12, "0")}`,
+  quote,
+  said_by: "him",
+  text: quote,
+  type,
+});
+const promise = step(
   1,
   "2026-10-01T10:00:00.000Z",
   "I'll send you the contract"
 );
-const sent = obs(
+const sent = step(
   2,
   "2026-10-03T09:00:00.000Z",
-  "Contract sent this morning, check your mail"
+  "Contract sent this morning, check your mail",
+  "idea"
 );
-const unrelated = obs(
+const unrelated = step(
   3,
   "2026-10-04T09:00:00.000Z",
-  "See you at the gym on Friday"
+  "See you at the gym on Friday",
+  "idea"
 );
+// The day's call, an episode: a later step of the matter like any other.
+const call = {
+  ...step(
+    0,
+    "2026-10-02T15:00:00.000Z",
+    "Ann confirmed the contract arrived and is signed",
+    "episode"
+  ),
+  id: "ep_0123456789ab",
+  said_by: undefined,
+};
 const batch = (
-  open: Observation[],
-  offered: Observation[],
+  open: { id: string }[],
+  offered: { id: string }[],
   links: LinkBatch["links"] = []
 ): LinkBatch => ({
   at: "2026-10-05T22:00:00.000Z",
@@ -41,11 +58,11 @@ const batch = (
   offered: offered.map((o) => o.id),
   open: open.map((o) => o.id),
   schemaVersion: 1,
-  subject: ann,
+  subject: matter.id,
 });
 
 test("a link is kept only when both ends were shown, the later one is later, and its words are found in its own quote", () => {
-  const call = { later: [sent, unrelated], open: [promise] };
+  const shown = { later: [sent, unrelated], open: [promise] };
   const link = (earlier: string, later: string, quote: string) => ({
     earlier,
     later,
@@ -64,7 +81,7 @@ test("a link is kept only when both ends were shown, the later one is later, and
           link(sent.id, promise.id, "I'll send you the contract"),
         ],
       },
-      call
+      shown
     )
   ).toEqual([
     {
@@ -80,17 +97,17 @@ test("a link is kept only when both ends were shown, the later one is later, and
       { later: [{ ...sent, at: promise.at }], open: [promise] }
     )
   ).toEqual([]);
-  expect(keptLinks({}, call)).toEqual([]);
+  expect(keptLinks({}, shown)).toEqual([]);
 });
 
 test("a pair is judged once: a later observation is due until a batch holds it with that open thing", () => {
-  const work = subjectWorkOf(ann, [promise], [unrelated, sent], []);
+  const work = subjectWorkOf(matter, [promise], [unrelated, sent], []);
   // Oldest first; an observation from before the open thing is never due for it.
   expect(work?.chunks).toEqual([[sent, unrelated]]);
   expect(work?.open).toEqual([promise]);
   expect(
     subjectWorkOf(
-      ann,
+      matter,
       [promise],
       [
         sent,
@@ -100,9 +117,9 @@ test("a pair is judged once: a later observation is due until a batch holds it w
     )
   ).toBeNull();
   // A promise made after that batch was never judged against the same later observations.
-  const second = obs(4, "2026-10-02T10:00:00.000Z", "and the invoice too");
+  const second = step(4, "2026-10-02T10:00:00.000Z", "and the invoice too");
   const again = subjectWorkOf(
-    ann,
+    matter,
     [promise, second],
     [sent, unrelated],
     [batch([promise], [sent, unrelated])]
@@ -140,30 +157,91 @@ test("what ends a thing is its first link whose two ends are both current", () =
 });
 
 test("a night takes the oldest due work first and caps each person, so a long backlog neither starves nor is starved", () => {
-  const chunk = (at: string) => [obs(7, at, "q")];
+  const chunk = (at: string) => [step(7, at, "q")];
   const big = {
     chunks: Array.from({ length: 30 }, () => chunk("2026-01-01T00:00:00.000Z")),
+    name: "Big",
     open: [promise],
-    subject: "person:big",
+    subject: "matter_0000000000b1",
   };
   const small = {
     chunks: [chunk("2026-10-01T00:00:00.000Z")],
+    name: matter.name,
     open: [promise],
-    subject: ann,
+    subject: matter.id,
   };
   const night = nightOf([small, big]);
   expect(night.map((w) => [w.subject, w.chunks.length])).toEqual([
-    ["person:big", 10],
-    [ann, 1],
+    ["matter_0000000000b1", 10],
+    [matter.id, 1],
   ]);
-  // Someone whose open things need more calls a chunk than a person's share still gets one chunk a night.
+  // A matter whose open steps need more calls a chunk than its share still gets one chunk a night.
   const many = {
     chunks: [
       chunk("2026-01-01T00:00:00.000Z"),
       chunk("2026-01-02T00:00:00.000Z"),
     ],
+    name: "Many",
     open: Array.from({ length: 450 }, () => promise),
-    subject: "person:many",
+    subject: "matter_0000000000b2",
   };
   expect(nightOf([many]).map((w) => w.chunks.length)).toEqual([1]);
+});
+
+test("the call's episode ends the promise, a link ties steps of one matter only, and a step that repeats the promise ends nothing", () => {
+  const link = (earlier: string, later: string, quote: string) => ({
+    earlier,
+    later,
+    quote,
+  });
+  // An episode is a later step like any other; its id is kept as the link's later end.
+  expect(
+    keptLinks(
+      { links: [link(promise.id, call.id, "contract arrived and is signed")] },
+      { later: [call, unrelated], open: [promise] }
+    )
+  ).toEqual([
+    {
+      earlier: promise.id,
+      later: call.id,
+      quote: "contract arrived and is signed",
+      relation: "ends",
+    },
+  ]);
+  // A step of another matter was never shown in this call: no link can tie to it.
+  expect(
+    keptLinks(
+      { links: [link(promise.id, "obs_00000000beef", "Contract sent")] },
+      { later: [sent], open: [promise] }
+    )
+  ).toEqual([]);
+  // The repeat of the promise is another open step, so it is never offered as an ending.
+  const at = (ref: string, kind: MatterStepNow["kind"], day: string) =>
+    ({
+      at: `${day}T10:00:00.000Z`,
+      day,
+      ended: false,
+      kind,
+      quote: "q",
+      ref,
+      text: "t",
+    }) as MatterStepNow;
+  const steps = [
+    at(promise.id, "promise", "2026-10-01"),
+    at("obs_000000000005", "promise", "2026-10-02"),
+    at(call.id, "episode", "2026-10-02"),
+    at(sent.id, "idea", "2026-10-03"),
+  ];
+  const byId = new Map(
+    [promise.id, "obs_000000000005", sent.id].map((id) => [
+      id,
+      { modality: undefined },
+    ])
+  );
+  const split = splitSteps(steps, byId);
+  expect(split.open.map((s) => s.ref)).toEqual([
+    promise.id,
+    "obs_000000000005",
+  ]);
+  expect(split.later.map((s) => s.ref)).toEqual([call.id, sent.id]);
 });

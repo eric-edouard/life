@@ -129,7 +129,7 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
  * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. `endingsFor`: what each
- * observation was ended by, given which observations are current (`endingsNow`, links.ts); none without it.
+ * observation was ended by, given which observations and episodes are current (`endingsNow`, links.ts); none without it.
  */
 export async function readMatterRecords(
   people: People,
@@ -141,7 +141,10 @@ export async function readMatterRecords(
     episodesWhere(() => true),
     observationsNow(people),
   ]);
-  const current = new Set(observations.map((o) => o.id));
+  const current = new Set([
+    ...observations.map((o) => o.id),
+    ...episodes.map((e) => e.id),
+  ]);
   const ledger = readLedger();
   return {
     endings: endingsFor((id) => current.has(id)),

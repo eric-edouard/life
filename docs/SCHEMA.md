@@ -248,10 +248,11 @@ writes it any more; it stays on disk.
 ## links.jsonl
 
 The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
-`subject` (`person:<id>`), `open` (the ids of the open things shown: promises, waits and his to-dos with that
-person), `offered` (the ids of the later observations about them judged against those), `links` (each `earlier`,
-`later`, `relation` `ends`, and `quote`, words found in the later observation's own quote), `at`, `madeBy`,
-`schemaVersion`. A pair in a line is never judged again. A link deletes nothing: what it ends is worked out when read
+`subject` (the matter's id, `matter_<12 hex>`; the first lines hold a `person:<id>`, still read), `open` (the ids
+of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later steps judged
+against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
+words found in the later step's own quote), `at`, `madeBy`,
+`schemaVersion`. A pair in a line is never judged again, whatever the subject. A link deletes nothing: what it ends is worked out when read
 (`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
 
 ## matters.jsonl

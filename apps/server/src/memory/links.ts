@@ -3,8 +3,7 @@ import { z } from "zod";
 import { appendJsonl, readAppended } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
-import type { Observation } from "../records/observation";
-import { ACTIONABLE } from "./matter-read";
+import { ACTIONABLE, type MatterStepNow } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
@@ -13,42 +12,44 @@ import { begin, chunks, inBatches } from "./run";
 import { observationsNow, type People } from "./who";
 import { dayNow } from "./zones";
 
-// Links (docs/glossary.md): two observations tied. The one relation read so far is "ends": a later observation shows
-// that an open thing between him and a person (a promise, a wait, a to-do of his) happened or was dropped. One model
-// call per person is shown their open things and the later observations about them; code keeps a link only when both
-// ends were shown, the later one is later, and the words given are found in the later one's own quote. Each judged
-// batch is one appended line of memory/links.jsonl: the result, and the record of which pairs were already judged, so
-// what is due is derived and nothing is paid twice. Nothing reads the links yet (in shadow); a link never deletes: what
-// it ends is worked out when read (`endingsOf`). Off until his `links` setting.
+// Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later step of a matter (an
+// observation, or an episode) shows that an open step of it (a promise, a wait, a to-do of his) happened or was
+// dropped. One model call per matter is shown its open steps and its later steps; code keeps a link only when both
+// ends were shown, the later one is later, and the words given are found in the later one's own quote. A link never
+// ties two matters: a call sees one. Each judged batch is one appended line of memory/links.jsonl: the result, and the
+// record of which pairs were already judged, so what is due is derived and nothing is paid twice. A link never
+// deletes: what it ends is worked out when read (`endingsOf`). Off until his `links` setting.
 
-const PROMPT = "memory-links.v1";
-/** The most open things, and later observations, one call is shown. */
+const PROMPT = "memory-links.v2";
+/** The most open steps, and later steps, one call is shown. */
 const OPEN_MAX = 40;
 const LATER_MAX = 40;
-/** The most calls a night makes, and the most of them one person takes: a long backlog neither starves nor is starved. */
+/** The most calls a night makes, and the most of them one matter takes: a long backlog neither starves nor is starved. */
 const NIGHT_CALLS = 100;
 const SUBJECT_CALLS = 10;
 /** What a call's reply is allowed, in tokens, for the count shown before a run. */
 const REPLY_TOKENS = 400;
 
-/** An observation as a call is shown it. */
+/** A step as a call is shown it: `id` is an observation's or an episode's. */
 interface Shown {
+  at: string;
   day: string;
   id: string;
   quote: string;
-  said_by: string;
+  said_by?: string;
   text: string;
   type: string;
 }
-/** What one call judges: some of a person's open things against some later observations about them. */
+/** What one call judges: some of a matter's open steps against some of its later steps. */
 interface Call {
-  later: Observation[];
-  open: Observation[];
+  later: Shown[];
+  open: Shown[];
 }
-/** One person's due work tonight: the open things, and the later observations in the chunks to judge, oldest first. */
+/** One matter's due work tonight: its open steps, and its later steps in the chunks to judge, oldest first. `subject` is the matter's id. */
 export interface SubjectWork {
-  chunks: Observation[][];
-  open: Observation[];
+  chunks: Shown[][];
+  name: string;
+  open: Shown[];
   subject: string;
 }
 
@@ -91,33 +92,38 @@ export const endingsNow = (isCurrent: (id: string) => boolean) =>
   endingsOf(readBatches(), isCurrent);
 
 /**
- * One person's work: the later observations about them that some open thing has not been judged against yet (a pair
- * is judged once a batch holds the open thing in `open` and the later one in `offered`), oldest first, in chunks of
- * `LATER_MAX`, with the open things they are due for. Nothing when nothing is due.
+ * One matter's work: the later steps that some open step has not been judged against yet (a pair is judged once a
+ * batch holds the open step in `open` and the later one in `offered`), oldest first, in chunks of `LATER_MAX`, with
+ * the open steps they are due for. Nothing when nothing is due.
  */
 export function subjectWorkOf(
-  subject: string,
-  open: Observation[],
-  later: Observation[],
+  matter: { id: string; name: string },
+  open: Shown[],
+  later: Shown[],
   batches: LinkBatch[]
 ): SubjectWork | null {
   const judged = new Set(
-    batches
-      .filter((b) => b.subject === subject)
-      .flatMap((b) => b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`)))
+    batches.flatMap((b) =>
+      b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`))
+    )
   );
-  const isDue = (o: Observation, l: Observation) =>
+  const isDue = (o: Shown, l: Shown) =>
     l.at > o.at && !judged.has(`${o.id} ${l.id}`);
   const due = later
     .filter((l) => open.some((o) => isDue(o, l)))
     .toSorted((a, b) => a.at.localeCompare(b.at));
   const dueOpen = open.filter((o) => due.some((l) => isDue(o, l)));
   return due.length > 0
-    ? { chunks: chunks(due, LATER_MAX), open: dueOpen, subject }
+    ? {
+        chunks: chunks(due, LATER_MAX),
+        name: matter.name,
+        open: dueOpen,
+        subject: matter.id,
+      }
     : null;
 }
 
-/** The calls a night takes: the people whose due work is oldest first, each up to `SUBJECT_CALLS`, `NIGHT_CALLS` in all. */
+/** The calls a night takes: the matters whose due work is oldest first, each up to `SUBJECT_CALLS`, `NIGHT_CALLS` in all. */
 export function nightOf(work: SubjectWork[]) {
   const callsOf = (w: SubjectWork) => Math.ceil(w.open.length / OPEN_MAX);
   let room = NIGHT_CALLS;
@@ -150,7 +156,7 @@ const Reply = z.object({
 
 /**
  * A reply's links as kept: both ends among those shown, the later one said after the earlier, and the words given
- * found in the later observation's own quote (stored as found there). Anything else is dropped, never trusted. Every
+ * found in the later step's own quote (stored as found there). Anything else is dropped, never trusted. Every
  * link that passes is kept; `endingsOf` alone decides which one ends a thing.
  */
 export function keptLinks(reply: unknown, call: Call): Link[] {
@@ -173,62 +179,89 @@ export function keptLinks(reply: unknown, call: Call): Link[] {
 }
 
 /**
- * The open things: the open to-dos, promises and waits of every open matter (`matterOf`, read without endings: this step
- * is what finds them) with the person each is with, from the observations as they read today.
+ * A matter's steps split for a call: the open ones (promises, waits and to-dos of his that are observations no link
+ * ended) and the later ones (the other observations and the episodes; never a plan or a condition, never another
+ * open step, so a step repeating a promise is no ending).
  */
-async function readOpenThings(people: People) {
-  const { observations } = await observationsNow(people);
-  const byId = new Map(observations.map((o) => [o.id, o]));
-  const book = await readMatterBook(people, dayNow());
-  const open = book.flatMap((v) =>
-    v.open
-      ? v.steps.flatMap((s) =>
-          byId.has(s.ref) && ACTIONABLE.includes(s.kind) && !s.ended
-            ? [{ id: s.ref, person: s.with }]
-            : []
-        )
-      : []
-  );
-  return { byId, observations, open };
+export function splitSteps(
+  steps: MatterStepNow[],
+  byId: ReadonlyMap<string, { modality?: string | null }>
+) {
+  const isOpen = (s: MatterStepNow) =>
+    byId.has(s.ref) && ACTIONABLE.includes(s.kind) && !s.ended;
+  return {
+    later: steps.filter((s) => {
+      const o = byId.get(s.ref);
+      return (
+        !isOpen(s) &&
+        (s.kind === "episode" ||
+          (o && o.modality !== "plan" && o.modality !== "conditional"))
+      );
+    }),
+    open: steps.filter(isOpen),
+  };
 }
 
 /**
- * What the links step has to judge: the open things (`readOpenThings`) and the observations as they read today: for each person an open thing is with, the later
- * observations about them (what they or he said that names them; never a plan or a condition, never another open
- * thing). `counts` is the whole of what is due, before the night's cap.
+ * The open matters (`readMatterBook`, read without endings: this step is what finds them), each with its open steps
+ * (promises, waits and to-dos of his: the observations no link ended) and its later steps (`splitSteps`), as a call
+ * is shown them. A matter of one has no later step and no work.
+ */
+async function readOpenMatters(people: People) {
+  const { observations } = await observationsNow(people);
+  const byId = new Map(observations.map((o) => [o.id, o]));
+  const shown = (s: MatterStepNow): Shown => {
+    const o = byId.get(s.ref);
+    return {
+      at: s.at,
+      day: s.day,
+      id: s.ref,
+      quote: s.quote,
+      said_by: o && (o.speaker === OWNER ? "him" : people.nameOf(o.speaker)),
+      text: s.text,
+      type: s.kind,
+    };
+  };
+  const book = await readMatterBook(people, dayNow());
+  return book.flatMap((m) => {
+    if (!m.open || m.lone) {
+      return [];
+    }
+    const { later, open } = splitSteps(m.steps, byId);
+    return open.length > 0
+      ? [
+          {
+            id: m.id,
+            later: later.map(shown),
+            name: m.name,
+            open: open.map(shown),
+          },
+        ]
+      : [];
+  });
+}
+
+/**
+ * What the links step has to judge: for each open matter, its open steps and its later steps (`readOpenMatters`)
+ * not judged yet. `counts` is the whole of what is due, before the night's cap.
  */
 export async function readLinkWork(people: People) {
-  const { byId, observations, open: candidates } = await readOpenThings(people);
-  const openIds = new Set(candidates.map((c) => c.id));
   const batches = readBatches();
-  const bySubject = Map.groupBy(
-    candidates.filter((c) => c.person?.startsWith("person:")),
-    (c) => c.person as string
+  const work = (await readOpenMatters(people)).flatMap(
+    (m) => subjectWorkOf(m, m.open, m.later, batches) ?? []
   );
-  const work = [...bySubject].flatMap(([subject, list]) => {
-    const open = list.flatMap((c) => byId.get(c.id) ?? []);
-    const later = observations.filter(
-      (o) =>
-        !openIds.has(o.id) &&
-        o.modality !== "plan" &&
-        o.modality !== "conditional" &&
-        (o.speaker === subject || o.subjects.includes(subject))
-    );
-    return subjectWorkOf(subject, open, later, batches) ?? [];
-  });
   const calls = work.flatMap((w) =>
     w.chunks.flatMap((later) =>
       chunks(w.open, OPEN_MAX).map((open) => ({ later, open }))
     )
   );
-  const chars = (list: Observation[]) =>
+  const chars = (list: Shown[]) =>
     list.reduce((n, o) => n + o.text.length + o.quote.length + 60, 0);
   return {
     counts: {
       calls: calls.length,
-      noSubject: candidates.length - [...bySubject.values()].flat().length,
+      matters: work.length,
       open: new Set(work.flatMap((w) => w.open.map((o) => o.id))).size,
-      people: work.length,
       // A ceiling: what is shown at 3 characters a token, plus a full reply for each call.
       tokens: Math.round(
         calls.reduce((n, c) => n + chars(c.open) + chars(c.later), 0) / 3 +
@@ -241,24 +274,17 @@ export async function readLinkWork(people: People) {
 export type LinkWork = NonNullable<Awaited<ReturnType<typeof readLinkWork>>>;
 
 /**
- * Judges the night's work (`readLinkWork`), a few people at a time: each chunk of later observations against the
- * person's open things, one appended line per chunk once all its calls returned (a failed call leaves the chunk due).
- * A failure costs that person's chunk only, never the night.
+ * Judges the night's work (`readLinkWork`), a few matters at a time: each chunk of later steps against the matter's
+ * open steps, one appended line per chunk once all its calls returned (a failed call leaves the chunk due). A failure
+ * costs that matter's chunk only, never the night.
  */
-export async function links(pending: LinkWork, people: People) {
+export async function links(pending: LinkWork) {
   const step = await begin("links", "main", { prompt: PROMPT });
-  const shown = (o: Observation): Shown => ({
-    day: o.date,
-    id: o.id,
-    quote: o.quote,
-    said_by: o.speaker === OWNER ? "him" : people.nameOf(o.speaker),
-    text: o.text,
-    type: o.type,
-  });
+  const shown = ({ at: _at, ...s }: Shown) => s;
   let found = 0;
   await inBatches(pending.work, step, async (w, dir) => {
     for (const [i, later] of w.chunks.entries()) {
-      // biome-ignore lint/performance/noAwaitInLoops: one person's chunks in order, each appended when whole
+      // biome-ignore lint/performance/noAwaitInLoops: one matter's chunks in order, each appended when whole
       await step.attempt(
         async () => {
           const kept: Link[] = [];
@@ -268,8 +294,8 @@ export async function links(pending: LinkWork, people: People) {
               dir: join(dir, `${i + 1}-${j + 1}`),
               input: {
                 later: later.map(shown),
+                matter: w.name,
                 open: open.map(shown),
-                with: people.nameOf(w.subject),
               },
               prompt: PROMPT,
             });
@@ -292,26 +318,26 @@ export async function links(pending: LinkWork, people: People) {
       );
     }
   });
-  return step.end({ links: found, people: pending.work.length });
+  return step.end({ links: found, matters: pending.work.length });
 }
 
 /**
- * A person's open things, each with the ending the links step found (its words and day) or none: how a link is checked
- * by eye while nothing reads them (`bun life memory links <person>`).
+ * A matter's open steps, each with the ending the links step found (its words and day) or none: how a link is checked
+ * by eye while nothing reads them (`bun life memory links <matter id>`).
  */
-export async function readEndings(people: People, ref: string) {
-  const { byId, open } = await readOpenThings(people);
-  const endings = endingsNow((id) => byId.has(id));
-  return open
-    .filter((c) => c.person === ref)
-    .flatMap((c) => {
-      const o = byId.get(c.id);
-      const end = endings.get(c.id);
-      const by = end && byId.get(end.later);
-      return o
-        ? [
-            `- ${o.id} ${o.date} ${o.type}: ${o.text}\n    ${by ? `ended ${by.date}: "${end.quote}" (${by.id})` : "no ending found"}`,
-          ]
-        : [];
+export async function readEndings(people: People, id: string) {
+  const { observations } = await observationsNow(people);
+  const byId = new Map(observations.map((o) => [o.id, o]));
+  const matter = (await readMatterBook(people, dayNow())).find(
+    (m) => m.id === id
+  );
+  const stepsByRef = new Map(matter?.steps.map((s) => [s.ref, s]));
+  const endings = endingsNow((ref) => byId.has(ref) || stepsByRef.has(ref));
+  return (matter?.steps ?? [])
+    .filter((s) => byId.has(s.ref) && ACTIONABLE.includes(s.kind))
+    .map((s) => {
+      const end = endings.get(s.ref);
+      const by = end && stepsByRef.get(end.later);
+      return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${by ? `ended ${by.day}: "${end.quote}" (${by.ref})` : "no ending found"}`;
     });
 }
