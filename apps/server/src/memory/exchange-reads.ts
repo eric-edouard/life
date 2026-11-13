@@ -28,6 +28,9 @@ export const READS = {
 /** The most calls a night makes across the three reads: a first build takes several nights, the newest first. */
 const NIGHT_CALLS = 200;
 
+/** The digest of a prompt's text, stored beside its name and never matched on. */
+export const wordingOf = (text: string) => digest("sha256", text, 16);
+
 /** Who a person is, as a read is told: their name and what they are to him on his map. */
 export interface With {
   name: string;
@@ -207,7 +210,7 @@ export async function makeReplies(
     await Promise.all(
       READ_NAMES.map(async (r) => [
         r,
-        digest("sha256", await promptText(READS[r].prompt), 16),
+        wordingOf(await promptText(READS[r].prompt)),
       ])
     )
   );

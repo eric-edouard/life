@@ -1,5 +1,5 @@
 // `bun scripts/pilot-set.ts <name> [--rich <n>] [--plain <n>]`: saves a test set for the pilot, picked from the
-// whole-history read kept by `memory-pilot.ts --all`: the `--rich` batches holding the most of what is rare (a
+// replies memory stores (`memory/read-replies/`, `exchange-reads.ts`): the `--rich` batches holding the most of what is rare (a
 // conflict, friction, a disclosure, the codes with few cases) and `--plain` ordinary ones, in an order that never
 // changes; or, with `--read <read> --codes <a,b> [--each <n>]`, the `n` batches holding the most of each code named.
 // A set's batch is small (exchanges in a row up to `PER_CALL` messages), so a call takes a minute, not ten. They are saved
@@ -11,20 +11,24 @@ import { digest } from "@life/server/src/core/hash";
 import { packed } from "@life/server/src/core/lists";
 import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
 import {
+  READS,
+  readReplies,
+  withOf,
+} from "@life/server/src/memory/exchange-reads";
+import {
   batchesOf,
   exchangesOf,
   isLiving,
 } from "@life/server/src/memory/exchanges";
 import type { CheckedExchange } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
-import { promptText } from "@life/server/src/models/llm";
 import type { ReadName } from "@life/server/src/records/read-reply";
 import {
   chatGroups,
   eventKey,
   type SourceEvent,
 } from "@life/server/src/records/source";
-import { READS, readKept, setFile, type TestSet, withOf } from "./memory-pilot";
+import { checkedOf, setFile, type TestSet } from "./memory-pilot";
 
 /** Messages a call of the test set holds at most (one longer exchange goes alone): small, so a try takes minutes. */
 const PER_CALL = 120;
@@ -41,29 +45,31 @@ const rareIn = (x: CheckedExchange) =>
   (x.tension ? 1 : 0) +
   x.moves.filter((m) => RARE.has(m.code)).length;
 
-/** How much of what is rare each exchange holds, by its first message, over every read kept on `engine`. */
-async function richness(engine: string, events: Events) {
+/** What memory stores for `read`, checked, by the first message of each exchange: the lines of the read's current prompt. */
+const storedOf = (read: ReadName, events: Events) =>
+  checkedOf(
+    readReplies()
+      .flat()
+      .filter((l) => l.madeBy.prompt === READS[read].prompt),
+    read,
+    events
+  );
+
+/** How much of what is rare each exchange holds, by its first message, over the three reads. */
+function richness(events: Events) {
   const score = new Map<string, number>();
   for (const read of Object.keys(READS) as ReadName[]) {
-    // biome-ignore lint/performance/noAwaitInLoops: three reads
-    const wording = await promptText(READS[read].prompt);
-    for (const [first, x] of readKept(read, engine, events, wording)) {
+    for (const [first, x] of storedOf(read, events)) {
       score.set(first, (score.get(first) ?? 0) + rareIn(x));
     }
   }
   return score;
 }
 
-/** The exchanges holding each of `codes`, by their first message, in the `read` kept on `engine`. */
-async function holdersOf(
-  read: ReadName,
-  engine: string,
-  codes: string[],
-  events: Events
-) {
+/** The exchanges holding each of `codes`, by their first message, in the stored `read`. */
+function holdersOf(read: ReadName, codes: string[], events: Events) {
   const holders = new Map(codes.map((c) => [c, new Set<string>()]));
-  const wording = await promptText(READS[read].prompt);
-  for (const [first, x] of readKept(read, engine, events, wording)) {
+  for (const [first, x] of storedOf(read, events)) {
     for (const m of x.moves) {
       holders.get(m.code)?.add(first);
     }
@@ -94,7 +100,7 @@ if (import.meta.main) {
   const { events } = await readWithPeople(new Date(0));
   const people = await readPeople();
   const byKey: Events = new Map(events.map((e) => [eventKey(e), e]));
-  const score = await richness("openrouter", byKey);
+  const score = richness(byKey);
   const all = [...directChats(events, people.resolve)]
     .filter(([ref]) => ref.startsWith("person:"))
     .flatMap(([ref, messages]) => {
@@ -117,9 +123,8 @@ if (import.meta.main) {
   // With `--codes a,b --read <read> [--each <n>]`: for each code in turn, the `n` batches not taken yet holding it in
   // the most exchanges, so every code named gets its cases; else the richest overall.
   const codes = values.codes?.split(",") ?? [];
-  const holders = await holdersOf(
+  const holders = holdersOf(
     (values.read ?? "connection") as ReadName,
-    "openrouter",
     codes,
     byKey
   );

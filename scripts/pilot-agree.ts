@@ -1,14 +1,15 @@
 // `bun scripts/pilot-agree.ts <read> <engine> <engine>`: how far two engines agree on a read of the pilot, over the
 // exchanges both read (spec 15: per code, 0.5 or more with another family on at least 30 cases). With
 // `--flag <engine>` instead: what the connection read's tension flag catches of the exchanges where the conflict
-// read, by the same engine, found friction. Reads the replies kept by `memory-pilot.ts`; prints counts, never a word.
+// read, by the same engine, found friction. Reads the trial files kept by `memory-pilot.ts`; prints counts, never a word.
 
 import { parseArgs } from "node:util";
 import { readWithPeople } from "@life/server/src/memory/closeness";
+import { READS } from "@life/server/src/memory/exchange-reads";
 import { promptText } from "@life/server/src/models/llm";
 import type { ReadName } from "@life/server/src/records/read-reply";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
-import { READS, readKept, readSet } from "./memory-pilot";
+import { readKept, readSet } from "./memory-pilot";
 
 /** The conflict read's codes that say something went wrong between them (the rest is steering). */
 const FRICTION = new Set([
