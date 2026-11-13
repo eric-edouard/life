@@ -48,7 +48,7 @@ export function callOf(batch: SourceEvent[][], withWhom: With) {
   );
   return { input: { lines, with: withWhom }, messages, starts };
 }
-export type Call = ReturnType<typeof callOf>;
+type Call = ReturnType<typeof callOf>;
 
 /** A call to make, with the instant of its newest exchange (the night asks the newest first). */
 export interface Asked {
