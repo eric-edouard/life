@@ -912,7 +912,7 @@ function engineCard(r: Reads): Card {
   };
 }
 
-/** A calendar Life writes to: its events written in 2 days, told apart by what each shows (`by`, a log field). */
+/** A calendar Life writes to: its events written in 2 days, told apart by what each shows (`by`, a log field); failing when its sync, run twice an hour, failed within the hour. */
 function calendarCard(
   r: Reads,
   id: "appointments" | "past",
@@ -920,17 +920,17 @@ function calendarCard(
 ): Card {
   const writes = r.writes.filter((e) => by in e);
   const n = writes.length;
+  const failed = since(r.errorsToday, HOUR, r.t).findLast((e) => e.step === id);
   return {
-    facts: [
-      { at: writes.at(-1)?.at, label: "Last event written" },
-      { label: "Written in 2 days", value: String(n) },
-    ],
+    content: failed && [`${failed.error}`],
+    facts: [{ at: writes.at(-1)?.at, label: "Last event written" }],
     group: "pipeline",
     headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
     id,
     name: OUTPUTS[id].label,
     ...firstOf(
       [!isOn(id), { tone: "idle", word: "off" }],
+      [!!failed, { tone: "warn", word: "failing" }],
       [n > 0, { tone: "ok", word: "syncing" }],
       [true, { tone: "idle", word: "quiet" }]
     ),
