@@ -98,9 +98,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   failure costs its call only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
   prints the people, months, calls and a token ceiling, with no model; `bun life memory exchange-reads` prints the
   calls and exchanges pending, and `--force` asks the night's share. With his `links` setting on, after the index
-  the night reads how open things ended (`links.jsonl`, in shadow); `bun life memory links` prints what is due
-  (people, open things, calls, a token ceiling) with no model, `bun life memory links <person>` each open thing with
-  the ending found. With his `matters` setting on, after extraction the night places the day's episodes, observations and
+  the night reads how open steps of each open matter ended (`links.jsonl`, in shadow); `bun life memory links` prints
+  what is due (matters, open steps, calls, a token ceiling) with no model, `bun life memory links <matter id>` each
+  open step with the ending found. With his `matters` setting on, after extraction the night places the day's episodes, observations and
   to-do items in matters (`matters.jsonl`, in shadow); `bun life memory matters` prints what is due (calls, episodes,
   to-do items) with no model, `--force` places the night's days, `--since YYYY-MM-DD` places one week at a time from
   that day to today, in order (each week sees the matters of the weeks before; a failed source gives no work), and

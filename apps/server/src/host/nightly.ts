@@ -282,7 +282,7 @@ async function readYears(now: Date) {
 async function judgeLinks() {
   const people = await readPeople();
   const pending = await readLinkWork(people);
-  return links(pending, people);
+  return links(pending);
 }
 
 /** The night's matters: what is due in its days (`readMatterWork`), placed. */
