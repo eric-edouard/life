@@ -133,8 +133,11 @@ reverse it, change its entry here in the same commit.
   seconds; owner answers, names, samples and summary guesses follow their voices). That puts right about half of the
   misplaced words, not all: a stored turn made by the old cut can hold two speakers' words. A job is taken only when
   the old cut, run on the recomputed segments, reproduces its stored speakers; one that does not was heard differently
-  and is left alone. The counts of the run are added here after it. The step (`rediarize.ts`, its route) is deleted
-  after its run, like the 11 Nov one.
+  and is left alone. The run (13 Nov 2026): of 5,019 completed speech jobs, 3,482 could be reproduced and were taken
+  (1,052 have no words, 180 no stored speakers, 305 were heard differently at the time). 1,220 changed and 2,262 already
+  matched. 5,143 turns took another speaker (13.7% of those jobs' turns). Unnamed turns went from 32,124 to 31,427. On a
+  copy, the voice eval's other people's turns given to the owner went from 112 to 66. The step, its route and its tests
+  are deleted (in git history: PR 476), like the 11 Nov one. A true re-split of stored turns (renumbering them) was not done.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
   Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: $0.20/h like v2 now, its answers keep v2's shape, and it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
