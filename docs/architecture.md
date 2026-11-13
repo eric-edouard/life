@@ -64,7 +64,7 @@ flowchart LR
   and night has its own bounds, a photo-day its lines of photos at a place (with a local model's description of each photo, `models/describer.ts`; each photo is also a search passage). They remain activity (`isActivity`): never extracted, importance at most 1.
   Like other episodes, they become Past calendar events and memory claims; episodes are never drawn for fact checks.
 - **Observations** (`extract.ts`): extraction reads an episode's units together, with earlier facts shown as a reading to
-  correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
+  correct, never as evidence. Every quote is checked against its source (`quote-check.ts`). Extraction is the only step
   that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
@@ -186,7 +186,7 @@ core  ←  records  ←  models, sources, todo-list, payments  ←  memory  ← 
 | Folder | What it holds |
 |---|---|
 | `core/` | Clock (with calendar-day arithmetic, `daysBefore`), list cuts (`lists.ts`), paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
-| `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `episode.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
+| `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `episode.ts`, `observation.ts`, `fact-check.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends and open items |

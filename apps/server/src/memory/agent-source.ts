@@ -2,7 +2,7 @@ import { AGENT_WORD } from "../core/names";
 import { askedAgent } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import type { Newest } from "../sources/contract";
-import { lastUpdate, tasksOf } from "./ledger";
+import { lastUpdate, tasksOf } from "./memory-files";
 import { wall } from "./zones";
 
 // The agent's tasks closed done (apps/server/src/host/agent.ts), each one event: its outcome with the words he asked in. The agent's own report,

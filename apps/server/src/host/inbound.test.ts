@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { tasksOf } from "../memory/ledger";
+import { tasksOf } from "../memory/memory-files";
 import { action } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import type { Snapshot } from "../todo-list/backend";
 import type { TodoItem } from "../todo-list/contract";
-import { grantRefusal } from "./act";
+import { grantRefusal } from "./change-todo-item";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";

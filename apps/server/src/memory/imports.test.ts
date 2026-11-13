@@ -14,7 +14,7 @@ import { setSettings, settings } from "../core/settings";
 import { Imported } from "../records/observation";
 import { conversationsOf, exportsDir } from "../sources/assistants";
 import { dryRun, importExport, parseJudged, readExport } from "./imports";
-import { IMPORTED } from "./ledger";
+import { IMPORTED } from "./memory-files";
 
 beforeEach(() =>
   rmSync(exportsDir("claude"), { force: true, recursive: true })

@@ -11,7 +11,7 @@ import {
   settledDays,
   supersedingRuns,
 } from "./historical-zones";
-import { EPISODES, MEMORY, UNITS, ZONES } from "./ledger";
+import { EPISODES, MEMORY, UNITS, ZONES } from "./memory-files";
 import { zoneAt, zones } from "./zones";
 
 const sent = (day: string, offset: string) => ({
@@ -260,6 +260,7 @@ test("the settled days: those a record cites, those from the first episode, and 
     ]) {
       rmSync(f);
     }
+    rmSync(UNITS, { force: true, recursive: true }); // test data has no units dir: other tests assert it
   }
 });
 
@@ -320,7 +321,7 @@ test("a day a record cites keeps its zone, and so its units", async () => {
     expect(zoneAt("2018-01-15T12:00:00Z")).toBe("Etc/GMT+5");
   } finally {
     rmSync(cited);
-    rmSync(join(UNITS, "2018-01-06.jsonl"));
+    rmSync(UNITS, { force: true, recursive: true });
     writeFileSync(ZONES, was);
   }
 });

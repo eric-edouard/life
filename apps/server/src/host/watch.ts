@@ -12,7 +12,7 @@ import {
   reindex,
   reindexUnits,
 } from "../memory/index-writer";
-import { LEDGER, readLedger } from "../memory/ledger";
+import { LEDGER, readLedger } from "../memory/memory-files";
 import { isLocked, locked, lockedSince } from "../memory/memory-lock";
 import { listening, readySources } from "../memory/sources";
 import {

@@ -10,7 +10,7 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
-import { personaPath } from "./ledger";
+import { personaPath } from "./memory-files";
 import {
   betweenOf,
   groupDaysOf,

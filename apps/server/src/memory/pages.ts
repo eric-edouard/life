@@ -32,7 +32,8 @@ import {
   type Standing,
   type Verdicts,
   verdictOf,
-} from "./ledger";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
 import {
   assemble,
   bare,
@@ -58,7 +59,7 @@ import {
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
+import { begin, inBatches, type Step } from "./run";
 import { nameKey } from "./units";
 import {
   observationsNow,

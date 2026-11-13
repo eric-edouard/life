@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { Imported } from "../records/observation";
 import { exportsDir } from "../sources/assistants";
-import { IMPORTED } from "./ledger";
+import { IMPORTED } from "./memory-files";
 import { fetchOf } from "./words";
 
 test("fetch gives an imported conversation back whole, dropped ones too, both sides verbatim, a page at a time", async () => {

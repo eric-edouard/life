@@ -9,7 +9,7 @@ import {
 import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
-import { latestExtractions, OUT } from "../memory/ledger";
+import { latestExtractions, OUT } from "../memory/memory-files";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
 import { dropOld, markedSince, nightly } from "./nightly";

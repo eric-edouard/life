@@ -6,7 +6,7 @@ import { systemZone } from "../core/platform";
 import type { Episode } from "../records/episode";
 import { Zone } from "../records/unit";
 import { readPhoneZone } from "../sources/lifelog";
-import { daysOf, ZONES } from "./ledger";
+import { daysOf, ZONES } from "./memory-files";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, where he was from each `from` on (`readZoneHere`), and the
 // wall clock there. Local days and times come from here, never from the zone of the process reading them, so a day read again

@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of } from "../core/hash";
 import { SECRETS, writeSecret } from "../core/secret";
-import { PASSAGES } from "../memory/ledger";
+import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
 import { DESCRIPTIONS } from "../sources/photo-descriptions";

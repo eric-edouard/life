@@ -27,11 +27,11 @@ import {
 } from "../sources/instagram-export";
 import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
-import { Asked, actAsked, requested, setGrant } from "./act";
 import { archiveCommand } from "./archive";
 import { ask, timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
+import { Asked, actAsked, requested, setGrant } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";

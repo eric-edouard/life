@@ -9,7 +9,7 @@ import { READ_NAMES, type ReadName, ReadReply } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import { batchesOf, exchangesOf, isFinished, isLiving } from "./exchanges";
-import { READ_REPLIES, readReplyPath } from "./ledger";
+import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { begin, inBatches, type Step } from "./run";
 import type { People } from "./who";
 import { batchLines } from "./words";

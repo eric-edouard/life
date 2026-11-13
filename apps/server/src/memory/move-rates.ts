@@ -10,7 +10,7 @@ import {
   type SeenExchange,
   type Side,
 } from "./moves";
-import { folded } from "./observe";
+import { folded } from "./quote-check";
 import { localDate } from "./zones";
 
 // How often each thing a person did turns up, from the moves the reads listed (`memory/moves.ts`): rows of `n` of

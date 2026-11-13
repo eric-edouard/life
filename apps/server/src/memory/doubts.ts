@@ -1,8 +1,8 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import type { Episode } from "../records/episode";
+import { Statement } from "../records/fact-check";
 import { INFERRED_PREFIX, type Observation } from "../records/observation";
-import { Statement } from "../records/statement";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import {
@@ -12,9 +12,9 @@ import {
   STATEMENTS,
   shows,
   stateOf,
-} from "./ledger";
-import { SURE_AT } from "./observe";
+} from "./memory-files";
 import { placed } from "./page-format";
+import { SURE_AT } from "./quote-check";
 import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";

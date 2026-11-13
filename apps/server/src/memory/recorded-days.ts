@@ -5,7 +5,7 @@ import { log } from "../core/log";
 import { isoDateTime } from "../records/fields";
 import { lifelogMissing } from "../sources/lifelog";
 import { type Recorded, readRecorded } from "../sources/lifelog-recorded";
-import { RECORDED_DAYS } from "./ledger";
+import { RECORDED_DAYS } from "./memory-files";
 import { localDate } from "./zones";
 
 // The recorded days (docs/glossary.md): the local days the pendant recorded on, with or without speech, as lifelog

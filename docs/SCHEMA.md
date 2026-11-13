@@ -416,7 +416,7 @@ appointment citing every fact of a refused one is written again.
 
 ## ledger.jsonl
 
-What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
+What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/change-todo-item.ts`), what the owner changed in
 Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the owner's asks of his agents (`apps/server/src/host/asks.ts`):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, via, timing?}`.
 
@@ -457,7 +457,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 The fact checks: the claims the owner is asked about, one per claim, append-only, written by
 `drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory doubtful <n>`):
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or episode's id). Code draws them (`doubtful`, `apps/server/src/memory/doubts.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
 `<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
@@ -474,7 +474,7 @@ before 29 Oct 2026 were a random spread.
 The owner's answers to the fact checks, append-only, written by `recordRating` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory rate <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
 `skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
-rated. What each answer means is one table (`ANSWERS`, `ledger.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
+rated. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction

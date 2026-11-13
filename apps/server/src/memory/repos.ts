@@ -19,9 +19,10 @@ import {
   readVerdicts,
   type Verdicts,
   verdictOf,
-} from "./ledger";
+} from "./memory-files";
+import { meContext } from "./model-context";
 import { loadTruth, ownerIn } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { begin, checkedEntries, chunks, inBatches } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf } from "./tags";
 import { clip, lineCounts } from "./units";

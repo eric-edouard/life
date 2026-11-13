@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import { buildIndex } from "./index-writer";
-import { EPISODES, INDEX, readBy, UNITS } from "./ledger";
+import { EPISODES, INDEX, readBy, UNITS } from "./memory-files";
 import { drafts, wanted } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 

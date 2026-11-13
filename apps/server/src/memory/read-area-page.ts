@@ -6,7 +6,7 @@ import {
   unitLine,
   withIndex,
 } from "./index-rows";
-import { pagePath } from "./ledger";
+import { pagePath } from "./memory-files";
 import { loadTruth, type Truth } from "./read-truth";
 import { normalizeTopics } from "./tags";
 import { nameKey } from "./units";

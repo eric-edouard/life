@@ -5,13 +5,13 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
+import { type Rating, Statement } from "../records/fact-check";
 import type {
   Correction,
   Extracted,
   Observation,
   Supersession,
 } from "../records/observation";
-import { type Rating, Statement } from "../records/statement";
 import { buildIndex } from "./index-writer";
 import {
   hiding,
@@ -37,7 +37,7 @@ import {
   shownOf,
   stateOf,
   UNITS,
-} from "./ledger";
+} from "./memory-files";
 import { knownOn } from "./page-format";
 import { madeBy, unit as unitFixture } from "./record-fixtures";
 

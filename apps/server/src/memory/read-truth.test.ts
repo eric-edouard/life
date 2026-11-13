@@ -14,7 +14,7 @@ import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
 import { type Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
-import { OUT } from "./ledger";
+import { commitMemory, OUT } from "./memory-files";
 import {
   goalProjects,
   integrity,
@@ -22,7 +22,6 @@ import {
   readMe,
   type Truth,
 } from "./read-truth";
-import { commitMemory } from "./run";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],

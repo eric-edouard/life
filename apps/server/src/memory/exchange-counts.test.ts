@@ -8,7 +8,7 @@ import {
   readExchangeCounts,
   writeExchangeCounts,
 } from "./exchange-counts";
-import { EXCHANGE_COUNTS } from "./ledger";
+import { EXCHANGE_COUNTS } from "./memory-files";
 import { exchangeCountsBlock } from "./read-person-page";
 
 const msg = (

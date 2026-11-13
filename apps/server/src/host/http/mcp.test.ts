@@ -16,7 +16,7 @@ import {
   settings,
   connector as settingsOf,
 } from "../../core/settings";
-import { LEDGER } from "../../memory/ledger";
+import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
 import { readTold, TOLD } from "../../memory/told";
 import { apply, forward, type Stay } from "../../sources/lifelog";

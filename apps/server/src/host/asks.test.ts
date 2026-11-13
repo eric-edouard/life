@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
-import { LEDGER } from "../memory/ledger";
+import { LEDGER } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog";
 import { ask, asksFor } from "./asks";

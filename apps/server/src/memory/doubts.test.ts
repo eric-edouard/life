@@ -6,7 +6,7 @@ import {
   doubtsOf,
   episodeGroup,
   episodeText,
-} from "./statements";
+} from "./doubts";
 
 const claim = (ref: string, over: Partial<Claim> = {}): Claim => ({
   date: "2026-10-01",

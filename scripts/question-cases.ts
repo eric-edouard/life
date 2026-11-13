@@ -12,7 +12,7 @@ import { readJson, writeJson } from "@life/server/src/core/files";
 import { recentEvents } from "@life/server/src/core/log";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { buildServer } from "@life/server/src/host/http/mcp";
-import { INDEX, OUT } from "@life/server/src/memory/ledger";
+import { INDEX, OUT } from "@life/server/src/memory/memory-files";
 import { ended, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { judge, tally } from "@life/server/src/memory/tally";

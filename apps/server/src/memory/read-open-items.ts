@@ -3,10 +3,10 @@ import { clock, daysBefore } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { Level } from "../records/observation";
 import { TOP_AT } from "../records/unit";
-import { openLinked } from "../todo-list/linked";
+import { openLinked } from "../todo-list/todo-items-from-ledger";
 import { levelsWith } from "./closeness";
 import { COLUMNS, CURRENT, line, type Row, section } from "./index-rows";
-import { readLedger } from "./ledger";
+import { readLedger } from "./memory-files";
 import {
   AGAIN_DAYS,
   type Candidate,

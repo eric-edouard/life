@@ -5,7 +5,7 @@ import type { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
 import { lifelogMissing, type Stay } from "../sources/lifelog";
 import { bounds } from "./episode-span";
-import { episodesWhere } from "./ledger";
+import { episodesWhere } from "./memory-files";
 import { stayOf, staysOf, where } from "./places";
 import { clip } from "./units";
 import { meant, who as named, readPeople } from "./who";

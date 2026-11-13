@@ -12,10 +12,11 @@ import {
   readEpisodes,
   SITUATIONS,
   situationPath,
-} from "./ledger";
+} from "./memory-files";
+import { refContext } from "./model-context";
 import { readingsOf, readPersona, supportOf } from "./personas";
 import { OWNER } from "./read-truth";
-import { begin, inBatches, inputsOf, refContext } from "./run";
+import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to

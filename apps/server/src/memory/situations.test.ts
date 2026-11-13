@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { writeJson } from "../core/files";
-import { situationPath } from "./ledger";
+import { situationPath } from "./memory-files";
 import { readSituationNow, shownLines, situationBlock } from "./situations";
 
 const REF = "person:test-ana";

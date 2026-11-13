@@ -22,7 +22,7 @@ import {
   section,
   withIndex,
 } from "./index-rows";
-import { daysOf, episodesWhere, pagePath, writtenPeople } from "./ledger";
+import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
 import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
 import { personaBlock, readPersona } from "./personas";

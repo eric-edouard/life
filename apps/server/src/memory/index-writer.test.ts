@@ -10,7 +10,7 @@ import { setSettings, settings } from "../core/settings";
 import type { Episode } from "../records/episode";
 import { episodeTextNow, UNIT_TEXT } from "./index-rows";
 import { buildIndex, readSearchedTexts, readStaleness } from "./index-writer";
-import { INDEX, MEMORY, UNITS } from "./ledger";
+import { INDEX, MEMORY, UNITS } from "./memory-files";
 import { TRUTH } from "./read-truth";
 import { madeBy, unit, verdict } from "./record-fixtures";
 

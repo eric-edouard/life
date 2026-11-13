@@ -4,6 +4,7 @@ import { clock } from "../core/clock";
 import { filesIn, linesOf, readLineCount } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
+import { Rating } from "../records/fact-check";
 import {
   isBookkeeping,
   isTaskLine,
@@ -17,7 +18,6 @@ import {
   ObservationId,
   Supersession,
 } from "../records/observation";
-import { Rating } from "../records/statement";
 import {
   CORRECTIONS,
   hides,
@@ -39,7 +39,7 @@ import {
   runAt,
   SUPERSESSIONS,
   stateOf,
-} from "./ledger";
+} from "./memory-files";
 import { type Key, PageMeta, parsePage, readLine } from "./page-format";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";

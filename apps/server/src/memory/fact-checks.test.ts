@@ -1,9 +1,14 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
-import { Statement } from "../records/statement";
+import { Statement } from "../records/fact-check";
 import { readFactChecks } from "./fact-checks";
-import { openFactChecks, RATINGS, recordRating, STATEMENTS } from "./ledger";
+import {
+  openFactChecks,
+  RATINGS,
+  recordRating,
+  STATEMENTS,
+} from "./memory-files";
 
 const NOW = Date.parse("2026-10-30T10:00:00.000Z");
 const statement = (ref: string, at = "2026-10-29T10:00:00.000Z") => ({

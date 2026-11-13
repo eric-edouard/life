@@ -19,12 +19,12 @@ import {
   OWNER_DATA_DIR,
 } from "@life/server/src/core/paths";
 import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
+import { claimsNow } from "@life/server/src/memory/doubts";
 import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
-import { ratedFacts } from "@life/server/src/memory/ledger";
+import { ratedFacts } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { spareQuota } from "@life/server/src/memory/schedule";
-import { claimsNow } from "@life/server/src/memory/statements";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";

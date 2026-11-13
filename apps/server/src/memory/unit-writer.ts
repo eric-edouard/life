@@ -6,7 +6,7 @@ import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/lifelog";
-import { PUBLICATIONS, readFiles, readUnitsOf, UNITS } from "./ledger";
+import { PUBLICATIONS, readFiles, readUnitsOf, UNITS } from "./memory-files";
 import { showFiles } from "./message-files";
 import { preparePassages } from "./passages";
 import { loadTruth } from "./read-truth";

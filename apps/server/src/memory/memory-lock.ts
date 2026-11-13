@@ -2,7 +2,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { held, take } from "../core/lock";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { OUT } from "./ledger";
+import { OUT } from "./memory-files";
 
 // Memory's one lock: everything that writes memory/ holds it (AGENTS.md, "One lock").
 
