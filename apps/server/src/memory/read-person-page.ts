@@ -407,10 +407,49 @@ export function moveRatesBlock(
           .map((r) => who(r) + text(r))
           .join(", ")}`
     );
-  const sections = [
+  // A channel is shown when active lately (its tension row, else its busiest row); when none is, the busiest one.
+  const channels = [
     ...Map.groupBy(
-      rates.rows.filter((r) => r.says === "share"),
-      (r) => (chanceOf(r) === "exchange" ? `exchange|${r.source}` : chanceOf(r))
+      rates.rows.filter((r) => r.source),
+      (r) => r.source ?? ""
+    ),
+  ].map(([source, rows]) => {
+    const own = rows.filter((r) => r.thing === "tension");
+    const pool = own.length > 0 ? own : rows;
+    return {
+      all: Math.max(...pool.map((r) => r.all.of)),
+      lately: Math.max(...pool.map((r) => r.lately.of)),
+      source,
+    };
+  });
+  const active = channels.filter((c) => c.lately >= MINIMUM);
+  const busiest = channels.toSorted((a, b) => b.all - a.all).slice(0, 1);
+  const kept = new Set(
+    (active.length > 0 ? active : busiest).map((c) => c.source)
+  );
+  const left = channels.filter((c) => !kept.has(c.source));
+  const inShown = (r: StoredMoveRate) => !r.source || kept.has(r.source);
+  // A line low everywhere and not at an extreme of the people is left out; flags and warm tone always stay.
+  const ALWAYS = ["tension", "conflict", "warm"];
+  const isWorth = (group: StoredMoveRate[]) =>
+    chanceOf(group[0] as StoredMoveRate) !== "exchange" ||
+    ALWAYS.includes(group[0]?.thing ?? "") ||
+    group.some(
+      (r) =>
+        r.all.n >= 0.05 * r.all.of ||
+        (r.among >= 6 && (r.above < 3 || r.below < 3))
+    );
+  const worth = [
+    ...Map.groupBy(
+      rates.rows.filter((r) => r.says === "share" && inShown(r)),
+      (r) => `${r.thing}|${r.source}`
+    ).values(),
+  ]
+    .filter(isWorth)
+    .flat();
+  const sections = [
+    ...Map.groupBy(worth, (r) =>
+      chanceOf(r) === "exchange" ? `exchange|${r.source}` : chanceOf(r)
     ),
   ].sort(
     ([a], [b]) =>
@@ -425,11 +464,21 @@ export function moveRatesBlock(
     const when = WHEN[chance as keyof typeof WHEN];
     return `${when.charAt(0).toUpperCase()}${when.slice(1)}:`;
   };
-  const guessed = rates.rows.filter((r) => r.says === "exploratory");
+  const guessed = rates.rows.filter(
+    (r) => r.says === "exploratory" && inShown(r)
+  );
   return [
     `## Counted from their one-to-one chats (Life's reads, built ${localDate(rates.at)}; ${rates.exchanges} exchanges read)`,
-    "Each line: share of chances (n/of) all years; last 12 months | before; N of M other people are higher.",
+    "Each line: share of chances (n/of) all years; last 12 months | before; N of M other people are higher. Low, unremarkable lines are left out.",
     "Legend: toward = took up the other's bid; warm = the exchange read warm on that side; tension, conflict = the exchange held some.",
+    ...(left.length > 0
+      ? [
+          `Not shown: ${left
+            .toSorted((a, b) => a.source.localeCompare(b.source))
+            .map((c) => `${c.source} (${c.all} exchanges, none lately)`)
+            .join("; ")}`,
+        ]
+      : []),
     ...sections.flatMap(([key, rows]) => [
       heading(key),
       ...shown(rows, figures, (r) => r.thing),

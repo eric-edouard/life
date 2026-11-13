@@ -52,7 +52,7 @@ const rates = {
 test("the person read shows the shares by chance, then the conduct counted but not proven", () => {
   expect(moveRatesBlock(rates)).toEqual([
     "## Counted from their one-to-one chats (Life's reads, built 2026-11-13; 412 exchanges read)",
-    "Each line: share of chances (n/of) all years; last 12 months | before; N of M other people are higher.",
+    "Each line: share of chances (n/of) all years; last 12 months | before; N of M other people are higher. Low, unremarkable lines are left out.",
     "Legend: toward = took up the other's bid; warm = the exchange read warm on that side; tension, conflict = the exchange held some.",
     "Per exchange each wrote in, whatsapp:",
     "- asks_about: he 34% (51/150; 40% | 31%; 12 of 27 higher), they 28% (42/150; - | 31%; 15 of 27 higher)",
@@ -66,6 +66,31 @@ test("the person read shows the shares by chance, then the conduct counted but n
     "Counted, not proven (raw counts only: two models agree too little on these, or the test had too few cases):",
     "- yields (when the other raises a fault): he 3/29, they 10/94",
     "- blames (per exchange, whatsapp): he 4/1016",
+    "",
+  ]);
+});
+
+test("a channel with nothing lately is named, not shown; a low unremarkable line is dropped, a low one at an extreme kept", () => {
+  const low = { above: 10, all: { n: 2, of: 150 }, below: 10 };
+  const block = moveRatesBlock({
+    ...rates,
+    rows: [
+      row("tension", { source: "whatsapp" }),
+      row("tension", {
+        all: { n: 5, of: 80 },
+        lately: { n: 0, of: 0 },
+        source: "mail",
+      }),
+      row("asks_about", { side: "me", source: "mail" }),
+      row("thanks", { ...low, side: "me", source: "whatsapp" }),
+      row("gives", { ...low, above: 1, side: "me", source: "whatsapp" }),
+    ],
+  });
+  expect(block.slice(3)).toEqual([
+    "Not shown: mail (80 exchanges, none lately)",
+    "Per exchange each wrote in, whatsapp:",
+    "- tension: 34% (51/150; 40% | 31%; 12 of 27 higher)",
+    "- gives: he 1% (2/150; 40% | 31%; 1 of 27 higher)",
     "",
   ]);
 });
