@@ -40,7 +40,7 @@ const SPACE = /\s+/g;
 function fileLine(f: SourceFile, e: FileEntry | undefined) {
   const kind =
     KINDS.find(([mime]) => f.mime.startsWith(mime))?.[1] ?? "document";
-  const read = `${e?.what ? `, described by Life: ${e.what}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
+  const read = `${e?.description ? `, described by Life: ${e.description}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
   return `[${kind}${f.name ? ` ${f.name}` : ""}${read || (f.path ? "" : ", not on this Mac")}]`;
 }
 
@@ -175,7 +175,11 @@ export async function triage(
 
 const Reply = z.object({
   files: z.array(
-    z.object({ id: z.string(), text: z.string().nullish(), what: z.string() })
+    z.object({
+      description: z.string(),
+      id: z.string(),
+      text: z.string().nullish(),
+    })
   ),
 });
 
@@ -243,11 +247,11 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
       }
       const entries = (reply?.files ?? []).flatMap((r) => {
         const b = batch[Number(r.id) - 1];
-        const [what, text] = [words(r.what), words(r.text ?? "")];
+        const [description, text] = [words(r.description), words(r.text ?? "")];
         return b
           ? lines(b, {
               madeBy,
-              ...(what ? { what } : {}),
+              ...(description ? { description } : {}),
               ...(text ? { text } : {}),
             })
           : [];

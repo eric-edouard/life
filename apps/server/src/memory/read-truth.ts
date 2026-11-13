@@ -24,8 +24,8 @@ export function ownerIn(people: Person[]): Person {
 /** The owner as an entity ref: the center of his memory. */
 export const OWNER = `person:${ME}`;
 /** The people other than the owner among an observation's entity refs. */
-export const othersIn = (entities: string[]) =>
-  entities.filter((e) => e.startsWith("person:") && e !== OWNER);
+export const othersIn = (subjects: string[]) =>
+  subjects.filter((e) => e.startsWith("person:") && e !== OWNER);
 /** The first paragraph of truth/me.md. */
 const ABOUT = /^# Me\n\n(.+(?:\n.+)*)/;
 /** truth/me.md's goals: the block under `## Goals`, his words in his priority order. */

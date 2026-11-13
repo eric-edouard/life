@@ -83,12 +83,12 @@ export type Verdict = z.infer<typeof Verdict>;
  */
 export const FileEntry = z
   .object({
+    description: z.string().optional(),
     hash: ContentHash,
     madeBy: MadeBy.optional(),
     ref: z.string(),
     schemaVersion: z.literal(1),
     text: z.string().optional(),
-    what: z.string().optional(),
   })
   .strict();
 
@@ -154,7 +154,7 @@ export const MemoryLabel = z
   .object({
     area: z.string().optional(),
     at: isoDateTime.optional(),
-    matters: z.boolean(),
+    important: z.boolean(),
     schemaVersion: z.literal(1).optional(),
     type: MemoryType.optional(),
     unitId: UnitId,

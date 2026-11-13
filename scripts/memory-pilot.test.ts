@@ -41,11 +41,11 @@ test("a call shows the exchange as numbered lines; a trial reply is checked agai
     at: "2026-10-02T00:00:00.000Z",
     madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
     messages: call.messages.map(eventKey),
+    promptDigest: "a".repeat(16),
     read: "connection",
     reply,
     schemaVersion: 1,
     starts: call.starts,
-    wording: "a".repeat(16),
   });
   expect(line.messages).toEqual([
     "whatsapp|+1:0",

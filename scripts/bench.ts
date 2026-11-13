@@ -3,7 +3,7 @@
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
 // keep one judge across benches when his engine changes) then grades its claims against the days' hand-checked facts
-// and his rated statements (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
+// and his answered fact checks (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
 // It prints the table and writes nothing of his.
 
 import { cpSync } from "node:fs";
@@ -226,15 +226,15 @@ async function bench(models: string[], runs: number, judge?: string) {
     const days = windows.map((w) =>
       w.from === w.to ? w.from : `${w.from}–${w.to}`
     );
-    const rated = answeredFactChecks()
+    const answered = answeredFactChecks()
       .filter((f) => windows.some((w) => f.date >= w.from && f.date <= w.to))
       .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
-    const ratedFile = join(tmp, "rated.json");
+    const answersFile = join(tmp, "answers.json");
     // eval.ts takes one window: the first day to the last, holding only the truth days' statements.
     await Bun.write(
-      ratedFile,
+      answersFile,
       JSON.stringify({
-        facts: rated,
+        facts: answered,
         from: windows.map((w) => w.from).toSorted()[0],
         to: windows
           .map((w) => w.to)
@@ -289,7 +289,7 @@ async function bench(models: string[], runs: number, judge?: string) {
             // biome-ignore lint/performance/noAwaitInLoops: see above
             held.push(await graded(f));
           }
-          const stated = await graded(ratedFile);
+          const stated = await graded(answersFile);
           const timeline = await Promise.all(
             files.map(
               (f) =>
@@ -317,7 +317,7 @@ async function bench(models: string[], runs: number, judge?: string) {
         }
       })
     );
-    console.log(factTable(rows, { days, facts, rated: rated.length }));
+    console.log(factTable(rows, { answered: answered.length, days, facts }));
   } finally {
     for (const dir of worktrees) {
       git(LIFE_CODE_DIR, ["worktree", "remove", "--force", dir]);
@@ -345,7 +345,7 @@ type Row = {
 /** One line per run; a held count within the baseline's own spread (or 3) of its mean is a tie. */
 export function factTable(
   rows: Row[],
-  about: { days: string[]; facts: number; rated: number }
+  about: { days: string[]; facts: number; answered: number }
 ) {
   const base = rows.flatMap((r) =>
     r.model === BASELINE && r.held ? [r.held.held] : []
@@ -372,9 +372,9 @@ export function factTable(
   return [
     `# Bench ${about.days.join(", ")} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; rated: his ${about.rated} rated statements of those days as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
+    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; answered: his ${about.answered} rated statements of those days as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
     "",
-    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | rated statements | claims | calls | time | cost |`,
+    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | answered fact checks | memory lines | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows.map(line),
   ].join("\n");

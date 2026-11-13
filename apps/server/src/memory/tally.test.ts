@@ -42,8 +42,8 @@ test("every grade of a true and of a false fact: held, contradicted, restated, m
   });
 });
 
-test("a fact with a day is judged against the claims said by then: a later change never contradicts it", () => {
-  const claims = [
+test("a fact with a day is judged against the memory lines said by then: a later change never contradicts it", () => {
+  const memoryLines = [
     {
       date: "2026-10-14",
       id: "c14",
@@ -64,13 +64,13 @@ test("a fact with a day is judged against the claims said by then: a later chang
       },
       { fact: "He has the card.", id: "has" },
     ],
-    claims
+    memoryLines
   );
   expect(
     calls.map((c) => [
       c.date,
       c.facts.map((f) => f.id),
-      c.claims.map((x) => x.id),
+      c.memoryLines.map((x) => x.id),
     ])
   ).toEqual([
     ["2026-10-14", ["waiting"], ["c14"]],
@@ -85,9 +85,9 @@ test("a kept grade stands while its key holds and every claim it cites says the 
       ["c2", null],
     ] as [string, string | null][],
     grade: {
-      claims: ["c1", "c2"],
       fact: "f",
       grade: "stated" as const,
+      memoryLines: ["c1", "c2"],
       why: "",
     },
     key: "k",

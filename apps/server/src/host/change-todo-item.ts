@@ -188,7 +188,7 @@ export function autoAddRefusal(g: {
   o: Pick<Observation, "importance" | "source" | "type">;
   state: string;
 }) {
-  const on = g.actions.findLast((a) => a.kind === "grant");
+  const on = g.actions.findLast((a) => a.kind === "auto_add");
   if (!on?.after.on) {
     return "the auto-add permission is off: only his own words in a conversation turn it on";
   }
@@ -222,12 +222,12 @@ export async function setAutoAdd(on: boolean, said: string) {
   const line: LedgerEntry = {
     after: { on },
     at: instruction.at,
-    id: entryId(instruction.ref, "grant", `${on}`),
+    id: entryId(instruction.ref, "auto_add", `${on}`),
     instruction,
-    kind: "grant",
+    kind: "auto_add",
     result: "ok",
     schemaVersion: 1,
-    target: "grant",
+    target: "auto_add",
     via: "session",
     why: "his words",
   };

@@ -40,9 +40,9 @@ const kept = (messages: SourceEvent[], over: Record<string, unknown> = {}) => ({
     run: "2026-10-05T10-00-00.000Z",
   },
   messages: messages.map(eventKey),
+  promptDigest: "a".repeat(16),
   reply: { exchanges: [] },
   starts: [0],
-  wording: "a".repeat(16),
   ...over,
 });
 

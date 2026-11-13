@@ -40,7 +40,7 @@ import {
 import { involvedOf, refContext } from "./model-context";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
-import { entityOf } from "./quote-check";
+import { subjectOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries } from "./run";
 import { kindOf } from "./sources";
@@ -246,11 +246,11 @@ function verdictsOf(
 
 /** A person the model named, as a ref: one it was given, or an `unknown:` name resolved by code; never the owner. */
 function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
-  const link = entityOf(ref, ctx.people, ctx.resolve);
+  const link = subjectOf(ref, ctx.people, ctx.resolve);
   if ("ref" in link) {
     return link.ref === OWNER ? null : link.ref;
   }
-  return "surface" in link ? `${UNKNOWN}${link.surface}` : null;
+  return "nameAsWritten" in link ? `${UNKNOWN}${link.nameAsWritten}` : null;
 }
 
 /** Whether these units can make an episode: not when all are commits, screen time or agent reports. */
@@ -361,11 +361,11 @@ export function agreement(
     const u = units.get(l.unitId);
     const v = u && verdictOf(verdicts, u);
     return u && (v || u.drop)
-      ? [{ kept: !!v && v.importance >= KEEP_AT, matters: l.matters }]
+      ? [{ important: l.important, kept: !!v && v.importance >= KEEP_AT }]
       : [];
   });
-  const count = (kept: boolean, matters: boolean) =>
-    pairs.filter((p) => p.kept === kept && p.matters === matters).length;
+  const count = (kept: boolean, important: boolean) =>
+    pairs.filter((p) => p.kept === kept && p.important === important).length;
   const [tp, fp, fn, tn] = [
     count(true, true),
     count(true, false),
@@ -514,7 +514,7 @@ export async function episodes(evidence: Evidence) {
         // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
         const unknown = unknownIn(
           spoken,
-          (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
+          (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
         );
         // Who an unknown speaker could be, in the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(

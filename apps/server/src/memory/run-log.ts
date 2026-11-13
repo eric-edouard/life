@@ -179,8 +179,8 @@ const errorOf = (e: LogEvent) => ({
 function apply(r: Run, e: LogEvent) {
   if (e.kind === "run.error") {
     r.errors.push(errorOf(e));
-  } else if (e.step === r.step && e.kind === "run.phase") {
-    r.phases = [...(r.phases ?? []), String(e.phase)];
+  } else if (e.step === r.step && e.kind === "run.entered") {
+    r.phases = [...(r.phases ?? []), String(e.entered)];
   } else if (e.step === r.step && e.kind === "run.end") {
     r.result = omit(e);
     r.endedAt = e.at;

@@ -1,7 +1,7 @@
 // `bun scripts/eval.ts <facts.json> [claims.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
 // checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--fact-check-answers` grades the fact checks the owner answered
-// (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
+// (memory/fact-check-answers.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
 // `--json` prints the counts alone, for the bench (scripts/bench.ts). `--judge-cases` measures the judge itself: cases
 // whose grade the owner settled (~/Life/docs/evals/judge-cases-*.json), each judged alone, and how many it gets right.
 
@@ -49,22 +49,22 @@ const Facts = z.object({
   from: z.iso.date(),
   to: z.iso.date(),
 });
-/** Cases whose grade the owner settled: the judge must give `expect` for `fact` against these `claims`. */
+/** Cases whose grade the owner settled: the judge must give `expect` for `fact` against these `memory lines`. */
 const JudgeCases = z.object({
   cases: z.array(
     z.object({
-      claims: z.array(JudgeMemoryLine),
       date: z.iso.date().optional(),
       expect: z.enum(GRADES),
       fact: z.string(),
       id: z.string(),
+      memoryLines: z.array(JudgeMemoryLine),
       why: z.string(),
     })
   ),
 });
-/** The claims `keep` keeps, as the judge reads them. */
-const lines = (claims: MemoryLine[], keep: (c: MemoryLine) => boolean) =>
-  claims.flatMap((c) =>
+/** The memory lines `keep` keeps, as the judge reads them. */
+const lines = (memoryLines: MemoryLine[], keep: (c: MemoryLine) => boolean) =>
+  memoryLines.flatMap((c) =>
     keep(c) ? [{ date: c.date, id: c.ref, text: c.text }] : []
   );
 
@@ -75,21 +75,24 @@ const GRADES_KEPT = join(OUT, "fact-check-grades.json");
 
 /**
  * `--fact-check-answers`: the fact checks he answered true or false, judged against what the memory holds now of the same units, 30
- * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own claim
- * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
+ * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own memory line
+ * id, so a re-read that says it again is restated; a true still held is its own memory line, so for trues the score says
  * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A fact check none of whose units exist any more (a conversation regrouped) can't be judged: it is
- * listed apart and left out of the score. A grade is kept (`GRADES_KEPT`) while its key (the fact, the claims on its
- * units as of its day, the judge) holds and every claim it cites says the same (a batch also shows its other facts'
- * claims, which a grade may rest on); only the rest are judged again.
+ * listed apart and left out of the score. A grade is kept (`GRADES_KEPT`) while its key (the fact, the memory lines on its
+ * units as of its day, the judge) holds and every memory line it cites says the same (a batch also shows its other facts'
+ * memory lines, which a grade may rest on); only the rest are judged again.
  */
 async function factCheckAnswersRun() {
-  const [claims, live] = await Promise.all([memoryLinesNow(), readLiveUnits()]);
-  const rated = answeredFactChecks();
-  const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
+  const [memoryLines, live] = await Promise.all([
+    memoryLinesNow(),
+    readLiveUnits(),
+  ]);
+  const answered = answeredFactChecks();
+  const { gone = [], judged = [] } = Object.groupBy(answered, (f) =>
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
   const onUnit = Map.groupBy(
-    claims.flatMap((c) => c.units.map((u) => ({ c, u }))),
+    memoryLines.flatMap((c) => c.units.map((u) => ({ c, u }))),
     (x) => x.u
   );
   const claimsOn = (units: string[]) =>
@@ -97,12 +100,16 @@ async function factCheckAnswersRun() {
       [...new Set(units.flatMap((u) => onUnit.get(u)?.map((x) => x.c) ?? []))],
       () => true
     ).toSorted((a, b) => a.id.localeCompare(b.id));
-  const said = new Map(claims.map((c) => [c.ref, c.text]));
+  const said = new Map(memoryLines.map((c) => [c.ref, c.text]));
   const by = judgedBy();
   const keyOf = (f: (typeof judged)[number]) =>
     String(
       Bun.hash(
-        JSON.stringify([by, f.fact, asOf([f], claimsOn(f.units))[0]?.claims])
+        JSON.stringify([
+          by,
+          f.fact,
+          asOf([f], claimsOn(f.units))[0]?.memoryLines,
+        ])
       )
     );
   const before = readJson<Record<string, KeptGrade>>(GRADES_KEPT) ?? {};
@@ -126,7 +133,7 @@ async function factCheckAnswersRun() {
       const key = keys.get(grade.fact);
       if (key) {
         kept[grade.fact] = {
-          cited: grade.claims.map((id) => [id, said.get(id) ?? null]),
+          cited: grade.memoryLines.map((id) => [id, said.get(id) ?? null]),
           grade,
           key,
         };
@@ -145,9 +152,9 @@ async function factCheckAnswersRun() {
     await appendJsonl(SCORES, EvalScore, [
       {
         ...t.counts,
+        answered: judged.length,
         at: clock().toISOString(),
         gone: gone.length,
-        rated: judged.length,
         run,
         schemaVersion: 1,
       },
@@ -157,16 +164,16 @@ async function factCheckAnswersRun() {
     facts: judged,
     note: gone.map((f) => `- units gone, not judged: ${f.id} ${f.fact}`),
     t,
-    title: `${judged.length} rated statements, against the claims of their units (score in memory/scores.jsonl)`,
+    title: `${judged.length} answered fact checks, against the memory lines of their units (score in memory/scores.jsonl)`,
   };
 }
 
-/** `--judge-cases <file>`: each case judged alone against its own claims, and whether the judge gave its grade. */
+/** `--judge-cases <file>`: each case judged alone against its own memory lines, and whether the judge gave its grade. */
 async function judgeCasesRun(path: string) {
   const { cases } = JudgeCases.parse(await Bun.file(path).json());
   const got = new Map<string, Grade>();
   await inBatches(cases, JUDGING, async (c, dir) => {
-    const [g] = await judge([c], c.claims, { dir, run });
+    const [g] = await judge([c], c.memoryLines, { dir, run });
     if (g) {
       got.set(c.id, g);
     }
@@ -187,10 +194,10 @@ async function judgeCasesRun(path: string) {
   return { agreed, cases: cases.length };
 }
 
-/** `<facts.json> [claims.jsonl]`: hand-checked facts against the window's claims, or a candidate pipeline's. */
+/** `<facts.json> [claims.jsonl]`: hand-checked facts against the window's memory lines, or a candidate pipeline's. */
 async function factsRun(factsPath: string, claimsPath?: string) {
   const { facts, from, to } = Facts.parse(await Bun.file(factsPath).json());
-  const claims = claimsPath
+  const memoryLines = claimsPath
     ? (await Bun.file(claimsPath).text())
         .split("\n")
         .filter(Boolean)
@@ -199,8 +206,8 @@ async function factsRun(factsPath: string, claimsPath?: string) {
   return {
     facts,
     note: [],
-    t: tally(facts, await judge(facts, claims, { dir: DIR, run })),
-    title: `${claims.length} claims, ${from} to ${to}`,
+    t: tally(facts, await judge(facts, memoryLines, { dir: DIR, run })),
+    title: `${memoryLines.length} memory lines, ${from} to ${to}`,
   };
 }
 
@@ -239,7 +246,7 @@ await ended(rec, async () => {
   const { t } = result;
   const rows = result.facts.map((f) => {
     const g = t.grades.get(f.id);
-    return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
+    return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.memoryLines.join(" ") ?? ""} | ${g?.why ?? ""} |`;
   });
   console.log(
     asJson
@@ -248,7 +255,7 @@ await ended(rec, async () => {
           `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.both} kept both (stated and contradicted), ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
           ...result.note,
           "",
-          "| fact | is | memory | result | claims | why |",
+          "| fact | is | memory | result | memory lines | why |",
           "|---|---|---|---|---|---|",
           ...rows,
         ].join("\n")

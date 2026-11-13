@@ -154,7 +154,7 @@ function readPeers(biome = BIOME) {
 const PLATFORMS: Record<number, string> = { 2: "iOS device", 3: "Mac" };
 /** What he calls a device (the `devices` setting), else its platform. */
 const deviceName = (id: string, peers: ReturnType<typeof readPeers>) =>
-  settings().devices?.[id] ??
+  settings().deviceNames?.[id] ??
   PLATFORMS[peers.find((p) => p.id === id)?.platform ?? 0] ??
   "device";
 

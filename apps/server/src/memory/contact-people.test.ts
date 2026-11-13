@@ -57,9 +57,9 @@ test("a card whose handle his messages hold becomes a person, under an id from t
   expect(first.now).toEqual([
     {
       card: "card-ana",
+      handles: ["+33 6 11 11 11 11", "ana@example.com"],
       id: contactIdOf("card-ana"),
       name: "Ana Lopez",
-      surfaces: ["+33 6 11 11 11 11", "ana@example.com"],
     },
   ]);
   expect(PersonRef.safeParse(`person:${first.now[0]?.id}`).success).toBe(true);
@@ -80,9 +80,9 @@ test("a card renamed, given a number or deleted keeps its person", () => {
   expect(renamed.now).toEqual([
     {
       card: "card-ana",
+      handles: ["+33 6 11 11 11 11", "ana@example.com", "+33644444444"],
       id: contactIdOf("card-ana"),
       name: "Ana L.",
-      surfaces: ["+33 6 11 11 11 11", "ana@example.com", "+33644444444"],
     },
   ]);
   // The card is gone from Contacts: nothing is appended, the person stays.
@@ -104,7 +104,7 @@ test("two cards sharing a handle are one person under one name, never under two"
     [],
     seenOf(ANA_KEY)
   );
-  expect(twice.now.map((p) => [p.card, p.surfaces])).toEqual([
+  expect(twice.now.map((p) => [p.card, p.handles])).toEqual([
     [
       "card-ana",
       [
@@ -121,7 +121,7 @@ test("two cards sharing a handle are one person under one name, never under two"
     [],
     seenOf(ANA_KEY, "655555555")
   );
-  expect(other.now.map((p) => [p.card, p.surfaces])).toEqual([
+  expect(other.now.map((p) => [p.card, p.handles])).toEqual([
     ["card-ana", ["+33 6 11 11 11 11", "ana@example.com"]],
     ["card-zed", ["+33655555555"]],
   ]);
@@ -135,13 +135,13 @@ const truth = [
     name: "Beatrice Roy",
   }),
 ];
-const now = (id: string, name: string, surfaces: string[]): ContactNow => ({
+const now = (id: string, name: string, handles: string[]): ContactNow => ({
   card: id,
+  handles,
   id: contactIdOf(id),
   name,
-  surfaces,
 });
-const guess = (id: string, surfaces: string[]): InferredPerson => ({
+const guess = (id: string, handles: string[]): InferredPerson => ({
   area: null,
   at: AT,
   confidence: 0.9,
@@ -149,11 +149,11 @@ const guess = (id: string, surfaces: string[]): InferredPerson => ({
   id,
   madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
   name: "the neighbour",
+  namesAndHandles: handles,
   person: null,
   project: null,
   relation: "a neighbour",
   schemaVersion: 1,
-  surfaces,
 });
 
 test("a contact person is read by a handle of its card, however written, and by its name; his word and truth/ come first", () => {
@@ -180,8 +180,8 @@ test("a contact person is read by a handle of its card, however written, and by 
       [
         said({
           kind: "this-is",
+          nameOrHandle: "+33611111111",
           person: "person:bea",
-          surface: "+33611111111",
         }),
       ] as never,
       [ana]
@@ -194,8 +194,8 @@ test("a contact person is read by a handle of its card, however written, and by 
       [
         said({
           kind: "not-this-person",
+          nameOrHandle: "+33611111111",
           person: self,
-          surface: "+33611111111",
         }),
       ] as never,
       [ana]
@@ -215,7 +215,7 @@ test("one person across every channel: a card of someone in truth/ is that perso
   const inferred = [guess("inf_the-neighbour", ["+33611111111"])];
   const { canon, resolve } = foldsOf(truth, inferred, [], [bea, byName, ana]);
   // Every channel reads as Bea: her number in truth/, her card's second number and email, the name a photo carries.
-  for (const surface of [
+  for (const nameOrHandle of [
     "+33677777777",
     "+33699999999",
     "bea@example.com",
@@ -223,7 +223,7 @@ test("one person across every channel: a card of someone in truth/ is that perso
     "bea",
     "+33600000009",
   ]) {
-    expect(resolve(surface)).toBe("person:bea");
+    expect(resolve(nameOrHandle)).toBe("person:bea");
   }
   expect(canon(`person:${bea.id}`)).toBe("person:bea");
   expect(canon(`person:${byName.id}`)).toBe("person:bea");
@@ -282,9 +282,9 @@ test("a card that shares only a short name with someone whose numbers are known 
   const notHer = {
     at: AT,
     kind: "not-this-person",
+    nameOrHandle: "+33600000044",
     person: "person:bea",
     schemaVersion: 1,
-    surface: "+33600000044",
   };
   expect(
     foldsOf(truth, [], [notHer] as never, [second]).resolve("0600000044")

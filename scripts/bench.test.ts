@@ -44,7 +44,7 @@ const row = (label: string, model: string, held?: number) => ({
         },
       }),
 });
-const about = { days: ["2026-10-20"], facts: 38, rated: 99 };
+const about = { answered: 99, days: ["2026-10-20"], facts: 38 };
 
 test("bench table: within the baseline's spread (or 3) is a tie; no baseline is said so", () => {
   const t = factTable(

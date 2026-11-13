@@ -205,26 +205,26 @@ export async function appointments() {
   const last = readAppointments();
   const held = last?.appointments ?? [];
   const { refused } = readAppointmentEvents();
-  const facts = observationsAheadOf(
+  const ahead = observationsAheadOf(
     observations,
     statusInputs,
     step.today,
     new Set(held.flatMap((a) => a.observations))
   );
   const input = {
-    facts: facts.map((o) => ({
+    held: held.map((a) => ({
+      end: a.end,
+      observations: a.observations,
+      start: a.start,
+      title: a.title,
+    })),
+    here: zoneNow() ?? null,
+    observations: ahead.map((o) => ({
       id: o.id,
       said: o.date,
       text: o.text,
       when: o.when,
     })),
-    held: held.map((a) => ({
-      end: a.end,
-      facts: a.observations,
-      start: a.start,
-      title: a.title,
-    })),
-    here: zoneNow() ?? null,
     today: step.today,
   };
   const inputs = inputsOf(APPOINTMENTS_PROMPT, input);
@@ -233,7 +233,7 @@ export async function appointments() {
   }
   // A failed call, or a reply with no appointment it could keep, keeps the last ones: the next night reads again.
   const checked =
-    facts.length === 0
+    ahead.length === 0
       ? { appointments: [], invalid: 0 }
       : await step.attempt(async () => {
           const reply = await step.ask({
@@ -245,7 +245,7 @@ export async function appointments() {
             held,
             refused,
             replacedBy: (f) => statusInputs.retired.get(f)?.by,
-            shown: new Set(facts.map((o) => o.id)),
+            shown: new Set(ahead.map((o) => o.id)),
             today: step.today,
           });
           if (c.appointments.length === 0 && c.invalid > 0) {

@@ -17,6 +17,9 @@ import { logFileOf } from "../core/log";
 import { MACHINE_DIR } from "../core/platform";
 import { git } from "../core/proc";
 import { unitId } from "../memory/units";
+import { FactCheck, FactCheckAnswer } from "../records/fact-check";
+import { Correction, Unresolved } from "../records/observation";
+import { MemoryLabel } from "../records/unit";
 import {
   mayMigrate,
   migrateFor,
@@ -545,4 +548,44 @@ test("in a repo, the commits before and after: the after one holds the renames a
   expect(changed).toContain("docs/evals/judge-cases-a.json");
   expect(changed).toContain("memory/fact-checks.jsonl");
   expect(run("status", "--porcelain", "--", "memory", "docs")).toBe("");
+});
+
+/** What the made-up lines leave out; the renamed fields are what the readers must accept. */
+const FILL = { at, schemaVersion: 1 };
+const FILL_BY: Record<string, object> = {
+  "memory/fact-checks.jsonl": {
+    date: DAY,
+    group: "episodes",
+    kind: "fact",
+    text: "t",
+  },
+  "memory/unresolved.jsonl": { date: DAY },
+};
+
+test("every reader parses every migrated made-up file it reads", async () => {
+  const { dir, state } = made();
+  await migrateStored(dir, state);
+  const readers = {
+    "memory/corrections.jsonl": Correction,
+    "memory/fact-check-answers.jsonl": FactCheckAnswer,
+    "memory/fact-checks.jsonl": FactCheck,
+    "memory/labels.jsonl": MemoryLabel,
+    "memory/unresolved.jsonl": Unresolved,
+  };
+  for (const [file, schema] of Object.entries(readers)) {
+    const lines = readFileSync(join(dir, file), "utf8").trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      const parsed = schema.safeParse({
+        ...FILL,
+        ...FILL_BY[file],
+        ...JSON.parse(line),
+      });
+      expect([file, parsed.success, parsed.error?.message]).toEqual([
+        file,
+        true,
+        undefined,
+      ]);
+    }
+  }
 });

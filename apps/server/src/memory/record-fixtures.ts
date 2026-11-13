@@ -85,8 +85,12 @@ export const people = [
   Person.parse({ aliases: ["+66600000001"], id: "decoy", name: "Decoy" }),
 ];
 
-/** A person Life inferred, going by `surfaces`. */
-export const inferred = (id: string, surfaces: string[], confidence = 0.8) =>
+/** A person Life inferred, going by `namesAndHandles`. */
+export const inferred = (
+  id: string,
+  namesAndHandles: string[],
+  confidence = 0.8
+) =>
   ({
     area: "shop",
     at: "2026-10-14T00:00:00.000Z",
@@ -95,10 +99,10 @@ export const inferred = (id: string, surfaces: string[], confidence = 0.8) =>
     id,
     madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
     name: "the plumber",
+    namesAndHandles,
     project: null,
     relation: "plumber",
     schemaVersion: 1,
-    surfaces,
   }) as InferredPerson;
 
 /** A correction of his. */

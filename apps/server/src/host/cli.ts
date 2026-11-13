@@ -44,6 +44,7 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateFor } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -56,7 +57,7 @@ const only = () => {
 
 /** `change-todo-item` and `auto-add` need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
-  const why = off("todo_list");
+  const why = off("todoList");
   if (why) {
     console.error(why);
   }
@@ -85,7 +86,7 @@ const commands: Record<string, () => number | Promise<number>> = {
           const installed = await remctlVersion();
           return {
             installed,
-            on: settings().todo_list?.backend === "reminders",
+            on: settings().todoList?.backend === "reminders",
             /** remctl as Life wants it: installed, at the pinned release. */
             ready: installed === REMCTL_RELEASE.version,
             release: REMCTL_RELEASE,
@@ -104,7 +105,7 @@ const commands: Record<string, () => number | Promise<number>> = {
         started: started(),
         status: { key: localKey(), url: `http://127.0.0.1:${LOCAL_PORT}/` },
         /** The to-do list backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
-        todoList: settings().todo_list?.backend ?? null,
+        todoList: settings().todoList?.backend ?? null,
       })
     );
     return 0;
@@ -399,6 +400,8 @@ const crashed = (e: unknown) => {
 process.on("uncaughtException", crashed);
 process.on("unhandledRejection", crashed);
 try {
+  // The names' rename (names-2026-11) before the command reads anything (AGENTS.md, "A rename or a new field backfills").
+  await migrateFor(name);
   process.exit(await command());
 } catch (e) {
   crashed(e);

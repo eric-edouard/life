@@ -116,7 +116,7 @@ const delta = (sign: string, n: number) =>
   `<span style="color:${n > 0 ? C.ink : C.muted}">${sign}${n}</span>`;
 
 const changes = (items: Change[]) =>
-  `<div style="padding-bottom:6px;font:13px/1.4 ${SANS};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to History&nbsp;&nbsp;− removed</div>${items
+  `<div style="padding-bottom:6px;font:13px/1.4 ${SANS};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to Earlier&nbsp;&nbsp;− removed</div>${items
     .map(
       (c) =>
         `<table ${TABLE}><tr>

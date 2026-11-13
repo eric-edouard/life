@@ -109,9 +109,9 @@ export function withIndex(lines: (db: Database) => string[]) {
 export function withSpans(text: string, dateOf: (id: string) => string[]) {
   const parsed = parsePage(text);
   let body = bodyOf(text);
-  for (const l of parsed ? generated(parsed).bond : []) {
+  for (const l of parsed ? generated(parsed).between_us : []) {
     const days = l.cites.flatMap(dateOf).toSorted();
-    const rendered = renderLine("bond", l);
+    const rendered = renderLine("between_us", l);
     // A function, so a `$` in the line is never read as a replacement pattern.
     body = body.replace(rendered, () =>
       days.length > 0
@@ -123,7 +123,11 @@ export function withSpans(text: string, dateOf: (id: string) => string[]) {
 }
 
 /** A page, whole, with when it was built, when it has one; then the observations found for it. */
-export function entity(db: Database, text: string | null, found: string[]) {
+export function pageAndLatest(
+  db: Database,
+  text: string | null,
+  found: string[]
+) {
   const meta = text ? parsePage(text)?.meta : undefined;
   const dates = db.query<{ date: string }, [string]>(
     "select date from observations where id = ?"

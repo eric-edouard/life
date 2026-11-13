@@ -39,8 +39,8 @@ create table observations (
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
   superseded_by text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
-create table observation_entities (observation text, entity text, primary key (observation, entity));
-create index observation_entities_entity on observation_entities (entity);
+create table observation_subjects (observation text, subject text, primary key (observation, subject));
+create index observation_subjects_subject on observation_subjects (subject);
 create table units (
   id text primary key, date text, source text, title text, importance integer, type text, area text, topics text);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
@@ -153,7 +153,7 @@ export function buildIndex(
     db.run("insert into rebuilt values (?)", [builtAt.toISOString()]);
     const row = insertInto(db, "observations", 17);
     const text = insertInto(db, "search", 3);
-    const link = insertInto(db, "observation_entities", 2);
+    const link = insertInto(db, "observation_subjects", 2);
     const hash = insertInto(db, "search_hashes", 2);
     const episodeRow = insertInto(db, "episode_search", 3);
     for (const episode of episodes) {
@@ -184,7 +184,7 @@ export function buildIndex(
       );
       text.run(o.id, o.text, o.quote);
       hash.run(o.id, textHashOf(EMBEDDER_MODEL, `${o.text}\n${o.quote}`));
-      for (const e of o.entities) {
+      for (const e of o.subjects) {
         link.run(o.id, e);
       }
     }
@@ -276,7 +276,7 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
       db.query("select id from search_hashes limit 0").all();
       db.query("select id from episode_search limit 0").all();
       // One built before the table of who an observation is about took its name.
-      db.query("select entity from observation_entities limit 0").all();
+      db.query("select subject from observation_subjects limit 0").all();
     } finally {
       db.close();
     }

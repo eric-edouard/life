@@ -25,7 +25,7 @@ import { readPeople } from "./who";
 // changed. Nothing is sent.
 
 const SITUATION_PROMPT = "memory-situation.v2";
-/** Days of episodes a situation reads; older ones live on in the page's sections and History. */
+/** Days of episodes a situation reads; older ones live on in the page's sections and Earlier. */
 const DAYS = 30;
 
 const readSituation = (ref: string) => {

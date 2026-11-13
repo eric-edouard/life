@@ -28,7 +28,7 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
   const o = (over = {}) => ({
     about: undefined,
     confidence: 0.9,
-    entities: ["person:zoe"],
+    subjects: ["person:zoe"],
     unit: "unit_a",
     ...over,
   });
@@ -38,7 +38,7 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
     "guessed-person",
   ]);
   // An inferred person he since named is not a guess; one a ref folds into still is.
-  expect(doubtsOf(o({ entities: ["person:sam"] }), refOf)).toEqual([
+  expect(doubtsOf(o({ subjects: ["person:sam"] }), refOf)).toEqual([
     "guessed-person",
   ]);
   expect(

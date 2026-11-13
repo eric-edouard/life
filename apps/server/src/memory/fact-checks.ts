@@ -4,7 +4,7 @@ import { openFactChecks, readObservations } from "./memory-files";
 import { readPeople } from "./who";
 
 // His fact checks: the memory lines Life is least sure of (`doubtful` only, never recorded text), drawn each night, put to
-// him in a chat (`read_fact_checks`) and answered there (`correct_memory`, kind `fact_check`: memory/ratings.jsonl).
+// him in a chat (`read_fact_checks`) and answered there (`correct_memory`, kind `fact_check`: memory/fact-check-answers.jsonl).
 
 /** How many stay open at once. */
 const OPEN = 5;

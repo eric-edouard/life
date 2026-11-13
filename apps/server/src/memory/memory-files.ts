@@ -101,8 +101,8 @@ export const LEDGER = join(MEMORY, "ledger.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
 export const FILES = join(MEMORY, "files.jsonl");
-export const FACT_CHECKS = join(MEMORY, "statements.jsonl");
-export const FACT_CHECK_ANSWERS = join(MEMORY, "ratings.jsonl");
+export const FACT_CHECKS = join(MEMORY, "fact-checks.jsonl");
+export const FACT_CHECK_ANSWERS = join(MEMORY, "fact-check-answers.jsonl");
 export const SCORES = join(MEMORY, "scores.jsonl");
 /** Everyone whose page is written, by ref (the inverse of `pagePath`). */
 export const writtenPeople = async () =>
@@ -576,7 +576,7 @@ export function recordFactCheckAnswer(
   note?: string
 ) {
   if (!readFactChecks().some((s) => s.ref === ref)) {
-    throw new Error(`no fact check ${ref} in memory/statements.jsonl`);
+    throw new Error(`no fact check ${ref} in memory/fact-checks.jsonl`);
   }
   return appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
     {

@@ -250,8 +250,8 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
 test("a processing run holds its steps in the order it entered them", () => {
   const at = "2026-10-15T00:31:00.000Z";
   const phase = (p: string, s: number) =>
-    ev("run.phase", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
-      phase: p,
+    ev("run.entered", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
+      entered: p,
       run: id(at),
     });
   const list = assembleRuns(

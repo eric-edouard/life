@@ -36,7 +36,7 @@ export const SourceName = z.enum([
   "notes",
   "claude",
   "chatgpt",
-  "told",
+  "told-life",
   AGENT_WORD,
 ]);
 

@@ -151,7 +151,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("observations retired: 1");
   expect(text).toContain("Pages no longer kept (git has them): inf_glazier");
   expect(text).toContain("3m 41s");
-  expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
+  expect(text).toContain("Shop: +2 added, 1 moved to Earlier, 0 removed");
   expect(text).toContain("75%");
   expect(text).toContain("Codex quota: 40% used");
   expect(text).toContain(

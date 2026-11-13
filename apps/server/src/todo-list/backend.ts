@@ -14,9 +14,9 @@ import { reminders } from "./remctl";
 let built: { b: TodoListBackend; of: unknown } | undefined;
 /** This install's backend, made once per settings read. The one gate: it throws while the actions output is off. */
 export function backend(): TodoListBackend {
-  const a = settings().todo_list;
+  const a = settings().todoList;
   if (!a) {
-    throw new Error(off("todo_list"));
+    throw new Error(off("todoList"));
   }
   if (built?.of !== a) {
     built = {
@@ -96,7 +96,7 @@ export async function sectionsOf(list?: string) {
 
 /** Whether the backend can write right now (read-only: one read of his lists), the problems: none when it is ready or off. */
 export async function checks(): Promise<string[]> {
-  if (!isOn("todo_list")) {
+  if (!isOn("todoList")) {
     return [];
   }
   const b = backend();
@@ -182,7 +182,7 @@ export async function write(c: Change): Promise<Done> {
   if (c.kind === "add") {
     const w = await b.add(c);
     return {
-      after: { ...fieldsOf(c), id: w.id, link: w.deepLinkId },
+      after: { ...fieldsOf(c), deepLinkId: w.deepLinkId, id: w.id },
       error: w.error,
       target: target(w.id),
     };

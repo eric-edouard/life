@@ -29,7 +29,10 @@ const his = (
   kind: LedgerEntry["kind"],
   id: string,
   at: string,
-  after: Partial<Record<Field, unknown>> & { created?: string; link?: string },
+  after: Partial<Record<Field, unknown>> & {
+    created?: string;
+    deepLinkId?: string;
+  },
   before?: Record<string, unknown>
 ): LedgerEntry => ({
   after,
@@ -40,7 +43,7 @@ const his = (
   result: "ok",
   schemaVersion: 1,
   target: `${prefix}:${id}`,
-  via: "reminders",
+  via: "todo_list",
   why: kind === "import" ? "linked, no change" : "his change on his list",
 });
 
@@ -99,7 +102,7 @@ function linesOf(
             "import",
             id,
             at,
-            { ...of(now, unknown), link: r && deepLinkIdOf(r) },
+            { ...of(now, unknown), deepLinkId: r && deepLinkIdOf(r) },
             rekey
           ),
         ]
@@ -152,7 +155,7 @@ export function inbound(
       const after = {
         ...fieldsNow(r),
         created: r.createdDate,
-        link: deepLinkIdOf(r),
+        deepLinkId: deepLinkIdOf(r),
       };
       lines.push(
         his(s.prefix, first || tried ? "import" : "add", r.id, at, after)

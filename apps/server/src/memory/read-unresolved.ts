@@ -18,14 +18,17 @@ export async function unresolved(top = 25) {
     (a) =>
       `- ${nameOf.get(a.card) ?? a.card} (${a.card}): its name and handles say ${a.people.map((p) => nameOf.get(p) ?? p).join(" and ")}`
   );
-  const open = rows.filter((r) => !resolve(r.surface));
+  const open = rows.filter((r) => !resolve(r.nameAsWritten));
   const units = readUnitsFor(
     open.map((r) => r.unit),
     open.map((r) => r.date)
   );
   const byId = new Map(units.map((u) => [u.id, u]));
   const resolved = rows.length - open.length;
-  const names = Map.groupBy(open, (r) => nameKey(r.surface) || r.surface);
+  const names = Map.groupBy(
+    open,
+    (r) => nameKey(r.nameAsWritten) || r.nameAsWritten
+  );
   const lines = [...names.values()]
     .sort((a, b) => b.length - a.length)
     .slice(0, top)
@@ -37,16 +40,18 @@ export async function unresolved(top = 25) {
           : list
       ).reduce((m, r) => (r.date > m.date ? r : m));
       const u = byId.get(last.unit);
-      const surfaces = [...new Set(list.map((r) => r.surface))].join(" / ");
+      const namesAndHandles = [
+        ...new Set(list.map((r) => r.nameAsWritten)),
+      ].join(" / ");
       const example = u
         ? `${u.date} ${u.source} "${clip(u.title, EXAMPLE_MAX)}" ${u.id}`
         : `${last.date} ${last.unit}`;
-      return `- ${surfaces}: ${list.length} times, ${new Set(list.map((r) => r.date)).size} days, ${["model", "speaker"].map((v) => `${list.filter((r) => r.via === v).length} ${v}`).join(" / ")}. e.g. ${example}`;
+      return `- ${namesAndHandles}: ${list.length} times, ${new Set(list.map((r) => r.date)).size} days, ${["model", "speaker"].map((v) => `${list.filter((r) => r.via === v).length} ${v}`).join(" / ")}. e.g. ${example}`;
     });
   const { observations } = await observationsNow(people);
   const about = new Map<string, number>();
   for (const o of observations) {
-    for (const e of o.entities) {
+    for (const e of o.subjects) {
       about.set(e, (about.get(e) ?? 0) + 1);
     }
   }
@@ -54,7 +59,7 @@ export async function unresolved(top = 25) {
     .sort((a, b) => b.confidence - a.confidence)
     .map(
       (p) =>
-        `- person:${p.id} (${p.confidence}${p.confidence < INFERRED_USE_AT ? ", not used" : ""}): ${p.name}, ${p.relation}${p.area ? `, ${p.area}` : ""}. ${p.surfaces.join(" / ")}; ${p.evidence.length} quotes, ${about.get(`person:${p.id}`) ?? 0} observations`
+        `- person:${p.id} (${p.confidence}${p.confidence < INFERRED_USE_AT ? ", not used" : ""}): ${p.name}, ${p.relation}${p.area ? `, ${p.area}` : ""}. ${p.namesAndHandles.join(" / ")}; ${p.evidence.length} quotes, ${about.get(`person:${p.id}`) ?? 0} observations`
     );
   return [
     `People Life inferred (${inferredPeople.length}; used from confidence ${INFERRED_USE_AT}, below truth/ and your corrections):`,

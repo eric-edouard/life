@@ -427,11 +427,11 @@ function needlesOf(who: string, people: People) {
     who,
     ...(person ? [person.name, ...person.aliases, ...handlesOf(person)] : []),
     ...outsideDirectory.flatMap((p) =>
-      canon(`person:${p.id}`) === ref ? [p.name, ...p.surfaces] : []
+      canon(`person:${p.id}`) === ref ? [p.name, ...p.namesAndHandles] : []
     ),
     // A handle the owner said is them ("Ann K on Instagram is Claire").
     ...corrections.flatMap((c) =>
-      c.kind === "this-is" && canon(c.person) === ref ? [c.surface] : []
+      c.kind === "this-is" && canon(c.person) === ref ? [c.nameOrHandle] : []
     ),
   ]
     .map(nameKey)

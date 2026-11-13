@@ -63,7 +63,7 @@ export function checkPeople(
     const seen = r.success ? ctx.unknown.get(r.data.key) : undefined;
     if (
       !(r.success && seen) ||
-      records.some((x) => x.surfaces.includes(r.data.key))
+      records.some((x) => x.namesAndHandles.includes(r.data.key))
     ) {
       continue;
     }
@@ -81,6 +81,7 @@ export function checkPeople(
         id: inferredId(r.data.name, r.data.key, ctx.taken),
         madeBy: ctx.madeBy,
         name: r.data.name,
+        namesAndHandles: [r.data.key],
         // Only someone in truth/: a link never leads to another guess.
         person:
           r.data.person && ctx.truth.has(r.data.person) ? r.data.person : null,
@@ -90,7 +91,6 @@ export function checkPeople(
             : null,
         relation: r.data.relation,
         schemaVersion: 1,
-        surfaces: [r.data.key],
       });
     }
   }
@@ -107,7 +107,7 @@ export function answeredBy(
   inferred: InferredPerson[]
 ) {
   const judged = new Set(
-    inferred.flatMap((p) => (p.person === undefined ? [] : p.surfaces))
+    inferred.flatMap((p) => (p.person === undefined ? [] : p.namesAndHandles))
   );
   return (s: string) => {
     const ref = resolve(s);
@@ -119,7 +119,7 @@ export function answeredBy(
 }
 
 /**
- * The surfaces of a day not in the directory, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
+ * The namesAndHandles of a day not in the directory, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
  * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
  */

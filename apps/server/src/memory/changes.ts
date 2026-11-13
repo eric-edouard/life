@@ -268,7 +268,7 @@ async function readContext() {
   // The latest record for a surface wins (who.ts): its line number.
   const inferredLatest = new Map<string, number>();
   for (const [n, p] of inferred.entries()) {
-    for (const s of p.surfaces) {
+    for (const s of p.namesAndHandles) {
       inferredLatest.set(s, n);
     }
   }
@@ -392,7 +392,7 @@ function itemOf(
     return {
       about: refs([`person:${p.id}`, p.area && `area:${p.area}`]),
       // The latest record for a surface wins: an older one no longer decides any surface.
-      current: p.surfaces.some((s) => ctx.inferredLatest.get(s) === n),
+      current: p.namesAndHandles.some((s) => ctx.inferredLatest.get(s) === n),
       happenedAt: null,
       id,
       record: p,
@@ -422,7 +422,7 @@ function itemOf(
           : `ledger.${a.result}`,
     };
   }
-  if (source === "ratings") {
+  if (source === "fact-check-answers") {
     const r = FactCheckAnswer.parse(raw);
     return {
       about: [],
@@ -436,7 +436,7 @@ function itemOf(
   }
   const o = Observation.parse(raw);
   return {
-    about: refs([...o.entities, o.speaker, o.area && `area:${o.area}`]),
+    about: refs([...o.subjects, o.speaker, o.area && `area:${o.area}`]),
     happenedAt: o.at,
     id,
     record: o,
@@ -476,7 +476,7 @@ const monthName = (file: string) =>
 
 /**
  * The change feed: every observation extracted, superseded, correction, inferred identity, logged action and committed
- * page change, past `cursor`. Sources in a fixed order (corrections, supersessions, inferred, actions, ratings, each month of
+ * page change, past `cursor`. Sources in a fixed order (corrections, supersessions, inferred, actions, fact-check answers, each month of
  * observations, pages); sort a page by `recordedAt` to show it. Page changes carry the lines added and removed.
  */
 export async function changeFeed(f: ChangeFilter = {}) {
@@ -487,7 +487,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
     fileSource(SUPERSESSIONS, "supersessions"),
     fileSource(INFERRED, "inferred"),
     fileSource(LEDGER, "ledger"),
-    fileSource(FACT_CHECK_ANSWERS, "ratings"),
+    fileSource(FACT_CHECK_ANSWERS, "fact-check-answers"),
     ...months.map((m) => fileSource(join(OBSERVATIONS, m), monthName(m))),
     listSource("pages", pageLines),
   ];
@@ -565,22 +565,10 @@ export async function readObservation(id: string) {
   return {
     corrections: [
       ...hiding(ctx.corrections, id),
-      ...ctx.corrections.filter((c) => "surface" in c && c.surface === handle),
+      ...ctx.corrections.filter(
+        (c) => "nameOrHandle" in c && c.nameOrHandle === handle
+      ),
     ],
-    entities: now.entities.map((ref) => {
-      const inferredPerson = inferred.get(ref);
-      return {
-        filed: (o.entities as string[]).includes(ref),
-        inferred: inferredPerson
-          ? {
-              confidence: inferredPerson.confidence,
-              relation: inferredPerson.relation,
-            }
-          : null,
-        name: people.names.get(ref) ?? null,
-        ref,
-      };
-    }),
     index: ctx.index
       ? { holds: ctx.index.has(id), supersededBy: ctx.index.get(id) ?? null }
       : null,
@@ -605,6 +593,20 @@ export async function readObservation(id: string) {
       now: now.speaker,
     },
     status: observationStatusOf(o, ctx),
+    subjects: now.subjects.map((ref) => {
+      const inferredPerson = inferred.get(ref);
+      return {
+        filed: (o.subjects as string[]).includes(ref),
+        inferred: inferredPerson
+          ? {
+              confidence: inferredPerson.confidence,
+              relation: inferredPerson.relation,
+            }
+          : null,
+        name: people.names.get(ref) ?? null,
+        ref,
+      };
+    }),
     unit: unit
       ? {
           date: unit.date,

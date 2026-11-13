@@ -12,18 +12,18 @@ export type ReadName = (typeof READ_NAMES)[number];
  * One call's reply, a line of the file: the reply as the model gave it (only its `exchanges` list is required, the
  * rest is checked when read, `checkedMoves`), the `eventKey` of every message the call showed in order (`messages`),
  * where each exchange starts in them (`starts`), the prompt's name in `madeBy.prompt` and the digest of its text
- * (`wording`). The person and the moves are never stored.
+ * (`promptDigest`). The person and the moves are never stored.
  */
 export const ReadReply = z
   .object({
     at: isoDateTime,
     madeBy: MadeBy,
     messages: z.array(z.string().min(1)).min(1),
+    promptDigest: z.string().regex(/^[0-9a-f]{16}$/),
     read: z.enum(READ_NAMES),
     reply: z.looseObject({ exchanges: z.array(z.unknown()) }),
     schemaVersion: z.literal(1),
     starts: z.array(z.int().min(0)).min(1),
-    wording: z.string().regex(/^[0-9a-f]{16}$/),
   })
   .strict();
 export type ReadReply = z.infer<typeof ReadReply>;

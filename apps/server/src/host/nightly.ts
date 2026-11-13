@@ -251,7 +251,7 @@ async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
-  const { history } = settings();
+  const { histories: history } = settings();
   // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
   const pending = history
     ? await readHistoryWork(everyYear, people, {
@@ -496,7 +496,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     await situations();
     steps.at = "appointments";
     // Only while his calendar takes them: nothing else reads the file.
-    if (isOn("appointments")) {
+    if (isOn("appointmentsCalendar")) {
       await appointments();
     }
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.

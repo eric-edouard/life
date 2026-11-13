@@ -1,7 +1,7 @@
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 
 // His items (to-do items, Google tasks) as the ledger holds them: what Life wrote (`changeTodoItem`, its intents too) and what it read
-// back as his (`via: "reminders"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
+// back as his (`via: "todo_list"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
 /** What `inbound` compares with the backend. `lost`: neither in his lists nor in Recently Deleted. */
 export const COMPARED = [
@@ -65,7 +65,7 @@ function apply(it: LedgerTodoItem, a: LedgerEntry) {
   const after = pickFrom(KEPT, a.after);
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
-  it.wrote = a.via === "reminders" ? it.wrote : a.at;
+  it.wrote = a.via === "todo_list" ? it.wrote : a.at;
   for (const [f, v] of Object.entries(after)) {
     if (unsure) {
       it.tried.add(f);
@@ -79,7 +79,7 @@ function apply(it: LedgerTodoItem, a: LedgerEntry) {
     }
   }
   if (!tried) {
-    it.deepLinkId = (a.after.link as string | undefined) ?? it.deepLinkId;
+    it.deepLinkId = (a.after.deepLinkId as string | undefined) ?? it.deepLinkId;
     it.removedAt = after.deleted ? a.at : it.removedAt;
   }
   return tried;

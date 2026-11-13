@@ -66,7 +66,11 @@ import {
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
 import { readFiles } from "./memory-files";
 import { showFiles } from "./message-files";
-import { newestTold, readEarliestTold, readTold } from "./told";
+import {
+  newestToldLife,
+  readEarliestToldLife,
+  readToldLife,
+} from "./told-life";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, below).
@@ -196,12 +200,12 @@ const LISTED: Descriptor[] = [
   ),
   // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
   {
-    earliest: readEarliestTold,
+    earliest: readEarliestToldLife,
     kind: "chat",
     label: "Told Life",
-    name: "told",
-    newest: newestTold,
-    read: readTold,
+    name: "told-life",
+    newest: newestToldLife,
+    read: readToldLife,
     silentAfter: Number.POSITIVE_INFINITY,
   },
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
@@ -218,7 +222,7 @@ const LISTED: Descriptor[] = [
     earliest: readEarliestCommit,
     kind: "repo",
     label: "Git",
-    missing: () => (settings().repos ? undefined : "no repos folder set"),
+    missing: () => (settings().reposFolder ? undefined : "no repos folder set"),
     name: "git",
     newest: newestCommit,
     read: (since, { me, repos }, before) =>

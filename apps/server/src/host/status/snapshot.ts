@@ -926,9 +926,9 @@ function calendarCard(
     group: "pipeline",
     headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
     id,
-    name: OUTPUTS[id].label,
+    name: OUTPUTS[`${id}Calendar`].label,
     ...firstOf(
-      [!isOn(id), { tone: "idle", word: "off" }],
+      [!isOn(`${id}Calendar`), { tone: "idle", word: "off" }],
       [!!failed, { tone: "warn", word: "failing" }],
       [n > 0, { tone: "ok", word: "syncing" }],
       [true, { tone: "idle", word: "quiet" }]
@@ -1046,7 +1046,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("todo_list"), { tone: "idle", word: "off" }],
+        [!isOn("todoList"), { tone: "idle", word: "off" }],
         [
           r.actionChecks.length > 0,
           {
@@ -1075,7 +1075,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.todo_list.label,
+      name: OUTPUTS.todoList.label,
     },
     {
       ...firstOf(

@@ -103,8 +103,8 @@ const JEROME = "person:jerome";
 const line = (id: string, unit: string, unitHash = "h1", run = "r1") =>
   ({
     ...obs(id, unit, unitHash, run),
-    entities: [],
     source: { channel: "lifelog", ref: "x" },
+    subjects: [],
     validTo: null,
   }) as unknown as Observation;
 const fixture = {
@@ -498,7 +498,6 @@ test("unit references read only indexed or cited days; a missing index entry che
       at: "2026-10-20T10:00:00.000Z",
       confidence: 1,
       date: "2026-10-20",
-      entities: [],
       id,
       importance: 2,
       madeBy: { ...madeBy, unitHash: indexed.hash },
@@ -506,6 +505,7 @@ test("unit references read only indexed or cited days; a missing index entry che
       schemaVersion: 1,
       source: { channel: "lifelog", ref: "j:0@x" },
       speaker: "person:me",
+      subjects: [],
       text: "t",
       type: "to_do",
       tz: "UTC",

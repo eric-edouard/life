@@ -168,13 +168,16 @@ test(
   async () => {
     const { setSettings, settings } = await import("../../core/settings");
     const { log } = await import("../../core/log");
-    const { past } = settings();
+    const { pastCalendar: past } = settings();
     // Past the snapshot's cache of the log, which earlier tests filled.
     const later = performance.now() + HOUR;
     const timer = spyOn(performance, "now").mockReturnValue(later);
     try {
       setSettings({
-        past: { account: "owner@example.com", calendar: "past@example.com" },
+        pastCalendar: {
+          account: "owner@example.com",
+          calendar: "past@example.com",
+        },
       });
       log("run.error", {
         error: "Error: gog calendar: no token",
@@ -188,7 +191,7 @@ test(
       });
     } finally {
       timer.mockRestore();
-      setSettings({ past });
+      setSettings({ pastCalendar: past });
     }
   },
   MIN

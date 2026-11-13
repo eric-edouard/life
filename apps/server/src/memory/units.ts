@@ -77,7 +77,7 @@ export interface Message {
 }
 
 /** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null. */
-export type Resolve = (surface: string) => string | null;
+export type Resolve = (nameOrHandle: string) => string | null;
 
 export interface Built {
   messages: Message[];
@@ -132,7 +132,7 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
 /** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
 const agentReports = () => [
   ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
-  ...settings().reports,
+  ...settings().agentReportSenders,
 ];
 
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */

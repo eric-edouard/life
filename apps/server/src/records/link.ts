@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EntityRef, isoDateTime, MadeBy } from "./fields";
+import { isoDateTime, MadeBy, SubjectRef } from "./fields";
 import { ObservationId } from "./observation";
 
 // Memory's links (memory/links.jsonl, docs/SCHEMA.md): two observations tied, found by the links step.
@@ -28,7 +28,7 @@ export const LinkBatch = z
     offered: z.array(ObservationId),
     open: z.array(ObservationId),
     schemaVersion: z.literal(1),
-    subject: EntityRef,
+    subject: SubjectRef,
   })
   .strict();
 export type LinkBatch = z.infer<typeof LinkBatch>;
