@@ -77,7 +77,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last done one, `zone-sources-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
+  the last done one, `names-2026-11`, is in git history; once it has run on his data it goes), with the owner's OK on the list: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he

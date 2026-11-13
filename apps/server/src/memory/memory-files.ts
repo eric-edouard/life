@@ -742,11 +742,8 @@ export const episodesWhere = async (keep: (m: Episode) => boolean) => {
 };
 
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
-export function commitMemory(
-  all: string[],
-  message: string,
-  dir = OWNER_DATA_DIR
-) {
+export function commitMemory(all: string[], message: string) {
+  const dir = OWNER_DATA_DIR;
   // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
   if (!existsSync(join(dir, ".git"))) {
     throw new Error(`${dir} is not a repo of its own: nothing is committed`);
