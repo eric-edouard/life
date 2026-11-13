@@ -299,7 +299,7 @@ const HANDLERS: Record<string, Handler> = {
    * `--since` places every week from that day to today, in order (each week sees the matters of the weeks before);
    * `list` prints each matter.
    */
-  async matters(values, rest) {
+  matters(values, rest) {
     if (rest[0] === "list") {
       return printed(matterLines().join("\n") || "(no matters)");
     }
