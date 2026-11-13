@@ -172,7 +172,7 @@ export async function day(date: string) {
       )
       .all(date);
     const of = shownEpisode(byEpisode, new Set(episodes));
-    const factsOf = (m: Episode | undefined) =>
+    const observationsOf = (m: Episode | undefined) =>
       facts.filter((f) => of(f.unit) === m).map(line);
     return dayLines({
       actions,
@@ -187,12 +187,12 @@ export async function day(date: string) {
         const its = ofDays.list.filter((p) => p.episode === episode);
         return {
           episode,
-          facts: factsOf(episode),
+          facts: observationsOf(episode),
           ...(its.length > 0 ? { paid: paid(its) } : {}),
           stay: stay ? where(stay) : undefined,
         };
       }),
-      facts: factsOf(undefined),
+      facts: observationsOf(undefined),
       payments: ofDays.error
         ? [`- Payments unknown: ${ofDays.error}`]
         : ofDays.list.toSorted(byTime).map(paymentLine),

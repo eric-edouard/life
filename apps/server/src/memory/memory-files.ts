@@ -15,7 +15,7 @@ import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { Episode } from "../records/episode";
-import { Rating, Statement } from "../records/fact-check";
+import { FactCheck, FactCheckAnswer } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import {
   ContactPerson,
@@ -101,8 +101,8 @@ export const LEDGER = join(MEMORY, "ledger.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
 export const FILES = join(MEMORY, "files.jsonl");
-export const STATEMENTS = join(MEMORY, "statements.jsonl");
-export const RATINGS = join(MEMORY, "ratings.jsonl");
+export const FACT_CHECKS = join(MEMORY, "statements.jsonl");
+export const FACT_CHECK_ANSWERS = join(MEMORY, "ratings.jsonl");
 export const SCORES = join(MEMORY, "scores.jsonl");
 /** Everyone whose page is written, by ref (the inverse of `pagePath`). */
 export const writtenPeople = async () =>
@@ -303,16 +303,18 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
 };
 
 /** The owner's answers to the fact checks: the latest for each claim (null: taken back). */
-export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.ref);
+export const latestAnswers = (list: FactCheckAnswer[]) =>
+  latestBy(list, (r) => r.ref);
 
-export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
+export const readFactCheckAnswers = () =>
+  latestAnswers(rowsOf(FACT_CHECK_ANSWERS, FactCheckAnswer));
 
 /**
  * What each answer means, decided here only: the correction it reads as (false and partly hide the claim as wrong,
  * outdated retires it as history), and what it says to the eval (`fact`: true, false, or null to leave it out).
  */
 const ANSWERS: Record<
-  NonNullable<Rating["answer"]>,
+  NonNullable<FactCheckAnswer["answer"]>,
   { correction: "wrong" | "outdated" | null; fact: boolean | null }
 > = {
   false: { correction: "wrong", fact: false },
@@ -323,7 +325,9 @@ const ANSWERS: Record<
 };
 
 /** His latest answers as the corrections they read as (`ANSWERS`), his note with them: an undo or a later answer lifts one. */
-export const ratedCorrections = (latest: Map<string, Rating>): Correction[] =>
+export const answeredCorrections = (
+  latest: Map<string, FactCheckAnswer>
+): Correction[] =>
   [...latest.values()].flatMap(({ answer, at, note, ref }) => {
     const kind = answer && ANSWERS[answer].correction;
     return kind
@@ -357,10 +361,10 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
       : []
   );
 
-/** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`ratedCorrections`). */
+/** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`answeredCorrections`). */
 export const readCorrections = (): Correction[] => [
   ...rowsOf(CORRECTIONS, Correction),
-  ...ratedCorrections(readRatings()),
+  ...answeredCorrections(readFactCheckAnswers()),
 ];
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
@@ -524,22 +528,22 @@ export async function recordCorrection(said: unknown) {
 }
 
 /** The fact checks he was shown: every statement, in the order it was drawn. */
-export const readStatements = () => rowsOf(STATEMENTS, Statement);
+export const readFactChecks = () => rowsOf(FACT_CHECKS, FactCheck);
 
 /** How long a drawn fact check stays open; after that it counts as skipped (derived, nothing written). */
 const FACT_CHECK_OPEN = 7 * DAY;
 /** The fact checks open now (the one place it is decided): drawn under 7 days ago, not answered. */
 export function openFactChecks(now = clock().getTime()) {
-  const rated = readRatings();
-  return readStatements().filter(
+  const rated = readFactCheckAnswers();
+  return readFactChecks().filter(
     (s) => !rated.get(s.ref)?.answer && now - Date.parse(s.at) < FACT_CHECK_OPEN
   );
 }
 
 /** His rated statements as facts, true or false as `ANSWERS` says (skip and partly left out). */
-export function ratedFacts() {
-  const ratings = readRatings();
-  return readStatements().flatMap((s) => {
+export function answeredObservations() {
+  const ratings = readFactCheckAnswers();
+  return readFactChecks().flatMap((s) => {
     const answer = ratings.get(s.ref)?.answer;
     const fact = answer ? ANSWERS[answer].fact : null;
     return answer && fact !== null
@@ -560,15 +564,15 @@ export function ratedFacts() {
 }
 
 /** Appends the owner's answer to a fact check he was shown (`rate`), with his why; a later answer replaces it. */
-export function recordRating(
+export function recordFactCheckAnswer(
   ref: string,
-  answer: NonNullable<Rating["answer"]>,
+  answer: NonNullable<FactCheckAnswer["answer"]>,
   note?: string
 ) {
-  if (!readStatements().some((s) => s.ref === ref)) {
+  if (!readFactChecks().some((s) => s.ref === ref)) {
     throw new Error(`no fact check ${ref} in memory/statements.jsonl`);
   }
-  return appendJsonl(RATINGS, Rating, [
+  return appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
     {
       answer,
       at: clock().toISOString(),

@@ -6,7 +6,7 @@ import { ObservationId } from "./observation";
 // The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
 
 /** memory/statements.jsonl: the fact checks, one statement per claim, frozen as he was shown it (docs/SCHEMA.md). */
-export const Statement = z
+export const FactCheck = z
   .object({
     at: isoDateTime,
     date: isoDate,
@@ -20,10 +20,10 @@ export const Statement = z
   })
   .strict();
 
-export type Statement = z.infer<typeof Statement>;
+export type FactCheck = z.infer<typeof FactCheck>;
 
 /** memory/ratings.jsonl: his answers to the fact checks, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
-export const Rating = z
+export const FactCheckAnswer = z
   .object({
     answer: z.enum(["true", "false", "partly", "outdated", "skip"]).nullable(),
     at: isoDateTime,
@@ -34,7 +34,7 @@ export const Rating = z
   })
   .strict();
 
-export type Rating = z.infer<typeof Rating>;
+export type FactCheckAnswer = z.infer<typeof FactCheckAnswer>;
 
 /** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --ratings`), its counts (docs/SCHEMA.md). */
 export const EvalScore = z

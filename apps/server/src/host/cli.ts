@@ -49,7 +49,7 @@ const only = () => {
   return names.length === 1 ? names[0] : undefined;
 };
 
-/** `act` and the grant need the actions output: off, they say so and do nothing. */
+/** `change-todo-item` and `auto-add` need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
   const why = off("todo_list");
   if (why) {
@@ -59,33 +59,6 @@ const pluginOff = () => {
 };
 
 const commands: Record<string, () => number | Promise<number>> = {
-  /**
-   * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
-   * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
-   */
-  async act() {
-    const [arg] = process.argv.slice(3);
-    if (pluginOff()) {
-      return 2;
-    }
-    if (arg === "--check") {
-      const problems = await checks();
-      console.log(problems.join("\n") || "ready");
-      return problems.length > 0 ? 1 : 0;
-    }
-    let asked: Asked;
-    try {
-      asked = Asked.parse(JSON.parse(arg ?? ""));
-    } catch (e) {
-      console.error(
-        `usage: bun life act '<json>' | --check\n${(e as Error).message}`
-      );
-      return 2;
-    }
-    const done = await actAsked(asked, "session");
-    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
-    return done.result === "failed" ? 1 : 0;
-  },
   /**
    * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
    * the Mac, every source with whether he turned it on, what keeps it from being read now and whether that is Full
@@ -186,10 +159,55 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return 0;
   },
+  /**
+   * The standing grant (decision 2), only on his own words in this conversation: `auto-add on|off '<his words>'`. Off
+   * until he says yes; his undo of one of its reminders turns it off again.
+   */
+  async "auto-add"() {
+    if (pluginOff()) {
+      return 2;
+    }
+    const [state, ...words] = process.argv.slice(3);
+    const said = words.join(" ").trim();
+    if (!(state === "on" || state === "off") || said.length < 3) {
+      console.error("usage: bun life auto-add on|off '<his words>'");
+      return 2;
+    }
+    const done = await setGrant(state === "on", said);
+    console.log(`${done.id}: ${entryLine(done)}`);
+    return 0;
+  },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
   backup,
   /** The messaging bridges: `bridge [status] | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
   bridge: () => bridgeCommand(process.argv.slice(3)),
+  /**
+   * Acts on the owner's clear request, for a Claude session: `change-todo-item '<json>'` (a change with `said`, his words, and
+   * `why`); `change-todo-item --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
+   */
+  async "change-todo-item"() {
+    const [arg] = process.argv.slice(3);
+    if (pluginOff()) {
+      return 2;
+    }
+    if (arg === "--check") {
+      const problems = await checks();
+      console.log(problems.join("\n") || "ready");
+      return problems.length > 0 ? 1 : 0;
+    }
+    let asked: Asked;
+    try {
+      asked = Asked.parse(JSON.parse(arg ?? ""));
+    } catch (e) {
+      console.error(
+        `usage: bun life change-todo-item '<json>' | --check\n${(e as Error).message}`
+      );
+      return 2;
+    }
+    const done = await actAsked(asked, "session");
+    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
+    return done.result === "failed" ? 1 : 0;
+  },
   /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
   async connect() {
     const origin = await connect(process.argv.includes("--public"));
@@ -224,24 +242,6 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(
       `${dir}: ${m.files.length} files, ${(bytes / 1e9).toFixed(1)} GB. Not in it, give them by hand: ${[...m.leftOut.env, "Life's Keychain items"].join(", ")}`
     );
-    return 0;
-  },
-  /**
-   * The standing grant (decision 2), only on his own words in this conversation: `grant on|off '<his words>'`. Off
-   * until he says yes; his undo of one of its reminders turns it off again.
-   */
-  async grant() {
-    if (pluginOff()) {
-      return 2;
-    }
-    const [state, ...words] = process.argv.slice(3);
-    const said = words.join(" ").trim();
-    if (!(state === "on" || state === "off") || said.length < 3) {
-      console.error("usage: bun life grant on|off '<his words>'");
-      return 2;
-    }
-    const done = await setGrant(state === "on", said);
-    console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
   /**

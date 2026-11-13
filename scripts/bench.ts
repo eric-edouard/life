@@ -19,10 +19,10 @@ import {
   OWNER_DATA_DIR,
 } from "@life/server/src/core/paths";
 import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
-import { claimsNow } from "@life/server/src/memory/doubts";
+import { memoryLinesNow } from "@life/server/src/memory/doubts";
 import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
-import { ratedFacts } from "@life/server/src/memory/memory-files";
+import { answeredObservations } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import type { tally } from "@life/server/src/memory/tally";
@@ -103,7 +103,7 @@ async function readDays(files: string[]) {
       read.calls += m.calls + e.calls;
       read.failed += m.failed + e.failed;
     }
-    const claims = (await claimsNow()).filter((c) =>
+    const claims = (await memoryLinesNow()).filter((c) =>
       windows.some((w) => c.date >= w.from && c.date <= w.to)
     );
     await Bun.write(
@@ -226,7 +226,7 @@ async function bench(models: string[], runs: number, judge?: string) {
     const days = windows.map((w) =>
       w.from === w.to ? w.from : `${w.from}–${w.to}`
     );
-    const rated = ratedFacts()
+    const rated = answeredObservations()
       .filter((f) => windows.some((w) => f.date >= w.from && f.date <= w.to))
       .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
     const ratedFile = join(tmp, "rated.json");

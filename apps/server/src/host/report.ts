@@ -78,7 +78,7 @@ const percent = (x: number | null) =>
 /** One row of a section as text. */
 function textLine(s: Section) {
   switch (s.kind) {
-    case "facts":
+    case "observations":
       return s.list.map((f) => `- ${f.text} [${f.page}]`);
     case "changes":
       return s.list.map(
@@ -139,7 +139,7 @@ export function successReport(day: string, ms: number, n: Night) {
     ...new Set([n.episodes, n.extracted, n.paged].map((s) => s.model)),
   ].join(", ");
   const mail = compose(
-    `${date} · ${count(n.facts.length, "new fact")}, ${count(changes.length, "page")}${done.length > 0 ? `, ${count(done.length, "action")}` : ""}`,
+    `${date} · ${count(n.facts.length, "new observation")}, ${count(changes.length, "page")}${done.length > 0 ? `, ${count(done.length, "action")}` : ""}`,
     {
       date,
       failure: null,
@@ -170,7 +170,7 @@ export function successReport(day: string, ms: number, n: Night) {
         ...n.spent,
         "Failures: none",
       ],
-      preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
+      preheader: `${count(n.facts.length, "new observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
         {
@@ -196,12 +196,12 @@ export function successReport(day: string, ms: number, n: Night) {
           title: "Code yesterday",
         },
         { kind: "pairs", list: n.marked, title: "Told Life" },
-        { kind: "facts", list: n.facts, title: "What it found" },
+        { kind: "observations", list: n.facts, title: "What it found" },
         { kind: "pairs", list: n.episodes.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },
       ],
       stats: [
-        { label: "new facts", value: String(n.facts.length) },
+        { label: "new observations", value: String(n.facts.length) },
         { label: "pages changed", value: String(changes.length) },
         { label: "people inferred", value: String(n.episodes.people.length) },
         { label: "agreement", value: percent(a.agreement) },
@@ -300,7 +300,7 @@ export const redReport = (
       step: "its status",
     },
     notes: [
-      "A source Life can't read holds its days back: no episodes or facts for them until it reads again.",
+      "A source Life can't read holds its days back: no episodes or observations for them until it reads again.",
       "Details: the app's status cards, derived/log",
     ],
     preheader: `Broken now: ${red.map((c) => c.name).join(", ")}.`,

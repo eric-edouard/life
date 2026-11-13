@@ -1,15 +1,15 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import type { Episode } from "../records/episode";
-import { Statement } from "../records/fact-check";
+import { FactCheck } from "../records/fact-check";
 import { INFERRED_PREFIX, type Observation } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import {
   episodesNow,
+  FACT_CHECKS,
   readEpisodes,
-  readStatements,
-  STATEMENTS,
+  readFactChecks,
   shows,
   stateOf,
 } from "./memory-files";
@@ -19,7 +19,7 @@ import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";
 
-// The fact checks: what the memory holds (`claimsNow`, which the eval judges too), and the doubtful claims drawn from
+// The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful claims drawn from
 // it for the owner to answer, one per claim, frozen as he is shown them (memory/statements.jsonl).
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
@@ -54,7 +54,7 @@ export function episodeGroup(
   ).intersection(paged);
   return withPage.size === 1 ? ([...withPage][0] as string) : "episodes";
 }
-type Draft = Omit<Statement, "at" | "schemaVersion">;
+type Draft = Omit<FactCheck, "at" | "schemaVersion">;
 
 /** Why a claim may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
 export type Doubt = "guessed-person" | "low-confidence";
@@ -77,7 +77,7 @@ export function doubtsOf(
     : found;
 }
 
-export type Claim = Omit<Draft, "group"> & {
+export type MemoryLine = Omit<Draft, "group"> & {
   doubts: Doubt[];
   group: Draft["group"] | null;
   importance: number;
@@ -85,13 +85,13 @@ export type Claim = Omit<Draft, "group"> & {
 
 /** The `n` claims he should check first: doubtful, importance 3 then 2 (never 1), more doubts, newest; none stated before or without a page. */
 export const doubtful = (
-  claims: Claim[],
+  claims: MemoryLine[],
   stated: ReadonlySet<string>,
   n: number
 ) =>
   claims
     .filter(
-      (c): c is Claim & { group: Draft["group"] } =>
+      (c): c is MemoryLine & { group: Draft["group"] } =>
         c.group !== null &&
         c.importance >= KEEP_AT &&
         c.doubts.length > 0 &&
@@ -110,7 +110,7 @@ export const doubtful = (
  * `group` is where the owner would rate it, or null: an observation's home page when it is a line there (`placed`,
  * not hidden on it); an episode's `episodeGroup`.
  */
-export async function claimsNow(): Promise<Claim[]> {
+export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const people = await readPeople();
   const { observations, standing } = await observationsNow(people);
   const paged = await pagedNow(people);
@@ -159,9 +159,12 @@ export async function claimsNow(): Promise<Claim[]> {
 }
 
 /** Draws the `n` claims he should check first (`doubtful`) into memory/statements.jsonl, frozen as he is shown them. The caller holds the lock. */
-export async function drawDoubtful(n: number) {
+export async function drawFactChecks(n: number) {
   const rec = record("memory.statements", { n });
-  const [claims, stated] = await Promise.all([claimsNow(), readStatements()]);
+  const [claims, stated] = await Promise.all([
+    memoryLinesNow(),
+    readFactChecks(),
+  ]);
   const drawn = doubtful(claims, new Set(stated.map((s) => s.ref)), n).map(
     ({ doubts, group, importance, ...c }) => ({
       doubts,
@@ -174,8 +177,8 @@ export async function drawDoubtful(n: number) {
     })
   );
   await appendJsonl(
-    STATEMENTS,
-    Statement,
+    FACT_CHECKS,
+    FactCheck,
     drawn.map((d) => d.statement)
   );
   rec.end({

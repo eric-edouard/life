@@ -1,5 +1,5 @@
 import { clock } from "../core/clock";
-import { type Doubt, doubtsOf, drawDoubtful, plain } from "./doubts";
+import { type Doubt, doubtsOf, drawFactChecks, plain } from "./doubts";
 import { openFactChecks, readObservations } from "./memory-files";
 import { readPeople } from "./who";
 
@@ -13,14 +13,14 @@ const WHY: Record<Doubt, string> = {
   "low-confidence": "the reading itself was unsure",
 };
 
-/** Draws new ones until OPEN are open. The caller holds the lock (`drawDoubtful`). */
+/** Draws new ones until OPEN are open. The caller holds the lock (`drawFactChecks`). */
 export async function topUpFactChecks(now = clock().getTime()) {
   const room = OPEN - openFactChecks(now).length;
-  return room > 0 ? (await drawDoubtful(room)).length : 0;
+  return room > 0 ? (await drawFactChecks(room)).length : 0;
 }
 
 /** The open fact checks as he is asked them: the claim word for word, why Life doubts it, the words it came from. */
-export async function readFactChecks(now = clock().getTime()) {
+export async function readOpenFactChecks(now = clock().getTime()) {
   const open = openFactChecks(now);
   const [observations, people] = await Promise.all([
     readObservations(),

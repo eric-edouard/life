@@ -46,10 +46,10 @@ in the step that produced it: fix that step with its regression case, never a `c
 - When he states or changes a goal or priority, offer to put it in `truth/me.md` `## Goals` (numbered, his order, each
   with the project ids it serves) and do it on his yes. His goals live there only.
 - When he says which project a repo belongs to, put it in that project's `repos:` in `truth/`, then `bun life validate`.
-- Reminder changes go through `bun life act '<json>'`, never `remctl` directly. Deep work goes to his agent:
+- Reminder changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his agent:
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
-  `bun life memory unresolved` before asking him anything. His word beats the memory.
+  `bun life memory questions` before asking him anything. His word beats the memory.
 - A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, Messenger, LinkedIn, mail) needs the owner's OK on the exact text.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
@@ -128,8 +128,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
-- **What the memory holds, in words, is `claimsNow`** (`doubts.ts`): the statements he rates and the eval judge the
-  same text. Which claims are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
+- **What the memory holds, in words, is `memoryLinesNow`** (`doubts.ts`): the fact checks he answers and the eval judge the
+  same text. Which memory lines are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
   he is asked about, only by `doubtful`.
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
@@ -137,7 +137,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
-- **Historical collection is model-free.** `memory units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. An import describes its own files (the Instagram export's photos, by `describeFiles`) before its collection, which leaves old files as tags. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. Scheduled model backfill stays paused until prompts are frozen.
+- **Historical collection is model-free.** `memory historical-units` reads bounded owner-local months, skips voice and file descriptions, and publishes only units and derived passages. An import describes its own files (the Instagram export's photos, by `describeFiles`) before its collection, which leaves old files as tags. Imports and model backfills require `backfillEngine`; no fallback to the ordinary engine. Scheduled model backfill stays paused until prompts are frozen.
 - **Historical zones come from evidence of the day**, model-free, as `Etc/GMT±N` (reversed sign): the offsets of photos that place him, else sent-mail Date offsets (`historical-zones.ts`, `docs/operations.md`). Stored zones change only by appended lines, over the whole derived era, and a day a record cites, an episode day or a deferred day holding units keeps its zone. Days with no evidence use the nearest known day (ties earlier), reported as gaps for later model review, and so do days whose mail splits; a quarter-hour photo or a travel day (its mail names both differing neighbours' zones) defers its day. No city guesses or new Zone fields.
 - **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only

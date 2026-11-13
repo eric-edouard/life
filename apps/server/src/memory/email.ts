@@ -14,7 +14,7 @@ interface Pair {
   name: string;
   relation: string;
 }
-interface Fact {
+interface ObservationLine {
   page: string;
   text: string;
 }
@@ -25,10 +25,10 @@ interface Change {
   removed: number;
 }
 
-/** A titled list of the report: pairs (a name and a line), facts (by page) or page changes. Empty, it is left out. */
+/** A titled list of the report: pairs (a name and a line), observations (by page) or page changes. Empty, it is left out. */
 export type Section =
   | { kind: "pairs"; list: Pair[]; title: string }
-  | { kind: "facts"; list: Fact[]; title: string }
+  | { kind: "observations"; list: ObservationLine[]; title: string }
   | { kind: "changes"; list: Change[]; title: string };
 
 /** The complete report: both the text and the HTML are rendered from it. */
@@ -92,7 +92,7 @@ const section = (title: string, count: number, body: string) =>
 <td align="right" style="font:500 13px/1 ${MONO};color:${C.muted}">${count}</td></tr></table><div style="height:8px;line-height:8px;font-size:0">&nbsp;</div>${body}`
   );
 
-const facts = (all: Fact[]) =>
+const observations = (all: ObservationLine[]) =>
   [...Map.groupBy(all, (f) => f.page)]
     .map(
       ([page, items]) =>
@@ -128,8 +128,8 @@ const changes = (items: Change[]) =>
 /** A section's body: its rows, as its kind shows them. */
 const rowsOf = (s: Section) => {
   switch (s.kind) {
-    case "facts":
-      return facts(s.list);
+    case "observations":
+      return observations(s.list);
     case "changes":
       return changes(s.list);
     default:

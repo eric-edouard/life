@@ -134,7 +134,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 ## Historical collection
 
 ```sh
-bun life memory units --from 2025-01-01 --to 2025-12-31
+bun life memory historical-units --from 2025-01-01 --to 2025-12-31
 ```
 
 This model-free step reads source history one owner-local month at a time under the memory lock. With no range, it
@@ -204,7 +204,7 @@ late with harm), or spoken asks above about one a day for a month.
 
 ## remctl and Reminders quirks
 
-- `bun life act --check` says whether remctl can act now (read-only).
+- `bun life change-todo-item --check` says whether remctl can act now (read-only).
 - remctl works through its signed Capability Host, only by absolute path (`~/bin/remctl`).
 - A read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new
@@ -330,7 +330,7 @@ first.
   prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
   for the judge: show him the count of cases first. A regression case of status `scenario` may name a question case
   as its `check`.
-- To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
+- To trace a wrong claim to its step: `bun life memory observation <obs_id>`, and `day` for an episode.
 
 ## Audits
 
@@ -406,7 +406,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   month, then every observation and episode linked to them, newest first, paging back with `--before`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
-- `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
+- `area <name>`, `topics [tag]`, `questions` (what Life inferred, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
   the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,

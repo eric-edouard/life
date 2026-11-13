@@ -139,7 +139,7 @@ test("the success email includes every fact, counts pages and lists models once"
     221_000,
     night(564)
   );
-  expect(subject).toBe("Life · 15 Oct · 564 new facts, 1 page");
+  expect(subject).toBe("Life · 15 Oct · 564 new observations, 1 page");
   expect(text).toContain("What it found (564)");
   for (let i = 0; i < 564; i += 1) {
     expect(text).toContain(`- fact ${i} [Shop]`);

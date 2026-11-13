@@ -48,15 +48,15 @@ interface JudgedFact {
   id: string;
 }
 /** A claim as the judge reads it: what was said, and the day it was said. */
-export const ClaimLine = z.object({
+export const JudgeLine = z.object({
   date: z.string(),
   id: z.string(),
   text: z.string(),
 });
-type ClaimLine = z.infer<typeof ClaimLine>;
+type JudgeLine = z.infer<typeof JudgeLine>;
 
 /** The judge's calls: the facts of each day with the claims said by then; facts with no day with every claim. */
-export const asOf = (facts: JudgedFact[], claims: ClaimLine[]) =>
+export const asOf = (facts: JudgedFact[], claims: JudgeLine[]) =>
   [...Map.groupBy(facts, (f) => f.date)].map(([date, group]) => ({
     claims: date === undefined ? claims : claims.filter((c) => c.date <= date),
     date,
@@ -72,7 +72,7 @@ export const asOf = (facts: JudgedFact[], claims: ClaimLine[]) =>
  */
 export async function judge(
   facts: JudgedFact[],
-  claims: ClaimLine[],
+  claims: JudgeLine[],
   o: { dir: string; engine?: Parameters<typeof llmFor>[1]; run: string }
 ) {
   const calls = await Promise.all(

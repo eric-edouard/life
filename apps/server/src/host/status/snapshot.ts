@@ -13,9 +13,9 @@ import {
   OBSERVATIONS,
   openFactChecks,
   PAGES,
+  readFactCheckAnswers,
+  readFactChecks,
   readLedger,
-  readRatings,
-  readStatements,
 } from "../../memory/memory-files";
 import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
@@ -157,14 +157,14 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The fact checks: statements he answered, and those open now. */
-function rated() {
-  const statements = readStatements();
-  const answered = readRatings();
+/** The fact checks: those he answered, and those open now. */
+function factCheckCounts() {
+  const factChecks = readFactChecks();
+  const answered = readFactCheckAnswers();
   return {
+    answered: factChecks.filter((s) => answered.get(s.ref)?.answer).length,
+    factChecks: factChecks.length,
     left: openFactChecks().length,
-    ratings: statements.filter((s) => answered.get(s.ref)?.answer).length,
-    statements: statements.length,
   };
 }
 
@@ -188,7 +188,7 @@ async function memoryCounts() {
       0
     ),
     pages: people.length + areas.length,
-    ...rated(),
+    ...factCheckCounts(),
   };
 }
 
@@ -966,8 +966,8 @@ function memoryCards(r: Reads): Card[] {
           value: open.ok ? String(open.value) : "?",
         },
         {
-          label: "Statements rated",
-          value: `${mem.ratings} of ${mem.statements}`,
+          label: "Fact checks answered",
+          value: `${mem.answered} of ${mem.factChecks}`,
         },
         { at: mem.commitAt, label: "Last commit" },
       ],

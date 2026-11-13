@@ -166,7 +166,7 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const states = () => ({
-    // Historical model work waits for frozen prompts; collection uses `memory units`.
+    // Historical model work waits for frozen prompts; collection uses `memory historical-units`.
     backfill: undefined,
     backup: readState("backup"),
     bridges: readState("bridges"),

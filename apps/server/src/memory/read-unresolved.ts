@@ -6,7 +6,7 @@ import { observationsNow, readPeople } from "./who";
 const EXAMPLE_MAX = 80;
 
 /**
- * `bun life memory unresolved`: for Claude. The people Life inferred (who it thinks they are, how sure, and how many
+ * `bun life memory questions`: for Claude. The people Life inferred (who it thinks they are, how sure, and how many
  * observations are about them), then the names it still cannot place, most seen first, with the days they appeared
  * on and an example unit, and the Contacts cards whose name and handle disagree. Nothing here waits on the owner; when he says who someone is, Claude records it with
  * `bun life memory correct`.

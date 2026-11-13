@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { type Appointment, Appointments } from "../records/appointment";
 import type { Observation } from "../records/observation";
-import { checkedAppointments, factsAheadOf, heldIdsOf } from "./appointments";
+import {
+  checkedAppointments,
+  heldIdsOf,
+  observationsAheadOf,
+} from "./appointments";
 import type { Standing } from "./memory-files";
 
 const UNIT = "unit_000000000001";
@@ -37,7 +41,7 @@ test("the step reads what is ahead (plans and facts, never a hypothesis), recent
     fact("obs_000000000009", { modality: "conditional", when: "2026-11-20" }),
     fact("obs_00000000000a", { date: "2026-11-03", modality: "fact" }),
   ];
-  const read = factsAheadOf(
+  const read = observationsAheadOf(
     facts,
     standing(["obs_000000000007"]),
     "2026-11-08",

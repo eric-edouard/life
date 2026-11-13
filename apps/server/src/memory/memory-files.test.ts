@@ -5,7 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
-import { type Rating, Statement } from "../records/fact-check";
+import { FactCheck, type FactCheckAnswer } from "../records/fact-check";
 import type {
   Correction,
   Extracted,
@@ -14,25 +14,25 @@ import type {
 } from "../records/observation";
 import { buildIndex } from "./index-writer";
 import {
+  answeredCorrections,
+  answeredObservations,
+  FACT_CHECKS,
   hiding,
   INDEX,
   isCurrent,
+  latestAnswers,
   latestExtractions,
-  latestRatings,
   newSince,
   OBSERVATIONS,
   outdatedBy,
-  ratedCorrections,
-  ratedFacts,
+  readFactCheckAnswers,
   readIndex,
   readOrigins,
-  readRatings,
   readStanding,
   readUnit,
   readUnitsFor,
-  recordRating,
+  recordFactCheckAnswer,
   retiredBy,
-  STATEMENTS,
   type Standing,
   shownOf,
   stateOf,
@@ -149,10 +149,10 @@ const fixture = {
   ).set(
     "O",
     outdatedBy(
-      ratedCorrections(
-        latestRatings([
+      answeredCorrections(
+        latestAnswers([
           { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
-        ] as Rating[])
+        ] as FactCheckAnswer[])
       )
     )[0] as Supersession
   ),
@@ -306,10 +306,13 @@ test("a retirement stands only while its replacement is current; the first one r
 
 test("a claim he rated false or partly is hidden as wrong, with his why, until an undo or a later answer takes it back", () => {
   const at = "2026-10-19T08:00:00Z";
-  const rate = (claim: string, answer: Rating["answer"], note?: string) =>
-    ({ answer, at, note, ref: claim, schemaVersion: 1 }) as Rating;
-  const wrong = ratedCorrections(
-    latestRatings([
+  const rate = (
+    claim: string,
+    answer: FactCheckAnswer["answer"],
+    note?: string
+  ) => ({ answer, at, note, ref: claim, schemaVersion: 1 }) as FactCheckAnswer;
+  const wrong = answeredCorrections(
+    latestAnswers([
       rate("obs_a", "false"),
       rate("obs_b", "false"),
       rate("obs_b", null),
@@ -356,21 +359,21 @@ test("audit-7-close-kept-promise: a promise he says he kept is retired by itself
 });
 
 test("a claim he rated outdated is retired by itself, as history, not wrong; an undo lifts it, extraction's retirement wins", () => {
-  const rate = (claim: string, answer: Rating["answer"]) =>
+  const rate = (claim: string, answer: FactCheckAnswer["answer"]) =>
     ({
       answer,
       at: "2026-10-19T08:00:00Z",
       ref: claim,
       schemaVersion: 1,
-    }) as Rating;
+    }) as FactCheckAnswer;
   const x = obs("obs_a", "unit_1", "h1");
-  const standing = (ratings: Rating[], first: Supersession[] = []) =>
+  const standing = (ratings: FactCheckAnswer[], first: Supersession[] = []) =>
     ({
       corrections: [],
       latest: new Map(),
       live: new Set(["unit_1"]),
       retired: retiredBy(
-        [...first, ...outdatedBy(ratedCorrections(latestRatings(ratings)))],
+        [...first, ...outdatedBy(answeredCorrections(latestAnswers(ratings)))],
         new Set(["obs_a", "obs_b"])
       ),
     }) as Standing;
@@ -385,7 +388,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
     why: "rated outdated",
   });
   expect(
-    ratedCorrections(latestRatings([rate("obs_a", "outdated")])).map(
+    answeredCorrections(latestAnswers([rate("obs_a", "outdated")])).map(
       (c) => c.kind
     )
   ).toEqual(["outdated"]);
@@ -416,21 +419,21 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
     "obs_fac700000003",
     "obs_fac700000004",
   ] as const;
-  await appendJsonl(STATEMENTS, Statement, [
+  await appendJsonl(FACT_CHECKS, FactCheck, [
     shown(right),
     shown(half),
     shown(old),
     shown(passed),
   ]);
-  expect(() => recordRating("obs_fac700000009", "true")).toThrow(
+  expect(() => recordFactCheckAnswer("obs_fac700000009", "true")).toThrow(
     "no fact check"
   );
-  await recordRating(right, "true");
-  await recordRating(half, "partly", "it was Tuesday");
-  await recordRating(old, "outdated");
-  await recordRating(passed, "skip");
-  expect(readRatings().get(half)?.note).toBe("it was Tuesday");
-  const facts = new Map(ratedFacts().map((f) => [f.id, f]));
+  await recordFactCheckAnswer(right, "true");
+  await recordFactCheckAnswer(half, "partly", "it was Tuesday");
+  await recordFactCheckAnswer(old, "outdated");
+  await recordFactCheckAnswer(passed, "skip");
+  expect(readFactCheckAnswers().get(half)?.note).toBe("it was Tuesday");
+  const facts = new Map(answeredObservations().map((f) => [f.id, f]));
   expect([right, half, old, passed].map((r) => facts.get(r)?.true)).toEqual([
     true,
     undefined,
