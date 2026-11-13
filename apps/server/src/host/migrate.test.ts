@@ -16,10 +16,20 @@ import { clock } from "../core/clock";
 import { logFileOf } from "../core/log";
 import { MACHINE_DIR } from "../core/platform";
 import { git } from "../core/proc";
+import { Settings } from "../core/settings";
 import { unitId } from "../memory/units";
-import { FactCheck, FactCheckAnswer } from "../records/fact-check";
-import { Correction, Unresolved } from "../records/observation";
-import { MemoryLabel } from "../records/unit";
+import { EvalScore, FactCheck, FactCheckAnswer } from "../records/fact-check";
+import { LedgerEntry } from "../records/ledger-entry";
+import {
+  ContactPerson,
+  Correction,
+  InferredPerson,
+  Observation,
+  Unresolved,
+} from "../records/observation";
+import { Published } from "../records/publication";
+import { ReadReply } from "../records/read-reply";
+import { FileEntry, MemoryLabel, Unit } from "../records/unit";
 import {
   mayMigrate,
   migrateFor,
@@ -54,7 +64,7 @@ const DATA: Record<string, [string, string]> = {
   ],
   "memory/closeness.jsonl": [
     jsonl(
-      { madeBy: madeBy("memory-closeness.v1"), person: "person:ana" },
+      { madeBy: madeBy("closeness.v1"), person: "person:ana" },
       { madeBy: madeBy("other.v1") }
     ),
     jsonl(
@@ -106,25 +116,25 @@ const DATA: Record<string, [string, string]> = {
   "memory/files.jsonl": [
     jsonl(
       {
-        hash: "h",
-        madeBy: madeBy("message-file-description.v1"),
+        hash: "0123456789abcdef",
+        madeBy: madeBy("files.v1"),
         ref: "f",
         what: "A receipt.",
       },
-      { hash: "h2", ref: "g", text: "words" }
+      { hash: "fedcba9876543210", ref: "g", text: "words" }
     ),
     jsonl(
       {
         description: "A receipt.",
-        hash: "h",
+        hash: "0123456789abcdef",
         madeBy: madeBy("message-file-description.v1"),
         ref: "f",
       },
-      { hash: "h2", ref: "g", text: "words" }
+      { hash: "fedcba9876543210", ref: "g", text: "words" }
     ),
   ],
   "memory/imported.jsonl": [
-    jsonl({ madeBy: madeBy("import-keep.v1") }),
+    jsonl({ madeBy: madeBy("import.v1") }),
     jsonl({ madeBy: madeBy("import-keep.v1") }),
   ],
   "memory/labels.jsonl": [
@@ -266,7 +276,7 @@ const DATA: Record<string, [string, string]> = {
     jsonl({ promptDigest: "0123456789abcdef", read: "conflict" }),
   ],
   "memory/repos-inferred.jsonl": [
-    jsonl({ madeBy: madeBy("repo-project.v1") }),
+    jsonl({ madeBy: madeBy("repos.v1") }),
     jsonl({ madeBy: madeBy("repo-project.v1") }),
   ],
   "memory/scores.jsonl": [
@@ -544,6 +554,7 @@ test("in a repo, the commits before and after: the after one holds the renames a
   run("init", "-q");
   run("config", "user.email", "test@example.test");
   run("config", "user.name", "Test");
+  put(join(dir, "docs/evals/other-work.md"), "not the migration's\n");
   await migrateStored(dir, state);
   expect(run("log", "--format=%s").trim().split("\n")).toEqual([
     "Memory: stored names renamed (names-2026-11)",
@@ -552,17 +563,73 @@ test("in a repo, the commits before and after: the after one holds the renames a
   const changed = run("show", "--name-status", "--format=", "-M", "HEAD");
   expect(changed).toContain("docs/evals/judge-cases-a.json");
   expect(changed).toContain("memory/fact-checks.jsonl");
-  expect(run("status", "--porcelain", "--", "memory", "docs")).toBe("");
+  expect(run("status", "--porcelain", "--", "memory", "docs")).toBe(
+    "?? docs/evals/other-work.md\n"
+  );
 });
 
 /** What the made-up lines leave out; the renamed fields are what the readers must accept. */
 const FILL = { at, schemaVersion: 1 };
+/** Records that carry no `at`. */
+const NO_AT = new Set(["memory/files.jsonl", "memory/units/2026-10-12.jsonl"]);
 const FILL_BY: Record<string, object> = {
   "memory/fact-checks.jsonl": {
     date: DAY,
     group: "episodes",
     kind: "fact",
     text: "t",
+  },
+  "memory/files.jsonl": {},
+  "memory/ledger.jsonl": { result: "ok", why: "w" },
+  "memory/observations/2026-10.jsonl": {
+    area: null,
+    at,
+    confidence: 0.5,
+    date: DAY,
+    importance: 1,
+    madeBy: { ...madeBy("p.v1"), unitHash: "u" },
+    quote: "q",
+    speaker: "person:me",
+    text: "t",
+    type: "idea",
+    tz: "UTC",
+    validFrom: null,
+    validTo: null,
+    when: null,
+  },
+  "memory/people-contacts.jsonl": {},
+  "memory/people-inferred.jsonl": {
+    area: null,
+    confidence: 0.5,
+    madeBy: madeBy("p.v1"),
+    name: "Bo",
+    project: null,
+    relation: "r",
+  },
+  "memory/publications.jsonl": { from: DAY, to: DAY },
+  "memory/read-replies/2026-10.jsonl": {
+    madeBy: madeBy("p.v1"),
+    messages: ["m"],
+    reply: { exchanges: [] },
+    starts: [0],
+  },
+  "memory/scores.jsonl": {
+    contradicted: 0,
+    gone: 0,
+    missed: 0,
+    restated: 0,
+    run: "r",
+    trues: 0,
+    ungraded: 0,
+  },
+  "memory/units/2026-10-12.jsonl": {
+    date: DAY,
+    end: at,
+    hash: "0123456789abcdef",
+    people: [],
+    start: at,
+    stats: { chars: 0, fromMe: 0, items: 0 },
+    title: "t",
   },
   "memory/unresolved.jsonl": { date: DAY },
 };
@@ -574,23 +641,59 @@ test("every reader parses every migrated made-up file it reads", async () => {
     "memory/corrections.jsonl": Correction,
     "memory/fact-check-answers.jsonl": FactCheckAnswer,
     "memory/fact-checks.jsonl": FactCheck,
+    "memory/files.jsonl": FileEntry,
     "memory/labels.jsonl": MemoryLabel,
+    "memory/ledger.jsonl": LedgerEntry,
+    "memory/observations/2026-10.jsonl": Observation,
+    "memory/people-contacts.jsonl": ContactPerson,
+    "memory/people-inferred.jsonl": InferredPerson,
+    "memory/publications.jsonl": Published,
+    "memory/read-replies/2026-10.jsonl": ReadReply,
+    "memory/scores.jsonl": EvalScore,
+    "memory/units/2026-10-12.jsonl": Unit,
     "memory/unresolved.jsonl": Unresolved,
   };
   for (const [file, schema] of Object.entries(readers)) {
     const lines = readFileSync(join(dir, file), "utf8").trim().split("\n");
     expect(lines.length).toBeGreaterThan(0);
     for (const line of lines) {
-      const parsed = schema.safeParse({
-        ...FILL,
-        ...FILL_BY[file],
-        ...JSON.parse(line),
-      });
+      const input = { ...FILL, ...FILL_BY[file], ...JSON.parse(line) };
+      if (NO_AT.has(file)) {
+        input.at = undefined;
+      }
+      const parsed = schema.safeParse(
+        Object.fromEntries(
+          Object.entries(input).filter(([, v]) => v !== undefined)
+        )
+      );
       expect([file, parsed.success, parsed.error?.message]).toEqual([
         file,
         true,
         undefined,
       ]);
+    }
+  }
+});
+
+test("the migrated settings parse, and settings that would not are never written", async () => {
+  const { dir, state } = made();
+  await migrateStored(dir, state);
+  renameSettings(state);
+  expect(
+    Settings.safeParse(
+      JSON.parse(readFileSync(join(state, "settings.json"), "utf8"))
+    ).success
+  ).toBe(true);
+  const bad = JSON.stringify({ todo_list: { backend: "x" }, unknown_key: 1 });
+  put(join(state, "settings.json"), bad);
+  expect(() => renameSettings(state)).toThrow();
+  expect(readFileSync(join(state, "settings.json"), "utf8")).toBe(bad);
+});
+
+test("every stored name the migration renames changes: only the whole-file moves may keep their lines", () => {
+  for (const [file, [old, now]] of Object.entries(DATA)) {
+    if (!(file in MOVED)) {
+      expect([file, old === now]).toEqual([file, false]);
     }
   }
 });

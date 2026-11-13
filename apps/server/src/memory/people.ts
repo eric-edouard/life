@@ -39,7 +39,7 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
 }
 
 /**
- * Who the episodes call says the day's unknown handles and names are, checked: a surface we asked about (`unknown`: the
+ * Who the episodes call says the day's unknown handles and names are, checked: a name or handle we asked about (`unknown`: the
  * units it appears in; the first answer for it), at least one quote found in the text of one of those units, an area
  * from the list and a project we know, else none; `person` only when it is someone in truth/. A person is recorded
  * however unsure the model is; how far to trust it is the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
@@ -98,7 +98,7 @@ export function checkPeople(
 }
 
 /**
- * Whether a surface has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
+ * Whether a name or handle has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
  * inferred guess the call judged against the directory (`person` null or a ref). A guess made before the call could link
  * (`person` absent) is asked once more.
  */

@@ -140,7 +140,7 @@ export const MARKED = "[He asked Life to keep what he says here.]";
 
 /**
  * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its
- * conversation is live (`frozenUnits`), never built again, as the facts, his ratings and corrections cite it (AGENTS.md);
+ * conversation is live (`frozenUnits`), never built again, as the facts, his fact-check answers and corrections cite it (AGENTS.md);
  * its conversation gets no conversation-days.
  * ponytail: a conversation that had chapters when conversation-days came stays chapter-only, even if it grows after;
  * build days for its later turns if that matters.

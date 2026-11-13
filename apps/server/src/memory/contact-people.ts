@@ -21,7 +21,7 @@ import { nameKey, UNKNOWN } from "./units";
 // Contacts, a card he deletes keeps its person, and a ref stored for good never loses its name. Who a contact person
 // is among everyone (someone in truth/, an earlier guess) is `who.ts`'s to say.
 
-/** A contact person as it stands: its id (from its card's), its latest name, every surface a line gave it. */
+/** A contact person as it stands: its id (from its card's), its latest name, every handle a line gave it. */
 export interface ContactNow {
   card: string;
   handles: string[];
@@ -47,7 +47,7 @@ export function contactsNow(lines: ContactPerson[]): ContactNow[] {
 
 /**
  * The lines to append for his Contacts as they are now. A card becomes a person when one of its handles is `seen` (a
- * sender Life cannot name, or a surface of someone it guessed), or it is one already; his whole address book is never
+ * sender Life cannot name, or a handle of someone it guessed), or it is one already; his whole address book is never
  * copied. A handle belongs to the person who has it (a stored one first, else `ownersOf`): a second card under the
  * same name (the same person in another account) joins it, one under another name does not get that handle. A line
  * is appended only when a person is new, renamed, or has a new handle; a card gone from Contacts appends nothing.

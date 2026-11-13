@@ -33,11 +33,11 @@ const WHO = /^(person|unknown):/;
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
 
-/** A surface's lookup keys: as given, lowercased, normalized. */
+/** A name or handle's lookup keys: as given, lowercased, normalized. */
 const keysOf = (s: string) =>
   [s.trim(), s.trim().toLowerCase(), nameKey(s)].filter(Boolean);
 
-/** Whether two surfaces are one: a key in common, or the same phone or email however written. */
+/** Whether two names or handles are one: a key in common, or the same phone or email however written. */
 const isSameNameOrHandle = (a: string, b: string) => {
   const key = contactKeyOf(a);
   return (
@@ -46,7 +46,7 @@ const isSameNameOrHandle = (a: string, b: string) => {
   );
 };
 
-/** Each surface key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
+/** Each name or handle key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
 function guessesOf(inferred: InferredPerson[]) {
   const guessed = new Map<string, InferredPerson>();
   for (const r of inferred) {
@@ -162,8 +162,8 @@ function readingOf(
 }
 
 /**
- * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
- * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
+ * Who a name as written and a person ref are now: `resolve` is what a name as written reads as (`readingOf`), folded; `canon` folds a
+ * ref, his `same-person` over what each inferred id's name as written reads as now, so every id a name as written was ever given is
  * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
  * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
@@ -387,7 +387,7 @@ export function authorFrom(o: Observation, chatOf: Map<string, string>) {
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
 
 /**
- * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or surface)
+ * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or handle)
  * or that is a project's name. What a call involves beyond its people (`involvedOf`); a word that is also a name only
  * adds a directory entry to the call's input.
  */
@@ -614,7 +614,7 @@ export function nearNames<
 
 /**
  * Everyone a name can mean: the people in his directory, and those his Contacts name or Life inferred (not folded into
- * another), going by their surfaces too.
+ * another), going by their names and handles too.
  */
 function nameable({
   outsideDirectory,

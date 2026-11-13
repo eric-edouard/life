@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { clock } from "../core/clock";
 import { linesOf } from "../core/files";
 import { holder } from "../core/lock";
@@ -21,6 +21,7 @@ import {
   real,
 } from "../core/paths";
 import { MACHINE_DIR } from "../core/platform";
+import { Settings } from "../core/settings";
 import { reindex } from "../memory/index-writer";
 import { commitMemory } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
@@ -39,8 +40,8 @@ import { dayNow, localDate } from "../memory/zones";
 
 const STEP = "names-2026-11";
 const DONE = "memory/migrations.jsonl";
-/** What the commits before and after hold: the judge cases (S22) are outside memory/. */
-const COMMITTED = ["memory", "docs/evals"];
+/** What the commits hold: memory/, and after it the judge cases (S22) the rename itself rewrote, never their folder (other work's files sit there). */
+const COMMITTED = ["memory"];
 /** Files renamed whole (S1, S2, S14), old → new. */
 const RENAMED = [
   ["memory/statements.jsonl", "memory/fact-checks.jsonl"],
@@ -216,18 +217,12 @@ const rulesOf = (ids: Map<string, string>): [string, Rule][] => {
       "memory/files.jsonl",
       all(
         rename("what", "description"),
-        prompt("message-file-description.v1", "message-file-description.v1")
+        prompt("files.v1", "message-file-description.v1")
       ),
     ],
-    ["memory/imported.jsonl", prompt("import-keep.v1", "import-keep.v1")],
-    [
-      "memory/repos-inferred.jsonl",
-      prompt("repo-project.v1", "repo-project.v1"),
-    ],
-    [
-      "memory/closeness.jsonl",
-      prompt("memory-closeness.v1", "memory-closeness.v1"),
-    ],
+    ["memory/imported.jsonl", prompt("import.v1", "import-keep.v1")],
+    ["memory/repos-inferred.jsonl", prompt("repos.v1", "repo-project.v1")],
+    ["memory/closeness.jsonl", prompt("closeness.v1", "memory-closeness.v1")],
     ["memory/scores.jsonl", rename("rated", "answered")],
     [
       "memory/units",
@@ -303,9 +298,11 @@ const pathsOf = (dir: string, rel: string) =>
 function renameJudgeCases(path: string) {
   const file = JSON.parse(readFileSync(path, "utf8")) as Row;
   const cases = each(inRow(rename("claims", "memoryLines")))(file.cases);
-  if (cases !== file.cases) {
-    writeWhole(path, `${JSON.stringify({ ...file, cases }, null, 2)}\n`);
+  if (cases === file.cases) {
+    return false;
   }
+  writeWhole(path, `${JSON.stringify({ ...file, cases }, null, 2)}\n`);
+  return true;
 }
 
 /** The photo descriptions written under the old prompt's name (S25); a row already under the new one is kept. */
@@ -396,6 +393,7 @@ export function renameSettings(state = LIFE_STATE_DIR) {
     field("sources", each(told))
   )(old);
   if (next !== old) {
+    Settings.parse(next);
     writeWhole(path, `${JSON.stringify(next, null, 2)}\n`);
   }
 }
@@ -453,10 +451,13 @@ async function migrate(dir: string, state: string) {
       );
     }
   }
+  const rewritten: string[] = [];
   for (const path of filesIn(join(dir, "docs/evals"), (n) =>
     JUDGE_CASES.test(n)
   )) {
-    renameJudgeCases(path);
+    if (renameJudgeCases(path)) {
+      rewritten.push(relative(dir, path));
+    }
   }
   for (const [from, to] of RENAMED) {
     if (existsSync(join(dir, from))) {
@@ -477,7 +478,11 @@ async function migrate(dir: string, state: string) {
     `${JSON.stringify({ at: clock().toISOString(), name: STEP, schemaVersion: 1 })}\n`
   );
   if (isRepo) {
-    commitMemory(COMMITTED, `Memory: stored names renamed (${STEP})`, dir);
+    commitMemory(
+      [...COMMITTED, ...rewritten],
+      `Memory: stored names renamed (${STEP})`,
+      dir
+    );
   }
   log("run.end", {
     counts: Object.fromEntries(counts),

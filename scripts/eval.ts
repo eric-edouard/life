@@ -1,5 +1,5 @@
 // `bun scripts/eval.ts <facts.json> [memory-lines.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
-// checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
+// checked by hand (~/Life/docs/evals/). Memory lines default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--fact-check-answers` grades the fact checks the owner answered
 // (memory/fact-check-answers.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
 // `--json` prints the counts alone, for the bench (scripts/bench.ts). `--judge-cases` measures the judge itself: cases
