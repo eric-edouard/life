@@ -151,9 +151,9 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
     const noted = (n: number) =>
       ({
         date: "2026-10-18",
-        entities: [],
         id: `obs_${n}`,
         source: { channel: "lifelog", ref: "x" },
+        subjects: [],
         text: `Fact ${n}.`,
         unit: `unit_00000000000${n}`,
       }) as unknown as Observation;

@@ -14,7 +14,7 @@ import type { Newest, RepoMap } from "./contract";
 
 /** The folder holding his repos; none set, there are none. */
 const work = () => {
-  const folder = settings().repos;
+  const folder = settings().reposFolder;
   return folder && expand(folder);
 };
 const RS = "\x1e";

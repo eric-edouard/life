@@ -66,7 +66,7 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
         outcome: "he ticked its receipt in Reminders",
         state: "done",
       }),
-      via: "reminders",
+      via: "todo_list",
     },
   ]);
   expect(newestAgent().at).toBe("2026-10-20T14:55:00.000Z");

@@ -36,3 +36,10 @@ Life: Life reads lifelog only through that contract, and an older Host refuses t
 A release that ships a migration (`host/migrate.ts`) runs it from Life.app at its next start: install the app first
 and let it start, then pull the live checkout. Before that, a checkout's `bun life …` refuses to run on his data (only
 the app migrates it).
+
+## A release that changes the connector's values or keys
+
+An app that reads the connector (ChatGPT, Claude) keeps the descriptions it was given when it connected. After such a
+release (`names-2026-11` renamed values and output keys, no tool or argument), remove the Life connector in each app
+and add it again with a code from `bun life pair`. Until then an old description names values that now return nothing
+(`types: ["identity"]`, `["rating"]`) and a saved changes cursor replays his fact-check answers once.

@@ -1,4 +1,5 @@
 {
+  "agentReportSenders": ["alerts@agents.example.test"],
   "agents": {
     "Orbit": {
       "misheard": ["or bit", "Zorba"],
@@ -20,11 +21,10 @@
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
   },
-  "todo_list": {
+  "reposFolder": "~/Work",
+  "todoList": {
     "backend": "reminders"
   },
-  "reports": ["alerts@agents.example.test"],
-  "repos": "~/Work",
   "sources": [
     "lifelog",
     "imessage",
@@ -34,7 +34,7 @@
     "notes",
     "claude",
     "chatgpt",
-    "told",
+    "told-life",
     "agent",
     "git"
   ]

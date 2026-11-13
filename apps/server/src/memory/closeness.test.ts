@@ -194,7 +194,7 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: "closeness.v1",
+        prompt: "memory-closeness.v1",
         run: "r",
       } as never,
     }
@@ -239,7 +239,7 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
       "person:ann",
       row("person:ann", {
         counts: bucket(t(3)),
-        madeBy: { prompt: "closeness.v1" } as never,
+        madeBy: { prompt: "memory-closeness.v1" } as never,
       }),
     ],
     [

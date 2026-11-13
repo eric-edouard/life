@@ -71,8 +71,8 @@ test("runs: processing runs hold their steps; failed, unfinished, running and ol
   });
   expect(by("memory.episodes")).toMatchObject({
     outcome: "ok",
+    processingRun: `memory.nightly/${id(night)}`,
     result: { units: 9 },
-    sweep: `memory.nightly/${id(night)}`,
     window: { from: "2026-10-09" },
   });
   expect(by("memory.extract")?.outcome).toBe("failed");
@@ -250,8 +250,8 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
 test("a processing run holds its steps in the order it entered them", () => {
   const at = "2026-10-15T00:31:00.000Z";
   const phase = (p: string, s: number) =>
-    ev("run.phase", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
-      phase: p,
+    ev("run.entered", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
+      entered: p,
       run: id(at),
     });
   const list = assembleRuns(
@@ -264,7 +264,7 @@ test("a processing run holds its steps in the order it entered them", () => {
     new Set(["memory.nightly"]),
     null
   );
-  expect(list[0]?.phases).toEqual(["repos", "gather", "index"]);
+  expect(list[0]?.processingSteps).toEqual(["repos", "gather", "index"]);
 });
 
 const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
@@ -294,11 +294,11 @@ test("spend lines: every run of the window that called a model, oldest first, a 
     [
       runOf("memory.import/c", "2026-10-28T09:00:00.000Z", { use: t(3000) }),
       runOf("memory.pages/s2", "2026-10-28T01:20:00.000Z", {
-        sweep: "memory.nightly/n",
+        processingRun: "memory.nightly/n",
         use: t(2000),
       }),
       runOf("memory.episodes/s1", "2026-10-28T01:10:00.000Z", {
-        sweep: "memory.nightly/n",
+        processingRun: "memory.nightly/n",
       }),
       runOf("memory.nightly/n", "2026-10-28T01:00:00.000Z", { use: t(3000) }),
       runOf("memory.files/q", "2026-10-28T02:00:00.000Z", { use: null }),

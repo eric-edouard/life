@@ -101,8 +101,8 @@ export const LEDGER = join(MEMORY, "ledger.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
 export const FILES = join(MEMORY, "files.jsonl");
-export const FACT_CHECKS = join(MEMORY, "statements.jsonl");
-export const FACT_CHECK_ANSWERS = join(MEMORY, "ratings.jsonl");
+export const FACT_CHECKS = join(MEMORY, "fact-checks.jsonl");
+export const FACT_CHECK_ANSWERS = join(MEMORY, "fact-check-answers.jsonl");
 export const SCORES = join(MEMORY, "scores.jsonl");
 /** Everyone whose page is written, by ref (the inverse of `pagePath`). */
 export const writtenPeople = async () =>
@@ -576,7 +576,7 @@ export function recordFactCheckAnswer(
   note?: string
 ) {
   if (!readFactChecks().some((s) => s.ref === ref)) {
-    throw new Error(`no fact check ${ref} in memory/statements.jsonl`);
+    throw new Error(`no fact check ${ref} in memory/fact-checks.jsonl`);
   }
   return appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
     {
@@ -712,34 +712,26 @@ export const episodesWhere = async (keep: (m: Episode) => boolean) => {
 };
 
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
-export function commitMemory(all: string[], message: string) {
+export function commitMemory(
+  all: string[],
+  message: string,
+  dir = OWNER_DATA_DIR
+) {
   // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
-  if (!existsSync(join(OWNER_DATA_DIR, ".git"))) {
-    throw new Error(
-      `${OWNER_DATA_DIR} is not a repo of its own: nothing is committed`
-    );
+  if (!existsSync(join(dir, ".git"))) {
+    throw new Error(`${dir} is not a repo of its own: nothing is committed`);
   }
-  if (git(OWNER_DATA_DIR, ["remote"]).stdout.toString().trim()) {
-    throw new Error(
-      `${OWNER_DATA_DIR}'s repo has a remote: his data is never pushed`
-    );
+  if (git(dir, ["remote"]).stdout.toString().trim()) {
+    throw new Error(`${dir}'s repo has a remote: his data is never pushed`);
   }
-  const paths = all.filter((p) => existsSync(join(OWNER_DATA_DIR, p)));
-  git(OWNER_DATA_DIR, ["add", "--", ...paths]);
+  const paths = all.filter((p) => existsSync(join(dir, p)));
+  git(dir, ["add", "--", ...paths]);
   if (
-    git(OWNER_DATA_DIR, ["diff", "--cached", "--quiet", "--", ...paths])
-      .exitCode === 0
+    git(dir, ["diff", "--cached", "--quiet", "--", ...paths]).exitCode === 0
   ) {
     return false;
   }
-  const out = git(OWNER_DATA_DIR, [
-    "commit",
-    "-q",
-    "-m",
-    message,
-    "--",
-    ...paths,
-  ]);
+  const out = git(dir, ["commit", "-q", "-m", message, "--", ...paths]);
   if (out.exitCode !== 0) {
     throw new Error(`git commit failed: ${out.stderr.toString().trim()}`);
   }

@@ -65,7 +65,7 @@ const of = (given: Partial<Sections>): Sections => ({
 
 const sections = (): Sections =>
   of({
-    history: [{ cites: [A], date: "2026-10-01", text: "Plan sent." }],
+    earlier: [{ cites: [A], date: "2026-10-01", text: "Plan sent." }],
     now: [
       { cites: [B], text: "The handover is expected around 17 Oct." },
       { cites: [C], text: "Steel supports need Jean's OK." },
@@ -99,7 +99,7 @@ const check = (over: Partial<Check> = {}): Check => {
   const s = sections();
   return {
     changed: new Set(),
-    covered: new Set(s.now.concat(s.history).flatMap((l) => l.cites)),
+    covered: new Set(s.now.concat(s.earlier).flatMap((l) => l.cites)),
     current: liveLines(s),
     fresh: new Set([D]),
     known: KNOWN,
@@ -109,7 +109,7 @@ const check = (over: Partial<Check> = {}): Check => {
   };
 };
 
-test("a page reads back as written: frontmatter, Now and History lines with cites, Often talk about left alone", () => {
+test("a page reads back as written: frontmatter, Now and Earlier lines with cites, Often talk about left alone", () => {
   const text = page();
   expect(text).toContain(
     "## Often talk about\n\n- construction (12), money (4)"
@@ -117,8 +117,8 @@ test("a page reads back as written: frontmatter, Now and History lines with cite
   const parsed = parsePage(text);
   expect(parsed?.meta.page).toBe("person:hans");
   expect(parsed && generated(parsed)).toEqual(sections());
-  const l = sections().history[0] as PageLine;
-  expect(readLine("history", renderLine("history", l))).toEqual(l);
+  const l = sections().earlier[0] as PageLine;
+  expect(readLine("earlier", renderLine("earlier", l))).toEqual(l);
   expect(parsed && ownerEdits(parsed)).toEqual({ lines: [], removed: [] });
 });
 
@@ -154,11 +154,11 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   const truth = { projects: [{ area: "construction", id: "house" }] } as never;
   const paged = new Set(["person:hans", "person:dad", "person:me"]);
   const home = (
-    entities: string[],
+    subjects: string[],
     area: string | null = null,
     type: Observation["type"] = "news",
     unmapped = false
-  ) => homePageOf({ area, entities, type, unmapped }, truth, paged);
+  ) => homePageOf({ area, subjects, type, unmapped }, truth, paged);
   expect(home(["person:me", "person:hans"], "shop")).toBe("person:hans");
   expect(home(["person:hans", "project:house"])).toBe("person:hans");
   // Two people, or a person without a page: the project's area, then its own.
@@ -177,9 +177,9 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   // Nothing else claims it: his own life.
   expect(home(["person:me"])).toBe("person:me");
   // Who extraction said it is about wins: Jean's goal that names Dad is Jean's, a fact about Dad told Hans is Dad's.
-  const about = (a: string, entities: string[]) =>
+  const about = (a: string, subjects: string[]) =>
     homePageOf(
-      { about: a, area: "shop", entities, type: "news", unmapped: false },
+      { about: a, area: "shop", subjects, type: "news", unmapped: false },
       truth,
       paged
     );
@@ -195,12 +195,12 @@ test("one fact, one page: a person who has a page owns what is only about them, 
 });
 
 test("placed: the pages and the email file a page line by its home; a conditional claim or one with no home is no page line", () => {
-  const line = (id: string, entities: string[], over = {}) =>
+  const line = (id: string, subjects: string[], over = {}) =>
     ({
       area: null,
-      entities,
       id,
       importance: 3,
+      subjects,
       type: "news",
       unmapped: false,
       ...over,
@@ -220,9 +220,9 @@ test("placed: the pages and the email file a page line by its home; a conditiona
   ).toEqual([["person:hans", ["hans"]]]);
 });
 
-test("kept lines stay word for word; one that lost an observation keeps the live ones and is flagged; one replaced moves to History", () => {
+test("kept lines stay word for word; one that lost an observation keeps the live ones and is flagged; one replaced moves to Earlier", () => {
   const s = of({
-    history: [
+    earlier: [
       { cites: [A, "obs_000000000000"], date: "2026-10-01", text: "Old." },
     ],
     now: [
@@ -242,7 +242,7 @@ test("kept lines stay word for word; one that lost an observation keeps the live
   // Both rest on live observations only now, and the model is asked about them once.
   expect(r.sections.now.map((l) => l.cites)).toEqual([[B], [B], [B]]);
   expect(r.changed.size).toBe(2);
-  expect(r.sections.history.map((l) => [l.date, l.text]).sort()).toEqual([
+  expect(r.sections.earlier.map((l) => [l.date, l.text]).sort()).toEqual([
     ["2026-10-01", "Old."],
     ["2026-10-18", "Replaced."],
   ]);
@@ -255,6 +255,9 @@ test("the reply may add for new observations, finish a line, rewrite a changed l
   const r = checkReply(
     {
       done: [first, "nope"],
+      earlier: [
+        { cites: [D], date: "2026-10-19", text: "Past, but D is used." },
+      ],
       now: [
         { cites: [D], text: "New." },
         { cites: [D], text: "Repeat of New." },
@@ -263,7 +266,6 @@ test("the reply may add for new observations, finish a line, rewrite a changed l
         { cites: [], text: "No cite." },
         { cites: [D], text: "Mine." },
       ],
-      past: [{ cites: [D], date: "2026-10-19", text: "Past, but D is used." }],
       rewrite: [
         { cites: [C], line: second, text: "Changed." },
         { cites: [C], line: first, text: "Not changed." },
@@ -296,7 +298,7 @@ test("no churn: with nothing new, the page comes out as it went in", () => {
   expect(changes(sections(), next)).toEqual({ added: 0, moved: 0, removed: 0 });
 });
 
-test("aging: a Now line with nothing newer than 21 days moves to History, dated by its newest observation", () => {
+test("aging: a Now line with nothing newer than 21 days moves to Earlier, dated by its newest observation", () => {
   const next = assemble(
     settle(sections(), KNOWN).sections,
     checkReply({}, check({ fresh: new Set() })),
@@ -307,13 +309,13 @@ test("aging: a Now line with nothing newer than 21 days moves to History, dated 
   expect(next.now.map((l) => l.text)).toEqual([
     "Steel supports need Jean's OK.",
   ]);
-  expect(next.history.map((l) => `${l.date} ${l.text}`)).toEqual([
+  expect(next.earlier.map((l) => `${l.date} ${l.text}`)).toEqual([
     "2026-10-12 The handover is expected around 17 Oct.",
     "2026-10-01 Plan sent.",
   ]);
 });
 
-test("a finished line moves to History", () => {
+test("a finished line moves to Earlier", () => {
   const s = sections();
   const first = lineHash(renderLine("now", s.now[0] as PageLine));
   const next = assemble(
@@ -332,17 +334,17 @@ test("a finished line moves to History", () => {
     "Newer plan.",
     "Steel supports need Jean's OK.",
   ]);
-  expect(next.history.map((l) => l.text)).toEqual([
+  expect(next.earlier.map((l) => l.text)).toEqual([
     "The handover is expected around 17 Oct.",
     "Plan sent.",
   ]);
 });
 
-test("the word budget: History goes first, oldest line first, then Now's oldest", () => {
+test("the word budget: Earlier goes first, oldest line first, then Now's oldest", () => {
   const words = (n: number) =>
     Array.from({ length: n }, () => "word").join(" ");
   const many = of({
-    history: Array.from({ length: 40 }, (_, i) => ({
+    earlier: Array.from({ length: 40 }, (_, i) => ({
       cites: [A],
       date: `2026-09-${String(10 + (i % 18)).padStart(2, "0")}`,
       text: words(10),
@@ -356,14 +358,14 @@ test("the word budget: History goes first, oldest line first, then Now's oldest"
   const fitted = fit(many, KNOWN, 400, PLAIN);
   const total = (s: Sections) =>
     s.now
-      .concat(s.history)
+      .concat(s.earlier)
       .reduce((n, l) => n + l.text.split(" ").length + (l.date ? 1 : 0), 0);
   expect(400 + total(fitted)).toBeLessThanOrEqual(800);
   expect(fitted.now.map((l) => l.cites[0])).toEqual([D, C]);
-  // Now's oldest line moved to History to leave room, and History lost its oldest first.
-  expect(fitted.history.length).toBeGreaterThan(0);
-  expect(fitted.history.length).toBeLessThanOrEqual(30);
-  const days = fitted.history.map((l) => l.date ?? "");
+  // Now's oldest line moved to Earlier to leave room, and Earlier lost its oldest first.
+  expect(fitted.earlier.length).toBeGreaterThan(0);
+  expect(fitted.earlier.length).toBeLessThanOrEqual(30);
+  const days = fitted.earlier.map((l) => l.date ?? "");
   expect(days).toEqual([...days].sort().reverse());
 });
 
@@ -380,10 +382,10 @@ test("Often talk about is the topics that repeat, most first", () => {
   expect(oftenLine(new Map([["once", 1]]))).toEqual([]);
 });
 
-test("what changed counts lines added, moved to History and removed; a reader gets the whole page", () => {
+test("what changed counts lines added, moved to Earlier and removed; a reader gets the whole page", () => {
   const after = of({
-    history: [
-      ...sections().history,
+    earlier: [
+      ...sections().earlier,
       {
         cites: [B],
         date: "2026-10-12",
@@ -397,14 +399,14 @@ test("what changed counts lines added, moved to History and removed; a reader ge
     moved: 1,
     removed: 1,
   });
-  // A reader gets the whole page, History included, without its frontmatter.
+  // A reader gets the whole page, Earlier included, without its frontmatter.
   expect(bodyOf(page())).toContain("Steel supports");
-  expect(bodyOf(page())).toContain("## History");
+  expect(bodyOf(page())).toContain("## Earlier");
   expect(bodyOf(page())).not.toContain("schemaVersion");
   expect(perSection()).toEqual({
-    bond: [],
+    between_us: [],
+    earlier: [],
     health: [],
-    history: [],
     now: [],
     views: [],
   });
@@ -426,7 +428,7 @@ test("his page takes lines in its own sections; a section a page lacks is refuse
       now: [
         { cites: [MINE], section: "views", text: "Values honesty." },
         { cites: [C], section: "health", text: "Sleeps badly." },
-        { cites: [C], section: "history", text: "Undated." },
+        { cites: [C], section: "earlier", text: "Undated." },
       ],
     },
     check({
@@ -487,11 +489,11 @@ test("a kept line may take in new observations, keeping its own; it may not drop
 
 test("his views never age, his health ages after 60 days, Now after 21; his page is larger", () => {
   const s = of({
+    earlier: [],
     health: [
       { cites: [B], text: "Old fever." },
       { cites: [C], text: "Sleeps badly." },
     ],
-    history: [],
     now: [{ cites: [B], text: "A trip in August." }],
     views: [{ cites: [A], text: "Values honesty." }],
   });
@@ -504,11 +506,11 @@ test("his views never age, his health ages after 60 days, Now after 21; his page
   expect(next.views?.map((l) => l.text)).toEqual(["Values honesty."]);
   expect(next.health?.map((l) => l.text)).toEqual(["Sleeps badly."]);
   expect(next.now).toEqual([]);
-  expect(next.history.map((l) => `${l.date} ${l.text}`)).toEqual([
+  expect(next.earlier.map((l) => `${l.date} ${l.text}`)).toEqual([
     "2026-08-01 A trip in August.",
     "2026-08-01 Old fever.",
   ]);
-  // Over budget, the oldest line of a section that ages goes to History first; his views, which never age, go last.
+  // Over budget, the oldest line of a section that ages goes to Earlier first; his views, which never age, go last.
   const words = (n: number) => Array.from({ length: n }, () => "w").join(" ");
   const tight = fit({ ...s, now: [{ cites: [C], text: words(145) }] }, OWN, 0, {
     ...OWNED,
@@ -516,13 +518,13 @@ test("his views never age, his health ages after 60 days, Now after 21; his page
   });
   expect(tight.views?.map((l) => l.text)).toEqual(["Values honesty."]);
   expect(tight.health?.map((l) => l.text)).toEqual(["Sleeps badly."]);
-  expect(tight.history.map((l) => l.text)).toEqual(["Old fever."]);
+  expect(tight.earlier.map((l) => l.text)).toEqual(["Old fever."]);
 });
 
-test("his page renders its sections in order and reads back; other pages keep Now and History only", () => {
+test("his page renders its sections in order and reads back; other pages keep Now and Earlier only", () => {
   const s = of({
+    earlier: [],
     health: [{ cites: [C], text: "Sleeps badly." }],
-    history: [],
     now: [],
     views: [{ cites: [A], text: "Values honesty." }],
   });
@@ -569,10 +571,12 @@ test("his page renders its sections in order and reads back; other pages keep No
   expect(text).not.toContain("## Between us");
 });
 
-test("a close person's page has Between us before Now; once not close, its lines go to History", () => {
+test("a close person's page has Between us before Now; once not close, its lines go to Earlier", () => {
   const close = layoutOf("person:hans", true);
   const s = of({
-    bond: [{ cites: [A], text: "Hans and Jean agreed to keep money apart." }],
+    between_us: [
+      { cites: [A], text: "Hans and Jean agreed to keep money apart." },
+    ],
     now: [{ cites: [B], text: "The handover is expected around 17 Oct." }],
   });
   const text = renderPage({
@@ -594,10 +598,16 @@ test("a close person's page has Between us before Now; once not close, its lines
   const parsed = parsePage(text);
   expect(parsed && generated(parsed)).toEqual(s);
   const k = known([obs(A, "2026-10-01"), obs(B, "2026-10-14")]);
-  const none = { add: [], done: [], past: [], rejects: [], rewrite: new Map() };
+  const none = {
+    add: [],
+    done: [],
+    earlier: [],
+    rejects: [],
+    rewrite: new Map(),
+  };
   const after = assemble(s, none, k, { fixed: 0, layout: PLAIN, today: TODAY });
-  expect(after.bond).toEqual([]);
-  expect(after.history.map((l) => l.text)).toEqual([
+  expect(after.between_us).toEqual([]);
+  expect(after.earlier.map((l) => l.text)).toEqual([
     "Hans and Jean agreed to keep money apart.",
   ]);
 });

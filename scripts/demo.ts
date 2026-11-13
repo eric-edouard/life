@@ -334,9 +334,6 @@ for (const d of DEMO) {
       at,
       confidence: 0.9,
       date: day,
-      entities: [
-        ...new Set([speaker, "me", ...people].map((p) => `person:${p}`)),
-      ],
       id: `obs_${hex(u.id + type + quote + text, 12)}`,
       importance: when ? 3 : 2,
       madeBy: { ...extract, unitHash: u.hash },
@@ -345,6 +342,9 @@ for (const d of DEMO) {
       schemaVersion: 1,
       source: { channel: d.source, ref: d.ref },
       speaker: `person:${speaker}`,
+      subjects: [
+        ...new Set([speaker, "me", ...people].map((p) => `person:${p}`)),
+      ],
       text,
       type,
       tz: "Europe/Lisbon",

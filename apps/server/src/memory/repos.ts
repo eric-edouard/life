@@ -34,7 +34,7 @@ import { localDate } from "./zones";
 // about itself (memory/repos-inferred.jsonl, used at once below truth/). Only repos with his commits are asked about,
 // so upstream clones never are; a repo is asked about once per prompt version.
 
-const REPOS_PROMPT = "repos.v1";
+const REPO_PROJECT_PROMPT = "repo-project.v1";
 const PER_CALL = 20;
 const README_FILES = ["README.md", "AGENTS.md", "CLAUDE.md"];
 const README_MAX = 600;
@@ -99,7 +99,7 @@ function readme(path: string) {
 }
 
 export async function mapRepos() {
-  const step = await begin("repos", "fast", { prompt: REPOS_PROMPT });
+  const step = await begin("repos", "fast", { prompt: REPO_PROJECT_PROMPT });
   const [truth, inferredRepos] = await Promise.all([
     loadTruth(),
     readInferredRepos(),
@@ -108,7 +108,7 @@ export async function mapRepos() {
   const known = new Set([
     ...repoMap(truth, []).keys(),
     ...inferredRepos
-      .filter((g) => g.madeBy.prompt === REPOS_PROMPT)
+      .filter((g) => g.madeBy.prompt === REPO_PROJECT_PROMPT)
       .map((g) => g.repo),
   ]);
 
@@ -124,7 +124,7 @@ export async function mapRepos() {
   const ctx = {
     areas: areaLookup(truth.areas),
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, REPOS_PROMPT, step.run),
+    madeBy: stamp(step.llm, REPO_PROJECT_PROMPT, step.run),
     projects: new Map(truth.projects.map((p) => [p.id, p.area])),
   };
   const context = {
@@ -147,7 +147,7 @@ export async function mapRepos() {
         context,
         dir,
         input: { repos: batch },
-        prompt: REPOS_PROMPT,
+        prompt: REPO_PROJECT_PROMPT,
       });
       const checked = parseInferredRepos(
         json,

@@ -42,7 +42,7 @@ test("two requests the same day for the same edit both change the list: each has
 
 /** A ledger line of an add (the auto-add permission's when `ref` is an observation) or a remove. */
 const line = (
-  kind: "add" | "edit" | "remove" | "grant",
+  kind: "add" | "edit" | "remove" | "auto_add",
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
@@ -62,7 +62,7 @@ const line = (
 const NOW = "2026-10-21T12:00:00.000Z";
 /** His yes, said in a Claude session before everything else here. */
 const yes = {
-  ...line("grant", "grant", "session:x", "2026-10-01T10:00:00.000Z"),
+  ...line("auto_add", "auto_add", "session:x", "2026-10-01T10:00:00.000Z"),
   after: { on: true },
 };
 const mine = {
@@ -218,10 +218,10 @@ test("the auto-add permission sets an add's title, named list, due and section o
 });
 
 test("with the actions output off, a change is refused before anything is recorded", async () => {
-  const on = settings().todo_list;
+  const on = settings().todoList;
   const ledger = () => (existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "");
   const before = ledger();
-  setSettings({ todo_list: null });
+  setSettings({ todoList: null });
   try {
     await expect(
       changeAskedTodoItem(
@@ -231,6 +231,6 @@ test("with the actions output off, a change is refused before anything is record
     ).rejects.toThrow("To-do list is off");
     expect(ledger()).toBe(before);
   } finally {
-    setSettings({ todo_list: on });
+    setSettings({ todoList: on });
   }
 });

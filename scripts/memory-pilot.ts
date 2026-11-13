@@ -1,6 +1,6 @@
 // `bun scripts/memory-pilot.ts <read> --set <name> [--run] [--engine <engine>] [--label <label>] [--model <model>]
 // [--effort <effort>]`: the memory rework's pilot (docs/operations.md, "Measuring"): a read tried on a saved test set
-// (`pilot-set.ts`, `pilot-voice-set.ts`), its replies kept in a trial folder of their own by read, label and wording,
+// (`pilot-set.ts`, `pilot-voice-set.ts`), its replies kept in a trial folder of their own by read, label and prompt digest,
 // never in `memory/`. Calls, storing and "already read" are the exchange reads' (`memory/exchange-reads.ts`). Without
 // `--run` it only counts what it would ask. Prints counts, never a word or a name.
 
@@ -13,12 +13,12 @@ import {
   type Asked,
   callOf,
   makeReplies,
+  promptDigestOf,
   READS,
   readReplies,
   readReplyIndex,
   replyOf,
   type With,
-  wordingOf,
 } from "@life/server/src/memory/exchange-reads";
 import {
   type CheckedExchange,
@@ -55,7 +55,7 @@ export const readSet = (name: string) => {
 
 /** The trial folder of a read tried by `label` with this wording: a reworded prompt of the same name is a new folder, so it is asked again. */
 export const trialDir = (read: ReadName, label: string, wording: string) =>
-  join(KEPT, read, `${label}-${wordingOf(wording)}`);
+  join(KEPT, read, `${label}-${promptDigestOf(wording)}`);
 
 /** Every exchange the stored lines hold for `read`, checked (`checkedMoves`), by its first message's key; only lines whose messages are all in `events`. */
 export function checkedOf(

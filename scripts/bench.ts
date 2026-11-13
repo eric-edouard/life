@@ -2,8 +2,8 @@
 // on the hand-checked days (the truth set, ~/Life/docs/evals/truth-*.json), against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
-// keep one judge across benches when his engine changes) then grades its claims against the days' hand-checked facts
-// and his rated statements (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
+// keep one judge across benches when his engine changes) then grades its memory lines against the days' hand-checked facts
+// and his answered fact checks (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
 // It prints the table and writes nothing of his.
 
 import { cpSync } from "node:fs";
@@ -52,7 +52,7 @@ const MODELS: Record<string, string> = {
 };
 /** What Life runs, always benched, at least twice so its own spread shows. */
 const BASELINE = "life";
-/** What a copy starts from: no memory, only what is his or describes his sources (no corrections: they hide claims). */
+/** What a copy starts from: no memory, only what is his or describes his sources (no corrections: they hide memory lines). */
 const SEED = [
   "truth",
   "memory/zones.jsonl",
@@ -84,7 +84,7 @@ function summed<T>(all: T[]): T {
   });
 }
 
-/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): episodes then extract over each truth file's window (the files are passed in: the copy has no docs), its claims to claims.jsonl. */
+/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): episodes then extract over each truth file's window (the files are passed in: the copy has no docs), its memory lines to memory-lines.jsonl. */
 async function readDays(files: string[]) {
   const windows = await Promise.all(files.map(readTruth));
   const done = await locked(async () => {
@@ -103,12 +103,12 @@ async function readDays(files: string[]) {
       read.calls += m.calls + e.calls;
       read.failed += m.failed + e.failed;
     }
-    const claims = (await memoryLinesNow()).filter((c) =>
+    const memoryLines = (await memoryLinesNow()).filter((c) =>
       windows.some((w) => c.date >= w.from && c.date <= w.to)
     );
     await Bun.write(
-      join(OWNER_DATA_DIR, "claims.jsonl"),
-      claims
+      join(OWNER_DATA_DIR, "memory-lines.jsonl"),
+      memoryLines
         .map((c) => JSON.stringify({ date: c.date, id: c.ref, text: c.text }))
         .join("\n")
     );
@@ -122,11 +122,11 @@ async function readDays(files: string[]) {
     const tokens = calls.reduce((t, l) => add(t, l.tokens ?? NONE), NONE);
     return {
       ...read,
-      claims: claims.length,
       cost:
         costs.length > 0
           ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
           : `${Math.round((tokens.input + tokens.output) / 1e3)}k tokens`,
+      memoryLines: memoryLines.length,
       model: llmSpec(llmFor("deep")),
     };
   });
@@ -226,15 +226,15 @@ async function bench(models: string[], runs: number, judge?: string) {
     const days = windows.map((w) =>
       w.from === w.to ? w.from : `${w.from}–${w.to}`
     );
-    const rated = answeredFactChecks()
+    const answered = answeredFactChecks()
       .filter((f) => windows.some((w) => f.date >= w.from && f.date <= w.to))
       .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
-    const ratedFile = join(tmp, "rated.json");
-    // eval.ts takes one window: the first day to the last, holding only the truth days' statements.
+    const answersFile = join(tmp, "answers.json");
+    // eval.ts takes one window: the first day to the last, holding only the truth days' fact checks.
     await Bun.write(
-      ratedFile,
+      answersFile,
       JSON.stringify({
-        facts: rated,
+        facts: answered,
         from: windows.map((w) => w.from).toSorted()[0],
         to: windows
           .map((w) => w.to)
@@ -275,12 +275,12 @@ async function bench(models: string[], runs: number, judge?: string) {
             ...files,
           ]);
           const minutes = Math.round((performance.now() - started) / MIN);
-          const claims = join(data, "claims.jsonl");
+          const memoryLines = join(data, "memory-lines.jsonl");
           const graded = (file: string) =>
             run(code, data, judge, [
               "scripts/eval.ts",
               file,
-              claims,
+              memoryLines,
               "--json",
             ]) as Promise<Counts>;
           // One after the other: an eval's run folder is named by the millisecond it starts.
@@ -289,7 +289,7 @@ async function bench(models: string[], runs: number, judge?: string) {
             // biome-ignore lint/performance/noAwaitInLoops: see above
             held.push(await graded(f));
           }
-          const stated = await graded(ratedFile);
+          const stated = await graded(answersFile);
           const timeline = await Promise.all(
             files.map(
               (f) =>
@@ -303,11 +303,11 @@ async function bench(models: string[], runs: number, judge?: string) {
           return {
             ...p,
             calls: read.calls as number,
-            claims: read.claims as number,
             cost: read.cost as string,
             failed: read.failed as number,
             held: summed(held),
             llm: read.model as string,
+            memoryLines: read.memoryLines as number,
             minutes,
             stated,
             timeline: summed(timeline),
@@ -317,7 +317,7 @@ async function bench(models: string[], runs: number, judge?: string) {
         }
       })
     );
-    console.log(factTable(rows, { days, facts, rated: rated.length }));
+    console.log(factTable(rows, { answered: answered.length, days, facts }));
   } finally {
     for (const dir of worktrees) {
       git(LIFE_CODE_DIR, ["worktree", "remove", "--force", dir]);
@@ -333,7 +333,7 @@ type Row = {
   error?: string;
 } & Partial<{
   calls: number;
-  claims: number;
+  memoryLines: number;
   cost: string;
   failed: number;
   held: Counts;
@@ -345,7 +345,7 @@ type Row = {
 /** One line per run; a held count within the baseline's own spread (or 3) of its mean is a tie. */
 export function factTable(
   rows: Row[],
-  about: { days: string[]; facts: number; rated: number }
+  about: { days: string[]; facts: number; answered: number }
 ) {
   const base = rows.flatMap((r) =>
     r.model === BASELINE && r.held ? [r.held.held] : []
@@ -367,14 +367,14 @@ export function factTable(
       return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||||`;
     }
     const t = r.timeline;
-    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${r.held.both} | ${versus(r, r.held.held)} | ${t.found}/${t.truth}, ${t.merged} merged, ${t.extra} extra, ${t.duplicates} dup, start ${t.start.ok}/${t.start.checked}, end ${t.end.ok}/${t.end.checked}, place ${t.place.ok}/${t.place.checked} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong, ${r.stated.both} kept both | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
+    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${r.held.both} | ${versus(r, r.held.held)} | ${t.found}/${t.truth}, ${t.merged} merged, ${t.extra} extra, ${t.duplicates} dup, start ${t.start.ok}/${t.start.checked}, end ${t.end.ok}/${t.end.checked}, place ${t.place.ok}/${t.place.checked} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong, ${r.stated.both} kept both | ${r.memoryLines} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
     `# Bench ${about.days.join(", ")} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; rated: his ${about.rated} rated statements of those days as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
+    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; answered: his ${about.answered} answered fact checks of those days. Each fact is judged as of its day (an answered fact check's), against the memory lines said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
     "",
-    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | rated statements | claims | calls | time | cost |`,
+    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | answered fact checks | memory lines | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows.map(line),
   ].join("\n");

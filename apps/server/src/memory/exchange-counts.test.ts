@@ -101,7 +101,7 @@ test("the file is rewritten whole; a failed source or an unreadable message leav
     ).toEqual({ exchanges: 3, failed: 0 });
     const first = readExchangeCounts();
     expect(first?.people["person:ann"]).toHaveLength(3);
-    expect(first?.sources).toContain("told"); // the test data's one source with people
+    expect(first?.sources).toContain("told-life"); // the test data's one source with people
     // A source that could not be read: nothing is written, the counts never miss a source.
     expect(
       writeExchangeCounts({ events: [], failed: ["mail"] }, resolve)

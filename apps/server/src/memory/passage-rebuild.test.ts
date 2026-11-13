@@ -6,7 +6,11 @@ import type { SourceEvent } from "../records/source";
 import { UNITS, ZONES } from "./memory-files";
 import { rebuildPassages } from "./passage-rebuild";
 import { readPassages } from "./passages";
+import { tables } from "./sources";
+import { recordToldLife } from "./told-life";
 import { dayStart, localDate } from "./zones";
+
+const TOLD_LIFE_NAME = "told-life";
 
 const all: SourceEvent[] = [
   {
@@ -89,4 +93,18 @@ test("rebuild checks uncertainty over expanded edge days and defers their whole 
   expect(
     readPassages().filter((p) => p.id.startsWith("line|deferred:"))
   ).toEqual([]);
+});
+
+test("what he told Life is written again as passages under the told-life source", async () => {
+  const day = localDate(recordToldLife("Rebuild told-life amber note").at);
+  await Bun.sleep(5); // a window reads only what is older than now
+  const read = tables().SEARCHED[TOLD_LIFE_NAME];
+  expect(read).toBeDefined();
+  const out = await rebuildPassages(
+    { from: day, to: day },
+    { sources: () => ({ [TOLD_LIFE_NAME]: read as never }) }
+  );
+  expect(out.failed).toBe(0);
+  expect(readPassages().some((p) => p.id.startsWith("told-life|"))).toBe(true);
+  expect(readPassages().some((p) => p.id.startsWith("told|"))).toBe(false);
 });

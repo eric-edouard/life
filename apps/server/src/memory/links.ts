@@ -192,7 +192,7 @@ export async function readLinkWork(people: People) {
         !openIds.has(o.id) &&
         o.modality !== "plan" &&
         o.modality !== "conditional" &&
-        (o.speaker === subject || o.entities.includes(subject))
+        (o.speaker === subject || o.subjects.includes(subject))
     );
     return subjectWorkOf(subject, open, later, batches) ?? [];
   });

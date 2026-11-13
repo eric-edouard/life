@@ -73,7 +73,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `links.jsonl` only by the links step (`memory/links.ts`), and nothing reads it yet; `read-replies/` only by the exchange reads (`memory/exchange-reads.ts`; its one-time bring-in goes through `storeReply`), a line never rewritten. The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/`, `histories/` (a month or a story replaced only by its re-read, its last version left to the data repo's git history; a file is never removed) and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
-  their turns (the persona reads their words), but thousands of facts, his ratings and corrections cite them, and a re-read
+  their turns (the persona reads their words), but thousands of facts, his fact-check answers and corrections cite them, and a re-read
   would orphan those (his decision of 9 Nov 2026). Never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename or a new field backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe), or adding a field to stored lines, ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
@@ -86,7 +86,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   A new recipe for new units only, every stored id kept, is not a rename. A day's episode file is code's to rewrite on
   every reading, so a migration may drop episode lines there (no cursor counts them).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a rating), `told.jsonl` (what he told Life, one synchronous append: `recordTold`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, a fact-check answer), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
   copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
@@ -112,7 +112,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   cases' (his word, 10 Nov 2026): nothing Life runs by itself starts it. Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
-- **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
+- **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todoList`
   setting), through `changeTodoItem` alone (`scripts/imports.test.ts` checks), on his clear request or the auto-add permission. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
@@ -197,7 +197,7 @@ Before adding a helper, use the one that exists:
 | How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` is the one place that decides what a link ends; in shadow, off until his `links` setting, read by nothing but `bun life memory links <person>` |
 | A person's past months with him, and their story | their history (`memory/histories.ts`, `readHistory`): a closed month read once from their one-to-one exchanges, again only when what it was shown changes; the present month is the situation's. Off until his `history` setting |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
-| Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's surface reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
+| Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's name or handle reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart`, `time`, `localTime`, `dayRange` (`zones.ts`); a calendar day's arithmetic, no zone: `daysBefore` (`core/clock.ts`); in the zone he was in (`zoneAt`), never the process's zone; the present (his day now) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`, lifelog included; a duration is `performance.now()` |
@@ -212,7 +212,7 @@ Before adding a helper, use the one that exists:
 | An activity day's unit (device-day, measurement-day) | `activityDay` over its text (`memory/activity-days.ts`) |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
-| Reading a JSONL file | an append-only one (the ledger, verdicts, files, told): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
+| Reading a JSONL file | an append-only one (the ledger, verdicts, files, told-life): `readAppended` (`core/files.ts`), which parses only new lines and returns a result callers never mutate; one code rewrites: `rowsOf` |
 | Where a sitting of talk ends in a stream of messages (one chat, or one person's across channels) | `exchangesOf`, `EXCHANGE_ENDS_AFTER` (`memory/exchanges.ts`), `batchesOf` for what one call reads of them and `isTwoWay` for the chats worth reading; a batch as lines a reply can cite: `batchLines` (`words.ts`); search's passages keep their own cut. The persona's prompt says "6 hours" in words: a new quiet is a prompt version, so ask first |
 | Messages by chat | `chatGroups` (`records/source.ts`) |
 | Whether a kept result is still what a call would be asked | `inputsOf` (`memory/run.ts`): one digest of the prompt and the input. For an exchange's read: `replyOf` (`memory/exchange-reads.ts`), which matches the prompt's versioned name and the exchange's messages, never the text's digest |
@@ -220,7 +220,7 @@ Before adding a helper, use the one that exists:
 | An exchange's end | `isFinished` (`memory/exchanges.ts`): nothing written for `EXCHANGE_ENDS_AFTER`; only a finished exchange is read |
 | The newest of a night's work within a call cap | `newestWithin` (`core/lists.ts`) |
 | The one-to-one messages of people named on a command line | `directOf` (`closeness.ts`) |
-| A reply checked for the points it must hold and must not say | `judge` then `tally` (`memory/tally.ts`): the points as true and false facts, the reply as the one claim; a misgrade becomes a judge case |
+| A reply checked for the points it must hold and must not say | `judge` then `tally` (`memory/tally.ts`): the points as true and false facts, the reply as the one memory line; a misgrade becomes a judge case |
 | Packing items into calls by size | `packed` (`core/lists.ts`): in order, an item never split; a step passes its own size |
 | Tokens from characters | `CHARS_PER_TOKEN` (`models/llm.ts`), a low bound: a count made with it is a ceiling |
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, lifelog's search and Life's alike |

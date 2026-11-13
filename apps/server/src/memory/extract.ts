@@ -175,7 +175,7 @@ export function byDays<T extends Group & { sources: Source[] }>(
  * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
- * reading: the readers resolve a fact's author and entities as of today (`aboutNow`). `unkept`: units read before
+ * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `unkept`: units read before
  * that their latest verdict no longer keeps (content changed, or a re-read judged them lower): their facts are
  * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading).
  */
@@ -282,14 +282,14 @@ export function priorFor(
   const people = new Set(othersIn(peopleOf(group)));
   const about = (o: Observation) =>
     o.date >= daysBefore(day, PRIOR_DAYS) &&
-    (o.entities.some((e) => people.has(e)) ||
-      (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
+    (o.subjects.some((e) => people.has(e)) ||
+      (othersIn(o.subjects).length === 0 && o.date >= daysBefore(day, 1)));
   const own = new Set(group.episode?.units);
   const ofEpisode = (o: Observation) => own.has(o.unit);
   const lasting = (o: Observation) =>
     o.type === "about_a_person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
-    o.entities.some((e) => people.has(e) && close.has(e));
+    o.subjects.some((e) => people.has(e) && close.has(e));
   const slots: [(o: Observation) => boolean, number][] = [
     [about, max],
     [ofEpisode, EPISODE_MAX],
@@ -465,7 +465,7 @@ export async function extract(evidence: Evidence) {
               resolve,
               refs.directory.projects
             ),
-            ...prior.flatMap((o) => o.entities),
+            ...prior.flatMap((o) => o.subjects),
           ])
         ),
         prior: prior.map((o) => ({ date: o.date, id: o.id, text: o.text })),
@@ -502,9 +502,9 @@ export async function extract(evidence: Evidence) {
         unresolved.push({
           at,
           date: date.get(u.unit) ?? today,
+          nameAsWritten: u.nameAsWritten,
           observation: u.observation,
           schemaVersion: 1,
-          surface: u.surface,
           unit: u.unit,
           via: "model",
         });
@@ -525,8 +525,8 @@ export async function extract(evidence: Evidence) {
       unresolved.push({
         at,
         date: unit.date,
+        nameAsWritten: p.slice(UNKNOWN.length),
         schemaVersion: 1,
-        surface: p.slice(UNKNOWN.length),
         unit: unit.id,
         via: "speaker",
       });

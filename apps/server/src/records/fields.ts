@@ -21,7 +21,7 @@ export const UnitId = z.string().regex(new RegExp(`^${UNIT_ID.source}$`));
 export const ContentHash = z.string().regex(/^[0-9a-f]{16}$/);
 
 /** person:<slug>, project:<slug> or area:<slug> (design §3.2). */
-export const EntityRef = z
+export const SubjectRef = z
   .string()
   .regex(/^(?:person:(?:inf_|con_)?|(?:project|area):(?:inf_)?)[a-z0-9-]+$/);
 

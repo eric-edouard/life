@@ -128,11 +128,11 @@ test("a new prompt version asks again and rewrites nothing; the same version wit
     at: "2026-10-04T00:00:00.000Z",
     madeBy: { engine: "codex" as const, model: "m", prompt, run: "r" },
     messages: talk.map(eventKey),
+    promptDigest: wording,
     read: "connection" as const,
     reply: GIVEN,
     schemaVersion: 1 as const,
     starts: [0, 2],
-    wording,
   });
   storeReply(
     line("memory-connection.v2", "a".repeat(16)),
@@ -148,7 +148,7 @@ test("a new prompt version asks again and rewrites nothing; the same version wit
     talk[0]?.at ?? "",
     where
   );
-  expect(heldBy(first)?.line.wording).toBe("b".repeat(16));
+  expect(heldBy(first)?.line.promptDigest).toBe("b".repeat(16));
   expect(
     workOf(talk)
       ?.work.map((w) => w.read)
@@ -218,11 +218,11 @@ test("a reply is filed under the month of its first message, not of when it was 
     at: "2026-11-13T09:00:00.000Z",
     madeBy: { engine: "codex" as const, model: "m", prompt: "p", run: "r" },
     messages: first.map(eventKey),
+    promptDigest: "a".repeat(16),
     read: "connection" as const,
     reply: GIVEN,
     schemaVersion: 1 as const,
     starts: [0],
-    wording: "a".repeat(16),
   });
   const [oct] = talk;
   const spring = msg(-200 * 24 * HOUR, false);

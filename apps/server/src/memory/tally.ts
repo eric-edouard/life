@@ -4,15 +4,15 @@ import { join } from "node:path";
 import { z } from "zod";
 import { askOnce, llmFor, llmSpec } from "../models/llm";
 
-/** What a judge may say of a fact against the claims. */
+/** What a judge may say of a fact against the memory lines. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;
 
 const Grades = z.object({
   grades: z.array(
     z.object({
-      claims: z.array(z.string()).default([]),
       fact: z.string(),
       grade: z.enum(GRADES),
+      memoryLines: z.array(z.string()).default([]),
       why: z.string().default(""),
     })
   ),
@@ -23,8 +23,8 @@ const JUDGE_PROMPT = "eval-judge.v2";
 export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
 
 /**
- * A grade kept between `--fact-check-answers` runs: the key of what it was judged on (its fact, the claims on its units as of its
- * day, the judge), and the claims it cited as they read then (null: gone).
+ * A grade kept between `--fact-check-answers` runs: the key of what it was judged on (its fact, the memory lines on its units as of its
+ * day, the judge), and the memory lines it cited as they read then (null: gone).
  */
 export interface KeptGrade {
   cited: [string, string | null][];
@@ -32,7 +32,7 @@ export interface KeptGrade {
   key: string;
 }
 
-/** Whether a kept grade still stands: its key unchanged and every claim it cites saying the same (`said`: id → text). */
+/** Whether a kept grade still stands: its key unchanged and every memory line it cites saying the same (`said`: id → text). */
 export const isGradeKept = (
   k: KeptGrade,
   key: string,
@@ -47,7 +47,7 @@ interface JudgedFact {
   fact: string;
   id: string;
 }
-/** A claim as the judge reads it: what was said, and the day it was said. */
+/** A memory line as the judge reads it: what was said, and the day it was said. */
 export const JudgeMemoryLine = z.object({
   date: z.string(),
   id: z.string(),
@@ -55,35 +55,38 @@ export const JudgeMemoryLine = z.object({
 });
 type JudgeMemoryLine = z.infer<typeof JudgeMemoryLine>;
 
-/** The judge's calls: the facts of each day with the claims said by then; facts with no day with every claim. */
-export const asOf = (facts: JudgedFact[], claims: JudgeMemoryLine[]) =>
+/** The judge's calls: the facts of each day with the memory lines said by then; facts with no day with every memory line. */
+export const asOf = (facts: JudgedFact[], memoryLines: JudgeMemoryLine[]) =>
   [...Map.groupBy(facts, (f) => f.date)].map(([date, group]) => ({
-    claims: date === undefined ? claims : claims.filter((c) => c.date <= date),
     date,
     facts: group,
+    memoryLines:
+      date === undefined
+        ? memoryLines
+        : memoryLines.filter((c) => c.date <= date),
   }));
 
 /**
- * A judge's grades (his engine's main tier) of `facts` against `claims` (`text` is what was said, `id` names it, `date`
- * the day it was said). A fact with a `date` is judged as of that day, against the claims said on or before it, so a
- * later change never contradicts a state true then; one call per date (`asOf`), facts without one against every claim.
+ * A judge's grades (his engine's main tier) of `facts` against `memory lines` (`text` is what was said, `id` names it, `date`
+ * the day it was said). A fact with a `date` is judged as of that day, against the memory lines said on or before it, so a
+ * later change never contradicts a state true then; one call per date (`asOf`), facts without one against every memory line.
  * The calls run together: a caller sorting its facts by date keeps them few (`--fact-check-answers`, scripts/eval.ts).
  * Inputs and replies kept in `dir`. Facts go without their truth: the judge isn't told which should hold.
  */
 export async function judge(
   facts: JudgedFact[],
-  claims: JudgeMemoryLine[],
+  memoryLines: JudgeMemoryLine[],
   o: { dir: string; engine?: Parameters<typeof llmFor>[1]; run: string }
 ) {
   const calls = await Promise.all(
-    asOf(facts, claims).map(
+    asOf(facts, memoryLines).map(
       async (call) =>
         Grades.parse(
           await askOnce({
             dir: call.date === undefined ? o.dir : join(o.dir, call.date),
             input: {
-              claims: call.claims,
               facts: call.facts.map(({ fact, id }) => ({ fact, id })),
+              memoryLines: call.memoryLines,
             },
             llm: llmFor("main", o.engine),
             prompt: JUDGE_PROMPT,

@@ -1,7 +1,7 @@
 import {
-  entity,
   latest,
   line,
+  pageAndLatest,
   type UnitRow,
   unitLine,
   withIndex,
@@ -45,7 +45,7 @@ export async function area(name: string) {
           "",
         ]
       : []),
-    ...entity(db, text, latest(db, "where o.area = ?", id).map(line)),
+    ...pageAndLatest(db, text, latest(db, "where o.area = ?", id).map(line)),
   ]);
 }
 

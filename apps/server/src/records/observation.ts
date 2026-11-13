@@ -2,12 +2,12 @@ import { z } from "zod";
 import { digest } from "../core/hash";
 import { SourceName } from "../core/names";
 import {
-  EntityRef,
   EpisodeId,
   isoDate,
   isoDateTime,
   MadeBy,
   PersonRef,
+  SubjectRef,
   slug,
   UnitId,
 } from "./fields";
@@ -39,8 +39,8 @@ export const unfoldedOf = <P extends { id: string }>(
 /** L2: one small dated claim, cited to the exact place in its source. memory/observations/<yyyy-mm>.jsonl. */
 export const Observation = z
   .object({
-    /** The one person or project the claim is about (from memory-extract.v3; `entities` also lists who it mentions). */
-    about: EntityRef.optional(),
+    /** The one person or project the claim is about (from memory-extract.v3; `subjects` also lists who it mentions). */
+    about: SubjectRef.optional(),
     /** An id from truth/areas.yaml, or null when none fits. */
     area: slug.nullable(),
     /** When it was said or written (the cited line's time). */
@@ -48,8 +48,6 @@ export const Observation = z
     confidence: z.number().min(0).max(1),
     /** Local day of `at` in `tz`. */
     date: isoDate,
-    /** People and projects the claim is about. */
-    entities: z.array(EntityRef),
     /** obs_ + hash of unit, type, quote and claim: re-extracting the same thing gives the same id. */
     id: ObservationId,
     importance: z.int().min(1).max(3),
@@ -74,6 +72,8 @@ export const Observation = z
     speakerFrom: z.string().optional(),
     /** A readable name for an unknown speaker (the 1:1 chat's title), next to the raw id in `speaker`. */
     speakerName: z.string().optional(),
+    /** People and projects the claim is about. */
+    subjects: z.array(SubjectRef),
     text: z.string().min(1).max(500),
     type: MemoryType.exclude(["nothing"]),
     tz: z.string(),
@@ -111,9 +111,9 @@ export const Unresolved = z
   .object({
     at: isoDateTime,
     date: isoDate,
+    nameAsWritten: z.string().min(1),
     observation: z.string().optional(),
     schemaVersion: z.literal(1),
-    surface: z.string().min(1),
     unit: z.string(),
     via: z.enum(["model", "speaker"]),
   })
@@ -132,7 +132,7 @@ export const Supersession = z
     by: ObservationId,
     madeBy: MadeBy,
     observation: ObservationId,
-    page: EntityRef.optional(),
+    page: SubjectRef.optional(),
     schemaVersion: z.literal(1),
     validTo: isoDate,
     why: z.string().max(300),
@@ -151,13 +151,13 @@ export const ClosenessLevel = z.enum([
 
 export type ClosenessLevel = z.infer<typeof ClosenessLevel>;
 
-/** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
+/** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, between_us on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
   "views",
   "health",
-  "bond",
+  "between_us",
   "now",
-  "history",
+  "earlier",
 ]);
 
 /**
@@ -177,7 +177,7 @@ export const Correction = z
         kind: z.enum(["wrong", "not-important"]),
         // Observations (obs_…) and, from 18 Oct, episodes (ep_…).
         observations: z.array(z.union([ObservationId, EpisodeId])).min(1),
-        page: EntityRef.optional(),
+        page: SubjectRef.optional(),
       })
       .strict(),
     z
@@ -191,7 +191,7 @@ export const Correction = z
       .object({
         ...Correcting,
         kind: z.literal("keep-mine"),
-        page: EntityRef,
+        page: SubjectRef,
         section: PageSection,
         text: z.string().min(1),
       })
@@ -200,16 +200,16 @@ export const Correction = z
       .object({
         ...Correcting,
         kind: z.literal("this-is"),
+        nameOrHandle: z.string().min(1),
         person: PersonRef,
-        surface: z.string().min(1),
       })
       .strict(),
     z
       .object({
         ...Correcting,
         kind: z.literal("not-this-person"),
+        nameOrHandle: z.string().min(1),
         person: PersonRef,
-        surface: z.string().min(1),
       })
       .strict(),
     z
@@ -244,14 +244,14 @@ export const Correction = z
 export type Correction = z.infer<typeof Correction>;
 
 /** What a person outside the directory goes by: handles (a phone, an email, a network's id) or names, at least one. */
-const Surfaces = z.array(z.string().min(1)).min(1);
+const NamesOrHandles = z.array(z.string().min(1)).min(1);
 
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
 export const INFERRED_PREFIX = "inf_";
 
 /**
  * memory/people-inferred.jsonl: who Life thinks an unknown handle or name is, from the messages and observations
- * around it. Model-owned and append-only (the latest record for a surface wins); used automatically below truth/ and
+ * around it. Model-owned and append-only (the latest record for a name or handle wins); used automatically below truth/ and
  * the owner's corrections, and never written into truth/.
  */
 export const InferredPerson = z
@@ -267,6 +267,8 @@ export const InferredPerson = z
     madeBy: MadeBy,
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */
     name: z.string().min(1),
+    /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
+    namesAndHandles: NamesOrHandles,
     /**
      * The person in truth/ it is, when the call judged it is them (used as them from INFERRED_USE_AT, `foldsOf`); null
      * when it judged no one there is; absent on guesses made before the call could link, asked once more (`answeredBy`).
@@ -275,8 +277,6 @@ export const InferredPerson = z
     project: slug.nullable(),
     relation: z.string().min(1),
     schemaVersion: z.literal(1),
-    /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
-    surfaces: Surfaces,
   })
   .strict();
 
@@ -287,7 +287,7 @@ export const CONTACT_PREFIX = "con_";
 
 /**
  * memory/people-contacts.jsonl: a card of his Contacts whose handle appears in his messages, as Contacts name it. Written
- * by code (the night's `writeContactPeople`), append-only: a card's latest line gives its name, and its surfaces only
+ * by code (the night's `writeContactPeople`), append-only: a card's latest line gives its name, and its handles only
  * grow. Who it is does not rest on the card any more: a card he deletes keeps its person (his answer, 12 Nov 2026).
  * Used below truth/ and above Life's own guesses (`readingOf`): his Contacts are his word on who a number is.
  */
@@ -296,10 +296,10 @@ export const ContactPerson = z
     at: isoDateTime,
     /** The card's own id in Contacts; the person's id is derived from it (`contactIdOf`), never from a name. */
     card: z.string().min(1),
+    /** The card's phones and emails, as written. */
+    handles: NamesOrHandles,
     name: z.string().min(1),
     schemaVersion: z.literal(1),
-    /** The card's phones and emails, as written. */
-    surfaces: Surfaces,
   })
   .strict();
 export type ContactPerson = z.infer<typeof ContactPerson>;
@@ -379,8 +379,8 @@ export interface PersonOutsideDirectory {
   id: string;
   kind: "contact" | "inferred";
   name: string;
+  namesAndHandles: string[];
   relation: string;
-  surfaces: string[];
 }
 
 /** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
@@ -388,22 +388,22 @@ export const IN_CONTACTS = "in his Contacts";
 
 /** Everyone outside the directory, folded or not (`unfoldedOf` for one id per person): the contact people, then the inferred. */
 export const peopleOutsideDirectoryOf = (
-  contacts: { id: string; name: string; surfaces: string[] }[],
+  contacts: { handles: string[]; id: string; name: string }[],
   inferred: InferredPerson[]
 ): PersonOutsideDirectory[] => [
   ...contacts.map((c) => ({
     id: c.id,
     kind: "contact" as const,
     name: c.name,
+    namesAndHandles: c.handles,
     relation: IN_CONTACTS,
-    surfaces: c.surfaces,
   })),
   ...inferred.map((p) => ({
     confidence: p.confidence,
     id: p.id,
     kind: "inferred" as const,
     name: p.name,
+    namesAndHandles: p.namesAndHandles,
     relation: p.relation,
-    surfaces: p.surfaces,
   })),
 ];

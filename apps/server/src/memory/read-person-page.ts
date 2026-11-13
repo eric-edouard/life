@@ -15,10 +15,10 @@ import { EXCHANGE_ENDS_AFTER } from "./exchanges";
 import { readHistory } from "./histories";
 import {
   CURRENT,
-  entity,
   episodeLine,
   latest,
   line,
+  pageAndLatest,
   section,
   withIndex,
 } from "./index-rows";
@@ -71,7 +71,7 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
   const seen = new Map(
     db
       .query<{ at: string; id: string }, []>(
-        "select substr(l.entity, 8) as id, max(o.at) as at from observation_entities l join observations o on o.id = l.observation where l.entity like 'person:%' group by l.entity"
+        "select substr(l.subject, 8) as id, max(o.at) as at from observation_subjects l join observations o on o.id = l.observation where l.subject like 'person:%' group by l.subject"
       )
       .all()
       .map((r) => [r.id, r.at])
@@ -213,7 +213,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
       const timeline: Dated[] = [
         ...latest(
           db,
-          "join observation_entities l on l.observation = o.id where l.entity = ?",
+          "join observation_subjects l on l.observation = o.id where l.subject = ?",
           ref,
           -1
         ).map((r) => ({
@@ -263,7 +263,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
                 counted && { ...counted, rows: counted.people[ref] ?? [] }
               ),
               ...history.block,
-              ...entity(db, found?.text ?? null, obsLines),
+              ...pageAndLatest(db, found?.text ?? null, obsLines),
               "",
               ...heldLines(db, ref, timeline),
             ]),
@@ -385,6 +385,6 @@ function noOne(
 const linkedCount = (db: Database, id: string) =>
   db
     .query<{ n: number }, [string]>(
-      `select count(*) as n from observation_entities l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
+      `select count(*) as n from observation_subjects l join observations o on o.id = l.observation where l.subject = ? and ${CURRENT}`
     )
     .get(`person:${id}`)?.n ?? 0;

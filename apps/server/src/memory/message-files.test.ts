@@ -15,17 +15,17 @@ import { locate } from "./quote-check";
 const madeBy = {
   engine: "codex" as const,
   model: "m",
-  prompt: "files.v1",
+  prompt: "message-file-description.v1",
   run: "r",
 };
 const hashOf = (s: string) => digest("sha256", s, 16);
 const id: FileEntry = {
+  description: "French national identity card of Anne-Sophie.",
   hash: hashOf("id-card"),
   madeBy,
   ref: "imessage:at_0",
   schemaVersion: 1,
   text: "RÉPUBLIQUE FRANÇAISE CARTE NATIONALE D'IDENTITÉ",
-  what: "French national identity card of Anne-Sophie.",
 };
 const photo = (ref: string, path?: string): SourceFile => ({
   mime: "image/heic",
@@ -46,7 +46,7 @@ const event = (...files: SourceFile[]): SourceEvent => ({
 
 test("a file read once shows its description by its ref, also once it is gone; one never read and gone is a tag", () => {
   const known = new Map([[id.ref, id]]);
-  const line = `[photo IMG_2910.HEIC, described by Life: ${id.what} | text: ${id.text}]`;
+  const line = `[photo IMG_2910.HEIC, described by Life: ${id.description} | text: ${id.text}]`;
   expect(showFiles([event(photo(id.ref, "/here.heic"))], known)[0]?.text).toBe(
     line
   );

@@ -463,12 +463,12 @@ test("agreement: kept means importance 2+, code-rule drops count as skipped, lab
     judged(ue, "news", 2), // kept, matters
   ]);
   const labels: MemoryLabel[] = [
-    { matters: true, unitId: "unit_00000000000a" },
-    { matters: false, unitId: "unit_00000000000b" },
-    { matters: true, unitId: "unit_00000000000c" },
-    { matters: false, unitId: "unit_00000000000d" },
-    { matters: true, unitId: "unit_00000000000e" },
-    { matters: true, unitId: "unit_0000000000ff" },
+    { important: true, unitId: "unit_00000000000a" },
+    { important: false, unitId: "unit_00000000000b" },
+    { important: true, unitId: "unit_00000000000c" },
+    { important: false, unitId: "unit_00000000000d" },
+    { important: true, unitId: "unit_00000000000e" },
+    { important: true, unitId: "unit_0000000000ff" },
   ];
   expect(agreement(labels, units, verdicts)).toEqual({
     agreement: 3 / 5,

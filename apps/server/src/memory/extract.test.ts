@@ -212,9 +212,9 @@ test("earlier facts for an episode: its people's from two weeks before, Jean's o
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
-      entities: ["person:bastien"],
       id,
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
       unit: U4,
       ...over,
     }) as Observation;
@@ -226,8 +226,8 @@ test("earlier facts for an episode: its people's from two weeks before, Jean's o
     { o: o("old", { date: "2026-09-20" }) },
     { o: o("near", { date: "2026-10-14" }) },
     { o: o("own", { date: "2026-10-15", unit: U1 }) },
-    { o: o("his", { date: "2026-10-14", entities: ["person:me"] }) },
-    { o: o("his-old", { date: "2026-10-10", entities: ["person:me"] }) },
+    { o: o("his", { date: "2026-10-14", subjects: ["person:me"] }) },
+    { o: o("his-old", { date: "2026-10-10", subjects: ["person:me"] }) },
     { by: U1, o: o("retired-here", { date: "2026-10-13" }) },
     { by: U3, o: o("retired-elsewhere", { date: "2026-10-13" }) },
     { o: o("same", { date: "2026-10-15" }) },
@@ -280,9 +280,9 @@ test("earlier facts also hold the episode's own units at any age, in their own s
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
-      entities: ["person:bastien"],
       id,
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
       type: "choice",
       unit: U3,
       ...over,
@@ -297,7 +297,7 @@ test("earlier facts also hold the episode's own units at any age, in their own s
     {
       o: o("his-plan", {
         date: "2026-09-25",
-        entities: ["person:me"],
+        subjects: ["person:me"],
         unit: U4,
       }),
     },
@@ -308,7 +308,7 @@ test("earlier facts also hold the episode's own units at any age, in their own s
     {
       o: o("his-loop", {
         date: "2026-09-25",
-        entities: ["person:me"],
+        subjects: ["person:me"],
         type: "to_do",
       }),
     },
@@ -327,9 +327,9 @@ test("an episode read with a person folded since (`episodeNow`) offers that pers
     o: {
       at: "2026-10-14T10:00:00.000Z",
       date: "2026-10-14",
-      entities: ["person:ann"],
       id: "ann-fact",
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:ann"],
       unit: U4,
     } as Observation,
   };

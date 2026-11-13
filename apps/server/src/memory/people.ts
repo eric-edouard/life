@@ -39,7 +39,7 @@ export function inferredId(name: string, key: string, taken: Set<string>) {
 }
 
 /**
- * Who the episodes call says the day's unknown handles and names are, checked: a surface we asked about (`unknown`: the
+ * Who the episodes call says the day's unknown handles and names are, checked: a name or handle we asked about (`unknown`: the
  * units it appears in; the first answer for it), at least one quote found in the text of one of those units, an area
  * from the list and a project we know, else none; `person` only when it is someone in truth/. A person is recorded
  * however unsure the model is; how far to trust it is the `confidence` (`foldsOf` uses it from INFERRED_USE_AT).
@@ -63,7 +63,7 @@ export function checkPeople(
     const seen = r.success ? ctx.unknown.get(r.data.key) : undefined;
     if (
       !(r.success && seen) ||
-      records.some((x) => x.surfaces.includes(r.data.key))
+      records.some((x) => x.namesAndHandles.includes(r.data.key))
     ) {
       continue;
     }
@@ -81,6 +81,7 @@ export function checkPeople(
         id: inferredId(r.data.name, r.data.key, ctx.taken),
         madeBy: ctx.madeBy,
         name: r.data.name,
+        namesAndHandles: [r.data.key],
         // Only someone in truth/: a link never leads to another guess.
         person:
           r.data.person && ctx.truth.has(r.data.person) ? r.data.person : null,
@@ -90,7 +91,6 @@ export function checkPeople(
             : null,
         relation: r.data.relation,
         schemaVersion: 1,
-        surfaces: [r.data.key],
       });
     }
   }
@@ -98,7 +98,7 @@ export function checkPeople(
 }
 
 /**
- * Whether a surface has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
+ * Whether a name or handle has its answer and is not asked about: it reads as someone in truth/ (or as his word says), or as an
  * inferred guess the call judged against the directory (`person` null or a ref). A guess made before the call could link
  * (`person` absent) is asked once more.
  */
@@ -107,7 +107,7 @@ export function answeredBy(
   inferred: InferredPerson[]
 ) {
   const judged = new Set(
-    inferred.flatMap((p) => (p.person === undefined ? [] : p.surfaces))
+    inferred.flatMap((p) => (p.person === undefined ? [] : p.namesAndHandles))
   );
   return (s: string) => {
     const ref = resolve(s);
@@ -119,7 +119,7 @@ export function answeredBy(
 }
 
 /**
- * The surfaces of a day not in the directory, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
+ * The namesAndHandles of a day not in the directory, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
  * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
  */

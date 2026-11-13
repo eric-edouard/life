@@ -120,12 +120,12 @@ const ModelObservation = z.object({
   about: z.string().nullish(),
   area: z.string().nullable().default(null),
   confidence: z.number().min(0).max(1),
-  entities: z.array(z.string()).max(12).default([]),
   importance: z.int().min(1).max(3),
   line: z.int().min(0).optional(),
   modality: Modality.nullish().catch(undefined),
   quote: z.string().min(1).max(600),
   replaces: z.array(z.string()).nullish(),
+  subjects: z.array(z.string()).max(12).default([]),
   text: z.string().min(1).max(500),
   type: MemoryType.exclude(["nothing"]),
   unit: z.string(),
@@ -156,20 +156,22 @@ export interface Reject {
 }
 
 /** One entity the model gave: a candidate, an unknown name code can resolve or must keep, or something invented. */
-export function entityOf(
+export function subjectOf(
   e: string,
   candidates: Set<string>,
-  resolve: (surface: string) => string | null
-): { ref: string } | { surface: string } | { invented: true } {
+  resolve: (nameOrHandle: string) => string | null
+): { ref: string } | { nameAsWritten: string } | { invented: true } {
   if (candidates.has(e)) {
     return { ref: e };
   }
-  const surface = e.startsWith(UNKNOWN) ? e.slice(UNKNOWN.length).trim() : "";
-  if (!surface) {
+  const nameAsWritten = e.startsWith(UNKNOWN)
+    ? e.slice(UNKNOWN.length).trim()
+    : "";
+  if (!nameAsWritten) {
     return { invented: true };
   }
-  const ref = resolve(surface);
-  return ref ? { ref } : { surface };
+  const ref = resolve(nameAsWritten);
+  return ref ? { ref } : { nameAsWritten };
 }
 
 /** One raw observation: valid, from a unit we sent, its quote found in that unit's lines; or why not. */
@@ -214,7 +216,7 @@ function cited(
 function recordOf(
   { found, line, o, source }: Exclude<ReturnType<typeof cited>, Reject>,
   id: string,
-  { about, entities }: { about?: string; entities: Set<string> },
+  { about, subjects }: { about?: string; subjects: Set<string> },
   ctx: {
     areas: Map<string, string>;
     madeBy: MadeBy;
@@ -223,16 +225,16 @@ function recordOf(
   // A single spoken source about someone else stays a maybe (design §3.3).
   const spoken =
     kindOf(source.unit.source) === "voice" &&
-    othersIn([...entities]).length > 0;
+    othersIn([...subjects]).length > 0;
   return {
     ...(about ? { about } : {}),
     area: areaOf(o.area, ctx.areas),
     at: line.at,
     confidence: spoken ? Math.min(o.confidence, SPOKEN_MAX) : o.confidence,
     date: localDate(line.at),
-    entities: [...entities].sort(),
     id,
     madeBy: { ...ctx.madeBy, unitHash: source.unit.hash },
+    subjects: [...subjects].sort(),
     ...(o.modality ? { modality: o.modality } : {}),
     importance: o.importance,
     quote: found.verbatim,
@@ -251,38 +253,45 @@ function recordOf(
   };
 }
 
-/** An observation's `entities` and `about` as refs: candidates, or names code resolves; the rest kept or rejected. */
-function entitiesOf(
+/** An observation's `subjects` and `about` as refs: candidates, or names code resolves; the rest kept or rejected. */
+function subjectsOf(
   o: z.infer<typeof ModelObservation>,
   id: string,
   candidates: Set<string>,
-  resolve: (surface: string) => string | null
+  resolve: (nameOrHandle: string) => string | null
 ) {
-  const entities = new Set<string>();
+  const subjects = new Set<string>();
   const rejects: Reject[] = [];
-  const unresolved: { observation: string; surface: string; unit: string }[] =
-    [];
-  for (const e of o.entities) {
-    const link = entityOf(e, candidates, resolve);
+  const unresolved: {
+    observation: string;
+    nameAsWritten: string;
+    unit: string;
+  }[] = [];
+  for (const e of o.subjects) {
+    const link = subjectOf(e, candidates, resolve);
     if ("ref" in link) {
-      entities.add(link.ref);
-    } else if ("surface" in link) {
-      unresolved.push({ observation: id, surface: link.surface, unit: o.unit });
+      subjects.add(link.ref);
+    } else if ("nameAsWritten" in link) {
+      unresolved.push({
+        nameAsWritten: link.nameAsWritten,
+        observation: id,
+        unit: o.unit,
+      });
     } else {
       rejects.push({ reason: "entity-not-candidate", unit: o.unit, value: e });
     }
   }
-  const said = o.about ? entityOf(o.about, candidates, resolve) : null;
+  const said = o.about ? subjectOf(o.about, candidates, resolve) : null;
   const about = said && "ref" in said ? said.ref : undefined;
   if (about) {
-    entities.add(about);
+    subjects.add(about);
   }
-  return { about, entities, rejects, unresolved };
+  return { about, rejects, subjects, unresolved };
 }
 
 /**
  * The extractor's reply for one batch, checked: valid shape, a unit we sent, a quote found in that unit's text,
- * entities and `about` from the candidate list (an `unknown:<name>` is resolved by code when it can, else kept as
+ * subjects and `about` from the candidate list (an `unknown:<name>` is resolved by code when it can, else kept as
  * unresolved), an area from the area list or none. A `replaces` stands only for a `prior`
  * observation said before the new one's line. Everything rejected is returned with its reason, never trusted.
  */
@@ -294,7 +303,7 @@ export function parseObservations(
     madeBy: MadeBy;
     prior?: Map<string, Observation>;
     /** Who a name or handle is (`readPeople`'s, as `parseDay` takes it). */
-    resolve: (surface: string) => string | null;
+    resolve: (nameOrHandle: string) => string | null;
     sources: Map<string, Source>;
   }
 ) {
@@ -303,8 +312,11 @@ export function parseObservations(
     .parse(reply).observations;
   const observations: Observation[] = [];
   const rejects: Reject[] = [];
-  const unresolved: { observation: string; surface: string; unit: string }[] =
-    [];
+  const unresolved: {
+    observation: string;
+    nameAsWritten: string;
+    unit: string;
+  }[] = [];
   const replaced: { by: Observation; old: Observation }[] = [];
   for (const raw of list) {
     const c = cited(raw, ctx.sources);
@@ -318,7 +330,7 @@ export function parseObservations(
       rejects.push({ reason: "duplicate", unit: o.unit });
       continue;
     }
-    const { about, entities, ...linked } = entitiesOf(
+    const { about, subjects, ...linked } = subjectsOf(
       o,
       id,
       ctx.candidates,
@@ -326,7 +338,7 @@ export function parseObservations(
     );
     rejects.push(...linked.rejects);
     unresolved.push(...linked.unresolved);
-    const made = recordOf(c, id, { about, entities }, ctx);
+    const made = recordOf(c, id, { about, subjects }, ctx);
     observations.push(made);
     for (const old of (o.replaces ?? []).flatMap(
       (x) => ctx.prior?.get(x) ?? []

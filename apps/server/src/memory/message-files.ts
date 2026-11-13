@@ -18,7 +18,7 @@ import { begin, chunks, inBatches } from "./run";
 // its message (`showFiles`) with what was read off it, so every step, search and the connector see it with no path of
 // their own. Video, voice notes and a file never read on this Mac stay a tag.
 
-const FILES_PROMPT = "files.v1";
+const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
 const PER_CALL = 8;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
@@ -40,7 +40,7 @@ const SPACE = /\s+/g;
 function fileLine(f: SourceFile, e: FileEntry | undefined) {
   const kind =
     KINDS.find(([mime]) => f.mime.startsWith(mime))?.[1] ?? "document";
-  const read = `${e?.what ? `, described by Life: ${e.what}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
+  const read = `${e?.description ? `, described by Life: ${e.description}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
   return `[${kind}${f.name ? ` ${f.name}` : ""}${read || (f.path ? "" : ", not on this Mac")}]`;
 }
 
@@ -175,7 +175,11 @@ export async function triage(
 
 const Reply = z.object({
   files: z.array(
-    z.object({ id: z.string(), text: z.string().nullish(), what: z.string() })
+    z.object({
+      description: z.string(),
+      id: z.string(),
+      text: z.string().nullish(),
+    })
   ),
 });
 
@@ -187,11 +191,16 @@ const Reply = z.object({
  * night for a week); the nightly email counts it.
  */
 export async function describeFiles(events: SourceEvent[], engine?: Engine) {
-  const step = await begin("files", "fast", { prompt: FILES_PROMPT }, engine);
+  const step = await begin(
+    "files",
+    "fast",
+    { prompt: MESSAGE_FILE_DESCRIPTION_PROMPT },
+    engine
+  );
   const { copies, fresh } = await triage(
     events,
     [...readFiles().values()].filter(
-      (e) => !e.madeBy || e.madeBy.prompt === FILES_PROMPT
+      (e) => !e.madeBy || e.madeBy.prompt === MESSAGE_FILE_DESCRIPTION_PROMPT
     )
   );
   /** The ledger's lines for one content, one per ref it was met under. */
@@ -214,7 +223,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     );
     await appendJsonl(FILES, FileEntry, [...copies, ...read]);
     const shown = prepared.filter((p) => "image" in p);
-    const madeBy = stamp(step.llm, FILES_PROMPT, step.run);
+    const madeBy = stamp(step.llm, MESSAGE_FILE_DESCRIPTION_PROMPT, step.run);
     let described = 0;
     /** One call on `batch`; a failed call on several files tries each alone, so a bad image leaves only itself a tag. */
     const describe = async (batch: typeof shown, dir: string) => {
@@ -230,7 +239,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
                 type: b.file.mime,
               })),
             },
-            prompt: FILES_PROMPT,
+            prompt: MESSAGE_FILE_DESCRIPTION_PROMPT,
           })
         )
       );
@@ -243,11 +252,11 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
       }
       const entries = (reply?.files ?? []).flatMap((r) => {
         const b = batch[Number(r.id) - 1];
-        const [what, text] = [words(r.what), words(r.text ?? "")];
+        const [description, text] = [words(r.description), words(r.text ?? "")];
         return b
           ? lines(b, {
               madeBy,
-              ...(what ? { what } : {}),
+              ...(description ? { description } : {}),
               ...(text ? { text } : {}),
             })
           : [];

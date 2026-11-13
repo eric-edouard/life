@@ -52,8 +52,8 @@ test("the directory shows each person once: an inferred id folded into another i
       confidence: 0.9,
       id,
       name: id,
+      namesAndHandles: [id],
       relation: "a guess",
-      surfaces: [id],
     }) as InferredPerson;
   const refs = refContext(
     {

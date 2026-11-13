@@ -119,9 +119,9 @@ export async function drafted(
 
 /** Brings his calendar in line with the appointments; null when it is not set up or there are none yet. */
 export async function syncAppointments(now = clock()) {
-  const { appointments } = settings();
+  const { appointmentsCalendar: appointments } = settings();
   const file = readAppointments();
-  if (!(appointments && isOn("appointments") && file)) {
+  if (!(appointments && isOn("appointmentsCalendar") && file)) {
     return null;
   }
   const cal = googleCalendar(appointments.calendar, appointments.account);

@@ -38,7 +38,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "notes",
     "claude",
     "chatgpt",
-    "told",
+    "told-life",
     AGENT_WORD,
     "git",
     "screen",
@@ -64,7 +64,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "messenger",
     "telegram",
     "linkedin",
-    "told",
+    "told-life",
     "radio",
   ]);
   expect(Object.keys(t.SEARCHED)).toContain("radio");
@@ -78,7 +78,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "telegram",
     "linkedin",
     "mail",
-    "told",
+    "told-life",
     "radio",
   ]);
   expect(Object.keys(t.OWN_WRITING)).toEqual(["notes", "claude", "chatgpt"]);
@@ -95,7 +95,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "notes",
     "claude",
     "chatgpt",
-    "told",
+    "told-life",
     "photos",
   ]);
   expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);

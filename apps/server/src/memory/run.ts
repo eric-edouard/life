@@ -94,13 +94,13 @@ export function trackProcessingSteps(
 ) {
   let at = "";
   const p = {
-    /** The processing step running; each one entered is logged (`run.phase`), so the run's record holds them in order. */
+    /** The processing step running; each one entered is logged (`run.entered`), so the run's record holds them in order. */
     get at() {
       return at;
     },
-    set at(phase: string) {
-      at = phase;
-      log("run.phase", { phase, run: rec.run, step: rec.step });
+    set at(entered: string) {
+      at = entered;
+      log("run.entered", { entered, run: rec.run, step: rec.step });
     },
     failed(e: unknown) {
       const error = (e as Error).message;

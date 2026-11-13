@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { SourceName } from "../core/names";
-import { EntityRef, EpisodeId, isoDate, isoDateTime, UnitId } from "./fields";
+import { EpisodeId, isoDate, isoDateTime, SubjectRef, UnitId } from "./fields";
 import { ObservationId } from "./observation";
 
 // The fact checks, the owner's answers to them and the eval's scores (docs/SCHEMA.md).
 
-/** memory/statements.jsonl: the fact checks, one per memory line, frozen as he was shown it (docs/SCHEMA.md). */
+/** memory/fact-checks.jsonl: the fact checks, one per memory line, frozen as he was shown it (docs/SCHEMA.md). */
 export const FactCheck = z
   .object({
     at: isoDateTime,
     date: isoDate,
-    group: z.union([EntityRef, z.literal("episodes")]),
+    group: z.union([SubjectRef, z.literal("episodes")]),
     kind: z.enum(["fact", "plan", "reported", "episode"]),
     ref: z.union([ObservationId, EpisodeId]),
     schemaVersion: z.literal(1),
@@ -22,7 +22,7 @@ export const FactCheck = z
 
 export type FactCheck = z.infer<typeof FactCheck>;
 
-/** memory/ratings.jsonl: his answers to the fact checks, the latest per memory line counting; null is an undo (docs/SCHEMA.md). */
+/** memory/fact-check-answers.jsonl: his answers to the fact checks, the latest per memory line counting; null is an undo (docs/SCHEMA.md). */
 export const FactCheckAnswer = z
   .object({
     answer: z.enum(["true", "false", "partly", "outdated", "skip"]).nullable(),
@@ -39,6 +39,7 @@ export type FactCheckAnswer = z.infer<typeof FactCheckAnswer>;
 /** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --fact-check-answers`), its counts (docs/SCHEMA.md). */
 export const EvalScore = z
   .object({
+    answered: z.int().min(0),
     at: isoDateTime,
     // Kept both (stated and contradicted), counted apart since 28 Oct 2026; older lines counted it in contradicted or restated.
     both: z.int().min(0).default(0),
@@ -47,7 +48,6 @@ export const EvalScore = z
     held: z.int().min(0),
     missed: z.int().min(0),
     outdated: z.int().min(0).default(0),
-    rated: z.int().min(0),
     restated: z.int().min(0),
     run: z.string(),
     schemaVersion: z.literal(1),

@@ -4,7 +4,7 @@ import { openFactChecks, readObservations } from "./memory-files";
 import { readPeople } from "./who";
 
 // His fact checks: the memory lines Life is least sure of (`doubtful` only, never recorded text), drawn each night, put to
-// him in a chat (`read_fact_checks`) and answered there (`correct_memory`, kind `fact_check`: memory/ratings.jsonl).
+// him in a chat (`read_fact_checks`) and answered there (`correct_memory`, kind `fact_check`: memory/fact-check-answers.jsonl).
 
 /** How many stay open at once. */
 const OPEN = 5;
@@ -30,11 +30,11 @@ export async function readOpenFactChecks(now = clock().getTime()) {
   return open.map((s) => {
     const o = byId.get(s.ref);
     return {
-      claim: s.text,
       doubts: o ? doubtsOf(o, people.refOf).map((d) => WHY[d]) : [],
       from: `${s.source ?? "an episode"}, ${plain(s.date)}`,
       quote: o?.quote ?? null,
       ref: s.ref,
+      text: s.text,
     };
   });
 }

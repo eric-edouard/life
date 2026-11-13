@@ -20,20 +20,20 @@ export type Key = z.infer<typeof PageSection>;
 
 /**
  * Every section a page can have, in page order (`PageSection`'s). The live ones hold where things stand: a line ages
- * into History when no cited observation is newer than `ages` days (never, without it). Only the owner's page has
+ * into Earlier when no cited observation is newer than `ages` days (never, without it). Only the owner's page has
  * Views and Health.
  */
 const SECTION: Record<Key, { ages?: number; title: string }> = {
   // What lasts between him and someone close (the relationship, agreements, boundaries, turning points): a line leaves
   // when it is done, replaced, or a year goes by with nothing newer behind it.
-  bond: { ages: 365, title: "Between us" },
+  between_us: { ages: 365, title: "Between us" },
+  earlier: { title: "Earlier" },
   health: { ages: 60, title: "Health" },
-  history: { title: "History" },
   now: { ages: 21, title: "Now" },
   views: { title: "Views, values and habits" },
 };
 const SECTIONS = PageSection.options.map((key) => ({ key, ...SECTION[key] }));
-const LIVE = SECTIONS.filter((s) => s.key !== "history");
+const LIVE = SECTIONS.filter((s) => s.key !== "earlier");
 
 /**
  * What a page has: its live sections and words ("What I hold" included). The owner's page has Views and Health; the
@@ -41,22 +41,22 @@ const LIVE = SECTIONS.filter((s) => s.key !== "history");
  */
 export const layoutOf = (ref: string, close = false) => {
   if (ref === OWNER) {
-    return { live: LIVE.filter((s) => s.key !== "bond"), words: 2000 };
+    return { live: LIVE.filter((s) => s.key !== "between_us"), words: 2000 };
   }
   return close
     ? {
-        live: LIVE.filter((s) => s.key === "bond" || s.key === "now"),
+        live: LIVE.filter((s) => s.key === "between_us" || s.key === "now"),
         words: 1100,
       }
     : { live: LIVE.filter((s) => s.key === "now"), words: 800 };
 };
 export type Layout = ReturnType<typeof layoutOf>;
 const hasSection = (l: Layout, key: Key) =>
-  key === "history" || l.live.some((s) => s.key === key);
-/** History keeps this many lines at most, oldest dropped first. */
-const HISTORY_MAX = 30;
-/** Words kept free for History when the live sections are long: their oldest lines move there beyond this. */
-const HISTORY_ROOM = 150;
+  key === "earlier" || l.live.some((s) => s.key === key);
+/** Earlier keeps this many lines at most, oldest dropped first. */
+const EARLIER_MAX = 30;
+/** Words kept free for Earlier when the live sections are long: their oldest lines move there beyond this. */
+const EARLIER_ROOM = 150;
 const HOLD = "What I hold";
 const OFTEN = "Often talk about";
 const CITES = / ?\[(obs_[0-9a-f]{12}(?:, obs_[0-9a-f]{12})*)\]$/;
@@ -67,7 +67,7 @@ const HEADING = /^## (.+)$/;
 const WORD = /[\p{L}\p{N}]/u;
 const SPACE = /\s+/;
 
-/** A generated line: its words, the observations it rests on and, in History, the day it is about. */
+/** A generated line: its words, the observations it rests on and, in Earlier, the day it is about. */
 export interface PageLine {
   cites: string[];
   date?: string;
@@ -107,7 +107,7 @@ export const lineHash = (line: string) => digest("sha1", line.trim(), 10);
 
 export function renderLine(key: Key, l: PageLine) {
   const cites = ` [${l.cites.join(", ")}]`;
-  return key === "history"
+  return key === "earlier"
     ? `- ${l.date} · ${l.text}${cites}`
     : `- ${l.text}${cites}`;
 }
@@ -120,7 +120,7 @@ export const bare = (line: string) =>
 export function readLine(key: Key, line: string): PageLine {
   const cites = line.match(CITES)?.[1]?.split(", ") ?? [];
   const body = bare(line);
-  if (key === "history") {
+  if (key === "earlier") {
     const m = body.match(DATED);
     return { cites, date: m?.[1], text: m?.[2] ?? body };
   }
@@ -244,7 +244,7 @@ const PROFILE = new Set<Observation["type"]>(["about_a_person", "preference"]);
  * own area, else none. Other pages may mention a fact; only its home says it.
  */
 export function homePageOf(
-  o: Pick<Observation, "about" | "area" | "entities" | "type"> & {
+  o: Pick<Observation, "about" | "area" | "subjects" | "type"> & {
     unmapped: boolean;
   },
   truth: Pick<Truth, "projects">,
@@ -253,12 +253,12 @@ export function homePageOf(
   if (o.about && (o.about === OWNER || paged.has(o.about))) {
     return o.about;
   }
-  const people = othersIn(o.entities);
+  const people = othersIn(o.subjects);
   const person = people.length === 1 ? people[0] : undefined;
   if (person && paged.has(person)) {
     return person;
   }
-  for (const e of o.entities) {
+  for (const e of o.subjects) {
     const area = truth.projects.find((p) => `project:${p.id}` === e)?.area;
     if (area) {
       return `area:${area}`;
@@ -266,7 +266,7 @@ export function homePageOf(
   }
   if (
     people.length === 0 &&
-    o.entities.includes(OWNER) &&
+    o.subjects.includes(OWNER) &&
     !o.unmapped &&
     (PROFILE.has(o.type) || !o.area)
   ) {
@@ -352,14 +352,14 @@ const dated = (l: PageLine, k: Known): PageLine => ({
 /**
  * The previous page's lines against what is true now. A line whose observations are all still shown stays word for
  * word. One that lost some (hidden by a correction, homed elsewhere, or replaced by a newer observation) keeps its live
- * cites and is flagged `changed`, so the model may rewrite it; one with none left is dropped, or moved to History
+ * cites and is flagged `changed`, so the model may rewrite it; one with none left is dropped, or moved to Earlier
  * when its observations were only replaced.
  */
 export function settle(prev: Sections, k: Known) {
   const out = perSection<PageLine>();
   const changed = new Set<string>();
   for (const { key } of SECTIONS) {
-    const live = key !== "history";
+    const live = key !== "earlier";
     for (const l of prev[key]) {
       const alive = l.cites.filter((id) => k.byId.has(id));
       const current = alive.filter((id) => !k.retired.has(id));
@@ -367,7 +367,7 @@ export function settle(prev: Sections, k: Known) {
         continue;
       }
       if (current.length === 0 && live) {
-        out.history.push(dated({ cites: alive, text: l.text }, k));
+        out.earlier.push(dated({ cites: alive, text: l.text }, k));
         continue;
       }
       // Whatever the model does with a flagged line, it rests on live observations only from here on.
@@ -389,7 +389,7 @@ const Cited = z.object({
   text: z.string().min(1).max(400),
 });
 const Added = Cited.extend({
-  section: PageSection.exclude(["history"]).default("now"),
+  section: PageSection.exclude(["earlier"]).default("now"),
 });
 const Past = Cited.extend({ date: z.iso.date() });
 const Rewrite = Cited.extend({ line: z.string() });
@@ -422,8 +422,8 @@ const whyNot = (l: PageLine, c: Check, used: Set<string>, section: Key) =>
 const items = (v: unknown) => z.array(z.unknown()).catch([]).parse(v);
 
 /**
- * The consolidation reply, checked. The model may only: add a line to a live section (`now`) or a dated History line
- * (`past`) for new observations; move a kept line to History (`done`, by hash); rewrite a kept line whose cites changed
+ * The consolidation reply, checked. The model may only: add a line to a live section (`now`) or a dated Earlier line
+ * (`earlier`) for new observations; move a kept line to Earlier (`done`, by hash); rewrite a kept line whose cites changed
  * or that takes in new ones and keeps its own (`rewrite`, by hash). Code keeps any other line as it is. What is refused
  * is counted, not trusted. Retiring an observation is extraction's, where the evidence is (extract.ts).
  */
@@ -442,7 +442,7 @@ export function checkReply(reply: unknown, c: Check) {
         return [];
       }
       const l = { ...r.data, cites: [...new Set(r.data.cites)] };
-      const reason = whyNot(l, c, used, l.section ?? "history");
+      const reason = whyNot(l, c, used, l.section ?? "earlier");
       if (reason) {
         rejects.push({ reason, text: l.text });
         return [];
@@ -453,7 +453,7 @@ export function checkReply(reply: unknown, c: Check) {
       return [l];
     });
   const add = take(items(body.now), Added);
-  const past = take(items(body.past), Past);
+  const earlier = take(items(body.earlier), Past);
   const done = items(body.done).flatMap((h) =>
     typeof h === "string" && c.current.has(h) ? [h] : []
   );
@@ -478,7 +478,7 @@ export function checkReply(reply: unknown, c: Check) {
       }
     }
   }
-  return { add, done, past, rejects, rewrite };
+  return { add, done, earlier, rejects, rewrite };
 }
 
 type Merge = ReturnType<typeof checkReply>;
@@ -502,9 +502,9 @@ const byDay = (a: PageLine, b: PageLine) =>
 
 /**
  * The next page: kept lines verbatim, plus what the reply added, finished or rewrote. Then code's rules: a live line
- * with no cited observation newer than its section's `ages` days ages into History (dated by its newest observation);
- * History is capped; the whole page fits its words by moving the oldest live lines to History and dropping the oldest
- * History. `fixed` is the words of what code cannot trim (hold, owner lines, Often talk about).
+ * with no cited observation newer than its section's `ages` days ages into Earlier (dated by its newest observation);
+ * Earlier is capped; the whole page fits its words by moving the oldest live lines to Earlier and dropping the oldest
+ * Earlier. `fixed` is the words of what code cannot trim (hold, owner lines, Often talk about).
  */
 export function assemble(
   settled: Sections,
@@ -516,9 +516,9 @@ export function assemble(
   for (const { key } of LIVE) {
     for (const l of settled[key]) {
       const h = lineHash(renderLine(key, l));
-      // A section the page no longer has (he is no longer close) leaves its lines in History.
+      // A section the page no longer has (he is no longer close) leaves its lines in Earlier.
       if (m.done.includes(h) || !hasSection(opts.layout, key)) {
-        out.history.push(dated(l, k));
+        out.earlier.push(dated(l, k));
       } else {
         out[key].push(m.rewrite.get(h) ?? l);
       }
@@ -527,15 +527,15 @@ export function assemble(
   for (const { section, ...l } of m.add) {
     out[section].push(l);
   }
-  out.history.push(...settled.history, ...m.past);
+  out.earlier.push(...settled.earlier, ...m.earlier);
   const again = settle(out, k).sections;
-  const aged = { ...again, history: [...again.history] };
+  const aged = { ...again, earlier: [...again.earlier] };
   for (const { key, ...s } of opts.layout.live) {
     if (s.ages !== undefined) {
       const edge = daysBefore(opts.today, s.ages);
       const all = again[key];
       aged[key] = all.filter((l) => newestDate(l, k) >= edge);
-      aged.history.push(
+      aged.earlier.push(
         ...all.filter((l) => newestDate(l, k) < edge).map((l) => dated(l, k))
       );
     }
@@ -551,9 +551,9 @@ const sectionWords = (s: Sections) =>
   );
 
 /**
- * Sorts the sections and enforces the caps. The live sections may take all the page's words but HISTORY_ROOM: beyond
- * that, the line with the oldest evidence in a section that ages moves to History (one that never ages goes last).
- * History is cut to HISTORY_MAX lines, then oldest-first until the whole page fits.
+ * Sorts the sections and enforces the caps. The live sections may take all the page's words but EARLIER_ROOM: beyond
+ * that, the line with the oldest evidence in a section that ages moves to Earlier (one that never ages goes last).
+ * Earlier is cut to EARLIER_MAX lines, then oldest-first until the whole page fits.
  */
 export function fit(
   s: Sections,
@@ -565,14 +565,14 @@ export function fit(
   for (const { key } of live) {
     out[key] = [...s[key]].sort(byNewest(k));
   }
-  let history = [...s.history];
+  let earlier = [...s.earlier];
   const lines = () =>
     live.flatMap((x) =>
       out[x.key].map((l) => ({ key: x.key, l, last: x.ages === undefined }))
     );
   while (
     lines().length > 1 &&
-    fixed + sectionWords({ ...out, history: [] }) > words - HISTORY_ROOM
+    fixed + sectionWords({ ...out, earlier: [] }) > words - EARLIER_ROOM
   ) {
     // A line of a section that ages before one that never does; then the oldest evidence; among equals, the last.
     const oldest = lines().reduce((a, b) =>
@@ -581,34 +581,34 @@ export function fit(
         : a
     );
     out[oldest.key] = out[oldest.key].filter((l) => l !== oldest.l);
-    history.push(dated(oldest.l, k));
+    earlier.push(dated(oldest.l, k));
   }
-  history = history.sort(byDay).slice(0, HISTORY_MAX);
+  earlier = earlier.sort(byDay).slice(0, EARLIER_MAX);
   while (
-    history.length > 0 &&
-    fixed + sectionWords({ ...out, history }) > words
+    earlier.length > 0 &&
+    fixed + sectionWords({ ...out, earlier }) > words
   ) {
-    history.pop();
+    earlier.pop();
   }
-  return { ...out, history };
+  return { ...out, earlier };
 }
 
 /**
  * What changed between two versions of a page, in lines: `added` (words not on the page before), `moved` (a live line
- * now in History) and `removed` (words no longer on the page). An amended line is one removed and one added.
+ * now in Earlier) and `removed` (words no longer on the page). An amended line is one removed and one added.
  */
 export function changes(before: Sections, after: Sections) {
   const words = (s: Sections, keys: readonly Key[]) =>
     new Set(keys.flatMap((key) => s[key].map((l) => l.text)));
   const live = LIVE.map((x) => x.key);
-  const was = words(before, [...live, "history"]);
-  const is = words(after, [...live, "history"]);
+  const was = words(before, [...live, "earlier"]);
+  const is = words(after, [...live, "earlier"]);
   const count = (list: Set<string>, not: Set<string>) =>
     [...list].filter((t) => !not.has(t)).length;
   return {
     added: count(is, was),
-    moved: [...words(after, ["history"])].filter(
-      (t) => words(before, live).has(t) && !words(before, ["history"]).has(t)
+    moved: [...words(after, ["earlier"])].filter(
+      (t) => words(before, live).has(t) && !words(before, ["earlier"]).has(t)
     ).length,
     removed: count(was, is),
   };

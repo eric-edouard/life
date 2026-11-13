@@ -18,7 +18,7 @@ import {
 } from "../../core/settings";
 import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
-import { readTold, TOLD } from "../../memory/told";
+import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
   conversation,
@@ -570,8 +570,8 @@ test("places: each stay lists the conversations recorded during it", async () =>
 });
 
 test("with the actions output off, the connector offers no Reminders tool", async () => {
-  const on = settings().todo_list;
-  setSettings({ todo_list: null });
+  const on = settings().todoList;
+  setSettings({ todoList: null });
   try {
     const { json } = await rpc(await token(), "tools/list");
     const names = json.result.tools.map((t: { name: string }) => t.name);
@@ -579,7 +579,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     expect(names).not.toContain("read_open_todo_items");
     expect(names).toContain("read_agent_asks");
   } finally {
-    setSettings({ todo_list: on });
+    setSettings({ todoList: on });
   }
 });
 
@@ -593,7 +593,7 @@ test("a fact check's answer is his: an agent's token is refused", async () => {
 });
 
 test("tell_life keeps his words verbatim, marked, the question as the assistant's line; an agent's call is refused", async () => {
-  rmSync(TOLD, { force: true });
+  rmSync(TOLD_LIFE, { force: true });
   const tell = async (over: Record<string, unknown>) =>
     (
       await rpc(await token(over), "tools/call", {
@@ -606,7 +606,7 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
     ).json.result;
   expect(await tell({})).toMatchObject({ isError: true });
   expect(await tell({ agent: undefined })).toMatchObject({ isError: false });
-  const [asked, said] = readTold(new Date(0));
+  const [asked, said] = readToldLife(new Date(0));
   expect(asked).toMatchObject({
     fromMe: false,
     text: "Where did you grow up?",
@@ -614,7 +614,7 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
   expect(said).toMatchObject({
     fromMe: true,
     marked: true,
-    source: "told",
+    source: "told-life",
     text: "In Lyon, until 12.",
   });
 });

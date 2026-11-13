@@ -84,7 +84,7 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
   expect(r?.evidence).toEqual([
     { quote: "Je passe demain pour l'évier", unit: "unit_1" },
   ]);
-  expect([r?.area, r?.project, r?.surfaces]).toEqual([
+  expect([r?.area, r?.project, r?.namesAndHandles]).toEqual([
     "shop",
     null,
     ["+33600000001"],
@@ -106,8 +106,8 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
 });
 
 test("a surface is asked about until it reads as someone in truth/ or as a guess judged against the directory", () => {
-  const guess = (surface: string, person?: string | null) =>
-    ({ person, surfaces: [surface] }) as InferredPerson;
+  const guess = (nameOrHandle: string, person?: string | null) =>
+    ({ namesAndHandles: [nameOrHandle], person }) as InferredPerson;
   const reads: Record<string, string> = {
     Bob: "person:inf_bob",
     Claire: "person:claire",

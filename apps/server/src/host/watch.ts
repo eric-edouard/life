@@ -68,7 +68,7 @@ async function syncMeasurements() {
  * lag window.
  */
 async function tick() {
-  if (ticking || !isOn("todo_list")) {
+  if (ticking || !isOn("todoList")) {
     return;
   }
   ticking = true;
@@ -325,7 +325,7 @@ function todayEvery() {
 function sayActions() {
   checks().then((problems) =>
     console.log(
-      `${clock().toISOString()} actions: ${isOn("todo_list") ? problems.join("; ") || "ready" : "off"}`
+      `${clock().toISOString()} actions: ${isOn("todoList") ? problems.join("; ") || "ready" : "off"}`
     )
   );
 }

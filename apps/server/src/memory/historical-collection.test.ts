@@ -48,7 +48,7 @@ test("historical collection has no voice/files model step; failed publication le
   const had = existsSync(path) ? readFileSync(path) : undefined;
   const otherPaths = [
     "verdicts.jsonl",
-    "ratings.jsonl",
+    "fact-check-answers.jsonl",
     "appointments.json",
     "ledger.jsonl",
     "extracted.jsonl",
@@ -129,7 +129,7 @@ test("historical collection has no voice/files model step; failed publication le
 
 test("a failed later month preserves its files and reindexes the already published month", async () => {
   const { sources } = readSettings();
-  const source = SOURCES.find((s) => s.name === "told");
+  const source = SOURCES.find((s) => s.name === "told-life");
   if (!source || source.kind === "voice" || source.kind === "repo") {
     throw new Error("missing fixture source");
   }
@@ -142,7 +142,7 @@ test("a failed later month preserves its files and reindexes the already publish
   const hadNext = existsSync(next) ? readFileSync(next) : undefined;
   const hadIndex = existsSync(INDEX);
   try {
-    setSettings({ sources: ["told"] });
+    setSettings({ sources: ["told-life"] });
     await Bun.write(next, "\n");
     source.read = (since) => {
       if (since.toISOString() >= "2024-02-01T00:00:00.000Z") {
@@ -153,9 +153,9 @@ test("a failed later month preserves its files and reindexes the already publish
           at: `${date}T10:00:00.000Z`,
           chat: "made-up-chat",
           fromMe: true,
-          id: "told:made-up",
+          id: "told-life:made-up",
           sender: "me",
-          source: "told",
+          source: "told-life",
           text: "A made-up visit to the garden",
         },
       ];
@@ -168,7 +168,11 @@ test("a failed later month preserves its files and reindexes the already publish
         runs: [],
       })
     );
-    expect(result).toMatchObject({ failed: 1, months: 1, sources: ["told"] });
+    expect(result).toMatchObject({
+      failed: 1,
+      months: 1,
+      sources: ["told-life"],
+    });
     const [unit] = readUnitsOf([date]);
     expect(unit).toBeDefined();
     expect(
@@ -208,7 +212,7 @@ test("a failed later month preserves its files and reindexes the already publish
 
 test("a conflicting zone just before the requested range defers the complete expanded passage", async () => {
   const { sources } = readSettings();
-  const source = SOURCES.find((s) => s.name === "told");
+  const source = SOURCES.find((s) => s.name === "told-life");
   if (!source || source.kind === "voice" || source.kind === "repo") {
     throw new Error("missing fixture source");
   }
@@ -219,15 +223,15 @@ test("a conflicting zone just before the requested range defers the complete exp
     at: iso(boundary + offset * MIN),
     chat: "boundary-case",
     fromMe: true,
-    id: `told:boundary-${i}`,
+    id: `told-life:boundary-${i}`,
     sender: "me",
-    source: "told" as const,
+    source: "told-life" as const,
     text: "A made-up midnight conversation",
   }));
   const hadDirectory = existsSync(UNITS);
   const hadIndex = existsSync(INDEX);
   try {
-    setSettings({ sources: ["told"] });
+    setSettings({ sources: ["told-life"] });
     source.read = (from, before) =>
       events.filter(
         (e) =>

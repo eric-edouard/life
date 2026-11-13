@@ -64,9 +64,13 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
   expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
 });
 
-test("a processing run's steps are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
-  const run = (phases: string[], outcome: string, failedAt?: string) =>
-    ({ outcome, phases, result: failedAt ? { failedAt } : {} }) as never;
+test("a processing run's steps are the steps it recorded: done, now, the one it failed at still to do, then the night's report", () => {
+  const run = (processingSteps: string[], outcome: string, failedAt?: string) =>
+    ({
+      outcome,
+      processingSteps,
+      result: failedAt ? { failedAt } : {},
+    }) as never;
   const all = [
     "repos",
     "gather",
@@ -168,13 +172,16 @@ test(
   async () => {
     const { setSettings, settings } = await import("../../core/settings");
     const { log } = await import("../../core/log");
-    const { past } = settings();
+    const { pastCalendar: past } = settings();
     // Past the snapshot's cache of the log, which earlier tests filled.
     const later = performance.now() + HOUR;
     const timer = spyOn(performance, "now").mockReturnValue(later);
     try {
       setSettings({
-        past: { account: "owner@example.com", calendar: "past@example.com" },
+        pastCalendar: {
+          account: "owner@example.com",
+          calendar: "past@example.com",
+        },
       });
       log("run.error", {
         error: "Error: gog calendar: no token",
@@ -188,7 +195,7 @@ test(
       });
     } finally {
       timer.mockRestore();
-      setSettings({ past });
+      setSettings({ pastCalendar: past });
     }
   },
   MIN

@@ -31,7 +31,7 @@ Life can read the commits in every git repository under one folder. Turn on **Gi
 settings, then name the folder:
 
 ```sh
-bun life settings set '{"repos":"~/Code"}'
+bun life settings set '{"reposFolder":"~/Code"}'
 ```
 
 ## Your devices in Screen Time
@@ -41,7 +41,7 @@ Life reads Screen Time from the Mac and from each iPhone or iPad that shares it.
 one left out shows as "iOS device":
 
 ```sh
-bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"iPhone 17"}}'
+bun life settings set '{"deviceNames":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"iPhone 17"}}'
 ```
 
 ## Older months
@@ -57,7 +57,7 @@ sources and uncertain time zones. Historical model backfill is paused until its 
 ## History
 
 ```sh
-bun life settings set '{"history":{"from":"2026-09"}}'
+bun life settings set '{"histories":{"from":"2026-09"}}'
 ```
 
 Off until you set it. Each night Life then summarises, once, every finished month from `from` on between you and each

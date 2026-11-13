@@ -123,7 +123,7 @@ const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
 
 const HANDLERS: Record<string, Handler> = {
-  /** `answer-fact-check <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/ratings.jsonl). */
+  /** `answer-fact-check <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/fact-check-answers.jsonl). */
   async "answer-fact-check"(_values, [ref = "", answer = "", ...note]) {
     const said = FactCheckAnswer.shape.answer.safeParse(answer);
     if (!(ref && said.success && said.data)) {
@@ -131,7 +131,9 @@ const HANDLERS: Record<string, Handler> = {
     }
     try {
       await recordFactCheckAnswer(ref, said.data, words(note) || undefined);
-      console.log(`recorded ${said.data} for ${ref} in memory/ratings.jsonl`);
+      console.log(
+        `recorded ${said.data} for ${ref} in memory/fact-check-answers.jsonl`
+      );
       return 0;
     } catch (e) {
       console.error((e as Error).message);
@@ -208,7 +210,7 @@ const HANDLERS: Record<string, Handler> = {
     return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
   }),
   extract: step(async (v) => extract(await gathered(v))),
-  /** `fact-checks <n>`: draws the n memory lines he should check first into memory/statements.jsonl and prints them with their doubts. */
+  /** `fact-checks <n>`: draws the n memory lines he should check first into memory/fact-checks.jsonl and prints them with their doubts. */
   "fact-checks": (_values, [n = ""]) =>
     Number(n) > 0
       ? locked(() => drawFactChecks(Number(n))).then((drawn) =>
@@ -225,7 +227,7 @@ const HANDLERS: Record<string, Handler> = {
    * with no model; `--force` reads it, as the night does once his `history` setting is on.
    */
   histories: step(async (v) => {
-    const from = v.from ?? settings().history?.from;
+    const from = v.from ?? settings().histories?.from;
     if (!from) {
       throw new Error("histories needs --from YYYY-MM, or his history setting");
     }

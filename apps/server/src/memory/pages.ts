@@ -73,7 +73,7 @@ import {
 // `bun life memory pages`: the pages step (docs/architecture.md, "The pipeline"). One page per person who has enough to
 // say and per area. Each observation has one home page (`homePageOf`). A page is rebuilt from its previous version: lines
 // whose observations are unchanged stay word for word, the model only adds lines for new observations, finishes
-// lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
+// lines or fixes lines whose observations changed, and code ages lines into Earlier and keeps the page within
 // its word budget. Code checks every citation. Nothing is sent.
 
 const PAGES_PROMPT = "memory-pages.v6";
@@ -375,7 +375,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     settled.changed.has(h) ? [k.line] : []
   );
   if (fresh.length === 0 && cited.length === 0) {
-    // Nothing new: no model. Lines still age into History and the budget still holds.
+    // Nothing new: no model. Lines still age into Earlier and the budget still holds.
     const kept = assemble(settled.sections, checkReply({}, check()), known, {
       fixed,
       layout,
@@ -406,7 +406,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     // Who and what the page's observations name beyond the context.
     involved: involvedOf(
       r.refs,
-      new Set([t.ref, ...visible.flatMap((o) => o.entities)])
+      new Set([t.ref, ...visible.flatMap((o) => o.subjects)])
     ),
     // Newest first, within the character budget: what a new page is built from.
     observations: within(
@@ -591,14 +591,14 @@ export async function pages(opts: PagesOptions) {
       rejects: built.reduce((n, b) => n + b.rejects.length, 0),
       skipped: built.filter((b) => b.skipped).length,
     }),
-    /** Per page that changed since the last commit (the last night): lines added, moved to History and removed. */
+    /** Per page that changed since the last commit (the last night): lines added, moved to Earlier and removed. */
     changes: changedSinceCommit(),
   };
 }
 
 /**
  * Each page that changed since `~/Life`'s last commit (the night's), hand runs' rewrites included, against its
- * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
+ * committed version: lines added, moved to Earlier and removed. A page gone counts its lines removed.
  */
 export function changedSinceCommit(root = OWNER_DATA_DIR, dir = PAGES) {
   if (git(root, ["rev-parse", "--git-dir"]).exitCode !== 0) {

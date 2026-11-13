@@ -16,7 +16,7 @@ const ctx = {
   madeBy: {
     engine: "claude" as const,
     model: "haiku",
-    prompt: "repos.v1",
+    prompt: "repo-project.v1",
     run: "r1",
   },
   projects: new Map([["bakery", "shop"]]),

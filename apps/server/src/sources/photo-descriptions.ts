@@ -11,7 +11,7 @@ import { openReadOnly } from "../core/sqlite";
 // The prompt is part of a row's key: a new prompt describes every photo again.
 
 /** The prompt the rows are written with: `prompts/<name>.md`. */
-export const PHOTOS_PROMPT = "photos.v1";
+export const PHOTO_DESCRIPTION_PROMPT = "photo-description.v1";
 export const DESCRIPTIONS = join(
   LIFE_STATE_DIR,
   "memory",
@@ -60,7 +60,7 @@ export function readDescriptions(uuids: string[], path = DESCRIPTIONS) {
           .query<{ text: string; uuid: string }, [string, string]>(
             "select uuid, text from descriptions where prompt = ? and outcome = 'described' and uuid in (select value from json_each(?))"
           )
-          .all(PHOTOS_PROMPT, JSON.stringify(uuids))
+          .all(PHOTO_DESCRIPTION_PROMPT, JSON.stringify(uuids))
           .map((r) => [r.uuid, r.text])
       ),
     new Map<string, string>(),
@@ -82,7 +82,11 @@ export function readHandled(path = DESCRIPTIONS) {
             `select uuid from descriptions where prompt = ? and (outcome = 'described'
               or (outcome = 'failed' and at > ?) or (outcome = 'no-image' and at > ?))`
           )
-          .all(PHOTOS_PROMPT, since(RETRY_FAILED), since(RETRY_NO_IMAGE))
+          .all(
+            PHOTO_DESCRIPTION_PROMPT,
+            since(RETRY_FAILED),
+            since(RETRY_NO_IMAGE)
+          )
           .map((r) => r.uuid)
       ),
     new Set<string>(),
@@ -99,7 +103,7 @@ export function readTally(path = DESCRIPTIONS) {
           .query<{ n: number; outcome: Outcome }, [string]>(
             "select outcome, count(*) as n from descriptions where prompt = ? group by outcome"
           )
-          .all(PHOTOS_PROMPT)
+          .all(PHOTO_DESCRIPTION_PROMPT)
           .map((r) => [r.outcome, r.n])
       );
       return {
@@ -109,7 +113,7 @@ export function readTally(path = DESCRIPTIONS) {
             .query<{ at: string; error: string | null }, [string]>(
               "select at, error from descriptions where prompt = ? and outcome = 'failed' order by at desc limit 1"
             )
-            .get(PHOTOS_PROMPT) ?? undefined,
+            .get(PHOTO_DESCRIPTION_PROMPT) ?? undefined,
         noImage: counts.get("no-image") ?? 0,
       };
     },
@@ -139,7 +143,7 @@ export function writeDescriptions(rows: Description[], path = DESCRIPTIONS) {
       for (const r of rows) {
         put.run(
           r.uuid,
-          PHOTOS_PROMPT,
+          PHOTO_DESCRIPTION_PROMPT,
           r.outcome,
           r.text ?? null,
           r.error ?? null,

@@ -47,7 +47,7 @@ import { localDate, wall } from "./zones";
 // it changed. The kept ones are a source like any other: collection makes their older days searchable without
 // historical model work.
 
-const IMPORT_PROMPT = "import.v1";
+const IMPORT_KEEP_PROMPT = "import-keep.v1";
 const PER_CALL = 10;
 /** What the model reads of a conversation: its title and the start of his messages. */
 const GIST = 3000;
@@ -193,7 +193,7 @@ function planOf(
       return merged.filter((c) => {
         const judged = judgments.get(`${source}:${c.id}`);
         const line =
-          judged?.madeBy.prompt === IMPORT_PROMPT ? judged : undefined;
+          judged?.madeBy.prompt === IMPORT_KEEP_PROMPT ? judged : undefined;
         const v = after.get(c.id) as {
           first: Conversation;
           latest: Conversation;
@@ -265,13 +265,13 @@ export async function importExport(folder: string) {
   const step = await begin(
     "import",
     "fast",
-    { prompt: IMPORT_PROMPT, source },
+    { prompt: IMPORT_KEEP_PROMPT, source },
     engine
   );
   const due = plan.due();
   const ctx = {
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, IMPORT_PROMPT, step.run),
+    madeBy: stamp(step.llm, IMPORT_KEEP_PROMPT, step.run),
     source,
   };
   const context = meContext(await loadTruth());
@@ -290,7 +290,7 @@ export async function importExport(folder: string) {
             title: c.title,
           })),
         },
-        prompt: IMPORT_PROMPT,
+        prompt: IMPORT_KEEP_PROMPT,
       });
       const checked = parseJudged(
         json,

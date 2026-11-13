@@ -70,7 +70,7 @@ export const readingsOf = (lines: PersonaLine[]) =>
 
 /**
  * A persona as a reader shows it: its gist, then the readings under Persona, each with its backing; the writing lines
- * under Communication style (the connector's word for them). Nothing when there is none.
+ * under How each writes (the connector's word for them). Nothing when there is none.
  */
 export function personaBlock(
   persona: Pick<Persona, "gist" | "lines"> | null,
@@ -93,7 +93,7 @@ export function personaBlock(
       : []),
     ...(writes.length > 0
       ? [
-          `Communication style (how he writes to them and they to him, read every ${REBUILD_AFTER / DAY} days; follow his when drafting for him):`,
+          `How each writes (how he writes to them and they to him, read every ${REBUILD_AFTER / DAY} days; follow his when drafting for him):`,
           ...writes.map(
             (l) =>
               `- ${l.writer === "owner" ? "he writes" : "they write"}${l.kind ? `, ${l.kind}` : ""}${l.source ? ` (${l.source})` : ""}: ${l.text}${quoted(l.quotes)}`

@@ -44,9 +44,9 @@ test("a case passes when the reply states every point it must hold and none it m
         seen.push(facts, claims);
         return Promise.resolve(
           facts.map((f) => ({
-            claims: [],
             fact: f.id,
             grade: grades[f.id] ?? "absent",
+            memoryLines: [],
             why: "",
           }))
         );

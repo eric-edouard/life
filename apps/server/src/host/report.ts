@@ -83,7 +83,7 @@ function textLine(s: Section) {
     case "changes":
       return s.list.map(
         (c) =>
-          `- ${c.page}: +${c.added} added, ${c.moved} moved to History, ${c.removed} removed`
+          `- ${c.page}: +${c.added} added, ${c.moved} moved to Earlier, ${c.removed} removed`
       );
     default:
       return s.list.map((p) => `- ${p.name}: ${p.relation}`);

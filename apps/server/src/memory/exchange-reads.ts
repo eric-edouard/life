@@ -29,7 +29,7 @@ export const READS = {
 const NIGHT_CALLS = 200;
 
 /** The digest of a prompt's text, stored beside its name and never matched on. */
-export const wordingOf = (text: string) => digest("sha256", text, 16);
+export const promptDigestOf = (text: string) => digest("sha256", text, 16);
 
 /** Who a person is, as a read is told: their name and what they are to him in his directory. */
 export interface With {
@@ -216,7 +216,7 @@ export async function makeReplies(
     await Promise.all(
       READ_NAMES.map(async (r) => [
         r,
-        wordingOf(await promptText(READS[r].prompt)),
+        promptDigestOf(await promptText(READS[r].prompt)),
       ])
     )
   );
@@ -232,11 +232,11 @@ export async function makeReplies(
             at,
             madeBy: stamp(step.llm, prompt, step.run),
             messages: call.messages.map(eventKey),
+            promptDigest: wordings[read] as string,
             read,
             reply: reply as ReadReply["reply"],
             schemaVersion: 1,
             starts: call.starts,
-            wording: wordings[read] as string,
           },
           call.messages[0]?.at ?? "",
           where

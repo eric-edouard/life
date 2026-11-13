@@ -112,10 +112,14 @@ test("a surface resolves to what the owner said, else truth, else a confident in
     [
       said({
         kind: "this-is",
+        nameOrHandle: "+33633333333",
         person: "person:gaston",
-        surface: "+33633333333",
       }),
-      said({ kind: "not-this-person", person: "person:dad", surface: "Pops" }),
+      said({
+        kind: "not-this-person",
+        nameOrHandle: "Pops",
+        person: "person:dad",
+      }),
       said({
         from: "person:inf_plumber",
         kind: "same-person",
@@ -174,8 +178,8 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
   // His word on the surface beats the link.
   const not = said({
     kind: "not-this-person",
+    nameOrHandle: "Gas B",
     person: "person:gaston",
-    surface: "Gas B",
   });
   expect(foldsOf([], both, [not], []).canon("person:inf_gas")).toBe(
     "person:inf_gas-1"
@@ -194,9 +198,9 @@ test("a surface the call linked to someone in truth/ is them, and so is every gu
 test("a name in another script resolves to its own person only, never every word of any script", () => {
   const thai = {
     card: "card-thai",
+    handles: [],
     id: "contact_thai",
     name: "สมชาย ใจดี",
-    surfaces: [],
   };
   const truth = [
     Person.parse({ aliases: [], id: "ivan", name: "Иван Петров" }),

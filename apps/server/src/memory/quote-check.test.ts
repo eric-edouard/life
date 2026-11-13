@@ -101,7 +101,7 @@ test("a hinted line wins when the quote is there; otherwise the whole text is se
   expect(locate("on se voit demain soir", twice, 7)?.line).toBe(0);
 });
 
-test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {
+test("an observation is about its subjects, folded, plus the names that resolve now, speaker included", () => {
   const inferredPeople = [inferred("inf_plumber", ["Plombier"])];
   const fold = said({
     from: "person:inf_plumber",
@@ -110,20 +110,20 @@ test("an observation is about its entities, folded, plus the names that resolve 
   });
   const obs = [
     {
-      entities: ["person:inf_plumber", "project:shop"],
       id: "obs_1",
       speaker: "person:me",
+      subjects: ["person:inf_plumber", "project:shop"],
     },
-    { entities: [], id: "obs_2", speaker: "person:me" },
-    { entities: [], id: "obs_3", speaker: "unknown:Plombier" },
+    { id: "obs_2", speaker: "person:me", subjects: [] },
+    { id: "obs_3", speaker: "unknown:Plombier", subjects: [] },
   ] as unknown as Observation[];
   const rows = [
-    { observation: "obs_2", surface: "Plombier" },
-    { surface: "Plombier" },
+    { nameAsWritten: "Plombier", observation: "obs_2" },
+    { nameAsWritten: "Plombier" },
   ] as unknown as Unresolved[];
   expect(
     aboutNow(obs, rows, people, inferredPeople, [fold], []).map(
-      (o) => o.entities
+      (o) => o.subjects
     )
   ).toEqual([
     ["person:gaston", "project:shop"],
@@ -131,7 +131,9 @@ test("an observation is about its entities, folded, plus the names that resolve 
     ["person:gaston"],
   ]);
   // A name that still maps to nobody marks its observation `unmapped`: it is not about Jean alone.
-  const ghost = [{ observation: "obs_2", surface: "Ghost" }] as Unresolved[];
+  const ghost = [
+    { nameAsWritten: "Ghost", observation: "obs_2" },
+  ] as Unresolved[];
   expect(
     aboutNow(obs, ghost, people, [], [], []).map((o) => o.unmapped)
   ).toEqual([false, true, false]);
@@ -141,34 +143,34 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
   const facts = [
     // Recorded with its handle: the handle is Pops's now, not Gaston's.
     {
-      entities: ["person:gaston"],
       id: "obs_1",
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
+      subjects: ["person:gaston"],
       text: "Gas asked Jean for the keys.",
       unit: "unit_000000000001",
     },
     // From before `speakerFrom`: a 1:1 chat's handle says who.
     {
-      entities: [],
       id: "obs_2",
       speaker: "person:gaston",
+      subjects: [],
       text: "Gaston will call back.",
       unit: "unit_000000000002",
     },
     // His own fact in that chat follows the move (its author stays him); one whose author did not change stays as is.
     {
-      entities: ["person:gaston"],
       id: "obs_3",
       speaker: "person:me",
+      subjects: ["person:gaston"],
       text: "Jean paid Gaston.",
       unit: "unit_000000000002",
     },
     {
-      entities: [],
       id: "obs_4",
       speaker: "person:gaston",
       speakerFrom: "Gaston",
+      subjects: [],
       text: "Gaston is late.",
       unit: "unit_000000000003",
     },
@@ -181,8 +183,8 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     "person:me",
     "person:gaston",
   ]);
-  expect(now[0]?.entities).toEqual(["person:dad"]);
-  expect(now[2]?.entities).toEqual(["person:dad"]);
+  expect(now[0]?.subjects).toEqual(["person:dad"]);
+  expect(now[2]?.subjects).toEqual(["person:dad"]);
   expect(now.map((o) => o.text)).toEqual([
     "Jean Senior Dupont asked Jean for the keys.",
     "Jean Senior Dupont will call back.",
@@ -210,27 +212,27 @@ test("a move stays out of a unit where that person still writes as themself, and
   const facts = [
     // A family group: one handle is Pops's now, but Gaston also writes there from his own.
     {
-      entities: [],
       id: "obs_1",
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
+      subjects: [],
       text: "Gaston booked the table.",
       unit: "unit_000000000009",
     },
     {
-      entities: ["person:gaston"],
       id: "obs_2",
       speaker: "person:gaston",
       speakerFrom: "Gaston",
+      subjects: ["person:gaston"],
       text: "Gaston is bringing wine.",
       unit: "unit_000000000009",
     },
     // His own address resolving elsewhere moves no one: he stays him everywhere.
     {
-      entities: ["person:me"],
       id: "obs_3",
       speaker: "person:me",
       speakerFrom: "+66600000001",
+      subjects: ["person:me"],
       text: "Jean will drive.",
       unit: "unit_000000000008",
     },
@@ -241,34 +243,34 @@ test("a move stays out of a unit where that person still writes as themself, and
     "person:gaston",
     "person:dad",
   ]);
-  expect(now[1]?.entities).toEqual(["person:gaston"]);
+  expect(now[1]?.subjects).toEqual(["person:gaston"]);
   expect(now[1]?.text).toBe("Gaston is bringing wine.");
-  expect(now[2]?.entities).toEqual(["person:me"]);
+  expect(now[2]?.subjects).toEqual(["person:me"]);
   expect(now[2]?.text).toBe("Jean will drive.");
 });
 
 test("two authors filed as one person who now resolve to two different people: neither moves the others", () => {
   const facts = [
     {
-      entities: [],
       id: "obs_1",
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
+      subjects: [],
       text: "Gaston said yes.",
       unit: "unit_000000000006",
     },
     {
-      entities: ["person:gaston"],
       id: "obs_2",
       speaker: "person:gaston",
       speakerFrom: "Decoy",
+      subjects: ["person:gaston"],
       text: "Gaston said no.",
       unit: "unit_000000000006",
     },
     {
-      entities: ["person:gaston"],
       id: "obs_3",
       speaker: "person:me",
+      subjects: ["person:gaston"],
       text: "Jean asked Gaston.",
       unit: "unit_000000000006",
     },
@@ -280,18 +282,18 @@ test("two authors filed as one person who now resolve to two different people: n
     "person:decoy",
     "person:me",
   ]);
-  expect(now[2]?.entities).toEqual(["person:gaston"]);
+  expect(now[2]?.subjects).toEqual(["person:gaston"]);
   expect(now[2]?.text).toBe("Jean asked Gaston.");
 });
 
 test("a voice kept by lifelog's id resolves by the name lifelog gave it when the directory does not know the id", () => {
   const facts = [
     {
-      entities: [],
       id: "obs_1",
       speaker: "unknown:Pops",
       speakerFrom: "lifelog-id-the-map-lacks",
       speakerName: "Pops",
+      subjects: [],
       text: "Pops called.",
       unit: "unit_000000000007",
     },
@@ -333,15 +335,15 @@ test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never 
 test("a fact whose subjects changed since it was written is marked refiled", () => {
   const facts = [
     {
-      entities: ["person:inf_plumber"],
       id: "obs_1",
       speaker: "person:me",
+      subjects: ["person:inf_plumber"],
       text: "A fact.",
     },
     {
-      entities: ["person:gaston"],
       id: "obs_2",
       speaker: "person:me",
+      subjects: ["person:gaston"],
       text: "A fact.",
     },
   ] as unknown as Observation[];
@@ -384,10 +386,10 @@ const ctx = {
 const obs = (over: Record<string, unknown>) => ({
   area: SHOP,
   confidence: 0.9,
-  entities: ["person:me"],
   importance: 3,
   line: 0,
   quote: "Il faut que j'appelle le vitrier",
+  subjects: ["person:me"],
   text: "Jean will call the glazier about the shop window.",
   type: "to_do",
   unit: source.unit.id,
@@ -395,18 +397,18 @@ const obs = (over: Record<string, unknown>) => ({
   ...over,
 });
 
-test("the extractor's reply is checked: quotes, units, entities; unknown names resolved or kept as unresolved", () => {
+test("the extractor's reply is checked: quotes, units, subjects; unknown names resolved or kept as unresolved", () => {
   const { observations, rejects, unresolved } = parseObservations(
     {
       observations: [
-        obs({ entities: ["person:me", "project:bakery", "person:invented"] }),
+        obs({ subjects: ["person:me", "project:bakery", "person:invented"] }),
         obs({
           area: "Invented area",
           confidence: 0.9,
-          entities: ["unknown:Pops", "unknown:Annesophie"],
           importance: 2,
           line: 1,
           quote: "Pops veut que tu repeignes la moitié de la cuisine",
+          subjects: ["unknown:Pops", "unknown:Annesophie"],
           text: "Jean's father wants him to paint half the kitchen with his sisters.",
           type: "about_a_person",
           when: null,
@@ -430,20 +432,20 @@ test("the extractor's reply is checked: quotes, units, entities; unknown names r
   const [todo, family] = observations;
   expect(todo).toMatchObject({
     area: SHOP,
-    entities: ["person:me", "project:bakery"],
     quote: "Il faut que j’appelle le vitrier",
     source: { channel: "lifelog", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
     speaker: "person:me",
+    subjects: ["person:me", "project:bakery"],
     when: "2026-10-12",
   });
   expect(family?.area).toBeNull();
   // "Pops" is resolved by code (from the model's unknown: and from the quote); a spoken claim not by Jean is capped.
-  expect(family?.entities).toEqual(["person:dad"]);
+  expect(family?.subjects).toEqual(["person:dad"]);
   expect(family?.confidence).toBe(0.6);
   expect(unresolved).toEqual([
     {
+      nameAsWritten: "Annesophie",
       observation: family?.id ?? "",
-      surface: "Annesophie",
       unit: source.unit.id,
     },
   ]);
@@ -512,7 +514,7 @@ test("the observation schema refuses records a later reader could not trust", ()
     { ...good, importance: 0 },
     { ...good, type: "nothing" },
     { ...good, area: "Shop" },
-    { ...good, entities: ["dad"] },
+    { ...good, subjects: ["dad"] },
     { ...good, extra: 1 },
   ]) {
     expect(Observation.safeParse(bad).success).toBe(false);
@@ -600,15 +602,15 @@ test("a unit he said was read wrong is read again, once: his word against its la
   ).toBe(0);
 });
 
-test("the index is rebuilt from observations: search ignores accents, who each is about answers by entity", async () => {
+test("the index is rebuilt from observations: search ignores accents, who each is about answers by subject", async () => {
   const { observations } = parseObservations(
     {
       observations: [
         obs({}),
         obs({
-          entities: ["person:dad"],
           line: 1,
           quote: "Pops veut que tu repeignes la moitié de la cuisine",
+          subjects: ["person:dad"],
           text: "Jean's father wants him to paint half the kitchen.",
         }),
       ],
@@ -671,7 +673,7 @@ test("the index is rebuilt from observations: search ignores accents, who each i
   expect(
     db
       .query<{ n: number }, [string]>(
-        "select count(*) as n from observation_entities where entity = ?"
+        "select count(*) as n from observation_subjects where subject = ?"
       )
       .get("person:dad")?.n
   ).toBe(1);

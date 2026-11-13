@@ -46,7 +46,7 @@ import { kindOf } from "./sources";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for the status reads: `read_memory_changes` (every observation, supersession,
-// correction, inferred identity, action and page change, by cursor) and `read_observation` (one observation with its evidence).
+// correction, inferred person, action and page change, by cursor) and `read_observation` (one observation with its evidence).
 // With run-log.ts (`read_processing_runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|observation|status|runs`.
 // Read-only: no model, no write, no source except `read_observation`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/status-reads.md.
@@ -268,7 +268,7 @@ async function readContext() {
   // The latest record for a surface wins (who.ts): its line number.
   const inferredLatest = new Map<string, number>();
   for (const [n, p] of inferred.entries()) {
-    for (const s of p.surfaces) {
+    for (const s of p.namesAndHandles) {
       inferredLatest.set(s, n);
     }
   }
@@ -392,13 +392,13 @@ function itemOf(
     return {
       about: refs([`person:${p.id}`, p.area && `area:${p.area}`]),
       // The latest record for a surface wins: an older one no longer decides any surface.
-      current: p.surfaces.some((s) => ctx.inferredLatest.get(s) === n),
+      current: p.namesAndHandles.some((s) => ctx.inferredLatest.get(s) === n),
       happenedAt: null,
       id,
       record: p,
       recordedAt: p.at,
       run: p.madeBy.run,
-      type: "identity.inferred",
+      type: "inferred_person",
       used: p.confidence >= INFERRED_USE_AT,
     };
   }
@@ -422,7 +422,7 @@ function itemOf(
           : `ledger.${a.result}`,
     };
   }
-  if (source === "ratings") {
+  if (source === "fact-check-answers") {
     const r = FactCheckAnswer.parse(raw);
     return {
       about: [],
@@ -431,12 +431,12 @@ function itemOf(
       record: r,
       recordedAt: r.at,
       run: null,
-      type: `rating.${r.answer ?? "undone"}`,
+      type: `fact_check_answer.${r.answer ?? "undone"}`,
     };
   }
   const o = Observation.parse(raw);
   return {
-    about: refs([...o.entities, o.speaker, o.area && `area:${o.area}`]),
+    about: refs([...o.subjects, o.speaker, o.area && `area:${o.area}`]),
     happenedAt: o.at,
     id,
     record: o,
@@ -456,7 +456,7 @@ export interface ChangeFilter {
   run?: string;
   /** Recorded at or after this ISO instant. */
   since?: string;
-  /** Types or type prefixes: observation, observation.superseded, correction, identity, ledger, ledger.ask, ledger.update, ledger.nudge, ledger.steer, ledger.failed, rating, page. */
+  /** Types or type prefixes: observation, observation.superseded, correction, inferred_person, ledger, ledger.ask, ledger.update, ledger.nudge, ledger.steer, ledger.failed, fact_check_answer, page. */
   types?: string[];
 }
 
@@ -476,7 +476,7 @@ const monthName = (file: string) =>
 
 /**
  * The change feed: every observation extracted, superseded, correction, inferred identity, logged action and committed
- * page change, past `cursor`. Sources in a fixed order (corrections, supersessions, inferred, actions, ratings, each month of
+ * page change, past `cursor`. Sources in a fixed order (corrections, supersessions, inferred, actions, fact-check answers, each month of
  * observations, pages); sort a page by `recordedAt` to show it. Page changes carry the lines added and removed.
  */
 export async function changeFeed(f: ChangeFilter = {}) {
@@ -487,7 +487,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
     fileSource(SUPERSESSIONS, "supersessions"),
     fileSource(INFERRED, "inferred"),
     fileSource(LEDGER, "ledger"),
-    fileSource(FACT_CHECK_ANSWERS, "ratings"),
+    fileSource(FACT_CHECK_ANSWERS, "fact-check-answers"),
     ...months.map((m) => fileSource(join(OBSERVATIONS, m), monthName(m))),
     listSource("pages", pageLines),
   ];
@@ -524,10 +524,10 @@ export async function changeFeed(f: ChangeFilter = {}) {
 // --- one observation with its evidence -----------------------------------------------------------------------------------
 
 /**
- * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
+ * One observation with everything that says how far to trust it: the observation and its lifecycle, the source (channel,
  * ref, time, speaker, quote), the unit to read it in (`fetch`, `read_chats`), who it is about as filed and as resolved now
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
- * whether the index still holds it. Every version of the claim in the ledger is listed.
+ * whether the index still holds it. Every version of the observation in the ledger is listed.
  */
 export async function readObservation(id: string) {
   if (!ObservationId.safeParse(id).success) {
@@ -565,22 +565,10 @@ export async function readObservation(id: string) {
   return {
     corrections: [
       ...hiding(ctx.corrections, id),
-      ...ctx.corrections.filter((c) => "surface" in c && c.surface === handle),
+      ...ctx.corrections.filter(
+        (c) => "nameOrHandle" in c && c.nameOrHandle === handle
+      ),
     ],
-    entities: now.entities.map((ref) => {
-      const inferredPerson = inferred.get(ref);
-      return {
-        filed: (o.entities as string[]).includes(ref),
-        inferred: inferredPerson
-          ? {
-              confidence: inferredPerson.confidence,
-              relation: inferredPerson.relation,
-            }
-          : null,
-        name: people.names.get(ref) ?? null,
-        ref,
-      };
-    }),
     index: ctx.index
       ? { holds: ctx.index.has(id), supersededBy: ctx.index.get(id) ?? null }
       : null,
@@ -605,6 +593,20 @@ export async function readObservation(id: string) {
       now: now.speaker,
     },
     status: observationStatusOf(o, ctx),
+    subjects: now.subjects.map((ref) => {
+      const inferredPerson = inferred.get(ref);
+      return {
+        filed: (o.subjects as string[]).includes(ref),
+        inferred: inferredPerson
+          ? {
+              confidence: inferredPerson.confidence,
+              relation: inferredPerson.relation,
+            }
+          : null,
+        name: people.names.get(ref) ?? null,
+        ref,
+      };
+    }),
     unit: unit
       ? {
           date: unit.date,

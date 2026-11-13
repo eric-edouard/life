@@ -20,7 +20,7 @@ import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";
 
 // The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful memory lines drawn from
-// it for the owner to answer, one per line, frozen as he is shown them (memory/statements.jsonl).
+// it for the owner to answer, one per line, frozen as he is shown them (memory/fact-checks.jsonl).
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
@@ -43,7 +43,7 @@ export function episodeText(m: Episode, name: (ref: string) => string) {
   return `${m.title}${time && `, ${time}`}${m.place ? `, at ${m.place}` : ""}${roles}.`;
 }
 
-/** Where an episode is rated: the one person with a page it was with (as who.ts says today), else `episodes`. */
+/** Where an episode is checked: the one person with a page it was with (as who.ts says today), else `episodes`. */
 export function episodeGroup(
   m: Episode,
   paged: ReadonlySet<string>,
@@ -61,12 +61,12 @@ export type Doubt = "guessed-person" | "low-confidence";
 
 /** An observation's doubts (the one place "doubtful" is decided): low confidence counts only beside another doubt. */
 export function doubtsOf(
-  o: Pick<Observation, "about" | "confidence" | "entities" | "unit">,
+  o: Pick<Observation, "about" | "confidence" | "subjects" | "unit">,
   refOf: (ref: string) => string
 ): Doubt[] {
   const found: Doubt[] = [];
   if (
-    [o.about, ...o.entities].some((ref) =>
+    [o.about, ...o.subjects].some((ref) =>
       ref ? refOf(ref).startsWith(`person:${INFERRED_PREFIX}`) : false
     )
   ) {
@@ -85,17 +85,17 @@ export type MemoryLine = Omit<Draft, "group"> & {
 
 /** The `n` memory lines he should check first: doubtful, importance 3 then 2 (never 1), more doubts, newest; none stated before or without a page. */
 export const doubtful = (
-  claims: MemoryLine[],
-  stated: ReadonlySet<string>,
+  memoryLines: MemoryLine[],
+  checked: ReadonlySet<string>,
   n: number
 ) =>
-  claims
+  memoryLines
     .filter(
       (c): c is MemoryLine & { group: Draft["group"] } =>
         c.group !== null &&
         c.importance >= KEEP_AT &&
         c.doubts.length > 0 &&
-        !stated.has(c.ref)
+        !checked.has(c.ref)
     )
     .toSorted(
       (a, b) =>
@@ -158,24 +158,26 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   ];
 }
 
-/** Draws the `n` memory lines he should check first (`doubtful`) into memory/statements.jsonl, frozen as he is shown them. The caller holds the lock. */
+/** Draws the `n` memory lines he should check first (`doubtful`) into memory/fact-checks.jsonl, frozen as he is shown them. The caller holds the lock. */
 export async function drawFactChecks(n: number) {
   const rec = recordRun("memory.fact-checks", { n });
-  const [claims, stated] = await Promise.all([
+  const [memoryLines, checked] = await Promise.all([
     memoryLinesNow(),
     readFactChecks(),
   ]);
-  const drawn = doubtful(claims, new Set(stated.map((s) => s.ref)), n).map(
-    ({ doubts, group, importance, ...c }) => ({
-      doubts,
-      factCheck: {
-        ...c,
-        at: rec.now.toISOString(),
-        group,
-        schemaVersion: 1 as const,
-      },
-    })
-  );
+  const drawn = doubtful(
+    memoryLines,
+    new Set(checked.map((s) => s.ref)),
+    n
+  ).map(({ doubts, group, importance, ...c }) => ({
+    doubts,
+    factCheck: {
+      ...c,
+      at: rec.now.toISOString(),
+      group,
+      schemaVersion: 1 as const,
+    },
+  }));
   await appendJsonl(
     FACT_CHECKS,
     FactCheck,
@@ -184,7 +186,7 @@ export async function drawFactChecks(n: number) {
   rec.end({
     added: drawn.length,
     failed: 0,
-    total: stated.length + drawn.length,
+    total: checked.length + drawn.length,
   });
   return drawn;
 }

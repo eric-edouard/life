@@ -9,7 +9,7 @@ import { promptText } from "../apps/server/src/models/llm";
 import {
   DESCRIPTIONS,
   type Description,
-  PHOTOS_PROMPT,
+  PHOTO_DESCRIPTION_PROMPT,
   writeDescriptions,
 } from "../apps/server/src/sources/photo-descriptions";
 import {
@@ -58,7 +58,7 @@ export async function describeInCloud(
   try {
     const sent = (async () => {
       proc.stdin.write(
-        `${JSON.stringify({ prompt: (await promptText(PHOTOS_PROMPT)).trim() })}\n`
+        `${JSON.stringify({ prompt: (await promptText(PHOTO_DESCRIPTION_PROMPT)).trim() })}\n`
       );
       for (const w of photos) {
         // biome-ignore lint/performance/noAwaitInLoops: one image in memory at a time

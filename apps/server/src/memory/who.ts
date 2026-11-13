@@ -33,12 +33,12 @@ const WHO = /^(person|unknown):/;
 export const who = (x: { speaker: string; speakerName?: string }) =>
   x.speakerName ?? x.speaker.replace(WHO, "");
 
-/** A surface's lookup keys: as given, lowercased, normalized. */
+/** A name or handle's lookup keys: as given, lowercased, normalized. */
 const keysOf = (s: string) =>
   [s.trim(), s.trim().toLowerCase(), nameKey(s)].filter(Boolean);
 
-/** Whether two surfaces are one: a key in common, or the same phone or email however written. */
-const isSameSurface = (a: string, b: string) => {
+/** Whether two names or handles are one: a key in common, or the same phone or email however written. */
+const isSameNameOrHandle = (a: string, b: string) => {
   const key = contactKeyOf(a);
   return (
     (key !== undefined && key === contactKeyOf(b)) ||
@@ -46,12 +46,12 @@ const isSameSurface = (a: string, b: string) => {
   );
 };
 
-/** Each surface key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
+/** Each name or handle key's inferred person: the latest record at or above INFERRED_USE_AT decides. */
 function guessesOf(inferred: InferredPerson[]) {
   const guessed = new Map<string, InferredPerson>();
   for (const r of inferred) {
     for (const k of r.confidence >= INFERRED_USE_AT
-      ? r.surfaces.flatMap(keysOf)
+      ? r.namesAndHandles.flatMap(keysOf)
       : []) {
       guessed.set(k, r);
     }
@@ -112,7 +112,7 @@ function readingOf(
   const names = nameIndex(people);
   const carded = new Map<string, string>();
   for (const c of contacts) {
-    for (const key of c.surfaces.flatMap((s) => contactKeyOf(s) ?? keysOf(s))) {
+    for (const key of c.handles.flatMap((s) => contactKeyOf(s) ?? keysOf(s))) {
       if (!carded.has(key)) {
         carded.set(key, c.id);
       }
@@ -123,7 +123,7 @@ function readingOf(
   const not = new Set<string>();
   for (const c of corrections) {
     for (const k of c.kind === "this-is" || c.kind === "not-this-person"
-      ? keysOf(c.surface)
+      ? keysOf(c.nameOrHandle)
       : []) {
       if (c.kind === "this-is") {
         said.set(k, c.person);
@@ -133,15 +133,15 @@ function readingOf(
     }
   }
   const guessed = guessesOf(inferred);
-  return (surface: string): string | null => {
-    const ks = keysOf(surface);
-    const key = contactKeyOf(surface);
+  return (nameOrHandle: string): string | null => {
+    const ks = keysOf(nameOrHandle);
+    const key = contactKeyOf(nameOrHandle);
     const truth =
       handles.get(ks[0] ?? "") ??
       handles.get(ks[1] ?? "") ??
       (key ? handles.get(key) : undefined);
     // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
-    const bare = nameKey(surface.trim().replace(PAREN, ""));
+    const bare = nameKey(nameOrHandle.trim().replace(PAREN, ""));
     const named = bare ? names.get(bare) : undefined;
     const guesses = ks.map((k) => guessed.get(k));
     const card =
@@ -162,8 +162,8 @@ function readingOf(
 }
 
 /**
- * Who a surface and a person ref are now: `resolve` is what a surface reads as (`readingOf`), folded; `canon` folds a
- * ref, his `same-person` over what each inferred id's surface reads as now, so every id a surface was ever given is
+ * Who a name as written and a person ref are now: `resolve` is what a name as written reads as (`readingOf`), folded; `canon` folds a
+ * ref, his `same-person` over what each inferred id's name as written reads as now, so every id a name as written was ever given is
  * the one person it reads as. A contact person folds too: into whoever its whole name is in truth/, else by a handle
  * it shares with someone, else by its name (`namesTheSame`); and a guess made for one of its handles is the contact
  * person. A card whose whole name and whose handles say more than one person folds into no one (an ambiguous card: his to say).
@@ -181,12 +181,12 @@ export function foldsOf(
       (x) =>
         x.kind === "not-this-person" &&
         x.person === ref &&
-        c.surfaces.some((s) => isSameSurface(s, x.surface))
+        c.handles.some((s) => isSameNameOrHandle(s, x.nameOrHandle))
     );
   const into = new Map<string, string>();
   for (const r of inferred) {
     const self = `person:${r.id}`;
-    const to = r.surfaces.map(read).find((x) => x && x !== self);
+    const to = r.namesAndHandles.map(read).find((x) => x && x !== self);
     if (to) {
       into.set(self, to);
     }
@@ -229,8 +229,8 @@ export function foldsOf(
     }
     return [{ card: t.card, people: now }];
   });
-  const resolve = (surface: string): string | null => {
-    const ref = read(surface);
+  const resolve = (nameOrHandle: string): string | null => {
+    const ref = read(nameOrHandle);
     return ref ? canon(ref) : null;
   };
   return { ambiguousCards, canon, resolve };
@@ -244,7 +244,7 @@ export function foldsOf(
 function saidBy(
   c: ContactNow,
   self: string,
-  read: (surface: string) => string | null,
+  read: (nameOrHandle: string) => string | null,
   people: Person[],
   isRuledOut: (c: ContactNow, ref: string) => boolean
 ) {
@@ -252,8 +252,8 @@ function saidBy(
   const byName =
     named && named !== self && !isRuledOut(c, named) ? named : undefined;
   const whole = byName && isWholeNameOf(c, byName, people) ? byName : undefined;
-  const handled = c.surfaces.flatMap((surface) => {
-    const ref = read(surface);
+  const handled = c.handles.flatMap((nameOrHandle) => {
+    const ref = read(nameOrHandle);
     return ref && ref !== self ? [ref] : [];
   });
   return {
@@ -282,7 +282,7 @@ const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>
   );
 
 /**
- * What each observation is about today: the entities it was filed with, plus the names Life could not map when it was
+ * What each observation is about today: the subjects it was filed with, plus the names Life could not map when it was
  * read and can now, folded (`foldsOf`); `unmapped` when it still names someone Life cannot map.
  * The pages and the search index both go by this.
  */
@@ -298,7 +298,7 @@ export function aboutNow(
   const { canon, resolve } = foldsOf(people, inferred, corrections, contacts);
   const found = unresolved.flatMap((u) =>
     u.observation
-      ? [{ observation: u.observation, ref: resolve(u.surface) }]
+      ? [{ observation: u.observation, ref: resolve(u.nameAsWritten) }]
       : []
   );
   const named = Map.groupBy(found, (n) => n.observation);
@@ -341,22 +341,22 @@ export function aboutNow(
     const a = authors[k] as (typeof authors)[number];
     const moved = moves.get(o.unit) ?? new Map<string, string>();
     const resolvedNow = a.unknown && a.now !== a.was;
-    const entities = [
+    const subjects = [
       ...new Set([
-        ...o.entities.map(canon).map((e) => moved.get(e) ?? e),
+        ...o.subjects.map(canon).map((e) => moved.get(e) ?? e),
         ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
         ...(resolvedNow ? [a.now] : []),
       ]),
     ].sort();
     return {
       ...o,
-      entities,
       // Who it is about changed since it was written (a move, a fold, a name resolved since): a page it lands on
       // has not read it (`pages.ts` offers it once).
-      refiled: entities.join() !== o.entities.toSorted().join(),
+      refiled: subjects.join() !== o.subjects.toSorted().join(),
       speaker: a.now,
       // A chat title named an unknown author; once they resolve, their name is the directory's.
       speakerName: resolvedNow ? undefined : o.speakerName,
+      subjects,
       // ponytail: a sentence written before tokens names people; a move swaps their names in it as it is read (never
       // stored). Tokenized sentences (extract v6) will make this a no-op for new facts.
       text: [...moved].reduce(
@@ -387,13 +387,13 @@ export function authorFrom(o: Observation, chatOf: Map<string, string>) {
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
 
 /**
- * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or surface)
+ * The people and projects `texts` name: each run of one to three words that `resolve` knows (a name, alias or handle)
  * or that is a project's name. What a call involves beyond its people (`involvedOf`); a word that is also a name only
  * adds a directory entry to the call's input.
  */
 export function namedIn(
   texts: string[],
-  resolve: (surface: string) => string | null,
+  resolve: (nameOrHandle: string) => string | null,
   projects: { name: string; ref: string }[]
 ) {
   const projectNamed = new Map(projects.map((p) => [nameKey(p.name), p.ref]));
@@ -614,7 +614,7 @@ export function nearNames<
 
 /**
  * Everyone a name can mean: the people in his directory, and those his Contacts name or Life inferred (not folded into
- * another), going by their surfaces too.
+ * another), going by their names and handles too.
  */
 function nameable({
   outsideDirectory,
@@ -626,7 +626,7 @@ function nameable({
     ...new Map(
       unfoldedOf(outsideDirectory, canon).map((p) => [
         p.id,
-        { ...p, aliases: p.surfaces },
+        { ...p, aliases: p.namesAndHandles },
       ])
     ).values(),
   ];

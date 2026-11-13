@@ -8,10 +8,10 @@ const obs = (n: number, at: string, quote: string): Observation =>
   ({
     at,
     date: at.slice(0, 10),
-    entities: [ann],
     id: `obs_${String(n).padStart(12, "0")}`,
     quote,
     speaker: "person:me",
+    subjects: [ann],
     text: quote,
     type: "promise",
   }) as Observation;
