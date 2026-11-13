@@ -722,8 +722,7 @@ const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
 /**
  * A processing run's processing steps: those its last good run went through (its steps among them) and any its latest
- * added, done as its latest went through them, the one it is in now, the one it failed at left to do; for the night,
- * then its report, done once that email went.
+ * added, done, now or left to do (where it failed); for the night, then its report, done once that email went.
  */
 export function processingStepsOf(
   s: Pick<ProcessingRun, "lastOk" | "latest">,
