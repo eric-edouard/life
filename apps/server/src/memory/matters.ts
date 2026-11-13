@@ -172,13 +172,12 @@ type ObservationNow = ShownObservation & {
  * The episodes that overlap `span`, each with its units (a unit under the one episode that holds it, `readBy`, as
  * extraction reads it), their observations at importance `SEARCHABLE_AT` or more (a small step of an errand is often rated low)
  * and the people it names; then each unit no episode holds that has such an observation in the span, as an episode of its own
- * titled `titleOf` it. In day order. Pure.
+ * left untitled (its id is the unit's: `readMatterWork` names it). In day order. Pure.
  */
 export function shownEpisodesOf(
   span: Window,
   episodes: Episode[],
   observations: ObservationNow[],
-  titleOf: (unit: string) => string,
   people: Pick<People, "nameOf" | "refOf">
 ): ShownEpisode[] {
   const byEpisode = readBy(episodes);
@@ -220,7 +219,7 @@ export function shownEpisodesOf(
             id: unit,
             observations: of.map(asShown),
             people: [],
-            title: titleOf(unit),
+            title: "",
             units: [unit],
             what: "",
           },
@@ -229,43 +228,43 @@ export function shownEpisodesOf(
   return [...held, ...lone].toSorted((a, b) => a.day.localeCompare(b.day));
 }
 
-/**
- * What the matters step has to place in `span`: its episodes (`shownEpisodesOf`) and his open todoItems made in it,
- * less what was offered. Null when a source failed: an episode must never be placed from a span read only in part.
- */
-export async function readMatterWork(
-  span: Window,
-  people: People,
-  failed: string[]
-): Promise<MatterWork | null> {
-  if (failed.length > 0) {
-    return null;
-  }
+/** The records every span of a run is read from: all episodes, all observations. Read once, a backfill's weeks share it. */
+export async function readMatterRecords(people: People) {
   const [episodes, { observations }] = await Promise.all([
     episodesWhere(() => true),
     observationsNow(people),
   ]);
-  const held = new Set(episodes.flatMap((m) => m.units));
-  const lone = observations.filter(
-    (o) =>
-      !held.has(o.unit) &&
-      o.importance >= SEARCHABLE_AT &&
-      o.date >= span.from &&
-      o.date <= span.to
-  );
+  return { episodes, observations };
+}
+
+/**
+ * What the matters step has to place in `span`: its episodes (`shownEpisodesOf`, a lone unit named by its title) and his
+ * open to-do items made in it, less what was offered. Null when a source failed: an episode must never be placed from
+ * a span read only in part. `records` is `readMatterRecords`', read here when not given.
+ */
+export async function readMatterWork(
+  span: Window,
+  people: People,
+  failed: string[],
+  records?: Awaited<ReturnType<typeof readMatterRecords>>
+): Promise<MatterWork | null> {
+  if (failed.length > 0) {
+    return null;
+  }
+  const { episodes, observations } =
+    records ?? (await readMatterRecords(people));
+  const placed = shownEpisodesOf(span, episodes, observations, people);
+  const lone = placed.filter((e) => e.id === e.units[0]);
   const titles = new Map(
     readUnitsFor(
-      lone.map((o) => o.unit),
-      lone.map((o) => o.date)
+      lone.map((e) => e.id),
+      lone.map((e) => e.day)
     ).map((u) => [u.id, u.title])
   );
-  const shown = shownEpisodesOf(
-    span,
-    episodes,
-    observations,
-    (u) => titles.get(u) ?? "",
-    people
-  );
+  const shown = placed.map((e) => ({
+    ...e,
+    title: titles.get(e.id) ?? e.title,
+  }));
   const todoItems = openTodoItemsOf(readLedger()).flatMap((r) => {
     const day = localDate(r.at);
     const title = String(r.fields.title ?? "");
@@ -348,7 +347,7 @@ export function placedOf(
         return [{ day: item.day, quote: found.text.slice(0, 300), ref: r }];
       });
     });
-    if (id && name && steps.length > 0) {
+    if (name && steps.length > 0) {
       const was = byId.get(id);
       byId.set(id, {
         areas: m.areas.filter((a) => directory.areas.has(a)),
@@ -368,7 +367,7 @@ export function placedOf(
  * memory/matters.jsonl; callers hold the memory lock.
  */
 export async function matters(work: MatterWork, people: People) {
-  const step = await begin("matters", "main", { prompt: PROMPT });
+  const step = await begin("matters", "fast", { prompt: PROMPT });
   const { truth } = people;
   const context = {
     ...meContext(truth),
@@ -389,9 +388,11 @@ export async function matters(work: MatterWork, people: People) {
           return latest.day >= horizon
             ? [
                 {
+                  areas: m.areas,
                   id: m.id,
                   latest: { day: latest.day, text: latest.quote },
                   name: m.name,
+                  projects: m.projects,
                 },
               ]
             : [];

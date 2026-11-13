@@ -18,6 +18,7 @@ import {
   callsOf,
   matterLines,
   matters,
+  readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
 import {
@@ -36,7 +37,7 @@ import { unresolved } from "../memory/read-unresolved";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
-import { readBackfill, recordBackfill } from "../memory/schedule";
+import { readBackfill, recordBackfill, weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { DAYS, gather } from "../memory/units";
@@ -44,7 +45,6 @@ import { meant, readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import {
   dayNow,
-  dayStart,
   firstZoneDay,
   isDay,
   lastDays,
@@ -110,12 +110,11 @@ const gathered = async (v: Values) =>
 
 const scan = step(() => mapRepos());
 
-/** The weeks from `since` to `today`, oldest first: seven days each, the last cut at today. */
+/** The weeks from `since` to `today`, oldest first (`weekFrom`). */
 function weeksFrom(since: string, today: string) {
   const weeks: Window[] = [];
   for (let from = since; from <= today; from = daysBefore(from, -7)) {
-    const end = daysBefore(from, -6);
-    weeks.push({ from, to: end < today ? end : today });
+    weeks.push(weekFrom(from, today));
   }
   return weeks;
 }
@@ -312,13 +311,11 @@ const HANDLERS: Record<string, Handler> = {
       : [lastDays(clock(), DAYS)];
     return step(async () => {
       const people = await readPeople();
-      const { failed } = await readWithPeople(
-        dayStart(values.since ?? lastDays(clock(), DAYS).from)
-      );
+      const records = await readMatterRecords(people);
       const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, todoItems: 0 };
       for (const span of spans) {
         // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
-        const work = await readMatterWork(span, people, failed);
+        const work = await readMatterWork(span, people, [], records);
         if (!work) {
           return { failed: 1 };
         }

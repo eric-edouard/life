@@ -116,15 +116,20 @@ test("an errand over three spans lands in one matter, the call's episode with no
         },
       ],
     }),
-    (input: { open: { id: string }[] }) => {
+    (input: {
+      open: { areas: string[]; id: string; projects: string[] }[];
+    }) => {
       minted = input.open[0]?.id ?? "";
+      // The matter is shown with its own areas and projects, for the reply to keep.
+      expect(input.open[0]?.areas).toEqual([]);
+      expect(input.open[0]?.projects).toEqual(["shop-fit-out"]);
       return {
         matters: [
           {
             areas: ["family"],
             id: minted,
             name: "Mend Gran's watch",
-            projects: [],
+            projects: ["shop-fit-out"],
             steps: [
               { quote: "repair takes ten days", ref: f4.id },
               { quote: "call the shop on Monday", ref: f5.id },
@@ -144,6 +149,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
             areas: ["family"],
             id: minted,
             name: "Mend Gran's watch for Gran",
+            projects: ["shop-fit-out"],
             // The call is placed as its episode, and stored as the episode's unit.
             steps: [{ quote: "phone the shopkeeper", ref: `ep_${pad(5)}` }],
           },
@@ -186,7 +192,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
       unit5,
     ]);
     expect(matterLines()).toEqual([
-      "Mend Gran's watch for Gran · areas family · projects none · 6 steps · newest 2026-10-16",
+      "Mend Gran's watch for Gran · areas family · projects shop-fit-out · 6 steps · newest 2026-10-16",
     ]);
 
     // A second run over the same spans asks nothing: the ones placed nowhere were asked once.
@@ -299,13 +305,12 @@ test("the errand's small steps are shown: an observation rated 1, and a mail no 
       observationNow(3, 9, "2026-10-11", 1), // the photos by mail, in no episode: an episode of its own
       observationNow(4, 8, "2026-10-30", 2), // in no episode, outside the span
     ],
-    (u) => `title of ${u}`,
     { nameOf: (r) => r, refOf: (r) => r }
   );
   expect(
     shown.map((e) => [e.id, e.title, e.units, e.observations.map((f) => f.id)])
   ).toEqual([
     [`ep_${pad(1)}`, "Episode 1", [unitId(1)], [`obs_${pad(1)}`]],
-    [unitId(9), `title of ${unitId(9)}`, [unitId(9)], [`obs_${pad(3)}`]],
+    [unitId(9), "", [unitId(9)], [`obs_${pad(3)}`]],
   ]);
 });

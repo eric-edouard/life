@@ -25,7 +25,7 @@ The `<context>` at the end is one JSON object: `me` (who the owner is), `areas` 
 
 The user message is one JSON object:
 
-- `open`: the matters still running, each `{id, name, latest}`; `latest` is `{day, text}` of its newest step.
+- `open`: the matters still running, each `{id, name, areas, projects, latest}`; `latest` is `{day, text}` of its newest step.
 - `episodes`: what happened in the span, not placed yet, each `{id, day, title, what, people, observations}`. `people`
   are `{name, role}`. `observations` are `{id, type, text}`, read from the recordings, chats or mails of the episode; an
   episode may have none, and then its `title` and `what` are all there is of it. An episode with an empty `what` is a single
@@ -40,8 +40,10 @@ The user message is one JSON object:
   starts here. Never any other id: code gives a new matter its real one.
 - `name`: for a matter from `open`, its name, unchanged unless it is plainly wrong. For a new one, short, in English,
   naming the thing to be done and for whom ("Passport renewal for Grandma", "Refund for the broken kettle").
-- `areas`: `id`s from `areas` the matter belongs to, possibly none.
-- `projects`: `id`s from `projects` the matter belongs to, possibly none.
+- `areas`: `id`s from `areas` the matter belongs to, possibly none. For a matter from `open`, its own, kept unless plainly
+  wrong.
+- `projects`: `id`s from `projects` the matter belongs to, possibly none. For a matter from `open`, its own, kept
+  unless plainly wrong.
 - `steps`: its steps, each `{ref, quote}`. `ref` is an episode `id`, an observation `id` or a to-do item `key` from the
   input. `quote` is a few words copied exactly from that episode's `title` or `what`, from that observation's `text` or
   from that to-do item's `title`, showing it belongs.
@@ -65,7 +67,7 @@ Anything you do not list belongs to no matter.
 - When unsure whether something is a step, leave it out. Most episodes belong to no matter.
 - Never invent an id, a ref or a quote.
 
-Example. In `open`: `{"id":"matter_1a2b3c4d5e6f","name":"Mend Gran's watch","latest":{"day":"2026-03-02","text":"Gran asks for her watch to be mended"}}`. In the span: an episode `{"id":"ep_aaaaaaaaaaaa","day":"2026-03-09","title":"Call to the repair shop","what":"He and his partner phone the shop about Gran's watch; it will be ready Friday.","observations":[]}`; an episode `{"id":"ep_bbbbbbbbbbbb","title":"Shop fit-out","what":"The electrician finishes the wiring.","observations":[{"id":"obs_cccccccccccc","type":"to_do","text":"Pay the electrician's invoice by the 20th"}]}`; and a birthday dinner. The call continues Gran's watch; the invoice is a matter of its own within the shop project, not a step of the watch and not "the shop"; the dinner belongs to no matter:
+Example. In `open`: `{"id":"matter_1a2b3c4d5e6f","name":"Mend Gran's watch","areas":["family"],"projects":[],"latest":{"day":"2026-03-02","text":"Gran asks for her watch to be mended"}}`. In the span: an episode `{"id":"ep_aaaaaaaaaaaa","day":"2026-03-09","title":"Call to the repair shop","what":"He and his partner phone the shop about Gran's watch; it will be ready Friday.","observations":[]}`; an episode `{"id":"ep_bbbbbbbbbbbb","title":"Shop fit-out","what":"The electrician finishes the wiring.","observations":[{"id":"obs_cccccccccccc","type":"to_do","text":"Pay the electrician's invoice by the 20th"}]}`; and a birthday dinner. The call continues Gran's watch; the invoice is a matter of its own within the shop project, not a step of the watch and not "the shop"; the dinner belongs to no matter:
 
 {"matters":[{"id":"matter_1a2b3c4d5e6f","name":"Mend Gran's watch","areas":["family"],"projects":[],"steps":[{"ref":"ep_aaaaaaaaaaaa","quote":"phone the shop about Gran's watch"}]},{"id":"new-1","name":"Pay the electrician for the shop's wiring","areas":["work"],"projects":["shop-fit-out"],"steps":[{"ref":"ep_bbbbbbbbbbbb","quote":"The electrician finishes the wiring"},{"ref":"obs_cccccccccccc","quote":"Pay the electrician's invoice"}]}]}
 
