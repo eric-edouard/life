@@ -226,7 +226,7 @@ Use Life:
 
 How Life works:
 
-- [Glossary](docs/glossary.md): every word Life uses, one meaning each
+- [Glossary](docs/glossary.md): every name Life uses for a concept, with what it means
 - [Architecture](docs/architecture.md): the pipeline, lifelog and Life, why memory stays local
 - [Sources](docs/sources.md): what each source reads and how
 - [Schema](docs/SCHEMA.md): every file in the memory
