@@ -52,13 +52,12 @@ test("an episode they organized counts; the 61st newest is left out", () => {
     role: "organizer",
   });
   expect(episodeTitleLines([organized], is)[1]).toBe("- 2026-11: Their party");
+  // 61 episodes a minute apart: T0 is the oldest.
   const many = Array.from({ length: 61 }, (_, i) =>
-    ep(
-      i,
-      `2026-10-${String((i % 28) + 1).padStart(2, "0")} 10:${String(i).padStart(2, "0")}`,
-      `T${i}`
-    )
+    ep(i, `2026-10-05 10:${String(i).padStart(2, "0")}`, `T${i}`)
   );
   const titles = episodeTitleLines(many, is).join(" ").match(/T\d+/g) ?? [];
   expect(titles.length).toBe(60);
+  expect(titles).not.toContain("T0");
+  expect(titles[0]).toBe("T60");
 });
