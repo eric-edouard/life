@@ -31,7 +31,8 @@ import {
 import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 
 // memory/ on disk and its search index: every path, the readers of the ledgers and of the index, and what the ledgers
-// say of an observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
+// say of an observation (`stateOf`: where it stands), and commits them to the data repo (`commitMemory`). It appends only what
+// the steps that write hand it.
 
 export const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */

@@ -118,7 +118,7 @@ stay) and which facts are its own (`readBy`) are derived, never stored. Model-ow
 
 ## observations/YYYY-MM.jsonl (layer L2)
 
-The memory ledger: small dated claims, each cited to the exact place it comes from, one per line, filed by the
+The observations: small dated claims, each cited to the exact place it comes from, one per line, filed by the
 month of `date`. Append-only: a line is never edited or removed; one a newer observation replaces is retired in
 `supersessions.jsonl`. Written by `bun life memory extract` for kept units (importance 2 or 3; a importance-1 unit stays in the
 units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its episode
