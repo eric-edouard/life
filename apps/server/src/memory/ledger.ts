@@ -127,6 +127,8 @@ export const PASSAGES = join(OUT, "passages.sqlite");
 export const VECTORS = join(OUT, "vectors.sqlite");
 /** What code counts between him and each person, exchange by exchange, rebuilt whole each night (`exchange-counts.ts`). */
 export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
+/** The move rates of every person (`move-rates-file.ts`): Life's state, derived, rebuilt whole each night. */
+export const MOVE_RATES = join(OUT, "move-rates.json");
 /** The local days the pendant recorded on, as lifelog says, rebuilt whole each night (`recorded-days.ts`). */
 export const RECORDED_DAYS = join(OUT, "recorded-days.json");
 

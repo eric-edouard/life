@@ -79,7 +79,7 @@ export const CHANCE: Record<Thing, Chance> = {
 };
 
 /** Under this many chances a rate says "too few" (spec 9). A reading's own higher bar is its reader's. */
-const MINIMUM = 15;
+export const MINIMUM = 15;
 
 const both = (...things: Thing[]) =>
   things.flatMap((t) => [`${t}|me`, `${t}|them`]);
