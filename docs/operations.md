@@ -208,7 +208,7 @@ late with harm), or spoken asks above about one a day for a month.
 - remctl works through its signed Capability Host, only by absolute path (`~/bin/remctl`).
 - A read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new
-  reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
+  reminder is re-sorted after it exists: `changeTodoItem` re-assigns the asked section 3 s after an add.
 
 ## Model engines
 
@@ -350,7 +350,7 @@ case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
   2. **Scope:** this case and a named window of related ones.
   3. **Expected vs promised:** what the owner expected, and what the docs promised then (the commit checked).
   4. **Snapshot at intake:** the connector's `read_life_status` `observedAt` and its `read_memory_changes` cursor (page `read_memory_changes` from the
-     intake instant until `remaining` is 0, keep the last), and the open reminders that bear on it (ids and titles).
+     intake instant until `remaining` is 0, keep the last), and the open to-do items that bear on it (ids and titles).
   5. **Timeline:** each row an utterance, a fact (with its id), an inference or a gap; event time apart from
      ingestion time.
   6. **Stages:** each stage letter (below) pass, fail (proven), fail (inferred) or unknown (a gap), with evidence.

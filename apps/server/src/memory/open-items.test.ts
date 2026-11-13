@@ -113,7 +113,7 @@ test("copies merge: a reminder into its observation", () => {
   const said = item({});
   const reminder = item({
     id: "entry_0000000000r1",
-    kind: "reminder",
+    kind: "todo_item",
     obs: "obs_000000000001",
     urgent: true,
     when: undefined,

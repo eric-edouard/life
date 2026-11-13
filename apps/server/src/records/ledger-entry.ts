@@ -6,8 +6,8 @@ import { isoDateTime, MadeBy } from "./fields";
 
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
 
-/** What `act` does to a reminder. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
-export const REMINDER_KINDS = [
+/** What `changeTodoItem` does to a to-do item. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
+export const TODO_CHANGE_KINDS = [
   "add",
   "edit",
   "done",
@@ -18,7 +18,7 @@ export const REMINDER_KINDS = [
 
 /**
  * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
- * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
+ * writes. `ref` is where his words are; `before` and `after` the to-do item's fields; `target` what was touched. An ask
  * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`).
  * `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies until 2 Nov 2026, Life's nudges and his steers until 20 Oct; they only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
@@ -35,13 +35,13 @@ export const LedgerEntry = z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
       .strict()
       .optional(),
-    // "instinct": an email to Instinct, until 19 Oct. "grant": his words in a Claude session turning the standing grant
+    // "instinct": an email to Instinct, until 19 Oct. "grant": his words in a Claude session turning the auto-add permission
     // on or off (`after.on`), the latest one standing.
     kind: z.enum([
-      ...REMINDER_KINDS,
+      ...TODO_CHANGE_KINDS,
       "ask",
       "grant",
-      // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
+      // A to-do item Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
       "import",
       "instinct",
       ...TASK_LINES,
@@ -90,7 +90,7 @@ export function askedAgent(a: LedgerEntry) {
 export const isTaskLine = (a: LedgerEntry) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 
-/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
+/** A line that records no change of its own: a write's intent (its outcome follows), a to-do item's baseline (apps/server/src/host/inbound.ts). */
 export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 

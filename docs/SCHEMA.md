@@ -311,7 +311,7 @@ version and the observations extracted since; git keeps every version (the night
 
 Frontmatter (each value is JSON, which is YAML): `schemaVersion` 1, `page` (`person:<id>` or `area:<id>`), `name`, `built` (when written),
 `seen` (the newest extraction run, `madeBy.run`, the page has read), `offered` (optional: observations homed on it because who
-they are about changed after they were written, a move or a fold, each given to the page once as new), `madeBy` (engine, model, prompt, run) and
+they are about changed after they were written, re-homed, each given to the page once as new), `madeBy` (engine, model, prompt, run) and
 `lines`: for every line Life wrote, a 10-hex hash of the line -> the observation ids it cites. A line not in `lines`
 is the owner's.
 
@@ -338,7 +338,7 @@ Sections, in order:
 To-dos stay observations (their `type`): Reminders are written only by actions on the owner's clear request (`ledger.jsonl`).
 `read_day` lists as due the importance-3 promises and the to-dos the owner said whose `when` is that day or up to a week before
 (`dueOf`, then `openItems` in `apps/server/src/memory/open-items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
-the owner's reminders, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
+the owner's to-do items, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
 
@@ -416,17 +416,17 @@ appointment citing every fact of a refused one is written again.
 
 ## ledger.jsonl
 
-What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/change-todo-item.ts`), what the owner changed in
+What Life did outside itself on the owner's clear request (appended by `changeTodoItem`, `apps/server/src/host/change-todo-item.ts`), what the owner changed in
 Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the owner's asks of his agents (`apps/server/src/host/asks.ts`):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, via, timing?}`.
 
 - `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, which is none now; a split hashed its
-  parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
+  parent's id instead of `ref`): the same words change a to-do item or ask once; a failed try may rerun.
 - `instruction`: the owner's words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
-  act` or `ask`) or `connector:<at>` (an ask the agent recorded from a chat, before 2 Nov 2026) or an observation's id (an add of the
-  standing grant: the owner's quote and when the owner said it). `at`: when the owner said it.
-- `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
-  Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
+  change-todo-item` or `ask`) or `connector:<at>` (an ask the agent recorded from a chat, before 2 Nov 2026) or an observation's id (an add of the
+  auto-add permission: the owner's quote and when the owner said it). `at`: when the owner said it.
+- `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a to-do item
+  Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the auto-add permission on or off, `after.on`, `target` `grant`,
   the owner's words in `instruction`; the latest one stands). An ask's old lines (`TASK_LINES`), written until 2 Nov 2026 and only parsed now,
   have no `instruction` and the ask's id as `target`: `update` (the agent: `after` is the update, `state` working, waiting-owner, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `taken`), `reply` (what the agent told the owner: `after.text`,
@@ -434,17 +434,17 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   `<task>@<at> | kind` (a reply's also over its text).
 - `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), an ask's id (its old lines) or `chat`
   (a reply on no ask).
-  `before` / `after`: the reminder's fields before, and what was written; never a transcript. An add's `after.link` is
-  the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
+  `before` / `after`: the to-do item's fields before, and what was written; never a transcript. An add's `after.link` is
+  the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
-  `id` of a reminder whose move gave it a new one. An ask's
+  `id` of a to-do item whose move gave it a new one. An ask's
   `after`: `agent` (the agent it is for, a key of the `agents` setting), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
   `instruction.at` and `at` it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
-  `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
+  `duplicate` (an open to-do item had the title; nothing written) or `intent` (written by `changeTodoItem` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
   (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a `hey <agent>` heard; a
   nudge or a steer until 20 Oct) or `reminders` (the owner's own change in Reminders, with no `instruction`: state, never the owner's

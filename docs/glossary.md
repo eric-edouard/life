@@ -36,17 +36,17 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | told, `tell_life` | What he tells Life in a chat: the connector's tool appends his words verbatim to `memory/told.jsonl`, read back as the source `told` ("Told Life"). Refused for an agent's token. | |
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram, Messenger and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). A network with no bridge on the Mac is copied from Beeper Desktop when Beeper holds it (`copierOf`). Not the connector (the MCP server). | |
 | Beeper | Beeper Desktop, his messaging app: Life copies a network from its store (`copyBeeper`) when that network has no bridge on the Mac (LINE allows one session, and he keeps LINE in Beeper, 6 Nov 2026). Never its API or MCP: only its store keeps what a deletion blanks long enough for the archive's copy. | |
-| grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
+| auto-add permission | The owner's standing permission for Life to add the to-dos he says aloud to his to-do list (`setAutoAdd`; its ledger lines are stored as `grant` until the stored names change). | |
 
 ## The ledger and the to-do list
 
 | Word | Means | Planned |
 |---|---|---|
-| ledger | `memory/ledger.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, Life's changes to his to-do list. Append-only. | |
+| ledger | `memory/ledger.jsonl`: every line where something crossed Life's boundary: the owner's asks and auto-add permission, Life's changes to his to-do list. Append-only. | |
 | ledger entry | One line of the ledger (`LedgerEntry`, id `entry_…`). Its `via` says through what it came: a session, the connector, the watcher, the to-do list. | |
 | to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `todo_list` setting, `TodoListBackend`, `todo-list/`). | |
 | to-do item | One entry in the to-do list (`TodoItem`). | |
-| act | The one command that decides and makes a change to a to-do item, and logs it in the ledger. | |
+| change-todo-item | The one command (`bun life change-todo-item`, `changeTodoItem`) that decides and makes a change to a to-do item, and logs it in the ledger. | |
 | open item | Anything owed, derived, never stored (`openItems`): a to-do, a promise, a reply owed, a to-do item, someone the owner is waiting on. A person's page lists those with them (`openWithOf`). | |
 
 ## Sources
@@ -150,7 +150,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | exchange batch | What one call reads when a stream's exchanges are read together: consecutive exchanges up to 30,000 characters, an exchange never cut (`batchesOf`, `EXCHANGE_BATCH_CHARS`, `memory/exchanges.ts`). Not the batches of calls a step runs side by side (`inBatches`). | |
 | finished exchange | An exchange nothing was written in for the 6 hours that end one (`isFinished`, `memory/exchanges.ts`): it can no longer grow, so a read may take it. The last exchange of a chat still going is not finished. Not a closed chat (none is marked). | |
 | two-way chat | A chat or a mail thread both sides wrote in (`isTwoWay`, `memory/exchanges.ts`): the ones a read of exchanges is for. One only he or only they wrote in is not. | |
-| move | Something one person did toward another in an exchange, as a read lists it: its code, the line it is on, the words that show it. Who made it and when come from the message, never from the model; a move whose words are not in its exchange is dropped. Checked by `checkedMoves`, shapes in `memory/moves.ts`; every checked move is kept. Never stored: what is stored is the read reply it comes from, and moves are worked out when read. Not a trait, not a verdict on a person; not the `act` command, not a mark (his words to Life). | |
+| move | Something one person did toward another in an exchange, as a read lists it: its code, the line it is on, the words that show it. Who made it and when come from the message, never from the model; a move whose words are not in its exchange is dropped. Checked by `checkedMoves`, shapes in `memory/moves.ts`; every checked move is kept. Never stored: what is stored is the read reply it comes from, and moves are worked out when read. Not a trait, not a verdict on a person; not the `changeTodoItem` command, not a mark (his words to Life). | |
 | read (of exchanges) | One kind of pass a model makes over exchange batches, by its prompt: `connection`, `mentions` and `conflict` (`MOVES`, `memory/moves.ts`; the prompts, `READS`, `memory/exchange-reads.ts`). Each lists its own codes, so a code is counted only over the exchanges its read saw. Not `readX`, a function that reads disk or the network. | |
 | read reply | What a model answered when a read took some exchanges of a one-to-one chat, stored as given with what made it, the wording's digest and the keys of the messages it read (`ReadReply`, `records/read-reply.ts`; `memory/read-replies/`, a file for the month of its first message). An exchange is read by a read when a line of the read's current prompt lists it with exactly the messages it has now (`replyOf`). Not a move (worked out from a reply when read, never stored), not a rating. | |
 | wording | The digest of a prompt's text (16 hex), stored beside the prompt's versioned name in a read reply (`wordingOf`). Only the name decides whether an exchange is read again; the digest says what text made a reply. Not the prompt's version. | |

@@ -18,11 +18,14 @@ import {
   write,
 } from "../todo-list/backend";
 import { Change } from "../todo-list/contract";
-import { linked, openLinked } from "../todo-list/todo-items-from-ledger";
+import {
+  openTodoItemsOf,
+  todoItemsOf,
+} from "../todo-list/todo-items-from-ledger";
 import { actFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
-// Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as a ledger entry
+// Reminders or Google Tasks, `backend.ts`) is one `changeTodoItem`, which decides it, has `write` make it, records it as a ledger entry
 // (memory/ledger.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
 // connector) decide that he asked.
 
@@ -36,7 +39,7 @@ export const Asked = Change.extend({
 });
 export type Asked = z.infer<typeof Asked>;
 
-interface Act {
+interface TodoItemChange {
   change: Change;
   instruction: Instruction;
   via: LedgerEntry["via"];
@@ -53,16 +56,16 @@ export function duplicateOf(
     : undefined;
 }
 
-/** The record of an action already done (or asked) with this id: the same words act once, unless that try failed (or never ended). */
+/** The record of an action already done (or asked) with this id: the same words change it once, unless that try failed (or never ended). */
 export const recorded = async (id: string) =>
   (await readLedger()).find((x) => x.id === id && stands(x));
 
 /**
  * Does one change and records it in memory/ledger.jsonl; a failure is recorded too, and emailed at once with his words
- * so he can do it by hand. The same words asking for the same thing act once (the old record comes back), unless that
+ * so he can do it by hand. The same words asking for the same thing change it once (the old record comes back), unless that
  * try failed: then they try again.
  */
-export async function act(a: Act): Promise<LedgerEntry> {
+export async function changeTodoItem(a: TodoItemChange): Promise<LedgerEntry> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const b = backend();
@@ -72,7 +75,7 @@ export async function act(a: Act): Promise<LedgerEntry> {
   }
   if (c.kind === "restore" && !(c.target && c.list)) {
     throw new Error(
-      "a restore needs the reminder id and the list to put it in"
+      "a restore needs the to-do item id and the list to put it in"
     );
   }
   const id = entryId(instruction.ref, c.kind, c.title);
@@ -83,7 +86,7 @@ export async function act(a: Act): Promise<LedgerEntry> {
   // Read from the ledger (apps/server/src/todo-list/todo-items-from-ledger.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open =
     c.kind === "add"
-      ? openLinked(await readLedger(), b.prefix).map((it) => ({
+      ? openTodoItemsOf(await readLedger(), b.prefix).map((it) => ({
           target: it.target,
           title: String(it.fields.title ?? ""),
         }))
@@ -143,33 +146,40 @@ export const requested = (
   at = clock().toISOString()
 ) => ({ at, quote, ref: `${via}:${at}` });
 
-/** `act` for a request that comes from a client (`requested`). */
-export function actAsked(
+/** `changeTodoItem` for a request that comes from a client (`requested`). */
+export function changeAskedTodoItem(
   { said, why, ...change }: Asked,
   via: "connector" | "session"
 ) {
-  return act({ change, instruction: requested(via, said), via, why });
+  return changeTodoItem({
+    change,
+    instruction: requested(via, said),
+    via,
+    why,
+  });
 }
 
-/** The most reminders the grant adds in one of his days. */
-const GRANT_DAILY = 3;
+/** The most to-do items the auto-add permission adds in one of his days. */
+const AUTO_ADD_DAILY = 3;
 
-/** A reminder the standing grant added: an add whose instruction is an observation, not his words in a request. */
-const isGranted = (a: LedgerEntry) =>
+/** A to-do item the auto-add permission added: an add whose instruction is an observation, not his words in a request. */
+const isAutoAdded = (a: LedgerEntry) =>
   a.kind === "add" && Boolean(a.instruction?.ref.startsWith("obs_"));
 
-/** The grant's earlier add from this observation, if one stands: the same observation adds once. */
-export const grantedFrom = (actions: readonly LedgerEntry[], obs: string) =>
-  actions.find((a) => isGranted(a) && a.instruction?.ref === obs && stands(a));
+/** The auto-add permission's earlier add from this observation, if one stands: the same observation adds once. */
+export const autoAddedFrom = (actions: readonly LedgerEntry[], obs: string) =>
+  actions.find(
+    (a) => isAutoAdded(a) && a.instruction?.ref === obs && stands(a)
+  );
 
 /**
- * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
+ * Why the auto-add permission (his yes, decision 2 of the 21 Oct review) may not add a to-do item from this observation, or
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
- * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
- * it adds at most GRANT_DAILY a day (his local day), only from his current importance-3 to-do or promise in a lifelog
+ * (`setAutoAdd`, the latest such line standing), and off again once a to-do item it added was removed after that (his undo),
+ * it adds at most AUTO_ADD_DAILY a day (his local day), only from his current importance-3 to-do or promise in a lifelog
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
-export function grantRefusal(g: {
+export function autoAddRefusal(g: {
   actions: readonly LedgerEntry[];
   mine: boolean;
   now: string;
@@ -180,10 +190,10 @@ export function grantRefusal(g: {
   if (!on?.after.on) {
     return "the grant is off: only his own words in a conversation turn it on";
   }
-  const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
-  // The grant's reminders as the ledger follows them (through moves, his removals in Reminders too).
+  const made = g.actions.filter((a) => isAutoAdded(a) && a.result === "ok");
+  // The auto-add permission's to-do items as the ledger follows them (through moves, his removals in Reminders too).
   const keys = new Set(made.map((a) => a.id));
-  const undone = [...linked(g.actions).values()].some(
+  const undone = [...todoItemsOf(g.actions).values()].some(
     (it) => keys.has(it.key) && (it.removedAt ?? "") >= on.at
   );
   if (undone) {
@@ -199,13 +209,13 @@ export function grantRefusal(g: {
     return "only from a turn lifelog credits to his voice";
   }
   const today = localDate(g.now);
-  if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {
-    return `already ${GRANT_DAILY} today`;
+  if (made.filter((a) => localDate(a.at) === today).length >= AUTO_ADD_DAILY) {
+    return `already ${AUTO_ADD_DAILY} today`;
   }
 }
 
-/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life auto-add`: one ledger line, the latest standing. Never from the connector. */
-export async function setGrant(on: boolean, said: string) {
+/** Turns the auto-add permission on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life auto-add`: one ledger line, the latest standing. Never from the connector. */
+export async function setAutoAdd(on: boolean, said: string) {
   const instruction = requested("session", said);
   const line: LedgerEntry = {
     after: { on },
@@ -223,8 +233,8 @@ export async function setGrant(on: boolean, said: string) {
   return line;
 }
 
-/** What the grant may set: an add's title, list (always named: its sharing is checked), due and section, nothing else. */
-export const Granted = Change.pick({
+/** What the auto-add permission may set: an add's title, list (always named: its sharing is checked), due and section, nothing else. */
+export const AutoAdded = Change.pick({
   due: true,
   list: true,
   section: true,
@@ -232,30 +242,30 @@ export const Granted = Change.pick({
 })
   .extend({ kind: z.literal("add"), list: z.string() })
   .strict();
-export type Granted = z.infer<typeof Granted>;
+export type AutoAdded = z.infer<typeof AutoAdded>;
 
-/** One grant at a time: the cap and the dedupe read the ledger, and only `act` appends to it. */
-let granting: Promise<unknown> = Promise.resolve();
+/** One auto-add at a time: the cap and the dedupe read the ledger, and only `changeTodoItem` appends to it. */
+let autoAdding: Promise<unknown> = Promise.resolve();
 
 /**
- * The standing grant's add (the connector's `change_todo_item` with `obs`), from the observation as `read_observation` reads it: the
+ * The auto-add permission's add (the connector's `change_todo_item` with `obs`), from the observation as `read_observation` reads it: the
  * instruction is the observation itself (its id, his quote, when he said it), never words a client passes, and the
  * turn's credit and the list's sharing are re-read now. It binds the connector only, not what the agent does in its terminal.
  */
-export function actGranted(
+export function autoAddTodoItem(
   {
     observation: o,
     status,
   }: { observation: Observation; status: { state: string } },
-  change: Granted
+  change: AutoAdded
 ) {
-  const run = granting.then(async () => {
+  const run = autoAdding.then(async () => {
     const actions = await readLedger();
-    const old = grantedFrom(actions, o.id);
+    const old = autoAddedFrom(actions, o.id);
     if (old) {
       return old;
     }
-    const no = grantRefusal({
+    const no = autoAddRefusal({
       actions,
       // A chat or mail ref is no turn: never his voice.
       mine: await withStore((s) => ownerSpoke(s, o.source.ref)),
@@ -270,13 +280,13 @@ export function actGranted(
     if (await backend().shared(change.list)) {
       throw new Error("Not done: the list is shared: that needs his words.");
     }
-    return act({
+    return changeTodoItem({
       change,
       instruction: { at: o.at, quote: o.quote, ref: o.id },
       via: "connector",
       why: "the standing grant: his own spoken to-do",
     });
   });
-  granting = run.catch(() => undefined);
+  autoAdding = run.catch(() => undefined);
   return run;
 }

@@ -5,12 +5,12 @@ import { LEDGER } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { unshared } from "../todo-list/remctl";
 import {
-  actAsked,
+  AutoAdded,
+  autoAddedFrom,
+  autoAddRefusal,
+  changeAskedTodoItem,
   duplicateOf,
   entryId,
-  Granted,
-  grantedFrom,
-  grantRefusal,
   requested,
 } from "./change-todo-item";
 
@@ -32,7 +32,7 @@ test("the same words asking for the same thing get the same id, whatever the cas
   expect(entryId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
 });
 
-test("two requests the same day for the same edit both act: each has a ref of its own", () => {
+test("two requests the same day for the same edit both change the list: each has a ref of its own", () => {
   const id = (at: string) =>
     entryId(requested("session", "rename it", at).ref, "edit", "Same title");
   expect(id("2026-10-19T09:00:00.000Z")).not.toBe(
@@ -40,14 +40,14 @@ test("two requests the same day for the same edit both act: each has a ref of it
   );
 });
 
-/** A ledger line of an add (the grant's when `ref` is an observation) or a remove. */
+/** A ledger line of an add (the auto-add permission's when `ref` is an observation) or a remove. */
 const line = (
   kind: "add" | "edit" | "remove" | "grant",
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
 ): LedgerEntry => ({
-  // As `act` writes them: a removal leaves `deleted`, and each line has its own id.
+  // As `changeTodoItem` writes them: a removal leaves `deleted`, and each line has its own id.
   after: kind === "remove" ? { deleted: true } : {},
   at,
   id: entryId(ref, kind, target),
@@ -78,41 +78,43 @@ const mine = {
   state: "active",
 };
 
-test("the grant adds his own current importance-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
-  expect(grantRefusal(mine)).toBeUndefined();
+test("the auto-add permission adds his own current importance-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
+  expect(autoAddRefusal(mine)).toBeUndefined();
   expect(
-    grantRefusal({ ...mine, o: { ...mine.o, type: "promise" } })
+    autoAddRefusal({ ...mine, o: { ...mine.o, type: "promise" } })
   ).toBeUndefined();
 });
 
-test("the grant refuses a chat or mail observation, another speaker's or an unnamed turn, and anything not current, salient, a to-do or promise", () => {
+test("the auto-add permission refuses a chat or mail observation, another speaker's or an unnamed turn, and anything not current, salient, a to-do or promise", () => {
   for (const channel of ["whatsapp", "mail"] as const) {
     expect(
-      grantRefusal({
+      autoAddRefusal({
         ...mine,
         o: { ...mine.o, source: { channel, ref: "m1" } },
       })
     ).toContain("lifelog credits to his voice");
   }
-  // Re-read at act time: someone else's turn, or one lifelog no longer names him on.
-  expect(grantRefusal({ ...mine, mine: false })).toContain("his voice");
-  expect(grantRefusal({ ...mine, state: "retired" })).toContain("not current");
-  expect(grantRefusal({ ...mine, o: { ...mine.o, importance: 2 } })).toContain(
-    "importance"
+  // Re-read when it is applied: someone else's turn, or one lifelog no longer names him on.
+  expect(autoAddRefusal({ ...mine, mine: false })).toContain("his voice");
+  expect(autoAddRefusal({ ...mine, state: "retired" })).toContain(
+    "not current"
   );
-  expect(grantRefusal({ ...mine, o: { ...mine.o, type: "idea" } })).toContain(
+  expect(
+    autoAddRefusal({ ...mine, o: { ...mine.o, importance: 2 } })
+  ).toContain("importance");
+  expect(autoAddRefusal({ ...mine, o: { ...mine.o, type: "idea" } })).toContain(
     "promises"
   );
 });
 
-test("the grant adds at most 3 in his day; the 4th is refused, yesterday's don't count", () => {
+test("the auto-add permission adds at most 3 in his day; the 4th is refused, yesterday's don't count", () => {
   const three = ["1", "2", "3"].map((n) =>
     line("add", `reminder:${n}`, `obs_00000000000${n}`)
   );
   expect(
-    grantRefusal({ ...mine, actions: [yes, ...three.slice(0, 2)] })
+    autoAddRefusal({ ...mine, actions: [yes, ...three.slice(0, 2)] })
   ).toBeUndefined();
-  expect(grantRefusal({ ...mine, actions: [yes, ...three] })).toContain(
+  expect(autoAddRefusal({ ...mine, actions: [yes, ...three] })).toContain(
     "3 today"
   );
   const yesterday = three.map((a) => ({
@@ -120,14 +122,14 @@ test("the grant adds at most 3 in his day; the 4th is refused, yesterday's don't
     at: "2026-10-20T10:00:00.000Z",
   }));
   expect(
-    grantRefusal({ ...mine, actions: [yes, ...yesterday] })
+    autoAddRefusal({ ...mine, actions: [yes, ...yesterday] })
   ).toBeUndefined();
-  // His own asks are not the grant's.
+  // His own asks are not the auto-add permission's.
   const asked = three.map((a) => line("add", a.target, "connector:x"));
-  expect(grantRefusal({ ...mine, actions: [yes, ...asked] })).toBeUndefined();
+  expect(autoAddRefusal({ ...mine, actions: [yes, ...asked] })).toBeUndefined();
 });
 
-test("the grant is off once he removed a reminder it added; removing one of his own asks leaves it on", () => {
+test("the auto-add permission is off once he removed a to-do item it added; removing one of his own asks leaves it on", () => {
   const made = line(
     "add",
     "reminder:7",
@@ -135,7 +137,7 @@ test("the grant is off once he removed a reminder it added; removing one of his 
     "2026-10-19T10:00:00.000Z"
   );
   const undo = line("remove", "reminder:7", "connector:y");
-  expect(grantRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
+  expect(autoAddRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
     "off"
   );
   // Moved to another list first (a new id), then removed: still his undo.
@@ -144,24 +146,24 @@ test("the grant is off once he removed a reminder it added; removing one of his 
     before: { id: 7 },
   };
   expect(
-    grantRefusal({
+    autoAddRefusal({
       ...mine,
       actions: [yes, made, moved, line("remove", "reminder:9", "connector:y")],
     })
   ).toContain("off");
   const own = line("add", "reminder:8", "connector:x");
   expect(
-    grantRefusal({
+    autoAddRefusal({
       ...mine,
       actions: [yes, made, own, line("remove", "reminder:8", "connector:y")],
     })
   ).toBeUndefined();
 });
 
-test("the grant is off until his words in a session turn it on, off again on his no; a yes after an undo turns it back on", () => {
+test("the auto-add permission is off until his words in a session turn it on, off again on his no; a yes after an undo turns it back on", () => {
   const no = { ...yes, after: { on: false }, at: "2026-10-02T10:00:00.000Z" };
-  expect(grantRefusal({ ...mine, actions: [] })).toContain("his own words");
-  expect(grantRefusal({ ...mine, actions: [yes, no] })).toContain(
+  expect(autoAddRefusal({ ...mine, actions: [] })).toContain("his own words");
+  expect(autoAddRefusal({ ...mine, actions: [yes, no] })).toContain(
     "his own words"
   );
   const made = line(
@@ -177,15 +179,15 @@ test("the grant is off until his words in a session turn it on, off again on his
     "2026-10-04T10:00:00.000Z"
   );
   const again = { ...yes, at: "2026-10-05T10:00:00.000Z" };
-  expect(grantRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
+  expect(autoAddRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
     "undid"
   );
   expect(
-    grantRefusal({ ...mine, actions: [yes, made, undo, again] })
+    autoAddRefusal({ ...mine, actions: [yes, made, undo, again] })
   ).toBeUndefined();
 });
 
-test("the grant refuses a shared list, and fails closed when remctl does not say", () => {
+test("the auto-add permission refuses a shared list, and fails closed when remctl does not say", () => {
   expect(unshared({ shared: false, sharees: [] })).toBe(true);
   expect(unshared({ shared: true, sharees: [{ name: "A" }] })).toBe(false);
   expect(unshared({ sharees: [{ name: "A" }] })).toBe(false);
@@ -194,16 +196,16 @@ test("the grant refuses a shared list, and fails closed when remctl does not say
 
 test("the same observation twice adds once: its standing add comes back, a failed one is tried again", () => {
   const made = line("add", "reminder:7", "obs_000000000007");
-  expect(grantedFrom([made], "obs_000000000007")).toBe(made);
+  expect(autoAddedFrom([made], "obs_000000000007")).toBe(made);
   expect(
-    grantedFrom([{ ...made, result: "failed" }], "obs_000000000007")
+    autoAddedFrom([{ ...made, result: "failed" }], "obs_000000000007")
   ).toBeUndefined();
-  expect(grantedFrom([made], "obs_000000000008")).toBeUndefined();
+  expect(autoAddedFrom([made], "obs_000000000008")).toBeUndefined();
 });
 
-test("the grant sets an add's title, named list, due and section only: no notes, link, subtasks or recurrence under its authority", () => {
+test("the auto-add permission sets an add's title, named list, due and section only: no notes, link, subtasks or recurrence under its authority", () => {
   const add = { kind: "add", list: "Personal", title: "Call the plumber" };
-  expect(Granted.safeParse({ ...add, due: "2026-10-22" }).success).toBe(true);
+  expect(AutoAdded.safeParse({ ...add, due: "2026-10-22" }).success).toBe(true);
   for (const bad of [
     { ...add, notes: "x" },
     { ...add, prompt: "x" },
@@ -211,18 +213,18 @@ test("the grant sets an add's title, named list, due and section only: no notes,
     { ...add, kind: "remove", target: 1 },
     { kind: "add", title: "no list" },
   ]) {
-    expect(Granted.safeParse(bad).success).toBe(false);
+    expect(AutoAdded.safeParse(bad).success).toBe(false);
   }
 });
 
-test("with the actions output off, an act is refused before anything is recorded", async () => {
+test("with the actions output off, a change is refused before anything is recorded", async () => {
   const on = settings().todo_list;
   const ledger = () => (existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "");
   const before = ledger();
   setSettings({ todo_list: null });
   try {
     await expect(
-      actAsked(
+      changeAskedTodoItem(
         { kind: "add", said: "add milk", title: "Milk", why: "a test" },
         "session"
       )

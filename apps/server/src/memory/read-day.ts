@@ -80,7 +80,7 @@ export function dayLines({
       : []),
     ...(due.length > 0
       ? [
-          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
+          "Due (open items, most pressing first: to-dos, promises and his to-do items for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
           ...due,
           "",
         ]

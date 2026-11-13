@@ -1,6 +1,6 @@
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 
-// His items (reminders, Google tasks) as the ledger holds them: what Life wrote (`act`, its intents too) and what it read
+// His items (to-do items, Google tasks) as the ledger holds them: what Life wrote (`changeTodoItem`, its intents too) and what it read
 // back as his (`via: "reminders"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
 /** What `inbound` compares with the backend. `lost`: neither in his lists nor in Recently Deleted. */
@@ -47,12 +47,12 @@ export const pickCompared = (o: Record<string, unknown>) =>
 export type Field = (typeof COMPARED)[number];
 
 /** An item Life links: `key`, Life's id for it (the line that opened it); its target now (`<prefix>:<id>`, one backend's); what Life left on it; when it was last removed and when Life last wrote to it. */
-export interface Linked {
+export interface LedgerTodoItem {
   /** When it was made, and the observation or words it came from (open items' age and merge). */
   at: string;
+  deepLink?: string;
   fields: Fields;
   key: string;
-  link?: string;
   ref?: string;
   removedAt?: string;
   target: string;
@@ -61,7 +61,7 @@ export interface Linked {
 }
 
 /** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
-function apply(it: Linked, a: LedgerEntry) {
+function apply(it: LedgerTodoItem, a: LedgerEntry) {
   const after = pickFrom(KEPT, a.after);
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
@@ -79,15 +79,15 @@ function apply(it: Linked, a: LedgerEntry) {
     }
   }
   if (!tried) {
-    it.link = (a.after.link as string | undefined) ?? it.link;
+    it.deepLink = (a.after.link as string | undefined) ?? it.deepLink;
     it.removedAt = after.deleted ? a.at : it.removedAt;
   }
   return tried;
 }
 
 /** Every item Life links, by its target now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
-export function linked(actions: readonly LedgerEntry[]) {
-  const items = new Map<string, Linked>();
+export function todoItemsOf(actions: readonly LedgerEntry[]) {
+  const items = new Map<string, LedgerTodoItem>();
   for (const a of actions) {
     const n = a.target;
     // A move can give a new id: the line's `before` has the old one (in the same backend).
@@ -97,7 +97,7 @@ export function linked(actions: readonly LedgerEntry[]) {
         : `${n.slice(0, n.indexOf(":"))}:${a.before.id}`;
     const opens =
       (a.kind === "add" || a.kind === "import") && a.result === "ok";
-    const it: Linked | undefined =
+    const it: LedgerTodoItem | undefined =
       items.get(from) ??
       (opens
         ? {
@@ -124,8 +124,11 @@ export function linked(actions: readonly LedgerEntry[]) {
 }
 
 /** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
-export const openLinked = (actions: readonly LedgerEntry[], prefix?: string) =>
-  [...linked(actions).values()].filter(
+export const openTodoItemsOf = (
+  actions: readonly LedgerEntry[],
+  prefix?: string
+) =>
+  [...todoItemsOf(actions).values()].filter(
     ({ fields: f, target }) =>
       !(f.completed || f.deleted || f.lost) &&
       (prefix === undefined || target.startsWith(`${prefix}:`))

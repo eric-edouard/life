@@ -7,18 +7,18 @@ import {
   COMPARED,
   type Field,
   type Fields,
-  type Linked,
-  linked,
+  type LedgerTodoItem,
   norm,
   pickCompared,
+  todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
 
-// His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
+// His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked to-do item is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
 // They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or grant. Section, order and
-// a repeating reminder's due are Apple's own, never compared; a shared list is never read.
+// a repeating to-do item's due are Apple's own, never compared; a shared list is never read.
 
-/** A live reminder's fields, as a change writes them: the compared ones (`pickCompared`). */
+/** A live to-do item's fields, as a change writes them: the compared ones (`pickCompared`). */
 const fieldsNow = (r: TodoItem) =>
   pickCompared({ ...r, deleted: false, due: openOf(r).due, lost: false });
 const linkOf = (r: TodoItem) => r.deepLink?.split("/").at(-1);
@@ -45,7 +45,8 @@ const his = (
 });
 
 /** A linked item's id in its backend. */
-const itemId = (it: Linked) => it.target.slice(it.target.indexOf(":") + 1);
+const itemId = (it: LedgerTodoItem) =>
+  it.target.slice(it.target.indexOf(":") + 1);
 
 const of = (o: Fields, fs: readonly Field[]) =>
   Object.fromEntries(fs.map((f) => [f, o[f]]));
@@ -56,16 +57,16 @@ const NAMED = [
   ["completed", "done", "undone"],
 ] as const;
 
-/** How long after Life's write to a reminder it is left alone: reads lag writes about 2 s, and a pass reads for seconds. */
+/** How long after Life's write to a to-do item it is left alone: reads lag writes about 2 s, and a pass reads for seconds. */
 const LAG_MS = 30_000;
 
 /**
- * A linked reminder's lines this pass. An `import` (no change of his) records what Life does not know yet: every field
+ * A linked to-do item's lines this pass. An `import` (no change of his) records what Life does not know yet: every field
  * on the first pass (a baseline), a field it never wrote, a new id (a move whose answer was lost). Then his changes.
  */
 function linesOf(
   prefix: string,
-  it: Linked,
+  it: LedgerTodoItem,
   r: TodoItem | undefined,
   gone: boolean,
   first: boolean,
@@ -90,7 +91,7 @@ function linesOf(
   const named = NAMED.find(([f]) => changed.includes(f));
   const kind = named ? named[now[named[0]] ? 1 : 2] : "edit";
   return [
-    // First, so a line after it finds the reminder by its new id.
+    // First, so a line after it finds the to-do item by its new id.
     ...(unknown.length > 0 || rekey
       ? [
           his(
@@ -109,7 +110,7 @@ function linesOf(
   ];
 }
 
-/** The lines this pass adds: his changes and his new reminders (`add`), and imports, which change nothing. */
+/** The lines this pass adds: his changes and his new to-do items (`add`), and imports, which change nothing. */
 export function inbound(
   s: Snapshot,
   ledger: readonly LedgerEntry[],
@@ -121,15 +122,17 @@ export function inbound(
   const byId = new Map(s.live.map((r) => [r.id, r]));
   const byLink = new Map(s.live.map((r) => [linkOf(r), r]));
   const lines: LedgerEntry[] = [];
-  for (const it of linked(actions).values()) {
+  for (const it of todoItemsOf(actions).values()) {
     const r =
-      byId.get(itemId(it)) ?? (it.link ? byLink.get(it.link) : undefined);
+      byId.get(itemId(it)) ??
+      (it.deepLink ? byLink.get(it.deepLink) : undefined);
     if (r) {
       byId.delete(r.id);
     }
     const gone = s.deleted.some(
       (d) =>
-        d.id === itemId(it) || (it.link !== undefined && linkOf(d) === it.link)
+        d.id === itemId(it) ||
+        (it.deepLink !== undefined && linkOf(d) === it.deepLink)
     );
     // Left alone: one Life wrote to moments ago (reads lag writes, and a write may land during the read), one on a
     // shared list (never read), one removed and then purged.
@@ -139,7 +142,7 @@ export function inbound(
       !(r || gone || !it.fields.deleted);
     lines.push(...(alone ? [] : linesOf(s.prefix, it, r, gone, first, at)));
   }
-  // Left, linked to nothing: his new reminder, or Life's add whose answer was lost (or is still coming: it waits).
+  // Left, linked to nothing: his new to-do item, or Life's add whose answer was lost (or is still coming: it waits).
   const lost = lostAdds(actions);
   for (const r of byId.values()) {
     const tried = lost.get(normalize(r.title));
@@ -159,11 +162,11 @@ export function inbound(
   return lines;
 }
 
-/** The titles of Life's adds with no answer yet (an intent or a failure, no ok), each with when it was tried: such a reminder is Life's. */
+/** The titles of Life's adds with no answer yet (an intent or a failure, no ok), each with when it was tried: such a to-do item is Life's. */
 function lostAdds(actions: readonly LedgerEntry[]) {
   const ok = new Set(actions.filter(stands).map((a) => a.id));
   const title = (a: LedgerEntry) => normalize(`${a.after.title}`);
-  // Once imported, the title is free again: a later reminder of his by that name is his.
+  // Once imported, the title is free again: a later to-do item of his by that name is his.
   const imported = new Set(
     actions.filter((a) => a.kind === "import").map(title)
   );

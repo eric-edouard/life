@@ -15,7 +15,7 @@ test("what a backend cannot write is refused by capability: Google Tasks takes a
     )
   ).toEqual(["alarms", "sections", "urgent"]);
   expect(lacks({ ...add, kind: "edit", list: "Work" }, google)).toEqual([
-    "moves",
+    "listMoves",
   ]);
   expect(lacks({ ...add, kind: "restore" }, google)).toEqual(["restore"]);
   expect(

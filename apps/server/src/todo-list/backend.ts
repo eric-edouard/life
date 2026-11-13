@@ -7,7 +7,7 @@ import { reminders } from "./remctl";
 
 // The actions output: one contract, two backends, one per install (the `actions` setting): Apple Reminders through
 // remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
-// is written and read back, never the truth: `act` decides each change and `write` (here) makes it,
+// is written and read back, never the truth: `changeTodoItem` decides each change and `write` (here) makes it,
 // `inbound.ts` reads his changes back as state. Without a backend Life still knows every
 // task and action from the ledger (memory/ledger.jsonl). What one backend lacks is a capability (`can`), never a
 // branch on its name.
@@ -41,7 +41,7 @@ const NEEDS: [Can, (c: Change) => unknown][] = [
       ),
   ],
   ["links", (c) => c.prompt],
-  ["moves", (c) => c.kind === "edit" && c.list],
+  ["listMoves", (c) => c.kind === "edit" && c.list],
   ["priority", (c) => c.priority],
   ["recurrence", (c) => c.recurrence],
   ["sections", (c) => c.section],
@@ -49,7 +49,7 @@ const NEEDS: [Can, (c: Change) => unknown][] = [
   ["urgent", (c) => c.urgent],
 ];
 
-/** What a change asks that the backend cannot write (`act` refuses it, saying so). */
+/** What a change asks that the backend cannot write (`changeTodoItem` refuses it, saying so). */
 export const lacks = (
   c: Change,
   b: Pick<TodoListBackend, "can" | "restore">
@@ -94,7 +94,7 @@ export async function sectionsOf(list?: string) {
   return Object.fromEntries(lists.map((l) => [l.title, all[l.title] ?? []]));
 }
 
-/** Whether the backend can act right now (read-only: one read of his lists), the problems: none when it is ready or off. */
+/** Whether the backend can write right now (read-only: one read of his lists), the problems: none when it is ready or off. */
 export async function checks(): Promise<string[]> {
   if (!isOn("todo_list")) {
     return [];
@@ -136,7 +136,7 @@ export async function pull(): Promise<Snapshot> {
   };
 }
 
-// The writes `act` decided, made through the backend.
+// The writes `changeTodoItem` decided, made through the backend.
 
 export type Done = Pick<LedgerEntry, "after" | "before" | "error" | "target">;
 
@@ -175,14 +175,14 @@ const FINISH = {
   undone: () => ({ completed: false }),
 };
 
-/** Makes one change `act` decided, and says what it left (`after`, `before`, a partial's `error`); throws when it failed. */
+/** Makes one change `changeTodoItem` decided, and says what it left (`after`, `before`, a partial's `error`); throws when it failed. */
 export async function write(c: Change): Promise<Done> {
   const b = backend();
   const target = (item: string) => `${b.prefix}:${item}`;
   if (c.kind === "add") {
     const w = await b.add(c);
     return {
-      after: { ...fieldsOf(c), id: w.id, link: w.link },
+      after: { ...fieldsOf(c), id: w.id, link: w.deepLink },
       error: w.error,
       target: target(w.id),
     };
@@ -196,7 +196,7 @@ export async function write(c: Change): Promise<Done> {
   }
   // A removed item has no info until it is back.
   const before = c.kind === "restore" ? undefined : await info(c.target);
-  // A backend without `restore` never gets here: `act` refused it (`lacks`).
+  // A backend without `restore` never gets here: `changeTodoItem` refused it (`lacks`).
   await (c.kind === "restore" ? b.restore?.(id, c.list) : b[c.kind](id));
   return { after: FINISH[c.kind](c), before, target: target(id) };
 }

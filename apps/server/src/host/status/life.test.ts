@@ -17,7 +17,7 @@ test("the status reads only read: no write, log, model call, action or send", as
     "writeFile",
     "log(",
     "askOnce",
-    "actAsked",
+    "changeAskedTodoItem",
     "sendReport",
     "Bun.spawn",
     "locked(",
