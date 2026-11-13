@@ -938,15 +938,10 @@ function calendarCard(
 }
 
 function pipelineCards(r: Reads): Card[] {
+  const { nightly, backfill } = r.status;
   return [
-    processingRunCard(
-      r,
-      "nightly",
-      "Nightly",
-      r.status.nightly,
-      r.status.nightly.next
-    ),
-    processingRunCard(r, "backfill", "Backfill", r.status.backfill),
+    processingRunCard(r, "nightly", "Nightly", nightly, nightly.next),
+    processingRunCard(r, "backfill", "Backfill", backfill),
     backupCard(r),
     engineCard(r),
     calendarCard(r, "past", "episode"),
