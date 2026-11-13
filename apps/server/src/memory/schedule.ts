@@ -155,8 +155,13 @@ export function backfillWeek(
   ) {
     return null;
   }
-  const end = daysBefore(b.next, -6);
-  return { from: b.next, to: end < b.to ? end : b.to };
+  return weekFrom(b.next, b.to);
+}
+
+/** The seven days from `from`, the last cut at `last`. */
+export function weekFrom(from: string, last: string): Window {
+  const end = daysBefore(from, -6);
+  return { from, to: end < last ? end : last };
 }
 
 /** The range after `week` was read on `day`: moved past it when it went through, one more failure when it did not. */

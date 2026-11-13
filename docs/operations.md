@@ -100,7 +100,11 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   calls and exchanges pending, and `--force` asks the night's share. With his `links` setting on, after the index
   the night reads how open things ended (`links.jsonl`, in shadow); `bun life memory links` prints what is due
   (people, open things, calls, a token ceiling) with no model, `bun life memory links <person>` each open thing with
-  the ending found.
+  the ending found. With his `matters` setting on, after extraction the night places the day's episodes, observations and
+  to-do items in matters (`matters.jsonl`, in shadow); `bun life memory matters` prints what is due (calls, episodes,
+  to-do items) with no model, `--force` places the night's days, `--since YYYY-MM-DD` places one week at a time from
+  that day to today, in order (each week sees the matters of the weeks before; a failed source gives no work), and
+  `bun life memory matters list` prints each matter with its areas, projects, steps and newest day.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
   embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the

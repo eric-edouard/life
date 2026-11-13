@@ -28,6 +28,7 @@ import { topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
+import { matters, readMatterWork } from "../memory/matters";
 import {
   commitMemory,
   newSince,
@@ -284,6 +285,13 @@ async function judgeLinks() {
   return pending && links(pending, people);
 }
 
+/** The night's matters: what is due in its days (`readMatterWork`), placed. */
+async function placeMatters(window: Window, failed: string[]) {
+  const people = await readPeople();
+  const pending = await readMatterWork(window, people, failed);
+  return pending && matters(pending, people);
+}
+
 /** A failure while offline is the network's, not the run's: it spends no try and mails nothing; the next online tick runs it again. */
 const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
@@ -334,7 +342,11 @@ async function backfilled(day: string) {
  * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
  * caller holds the lock.
  */
-async function runProcessing(name: string, window: Window, engine?: Engine) {
+export async function runProcessing(
+  name: string,
+  window: Window,
+  engine?: Engine
+) {
   const rec = await metered(name, { ...window }, engine);
   const steps = trackProcessingSteps(rec);
   try {
@@ -457,7 +469,12 @@ export async function dropOld(now: Date) {
   }
 }
 
-async function runNight(days: number, now: Date, day: string, force: boolean) {
+export async function runNight(
+  days: number,
+  now: Date,
+  day: string,
+  force: boolean
+) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
   const rec = await metered("memory.nightly", { ...window, force });
@@ -480,6 +497,14 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const evidence = await gather(window, await readPeople());
     const found = await steps.step("episodes", () => episodes(evidence));
     const extracted = await steps.step("extract", () => extract(evidence));
+    // The running things of his life, in shadow and off until his `matters` setting. A failure is logged and never
+    // stops the night.
+    if (settings().matters) {
+      steps.at = "matters";
+      await placeMatters(window, evidence.failed).catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.matters" })
+      );
+    }
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();

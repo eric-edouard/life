@@ -254,6 +254,17 @@ person), `offered` (the ids of the later observations about them judged against 
 `schemaVersion`. A pair in a line is never judged again. A link deletes nothing: what it ends is worked out when read
 (`endingsOf`: the first link whose two ends are both current). Nothing reads it yet.
 
+## matters.jsonl
+
+The matters step's calls (`memory/matters.ts`), one line each, append-only, while his `matters` setting is on: `matters`
+(each `id`, `matter_` and 12 hex, minted by code; `name`; `areas`, ids of his areas, possibly none; `projects`, ids of his projects;
+`steps`, each a `ref` (a unit id, an observation id or a to-do item's ledger key, never an episode id: a day's episodes
+are rewritten), its `day` and a `quote`, words found in that record's own text), `offered` (every unit, observation and
+to-do item key the call was asked to place: one placed nowhere is so known as asked, and is not asked again), `at`,
+`madeBy`, `schemaVersion`. A matter is worked out when read (`mattersNow`): the latest line naming it gives its name,
+areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
+its steps only, never a status. Nothing reads it yet but `bun life memory matters list`.
+
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/exchange-reads.ts`), one line per call,
