@@ -23,10 +23,16 @@ import {
   talkedAboutOf,
   writeMentions,
 } from "./mentions";
+import { OWNER } from "./read-truth";
 import { said } from "./record-fixtures";
+import { tiesNow } from "./ties";
 import { dayUnitId } from "./units";
 import { foldsOf, placementOf } from "./who";
 
+const place = (
+  m: Parameters<typeof placementOf>[0],
+  p: Parameters<typeof tiesNow>[0] & Parameters<typeof placementOf>[1]
+) => placementOf(m, p, tiesNow(p));
 const msg = (id: number, fromMe: boolean, text: string): SourceEvent => ({
   at: `2026-10-0${id + 1}T12:00:00.000Z`,
   chat: "+1",
@@ -123,7 +129,7 @@ test("a name is placed; a possessive and a name not on the line are not; a fold 
     events
   ) as [Mention, Mention];
   const alone = { ...foldsOf([alma], [], [], []), truth: { people: [alma] } };
-  expect(placementOf(first, alone)).toEqual({
+  expect(place(first, alone)).toEqual({
     proof: "name",
     ref: "person:alma",
   });
@@ -133,11 +139,9 @@ test("a name is placed; a possessive and a name not on the line are not; a fold 
     ...foldsOf([lenaCard], [], [], []),
     truth: { people: [lenaCard] },
   };
-  expect(placementOf(possessive, lena)).toBeNull();
+  expect(place(possessive, lena)).toBeNull();
   // A name that resolves but is not on the line (the model's words are not the message's) is left unknown.
-  expect(
-    placementOf({ ...first, line: "great", who: "Alma" }, alone)
-  ).toBeNull();
+  expect(place({ ...first, line: "great", who: "Alma" }, alone)).toBeNull();
   const folded = {
     ...foldsOf(
       [alma, almaB],
@@ -153,7 +157,7 @@ test("a name is placed; a possessive and a name not on the line are not; a fold 
     ),
     truth: { people: [alma, almaB] },
   };
-  expect(placementOf(first, folded)?.ref).toBe("person:alma-rey");
+  expect(place(first, folded)?.ref).toBe("person:alma-rey");
 });
 
 test("the night keeps mentions one file a month, with no person in them; a month with none left goes; a failed source leaves the files standing", () => {
@@ -232,7 +236,7 @@ const directory = (...people: Person[]) => ({
   ...foldsOf(people, [], [], []),
   truth: { people },
 });
-const saying = (who: string, by = "me") => ({
+const saying = (who: string, by = OWNER) => ({
   at: chat[0]?.at as string,
   by,
   line: `${who} called`,
@@ -243,26 +247,71 @@ const saying = (who: string, by = "me") => ({
 
 test("his relation word places a person when exactly one of his ties is that relation: two fathers, a text that only contains the word, a possessive and another speaker leave it unknown", () => {
   const one = directory(hugo);
-  expect(placementOf(saying("my father"), one)).toEqual({
+  expect(place(saying("my father"), one)).toEqual({
     proof: "relation_word",
     ref: "person:hugo",
   });
   // French, a synonym and the bare word say the same relation.
-  expect(placementOf(saying("mon père"), one)?.ref).toBe("person:hugo");
-  expect(placementOf(saying("Dad"), one)?.ref).toBe("person:hugo");
+  expect(place(saying("mon père"), one)?.ref).toBe("person:hugo");
+  expect(place(saying("Dad"), one)?.ref).toBe("person:hugo");
   // "dad" and "father" are two of his ties to one relation.
-  expect(placementOf(saying("my father"), directory(hugo, ivan))).toBeNull();
+  expect(place(saying("my father"), directory(hugo, ivan))).toBeNull();
   // "father of Lena" is not "father"; "Paul's father" is not his.
-  expect(placementOf(saying("my father"), directory(nina))).toBeNull();
-  expect(placementOf(saying("Paul's father"), one)).toBeNull();
+  expect(place(saying("my father"), directory(nina))).toBeNull();
+  expect(place(saying("Paul's father"), one)).toBeNull();
+  // Words that do not name one person by their nature are never placed, one in the directory or not.
+  const friend = Person.parse({
+    aliases: [],
+    id: "fred",
+    name: "Fred",
+    relation: "friend",
+  });
+  const brother = Person.parse({
+    aliases: [],
+    id: "bo",
+    name: "Bo",
+    relation: "brother",
+  });
+  const girlfriend = Person.parse({
+    aliases: [],
+    id: "gigi",
+    name: "Gigi",
+    relation: "girlfriend",
+  });
+  expect(place(saying("my friend"), directory(friend))).toBeNull();
+  expect(place(saying("my brother"), directory(brother))).toBeNull();
+  expect(place(saying("ma copine"), directory(girlfriend))?.ref).toBe(
+    "person:gigi"
+  );
   // Not his tie: someone else saying it, or another relation.
-  expect(placementOf(saying("my father", "+1"), one)).toBeNull();
-  expect(placementOf(saying("my mother"), one)).toBeNull();
+  expect(place(saying("my father", "+1"), one)).toBeNull();
+  expect(place(saying("my mother"), one)).toBeNull();
   // A name still wins, and the words must be on the line.
-  expect(placementOf(saying("Hugo"), one)?.proof).toBe("name");
-  expect(
-    placementOf({ ...saying("my father"), line: "hello" }, one)
-  ).toBeNull();
+  expect(place(saying("Hugo"), one)?.proof).toBe("name");
+  expect(place({ ...saying("my father"), line: "hello" }, one)).toBeNull();
+});
+
+test("a message he sent is his by fromMe, whatever address the source names as sender", () => {
+  const mail: SourceEvent = {
+    ...msg(0, true, "Dinner with my father tonight"),
+    sender: "owner@example.com",
+    source: "mail",
+  };
+  const [got] = mentionsOf(
+    [
+      stored(
+        READS.mentions.prompt,
+        [mail],
+        [mention(0, "my father", "my father")]
+      ),
+    ],
+    new Map([[eventKey(mail), mail]])
+  ) as [Mention];
+  expect(got.by).toBe(OWNER);
+  expect(place(got, directory(hugo))).toEqual({
+    proof: "relation_word",
+    ref: "person:hugo",
+  });
 });
 
 test("who an episode talked about: those its units placed, never those taking part or him", () => {
@@ -290,13 +339,19 @@ test("who an episode talked about: those its units placed, never those taking pa
     { ...saying("Nina"), unit: "unit_000000000002" },
   ];
   expect(
+    talkedAboutOf(episode, talk, (m) => place(m, people)?.ref, people.canon)
+  ).toEqual(["person:hugo"]);
+  // Someone else saying his own name places a mention on him: not talked about.
+  const himself = Person.parse({ aliases: [], id: "me", name: "Owen" });
+  const withHim = directory(hugo, himself);
+  expect(
     talkedAboutOf(
       episode,
-      talk,
-      (m) => placementOf(m, people)?.ref,
-      people.canon
+      [saying("Owen", "+1")],
+      (m) => place(m, withHim)?.ref,
+      withHim.canon
     )
-  ).toEqual(["person:hugo"]);
+  ).toEqual([]);
   // The memory line never holds it.
   expect(episodeText(episode, (ref) => ref)).toBe("Dinner; with person:ivan.");
 });

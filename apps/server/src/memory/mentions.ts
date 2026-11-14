@@ -20,7 +20,7 @@ import { localDate } from "./zones";
 // (`MENTIONS`, never `memory/`), as the exchange counts are kept. A mention holds the words as written and never a
 // person: who is meant is worked out when read (`placementOf`, `memory/who.ts`), so a fold or a name given later moves it.
 
-/** One mention: `who` as the model wrote it, `quote` the words on the message `line` (its text), said by `by` as the source names the sender. */
+/** One mention: `who` as the model wrote it, `quote` the words on the message `line` (its text), said by `by`: `OWNER` when he sent it, else the sender as the source names it. */
 const Mention = z
   .object({
     at: isoDateTime,
@@ -60,7 +60,7 @@ export function mentionsOf(
           ? [
               {
                 at: message.at,
-                by: message.sender,
+                by: message.fromMe ? OWNER : message.sender,
                 line: textOf(message),
                 quote: m.quote,
                 unit: dayUnitId(message),

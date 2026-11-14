@@ -1,13 +1,12 @@
-import { relationGroupOf, relationWordOf } from "../records/relation-words";
+import { relationWordOf } from "../records/relation-words";
 import { OWNER } from "./read-truth";
 
 // What two people are to each other, as words. For now only his own: the relation his directory gives each person
 // (`truth/people.yaml`, free text). Worked out when read, never stored.
 
-/** `by` says `of` is its `word` (a relation's name, `relationWordOf`), of that `group`. Refs are today's. */
+/** `by` says `of` is its `word` (a relation's name, `relationWordOf`). Refs are today's. */
 export interface Tie {
   by: string;
-  group: NonNullable<ReturnType<typeof relationGroupOf>>;
   of: string;
   word: string;
 }
@@ -26,10 +25,7 @@ export function tiesNow({
 }): Tie[] {
   return truth.people.flatMap((p) => {
     const word = p.relation && relationWordOf(firstClause(p.relation));
-    const group = word && relationGroupOf(word);
     const of = canon(`person:${p.id}`);
-    return word && group && of !== OWNER
-      ? [{ by: OWNER, group, of, word }]
-      : [];
+    return word && of !== OWNER ? [{ by: OWNER, of, word }] : [];
   });
 }

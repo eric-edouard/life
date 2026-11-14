@@ -7,7 +7,7 @@ import {
   type Unresolved,
   unfoldedOf,
 } from "../records/observation";
-import { relationWordOf } from "../records/relation-words";
+import { namesOne, relationWordOf } from "../records/relation-words";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
@@ -24,7 +24,7 @@ import {
 } from "./memory-files";
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import { tiesNow } from "./ties";
+import type { Tie } from "./ties";
 import { nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
@@ -657,13 +657,13 @@ export function meant(
 /**
  * Who a mention means, with the proof: `name`, the person its whole `who` resolves to (`people.resolve`, so a fold or a
  * name given since moves it); else `relation_word`, when its `who` is a relation's word ("my father") and exactly one
- * of its speaker's `ties` is that relation (two fathers, or none, mean no one). Either way its words must be on its
+ * of its speaker's `ties` is that relation and the word names one person by its nature (`one`, `records/relation-words.ts`; "my brother" or "my friend" never) (two fathers, or none, mean no one). Either way its words must be on its
  * line; else no one. "Paul's sister" is not "Paul": a part of a name never counts.
  */
 export function placementOf(
   mention: { by: string; line: string; who: string },
-  people: Pick<People, "resolve"> & Parameters<typeof tiesNow>[0],
-  ties = tiesNow(people)
+  people: Pick<People, "resolve">,
+  ties: Tie[]
 ) {
   const words = ` ${nameKey(mention.who)} `;
   if (!(words.trim() && ` ${nameKey(mention.line)} `.includes(words))) {
@@ -674,7 +674,10 @@ export function placementOf(
     return { proof: "name" as const, ref };
   }
   const word = relationWordOf(mention.who);
-  const speaker = mention.by === "me" ? OWNER : people.resolve(mention.by);
+  const speaker = mention.by === OWNER ? OWNER : people.resolve(mention.by);
+  if (!(word && namesOne(word))) {
+    return null;
+  }
   const of = new Set(
     ties.filter((t) => t.by === speaker && t.word === word).map((t) => t.of)
   );
