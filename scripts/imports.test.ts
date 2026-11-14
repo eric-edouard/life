@@ -10,7 +10,7 @@ const FROM = /\bfrom\s+"(\.{1,2}\/[^"]+)"/g;
 const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
-const GOG_TASKS = /"gog",\s*"tasks"/;
+const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
