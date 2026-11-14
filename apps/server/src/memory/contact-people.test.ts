@@ -448,3 +448,10 @@ test("a kept card that gains a birthday appends one line, and a second night non
     after([{ ...ANA, birthday: "--05-02" }], born.stored, seenOf()).lines
   ).toEqual([]);
 });
+
+test("a card that loses its birthday keeps the one Life held: no line, the person still has it", () => {
+  const first = after([{ ...ANA, birthday: "--05-02" }], [], seenOf(ANA_KEY));
+  const lost = after([ANA], first.stored, seenOf());
+  expect(lost.lines).toEqual([]);
+  expect(contactsNow(lost.stored)[0]?.birthday).toBe("--05-02");
+});
