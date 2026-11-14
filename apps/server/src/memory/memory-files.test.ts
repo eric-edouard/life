@@ -29,8 +29,8 @@ import {
   outdatedBy,
   readFactCheckAnswers,
   readIndex,
-  readObservations,
   readObservationStatusInputs,
+  readObservations,
   readOrigins,
   readUnit,
   readUnitsFor,
@@ -537,7 +537,7 @@ test("unit references read only indexed or cited days; a missing index entry che
 });
 
 test("readObservations reads an observation month once, then its new lines, and a rewrite whole", async () => {
-  const line = (id: string, text: string) =>
+  const monthLine = (id: string, text: string) =>
     `${JSON.stringify({
       area: null,
       at: "2026-10-20T10:00:00.000Z",
@@ -563,15 +563,18 @@ test("readObservations reads an observation month once, then its new lines, and 
   const texts = async () => (await readObservations()).map((o) => o.text);
   mkdirSync(OBSERVATIONS, { recursive: true });
   try {
-    writeFileSync(file, line("obs_00000000000a", "one"));
+    writeFileSync(file, monthLine("obs_00000000000a", "one"));
     expect(await texts()).toEqual(["one"]);
     expect(await texts()).toEqual(["one"]);
-    appendFileSync(file, line("obs_00000000000b", "two"));
+    appendFileSync(file, monthLine("obs_00000000000b", "two"));
     expect(await texts()).toEqual(["one", "two"]);
     // Same size, other content: read again whole.
     writeFileSync(
       file,
-      line("obs_00000000000a", "uno") + line("obs_00000000000b", "dos")
+      [
+        monthLine("obs_00000000000a", "uno"),
+        monthLine("obs_00000000000b", "dos"),
+      ].join("")
     );
     expect(await texts()).toEqual(["uno", "dos"]);
   } finally {
