@@ -544,6 +544,39 @@ function messagesSince(since: Date, root = mailRoot(), before?: Date): Row[] {
 }
 
 /**
+ * The conversations the owner wrote in on any day (no window): a sent message of his, one copy of which is not in a
+ * skipped mailbox (`SKIP`, over all time by `idOf`: an unsent draft's copy in All Mail would count otherwise).
+ */
+function conversationsWrittenIn(mine: Set<string>, root: string) {
+  const db = openIndex(root);
+  try {
+    const rows = db
+      .query<
+        Pick<Row, "conversation" | "globalId" | "header" | "mailbox">,
+        [string]
+      >(
+        `select m.conversation_id as conversation, m.global_message_id as globalId,
+                mb.url as mailbox, g.message_id_header as header
+           from messages m
+           join mailboxes mb on mb.ROWID = m.mailbox
+           join addresses a on a.ROWID = m.sender
+           left join message_global_data g on g.ROWID = m.global_message_id
+          where m.deleted = 0 and m.conversation_id != 0
+            and lower(a.address) in (select value from json_each(?))`
+      )
+      .all(JSON.stringify([...mine]));
+    const skipped = new Set(
+      rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
+    );
+    return new Set(
+      rows.filter((r) => !skipped.has(idOf(r))).map((r) => r.conversation)
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/**
  * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
  * whole one, under another name), so `search` reads only new mail after its first call.
  * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
@@ -579,6 +612,9 @@ const isToSelf = (
 const chatOf = (r: Row, subject: string) =>
   r.conversation ? `mail:${r.conversation}` : `${r.mailbox}#${subject}`;
 
+const flagOf = (wroteIn: Set<number>, conversation: number) =>
+  wroteIn.has(conversation) ? { hasOwnerWrittenInThread: true as const } : {};
+
 export function readMail(
   since: Date,
   root = mailRoot(),
@@ -590,6 +626,7 @@ export function readMail(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
   const rows = messagesSince(since, root, before);
+  const wroteIn = conversationsWrittenIn(mine, root);
   // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
   const seen = new Set(
     rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
@@ -614,6 +651,7 @@ export function readMail(
       ...(r.transaction === 1 ? { transaction: true as const } : {}),
       files: read?.files ?? [],
       fromMe: mine.has(sender),
+      ...flagOf(wroteIn, r.conversation),
       id,
       ...(isToSelf(sender, r.recipients, mine)
         ? { marked: true as const }

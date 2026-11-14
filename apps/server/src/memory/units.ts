@@ -67,6 +67,8 @@ export interface Message {
   at: string;
   bulk?: boolean;
   fromMe: boolean;
+  /** Mail only: see `SourceEvent.hasOwnerWrittenInThread`. */
+  hasOwnerWrittenInThread?: boolean;
   id: string;
   /** The sender is someone he knows: a person `resolve` names, or (mail) one his Contacts hold. */
   known: boolean;
@@ -395,6 +397,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       at: e.at,
       bulk: e.bulk,
       fromMe: e.fromMe,
+      hasOwnerWrittenInThread: e.hasOwnerWrittenInThread,
       id: e.id,
       known: !!e.contact || resolve(e.sender) !== null,
       sender: e.sender,
@@ -531,7 +534,7 @@ interface Thread {
   messages: Pick<Message, "bulk" | "fromMe" | "sender">[];
   unit: Pick<Unit, "source" | "title">;
 }
-/** Mail the owner never wrote in, other than his agents' reports (the model judges those: he asked for their to-dos). */
+/** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
 const isMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   !t.messages.some((m) => m.fromMe || agentReports().includes(m.sender));
@@ -550,7 +553,7 @@ export const isLifeOutput = (
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
-/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered. */
+/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
 export const searchableMail = (events: SourceEvent[]) =>
@@ -598,11 +601,15 @@ const RULES: [
       ),
   ],
   ["newsletter", newsletter],
-  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in, other than a transaction
-  // (a bulk one is still a newsletter, above): search still finds it.
+  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in (on any day), other than a
+  // transaction (a bulk one is still a newsletter, above): search still finds it.
   [
     "not-a-person",
-    (b) => isMail(b) && !b.messages.some((m) => m.known || m.transaction),
+    (b) =>
+      isMail(b) &&
+      !b.messages.some(
+        (m) => m.known || m.transaction || m.hasOwnerWrittenInThread
+      ),
   ],
 ];
 

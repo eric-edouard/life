@@ -62,6 +62,8 @@ export const SourceEvent = z
     deleted: z.boolean().optional(),
     files: z.array(SourceFile).optional(),
     fromMe: z.boolean(),
+    // Mail only: the owner wrote in this event's thread, on any day (not only the event's own).
+    hasOwnerWrittenInThread: z.literal(true).optional(),
     id: z.string(),
     // His words to Life, to keep (a mark): mail he sent only to himself, a `tell_life` line. Set by its reader; a
     // self-chat's messages are marked by `chatDay` (units.ts), which knows whose a chat is.
