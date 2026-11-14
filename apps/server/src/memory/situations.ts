@@ -25,7 +25,7 @@ import { readPeople } from "./who";
 // him, one call reads the page, their persona (what repeats) and the DAYS days of episodes with them that end at their
 // newest and writes where things stand now, each line citing its episodes. A situation is rebuilt whole, never from its
 // last version, and only when those episodes changed: today's date, the page and the persona are shown to the call but
-// never decide whether it runs (AGENTS.md, "One way to do each thing"). Nothing is sent.
+// never decide whether it runs (AGENTS.md, "Invariants"). Nothing is sent.
 
 const SITUATION_PROMPT = "memory-situation.v2";
 /** Days of episodes a situation reads, ending at the newest; older ones live on in the page's sections and Earlier. */

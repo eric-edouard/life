@@ -26,8 +26,7 @@ type Folds = Pick<People, "canon" | "corrections">;
 
 const MEMORY_CLOSENESS_PROMPT = "memory-closeness.v1";
 const PER_CALL = 40;
-/** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
-/** Years of days closeness counts, and a persona reads, back from today or from the person's newest day. */
+/** Years back: closeness counts from today (a day older weighs under an eighth of a recent one in `lasting`); a persona reads from the person's newest day. */
 export const YEARS = 3;
 
 /**
