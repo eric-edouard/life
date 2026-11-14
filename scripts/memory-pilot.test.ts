@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "@life/server/src/core/clock";
@@ -47,6 +47,8 @@ test("a folder is found by its label or its full name; none or several is an err
     expect(folderOf("mentions", `a-${"2".repeat(16)}`, root)).toBe(
       join(root, "mentions", `a-${"2".repeat(16)}`)
     );
+    // A stray file is no trial folder.
+    writeFileSync(join(root, "mentions", ".DS_Store"), "x");
     expect(() => folderOf("mentions", "a", root)).toThrow("2 folders");
     expect(() => folderOf("mentions", "c", root)).toThrow("0 folders");
   } finally {

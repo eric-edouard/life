@@ -11,7 +11,7 @@ import { storeReply } from "@life/server/src/memory/exchange-reads";
 import { runAt } from "@life/server/src/memory/memory-files";
 import { READ_NAMES, ReadReply } from "@life/server/src/records/read-reply";
 import { eventKey } from "@life/server/src/records/source";
-import { KEPT, readSet, trialPath } from "./memory-pilot";
+import { foldersIn, KEPT, readSet, trialPath } from "./memory-pilot";
 
 /** An earlier pilot file: a stored line without when and which read, its prompt's digest called `wording`. */
 const Old = ReadReply.omit({
@@ -40,10 +40,12 @@ export function convertAll(
   const count = (what: string) => counts.set(what, (counts.get(what) ?? 0) + 1);
   for (const read of READ_NAMES) {
     const readDir = trialPath([read], root);
-    const labels = existsSync(readDir) ? readdirSync(readDir) : [];
+    const labels = existsSync(readDir) ? foldersIn(readDir) : [];
     const existed = new Set(labels);
     for (const label of labels.filter((l) => !FOLDER.test(l))) {
-      for (const file of readdirSync(join(readDir, label))) {
+      for (const file of readdirSync(join(readDir, label)).filter((n) =>
+        n.endsWith(".json")
+      )) {
         const old = Old.safeParse(readJson(join(readDir, label, file)));
         if (!old.success) {
           count(`${read} ${label} invalid`);
@@ -76,9 +78,9 @@ export function convertAll(
 }
 
 if (import.meta.main) {
-  const names = readdirSync(join(KEPT, "sets")).map((n) =>
-    n.replace(JSON_FILE, "")
-  );
+  const names = readdirSync(join(KEPT, "sets"))
+    .filter((n) => JSON_FILE.test(n))
+    .map((n) => n.replace(JSON_FILE, ""));
   const at = new Map(
     names.flatMap((n) =>
       readSet(n).flatMap((s) => s.batch.flat().map((e) => [eventKey(e), e.at]))

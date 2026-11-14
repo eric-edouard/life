@@ -65,3 +65,21 @@ test("an earlier folder becomes a folder named by label and digest, one stored l
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+test("a stray file beside the label folders, or inside one, is skipped and never a crash", () => {
+  const root = mkdtempSync(join(tmpdir(), "convert-"));
+  try {
+    mkdirSync(join(root, "mentions", "set"), { recursive: true });
+    writeFileSync(join(root, "mentions", ".DS_Store"), "x");
+    writeFileSync(join(root, "mentions", "set", ".DS_Store"), "x");
+    writeFileSync(
+      join(root, "mentions", "set", "a.json"),
+      JSON.stringify(old())
+    );
+    expect(Object.fromEntries(convertAll(root, () => undefined))).toEqual({
+      [`mentions set ${WORDING} converted`]: 1,
+    });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});

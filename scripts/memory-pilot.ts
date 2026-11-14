@@ -79,13 +79,19 @@ export function trialPath(parts: string[], kept = KEPT, memory = MEMORY) {
 export const trialDir = (read: ReadName, label: string, wording: string) =>
   trialPath([read, `${label}-${promptDigestOf(wording)}`]);
 
+/** The folders in `dir`: a stray file (Finder's .DS_Store) is no trial. */
+export const foldersIn = (dir: string) =>
+  readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
+
 /**
  * The folder of a read's trial named by `label`: the one folder called `<label>-<16 hex>`, or the full name when
  * it is one; else an error listing the folders.
  */
 export function folderOf(read: ReadName, label: string, root = KEPT) {
   const dir = trialPath([read], root);
-  const names = readdirSync(dir);
+  const names = foldersIn(dir);
   const found = names.includes(label)
     ? [label]
     : names.filter((n) => n.replace(TRIAL_SUFFIX, "") === label);
