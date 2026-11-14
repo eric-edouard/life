@@ -352,3 +352,30 @@ test("a phone call in a chat is searched by its line, in the passage of the mess
     "thanks",
   ]);
 });
+
+test("a passage stores a mail event without the thread flag, which would go stale", () => {
+  const path = pathOf();
+  const event: SourceEvent = {
+    at: "2020-05-01T10:00:00.000Z",
+    chat: "mail:7",
+    chatName: "Trip",
+    fromMe: false,
+    hasOwnerWrittenInThread: true,
+    id: "mail:a",
+    sender: "eve@example.test",
+    source: "mail",
+    text: "Trip\nSee you there.",
+  };
+  const window = { from: "2020-05-01", to: "2020-05-01" };
+  writePassages([event], window, [], { mail: readerOf([event]) }, path);
+  const db = new Database(path);
+  const stored = db.query("select events from passages").all() as {
+    events: string;
+  }[];
+  db.close();
+  expect(stored).toHaveLength(1);
+  expect(stored[0]?.events).not.toContain("hasOwnerWrittenInThread");
+  expect(readPassages({}, false, path)[0]?.events[0]).not.toHaveProperty(
+    "hasOwnerWrittenInThread"
+  );
+});
