@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { newestDays, packed } from "./lists";
+import { endingAtNewest, newestDays, packed } from "./lists";
 
 test("person pages back by whole days: a day is never cut, and `next` is the day to page back from", () => {
   const items = [
@@ -31,4 +31,13 @@ test("packed: runs within the budget, in order; an item over it sits alone; noth
   expect(packed([60, 40, 1], 100, same)).toEqual([[60, 40], [1]]);
   expect(packed([150, 10, 90], 100, same)).toEqual([[150], [10, 90]]);
   expect(packed([], 100, same)).toEqual([]);
+});
+
+test("endingAtNewest keeps the days within the window of the newest, never of today", () => {
+  const days = ["2026-01-01", "2026-02-01", "2026-03-01", "2026-03-05"];
+  expect(endingAtNewest(days, (d) => d, 30)).toEqual([
+    "2026-03-01",
+    "2026-03-05",
+  ]);
+  expect(endingAtNewest([], (d: string) => d, 30)).toEqual([]);
 });

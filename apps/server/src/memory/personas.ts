@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
+import { endingAtNewest } from "../core/lists";
 import { callCharsOf, stamp } from "../models/llm";
 import { type FoundQuote, QUOTE_CHARS } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
-import { directChats, pagedNow, type WithPeople } from "./closeness";
+import { directChats, pagedNow, type WithPeople, YEARS } from "./closeness";
 import {
   exchangeCountsOf,
   type PairCounts,
@@ -27,12 +28,13 @@ import { localDate, time } from "./zones";
 // `bun life memory personas`: what each person with a page is like, wants and can give, what keeps happening between them
 // and the owner,
 // and how each writes to the other (docs/architecture.md, "The pipeline"); his own across everyone and his own writing
-// (his notes, his imported assistant chats). One call per person reads what passed between them over 3 years: their 1:1
-// messages and the group chat-days they wrote in (the night's `readWithPeople`), and his recorded conversations where
-// they spoke (the stored units, words read only when due), whole when it fits one call (`callCharsOf`), else sampled
-// across the years (`sampleOf`), with their page and code's counts over the 1:1 messages (`exchange-counts.ts`), and
-// writes the persona whole, at most once a week and only when something new was said. Every quote is checked against
-// what was shown. Nothing is sent.
+// (his notes, his imported assistant chats). One call per person reads what passed between them over the 3 years ending
+// at their newest day (never today: the clock moving alone changes nothing): their 1:1 messages and the group chat-days
+// they wrote in (the night's `readWithPeople` of every year), and his recorded conversations where they spoke (the
+// stored units, words read only when due), whole when it fits one call (`callCharsOf`), else sampled across the years
+// (`sampleOf`), with their page and code's counts over those 1:1 messages (`exchange-counts.ts`), and writes the
+// persona whole when something new was said, at most once a week (a rate cap beside the rule). Every quote is checked
+// against what was shown. Nothing is sent.
 
 const PERSONA_PROMPT = "memory-persona.v2";
 /** Characters of their page shown (Life's own text). */
@@ -337,6 +339,63 @@ export function groupDaysOf(
   return [...Map.groupBy(groups, dayUnitId).values()];
 }
 
+/** The four lists a persona reads, for one subject. */
+interface PersonaDays {
+  groups: ShownDay[];
+  recordings: Recording[];
+  writing: ShownDay[];
+  written: ShownDay[];
+}
+
+/** The YEARS years of those lists that end at the newest day of all four, never at today. */
+export function personaWindowOf(days: PersonaDays): PersonaDays {
+  const kept = new Set<Sampled>(
+    endingAtNewest(Object.values(days).flat(), (d) => d.day, YEARS * 365)
+  );
+  return {
+    groups: days.groups.filter((d) => kept.has(d)),
+    recordings: days.recordings.filter((d) => kept.has(d)),
+    writing: days.writing.filter((d) => kept.has(d)),
+    written: days.written.filter((d) => kept.has(d)),
+  };
+}
+
+/**
+ * What a persona call is shown before any recording's words are read, and what decides whether it runs: the sample of
+ * the windowed days, the recordings sampled, the counts over the 1:1 messages of the windowed days (`direct`, the
+ * person's 1:1 events; none for him), the name. Nothing of today, the page or the stored persona.
+ */
+export function personaShownOf(
+  t: PersonaDays & { ref: string },
+  direct: SourceEvent[],
+  person: string,
+  room: number
+) {
+  const sample = sampleOf<Recording | ShownDay>(
+    [...t.written, ...t.groups, ...t.writing, ...t.recordings],
+    room
+  );
+  const heard = sample.filter((d): d is Recording => "unit" in d);
+  const days = sample.filter((d): d is ShownDay => "messages" in d);
+  const windowed = new Set(t.written.map((d) => d.day));
+  const counts: PairCounts | null =
+    t.ref === OWNER
+      ? null
+      : pairCountsOf(
+          exchangeCountsOf(direct.filter((e) => windowed.has(localDate(e.at))))
+        );
+  return {
+    days,
+    heard,
+    shown: {
+      counts,
+      days: days.map(dayInput),
+      heard: heard.map((r) => `${r.unit.id}:${r.unit.hash}`),
+      person,
+    },
+  };
+}
+
 const ReplyLine = z.object({
   facet: z.string(),
   kind: z.string().nullish(),
@@ -407,14 +466,14 @@ const readPage = async (ref: string) =>
     PAGE_MAX
   );
 
-export async function personas({ events, failed, since }: WithPeople) {
+export async function personas({ events, failed }: WithPeople) {
   const step = await begin("persona", "main", { prompt: PERSONA_PROMPT });
   // His own writing, over the same years, for his own persona.
   const unread = [...failed];
   const own = (
     await Promise.all(
       Object.entries(tables().OWN_WRITING).map(([name, read]) =>
-        safely(name, () => read(since), unread)
+        safely(name, () => read(new Date(0)), unread)
       )
     )
   ).flat();
@@ -440,8 +499,8 @@ export async function personas({ events, failed, since }: WithPeople) {
       whoOf,
       (e) => `${e.chatName ?? e.chat} (group)`
     );
-  const units = (await readUnits(localDate(since.toISOString()))).flatMap(
-    (u) => (u.drop ? [] : [unitNow(u, people.refOf)])
+  const units = (await readUnits()).flatMap((u) =>
+    u.drop ? [] : [unitNow(u, people.refOf)]
   );
   const others = new Set([...paged].filter((ref) => ref !== OWNER));
   const targets = [...paged].flatMap((ref) => {
@@ -461,9 +520,9 @@ export async function personas({ events, failed, since }: WithPeople) {
           )
         : [];
     const recordings = recordingsOf(units, refs);
-    return written.length + groups.length + writing.length + recordings.length >
-      0
-      ? [{ groups, recordings, ref, refs, writing, written }]
+    const days = personaWindowOf({ groups, recordings, writing, written });
+    return Object.values(days).some((list) => list.length > 0)
+      ? [{ ...days, ref, refs }]
       : [];
   });
   let written = 0;
@@ -472,22 +531,12 @@ export async function personas({ events, failed, since }: WithPeople) {
       async () => {
         // Everything, when it fits one call (it does today); else one sample across the years of all of it.
         const room = callCharsOf(step.llm);
-        const sample = sampleOf<Recording | ShownDay>(
-          [...t.written, ...t.groups, ...t.writing, ...t.recordings],
+        const { days, heard, shown } = personaShownOf(
+          t,
+          direct.get(t.ref) ?? [],
+          t.ref === OWNER ? OWNER : people.nameOf(t.ref),
           room
         );
-        const heard = sample.filter((d): d is Recording => "unit" in d);
-        const days = sample.filter((d): d is ShownDay => "messages" in d);
-        const counts: PairCounts | null =
-          t.ref === OWNER
-            ? null
-            : pairCountsOf(exchangeCountsOf(direct.get(t.ref) ?? []));
-        const shown = {
-          counts,
-          days: days.map(dayInput),
-          heard: heard.map((r) => `${r.unit.id}:${r.unit.hash}`),
-          person: t.ref === OWNER ? OWNER : people.nameOf(t.ref),
-        };
         // What was said decides whether it is due, not the page (rewritten most nights); a recording's words are read
         // only then.
         const inputs = inputsOf(PERSONA_PROMPT, shown);
@@ -509,7 +558,7 @@ export async function personas({ events, failed, since }: WithPeople) {
           return;
         }
         const input = {
-          counts,
+          counts: shown.counts,
           days: all.map(dayInput),
           page: await readPage(t.ref),
           person: shown.person,

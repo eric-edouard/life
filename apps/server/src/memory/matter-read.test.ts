@@ -249,6 +249,22 @@ test("a person's page lists the open matters they are in, what he owes first, th
   ).toEqual([]);
 });
 
+test("a person's open items: the pointer counts what the one cut left out, and is absent when all fit", () => {
+  const items = matterItems(book({ observations }), nameOf, "2026-10-20");
+  const mine = items.filter(
+    (i) => i.person === GRAN || i.people?.includes(GRAN)
+  );
+  const call = (room?: number) =>
+    openWithOf(GRAN, { goals: [], items, room, today: "2026-10-20" }).join(
+      "\n"
+    );
+  expect(mine.length).toBeGreaterThan(0);
+  expect(call()).not.toContain("more open with them");
+  const none = call(1);
+  expect(none).toContain(`${mine.length} more open with them`);
+  expect(none).not.toContain("owed to Gran");
+});
+
 test("an episode and an observation of one day order by instant, in his zone", () => {
   const day = "2026-10-12";
   const at = (n: number, start: string | null, title: string) => ({

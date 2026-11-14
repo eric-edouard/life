@@ -218,9 +218,19 @@ const write = (ref: string, history: History) =>
     `${JSON.stringify(History.parse(history), null, 1)}\n`
   );
 
-/** What the story call is shown: the months through the last closed year, each as its parts' summaries. */
+/**
+ * What the story call is shown: the months through `through`, each as its parts' summaries. `through` is the year of the
+ * newest month, at most the last closed year: the clock moving alone changes nothing; a story is retold only when a
+ * month it does not hold exists.
+ */
 export function storyInputOf(history: History, name: string, today: string) {
-  const through = String(Number(today.slice(0, 4)) - 1);
+  const newest = history.months.reduce(
+    (a, m) => (m.month > a ? m.month : a),
+    ""
+  );
+  const through = [newest.slice(0, 4), String(Number(today.slice(0, 4)) - 1)]
+    .toSorted()
+    .at(0) as string;
   return {
     months: history.months
       .filter((m) => m.month.slice(0, 4) <= through)
