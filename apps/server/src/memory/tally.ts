@@ -20,7 +20,7 @@ const Grades = z.object({
 export type Grade = z.infer<typeof Grades>["grades"][number];
 const JUDGE_PROMPT = "eval-judge.v2";
 /** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--fact-check-answers`, scripts/eval.ts). */
-export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("main"))}`;
+export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("judge"))}`;
 
 /**
  * A grade kept between `--fact-check-answers` runs: the key of what it was judged on (its fact, the memory lines on its units as of its
@@ -67,7 +67,7 @@ export const asOf = (facts: JudgedFact[], memoryLines: JudgeMemoryLine[]) =>
   }));
 
 /**
- * A judge's grades (his engine's main tier) of `facts` against `memory lines` (`text` is what was said, `id` names it, `date`
+ * A judge's grades (his engine's judge tier) of `facts` against `memory lines` (`text` is what was said, `id` names it, `date`
  * the day it was said). A fact with a `date` is judged as of that day, against the memory lines said on or before it, so a
  * later change never contradicts a state true then; one call per date (`asOf`), facts without one against every memory line.
  * The calls run together: a caller sorting its facts by date keeps them few (`--fact-check-answers`, scripts/eval.ts).
@@ -88,7 +88,7 @@ export async function judge(
               facts: call.facts.map(({ fact, id }) => ({ fact, id })),
               memoryLines: call.memoryLines,
             },
-            llm: llmFor("main", o.engine),
+            llm: llmFor("judge", o.engine),
             prompt: JUDGE_PROMPT,
             run: o.run,
           })

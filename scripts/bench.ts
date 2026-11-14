@@ -1,7 +1,7 @@
 // `bun bench [--models opus --models …] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (episodes, then extract)
 // on the hand-checked days (the truth set, ~/Life/docs/evals/truth-*.json), against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
-// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
+// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's judge tier (or `--judge`, to
 // keep one judge across benches when his engine changes) then grades its memory lines against the days' hand-checked facts
 // and his answered fact checks (scripts/eval.ts), and its episodes against their timelines (scripts/timeline.ts, by code).
 // It prints the table and writes nothing of his.
@@ -372,7 +372,7 @@ export function factTable(
   return [
     `# Bench ${about.days.join(", ")} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; answered: his ${about.answered} answered fact checks of those days. Each fact is judged as of its day (an answered fact check's), against the memory lines said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
+    `Each run: episodes then extract over each truth day on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's judge tier"}. Facts: the ${about.facts} hand-checked facts of the truth set; answered: his ${about.answered} answered fact checks of those days. Each fact is judged as of its day (an answered fact check's), against the memory lines said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored. Timeline: the episodes against the hand-checked ones, by code (scripts/timeline.ts): found one to one, merged into another, extra, duplicates; start and end within 15 min, place within 150 m.`,
     "",
     `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | timeline | answered fact checks | memory lines | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|---|---|",
