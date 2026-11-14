@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  callsOf,
   casesOf,
   countsOf,
   marksAcross,
+  openedOf,
   readRun,
   runCase,
 } from "./question-cases";
@@ -129,4 +131,64 @@ test("a run with no result file is an error, never a baseline that found nothing
   expect(() => readRun("no-such-run+other")).toThrow(
     "no result file no-such-run"
   );
+});
+
+test("the calls keep the tool, its arguments and the size it returned, in order; a line with no tool is dropped", () => {
+  expect(
+    callsOf([
+      { args: { name: "Ana" }, chars: 120, tool: "read_person_page" },
+      { chars: 5 },
+      { args: { id: "person:ana/month/2024-03" }, chars: 900, tool: "fetch" },
+      { tool: "search" },
+    ])
+  ).toEqual([
+    { args: { name: "Ana" }, chars: 120, tool: "read_person_page" },
+    { args: { id: "person:ana/month/2024-03" }, chars: 900, tool: "fetch" },
+    { args: {}, chars: 0, tool: "search" },
+  ]);
+});
+
+test("the parts opened, as counts: a person's read is its now, a ref its part, a conversation id or a malformed ref other", () => {
+  expect(
+    openedOf([
+      { args: { name: "Ana" }, tool: "read_person_page" },
+      { args: { id: "person:ana/evidence" }, tool: "fetch" },
+      {
+        args: { id: "person:ana/evidence/2024-03/before/2024-03-15" },
+        tool: "fetch",
+      },
+      { args: { id: "person:ana/month" }, tool: "fetch" },
+      { args: { before: "2024-03-15", name: "Ana" }, tool: "read_person_page" },
+      { args: { id: "conv_123" }, tool: "fetch" },
+      { args: { query: "flat" }, tool: "search" },
+      { tool: "fetch" },
+    ])
+  ).toEqual({
+    parts: { evidence: 3, now: 1, other: 3 },
+    tools: { fetch: 5, read_person_page: 2, search: 1 },
+  });
+});
+
+test("the marks across read an old result file (tools as names) and a new one (with its calls) together", () => {
+  const old = {
+    id: "C1",
+    passed: false,
+    points: [{ id: "c0", mark: "miss" }],
+    tools: ["fetch"],
+  };
+  const now = {
+    calls: [{ args: { id: "person:ana/now" }, chars: 10, tool: "fetch" }],
+    id: "C1",
+    passed: true,
+    points: [{ id: "c0", mark: "ok" }],
+    tools: ["fetch"],
+  };
+  expect(marksAcross([[old], [now]], 1)).toEqual({
+    laterOk: 0,
+    never: [{ key: "C1 c0", marks: ["miss", "ok"] }],
+    runs: [
+      { cases: 1, passed: 0, points: 1, pointsOk: 0, wrong: 0 },
+      { cases: 1, passed: 1, points: 1, pointsOk: 1, wrong: 0 },
+    ],
+  });
 });
