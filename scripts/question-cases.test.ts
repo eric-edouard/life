@@ -158,13 +158,14 @@ test("the parts opened, as counts: a person's read is its now, a ref its part, a
         tool: "fetch",
       },
       { args: { id: "person:ana/month" }, tool: "fetch" },
+      { args: { before: "2024-03-15", name: "Ana" }, tool: "read_person_page" },
       { args: { id: "conv_123" }, tool: "fetch" },
       { args: { query: "flat" }, tool: "search" },
       { tool: "fetch" },
     ])
   ).toEqual({
-    parts: { evidence: 2, now: 1, other: 3 },
-    tools: { fetch: 5, read_person_page: 1, search: 1 },
+    parts: { evidence: 3, now: 1, other: 3 },
+    tools: { fetch: 5, read_person_page: 2, search: 1 },
   });
 });
 

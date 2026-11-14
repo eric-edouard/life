@@ -71,7 +71,7 @@ export const callsOf = (calls: ToolCall[]) =>
 
 /**
  * What the calls opened, as counts only (never an argument): by tool, and the read parts opened (`fetch` of a read
- * part ref, `read_person_page` of a name being the person's `now`); any other `fetch` id, or a malformed ref, is `other`.
+ * part ref, `read_person_page` of a name being the person's `now`, or `evidence` with a `before`); any other `fetch` id, or a malformed ref, is `other`.
  */
 export function openedOf(calls: { args?: unknown; tool: string }[]) {
   const tools: Record<string, number> = {};
@@ -81,12 +81,16 @@ export function openedOf(calls: { args?: unknown; tool: string }[]) {
   };
   for (const { args, tool } of calls) {
     count(tools, tool);
-    const a = (args ?? {}) as { id?: unknown; name?: unknown };
+    const a = (args ?? {}) as {
+      before?: unknown;
+      id?: unknown;
+      name?: unknown;
+    };
     if (tool === "fetch") {
       const ref = parseReadPartRef(String(a.id ?? ""));
       count(parts, "ref" in ref ? ref.ref.part : "other");
     } else if (tool === "read_person_page" && a.name) {
-      count(parts, "now");
+      count(parts, a.before ? "evidence" : "now");
     }
   }
   return { parts, tools };
