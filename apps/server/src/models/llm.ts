@@ -126,12 +126,15 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
  * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at high, for what they refuse or fail.
- * Episodes, extraction and the pages and personas think at high (his ask, 9 Nov 2026), the fast tier at medium.
+ * Episodes and extraction (the deep tier) think at low (his choice of 14 Nov 2026, after a bench of 6 low runs against
+ * 3 high: as many true facts held, about half as many wrong facts, about 3 fewer episodes found of 61, about 10% fewer
+ * tokens). Pages, personas, the exchange reads and the judge stay at high until the judge has its own level: it takes
+ * the main tier (`memory/tally.ts`) and the stored baselines were graded at high. The fast tier stays at medium.
  */
 const routed = (effort: string) =>
   `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=high`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
-  deep: routed("high"),
+  deep: routed("low"),
   fast: routed("medium"),
   main: routed("high"),
 };
