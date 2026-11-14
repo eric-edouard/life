@@ -20,7 +20,7 @@ import {
   exchangesOf,
   isTwoWay,
 } from "@life/server/src/memory/exchanges";
-import type { CheckedExchange } from "@life/server/src/memory/moves";
+import { type CheckedExchange, checkedOf } from "@life/server/src/memory/moves";
 import { readPeople } from "@life/server/src/memory/who";
 import type { ReadName } from "@life/server/src/records/read-reply";
 import {
@@ -28,7 +28,7 @@ import {
   eventKey,
   type SourceEvent,
 } from "@life/server/src/records/source";
-import { checkedOf, setFile, type TestSet } from "./memory-pilot";
+import { setFile, type TestSet } from "./memory-pilot";
 
 /** Messages a call of the test set holds at most (one longer exchange goes alone): small, so a try takes minutes. */
 const PER_CALL = 120;

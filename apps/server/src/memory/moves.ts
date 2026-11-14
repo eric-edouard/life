@@ -298,6 +298,42 @@ export function checkedMoves(
   return { ...counts, exchanges };
 }
 
+/**
+ * The stored lines of `read` whose messages are all in `events`, each with its messages and its reply checked
+ * (`checkedMoves`): the one way the night and the pilot check stored replies.
+ */
+export function* checkedLines(
+  lines: ReadReply[],
+  read: ReadName,
+  events: Map<string, SourceEvent>
+) {
+  for (const line of lines.filter((l) => l.read === read)) {
+    const messages = line.messages.flatMap((id) => events.get(id) ?? []);
+    if (messages.length === line.messages.length) {
+      yield {
+        checked: checkedMoves(line.reply, messages, line.starts, read),
+        line,
+        messages,
+      };
+    }
+  }
+}
+
+/** Every exchange the stored lines hold for `read`, checked, by its first message's key; only lines whose messages are all in `events`. */
+export function checkedOf(
+  lines: ReadReply[],
+  read: ReadName,
+  events: Map<string, SourceEvent>
+) {
+  const out = new Map<string, CheckedExchange>();
+  for (const { checked, line } of checkedLines(lines, read, events)) {
+    for (const x of checked.exchanges) {
+      out.set(line.messages[x.exchange] as string, x);
+    }
+  }
+  return out;
+}
+
 /** What each read gave about an exchange, by its first message's key: the unit the rates count (`memory/move-rates.ts`). */
 export interface SeenExchange {
   /** Its first message's instant. */

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { callOf } from "@life/server/src/memory/exchange-reads";
+import { checkedOf } from "@life/server/src/memory/moves";
 import { ReadReply } from "@life/server/src/records/read-reply";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
-import { checkedOf } from "./memory-pilot";
 
 const START = Date.parse("2026-10-01T12:00:00.000Z");
 const msg = (min: number, fromMe: boolean, text: string): SourceEvent => ({
