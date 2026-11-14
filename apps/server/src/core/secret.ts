@@ -15,10 +15,12 @@ import { MACHINE_DIR } from "./platform";
 
 /**
  * Every secret file Life keeps, in its state (and his account on the bridges' homeserver, beside it): the OAuth issuer's clients and tokens,
- * the key of the app's local reads. Only `writeSecret` and `secretIn` write them, and an export leaves exactly these out
+ * the key of the app's local reads, gog's keyring password. Only `writeSecret` and `secretIn` write them, and an export leaves exactly these out
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`); kept by `bun life gog-keyring`. */
+  gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
   /**
    * His account on the bridges' homeserver (`sources/matrix.ts`): `{password, token}`, written when `bun life bridge`

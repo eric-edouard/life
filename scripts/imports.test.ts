@@ -10,7 +10,8 @@ const FROM = /\bfrom\s+"(\.{1,2}\/[^"]+)"/g;
 const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
-const GOG_TASKS = /"gog",\s*"tasks"/;
+const GOG = /"gog"/;
+const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
@@ -106,6 +107,8 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
+  // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
+  expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.

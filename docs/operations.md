@@ -28,6 +28,10 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
   contacts or repos, and it reads nothing of the machine (`mac.ts`).
 - Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/host/export.ts`).
+- gog (the calendar steps, Google Tasks) needs `GOG_KEYRING_PASSWORD`, which the helper under Life.app does not have: it reads
+  `SECRETS.gogKeyring` (`core/gog.ts`). Keep it with `GOG_KEYRING_PASSWORD=… LIFE_STATE_DIR=<the app's state folder> bun life gog-keyring`
+  from a shell holding the variable (a checkout's `LIFE_STATE_DIR` is its own `derived/`, so set it); a restore or a new Mac runs it again.
+  Never add a Keychain item from the command line: macOS prompts, and the app blocks and starts no helper.
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 - What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each

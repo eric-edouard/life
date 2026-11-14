@@ -5,6 +5,7 @@ import { daysBefore } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
+import { writeSecret } from "../core/secret";
 import {
   agentNames,
   readSettings,
@@ -247,6 +248,20 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(
       `${dir}: ${m.files.length} files, ${(bytes / 1e9).toFixed(1)} GB. Not in it, give them by hand: ${[...m.leftOut.env, "Life's Keychain items"].join(", ")}`
     );
+    return 0;
+  },
+  /**
+   * Keeps gog's keyring password (`core/gog.ts`) for the helper, which has no shell profile: reads it from this
+   * process's own `GOG_KEYRING_PASSWORD`, never from an argument, and says only whether it kept it.
+   */
+  "gog-keyring"() {
+    const password = process.env.GOG_KEYRING_PASSWORD?.trim();
+    if (!password) {
+      console.log("nothing to keep (GOG_KEYRING_PASSWORD is not set)");
+      return 1;
+    }
+    writeSecret("gogKeyring", password);
+    console.log("kept");
     return 0;
   },
   /**

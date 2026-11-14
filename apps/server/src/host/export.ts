@@ -153,7 +153,7 @@ function leftOut() {
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
     secrets:
-      "the secret files (SECRETS: Life's sign-in, the ask cursor, the app's key, the bridges' account): apps pair again and the bridges' account logs in again, unless they are copied by hand",
+      "the secret files (SECRETS: Life's sign-in, the ask cursor, the app's key, the bridges' account, gog's keyring password): apps pair again and the bridges' account logs in again, unless they are copied by hand",
   };
 }
 

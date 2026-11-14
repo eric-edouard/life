@@ -16,7 +16,8 @@ agents that act for him. This page says what it protects and what it does not.
   (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
-  named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup.
+  named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup. One is gog's keyring
+  password (`bun life gog-keyring`), a file and not a Keychain item: the app blocks on the prompt a new item raises.
 
 ## Models
 
