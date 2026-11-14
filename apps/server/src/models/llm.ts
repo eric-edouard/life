@@ -125,15 +125,17 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
 };
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
- * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at high, for what they refuse or fail.
- * Episodes, extraction and the pages and personas think at high (his ask, 9 Nov 2026), the fast tier at medium.
+ * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at low, for what they refuse or fail.
+ * The deep and main tiers think at low (his ask of 14 Nov 2026, replacing his ask of 9 Nov 2026 for high): on 10 to 14
+ * Nov the logged calls at high wrote 77M output tokens for 51M input, and output was about 85% of the spend. The fast
+ * tier stays at medium.
  */
 const routed = (effort: string) =>
-  `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=high`;
+  `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=low`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
-  deep: routed("high"),
+  deep: routed("low"),
   fast: routed("medium"),
-  main: routed("high"),
+  main: routed("low"),
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
