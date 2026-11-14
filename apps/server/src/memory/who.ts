@@ -100,13 +100,14 @@ const handleIndex = (people: Person[]): Map<string, string> =>
 
 /**
  * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named. `this-is`
- * or `same-person` to it confirms it, `not-this-person` refuses it; either way there is nothing left to ask. The one
- * rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks agree).
+ * or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
+ * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
+ * agree).
  */
 export function guessTestOf(corrections: Correction[]) {
   const said = new Set<string>();
   for (const c of corrections) {
-    if (c.kind === "this-is" || c.kind === "not-this-person") {
+    if (c.kind === "this-is") {
       said.add(c.person);
     } else if (c.kind === "same-person") {
       said.add(c.to);

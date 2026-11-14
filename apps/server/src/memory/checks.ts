@@ -1,17 +1,16 @@
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
-import { doubtsOf, guessedOf, plain } from "./doubts";
-import type { MatterView } from "./matter-read";
-import { readMatterBook, readMatterRecords } from "./matters";
+import { guessedOf, plain } from "./doubts";
+import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
+import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
-  observationStatusOf,
   readFactCheckAnswers,
   readUnitsFor,
   readUnresolved,
 } from "./memory-files";
 import { nameKey } from "./units";
-import { observationsNow, type People, readPeople, type Shown } from "./who";
+import { type People, readPeople, type Shown } from "./who";
 import { dayNow } from "./zones";
 
 // The checks: everything Life would like him to verify, in one shape and one list, with no limit. A check is one guess
@@ -19,7 +18,9 @@ import { dayNow } from "./zones";
 // kept line, an open matter, a page). Life keeps using its guess meanwhile. Derived when read, never stored: his answer
 // is a correction (a person), an `outdated` word (an ending) or a fact-check answer.
 
-export type CheckKind = "ending" | "person" | "fact";
+type CheckKind = "ending" | "person";
+/** What a check is, for counting: an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
+type CheckGroup = "ending" | "guessed person" | "card" | "name";
 
 export interface Check {
   /** The words of his answer that settle it, as `correct_memory` takes them. */
@@ -27,12 +28,13 @@ export interface Check {
   /** The words the guess rests on, with where and when they were said; none for a Contacts card. */
   evidence: { from: string; quote: string } | null;
   /** The guess, in a sentence worded by a template (no model). */
+  group: CheckGroup;
   guess: string;
   kind: CheckKind;
-  /** An observation id (ending, fact), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
+  /** An observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
   /** What uses the guess today, counted from what is stored. */
-  ridesOn: { matters: number; observations: number; summaries: number };
+  ridesOn: { matters: number; observations: number; pages: number };
 }
 
 /** A kept line as the checks read it. */
@@ -93,39 +95,62 @@ interface Ranked {
   day: string;
 }
 
+/** `CheckInputs` with the lookups every builder shares, made once. */
+interface Ctx extends CheckInputs {
+  byId: ReadonlyMap<string, Line>;
+  /** The open matters holding a step, by the step's ref, and involving a person, by the person's ref. */
+  mattersByPerson: ReadonlyMap<string, Set<object>>;
+  mattersByStep: ReadonlyMap<string, Set<object>>;
+}
+
+function ctxOf(c: CheckInputs): Ctx {
+  const mattersByStep = new Map<string, Set<object>>();
+  const mattersByPerson = new Map<string, Set<object>>();
+  const add = (by: Map<string, Set<object>>, ref: string, m: object) =>
+    by.set(ref, (by.get(ref) ?? new Set()).add(m));
+  for (const m of c.matters.filter((x) => x.open)) {
+    for (const s of m.steps) {
+      add(mattersByStep, s.ref, m);
+    }
+    for (const r of matterPeopleOf(m)) {
+      add(mattersByPerson, r, m);
+    }
+  }
+  return {
+    ...c,
+    byId: new Map(c.lines.map((l) => [l.id, l])),
+    mattersByPerson,
+    mattersByStep,
+  };
+}
+
 const ANSWERS = {
   ending: ["outdated", "false"],
-  fact: ["true", "partly", "false", "outdated"],
   person: ["this-is", "not-this-person", "same-person"],
 };
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
 /** What rides on a guess: the kept `lines` using it, the open matters holding one of them or one of `refs`, the pages they show on. */
-function ridesOn(c: CheckInputs, lines: Line[], refs: string[]) {
-  const ids = new Set(lines.map((l) => l.id));
-  const people = new Set(refs);
+function ridesOn(c: Ctx, lines: Line[], refs: string[]) {
+  const matters = new Set([
+    ...lines.flatMap((l) => [...(c.mattersByStep.get(l.id) ?? [])]),
+    ...refs.flatMap((r) => [...(c.mattersByPerson.get(r) ?? [])]),
+  ]);
   const shownOn = new Set(
     [...refs, ...lines.flatMap((l) => [l.about ?? "", ...l.subjects])].map(
       c.people.refOf
     )
   );
   return {
-    matters: c.matters.filter(
-      (m) =>
-        m.open &&
-        (m.steps.some((s) => ids.has(s.ref)) ||
-          [...m.with, ...m.owedTo, ...m.waitingOn, ...m.told].some((r) =>
-            people.has(r)
-          ))
-    ).length,
+    matters: matters.size,
     observations: lines.filter((l) => c.kept.has(l.id)).length,
-    summaries: [...shownOn].filter((r) => c.paged.has(r)).length,
+    pages: [...shownOn].filter((r) => c.paged.has(r)).length,
   };
 }
 
 /** The kept lines each ref in `refsOf(line)` appears in. */
-const keptBy = (c: CheckInputs, refsOf: (l: Line) => string[]) => {
+const keptBy = (c: Ctx, refsOf: (l: Line) => string[]) => {
   const by = new Map<string, Line[]>();
   for (const l of c.lines) {
     for (const ref of c.kept.has(l.id) ? refsOf(l) : []) {
@@ -139,23 +164,25 @@ const newest = (lines: Line[]) =>
   lines.reduce((m, l) => (l.date > m.date ? l : m));
 
 function ranked(
-  c: CheckInputs,
-  kind: CheckKind,
-  fields: Pick<Check, "guess" | "ref"> & { answers?: string[] },
+  c: Ctx,
+  group: CheckGroup,
+  fields: Pick<Check, "guess" | "ref">,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
+  const kind = group === "ending" ? "ending" : "person";
   return rides.matters + rides.observations > 0
     ? [
         {
           check: {
-            answers: fields.answers ?? ANSWERS[kind],
+            answers: ANSWERS[kind],
             evidence: evidence && {
               from: evidence.where ?? "an earlier message",
               quote: evidence.quote,
             },
+            group,
             guess: fields.guess,
             kind,
             ref: fields.ref,
@@ -167,14 +194,13 @@ function ranked(
     : [];
 }
 
-/** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment) is one more entry. */
-export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
+/** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
+const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /** Every open step a link says ended and he has not answered. */
-  ending: (c) => {
-    const byId = new Map(c.lines.map((l) => [l.id, l]));
-    return [...c.endings].flatMap(([ref, link]) => {
-      const o = byId.get(ref);
-      const later = byId.get(link.later);
+  ending: (c) =>
+    [...c.endings].flatMap(([ref, link]) => {
+      const o = c.byId.get(ref);
+      const later = c.byId.get(link.later);
       return o && !c.answered.has(ref)
         ? ranked(
             c,
@@ -186,24 +212,6 @@ export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
               quote: link.quote,
               where: later ? whereOf(later) : c.where.get(link.later),
             }
-          )
-        : [];
-    });
-  },
-  /** A line with a doubt of its own (not its guessed person: that is the person's check). None exists yet. */
-  fact: (c) =>
-    c.lines.flatMap((l) => {
-      const doubts = c.kept.has(l.id) ? doubtsOf(l, c.people) : [];
-      return doubts.length > 0 &&
-        !doubts.includes("guessed-person") &&
-        !c.answered.has(l.id)
-        ? ranked(
-            c,
-            "fact",
-            { guess: `Life is unsure of this line: ${l.text}`, ref: l.id },
-            [l],
-            [],
-            { quote: l.quote, where: whereOf(l) }
           )
         : [];
     }),
@@ -220,7 +228,7 @@ export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
       return people.isGuess(ref)
         ? ranked(
             c,
-            "person",
+            "guessed person",
             {
               guess: `Life guesses ${p.namesAndHandles.join(" / ")} is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure).`,
               ref,
@@ -237,7 +245,7 @@ export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
     const cards = people.ambiguousCards.flatMap((a) =>
       ranked(
         c,
-        "person",
+        "card",
         {
           guess: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}.`,
           ref: a.card,
@@ -253,12 +261,16 @@ export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
     const names = [
       ...Map.groupBy(open, (r) => nameKey(r.nameAsWritten) || r.nameAsWritten),
     ].flatMap(([key, rows]) => {
-      const ids = new Set(rows.map((r) => r.observation));
-      const lines = c.lines.filter((l) => ids.has(l.id) && c.kept.has(l.id));
+      const lines = [...new Set(rows.map((r) => r.observation))].flatMap(
+        (id) => {
+          const l = id ? c.byId.get(id) : undefined;
+          return l && c.kept.has(l.id) ? [l] : [];
+        }
+      );
       const last = lines.length > 0 ? newest(lines) : undefined;
       return ranked(
         c,
-        "person",
+        "name",
         {
           guess: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is.`,
           ref: `name:${key}`,
@@ -273,50 +285,49 @@ export const BUILDERS: Record<CheckKind, (c: CheckInputs) => Ranked[]> = {
 };
 
 /** The checks, most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
-export const checksOf = (c: CheckInputs): Check[] =>
-  Object.values(BUILDERS)
+export const checksOf = (inputs: CheckInputs): Check[] => {
+  const c = ctxOf(inputs);
+  return Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
         b.check.ridesOn.matters - a.check.ridesOn.matters ||
         b.check.ridesOn.observations - a.check.ridesOn.observations ||
-        b.check.ridesOn.summaries - a.check.ridesOn.summaries ||
+        b.check.ridesOn.pages - a.check.ridesOn.pages ||
         b.day.localeCompare(a.day) ||
         a.check.ref.localeCompare(b.check.ref)
     )
     .map((r) => r.check);
+};
 
 /** What Life would like him to verify now, over what is stored today: read-only, no model call. */
 export async function checksNow(): Promise<Check[]> {
   const people = await readPeople();
-  const today = dayNow();
-  const [{ observations, statusInputs }, records, matters, paged] =
-    await Promise.all([
-      observationsNow(people),
-      readMatterRecords(people),
-      readMatterBook(people, today),
-      pagedNow(people),
-    ]);
-  const unresolved = await readUnresolved();
-  const evidence = people.inferred.flatMap((p) =>
-    p.evidence.map((e) => e.unit)
+  const [records, unresolved, paged] = await Promise.all([
+    readMatterRecords(people),
+    readUnresolved(),
+    pagedNow(people),
+  ]);
+  const matters = matterBookOf(
+    mattersNow(readMatters()).matters,
+    records,
+    dayNow()
   );
-  const units = readUnitsFor(evidence);
+  const units = readUnitsFor(
+    people.inferred.flatMap((p) => p.evidence.map((e) => e.unit))
+  );
   return checksOf({
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
     endings: records.maybe,
+    // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(
-      observations
-        .filter(
-          (o) =>
-            o.importance >= KEEP_AT &&
-            observationStatusOf(o, statusInputs).state === "active"
-        )
+      records.observations
+        .filter((o) => o.importance >= KEEP_AT && !records.endings.has(o.id))
         .map((o) => o.id)
     ),
-    lines: observations,
+    lines: records.observations,
     matters,
     paged,
     people,
@@ -334,51 +345,28 @@ export async function checksNow(): Promise<Check[]> {
   });
 }
 
-/** The group a check is counted in: an ending, a guessed person, a Contacts card, a name, a fact. */
-export function groupOf(c: Check) {
-  if (c.kind !== "person") {
-    return c.kind;
-  }
-  if (c.ref.startsWith("name:")) {
-    return "name";
-  }
-  return c.ref.startsWith("person:con_") ? "card" : "guessed person";
-}
-
 const BIG = 5;
-/** How many ride on an open matter, else on one line, two to five, more than five. */
+/** How many ride on an open matter, and of the rest on one line, two to five, more than five. */
 const spread = (list: Check[]) => {
   const rest = list.filter((c) => c.ridesOn.matters === 0);
-  return {
-    "1 line": rest.filter((c) => c.ridesOn.observations === 1).length,
-    "2 to 5 lines": rest.filter(
-      (c) => c.ridesOn.observations >= 2 && c.ridesOn.observations <= BIG
-    ).length,
-    "an open matter": list.length - rest.length,
-    "more than 5 lines": rest.filter((c) => c.ridesOn.observations > BIG)
-      .length,
-  };
+  const lines = (from: number, to: number) =>
+    rest.filter(
+      (c) => c.ridesOn.observations >= from && c.ridesOn.observations <= to
+    ).length;
+  return `Riding on: ${list.length - rest.length} on an open matter; of the other ${rest.length}, ${lines(1, 1)} on 1 line, ${lines(2, BIG)} on 2 to ${BIG} lines, ${lines(BIG + 1, Number.POSITIVE_INFINITY)} on more than ${BIG}.`;
 };
-
-const count = (counts: Record<string, number>) =>
-  Object.entries(counts)
-    .map(([k, n]) => `${n} ${k}`)
-    .join(", ");
 
 /** `bun life memory checks`: the count by kind and by what rides, then every row, most load-bearing first. */
 export function checksText(list: Check[]) {
-  const kinds: Record<string, number> = {};
-  for (const c of list) {
-    kinds[groupOf(c)] = (kinds[groupOf(c)] ?? 0) + 1;
-  }
+  const groups = Map.groupBy(list, (c) => c.group);
   return [
-    `${list.length} checks: ${count(kinds) || "none"}.`,
-    `Riding on: ${count(spread(list))}.`,
+    `${list.length} checks: ${[...groups].map(([g, l]) => `${l.length} ${g}`).join(", ") || "none"}.`,
+    spread(list),
     "",
     ...list.flatMap((c, i) => [
-      `${i + 1}. [${groupOf(c)}] ${c.guess}`,
+      `${i + 1}. [${c.group}] ${c.guess}`,
       ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
-      `   rides on: ${c.ridesOn.observations} lines, ${c.ridesOn.matters} open matters, ${c.ridesOn.summaries} pages. His answer: ${c.answers.join(" | ")}`,
+      `   rides on: ${c.ridesOn.observations} lines, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.answers.join(" | ")}`,
       "",
     ]),
   ].join("\n");

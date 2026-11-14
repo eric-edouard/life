@@ -79,27 +79,44 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   expect(check).toMatchObject({
     kind: "person",
     ref: REF,
-    ridesOn: { matters: 0, observations: 3, summaries: 0 },
+    ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
   expect(check?.guess).toContain("the plumber");
   expect(check?.evidence?.quote).toBe(`${ID} said hello`);
 });
 
-test("his word, this-is or not-this-person, removes the check", () => {
+test("his word, this-is or same-person to the guess, removes the check; a not-this-person on one handle does not", () => {
   const lines = [about(REF)];
-  const said = (kind: "this-is" | "not-this-person"): Correction => ({
-    at: "2026-10-03T10:00:00.000Z",
-    kind,
+  const at = "2026-10-03T10:00:00.000Z";
+  const thisIs: Correction = {
+    at,
+    kind: "this-is",
+    nameOrHandle: "+33600000001",
+    person: "person:zoe",
+    schemaVersion: 1,
+  };
+  const confirmed: Correction = { ...thisIs, person: REF };
+  const merged: Correction = {
+    at,
+    from: "person:inf_other",
+    kind: "same-person",
+    schemaVersion: 1,
+    to: REF,
+  };
+  // He refused one of two handles the guess goes by: the person is still a guess.
+  const refused: Correction = {
+    at,
+    kind: "not-this-person",
     nameOrHandle: "+33600000001",
     person: REF,
     schemaVersion: 1,
-  });
-  expect(checksOf(inputs(lines, { inferred: [ID] }))).toHaveLength(1);
-  for (const kind of ["this-is", "not-this-person"] as const) {
-    expect(
-      checksOf(inputs(lines, { corrections: [said(kind)], inferred: [ID] }))
-    ).toEqual([]);
-  }
+  };
+  const checks = (corrections: Correction[]) =>
+    checksOf(inputs(lines, { corrections, inferred: [ID] }));
+  expect(checks([])).toHaveLength(1);
+  expect(checks([thisIs, refused])).toHaveLength(1);
+  expect(checks([confirmed])).toEqual([]);
+  expect(checks([merged])).toEqual([]);
 });
 
 test("the order: open matters, then lines, then pages, then the newest", () => {
@@ -156,7 +173,7 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
   expect(kinds.filter((r) => r.startsWith("name:"))).toHaveLength(30);
 });
 
-test("an ending rides on its open matter and goes with his answer; a line with no doubt of its own gives no fact check", () => {
+test("an ending rides on its open matter and goes with his answer", () => {
   const o = line({ text: "Send the quote." });
   const matter = {
     open: true,
@@ -179,7 +196,4 @@ test("an ending rides on its open matter and goes with his answer; a line with n
     ridesOn: { matters: 1, observations: 0 },
   });
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
-  expect(
-    checksOf(inputs([about(REF)], { inferred: [ID] })).map((x) => x.kind)
-  ).toEqual(["person"]);
 });

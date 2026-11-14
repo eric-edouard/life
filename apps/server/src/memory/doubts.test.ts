@@ -50,7 +50,7 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
   expect(
     doubtsOf(o({ about: "person:inf_kit", confidence: 0.2 }), people)
   ).toEqual(["guessed-person", "low-confidence"]);
-  // His word on the guess ends the doubt.
+  // His word that it is them ends the doubt; a refusal of one handle does not.
   const said = peopleWith([
     {
       at: "2026-10-01T10:00:00.000Z",
@@ -60,7 +60,19 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
       schemaVersion: 1,
     },
   ]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), said)).toEqual([]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), said)).toEqual([
+    "guessed-person",
+  ]);
+  const confirmed = peopleWith([
+    {
+      at: "2026-10-01T10:00:00.000Z",
+      kind: "this-is",
+      nameOrHandle: "Kit",
+      person: "person:inf_kit",
+      schemaVersion: 1,
+    },
+  ]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), confirmed)).toEqual([]);
 });
 
 test("the fact checks he sees first: the most important, then the most doubtful, then the newest; never a sure, minor, stated or homeless claim", () => {
