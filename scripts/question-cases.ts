@@ -14,6 +14,7 @@ import { recentEvents } from "@life/server/src/core/log";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { buildServer } from "@life/server/src/host/http/mcp";
 import { INDEX, OUT } from "@life/server/src/memory/memory-files";
+import { parseReadPartRef } from "@life/server/src/memory/read-part";
 import { ended, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { judge, tally } from "@life/server/src/memory/tally";
@@ -52,10 +53,43 @@ const Case = z
 type Case = z.infer<typeof Case>;
 const Cases = z.object({ about: z.string(), cases: z.array(Case) }).strict();
 const Reply = z.object({ reply: z.string() });
-/** One call the agent made to the connector, as its `mcp.call` line says: the tool and how much it returned. */
+/**
+ * One call the agent made to the connector, as its `mcp.call` line says: the tool, its arguments as the agent sent
+ * them (strings clipped to 200 chars by the log) and how much it returned.
+ */
 interface ToolCall {
+  args?: unknown;
   chars?: number;
   tool?: string;
+}
+
+/** What each call opened, in call order, as a result file keeps it. Holds his names and queries: that file only. */
+export const callsOf = (calls: ToolCall[]) =>
+  calls.flatMap((k) =>
+    k.tool ? [{ args: k.args ?? {}, chars: k.chars ?? 0, tool: k.tool }] : []
+  );
+
+/**
+ * What the calls opened, as counts only (never an argument): by tool, and the read parts opened (`fetch` of a read
+ * part ref, `read_person_page` of a name being the person's `now`); any other `fetch` id, or a malformed ref, is `other`.
+ */
+export function openedOf(calls: { args?: unknown; tool: string }[]) {
+  const tools: Record<string, number> = {};
+  const parts: Record<string, number> = {};
+  const count = (m: Record<string, number>, key: string) => {
+    m[key] = (m[key] ?? 0) + 1;
+  };
+  for (const { args, tool } of calls) {
+    count(tools, tool);
+    const a = (args ?? {}) as { id?: unknown; name?: unknown };
+    if (tool === "fetch") {
+      const ref = parseReadPartRef(String(a.id ?? ""));
+      count(parts, "ref" in ref ? ref.ref.part : "other");
+    } else if (tool === "read_person_page" && a.name) {
+      count(parts, "now");
+    }
+  }
+  return { parts, tools };
 }
 
 /** The cases of `file`, those of `only` when given. */
@@ -162,7 +196,12 @@ async function askAgent(c: Case, dir: string, run: string) {
 type Row = (
   | Awaited<ReturnType<typeof runCase>>
   | { error: string; id: string }
-) & { asker: Case["asker"]; chars: number; tools: string[] };
+) & {
+  asker: Case["asker"];
+  calls: ReturnType<typeof callsOf>;
+  chars: number;
+  tools: string[];
+};
 const isPassed = (r: Row) => "passed" in r && r.passed;
 
 /**
@@ -195,6 +234,7 @@ async function runAll(
     rows.push({
       ...row,
       asker: c.asker,
+      calls: callsOf(calls),
       chars: calls.reduce((n, k) => n + (k.chars ?? 0), 0),
       tools: calls.flatMap((k) => (k.tool ? [k.tool] : [])),
     });
@@ -206,7 +246,11 @@ async function runAll(
 /** A key of `marksAcross` that is a must-hold point (`c…`). */
 const MUST_HOLD = /^\S+ c\d+$/;
 
-/** One case as a result file keeps it: only its id, whether it passed and each point's id and mark are read. */
+/**
+ * One case as a result file keeps it: only its id, whether it passed and each point's id and mark are read. Its
+ * `tools` (names; every file) and `calls` (what each opened; files since) are never read across runs, so an old file
+ * and a new one read the same.
+ */
 interface ResultCase {
   id: string;
   passed?: boolean;
@@ -308,6 +352,9 @@ if (import.meta.main) {
       return { cases: rows.length, passed: rows.filter(isPassed).length };
     });
     console.table(countsOf(rows));
+    const opened = openedOf(rows.flatMap((r) => r.calls));
+    console.table(opened.tools);
+    console.table(opened.parts);
   } else {
     console.table(countsOf(casesOf(readJson(CASES), values.only?.split(","))));
   }
