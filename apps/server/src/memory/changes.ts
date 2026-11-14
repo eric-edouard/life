@@ -36,14 +36,19 @@ import {
   readObservationStatusInputs,
   readOrigins,
   readUnit,
-  readUnresolved,
   runAt,
   SUPERSESSIONS,
 } from "./memory-files";
 import { type Key, PageMeta, parsePage, readLine } from "./page-format";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
-import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
+import {
+  aboutNow,
+  authorFrom,
+  chatHandles,
+  readPeople,
+  readUnresolvedPeople,
+} from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for the status reads: `read_memory_changes` (every observation, supersession,
 // correction, inferred person, action and page change, by cursor) and `read_observation` (one observation with its evidence).
@@ -552,7 +557,7 @@ export async function readObservation(id: string) {
   const chats = chatHandles(unit ? [unit] : []);
   const now = aboutNow(
     [o],
-    await readUnresolved(),
+    await readUnresolvedPeople(),
     people.truth.people,
     people.inferred,
     people.corrections,
