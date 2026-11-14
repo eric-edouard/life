@@ -92,11 +92,77 @@ night, and outputs already have an on and off switch (`core/outputs.ts`).
 
 ## The stages
 
-### The order agreed on 14 Nov (spec, section 22)
+### The build order of the five designs (14 Nov, after his feedback; spec, section 22)
+
+His feedback on the five designs (who is meant, one summary standard, one read for every source, one list of
+checks, practical and personal) put their steps in one order, in four phases. The steps and what judges each are
+in his data repo, `docs/memory-rework/build-order-2026-11-14.md`. Three rules behind it: code before calls, cents
+before dollars; each phase is judged before the next starts, on the 24 relationship cases run twice plus five list
+questions; every code change is its own PR with its verdict, and steps that touch different files run side by
+side.
+
+**Phase A. Code only, no model call.** Can start at once; nothing is spent.
+
+| # | What | Judged by |
+|---|---|---|
+| A1 | The gate, in one place; who is personally close and who has a persona without it, counted; 30 people by eye | A wrong level fixed before anything is gated |
+| A2 | Names and his relation words placed on the stored read replies; episodes list who is talked about | The share placed; each difference from the old lookup explained |
+| A3 | Ties, from lines where a relation word and a placed person sit together (after A2) | A relation word said by someone else placed right; 20 ties by eye |
+| A4 | The person read split into parts, each ending with its next reads | The 24 cases, three runs, not worse, fewer characters read |
+| A5 | A summary redone only when something new arrived (after A4) | One night's calls counted against that day's subjects |
+| A6 | The list of checks, in shadow, then its section in the nightly mail; the limit of 5 open fact checks goes | 20 checks by eye; he looks at one morning's mail |
+| A7 | What is redone when who is meant changes: a tie corrected, two people merged, a voice named, his correction (after A3) | One voice named weeks late, followed to what it changes and nothing else |
+| A8 | The whole history counted, by source and year | Gives the price of phase C |
+| A9 | The weak spots the night of 14 Nov showed: a list mail read as a person, one errand split over two matters, a call in no matter, a missing judge case | Each with its regression case |
+
+**Phase B. Trials on test sets, cents each.**
+
+| # | What | Judged by |
+|---|---|---|
+| B1 | One wording of the reads, files shown, with the proof of who is meant: the one-to-one test set, then the six days of recordings. One wording for both designs, tested once | Two model families agree; the pronouns that pass; 20 kept pronouns by eye |
+| B2 | Groups and mail test sets | 0.5 on 30 cases; whom a move is aimed at agrees 70 in 100 or more |
+| B3 | Recordings: whole conversations against 30-turn pieces; the codes that failed on speech checked again by the reference model | 0.5 on 30 cases |
+| B4 | Notes and assistant chats, the mentions read, one month | 0.5 on 30 cases; prices the whole |
+| B5 | Months in two sizes, each sentence with its days, since September, for the people with a page | The in-person moments never found on the 24 cases, now found, three runs |
+| B6 | Areas and projects, then his own month and situation | Ten area and project questions from his own |
+| B7 | The gate on the reads, and one person switched to personal | The share of recordings that is work; the switch followed |
+
+B5 and B6 do not wait for B1 to B4.
+
+**Phase C. The whole history, once.**
+
+| # | What |
+|---|---|
+| C1 | The Messenger importer, when his export is on the Mac. No model call |
+| C2 | The price, from A8 and the trials: chats again, groups, mail, recordings, then the parts not priced yet (older recordings; what the months of the years before September need) |
+| C3 | His yes on the total. Then one run, in the background, resumable, as many calls at once as the provider allows |
+| C4 | Judged: the 24 cases twice and the five list questions |
+
+**Phase D. On top of the rebuilt history.**
+
+| # | What |
+|---|---|
+| D1 | The nightly step on, its first week measured |
+| D2 | The persona from counts and quotes, beside today's for two weeks, then swapped |
+| D3 | The communication style guide |
+| D4 | People by tie |
+| D5 | The remaining kinds of check (tie, voice, appointment) and the app's card |
+| D6 | The connector, one batch, one reconnect: the list of checks, the parts of a read, people by tie, Messenger in the chats read, with stage 8's reads |
+| D7 | The Big Five grouping, once recordings are read and promises kept are counted |
+
+What waits on him, in the order it comes: his Messenger export; one morning's mail when the checks section first
+appears (A6); his yes on the total of phase C; two blind ratings (three people's personas, D2; drafts with and
+without the style guide, D3); one reconnect of his assistant apps (D6). His questionnaire is done (14 Nov).
+
+### The order before the designs (14 Nov, morning)
+
+Kept because the stages below point at its items. Item 1 is built; items 2 to 4 are now the phases above (who is
+meant: A2, A3, A7, B1; condensing: A4, A5, B5, B6; the reads on every source: B1 to B4, then C); item 5 is phase D
+and stages 5 to 7.
 
 | # | What | State |
 |---|---|---|
-| 1 | **Open things as matters**, four small PRs (plan: the `stored-reads` worktree's `PLAN.md`): (1) the matters step in shadow, setting `matters`, steps only; (2) `matterOf`, worked out when read (open, roles, matter status, next), and the readers of open items, due and the person read moved to it; (3) links on matters, prompt `memory-links` v2 (his yes); (4) endings checked by his word, at most 3 questions a day, "maybe done" until the two bars pass, setting `endings`. Backfill: the things open today, since 1 Sep, under $1 (his OK) | PR 1 built, not merged |
+| 1 | **Open things as matters**, four small PRs (plan: the `stored-reads` worktree's `PLAN.md`): (1) the matters step in shadow, setting `matters`, steps only; (2) `matterOf`, worked out when read (open, roles, matter status, next), and the readers of open items, due and the person read moved to it; (3) links on matters, prompt `memory-links` v2 (his yes); (4) endings checked by his word, at most 3 questions a day, "maybe done" until the two bars pass, setting `endings`. Backfill: the things open today, since 1 Sep, under $1 (his OK) | All four merged (the last: PR 495). The limit of 3 a day goes with the list of checks (A6) |
 | 2 | **Who is meant**, as a reference: names and his relation words by code, then pronouns with a looser proof; ties between other people as data; references in Life's own text shown as names | Two trials on six days of recordings; the non-Latin name bug fixed (PR 483) |
 | 3 | **Condensing**: situations and histories for every subject by one standard (spec 11), and the read path (spec 13), judged on the 24 cases | Histories for people with a page only |
 | 4 | **The reads on every source**: one shape, any number of speakers, `toward`; recordings, groups, mail. The history read again under that wording, about $18 for chats, needs his yes | Trials on recordings; nothing stored |
@@ -207,7 +273,7 @@ where an answer failed (spec 1).
 | 2.1 | **Merged 11 Nov (PR 446), in shadow, off until his `history` setting:** `memory/histories.ts`, a person's closed months summarised once from their one-to-one exchanges (quotes checked, kept apart), then the story of the years; pending work derived from stored hashes, 200 calls a night. Dry count on his data: 42 calls from 2026-09, 205 from 2025-11, 1,103 for every year (27 people). On for every year since 11 Nov night (his answer: "every year"; `history.from` 2007-01), 200 calls a night. The reader is merged (PR 449, 12 Nov): the story and the newest 12 months on the person read's first page, earlier months paged with its timeline. First check live, 12 Nov (`…/2026-11-12-v3-live-1.md`): 16 and 15 of 24 on the 8 cases with counts and the partly built history, against a mean of 13.6 before; to repeat once every month is built. Originally: A month's summary for a subject, built when asked, shadow; an old month reads its photo-days too (spec 11) | Against the raw read whole for one person and one month | None yet |
 | 2.2 | **Tested before building, 12 Nov: not built.** The open month in the person read moved the 8 cases inside their noise (14, 15 of 24), and a situation read from history plus episodes came out the same, line for line, as today's (`…/experiments/2026-11-12-situation-v3.md`). Reopen if 2.3's areas show a use for it. Originally: The situation reads summary plus what came since, in place of the page plus 30 days | Today's situations side by side | The 30-day window goes |
 | 2.3 | **14 Nov: under the one standard for every subject** (order item 3). Situations for parts of his life | A project he knows well | New: where each area stands |
-| 2.4 | Year and story; the persona's gist written with the story | His arc questions | Arcs have an answer for the first time |
+| 2.4 | **14 Nov: in two sizes, each sentence naming what it rests on** (B5, then phase C). Year and story; the persona's gist written with the story | His arc questions | Arcs have an answer for the first time |
 | 2.5 | **14 Nov: brought forward as every open thing** (order item 1). Matters: parts of his life Life names itself, like unknown people today | A dispute and a trip from his data | Things that run for months get a home |
 
 ### Stage 3. The pilot (no change to the running Life)
@@ -242,7 +308,7 @@ Fewer PRs if the pilot merges families. Each is switched on for new days only; i
 | 5.2 | **Tried and closed, 13 Nov (PR 479 closed):** the rates on the person read, as a table and as sentences, moved nothing on the question cases; rates feed readings, never shown raw (spec 9). Kept from the try: episode titles by month in the person read (PR 481). Originally: The person read gains its counts beside today's prose persona, same name and arguments; time together by month (recorded, pictured) shown apart from contact (spec 10) | First meters an agent can use as data |
 | 5.3 | Move sequences and the track record | "Will they do what they said" |
 | 5.4 | Closeness by depth, shadow beside today's, compared with what he said of each person; then it replaces it | Deletes the volume judge |
-| 5.5 | The persona's traits and move sequences come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
+| 5.5 | **14 Nov: D2, personal only (the gate, A1), how he writes to each person moved to the communication style guide (D3).** The persona's traits and move sequences come from the counts, a rate shown as an observation, a trait name as an interpretation (spec 10); how each writes stays | Deletes the weekly re-read of three years of raw |
 | 5.6 | Pages drawn by code from history and readings, one section per PR (Now, Earlier, Between us, his own page) | When the last section moved: deletes the page-writing prompt and its no-churn rules |
 
 **A case stage 5.3 and step 1.2 must pass (12 Nov, life issue 470; with its names in his data,
@@ -257,7 +323,7 @@ raises the step it was waiting for. The fixture: the forward is due from the day
 | Step | What ships |
 |---|---|
 | 6.1 | His correction is an input to the read of that exchange, and code keeps the record hidden in every later reading where one of the same evidence kind on the same messages matches it, until his word lifts it; it never hides another record of the same message (spec 8). One kind of his word per PR |
-| 6.2 | Questions for him: one new rule per PR on top of today's fact checks, same connector tools |
+| 6.2 | **14 Nov: the list of checks** (A6, D5; the connector's read of them in D6). Originally: Questions for him: one new rule per PR on top of today's fact checks, same connector tools |
 | 6.3 | The directory learns projects, goals and roles beside `truth/`, which stays its seed |
 | 6.4 | The rules of `AGENTS.md` rewritten (his yes), and the interview that seeds a new Life |
 
@@ -271,8 +337,9 @@ raises the step it was waiting for. The fixture: the forward is due from the day
 ### Stage 8. The connector's one batch
 
 The overview, a span, the evidence, and the "which part" argument: one PR, one reconnect, when everything they
-return already exists and has been read through the old tools. Also in that batch: `read_processing_runs`'s description
-(`mcp.ts`) still names the midday processing run, removed 11 Nov (left so his ChatGPT needs no reconnect for it).
+return already exists and has been read through the old tools. **14 Nov: this is D6**, which adds the list of
+checks, people by tie and Messenger in the chats read, beside the two reads for matters and the renames. Also in
+that batch: `read_processing_runs`'s description (`mcp.ts`) still names the midday processing run, removed 11 Nov (left so his ChatGPT needs no reconnect for it).
 
 ### Stage 9. The boundary
 
