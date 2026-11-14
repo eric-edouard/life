@@ -183,7 +183,7 @@ is that person and brings its handles; else a card that shares a handle with som
 one that shares only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`). A
 card whose whole name and whose handles say more than one person is no one's, an **ambiguous card** (he renamed a card,
 two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and
-`bun life memory questions` lists the card for him to say; a guess made for
+`bun life memory checks` lists the card for him to say; a guess made for
 one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
 the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
 
@@ -573,4 +573,4 @@ table `observations` (with `superseded_by` and its end date in `valid_to` for re
 `detail` it states), full-text table
 `search` (text and quote, accent-insensitive) and table `observation_subjects` (observation, subject: who or what each is about); and the units: table `units`,
 full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
-`-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|questions|chats|places` (read-only).
+`-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).

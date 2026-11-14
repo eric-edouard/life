@@ -3,6 +3,7 @@ import { clock, daysBefore } from "../core/clock";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
+import { checksNow, checksText } from "../memory/checks";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
 import { drawFactChecks } from "../memory/doubts";
@@ -36,7 +37,6 @@ import { placesOf } from "../memory/places";
 import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
 import { person } from "../memory/read-person-page";
-import { unresolved } from "../memory/read-unresolved";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
@@ -199,6 +199,11 @@ const HANDLERS: Record<string, Handler> = {
       })
     ),
   chats: (values) => printed(chatsOf(values)),
+  /** `checks`: everything Life would like him to verify (`checksNow`), counted by kind and by what rides on it, then every row. Read-only. */
+  async checks() {
+    console.log(checksText(await checksNow()));
+    return 0;
+  },
   closeness: step(async () => closeness(await readWithPeople())),
   /** `contact-people`: names the senders his Contacts know (the night does; this is its first build and a replay). */
   "contact-people": step(() => Promise.resolve(writeContactPeople())),
@@ -372,10 +377,6 @@ const HANDLERS: Record<string, Handler> = {
         radiusM: count(v.radius),
       })
     ),
-  async questions() {
-    console.log(await unresolved());
-    return 0;
-  },
   /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
   "recorded-days": step(writeRecordedDays),
   repos: (values, rest) =>
@@ -396,7 +397,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|evidence] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|evidence] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

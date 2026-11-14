@@ -3,7 +3,11 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { levelsWith } from "./closeness";
 import { QUOTE_MAX, section } from "./index-rows";
-import type { MatterStepNow, MatterView } from "./matter-read";
+import {
+  type MatterStepNow,
+  type MatterView,
+  matterPeopleOf,
+} from "./matter-read";
 import { readMatterBook } from "./matters";
 import {
   type Candidate,
@@ -52,7 +56,7 @@ export const matterItems = (
     const dates = open.flatMap((s) => (s.when ? [s.when] : [])).toSorted();
     // A date too old to list stays its date (never said again as undated).
     const due = dates.find((d) => d >= since) ?? dates.at(0);
-    const people = [...v.owedTo, ...v.waitingOn, ...v.with, ...v.told];
+    const people = matterPeopleOf(v);
     return [
       {
         at: next.at,

@@ -106,7 +106,7 @@ export async function readOpenFactChecks(now = clock().getTime()) {
     return {
       doubts: isEndingCheck(s)
         ? ["a later step seems to show it done"]
-        : (o ? doubtsOf(o, people.refOf) : []).map((d) => WHY[d]),
+        : (o ? doubtsOf(o, people) : []).map((d) => WHY[d]),
       from: `${s.source ?? "an episode"}, ${plain(s.date)}`,
       quote: isEndingCheck(s)
         ? (quotes.get(`${s.ref} ${s.endedBy}`) ?? null)

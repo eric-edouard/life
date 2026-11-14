@@ -49,7 +49,7 @@ in the step that produced it: fix that step with its regression case, never a `c
 - To-do item changes go through `bun life change-todo-item '<json>'`, never `remctl` directly. Deep work goes to his agent:
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
-  `bun life memory questions` before asking him anything. His word beats the memory.
+  `bun life memory checks` before asking him anything. His word beats the memory.
 - A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, Messenger, LinkedIn, mail) needs the owner's OK on the exact text.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
