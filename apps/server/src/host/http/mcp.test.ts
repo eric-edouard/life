@@ -189,6 +189,38 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     "search",
     "tell_life",
   ]);
+  // The arguments' names are pinned too: a part of a read goes through `fetch`'s `id`, never a new argument.
+  expect(
+    json.result.tools
+      .map(
+        (t: { inputSchema: { properties?: object }; name: string }) =>
+          `${t.name}(${Object.keys(t.inputSchema.properties ?? {})
+            .sort()
+            .join(",")})`
+      )
+      .sort()
+  ).toEqual([
+    "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
+    "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
+    "fetch(fromTurn,id,limit)",
+    "read_agent_asks(cursor,limit)",
+    "read_area_page(name)",
+    "read_chats(before,chat,from,to,who)",
+    "read_day(date)",
+    "read_fact_checks()",
+    "read_life_status()",
+    "read_matter(id)",
+    "read_matters(area,person,project)",
+    "read_memory_changes(about,cursor,limit,run,since,types)",
+    "read_new_events(arguments,cursor,event,limit)",
+    "read_observation(id)",
+    "read_open_todo_items(list)",
+    "read_person_page(before,name)",
+    "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
+    "read_processing_runs(cursor,limit,steps)",
+    "search(from,query,to)",
+    "tell_life(asked,said)",
+  ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
     (t: { name: string }) => t.name === "read_observation"

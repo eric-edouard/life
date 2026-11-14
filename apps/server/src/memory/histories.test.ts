@@ -207,7 +207,7 @@ test("a story is told when its months changed, never while a month of theirs sti
   );
 });
 
-test("the person read shows the story and the newest 12 months; every earlier month is a dated entry of its timeline", () => {
+test("a history is dated months only: each on its last day, newest first, with its summaries (its words are the month part's)", () => {
   const names = [
     ...Array.from(
       { length: 12 },
@@ -248,35 +248,18 @@ test("the person read shows the story and the newest 12 months; every earlier mo
       through: "2025",
     },
   };
-  const { block, earlier } = historyOf(history);
-  expect(block[0]).toStartWith("Past months between them and him");
-  expect(block[1]).toBe("Over the years (through 2025): Two quiet years.");
-  // Newest first, with the words found in their messages.
-  expect(block[2]).toBe(
-    '- 2026-02: What passed in 2026-02. Their words: "see you Sunday" (2026-02-03, them)'
-  );
-  expect(block.slice(2, -1)).toHaveLength(12);
-  expect(block.at(-2)).toBe("- 2025-03: What passed in 2025-03.");
-  // The 13th and 14th, each once, on the month's last day: paged by the one `before`.
-  expect(earlier).toEqual([
-    {
-      day: "2025-02-28",
-      kind: "month",
-      line: "- 2025-02: What passed in 2025-02.",
-    },
-    {
-      day: "2025-01-31",
-      kind: "month",
-      line: "- 2025-01: What passed in 2025-01.",
-    },
-  ]);
+  const dated = historyOf(history);
+  expect(dated).toHaveLength(14);
+  expect(dated[0]).toEqual({
+    day: "2026-02-28",
+    kind: "month",
+    line: "- 2026-02: What passed in 2026-02.",
+  });
+  expect(dated.at(-1)?.day).toBe("2025-01-31");
   // A short month ends on its own last day (a wrong one would break the paging).
   const leap = { ...months[0], month: "2024-02" } as History["months"][number];
-  expect(
-    historyOf({ ...history, months: [leap, ...months] }).earlier.at(-1)?.day
-  ).toBe("2024-02-29");
-  expect(historyOf({ months: [], schemaVersion: 1, story: null })).toEqual({
-    block: [],
-    earlier: [],
-  });
+  expect(historyOf({ ...history, months: [leap, ...months] }).at(-1)?.day).toBe(
+    "2024-02-29"
+  );
+  expect(historyOf({ months: [], schemaVersion: 1, story: null })).toEqual([]);
 });

@@ -327,12 +327,14 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "fetch",
-    "Open in full a conversation or a unit (chat, mail) another tool cited by id: who spoke and the words, a page of turns at a time. An ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words.",
+    "Open by id: a conversation or a unit (chat, mail) another tool cited, in full (who spoke and the words, a page of turns at a time; an ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words), or a part of a read: the ref a person read ends with under Next reads (`person:ana/year/2024`), opened with `id` alone (no `fromTurn`, no `limit`).",
     z.object({
       fromTurn: z.int().min(0).optional(),
       id: z
         .string()
-        .describe("Conversation id, unit id or turn ref from another tool"),
+        .describe(
+          "Conversation id, unit id or turn ref from another tool, or a read part ref from Next reads"
+        ),
       limit: z.int().min(1).max(500).optional(),
     }),
     ({ id, fromTurn, limit }) => openById(id, fromTurn, limit)
@@ -347,7 +349,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_person_page",
-    "Read it before he meets, calls or writes to someone, and for any question about a person. Their page, whole: their details (birthday, where they live, work, family, handles: from his directory and his Contacts); how close they are; what is open between them, whatever its day (what he owes them, then what he waits on from them); their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days); how he writes to them (How each writes: draft his messages to them in it, else in `me`'s); the page (who they are to the owner, where things stand, Earlier) and the observations linked to them, newest first; what Life holds about them by source and month; the episodes with them; recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
+    "Read it before he meets, calls or writes to someone, and for any question about a person. Returns the person in parts of about 6,000 characters; this call is the first, `now`: their details (birthday, where they live, work, family, handles: from his directory and his Contacts); how close they are; the last exchange; what is open between them, whatever its day (what he owes them, then what he waits on from them); their Situation (where things stand now: together or not, how they get along, read nightly from the last 30 days); and what their time together was about (the titles of their last episodes, by month). It ends with Next reads, refs you open with `fetch`: `page` (who they are to the owner, where things stand), `persona` (what they are like and how each writes: draft his messages to them in How each writes, else in `me`'s), `story` (the years between them, what code counted and what Life holds, by year) and `evidence` (the observations linked to them, the episodes and the recorded conversations, newest first). Go deeper the same way: story names each year, a year its months' summaries, a month its words and days, evidence its days with ids; `fetch` an id for the conversation. `before` (a day) returns the evidence older than it. Old chats: `read_chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
     z.object({
       before: Day.optional().describe(
         "Page back: only what is older than this day"
