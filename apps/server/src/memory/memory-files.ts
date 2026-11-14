@@ -194,7 +194,18 @@ export async function readUnit(id: string) {
   return readUnitsOf(recent).find((u) => u.id === id);
 }
 
-export const readObservations = () => readFolder(OBSERVATIONS, Observation);
+/** Every observation, oldest month first (append-only files, read once per process, then their new lines: never mutate a row). */
+export const readObservations = async () =>
+  (await filesIn(OBSERVATIONS)).flatMap((n) =>
+    readAppended<Observation, Observation[]>(
+      join(OBSERVATIONS, n),
+      Observation,
+      (last) => [...(last ?? [])],
+      (all, o) => {
+        all.push(o);
+      }
+    )
+  );
 
 /** Every episode line in memory/episodes/, oldest day first. */
 export const readEpisodes = () => readFolder(EPISODES, Episode);
@@ -423,8 +434,23 @@ export async function readObservationStatusInputs(
     readLiveUnits(),
     read ?? readOrigins().then((months) => [...months.values()].flat()),
   ]);
-  const extracted = rowsOf(EXTRACTED, Extracted);
-  const supersessions = rowsOf(SUPERSESSIONS, Supersession);
+  // Append-only files, read once per process then their new lines: callers never mutate the rows.
+  const extracted = readAppended<Extracted, Extracted[]>(
+    EXTRACTED,
+    Extracted,
+    (last) => [...(last ?? [])],
+    (all, e) => {
+      all.push(e);
+    }
+  );
+  const supersessions = readAppended<Supersession, Supersession[]>(
+    SUPERSESSIONS,
+    Supersession,
+    (last) => [...(last ?? [])],
+    (all, s) => {
+      all.push(s);
+    }
+  );
   const c = { latest: latestExtractions(extracted), live };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))

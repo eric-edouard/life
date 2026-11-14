@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -29,6 +29,7 @@ import {
   outdatedBy,
   readFactCheckAnswers,
   readIndex,
+  readObservations,
   readObservationStatusInputs,
   readOrigins,
   readUnit,
@@ -532,6 +533,49 @@ test("unit references read only indexed or cited days; a missing index entry che
     rmSync(UNITS, { force: true, recursive: true });
     rmSync(OBSERVATIONS, { force: true, recursive: true });
     rmSync(INDEX, { force: true });
+  }
+});
+
+test("readObservations reads an observation month once, then its new lines, and a rewrite whole", async () => {
+  const line = (id: string, text: string) =>
+    `${JSON.stringify({
+      area: null,
+      at: "2026-10-20T10:00:00.000Z",
+      confidence: 1,
+      date: "2026-10-20",
+      id,
+      importance: 2,
+      madeBy: { model: "m", prompt: "p", run: "r", unitHash: "h" },
+      quote: "q",
+      schemaVersion: 1,
+      source: { channel: "lifelog", ref: "j:0@x" },
+      speaker: "person:me",
+      subjects: [],
+      text,
+      type: "to_do",
+      tz: "UTC",
+      unit: "unit_0000000000aa",
+      validFrom: null,
+      validTo: null,
+      when: null,
+    })}\n`;
+  const file = join(OBSERVATIONS, "2026-10.jsonl");
+  const texts = async () => (await readObservations()).map((o) => o.text);
+  mkdirSync(OBSERVATIONS, { recursive: true });
+  try {
+    writeFileSync(file, line("obs_00000000000a", "one"));
+    expect(await texts()).toEqual(["one"]);
+    expect(await texts()).toEqual(["one"]);
+    appendFileSync(file, line("obs_00000000000b", "two"));
+    expect(await texts()).toEqual(["one", "two"]);
+    // Same size, other content: read again whole.
+    writeFileSync(
+      file,
+      line("obs_00000000000a", "uno") + line("obs_00000000000b", "dos")
+    );
+    expect(await texts()).toEqual(["uno", "dos"]);
+  } finally {
+    rmSync(OBSERVATIONS, { force: true, recursive: true });
   }
 });
 
