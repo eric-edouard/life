@@ -101,10 +101,12 @@ A pick stands only with one of three proofs. Code checks each and drops a pick i
    what `me` says. Said by anyone else it is their own father: `"unknown"`. A word that can name several people
    ("mon frère", "un ami", "my colleague") proves nothing alone. Never pick someone only because their `relation`
    holds the word.
-3. **The earlier naming.** `who` is a pronoun or any word that is neither ("elle", "him", "lui", "ce mec", "ta
-   sœur"). Add `namedOn`: the number of the nearest earlier line of this call, the `## Earlier in this
-   conversation` block included, where that same person is named by name, alias or the speaker's own relation
-   word. Without such a line: `"unknown"`, and no `namedOn`.
+3. **The earlier naming.** Only for `who` that is exactly one of these pronouns: he, him, she, her, they, them, il,
+   elle, lui, ils, elles, eux. Add `namedOn`: the number of the nearest earlier line, in the same exchange as this
+   mention or in the `## Earlier in this conversation` block, where that same person is named by name, alias or the
+   speaker's own relation word. A line in another exchange does not count. Any other word ("ce mec", "ta sœur",
+   "the guy") is answered by its own words (proof 1 or 2) or `"unknown"`, never by an earlier naming. Without such
+   a line: `"unknown"`, and no `namedOn`.
 
 When two people in `involved` could be meant and the words do not tell them apart: `"unknown"`.
 

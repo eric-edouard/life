@@ -65,7 +65,7 @@ export const namesOne = (word: string) => entryOf(word)?.one === true;
 export const saysMine = (text: string) => MINE.test(`${keyOf(text)} `);
 
 /** Pronouns, English and French: the only words an earlier naming may stand for (`placementOf`). A closed list, never a name. */
-const PRONOUNS = new Set([
+export const PRONOUNS = new Set([
   "he",
   "him",
   "she",

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { PRONOUNS } from "../records/relation-words";
 import { Person } from "../records/truth";
 import { peopleNamedBy, placementOf, saidOf } from "./mention-placement";
 import { OWNER } from "./read-truth";
@@ -108,4 +109,19 @@ test("a line names the people its names, handles and his own relation words say,
     by: OWNER,
     line: "x",
   });
+});
+
+const LISTED = /exactly one of these pronouns: ([^.]*)\./s;
+const SPLIT = /[,\s]+/;
+
+test("the mentions prompt names every pronoun the earlier-naming proof accepts", async () => {
+  const text = await Bun.file("prompts/memory-mentions.v2.md").text();
+  const listed = text.match(LISTED)?.[1] ?? "";
+  const words = listed.split(SPLIT).filter(Boolean);
+  for (const w of PRONOUNS) {
+    expect(words).toContain(w);
+  }
+  expect(words.filter((w) => w !== "or").every((w) => PRONOUNS.has(w))).toBe(
+    true
+  );
 });
