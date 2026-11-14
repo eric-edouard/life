@@ -9,10 +9,14 @@ import {
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
-  readUnresolved,
 } from "./memory-files";
 import { nameKey } from "./units";
-import { type People, readPeople, type Shown } from "./who";
+import {
+  type People,
+  readPeople,
+  readUnresolvedPeople,
+  type Shown,
+} from "./who";
 import { dayNow } from "./zones";
 
 // The checks: everything Life would like him to verify, in one shape and one list, with no limit. A check is one guess
@@ -331,7 +335,7 @@ export async function checksNow(): Promise<Check[]> {
   const people = await readPeople();
   const [records, unresolved, paged] = await Promise.all([
     readMatterRecords(people),
-    readUnresolved(),
+    readUnresolvedPeople(),
     pagedNow(people),
   ]);
   const matters = matterBookOf(

@@ -13,6 +13,7 @@ import { namesOne, relationWordOf } from "../records/relation-words";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
+import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";
 import {
   readContactLines,
@@ -27,7 +28,7 @@ import {
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
-import { nameKey, PERSON, UNKNOWN } from "./units";
+import { dayUnitId, nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.
@@ -568,6 +569,21 @@ export async function readPeople() {
 export type People = Awaited<ReturnType<typeof readPeople>>;
 
 /**
+ * The unresolved names that are people: `unresolved.jsonl` less the name that opens an agent's own report, which is that
+ * agent (the unit's own agent, in an agent unit; the same name anywhere else stays). Reads disk; rewrites nothing, and
+ * is not a test of whether a name is an agent's anywhere.
+ */
+export async function readUnresolvedPeople() {
+  const agentOf = new Map(
+    readAgentReports(new Date(0)).map((r) => [dayUnitId(r.event), r.agent])
+  );
+  return (await readUnresolved()).filter((u) => {
+    const agent = agentOf.get(u.unit);
+    return !agent || nameKey(agent) !== nameKey(u.nameAsWritten);
+  });
+}
+
+/**
  * The observations the pages and the index go by, those that show (`observationStatusOf`: neither hidden everywhere nor replaced),
  * filed as they read today; with the ledgers that say where each stands, and every observation in the ledger.
  */
@@ -581,7 +597,7 @@ export async function observationsNow({
   const [all, statusInputs, unresolved] = await Promise.all([
     read,
     readObservationStatusInputs(corrections, read),
-    readUnresolved(),
+    readUnresolvedPeople(),
   ]);
   const shown = shownOf(all, statusInputs);
   const needingHandles = shown.filter(
