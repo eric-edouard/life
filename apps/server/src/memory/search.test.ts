@@ -125,7 +125,8 @@ test("a search opens with his situation when it names no one, then others' lines
     { cites: [other], text: "Ana moved flats." },
   ]);
   const live = new Set([ep, other]);
-  const header = "(where things stand, read each night from the last 30 days):";
+  const header =
+    "(where things stand, read each night from the 30 days up to their newest episode):";
   try {
     await expect(
       readSituationsOf("what bothers me lately", live, new Set([ep]), true)

@@ -12,6 +12,7 @@ import {
   withMonth,
 } from "./histories";
 import { historyOf } from "./read-person-page";
+import { inputsOf } from "./run";
 import { readPeople } from "./who";
 import { localDate } from "./zones";
 
@@ -137,6 +138,30 @@ test("a month read again replaces its last version; the story reads the months t
     through: "2025",
     with: "Ann",
   });
+});
+
+test("a story's digest holds the months through the newest month's year, at most the last closed year: the clock alone never changes it", () => {
+  const month = (m: string) => ({
+    built: "2026-11-11T22:00:00.000Z",
+    inputs: m,
+    madeBy,
+    month: m,
+    parts: [{ quotes: [], summary: `in ${m}` }],
+  });
+  const empty: History = { months: [], schemaVersion: 1, story: null };
+  const digest = (history: History, today: string) =>
+    inputsOf("s", storyInputOf(history, "Ann", today));
+  const old = withMonth(withMonth(empty, month("2022-04")), month("2023-06"));
+  // The newest month is 2023: 1 January and 40 days later give the same story digest.
+  expect(digest(old, "2026-11-11")).toBe(digest(old, "2027-01-10"));
+  expect(storyInputOf(old, "Ann", "2027-01-10").through).toBe("2023");
+  // A month of the closed year is new to it; one of the current year waits for the year to close.
+  const last = withMonth(old, month("2025-12"));
+  expect(digest(last, "2026-11-11")).not.toBe(digest(old, "2026-11-11"));
+  const current = withMonth(last, month("2026-09"));
+  expect(digest(current, "2026-11-11")).toBe(digest(last, "2026-11-11"));
+  expect(digest(current, "2026-12-21")).toBe(digest(last, "2026-11-11"));
+  expect(digest(current, "2027-01-10")).not.toBe(digest(last, "2027-01-10"));
 });
 
 test("a night takes the newest months first, within its calls; a failed source reads nothing", async () => {

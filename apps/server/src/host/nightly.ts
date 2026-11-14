@@ -247,7 +247,8 @@ export async function nightly(days: number, force = false) {
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
  * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
  * his `history` setting is on) and of the exchange reads (`readExchangeReadWork`, only while his `exchangeReads`
- * setting is on) is taken from it, so only the last years stay in memory for closeness and the personas.
+ * setting is on) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
+ * at their newest day), so it is held until they run.
  */
 async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
@@ -277,7 +278,7 @@ async function readYears(now: Date) {
       });
     }
   }
-  return { pending, reads, withPeople: lastYearsOf(everyYear) };
+  return { everyYear, lastYears: lastYearsOf(everyYear), pending, reads };
 }
 
 /** The night's links: what is due (`readLinkWork`), judged. */
@@ -511,8 +512,8 @@ export async function runNight(
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();
-    const { pending, reads, withPeople } = await readYears(now);
-    await steps.step("closeness", () => closeness(withPeople));
+    const { everyYear, lastYears, pending, reads } = await readYears(now);
+    await steps.step("closeness", () => closeness(lastYears));
     const { keyObservations, marked, observed, retired } = await whatIsNew(
       since,
       window.from,
@@ -529,7 +530,7 @@ export async function runNight(
     }
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     steps.at = "personas";
-    await personas(withPeople);
+    await personas(everyYear);
     // The histories' months not read yet: a failure is logged and never stops the night.
     if (pending) {
       steps.at = "histories";

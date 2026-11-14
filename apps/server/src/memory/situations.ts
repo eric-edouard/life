@@ -1,9 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
+import { endingAtNewest } from "../core/lists";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import { Situation, SituationLine } from "../records/situation";
+import { KEEP_AT } from "../records/unit";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import {
   daysOf,
@@ -20,12 +22,13 @@ import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to
-// him, one call reads the page, their persona (what repeats) and the last DAYS days' episodes with them and
-// writes where things stand now, each line citing its episodes. A situation is rebuilt whole from those inputs, never from its last version, and only when they
-// changed. Nothing is sent.
+// him, one call reads the page, their persona (what repeats) and the DAYS days of episodes with them that end at their
+// newest and writes where things stand now, each line citing its episodes. A situation is rebuilt whole, never from its
+// last version, and only when those episodes changed: today's date, the page and the persona are shown to the call but
+// never decide whether it runs (AGENTS.md, "Invariants"). Nothing is sent.
 
 const SITUATION_PROMPT = "memory-situation.v2";
-/** Days of episodes a situation reads; older ones live on in the page's sections and Earlier. */
+/** Days of episodes a situation reads, ending at the newest; older ones live on in the page's sections and Earlier. */
 const DAYS = 30;
 
 const readSituation = (ref: string) => {
@@ -43,7 +46,7 @@ export const readSituationNow = (ref: string, live: ReadonlySet<string>) =>
 export const situationBlock = (title: string, lines: SituationLine[]) =>
   lines.length > 0
     ? [
-        `${title} (where things stand, read each night from the last ${DAYS} days):`,
+        `${title} (where things stand, read each night from the ${DAYS} days up to their newest episode):`,
         ...lines.map((l) => `- ${l.text} [${l.cites.join(", ")}]`),
         "",
       ]
@@ -67,37 +70,66 @@ export function shownLines(reply: unknown, shown: ReadonlySet<string>) {
   });
 }
 
+/**
+ * The episodes a subject's situation reads: those of weight (`KEEP_AT`) with them, in the `DAYS` days ending at the
+ * newest of them. The one set that decides who has a situation (see `isRecent`), what the call is shown and its digest.
+ */
+export const situationEpisodesOf = (
+  all: Episode[],
+  isWith: (m: Episode) => boolean
+) =>
+  endingAtNewest(
+    all.filter((m) => m.importance >= KEEP_AT && isWith(m)),
+    (m) => daysOf(m)[1],
+    DAYS
+  );
+
+/** Whether the newest of a subject's episodes is within `DAYS` days of `today`: only then has the subject a situation. */
+export const isRecent = (episodes: Episode[], today: string) =>
+  episodes.some((m) => daysOf(m)[1] >= daysBefore(today, DAYS));
+
+/** An episode as the situation call is shown it, names as of now. */
+const episodeInput = (m: Episode, nameOf: (ref: string) => string) => ({
+  day: m.start ?? m.day,
+  id: m.id,
+  people: m.people.map((p) => nameOf(p.ref)),
+  place: m.place,
+  title: m.title,
+  what: m.what,
+});
+
+/** What a situation's digest holds: its episodes, nothing else (not the clock, not the page, not the persona). */
+export const situationInputOf = (
+  episodes: Episode[],
+  nameOf: (ref: string) => string
+) => ({ episodes: episodes.map((m) => episodeInput(m, nameOf)) });
+
 export async function situations() {
   const step = await begin("situation", "main", { prompt: SITUATION_PROMPT });
   const people = await readPeople();
   const levels = levelsWith(people);
   const close = personallyClose(levels);
   const refs = refContext(people, close, contextPeopleBy(levels));
-  const since = daysBefore(step.today, DAYS);
-  const recent = episodesNow(await readEpisodes(), people.corrections).filter(
-    (m) => daysOf(m)[1] >= since
-  );
-  const asInput = (m: Episode) => ({
-    day: m.start ?? m.day,
-    id: m.id,
-    people: m.people.map((p) => people.nameOf(p.ref)),
-    place: m.place,
-    title: m.title,
-    what: m.what,
-  });
+  const all = episodesNow(await readEpisodes(), people.corrections);
   const targets = [OWNER, ...close].flatMap((ref) => {
-    const episodes = recent.filter(
+    const episodes = situationEpisodesOf(
+      all,
       (m) => ref === OWNER || m.people.some((p) => people.refOf(p.ref) === ref)
     );
-    return episodes.length > 0 ? [{ episodes, ref }] : [];
+    return isRecent(episodes, step.today) ? [{ episodes, ref }] : [];
   });
   let written = 0;
   await inBatches(targets, step, (t, dir) =>
     step.attempt(
       async () => {
+        const digested = situationInputOf(t.episodes, people.nameOf);
+        const inputs = inputsOf(SITUATION_PROMPT, digested);
+        if (readSituation(t.ref)?.inputs === inputs) {
+          return;
+        }
         const page = Bun.file(pagePath(t.ref));
         const input = {
-          episodes: t.episodes.map(asInput),
+          ...digested,
           page: {
             ref: t.ref,
             text: (await page.exists()) ? await page.text() : "",
@@ -109,10 +141,6 @@ export async function situations() {
             text: l.text,
           })),
         };
-        const inputs = inputsOf(SITUATION_PROMPT, input);
-        if (readSituation(t.ref)?.inputs === inputs) {
-          return;
-        }
         const reply = await step.ask({
           context: refs.context,
           dir,

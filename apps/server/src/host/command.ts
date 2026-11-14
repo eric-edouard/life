@@ -367,7 +367,7 @@ const HANDLERS: Record<string, Handler> = {
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
   person: (values, rest) => printed(person(words(rest) || undefined, values)),
-  personas: step(async () => personas(await readWithPeople())),
+  personas: step(async () => personas(await readWithPeople(new Date(0)))),
   places: (v) =>
     printed(
       placesOf({

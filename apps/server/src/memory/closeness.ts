@@ -26,8 +26,8 @@ type Folds = Pick<People, "canon" | "corrections">;
 
 const MEMORY_CLOSENESS_PROMPT = "memory-closeness.v1";
 const PER_CALL = 40;
-/** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
-const YEARS = 3;
+/** Years back: closeness counts from today (a day older weighs under an eighth of a recent one in `lasting`); a persona reads from the person's newest day. */
+export const YEARS = 3;
 
 /**
  * One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a
@@ -368,14 +368,15 @@ export async function waitingOf(
   ]);
 }
 
-/** Where the last YEARS years start: what closeness and the personas read. */
+/** Where the last YEARS years start: what closeness reads. */
 const yearsAgo = () =>
   new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
 
 /**
  * His chats and mail with people since `since` (`WITH_PEOPLE`), bulk mail and Life's own output left out; `failed`,
  * the sources that could not be read. The night reads every year once (`new Date(0)`): the exchange counts take all
- * of it, closeness and the personas its last YEARS years (`lastYearsOf`).
+ * of it, closeness its last YEARS years (`lastYearsOf`), the personas all of it (each reads the YEARS years ending at
+ * the person's newest day).
  */
 export async function readWithPeople(since = yearsAgo()) {
   const failed: string[] = [];

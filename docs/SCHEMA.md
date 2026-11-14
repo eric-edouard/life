@@ -375,7 +375,7 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 Where things stand now with the owner (`me`) or someone close to him (`personallyClose`), written by `situations.ts` each
 night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and `cites`, `ep_` ids of the episodes it
-rests on), `inputs` (a hash of the prompt version, the page, the persona's readings and the last 30 days' episodes), `built`, `madeBy`,
+rests on), `inputs` (a hash of the prompt version and the episodes shown: those of importance 2 or more with them in the 30 days ending at their newest, never the page, the persona or the date), `built`, `madeBy`,
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
 is no longer close. A reader drops a line whose episode is no longer live. His correction is a line on the page.
 
@@ -387,8 +387,8 @@ himself across everyone (`me`), written by `personas.ts` from 3 years of their 1
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
 line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `gist` (the same call's 2 or 3 sentences on what they are like, what keeps happening between them and him, and what works with them, shown first; his request of 9 Nov 2026), `inputs` (a hash of the prompt version and the
-days, recordings and counts shown, not the page), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
-and it is a week old; removed when the person has no page or nothing passed between them in the last 3 years (no 1:1 or group
+days, recordings and counts shown, over the 3 years ending at their newest day, not the page or the date), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
+and it is a week old; removed when the person has no page or nothing ever passed between them (no 1:1 or group
 chat-day, no recording). Nothing is
 written or removed on a night a source can't be read.
 
@@ -399,7 +399,7 @@ one-to-one chats and mail threads (`directChats`), while his `histories` setting
 `month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
 no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call
 was shown, none when nothing was long enough to find; `inputs`, a hash of the prompt version and the lines shown;
-`built`, `madeBy`), `story` (null until one is told: `text`, `through` the last closed year it covers, `inputs` a hash
+`built`, `madeBy`), `story` (null until one is told: `text`, `through` the year of the newest month it covers, at most the last closed year, `inputs` a hash
 of the prompt version and those months, `built`, `madeBy`), `schemaVersion`. Only closed months, from the setting's
 `from` on; a month of calls only has none. A month is replaced whole when read again (its inputs changed: a late
 backup, a late mail), the story when its months changed and none still waits; the last version stays in the data

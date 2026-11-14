@@ -1,3 +1,5 @@
+import { daysBefore } from "./clock";
+
 // Lists cut to a size: by a budget, or a page by whole keys; and a size said in words.
 
 /** "1 commit", "2 commits". */
@@ -31,6 +33,23 @@ export function newestWithin<P>(
     }
   }
   return taken;
+}
+
+/**
+ * The items whose day (`YYYY-MM-DD`) is within `days` days of the newest item's day, that day included: a window that
+ * ends at the subject's newest evidence, never at today, so the clock moving alone changes nothing.
+ */
+export function endingAtNewest<T>(
+  items: T[],
+  dayOf: (x: T) => string,
+  days: number
+) {
+  const newest = items.map(dayOf).reduce((a, d) => (d > a ? d : a), "");
+  if (!newest) {
+    return [];
+  }
+  const from = daysBefore(newest, days);
+  return items.filter((x) => dayOf(x) >= from);
 }
 
 /**

@@ -107,18 +107,11 @@ export function openWithOf(
     all.filter((c) => c.person === ref || c.people?.includes(ref)),
     { date: today, goals }
   );
-  const size = (l: string) => l.length + 1;
-  const his = within(
-    items.filter((i) => !isOwedToHim(i)).map(itemLine),
-    room,
-    size
-  );
-  const waits = within(
-    items.filter(isOwedToHim).map(itemLine),
-    room - his.reduce((n, l) => n + size(l), 0),
-    size
-  );
-  const more = items.length - his.length - waits.length;
+  // One cut over the ranked items, then the two sections of what fits: the top-ranked always come first.
+  const fits = within(items, room, (i) => itemLine(i).length + 1);
+  const his = fits.filter((i) => !isOwedToHim(i)).map(itemLine);
+  const waits = fits.filter(isOwedToHim).map(itemLine);
+  const more = items.length - fits.length;
   return items.length > 0
     ? [
         "",
