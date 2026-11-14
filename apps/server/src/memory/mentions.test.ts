@@ -1,13 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { Episode } from "../records/episode";
 import { ReadReply } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
@@ -176,9 +168,6 @@ test("the night keeps mentions one file a month, with no person in them; a month
       ),
       nov.at
     );
-    // The file of before the months is gone with the first night.
-    mkdirSync(dirname(MENTIONS), { recursive: true });
-    writeFileSync(`${MENTIONS}.json`, "{}");
     expect(writeMentions({ events: [...chat, nov], failed: [] })).toEqual({
       failed: 0,
       mentions: 3,
@@ -187,7 +176,6 @@ test("the night keeps mentions one file a month, with no person in them; a month
       "2026-10.json",
       "2026-11.json",
     ]);
-    expect(existsSync(`${MENTIONS}.json`)).toBe(false);
     expect(Object.keys(readMentions() ?? {})).toEqual([
       "2026-10-01",
       "2026-10-03",
@@ -344,6 +332,7 @@ test("who an episode talked about: those its units placed, never those taking pa
   // Someone else saying his own name places a mention on him: not talked about.
   const himself = Person.parse({ aliases: [], id: "me", name: "Owen" });
   const withHim = directory(hugo, himself);
+  expect(place(saying("Owen", "+1"), withHim)?.ref).toBe("person:me");
   expect(
     talkedAboutOf(
       episode,

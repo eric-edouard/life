@@ -101,11 +101,10 @@ export function writeMentions({
         Stored.parse({ built, days: Object.fromEntries(days) })
       );
     }
-    // A month no mention is left in goes, as does the one file of before the months (14 Nov 2026; goes once it has run).
+    // A month no mention is left in goes.
     for (const month of monthsKept().filter((m) => !byMonth.has(m))) {
       rmSync(mentionsPath(month));
     }
-    rmSync(`${MENTIONS}.json`, { force: true });
     return { failed: 0, mentions: mentions.length };
   } catch (e) {
     log("run.error", {
