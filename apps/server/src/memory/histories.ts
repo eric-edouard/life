@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { z } from "zod";
 import { readJson } from "../core/files";
 import { newestWithin } from "../core/lists";
 import { log } from "../core/log";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { callCharsOf, stamp } from "../models/llm";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
@@ -119,7 +120,7 @@ export function readHistory(ref: string): History {
   const month =
     at?.[0] === "months" ? raw?.months?.[Number(at[1])]?.month : undefined;
   throw new Error(
-    `the history ${path} is in a shape this version does not know${month ? ` (month ${String(month)})` : ""}`
+    `the history ${relative(OWNER_DATA_DIR, path)} is in a shape this version does not know${month ? ` (month ${String(month)})` : ""}`
   );
 }
 
@@ -147,18 +148,21 @@ export async function readHistoryWork(
     return null;
   }
   const direct = directChats(events, people.resolve);
-  const paged = [...(await pagedNow(people))];
-  const pending = paged.flatMap((ref) => {
-    const name = people.nameOf(ref);
-    // A history in an unknown shape is logged and left alone: no month of that person is read, so none is written over it.
-    let stored: History;
+  const everyone = [...(await pagedNow(people))];
+  // A history in an unknown shape is logged once and left out of the work: no month of that person is read, so none is
+  // written over it, and no story call fails for it again.
+  const paged = everyone.filter((ref) => {
     try {
-      stored = readHistory(ref);
+      readHistory(ref);
+      return true;
     } catch (e) {
       log("run.error", { error: (e as Error).message, step: "memory.history" });
-      return [];
+      return false;
     }
-    const built = new Map(stored.months.map((m) => [m.month, m]));
+  });
+  const pending = paged.flatMap((ref) => {
+    const name = people.nameOf(ref);
+    const built = new Map(readHistory(ref).months.map((m) => [m.month, m]));
     return monthCallsOf(direct.get(ref) ?? [], name, o)
       .filter((m) => built.get(m.month)?.inputs !== m.inputs)
       .map((m) => ({ m, name, ref }));

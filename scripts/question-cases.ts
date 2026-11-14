@@ -256,14 +256,14 @@ export function marksAcross(runs: ResultCase[][], baselines = 0) {
 }
 
 /** A run named on the command line: one result file's id, or several joined by `+`. */
-const readRun = (arg: string) =>
-  arg
-    .split("+")
-    .flatMap(
-      (id) =>
-        readJson<{ cases: ResultCase[] }>(join(RESULTS, `${id}.json`))?.cases ??
-        []
-    );
+export const readRun = (arg: string) =>
+  arg.split("+").flatMap((id) => {
+    const file = readJson<{ cases: ResultCase[] }>(join(RESULTS, `${id}.json`));
+    if (!file) {
+      throw new Error(`no result file ${id}`);
+    }
+    return file.cases;
+  });
 
 if (import.meta.main) {
   const { positionals, values } = parseArgs({

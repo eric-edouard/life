@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { casesOf, countsOf, marksAcross, runCase } from "./question-cases";
+import {
+  casesOf,
+  countsOf,
+  marksAcross,
+  readRun,
+  runCase,
+} from "./question-cases";
 
 const file = {
   about: "made-up cases",
@@ -117,4 +123,10 @@ test("the marks across runs: ids and marks only, the must-hold points no baselin
       { cases: 1, passed: 1, points: 3, pointsOk: 3, wrong: 0 },
     ],
   });
+});
+
+test("a run with no result file is an error, never a baseline that found nothing", () => {
+  expect(() => readRun("no-such-run+other")).toThrow(
+    "no result file no-such-run"
+  );
 });

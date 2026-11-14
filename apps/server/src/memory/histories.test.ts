@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { newestWithin } from "../core/lists";
+import { OWNER_DATA_DIR } from "../core/paths";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import {
@@ -15,7 +16,7 @@ import {
   withMonth,
 } from "./histories";
 import { historyPath } from "./memory-files";
-import { historyOf } from "./read-person-page";
+import { historyOf, person } from "./read-person-page";
 import { inputsOf } from "./run";
 import { readPeople } from "./who";
 import { localDate } from "./zones";
@@ -35,7 +36,8 @@ const msg = (
   text,
   ...extra,
 });
-const UNKNOWN_SHAPE = /test-unknown-shape\.json.*2026-09/;
+const UNKNOWN_SHAPE =
+  /^the history memory\/histories\/test-unknown-shape\.json .*2026-09/;
 const span = { from: "2026-08", today: "2026-11-11" };
 const madeBy = { engine: "claude" as const, model: "m", prompt: "p", run: "r" };
 
@@ -294,7 +296,7 @@ test("a history is dated months only: each on its last day, newest first, with i
   expect(historyOf({ months: [], schemaVersion: 1, story: null })).toEqual([]);
 });
 
-test("a history in a shape the code does not know is an error naming the file and the month, never an empty history a write would replace", () => {
+test("a history in a shape the code does not know is an error naming the file and the month, never an empty history a write would replace", async () => {
   expect(readHistory("person:test-nobody")).toEqual({
     months: [],
     schemaVersion: 1,
@@ -324,5 +326,24 @@ test("a history in a shape the code does not know is an error naming the file an
   const write = () =>
     withMonth(readHistory(ref), month("2026-10", { parts: [] }) as never);
   expect(write).toThrow();
+  expect(readFileSync(path, "utf8")).toBe(stored);
+  // What an assistant reads says so in one line, with no absolute path, rather than throwing or reading as empty.
+  const said = JSON.stringify(
+    await person("test-unknown-shape", { part: "story" })
+  );
+  expect(said).toContain("memory/histories/test-unknown-shape.json");
+  expect(said).toContain("2026-09");
+  expect(said).not.toContain(OWNER_DATA_DIR);
+  // The night leaves that person out of its work: one error, no story call to fail again.
+  const people = await readPeople();
+  const work = await readHistoryWork(
+    { events: [], failed: [] },
+    {
+      ...people,
+      truth: { ...people.truth, people: [{ id: "test-unknown-shape" }] },
+    } as never,
+    span
+  );
+  expect(work?.work.map((w) => w.ref)).not.toContain(ref);
   expect(readFileSync(path, "utf8")).toBe(stored);
 });
