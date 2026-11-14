@@ -97,7 +97,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | history month part | One piece of a history month's reading: its summary and the quotes that back it (`HistoryPart`, `memory/histories.ts`). Not a day part, not a read part. | |
 | subject | What a read is about: a person, project or area (a `SubjectRef`: `person:<id>`, `project:<id>`, `area:<id>`). | |
 | read part | One bounded piece of what Life holds about a subject, about `PART_CHARS` characters, opened by its ref and ending with its next reads (`memory/read-part.ts`); today a person's `now` (the first page) and `evidence` (observations, episodes and recorded conversations, by span, paged back). Not a day part, not a history month part. | |
-| read part ref | A read part's id, `<subject>/<part>[/<span>][/before/<day>]` (`person:ana/evidence/2024-03`), opened by `fetch` (`openById`) and `person --part`; worked out, never stored (`ReadPartRef`, `parseReadPartRef`, `readPartRefOf`). | |
+| read part ref | A read part's id, `<subject>/<part>[/<span>][/before/<day>]` (`person:ana/evidence/2024-03`; a span is a year, YYYY, or a month, YYYY-MM), opened by `fetch` (`openById`) and `person --part`; worked out, never stored (`ReadPartRef`, `parseReadPartRef`, `readPartRefOf`). | |
 | next reads | The last lines of a read part: the refs of its deeper reads, each with what it holds (`nextReads`). | |
 | what | An episode's own account: what happened and what came of it, in one to three sentences. Not a unit's `summary` (lifelog's, of one conversation). | |
 | within | The episode holding another (a dinner within a trip). | |

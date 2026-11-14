@@ -5,7 +5,7 @@ import { isDay } from "./zones";
 // --part`), each ending with the exact refs of its deeper reads (`nextReads`). A ref is worked out, never stored.
 
 /** The parts that exist; `now` is a subject's first page, `evidence` its observations, episodes and chats, paged back. */
-export const READ_PARTS = ["now", "evidence"] as const;
+const READ_PARTS = ["now", "evidence"] as const;
 export type ReadPart = (typeof READ_PARTS)[number];
 
 /** About how many characters an `evidence` part holds; a day is never cut, so the last one may pass it. */
@@ -18,9 +18,6 @@ export interface ReadPartRef {
   span?: string;
   subject: string;
 }
-
-/** What a ref starts with when it is a subject's: anything that does goes to a part read, never to `fetch`'s lookup. */
-export const SUBJECT_PREFIX = /^(?:person|project|area):/;
 
 const SPAN = /^\d{4}(?:-\d{2})?$/;
 

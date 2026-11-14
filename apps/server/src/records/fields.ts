@@ -20,6 +20,9 @@ export const UnitId = z.string().regex(new RegExp(`^${UNIT_ID.source}$`));
 /** 16 hex of SHA-256 over a unit's content. */
 export const ContentHash = z.string().regex(/^[0-9a-f]{16}$/);
 
+/** What a subject ref starts with: its three kinds. */
+export const SUBJECT_PREFIX = /^(?:person|project|area):/;
+
 /** person:<slug>, project:<slug> or area:<slug> (design §3.2). */
 export const SubjectRef = z
   .string()

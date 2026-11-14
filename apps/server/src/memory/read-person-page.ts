@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock, HOUR } from "../core/clock";
 import { newestDays, within } from "../core/lists";
+import { SubjectRef } from "../records/fields";
 import type { History } from "../records/history";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
@@ -152,6 +153,16 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
   ];
 }
 
+/** `meant`'s answer, but a part read by id (`byId`) takes the person with exactly that id before any name or alias. */
+export function personFor(
+  name: string,
+  meaning: ReturnType<typeof meant>,
+  byId?: boolean
+) {
+  const exact = byId ? meaning.all.find((p) => p.id === name) : undefined;
+  return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
+}
+
 /**
  * A person: their page, whole, with what code counted between them and him (`exchangeCountsBlock`), their history's
  * story and newest months (`historyOf`; the earlier months are paged with the timeline) and what Life holds
@@ -163,7 +174,7 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
  */
 export async function person(
   name?: string,
-  o: { before?: string; part?: string; span?: string } = {}
+  o: { before?: string; byId?: boolean; part?: string; span?: string } = {}
 ) {
   if (!name) {
     const list = await peoplePages();
@@ -181,13 +192,19 @@ export async function person(
   }
   const folks = await readPeople();
   const { refOf, truth } = folks;
-  const { all: people, known, same } = meant(name, folks);
+  const {
+    all: people,
+    known,
+    same,
+  } = personFor(name, meant(name, folks), o.byId);
   // The person's own page, by its id: never one whose file name only holds the name.
   const file = known && Bun.file(pagePath(`person:${known}`));
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const id = known ?? slugOf(name);
   const ref = `person:${id}`;
+  // A ref a part read can open again: one for a person Life knows, never for a name only heard.
+  const refable = known && SubjectRef.safeParse(ref).success ? ref : undefined;
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
   const details = detailsBlock(readDetailsOf(folks)(ref), dayNow());
@@ -264,7 +281,7 @@ export async function person(
           ...heldLines(db, ref, timeline),
         ],
         part: part as ReadPart,
-        ref,
+        ref: refable,
         span: o.span,
         timeline,
       });
@@ -286,7 +303,7 @@ export function partLines(o: {
   heard: { name: string }[];
   now: (observations: string[]) => string[];
   part: ReadPart;
-  ref: string;
+  ref?: string;
   span?: string;
   timeline: Dated[];
 }) {
@@ -308,19 +325,20 @@ export function partLines(o: {
   const none = ["(nothing older)"];
   let ending = none;
   if (next) {
-    ending = evidence
-      ? nextReads([
-          {
-            ref: {
-              before: next,
-              part: "evidence",
-              span: o.span,
-              subject: o.ref,
+    ending =
+      evidence && o.ref
+        ? nextReads([
+            {
+              ref: {
+                before: next,
+                part: "evidence",
+                span: o.span,
+                subject: o.ref,
+              },
+              what: "older evidence",
             },
-            what: "older evidence",
-          },
-        ])
-      : [`Older: the same call with \`before\` ${next}.`];
+          ])
+        : [`Older: the same call with \`before\` ${next}.`];
   }
   return [
     ...o.candidates,

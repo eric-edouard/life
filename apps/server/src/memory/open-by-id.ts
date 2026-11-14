@@ -1,4 +1,5 @@
-import { parseReadPartRef, SUBJECT_PREFIX } from "./read-part";
+import { SUBJECT_PREFIX } from "../records/fields";
+import { parseReadPartRef } from "./read-part";
 import { person } from "./read-person-page";
 import { asData, fetchOf } from "./words";
 
@@ -27,7 +28,7 @@ export function openById(
   }
   const { subject, ...o } = read.ref;
   return subject.startsWith("person:")
-    ? person(subject.slice("person:".length), o)
+    ? person(subject.slice("person:".length), { ...o, byId: true })
     : Promise.resolve(
         asData([`(no read parts for ${subject} yet: only a person's)`])
       );

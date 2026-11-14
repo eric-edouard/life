@@ -7,7 +7,7 @@ import {
   type ReadPartRef,
   readPartRefOf,
 } from "./read-part";
-import { partLines } from "./read-person-page";
+import { partLines, personFor } from "./read-person-page";
 
 const refs: ReadPartRef[] = [
   { part: "now", subject: "person:ana" },
@@ -56,6 +56,7 @@ test("fetch by id: a subject's id is a part read (a malformed one is an error, n
   expect(await openById("person:ana/evidence")).not.toContain("nothing found");
 });
 
+const OLDER = /^Older: the same call with `before` 2024-03-\d\d\.$/;
 const BEFORE = /before\/(\S+):/;
 const day = (n: number) => `2024-03-${String(n).padStart(2, "0")}`;
 const items = (kind: "observation" | "episode", days: number[], pad = 0) =>
@@ -147,4 +148,33 @@ test("next reads end a part with each read's ref and what it holds", () => {
     "Next reads (`fetch <ref>`):",
     "- person:ana/evidence/2024: the year",
   ]);
+});
+
+test("a part read by id takes the person with that id, not whoever goes by it as a name", () => {
+  const ana = { id: "ana", name: "Ana" };
+  const bo = { aliases: ["ana"], id: "bo", name: "Bo" };
+  const meaning = {
+    all: [ana, bo],
+    known: "bo",
+    same: [bo],
+  } as unknown as Parameters<typeof personFor>[1];
+  expect(personFor("ana", meaning, true).known).toBe("ana");
+  expect(personFor("ana", meaning).known).toBe("bo");
+  expect(personFor("zed", meaning, true).known).toBe("bo");
+});
+
+test("evidence of a person with no ref (only heard) ends with the older call, never a ref", () => {
+  const timeline = Array.from({ length: 30 }, (_, i) => ({
+    day: day(i + 1),
+    kind: "episode" as const,
+    line: `- ep ${i + 1} ${"x".repeat(500)}`,
+  }));
+  const out = partLines({
+    ...base,
+    part: "evidence",
+    ref: undefined,
+    timeline,
+  });
+  expect(out.at(-1)).toMatch(OLDER);
+  expect(out.join("\n")).not.toContain("Next reads");
 });
