@@ -1,4 +1,5 @@
 import { clock, daysBefore } from "../core/clock";
+import { within } from "../core/lists";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import { ClosenessLevel } from "../records/observation";
 import { levelsWith } from "./closeness";
@@ -90,28 +91,45 @@ export function dueOf(
 /**
  * What is open between him and `ref`, every item ranked (`rankedItems`), as the person page's section: what he owes
  * them, then what he waits on (`isOwedToHim`). Theirs are the open matters they are in, whatever their role, and the
- * replies he owes them (`items`).
+ * replies he owes them (`items`). `room`: about how many characters the lines may take, the top-ranked first; what
+ * does not fit is counted and left to `read_matters`.
  */
 export function openWithOf(
   ref: string,
   {
     goals,
     items: all,
+    room = Number.POSITIVE_INFINITY,
     today,
-  }: { goals: string[][]; items: Candidate[]; today: string }
+  }: { goals: string[][]; items: Candidate[]; room?: number; today: string }
 ) {
   const items = rankedItems(
     all.filter((c) => c.person === ref || c.people?.includes(ref)),
     { date: today, goals }
   );
-  const owedToHim = items.filter(isOwedToHim);
-  const his = items.filter((i) => !isOwedToHim(i));
+  const size = (l: string) => l.length + 1;
+  const his = within(
+    items.filter((i) => !isOwedToHim(i)).map(itemLine),
+    room,
+    size
+  );
+  const waits = within(
+    items.filter(isOwedToHim).map(itemLine),
+    room - his.reduce((n, l) => n + size(l), 0),
+    size
+  );
+  const more = items.length - his.length - waits.length;
   return items.length > 0
     ? [
         "",
         "Open with them (done when Life sees it done or he says so):",
-        ...section("He owes them:", his.map(itemLine)),
-        ...section("He waits on:", owedToHim.map(itemLine)),
+        ...section("He owes them:", his),
+        ...section("He waits on:", waits),
+        ...(more > 0
+          ? [
+              `${more} more open with them, ranked lower: \`read_matters\` with person ${ref.slice(ref.indexOf(":") + 1)}.`,
+            ]
+          : []),
       ]
     : [];
 }

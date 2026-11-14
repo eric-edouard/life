@@ -111,7 +111,7 @@ A person's page (`read_person_page`) lists every open matter they are in, whatev
 and the replies he owes them, ranked the same way
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`).
 
-The connector's `read_person_page` returns the `now` part (`memory/read-person-page.ts`): their details, closeness, the last exchange, the open matters, the Situation and, first, what their time together was about: the titles of the last 60 episodes they took part in, by month (`episodeTitleLines`). The rest of the old first page is the parts `page`, `persona` (with How each writes), `story`, `year` and `month`, and `evidence` is the observations, episodes and conversations; each part is about 6,000 characters and ends with the refs of its deeper reads, which `fetch` opens (`openById`, `read-part.ts`). A person only heard has no parts: their read is the evidence, paged with `before`.
+The connector's `read_person_page` returns the `now` part (`memory/read-person-page.ts`): their details, closeness, the last exchange, the open matters (the top-ranked up to the room `PART_CHARS` leaves, the rest counted and left to `read_matters` with `person`), the Situation and, first, what their time together was about: the titles of the last 60 episodes they took part in, by month (`episodeTitleLines`). The rest of the old first page is the parts `page`, `persona` (with How each writes), `story`, `year` and `month`, and `evidence` is the observations, episodes and conversations; each part is about 6,000 characters and ends with the refs of its deeper reads, which `fetch` opens (`openById`, `read-part.ts`). A person only heard has no parts: their read is the evidence, paged with `before`.
 
 ### The auto-add permission
 

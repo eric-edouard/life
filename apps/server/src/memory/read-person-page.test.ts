@@ -8,8 +8,14 @@ import type { History } from "../records/history";
 import type { Unit } from "../records/unit";
 import { buildIndex } from "./index-writer";
 import { openById } from "./open-by-id";
+import { openWithOf } from "./read-open-items";
 import { PART_CHARS, parseReadPartRef } from "./read-part";
-import { heldLines, lastExchangeLine, partLines } from "./read-person-page";
+import {
+  heldLines,
+  lastExchangeLine,
+  nowLines,
+  partLines,
+} from "./read-person-page";
 
 const madeBy = { engine: "claude", model: "m", prompt: "p", run: "r" } as const;
 const years = [2021, 2022, 2023, 2024, 2025];
@@ -76,38 +82,57 @@ const fixed: Record<string, string[]> = {
   page: ["PAGE who they are", "PAGE where things stand"],
   persona: ["PERSONA in short", "PERSONA how each writes"],
 };
-const held = (grain: "month" | "year", span?: string) =>
-  grain === "year"
-    ? ["HELD sources", ...years.map((y) => `HELD ${y}`)]
-    : months.filter((m) => m.startsWith(span ?? "")).map((m) => `HELD ${m}`);
+const held = ({
+  sourcesOnly,
+  span,
+}: {
+  sourcesOnly?: boolean;
+  span?: string;
+} = {}) => [
+  ...(span ? [] : ["HELD sources"]),
+  ...(sourcesOnly
+    ? []
+    : months.filter((m) => m.startsWith(span ?? "")).map((m) => `HELD ${m}`)),
+];
+const noHistory: History = { months: [], schemaVersion: 1, story: null };
 const base = {
   candidates: [],
   counts,
   heard: [],
   held,
+  heldYears: years.map(String),
   history,
   ref: "person:ana",
   timeline,
 };
 type Part = Parameters<typeof partLines>[0]["part"];
+// What the person's history is, for the read: the whole one, or none read yet.
+let shown = history;
 const read = (
   _name: string,
   o: { before?: string; part?: string; span?: string }
 ) => {
   const part = (o.part ?? "now") as Part;
   return Promise.resolve(
-    partLines({ ...base, ...o, fixed: fixed[part] ?? [], part }).join("\n")
+    partLines({
+      ...base,
+      ...o,
+      fixed: fixed[part] ?? [],
+      history: shown,
+      part,
+    }).join("\n")
   );
 };
 const open = (id: string) =>
   openById(id, undefined, undefined, read as Parameters<typeof openById>[3]);
 
+const MORE_OPEN =
+  /\d+ more open with them, ranked lower: `read_matters` with person ana/;
 const SPANNED_EVIDENCE = /\/evidence\/\d{4}/;
 const NEXT = /^- (\S+): /gm;
 const YEAR_BEFORE = /person:ana\/year\/2023\/before\/(\S+):/;
 const OBS_DAY = /^- obs (\S+) /;
 const OLDER = /^Older: the same call with `before` (\S+)\.$/;
-const YEAR_LINE = /^- 202\d: /;
 
 /** Every part reachable from `now` by next reads only, level by level, each opened through `openById`. */
 async function reachable(
@@ -176,8 +201,7 @@ test("every line of the old first page sits in exactly one part", async () => {
         `- ${m}: ${history.months.find((x) => x.month === m)?.parts[0]?.summary}`
     ),
     ...months.map((m) => `- "see you on the ${m} Sunday" (${m}-03, them)`),
-    ...held("year"),
-    ...held("month"),
+    ...held(),
     ...timeline.map((t) => t.line),
   ];
   for (const l of old) {
@@ -185,12 +209,58 @@ test("every line of the old first page sits in exactly one part", async () => {
   }
 });
 
-test("`now` is a few lines, far smaller than the old first page", async () => {
-  const seen = await reachable();
-  const now = (seen.get("person:ana/now") as string).length;
-  const whole = [...seen.values()].join("").length;
-  expect(now).toBeLessThan(whole / 100);
-  expect(now).toBeLessThan(1000);
+test("`now` with 200 open items still fits the part, and says how many more there are", () => {
+  const items = Array.from({ length: 200 }, (_, i) => ({
+    at: `2026-10-${String((i % 28) + 1).padStart(2, "0")}T10:00:00.000Z`,
+    id: `obs_${String(i).padStart(12, "0")}`,
+    kind: "to_do" as const,
+    line: `- to do ${i}: ${"he owes them a long errand ".repeat(11)}`,
+    people: ["person:ana"],
+    person: "person:ana",
+    when: "2026-11-14",
+  }));
+  const nowBlock = nowLines({
+    after: ["SITUATION"],
+    before: ["TITLES".repeat(100), "DETAILS", "CLOSE", "LAST EXCHANGE"],
+    open: (room) =>
+      openWithOf("person:ana", {
+        goals: [],
+        items,
+        room,
+        today: "2026-11-14",
+      }),
+  });
+  const text = partLines({ ...base, fixed: nowBlock, part: "now" }).join("\n");
+  expect(text.length).toBeLessThan(PART_CHARS);
+  expect(text).toContain("to do ");
+  expect(text).toMatch(MORE_OPEN);
+  expect(text).toContain("SITUATION");
+  expect(text).toContain("Next reads");
+});
+
+test("a person with a timeline and no history: every month's 'what Life holds' line is still reached from `now`", async () => {
+  shown = noHistory;
+  try {
+    const seen = await reachable();
+    const lines = [...seen]
+      .filter(([id]) => !SPANNED_EVIDENCE.test(id))
+      .flatMap(([, text]) => text.split("\n"));
+    for (const l of [
+      ...Object.values(fixed).flat(),
+      ...counts,
+      ...held(),
+      ...timeline.map((t) => t.line),
+    ]) {
+      expect(lines.filter((x) => x === l).length, l.slice(0, 60)).toBe(1);
+    }
+    for (const y of years) {
+      expect(seen.get(`person:ana/year/${y}`)).toContain(
+        `(no month of ${y} was read yet)`
+      );
+    }
+  } finally {
+    shown = history;
+  }
 });
 
 test("year pages back by `before`, newest month first, and each month names its days", async () => {
@@ -283,12 +353,10 @@ test("what Life holds, by year with the sources, or by month inside one year", a
   );
   const db = new Database(path, { readonly: true });
   try {
-    const byYear = heldLines(db, "person:ana", [], "year");
-    expect(byYear.some((l) => l.startsWith("- lifelog: 3 units"))).toBe(true);
-    expect(
-      byYear.filter((l) => YEAR_LINE.test(l)).map((l) => l.slice(0, 22))
-    ).toEqual(["- 2025: 2 units (lifel", "- 2026: 1 units (lifel"]);
-    const byMonth = heldLines(db, "person:ana", [], "month", "2025");
+    const sources = heldLines(db, "person:ana", [], { sourcesOnly: true });
+    expect(sources.some((l) => l.startsWith("- lifelog: 3 units"))).toBe(true);
+    expect(sources.join("\n")).not.toContain("By month");
+    const byMonth = heldLines(db, "person:ana", [], { span: "2025" });
     expect(byMonth.filter((l) => l.startsWith("- 2025-")).length).toBe(2);
     expect(byMonth.join("\n")).not.toContain("2026");
     expect(byMonth.join("\n")).not.toContain("What Life holds about them");

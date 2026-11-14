@@ -75,6 +75,7 @@ const base = {
   fixed: [],
   heard: [],
   held: () => [],
+  heldYears: [],
   history: { months: [], schemaVersion: 1 as const, story: null },
   ref: "person:ana",
 };
