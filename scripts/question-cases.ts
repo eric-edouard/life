@@ -71,7 +71,8 @@ export const callsOf = (calls: ToolCall[]) =>
 
 /**
  * What the calls opened, as counts only (never an argument): by tool, and the read parts opened (`fetch` of a read
- * part ref, `read_person_page` of a name being the person's `now`, or `evidence` with a `before`); any other `fetch` id, or a malformed ref, is `other`.
+ * part ref, `read_person_page` of a name being the person's `now`, or `evidence` with a `before`); any other
+ * `fetch` id, or a malformed ref, is `other`.
  */
 export function openedOf(calls: { args?: unknown; tool: string }[]) {
   const tools: Record<string, number> = {};
