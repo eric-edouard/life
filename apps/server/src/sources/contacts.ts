@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
+import { Birthday } from "../records/fields";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. Each record is read whole: its name
 // names the phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a
@@ -78,15 +79,17 @@ const labelOf = (l: string | null) => l?.replace(BUILT_IN_LABEL, "$1") || null;
 const joined = (parts: (string | null | undefined)[], sep = ", ") =>
   parts.filter(Boolean).join(sep) || null;
 
-/** A birthday as Contacts stores it (seconds from 2001, at noon UTC, and the year apart) in Life's form. */
+/** A birthday as Contacts stores it (seconds from 2001, at noon UTC, and the year apart) in Life's form; a year that makes the day not exist (29 Feb) is left out. */
 export function birthdayOf(seconds: number | null, year: number | null) {
   if (seconds === null) {
     return null;
   }
   const day = new Date(EPOCH_2001 + seconds * 1000).toISOString().slice(5, 10);
-  return year && year >= YEAR_KNOWN_FROM
-    ? `${String(year).padStart(4, "0")}-${day}`
-    : `--${day}`;
+  const full =
+    year && year >= YEAR_KNOWN_FROM
+      ? `${String(year).padStart(4, "0")}-${day}`
+      : "";
+  return Birthday.safeParse(full).success ? full : `--${day}`;
 }
 
 /** The AddressBook databases under `dir`: the Mac's own and each account's. */

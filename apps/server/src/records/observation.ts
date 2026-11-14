@@ -2,6 +2,7 @@ import { z } from "zod";
 import { digest } from "../core/hash";
 import { SourceName } from "../core/names";
 import {
+  Birthday,
   EpisodeId,
   isoDate,
   isoDateTime,
@@ -294,6 +295,8 @@ export const CONTACT_PREFIX = "con_";
 export const ContactPerson = z
   .object({
     at: isoDateTime,
+    /** The card's birthday when Contacts held one; a line without it is a card whose birthday Life did not hold. */
+    birthday: Birthday.optional(),
     /** The card's own id in Contacts; the person's id is derived from it (`contactIdOf`), never from a name. */
     card: z.string().min(1),
     /** The card's phones and emails, as written. */

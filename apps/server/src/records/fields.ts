@@ -9,6 +9,17 @@ export const slug = z
 
 export const isoDate = z.iso.date();
 
+/** `--MM-DD`, or `YYYY-MM-DD` when the year is known. */
+export const Birthday = z
+  .string()
+  .regex(/^(--|\d{4}-)\d{2}-\d{2}$/)
+  .refine((b) => isoDate.safeParse(b.replace("--", "2000-")).success);
+
+/** Whether two birthdays are the same day: month and day equal, and the years too when both are known. */
+export const isSameBirthday = (a: string, b: string) =>
+  a.slice(-5) === b.slice(-5) &&
+  (a.startsWith("--") || b.startsWith("--") || a.slice(0, 4) === b.slice(0, 4));
+
 export const isoDateTime = z.iso.datetime({ offset: true });
 
 export const Importance = z.int().min(0).max(3);
