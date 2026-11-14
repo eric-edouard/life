@@ -267,9 +267,15 @@ export async function person(
   );
   // What each part needs, read before the index opens (nothing awaits while it is).
   const now = part === "now" && !!partRef;
-  const history = ["story", "year", "month"].includes(part)
-    ? readHistory(ref)
-    : { months: [], schemaVersion: 1 as const, story: null };
+  let history: History = { months: [], schemaVersion: 1, story: null };
+  if (["story", "year", "month"].includes(part)) {
+    try {
+      history = readHistory(ref);
+    } catch (e) {
+      // A history in a shape this version does not know: said, never read as empty.
+      return asData([`(${(e as Error).message})`]);
+    }
+  }
   const counted =
     (now || part === "story") && partRef ? readExchangeCounts() : null;
   const rows = counted && { ...counted, rows: counted.people[ref] ?? [] };
