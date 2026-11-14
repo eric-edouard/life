@@ -410,7 +410,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   month, then every observation and episode linked to them, newest first, paging back with `--before` (the `evidence` part, about 6,000 characters, ending with its next read's ref, which `fetch` opens too). `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
-- `area <name>`, `topics [tag]`, `questions` (what Life inferred, to read before asking the owner anything).
+- `area <name>`, `topics [tag]`, `checks` (everything Life would like him to verify, counted and listed, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
   the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,

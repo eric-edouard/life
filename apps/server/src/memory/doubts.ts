@@ -2,7 +2,7 @@ import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import type { Episode } from "../records/episode";
 import { FactCheck } from "../records/fact-check";
-import { INFERRED_PREFIX, type Observation } from "../records/observation";
+import type { Observation } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import {
@@ -16,7 +16,7 @@ import {
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
 import { recordRun } from "./run";
-import { observationsNow, readPeople } from "./who";
+import { observationsNow, type People, readPeople } from "./who";
 import { when } from "./zones";
 
 // The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful memory lines drawn from
@@ -59,19 +59,25 @@ type Draft = Omit<FactCheck, "at" | "schemaVersion">;
 /** Why a memory line may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
 export type Doubt = "guessed-person" | "low-confidence";
 
+/** The guessed people a line rests on (`isGuess`, folded as read today), each once: the one rule for "who it is about is only guessed". */
+export const guessedOf = (
+  o: Pick<Observation, "about" | "subjects">,
+  people: Pick<People, "isGuess" | "refOf">
+) => [
+  ...new Set(
+    [o.about, ...o.subjects].flatMap((ref) =>
+      ref && people.isGuess(ref) ? [people.refOf(ref)] : []
+    )
+  ),
+];
+
 /** An observation's doubts (the one place "doubtful" is decided): low confidence counts only beside another doubt. */
 export function doubtsOf(
   o: Pick<Observation, "about" | "confidence" | "subjects" | "unit">,
-  refOf: (ref: string) => string
+  people: Pick<People, "isGuess" | "refOf">
 ): Doubt[] {
-  const found: Doubt[] = [];
-  if (
-    [o.about, ...o.subjects].some((ref) =>
-      ref ? refOf(ref).startsWith(`person:${INFERRED_PREFIX}`) : false
-    )
-  ) {
-    found.push("guessed-person");
-  }
+  const found: Doubt[] =
+    guessedOf(o, people).length > 0 ? ["guessed-person"] : [];
   return found.length > 0 && o.confidence < SURE_AT
     ? [...found, "low-confidence"]
     : found;
@@ -134,7 +140,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
     return [
       {
         date: o.date,
-        doubts: doubtsOf(o, people.refOf),
+        doubts: doubtsOf(o, people),
         group: page && shows(s, page) ? page : null,
         importance: o.importance,
         kind: factCheckKindOf(o),

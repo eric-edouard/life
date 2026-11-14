@@ -7,6 +7,7 @@ import {
   episodeText,
   type MemoryLine,
 } from "./doubts";
+import { guessTestOf } from "./who";
 
 const claim = (ref: string, over: Partial<MemoryLine> = {}): MemoryLine => ({
   date: "2026-10-01",
@@ -25,6 +26,11 @@ const YEAR = new Date().getFullYear();
 
 test("a fact is doubtful when who it's about is only inferred; low confidence only counts beside it", () => {
   const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
+  const peopleWith = (corrections: Parameters<typeof guessTestOf>[0] = []) => ({
+    isGuess: (r: string) => guessTestOf(corrections)(refOf(r)),
+    refOf,
+  });
+  const people = peopleWith();
   const o = (over = {}) => ({
     about: undefined,
     confidence: 0.9,
@@ -32,18 +38,29 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
     unit: "unit_a",
     ...over,
   });
-  expect(doubtsOf(o(), refOf)).toEqual([]);
-  expect(doubtsOf(o({ confidence: 0.2 }), refOf)).toEqual([]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), refOf)).toEqual([
+  expect(doubtsOf(o(), people)).toEqual([]);
+  expect(doubtsOf(o({ confidence: 0.2 }), people)).toEqual([]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), people)).toEqual([
     "guessed-person",
   ]);
   // An inferred person he since named is not a guess; one a ref folds into still is.
-  expect(doubtsOf(o({ subjects: ["person:sam"] }), refOf)).toEqual([
+  expect(doubtsOf(o({ subjects: ["person:sam"] }), people)).toEqual([
     "guessed-person",
   ]);
   expect(
-    doubtsOf(o({ about: "person:inf_kit", confidence: 0.2 }), refOf)
+    doubtsOf(o({ about: "person:inf_kit", confidence: 0.2 }), people)
   ).toEqual(["guessed-person", "low-confidence"]);
+  // His word on the guess ends the doubt.
+  const said = peopleWith([
+    {
+      at: "2026-10-01T10:00:00.000Z",
+      kind: "not-this-person",
+      nameOrHandle: "Kit",
+      person: "person:inf_kit",
+      schemaVersion: 1,
+    },
+  ]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), said)).toEqual([]);
 });
 
 test("the fact checks he sees first: the most important, then the most doubtful, then the newest; never a sure, minor, stated or homeless claim", () => {
