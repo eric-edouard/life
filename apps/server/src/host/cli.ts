@@ -258,11 +258,11 @@ const commands: Record<string, () => number | Promise<number>> = {
     const password = process.env.GOG_KEYRING_PASSWORD?.trim();
     if (!password) {
       console.log("nothing to keep (GOG_KEYRING_PASSWORD is not set)");
-      return Promise.resolve(1);
+      return 1;
     }
     writeSecret("gogKeyring", password);
     console.log("kept");
-    return Promise.resolve(0);
+    return 0;
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new

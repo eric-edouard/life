@@ -106,6 +106,8 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
+  // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
+  expect(running(/"gog"/)).toEqual(["apps/server/src/core/gog.ts"]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.
