@@ -617,6 +617,26 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
+test("read_fact_checks keeps its output keys: factChecks, each with doubts, from, quote, ref, text", async () => {
+  const checks = await import("../../memory/checks");
+  const evidence = { from: "f", quote: "q" };
+  const check = [{ evidence, guess: "g", kind: "ending", ref: "a" }];
+  const spy = spyOn(checks, "checksNow").mockResolvedValue(check as never);
+  try {
+    const { json } = await rpc(await token(), "tools/call", {
+      arguments: {},
+      name: "read_fact_checks",
+    });
+    const body = JSON.parse(json.result.content[0].text);
+    expect(Object.keys(body)).toEqual(["factChecks"]);
+    expect(Object.keys(body.factChecks[0]).sort().join()).toBe(
+      "doubts,from,quote,ref,text"
+    );
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 test("a fact check's answer is his: an agent's token is refused", async () => {
   await expect(
     correct(

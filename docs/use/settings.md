@@ -71,7 +71,7 @@ people, months and model calls that is, calling no model.
 bun life settings set '{"endings":true}'
 ```
 
-Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, the matter shows "maybe done" and stays open. At most three a day your assistant asks you ("Done? ..."): right, and the matter closes; wrong, and Life never ties those two records again. `bun life memory links` prints, from your answers, whether Life's endings can be trusted yet.
+Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, the matter shows "maybe done" and stays open. Your assistant asks you about each ("Done? ..."): right, and the matter closes; wrong, and Life never ties those two records again. `bun life memory links` prints, from your answers, whether Life's endings can be trusted yet.
 
 ## Your claude.ai and ChatGPT history
 

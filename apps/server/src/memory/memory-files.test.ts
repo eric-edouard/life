@@ -12,6 +12,7 @@ import type {
   Observation,
   Supersession,
 } from "../records/observation";
+import { recordFactCheckAnswer } from "./fact-checks";
 import { buildIndex } from "./index-writer";
 import {
   answeredFactCheckCorrections,
@@ -34,7 +35,6 @@ import {
   readOrigins,
   readUnit,
   readUnitsFor,
-  recordFactCheckAnswer,
   retiredBy,
   shownOf,
   UNITS,
@@ -444,9 +444,9 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
     shown(old),
     shown(passed),
   ]);
-  expect(() => recordFactCheckAnswer("obs_fac700000009", "true")).toThrow(
-    "no fact check"
-  );
+  await expect(
+    recordFactCheckAnswer("obs_fac700000009", "true")
+  ).rejects.toThrow("no fact check");
   await recordFactCheckAnswer(right, "true");
   await recordFactCheckAnswer(half, "partly", "it was Tuesday");
   await recordFactCheckAnswer(old, "outdated");

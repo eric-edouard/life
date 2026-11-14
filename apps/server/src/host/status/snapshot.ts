@@ -7,11 +7,11 @@ import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
 import { changeFeed } from "../../memory/changes";
+import { checksNow } from "../../memory/checks";
 import {
   CORRECTIONS,
   EPISODES,
   OBSERVATIONS,
-  openFactChecks,
   PAGES,
   readFactCheckAnswers,
   readFactChecks,
@@ -157,18 +157,8 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The fact checks: those he answered, and those open now. */
-function factCheckCounts() {
-  const factChecks = readFactChecks();
-  const answered = readFactCheckAnswers();
-  return {
-    answered: factChecks.filter((s) => answered.get(s.ref)?.answer).length,
-    factChecks: factChecks.length,
-    left: openFactChecks().length,
-  };
-}
-
 async function memoryCounts() {
+  const answers = readFactCheckAnswers();
   const [at] = git(OWNER_DATA_DIR, ["log", "-1", "--format=%cI"])
     .stdout.toString()
     .trim()
@@ -180,15 +170,16 @@ async function memoryCounts() {
     filesIn(join(PAGES, "areas"), ".md"),
   ]);
   return {
+    answered: readFactChecks().filter((s) => answers.get(s.ref)?.answer).length,
     commitAt: at ? new Date(at).toISOString() : null,
     corrections: readLineCount(CORRECTIONS),
     episodes: episodes.length,
+    left: await safe(async () => (await checksNow()).length),
     observations: observations.reduce(
       (n, m) => n + readLineCount(join(OBSERVATIONS, m)),
       0
     ),
     pages: people.length + areas.length,
-    ...factCheckCounts(),
   };
 }
 
@@ -966,7 +957,7 @@ function memoryCards(r: Reads): Card[] {
         },
         {
           label: "Fact checks answered",
-          value: `${mem.answered} of ${mem.factChecks}`,
+          value: String(mem.answered),
         },
         { at: mem.commitAt, label: "Last commit" },
       ],
@@ -1011,6 +1002,7 @@ export const callerOf = (agent: unknown) =>
   typeof agent === "string" ? agent : "an app";
 
 function outputCards(r: Reads): Card[] {
+  const { left } = r.mem;
   const calls = since(r.mcp, DAY, r.t);
   const byClient = Map.groupBy(calls, (c) => callerOf(c.agent));
   const acts = r.actions.filter(
@@ -1100,13 +1092,20 @@ function outputCards(r: Reads): Card[] {
       name: "Email",
     },
     {
-      facts: [{ label: "Left to answer", value: String(r.mem.left) }],
+      ...(left.ok
+        ? {
+            tone: "ok",
+            word: left.value === 0 ? "all answered" : "waiting",
+          }
+        : { tone: "bad", word: "unreadable" }),
+      content: left.ok ? undefined : [`Error: ${left.error}`],
+      facts: [
+        { label: "Left to answer", value: String(left.ok && left.value) },
+      ],
       group: "outputs",
-      headline: `${r.mem.left} to answer`,
+      headline: left.ok ? `${left.value} to answer` : clip(left.error, 200),
       id: "check",
       name: "Fact checks",
-      tone: "ok",
-      word: r.mem.left > 0 ? "waiting" : "all answered",
     },
   ];
 }

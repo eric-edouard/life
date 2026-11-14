@@ -24,7 +24,6 @@ import {
   readExchangeReadWork,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { drawEndingChecks, topUpFactChecks } from "../memory/fact-checks";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
@@ -545,9 +544,6 @@ export async function runNight(
         log("run.error", { error: e.message, step: "memory.exchange-reads" })
       );
     }
-    steps.at = "fact checks";
-    await drawEndingChecks();
-    await topUpFactChecks();
     steps.at = "index";
     await reindex();
     // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open

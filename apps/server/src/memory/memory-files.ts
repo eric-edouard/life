@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { z } from "zod";
-import { clock, DAY } from "../core/clock";
+import { clock } from "../core/clock";
 import {
   appendJsonl,
   filesIn,
@@ -594,19 +594,8 @@ export async function recordCorrection(said: unknown) {
   return correction;
 }
 
-/** The fact checks he was shown: every one, in the order it was drawn. */
+/** The fact checks as he was shown them: every one, in the order written (the old ones drawn at night, an ending check with his answer). */
 export const readFactChecks = () => rowsOf(FACT_CHECKS, FactCheck);
-
-/** How long a drawn fact check stays open; after that it counts as skipped (derived, nothing written). */
-const FACT_CHECK_OPEN = 7 * DAY;
-/** The fact checks open now (the one place it is decided): drawn under 7 days ago, not answered. */
-export function openFactChecks(now = clock().getTime()) {
-  const answers = readFactCheckAnswers();
-  return readFactChecks().filter(
-    (s) =>
-      !answers.get(s.ref)?.answer && now - Date.parse(s.at) < FACT_CHECK_OPEN
-  );
-}
 
 /** The fact checks he answered, as the eval's facts: true or false as `ANSWERS` says (skip and partly left out); episodes' too. */
 export function answeredFactChecks() {
@@ -629,26 +618,6 @@ export function answeredFactChecks() {
         ]
       : [];
   });
-}
-
-/** Appends the owner's answer to a fact check he was shown (`rate`), with his why; a later answer replaces it. */
-export function recordFactCheckAnswer(
-  ref: string,
-  answer: NonNullable<FactCheckAnswer["answer"]>,
-  note?: string
-) {
-  if (!readFactChecks().some((s) => s.ref === ref)) {
-    throw new Error(`no fact check ${ref} in memory/fact-checks.jsonl`);
-  }
-  return appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
-    {
-      answer,
-      at: clock().toISOString(),
-      ...(note ? { note } : {}),
-      ref,
-      schemaVersion: 1,
-    },
-  ]);
 }
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);

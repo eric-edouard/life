@@ -1,26 +1,8 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
-import {
-  doubtful,
-  doubtsOf,
-  episodeGroup,
-  episodeText,
-  type MemoryLine,
-} from "./doubts";
+import { doubtsOf, episodeGroup, episodeText } from "./doubts";
 import { guessTestOf } from "./who";
 
-const claim = (ref: string, over: Partial<MemoryLine> = {}): MemoryLine => ({
-  date: "2026-10-01",
-  doubts: ["guessed-person"],
-  group: "area:shop",
-  importance: 3,
-  kind: "fact",
-  ref,
-  source: "whatsapp",
-  text: ref,
-  units: ["unit_000000000000"],
-  ...over,
-});
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();
 
@@ -73,26 +55,6 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
     },
   ]);
   expect(doubtsOf(o({ about: "person:inf_kit" }), confirmed)).toEqual([]);
-});
-
-test("the fact checks he sees first: the most important, then the most doubtful, then the newest; never a sure, minor, stated or homeless claim", () => {
-  const claims = [
-    claim("obs_minor", { importance: 1 }),
-    claim("obs_sure", { doubts: [] }),
-    claim("obs_stated"),
-    claim("obs_homeless", { group: null }),
-    claim("obs_two", { importance: 2 }),
-    claim("obs_old", { date: "2026-09-01" }),
-    claim("obs_new"),
-    claim("obs_both", {
-      date: "2026-08-01",
-      doubts: ["guessed-person", "low-confidence"],
-    }),
-  ];
-  expect(
-    doubtful(claims, new Set(["obs_stated"]), 10).map((c) => c.ref)
-  ).toEqual(["obs_both", "obs_new", "obs_old", "obs_two"]);
-  expect(doubtful(claims, new Set(), 2)).toHaveLength(2);
 });
 
 test("an episode is said as its title, time (a same-day end as a time only), place and the people it was with", () => {

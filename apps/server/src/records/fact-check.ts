@@ -5,12 +5,12 @@ import { ObservationId } from "./observation";
 
 // The fact checks, the owner's answers to them and the eval's scores (docs/SCHEMA.md).
 
-/** memory/fact-checks.jsonl: the fact checks, one per memory line, frozen as he was shown it (docs/SCHEMA.md). */
+/** memory/fact-checks.jsonl: the fact checks, one per memory line, as he was shown it, its text and source (not the later step's words), written with his answer (docs/SCHEMA.md). */
 export const FactCheck = z
   .object({
     at: isoDateTime,
     date: isoDate,
-    /** An ending check (from 14 Nov 2026): the step a link says ended `ref`; `text` is "Done? …". Absent for a doubt. */
+    /** An ending check (from 14 Nov 2026): the step a link says ended `ref`; `text` is the check's guess, "Life thinks this is done: …" (earlier lines hold "Done? …"). Absent for a doubt. */
     endedBy: z.union([ObservationId, EpisodeId]).optional(),
     group: z.union([SubjectRef, z.literal("episodes")]),
     kind: z.enum(["fact", "plan", "reported", "episode"]),

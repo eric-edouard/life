@@ -1,3 +1,4 @@
+import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
@@ -6,6 +7,7 @@ import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
   readFactCheckAnswers,
+  readFactChecks,
   readUnitsFor,
   readUnresolved,
 } from "./memory-files";
@@ -57,6 +59,8 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
+  /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
+  doubted: ReadonlySet<string>;
   /** Each open step a link says ended, not yet his word (`endingsRead`). */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
@@ -128,6 +132,22 @@ const ANSWERS = {
   ending: ["outdated", "false"],
   person: ["this-is", "not-this-person", "same-person"],
 };
+
+/** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
+export const endingGuessOf = (step: string) =>
+  `Life thinks this is done: ${step}`;
+
+/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
+export const isEndingOpen = (
+  ref: string,
+  c: Pick<CheckInputs, "answered" | "doubted">
+) => !(c.doubted.has(ref) || c.answered.has(ref));
+
+/** An ending check always has its evidence: the later step's words. */
+export const isEndingKind = (
+  c: Check
+): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
+  c.kind === "ending";
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
@@ -201,18 +221,11 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     [...c.endings].flatMap(([ref, link]) => {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
-      return o && !c.answered.has(ref)
-        ? ranked(
-            c,
-            "ending",
-            { guess: `Life thinks this is done: ${o.text}`, ref },
-            [o],
-            [],
-            {
-              quote: link.quote,
-              where: later ? whereOf(later) : c.where.get(link.later),
-            }
-          )
+      return o && isEndingOpen(ref, c)
+        ? ranked(c, "ending", { guess: endingGuessOf(o.text), ref }, [o], [], {
+            quote: link.quote,
+            where: later ? whereOf(later) : c.where.get(link.later),
+          })
         : [];
     }),
   /** The three guesses about who someone is: a guessed person, a Contacts card Life cannot place, a name it cannot place. */
@@ -319,6 +332,11 @@ export async function checksNow(): Promise<Check[]> {
   return checksOf({
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
+    ),
+    doubted: new Set(
+      readFactChecks()
+        .filter((s) => !isEndingCheck(s))
+        .map((s) => s.ref)
     ),
     endings: records.maybe,
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).

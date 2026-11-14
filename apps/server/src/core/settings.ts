@@ -83,8 +83,8 @@ export const Settings = z
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /**
-     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): readers learn of links as "maybe done" and, at most
-     * three a day, he is asked in conversation whether one is right. Absent means off: nothing is asked, readers
+     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): readers learn of links as "maybe done" and he is
+     * asked in conversation whether each is right (an ending check). Absent means off: nothing is asked, readers
      * ignore links. Needs `links`.
      */
     endings: z.literal(true).optional(),
