@@ -12,7 +12,7 @@ import { LEDGER, UNRESOLVED } from "./memory-files";
 import { inferredId } from "./people";
 import { candidateLines } from "./read-person-page";
 import { action, inferred, people as mapped, said } from "./record-fixtures";
-import { dayUnitId, nameKey } from "./units";
+import { messageUnits, nameKey } from "./units";
 import {
   foldsOf,
   meant,
@@ -277,7 +277,8 @@ test("an agent's own name opening its report is no unresolved person; other name
     }),
   ]);
   const [report] = readAgent(new Date(0));
-  const agentUnit = dayUnitId(report as SourceEvent);
+  const agentUnit = messageUnits([report as SourceEvent], () => null)[0]?.unit
+    .id as string;
   const row = (unit: string, nameAsWritten: string) => ({
     at: "2026-10-21T10:00:00.000Z",
     date: "2026-10-20",
