@@ -1,123 +1,318 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { newestWithin } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
-import type { History } from "../records/history";
-import type { SourceEvent } from "../records/source";
+import { fullTextOf, type History, HistoryMonth } from "../records/history";
 import {
+  historyWorkOf,
   isStoryDue,
-  type MonthCalls,
-  monthCallsOf,
-  partOf,
+  type MonthRead,
+  monthInputOf,
+  monthsToReadOf,
   readHistory,
   readHistoryWork,
   storyInputOf,
+  todayOf,
+  twoSizesOf,
   withMonth,
 } from "./histories";
 import { historyPath } from "./memory-files";
+import { type TimelineEntry, timelineOf } from "./person-timeline";
+import { PART_CHARS } from "./read-part";
 import { historyOf, person } from "./read-person-page";
 import { inputsOf } from "./run";
 import { readPeople } from "./who";
-import { localDate } from "./zones";
 
-const msg = (
-  at: string,
-  fromMe: boolean,
-  text: string,
-  extra: Partial<SourceEvent> = {}
-): SourceEvent => ({
-  at,
-  chat: "+1",
-  fromMe,
-  id: at,
-  sender: fromMe ? "me" : "+1",
-  source: "whatsapp",
-  text,
-  ...extra,
-});
 const UNKNOWN_SHAPE =
   /^the history memory\/histories\/test-unknown-shape\.json .*2026-09/;
 const span = { from: "2026-08", today: "2026-11-11" };
 const madeBy = { engine: "claude" as const, model: "m", prompt: "p", run: "r" };
-
-test("an exchange belongs to the local month it starts in; the present month and the months before `from` are not read", () => {
-  const months = monthCallsOf(
-    [
-      msg("2026-07-10T12:00:00.000Z", true, "before the floor"),
-      // One sitting from the 31st into the 1st: August's, whole.
-      msg("2026-08-31T12:00:00.000Z", true, "are you coming on Sunday"),
-      msg("2026-08-31T17:00:00.000Z", false, "yes, around noon"),
-      msg("2026-08-31T22:00:00.000Z", true, "perfect"),
-      msg("2026-09-01T03:00:00.000Z", false, "see you then"),
-      msg("2026-10-05T12:00:00.000Z", false, "happy birthday"),
-      msg("2026-11-02T12:00:00.000Z", true, "this month is the situation's"),
-    ],
-    "Ann",
-    span
-  );
-  expect(months.map((m) => m.month)).toEqual(["2026-08", "2026-10"]);
-  const [august] = months;
-  expect(august?.calls).toHaveLength(1);
-  expect(august?.calls[0]?.input).toMatchObject({
-    month: "2026-08",
-    part: 1,
-    parts: 1,
-    with: "Ann",
-  });
-  expect(august?.calls[0]?.input.lines.at(-1)).toContain("Ann: see you then");
-  expect(august?.calls[0]?.input.lines[1]).toContain("me: are you coming");
+const base = { built: "2026-11-11T22:00:00.000Z", inputs: "i", madeBy };
+const inTwoSizes = (month: string) => ({
+  ...base,
+  headline: `A headline of ${month}.`,
+  month,
+  sentences: [{ days: [`${month}-02`], text: `Something passed in ${month}.` }],
 });
 
-test("a month of calls only is no month; what a month was shown decides its key", () => {
-  const call = msg("2026-09-03T12:00:00.000Z", false, "audio call, 4 min", {
-    phoneCall: { seconds: 240, video: false },
-  });
-  expect(monthCallsOf([call], "Ann", span)).toEqual([]);
-  const said = msg("2026-09-03T13:00:00.000Z", true, "sorry, I missed you");
-  const [month] = monthCallsOf([call, said], "Ann", span);
-  // The call's line is shown, never quotable.
-  expect(month?.calls[0]?.input.lines.join("\n")).toContain("audio call");
-  expect(month?.calls[0]?.quotable).toEqual([said]);
-  // The same messages give the same key; a late message moves it, and the month is read again once.
-  expect(monthCallsOf([call, said], "Ann", span)[0]?.inputs).toBe(
-    month?.inputs
-  );
-  const late = msg("2026-09-20T12:00:00.000Z", false, "found in a backup");
-  expect(monthCallsOf([call, said, late], "Ann", span)[0]?.inputs).not.toBe(
-    month?.inputs
-  );
+/** An entry of a person's timeline; `pad` makes it long enough to count against a read part. */
+const entry = (
+  day: string,
+  importance: number,
+  text: string,
+  o: Partial<TimelineEntry> = {},
+  pad = 0
+): TimelineEntry => ({
+  day,
+  importance,
+  kind: "observation",
+  line: `- obs_${day}_${text} ${day} news: ${text}${"x".repeat(pad)}`,
+  to: day,
+  ...o,
 });
 
-test("a part keeps only quotes found in a message shown, with time and writer; quotation marks in a summary fail the call", () => {
-  const shown = [
-    msg("2026-09-03T12:00:00.000Z", false, "I can't keep doing this alone"),
-    msg("2026-09-03T12:05:00.000Z", true, "ok"),
-  ];
+test("a month is in two sizes or as parts, never both, never neither", () => {
+  const parts = {
+    ...base,
+    month: "2026-09",
+    parts: [{ quotes: [], summary: "A summer." }],
+  };
+  expect(HistoryMonth.safeParse(inTwoSizes("2026-10")).success).toBe(true);
+  expect(HistoryMonth.safeParse(parts).success).toBe(true);
   expect(
-    partOf(
+    HistoryMonth.safeParse({ ...inTwoSizes("2026-10"), parts: parts.parts })
+      .success
+  ).toBe(false);
+  expect(HistoryMonth.safeParse({ ...base, month: "2026-10" }).success).toBe(
+    false
+  );
+  // A sentence names at least one day; the sentences together stay a full text.
+  expect(
+    HistoryMonth.safeParse({
+      ...inTwoSizes("2026-10"),
+      sentences: [{ days: [], text: "No day." }],
+    }).success
+  ).toBe(false);
+  expect(
+    HistoryMonth.safeParse({
+      ...inTwoSizes("2026-10"),
+      sentences: Array.from({ length: 10 }, () => ({
+        days: ["2026-10-02"],
+        text: "y".repeat(500),
+      })),
+    }).success
+  ).toBe(false);
+  // The full text is derived: sentences joined, or the parts' summaries.
+  expect(fullTextOf(inTwoSizes("2026-10") as never)).toBe(
+    "Something passed in 2026-10."
+  );
+  expect(fullTextOf(parts as never)).toBe("A summer.");
+});
+
+test("a month's input holds only its days, oldest first, the most important line first, `!` on top importance, an episode's `what` shown", () => {
+  const timeline = [
+    entry("2026-09-30", 3, "September's last"),
+    entry("2026-10-20", 2, "late", {}, 3000),
+    entry("2026-10-02", 2, "ordinary", {}, 3000),
+    entry("2026-10-02", 3, "decided"),
+    entry("2026-10-02", 1, "episode", {
+      kind: "episode",
+      what: "They settled it.",
+    }),
+    entry("2026-11-01", 3, "November's first"),
+  ];
+  const read = monthInputOf(timeline, "2026-10", "Ann") as MonthRead;
+  expect(read.input.with).toBe("Ann");
+  expect(read.input.days.map((d) => d.day)).toEqual([
+    "2026-10-02",
+    "2026-10-20",
+  ]);
+  const lines = read.input.days[0]?.lines ?? [];
+  expect(lines[0]?.startsWith("! - obs_2026-10-02_decided")).toBe(true);
+  expect(lines[1]).toContain("ordinary");
+  expect(lines[2]).toContain("episode");
+  expect(lines[2]).toEndWith(" What happened: They settled it.");
+  expect(read.input.leftOut).toBe(0);
+  // What was shown and nothing else keys it: no date of today, so the clock moves nothing.
+  expect(read.inputs).toBe(inputsOf("memory-history-month.v2", read.input));
+  expect(JSON.stringify(read.input)).not.toContain("2026-11-1");
+});
+
+test("over the budget the least important lines go, a level's last days first, and are counted", () => {
+  const timeline = [
+    ...Array.from({ length: 28 }, (_, i) =>
+      entry(`2026-10-${String(i + 1).padStart(2, "0")}`, 1, `low${i}`, {}, 5400)
+    ),
+    entry("2026-10-28", 3, "top"),
+  ];
+  const read = monthInputOf(timeline, "2026-10", "Ann") as MonthRead;
+  const shown = read.input.days.flatMap((d) => d.lines);
+  expect(read.input.leftOut).toBeGreaterThan(0);
+  expect(shown.length + read.input.leftOut).toBe(29);
+  expect(shown.some((l) => l.startsWith("! - obs_2026-10-28_top"))).toBe(true);
+  // A level's last days go first: the first low day is kept, the last is not.
+  expect(shown.some((l) => l.includes("low0"))).toBe(true);
+  expect(shown.some((l) => l.includes("low27"))).toBe(false);
+});
+
+test("a month whose lines fit one read part is no month; the present month and the months before `from` are not read, `today` moved forward closes one", () => {
+  const small = [entry("2026-10-02", 3, "short")];
+  expect(monthInputOf(small, "2026-10", "Ann")).toBeNull();
+  expect(monthInputOf([], "2026-10", "Ann")).toBeNull();
+  const big = (month: string) =>
+    entry(`${month}-05`, 2, "long", {}, PART_CHARS);
+  const timeline = ["2026-07", "2026-09", "2026-10", "2026-11"].map(big);
+  const months = (today: string) =>
+    monthsToReadOf(timeline, "Ann", { from: "2026-08", today }).map(
+      (m) => m.month
+    );
+  expect(months("2026-11-11")).toEqual(["2026-09", "2026-10"]);
+  expect(months("2026-12-01")).toEqual(["2026-09", "2026-10", "2026-11"]);
+});
+
+test("the days check counts every day a shown line covers; a `(for <when>)` day is no day shown; a sentence is dropped, never moved", () => {
+  const timeline = [
+    entry(
+      "2026-10-02",
+      2,
+      "trip",
       {
-        quotes: ["i can't keep doing this alone", "words never written"],
-        summary: "She asked for help and he agreed.",
+        kind: "episode",
+        to: "2026-10-04",
+      },
+      3000
+    ),
+    entry("2026-10-09", 2, "promise (for 2026-10-20)", {}, 3000),
+    // An episode spilling into the next month covers only the month's own days.
+    entry("2026-10-30", 2, "late", { kind: "episode", to: "2026-11-02" }, 1000),
+  ];
+  const read = monthInputOf(timeline, "2026-10", "Ann") as MonthRead;
+  expect(read.shownDays).toEqual([
+    "2026-10-02",
+    "2026-10-03",
+    "2026-10-04",
+    "2026-10-09",
+    "2026-10-30",
+    "2026-10-31",
+  ]);
+  const shown = new Set(read.shownDays);
+  const made = twoSizesOf(
+    {
+      headline: "A trip and a promise.",
+      sentences: [
+        // The second day of a multi-day episode is valid; days not shown are cut off the sentence.
+        { days: ["2026-10-03", "2026-10-20"], text: "They travelled." },
+        // The `(for <when>)` day is not a shown day: nothing is left, the sentence goes.
+        { days: ["2026-10-20"], text: "He will do it on the 20th." },
+        { days: ["2026-10-09"], text: 'He said "I will" and meant it.' },
+        { days: ["2026-10-09"], text: "He promised." },
+        { days: [], text: "No day at all." },
+      ],
+    },
+    shown
+  );
+  expect(made.sentences).toEqual([
+    { days: ["2026-10-03"], text: "They travelled." },
+    { days: ["2026-10-09"], text: "He promised." },
+  ]);
+  expect(made.dropped).toEqual({ days: 2, length: 0, quotes: 1, size: 0 });
+  // No sentence left, or quotation marks in the headline, fails the call.
+  expect(() =>
+    twoSizesOf(
+      { headline: "H.", sentences: [{ days: ["2026-10-20"], text: "T." }] },
+      shown
+    )
+  ).toThrow("no sentence");
+  expect(() =>
+    twoSizesOf(
+      {
+        headline: 'He said "no".',
+        sentences: [{ days: ["2026-10-02"], text: "T." }],
       },
       shown
     )
-  ).toEqual({
-    quotes: [
-      {
-        at: "2026-09-03T12:00:00.000Z",
-        text: "I can't keep doing this alone",
-        writer: "them",
-      },
-    ],
-    summary: "She asked for help and he agreed.",
-  });
-  // A month of short messages has nothing long enough to find: the part is kept, with no quote.
-  expect(partOf({ summary: "Brief logistics." }, shown).quotes).toEqual([]);
-  expect(() =>
-    partOf({ summary: 'She said "never again" and left.' }, shown)
   ).toThrow("quotation marks");
-  expect(() => partOf({ summary: "" }, shown)).toThrow();
+  expect(() => twoSizesOf({ sentences: [] }, shown)).toThrow();
+});
+
+test("a sentence over its size, or past the size of a full text, is dropped and counted", () => {
+  const shown = new Set(["2026-10-02"]);
+  const sentence = (n: number) => ({
+    days: ["2026-10-02"],
+    text: "w".repeat(n),
+  });
+  const made = twoSizesOf(
+    {
+      headline: "H.",
+      sentences: [
+        sentence(700),
+        ...Array.from({ length: 10 }, () => sentence(500)),
+      ],
+    },
+    shown
+  );
+  expect(made.dropped).toEqual({ days: 0, length: 1, quotes: 0, size: 1 });
+  expect(made.sentences).toHaveLength(9);
+});
+
+const observationsDb = () => {
+  const db = new Database(":memory:");
+  db.run(`create table observations (id text, unit text, date text, at text, type text, importance integer,
+    confidence real, speaker text, channel text, text text, quote text, "when" text, superseded_by text)`);
+  db.run("create table observation_subjects (observation text, subject text)");
+  db.run("create table units (id text, title text)");
+  db.run("create table unit_people (unit text, person text)");
+  db.run("insert into units values ('u1', 'Chat')");
+  const add = (id: string, by: string | null) => {
+    db.run(
+      "insert into observations values (?, 'u1', '2026-10-02', '2026-10-02T10:00:00Z', 'promise', 2, 0.9, null, 'whatsapp', ?, 'q', null, ?)",
+      [id, `text of ${id}`, by]
+    );
+    db.run("insert into observation_subjects values (?, 'person:ann')", [id]);
+  };
+  return { add, db };
+};
+const noStore = { db: { query: () => ({ all: () => [] }) } } as never;
+
+test("a month takes observations as they stood: one retired as history later changes neither the evidence nor the digest", () => {
+  const { add, db } = observationsDb();
+  add("obs_a", null);
+  add("obs_b", null);
+  const month = (asStood: boolean) =>
+    timelineOf(db, noStore, "person:ann", [], [], asStood).map((e) => ({
+      ...e,
+      line: `${e.line}${"x".repeat(PART_CHARS)}`,
+    }));
+  const before = monthInputOf(month(true), "2026-10", "Ann") as MonthRead;
+  db.run("update observations set superseded_by = 'obs_c' where id = 'obs_b'");
+  const after = monthInputOf(month(true), "2026-10", "Ann") as MonthRead;
+  expect(after.inputs).toBe(before.inputs);
+  expect(after.input.days[0]?.lines).toHaveLength(2);
+  // The person's page still shows only what is current.
+  expect(timelineOf(db, noStore, "person:ann", [], [])).toHaveLength(1);
+});
+
+test("a night takes the newest months first within its calls, a month whose key is stored is not pending, and the dry count reports the largest input and the months cut", () => {
+  const read = (month: string, leftOut = 0, inputs = month): MonthRead => ({
+    input: { days: [], leftOut, month, with: "Ann" },
+    inputs,
+    month,
+    shownDays: [],
+  });
+  const persons = [
+    {
+      built: new Map([["2026-08", "2026-08"]]),
+      months: [read("2026-08"), read("2026-09"), read("2026-10", 3)],
+      name: "Ann",
+      ref: "person:ann",
+    },
+    {
+      built: new Map(),
+      months: [read("2026-10")],
+      name: "Bob",
+      ref: "person:bob",
+    },
+  ];
+  const work = historyWorkOf(persons, 2, "2026-11-11");
+  expect(work.counts).toMatchObject({ calls: 3, cut: 1, months: 3, people: 2 });
+  expect(work.counts.largest).toBeGreaterThan(0);
+  // Two calls: the two October months; Ann's September waits, so she is not whole.
+  expect(
+    work.work.map((w) => [w.ref, w.months.map((m) => m.month), w.isWhole])
+  ).toEqual([
+    ["person:ann", ["2026-10"], false],
+    ["person:bob", ["2026-10"], true],
+  ]);
+});
+
+test("`--today` moves the clock on a copy and is refused on his own data", () => {
+  expect(todayOf(undefined, "2026-11-11", true)).toBe("2026-11-11");
+  expect(todayOf("2026-12-01", "2026-11-11", false)).toBe("2026-12-01");
+  expect(() => todayOf("2026-12-01", "2026-11-11", true)).toThrow(
+    "his own data"
+  );
+  expect(() => todayOf("December", "2026-11-11", false)).toThrow("not a day");
 });
 
 test("a month read again replaces its last version; the story reads the months through the last closed year", () => {
@@ -136,7 +331,7 @@ test("a month read again replaces its last version; the story reads the months t
     ),
     month("2026-09", "read again")
   );
-  expect(history.months.map((m) => [m.month, m.parts[0]?.summary])).toEqual([
+  expect(history.months.map((m) => [m.month, fullTextOf(m)])).toEqual([
     ["2025-12", "a winter"],
     ["2026-09", "read again"],
   ]);
@@ -169,50 +364,6 @@ test("a story's digest holds the months through the newest month's year, at most
   expect(digest(current, "2026-11-11")).toBe(digest(last, "2026-11-11"));
   expect(digest(current, "2026-12-21")).toBe(digest(last, "2026-11-11"));
   expect(digest(current, "2027-01-10")).not.toBe(digest(last, "2027-01-10"));
-});
-
-test("a night takes the newest months first, within its calls; a failed source reads nothing", async () => {
-  const pending = (month: string, calls: number) => ({
-    m: { calls: new Array(calls).fill({}), inputs: month, month } as MonthCalls,
-  });
-  const byMonth = {
-    at: (p: ReturnType<typeof pending>) => p.m.month,
-    size: (p: ReturnType<typeof pending>) => p.m.calls.length,
-  };
-  const all = [
-    pending("2024-01", 1),
-    pending("2026-09", 2),
-    pending("2026-10", 2),
-  ];
-  expect(newestWithin(all, 4, byMonth).map((p) => p.m.month)).toEqual([
-    "2026-10",
-    "2026-09",
-  ]);
-  // A month too big for what is left waits; a smaller, older one still goes.
-  expect(newestWithin(all, 3, byMonth).map((p) => p.m.month)).toEqual([
-    "2026-10",
-    "2024-01",
-  ]);
-  // A month must never be summarised without one of its sources.
-  expect(
-    await readHistoryWork(
-      { events: [], failed: ["mail"] },
-      await readPeople(),
-      span
-    )
-  ).toBeNull();
-});
-
-test("a month is his local month, never the UTC one: late on the 31st in UTC is already the 1st where he is", () => {
-  // The test data has him east of UTC then (the fixture's zones).
-  const at = "2026-10-31T23:30:00.000Z";
-  expect(localDate(at)).toBe("2026-11-01");
-  const [month] = monthCallsOf(
-    [msg(at, true, "made it home, thanks for tonight")],
-    "Ann",
-    { from: "2026-08", today: "2026-12-11" }
-  );
-  expect(month?.month).toBe("2026-11");
 });
 
 test("a story is told when its months changed, never while a month of theirs still waits nor from no month", () => {
@@ -285,7 +436,7 @@ test("a history is dated months only: each on its last day, newest first, with i
   expect(dated[0]).toEqual({
     day: "2026-02-28",
     kind: "month",
-    line: "- 2026-02: What passed in 2026-02.",
+    line: "- 2026-02 (chats and mail only): What passed in 2026-02.",
   });
   expect(dated.at(-1)?.day).toBe("2025-01-31");
   // A short month ends on its own last day (a wrong one would break the paging).
@@ -337,13 +488,12 @@ test("a history in a shape the code does not know is an error naming the file an
   // The night leaves that person out of its work: one error, no story call to fail again.
   const people = await readPeople();
   const work = await readHistoryWork(
-    { events: [], failed: [] },
     {
       ...people,
       truth: { ...people.truth, people: [{ id: "test-unknown-shape" }] },
     } as never,
     span
   );
-  expect(work?.work.map((w) => w.ref)).not.toContain(ref);
+  expect(work?.work.map((w) => w.ref) ?? []).not.toContain(ref);
   expect(readFileSync(path, "utf8")).toBe(stored);
 });

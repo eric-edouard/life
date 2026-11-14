@@ -13,7 +13,7 @@ import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
-import { histories, readHistoryWork } from "../memory/histories";
+import { histories, readHistoryWork, todayOf } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
 import {
@@ -82,6 +82,7 @@ const OPTIONS = {
   span: { type: "string" },
   steps: { type: "string" },
   to: { type: "string" },
+  today: { type: "string" },
   types: { type: "string" },
   who: { type: "string" },
 } as const;
@@ -246,19 +247,21 @@ const HANDLERS: Record<string, Handler> = {
     ),
   "historical-units": step((v) => collectHistorical(v)),
   /**
-   * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
-   * with no model; `--force` reads it, as the night does once his `history` setting is on.
+   * `histories [--from YYYY-MM] [--limit n] [--today YYYY-MM-DD] [--force]`: what the histories would read (people,
+   * months, calls, a token ceiling, the largest input and the months cut), with no model; `--force` reads it, as the
+   * night does once his `history` setting is on. `--limit`: the most calls this run makes (default the night's).
+   * `--today`: the day the run counts as today, so a later day closes the present month; refused on his own data.
    */
   histories: step(async (v) => {
     const from = v.from ?? settings().histories?.from;
     if (!from) {
       throw new Error("histories needs --from YYYY-MM, or his history setting");
     }
-    const pending = await readHistoryWork(
-      await readWithPeople(new Date(0)),
-      await readPeople(),
-      { from, today: dayNow() }
-    );
+    const pending = await readHistoryWork(await readPeople(), {
+      calls: count(v.limit),
+      from,
+      today: todayOf(v.today, dayNow()),
+    });
     if (!pending) {
       return { failed: 1 };
     }
