@@ -1,26 +1,21 @@
 import { clock } from "../core/clock";
-import { appendJsonl } from "../core/files";
 import type { Episode } from "../records/episode";
-import { FactCheck } from "../records/fact-check";
+import type { FactCheck } from "../records/fact-check";
 import type { Observation } from "../records/observation";
-import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import {
   episodesNow,
-  FACT_CHECKS,
   observationStatusOf,
   readEpisodes,
-  readFactChecks,
   shows,
 } from "./memory-files";
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
-import { recordRun } from "./run";
 import { observationsNow, type People, readPeople } from "./who";
 import { when } from "./zones";
 
-// The fact checks: what the memory holds (`memoryLinesNow`, which the eval judges too), and the doubtful memory lines drawn from
-// it for the owner to answer, one per line, frozen as he is shown them (memory/fact-checks.jsonl).
+// What the memory holds in words (`memoryLinesNow`, which the eval judges too) and which lines are doubtful (`doubtsOf`).
+// Who he is asked about is `checksNow`'s (`checks.ts`).
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
@@ -89,28 +84,6 @@ export type MemoryLine = Omit<Draft, "group"> & {
   importance: number;
 };
 
-/** The `n` memory lines he should check first: doubtful, importance 3 then 2 (never 1), more doubts, newest; none stated before or without a page. */
-export const doubtful = (
-  memoryLines: MemoryLine[],
-  checked: ReadonlySet<string>,
-  n: number
-) =>
-  memoryLines
-    .filter(
-      (c): c is MemoryLine & { group: Draft["group"] } =>
-        c.group !== null &&
-        c.importance >= KEEP_AT &&
-        c.doubts.length > 0 &&
-        !checked.has(c.ref)
-    )
-    .toSorted(
-      (a, b) =>
-        b.importance - a.importance ||
-        b.doubts.length - a.doubts.length ||
-        b.date.localeCompare(a.date)
-    )
-    .slice(0, n);
-
 /** A fact check's `kind` for an observation: its modality when plan or reported, else a fact. */
 export const factCheckKindOf = (o: {
   modality?: string | null;
@@ -165,37 +138,4 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
       units: m.units,
     })),
   ];
-}
-
-/** Draws the `n` memory lines he should check first (`doubtful`) into memory/fact-checks.jsonl, frozen as he is shown them. The caller holds the lock. */
-export async function drawFactChecks(n: number) {
-  const rec = recordRun("memory.fact-checks", { n });
-  const [memoryLines, checked] = await Promise.all([
-    memoryLinesNow(),
-    readFactChecks(),
-  ]);
-  const drawn = doubtful(
-    memoryLines,
-    new Set(checked.map((s) => s.ref)),
-    n
-  ).map(({ doubts, group, importance, ...c }) => ({
-    doubts,
-    factCheck: {
-      ...c,
-      at: rec.now.toISOString(),
-      group,
-      schemaVersion: 1 as const,
-    },
-  }));
-  await appendJsonl(
-    FACT_CHECKS,
-    FactCheck,
-    drawn.map((d) => d.factCheck)
-  );
-  rec.end({
-    added: drawn.length,
-    failed: 0,
-    total: checked.length + drawn.length,
-  });
-  return drawn;
 }

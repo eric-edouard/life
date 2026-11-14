@@ -174,7 +174,7 @@ only on the owner's explicit request (in the chat, or in an ask through the agen
 permission.
 
 - **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
-  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
+  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` (the open ending checks, from `checksNow`) and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
   in `said`, or an `obs` for the auto-add permission) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to

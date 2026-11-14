@@ -11,7 +11,7 @@ import {
 
 // What the links found, and what he said of it: the one place readers learn of links. A link never deletes and never
 // closes a matter by itself: its ending is "maybe done" (the matter stays open) until his word, a fact-check answer to
-// the ending check `drawEndingChecks` put (`fact-checks.ts`): right is his `outdated` word (`answeredFactCheckCorrections`), wrong removes that link for good.
+// the ending check `checksNow` lists (`fact-checks.ts` writes it with his answer): right is his `outdated` word (`answeredFactCheckCorrections`), wrong removes that link for good.
 
 export type Ending = Link & { at: string };
 

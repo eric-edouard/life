@@ -11,11 +11,11 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
-import { readOpenFactChecks } from "../../memory/fact-checks";
 import {
-  recordCorrection,
+  readEndingChecks,
   recordFactCheckAnswer,
-} from "../../memory/memory-files";
+} from "../../memory/fact-checks";
+import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
@@ -173,7 +173,7 @@ export async function correct(a: z.infer<typeof Correct>, agent?: string) {
     if (!(a.ref && a.answer)) {
       throw new Error("Not done: a fact_check needs `ref` and `answer`.");
     }
-    recordFactCheckAnswer(a.ref, a.answer, a.note);
+    await recordFactCheckAnswer(a.ref, a.answer, a.note);
   } else {
     await (a.kind === "memory"
       ? recordCorrection(a.correction)
@@ -478,9 +478,9 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_fact_checks",
-    "The facts Life is least sure of, open for the owner to check (JSON): each observation word for word, why Life doubts it, where it came from and the words it was read from. Ask him; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
+    "The open steps Life thinks are done, for the owner to confirm (JSON): each step word for word, why Life thinks so, where it came from and the words it was read from. Ask him; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
     z.object({}),
-    async () => ({ factChecks: await readOpenFactChecks() })
+    async () => ({ factChecks: await readEndingChecks() })
   );
   // What he tells Life in a chat, only while the `told-life` source is on: off, nothing would read it.
   if (isToldLife()) {

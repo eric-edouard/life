@@ -88,7 +88,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   An optional field that the old lines truly lack, on an append-only file whose latest line per key rules, needs no migration:
   the writer's next line fills it.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a fact-check answer), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, and his answer to a check with the check as it was shown, written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
   copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer
@@ -131,8 +131,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
 - **What the memory holds, in words, is `memoryLinesNow`** (`doubts.ts`): the fact checks he answers and the eval judge the
-  same text. Which memory lines are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
-  he is asked about, only by `doubtful`.
+  same text. Which memory lines are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; what
+  he is asked about, only by `checksNow` (`checks.ts`), never drawn or stored: a doubtful line is asked through the guess
+  behind it, one check for one guess, with no limit and no threshold on how sure Life is (his decision of 14 Nov 2026).
+  His answer is the only thing written, with the check as shown (`fact-checks.jsonl`).
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
@@ -199,7 +201,7 @@ Before adding a helper, use the one that exists:
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his directory, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held, what each publication read (`memory/publications.jsonl`) and, for the pendant, the recorded days (`memory/recorded-days.ts`, the night's copy of lifelog's `GET /recorded`: no read asks lifelog); over a range of days, a day being a range of one; by month, `notCapturedOf` |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
-| How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` (`memory/endings.ts`) is the one place that decides what a link ends, `endingsRead` the one thing readers call; off until his `links` setting, read by nothing but `bun life memory links <matter id>` until his `endings` setting makes it "maybe done" in the readers and asks him (an ending check, a fact check, 3 a day at most; right is his `outdated` word, wrong removes that link for good); its subject is the matter, never a person |
+| How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` (`memory/endings.ts`) is the one place that decides what a link ends, `endingsRead` the one thing readers call; off until his `links` setting, read by nothing but `bun life memory links <matter id>` until his `endings` setting makes it "maybe done" in the readers and asks him (an ending check among the checks, with no limit; right is his `outdated` word, wrong removes that link for good); its subject is the matter, never a person |
 | A person's past months with him, and their story | their history (`memory/histories.ts`, `readHistory`): a closed month read once from their one-to-one exchanges, again only when what it was shown changes; the present month is the situation's. Off until his `history` setting |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's name or handle reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |

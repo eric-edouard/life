@@ -6,12 +6,12 @@ import { changeFeed, readObservation } from "../memory/changes";
 import { checksNow, checksText } from "../memory/checks";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
-import { drawFactChecks } from "../memory/doubts";
 import { endingMarks } from "../memory/endings";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
+import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
@@ -23,10 +23,7 @@ import {
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
-import {
-  recordCorrection,
-  recordFactCheckAnswer,
-} from "../memory/memory-files";
+import { recordCorrection } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
 import { openById } from "../memory/open-by-id";
@@ -243,13 +240,6 @@ const HANDLERS: Record<string, Handler> = {
     return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
   }),
   extract: step(async (v) => extract(await gathered(v))),
-  /** `fact-checks <n>`: draws the n memory lines he should check first into memory/fact-checks.jsonl and prints them with their doubts. */
-  "fact-checks": (_values, [n = ""]) =>
-    Number(n) > 0
-      ? locked(() => drawFactChecks(Number(n))).then((drawn) =>
-          drawn ? json(Promise.resolve(drawn)) : 1
-        )
-      : usage(),
   fetch: (values, [id]) =>
     printed(
       id ? openById(id, count(values["from-turn"]), count(values.limit)) : null
@@ -397,7 +387,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

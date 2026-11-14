@@ -467,25 +467,16 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## fact-checks.jsonl
 
-The fact checks: the memory lines the owner is asked about, one per line, append-only, written by
-`drawFactChecks` (Life's fact checks, `memory/fact-checks.ts`, at the night's run; by hand `bun life memory fact-checks <n>`):
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` and, from 14 Nov 2026, an optional `endedBy` (`ref`: the observation's or episode's id). A line with `endedBy` is not a doubt but an ending check (`drawEndingChecks`, `memory/fact-checks.ts`, at most 3 a day while his `endings` setting is on): `ref` is the open step, `endedBy` the step a link says ended it, `text` "Done? <the step>"; his answer is about that link: true or outdated is the existing `outdated` correction on the step (his word it is done), false removes the link between those two ids for good (a step re-read under a new id can be tied again), partly and skip say nothing. Code draws them (`doubtful`, `apps/server/src/memory/doubts.ts`),
-no model, from `memoryLinesNow`, the words the eval judges too: an active observation eligible for a line on its home page
-(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); an episode as
-`<title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
-about it: that home page (`homePageOf`), or for an episode the one person with a page it was with, else `episodes`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
-`kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
-`episode`), `source` (its channel; null for an episode), `date` (the observation's day) and `units` (what it was read from:
-where a later run's observations about the same thing are). Only doubtful memory lines are drawn (`doubtsOf`: who it is about is
-only inferred, `guessed-person`; and `low-confidence`, under `SURE_AT`, only beside it), importance 3 before 2
-(never 1), then the most doubts, then the newest. An episode is never drawn: neither doubt is an episode's. Fact checks drawn
-before 29 Oct 2026 were a random spread.
+The fact checks he answered, as he was shown them, append-only. Nothing is drawn ahead: a line is written by
+`recordFactCheckAnswer` (`memory/fact-checks.ts`) just before his answer, never at the night's run:
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` and an optional `endedBy` (`ref`: the observation's or episode's id). A line with `endedBy` is an ending check (an open step `checksNow` lists while his `endings` setting is on): `ref` is the open step, `endedBy` the step a link says ended it, `text` "Done? <the step>"; his answer is about that link: true or outdated is the existing `outdated` correction on the step (his word it is done), false removes the link between those two ids for good (a step re-read under a new id can be tied again), partly and skip say nothing. The record is frozen (what the owner was shown), so it copies what it needs:
+`kind` (`fact`, `plan`, `reported`: the observation's `modality`; or `episode`), `source` (its channel; null for an episode), `date` (the observation's day) and `units` (what it was read from). Lines drawn at the night until 14 Nov 2026 (the doubtful memory lines, at most 5 open, drawn by `drawFactChecks`) stay as they are; those never answered are not open.
 
 ## fact-check-answers.jsonl
 
 The owner's answers to the fact checks (a `FactCheckAnswer`), append-only, written by `recordFactCheckAnswer` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory answer-fact-check <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
-`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a fact check he was shown can be
+`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a check with a line here, or an ending check open now, can be
 answered. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for an observation is the owner's answer. A `false` hides the observation as a `wrong` correction would
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never

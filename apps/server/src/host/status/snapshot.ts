@@ -7,11 +7,11 @@ import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
 import { changeFeed } from "../../memory/changes";
+import { checksNow } from "../../memory/checks";
 import {
   CORRECTIONS,
   EPISODES,
   OBSERVATIONS,
-  openFactChecks,
   PAGES,
   readFactCheckAnswers,
   readFactChecks,
@@ -157,14 +157,12 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The fact checks: those he answered, and those open now. */
-function factCheckCounts() {
-  const factChecks = readFactChecks();
-  const answered = readFactCheckAnswers();
+/** The fact checks he answered (a line is written with his answer), and the checks open now, every kind (`checksNow`). */
+async function factCheckCounts() {
+  const answers = readFactCheckAnswers();
   return {
-    answered: factChecks.filter((s) => answered.get(s.ref)?.answer).length,
-    factChecks: factChecks.length,
-    left: openFactChecks().length,
+    answered: readFactChecks().filter((s) => answers.get(s.ref)?.answer).length,
+    left: (await checksNow()).length,
   };
 }
 
@@ -188,7 +186,7 @@ async function memoryCounts() {
       0
     ),
     pages: people.length + areas.length,
-    ...factCheckCounts(),
+    ...(await factCheckCounts()),
   };
 }
 
@@ -966,7 +964,7 @@ function memoryCards(r: Reads): Card[] {
         },
         {
           label: "Fact checks answered",
-          value: `${mem.answered} of ${mem.factChecks}`,
+          value: String(mem.answered),
         },
         { at: mem.commitAt, label: "Last commit" },
       ],
