@@ -153,6 +153,12 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
   ];
 }
 
+/** The ref a part read can open again: a person Life knows, whose id a ref can hold; never a name only heard. */
+export function personRefOf(known: string | undefined, id: string) {
+  const ref = `person:${id}`;
+  return known && SubjectRef.safeParse(ref).success ? ref : undefined;
+}
+
 /** `meant`'s answer, but a part read by id (`byId`) takes the person with exactly that id before any name or alias. */
 export function personFor(
   name: string,
@@ -203,8 +209,6 @@ export async function person(
     file && (await file.exists()) ? { text: await file.text() } : null;
   const id = known ?? slugOf(name);
   const ref = `person:${id}`;
-  // A ref a part read can open again: one for a person Life knows, never for a name only heard.
-  const refable = known && SubjectRef.safeParse(ref).success ? ref : undefined;
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
   const details = detailsBlock(readDetailsOf(folks)(ref), dayNow());
@@ -281,7 +285,7 @@ export async function person(
           ...heldLines(db, ref, timeline),
         ],
         part: part as ReadPart,
-        ref: refable,
+        ref: personRefOf(known, id),
         span: o.span,
         timeline,
       });

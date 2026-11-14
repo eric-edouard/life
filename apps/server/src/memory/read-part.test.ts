@@ -7,7 +7,7 @@ import {
   type ReadPartRef,
   readPartRefOf,
 } from "./read-part";
-import { partLines, personFor } from "./read-person-page";
+import { partLines, personFor, personRefOf } from "./read-person-page";
 
 const refs: ReadPartRef[] = [
   { part: "now", subject: "person:ana" },
@@ -177,4 +177,28 @@ test("evidence of a person with no ref (only heard) ends with the older call, ne
   });
   expect(out.at(-1)).toMatch(OLDER);
   expect(out.join("\n")).not.toContain("Next reads");
+});
+
+test("a person's ref: only for someone known, whose id a ref can hold", () => {
+  expect(personRefOf("ana", "ana")).toBe("person:ana");
+  expect(personRefOf(undefined, "ana")).toBeUndefined();
+  // A name in another script slugs to nothing: `person:` is never a ref.
+  expect(personRefOf("x", "")).toBeUndefined();
+  expect(personRefOf(undefined, "")).toBeUndefined();
+  expect(personRefOf("Ana", "Ana")).toBeUndefined();
+});
+
+test("a part ref opens its person by id: the reader gets byId, the id, the part and the span", async () => {
+  const seen: unknown[][] = [];
+  const read = ((...args: unknown[]) => {
+    seen.push(args);
+    return Promise.resolve("read");
+  }) as unknown as Parameters<typeof openById>[3];
+  await openById("person:ana/evidence/2024-03", undefined, undefined, read);
+  expect(seen).toEqual([
+    [
+      "ana",
+      { before: undefined, byId: true, part: "evidence", span: "2024-03" },
+    ],
+  ]);
 });

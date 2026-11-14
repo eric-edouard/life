@@ -10,7 +10,8 @@ import { asData, fetchOf } from "./words";
 export function openById(
   id: string,
   from?: number,
-  limit?: number
+  limit?: number,
+  readPerson = person
 ): Promise<string> {
   if (!SUBJECT_PREFIX.test(id)) {
     return fetchOf(id, from, limit);
@@ -28,7 +29,7 @@ export function openById(
   }
   const { subject, ...o } = read.ref;
   return subject.startsWith("person:")
-    ? person(subject.slice("person:".length), { ...o, byId: true })
+    ? readPerson(subject.slice("person:".length), { ...o, byId: true })
     : Promise.resolve(
         asData([`(no read parts for ${subject} yet: only a person's)`])
       );
