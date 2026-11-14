@@ -336,7 +336,8 @@ raises the step it was waiting for. The fixture: the forward is due from the day
 
 ### Stage 8. The connector's one batch
 
-The overview, a span, the evidence, and the "which part" argument: one PR, one reconnect, when everything they
+The overview and the "which part" argument (14 Nov: a span and the evidence are parts of the subject read, not
+reads of their own): one PR, one reconnect, when everything they
 return already exists and has been read through the old tools. **14 Nov: this is D6**, which adds the list of
 checks, people by tie and Messenger in the chats read, beside the two reads for matters and the renames. Also in
 that batch: `read_processing_runs`'s description (`mcp.ts`) still names the midday processing run, removed 11 Nov (left so his ChatGPT needs no reconnect for it).

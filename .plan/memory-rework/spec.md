@@ -47,7 +47,7 @@ Each layer has a side, practical or personal (amended 14 Nov, section 22; the tw
 | Evidence | Small dated records with a checked quote or a measured number; one read for every source, chats, mail and recordings alike (amended 14 Nov, section 22) | a model, once per piece and per family; code for measures | once the piece is complete | Practical: episodes, observations, mentions with who is meant, measures. Personal: the moves of the connection and conflict reads |
 | Matters | Which units, observations and to-do items belong to one open thing, as its steps; whether it is open, whom it is owed to, its matter status and what is next are worked out when read (amended 14 Nov, section 22) | a model reading episodes, their observations and his to-do items | nightly | Practical |
 | Links | Two records tied, with the reason | a model reading evidence only, never raw | nightly, for new records that can be tied | Practical |
-| Counted readings | Meters, move sequences, track records, time and money, closeness, ties | code | when read | Practical: ties, time and money. Personal: meters, move sequences, closeness by depth, time together (section 9) |
+| Counted readings | Meters, move sequences, track records, time and money, closeness, ties | code | when read | Practical: what code measures, track records, ties, time and money. Personal: meters, move sequences, wants and offers, closeness by depth, time together (section 9) |
 | Histories | Per subject: month, year, story; where it stands | a model, from the summary level just below | a closed month once; again only when new evidence for its subject arrived (amended 14 Nov, section 22) | Practical: what happened, where it stands, the communication style guide. Personal: the relationship inside them, the persona |
 | Forecasts | A dated expectation, its check day, its score | code first | nightly | Personal when about a relationship |
 | Overview | Where things stand across his life | a model, from the situations | when a situation it shows changed | Practical |
@@ -60,11 +60,13 @@ forecasts. Each part works without the ones after it.
 The memory has two sides, so that nothing personal is built for people he only works with.
 
 - **Practical, for everyone and everything**: units, episodes, observations, matters and to-do items, who is meant,
-  the mentions read, ties, checks (section 8), the summaries of what happened and where it stands (section 11), the
-  communication style guide (section 10), people by tie (section 13).
-- **Personal, only where the gate opens**: the connection and conflict reads (section 5), the persona and the Big
-  Five grouping (section 10), what he says about someone set against how he acts with them (section 7), the
-  relationship inside a person's summaries, closeness by depth, time together, forecasts about a relationship.
+  the mentions read, ties, what code measures (the exchange counts among them), the track record of promises,
+  checks (section 8), the summaries of what happened and where it stands (section 11), the communication style
+  guide (section 10), people by tie (section 13).
+- **Personal, only where the gate opens**: the connection and conflict reads (section 5), the persona with its
+  wants and offers and the Big Five grouping (section 10), what he says about someone set against how he acts with
+  them (section 7), the relationship inside a person's summaries, closeness by depth, time together, forecasts
+  about a relationship.
 - Areas, projects, goals and matters are practical by nature. What is personal in a part of his life reaches the
   memory through its people.
 - **The gate is the person, never the source.** It opens for someone personally close to him, now or once: the
@@ -99,11 +101,12 @@ The memory has two sides, so that nothing personal is built for people he only w
   today; the focused reads run once the exchange is complete, so at most a night later, never twice on the same
   messages. An exchange whose messages change afterwards (a late backup fill, mail that arrives late) is read
   again once, known by its messages' hash as today's cache knows a unit.
-- Read by a model: every exchange of a chat where both sides ever wrote, with anyone, at any age. A sitting where
-  only one side wrote is read too: an ignored message is evidence. Skipped by code: notifications, newsletters,
-  chats where nobody ever answered, big groups where he never speaks, and recordings lifelog heard from a screen, a
-  speaker or an announcement, or nearby and not with him. A small group is read even when he is silent,
-  if someone who also talks with him one to one speaks in it.
+- Read by a model: every exchange of a stream he spoke in (a chat, one to one or group, a mail thread, a
+  recording), with anyone, at any age (amended 14 Nov, section 22). A sitting where only one side wrote is read
+  too: an ignored message is evidence. Skipped by code: notifications, newsletters, streams he never spoke in (a
+  chat or a mail thread he never wrote in, a big group where he never speaks), and recordings lifelog heard from a
+  screen, a speaker or an announcement, or nearby and not with him. A small group where he stays silent is left out
+  too, and added back only if a question needs it (amended 14 Nov, section 22).
 - New from the sources, by code: reactions, which message a reply answers, deletions (who, how many, the text kept).
 - People in a record: it keeps the handle or the voice of whoever spoke, as the source names it. Where a model had
   to work someone out (the target of a move in a group, who "elle" is), it keeps the words used and the model's
@@ -331,8 +334,9 @@ He is not one person in the data. So:
   between them. His view: what he tells others, tells Life and writes for himself.
 - **Where he performs** is counted through links: what he complains of about someone to others, tied to the same
   event, with no fault raised to that person.
-- His own words about someone are always shown, quoted, with who heard them. A meter of his view needs at least
-  two listeners; one story retold counts once.
+- His own words about someone are always kept quoted, with who heard them. An agent reaches them in the evidence
+  part of a read (section 13); they feed that person's summary; they are not on the default part of a read
+  (amended 14 Nov, section 22). A meter of his view needs at least two listeners; one story retold counts once.
 - **What he says about them** (amended 14 Nov, section 22): for each person, his words about that person, dated, with
   who heard them, from every source (chats, mail, recordings, his notes, his assistant chats as his own writing),
   kept apart from how he acts with them. Each line is filed under who is meant, with its proof (section 3); the
@@ -458,7 +462,10 @@ This changes rules of `AGENTS.md`; section 17 lists them. They are rewritten wit
   share.
 - **Which counts are personal** (amended 14 Nov, section 22). A meter and a move sequence count moves of the
   connection and conflict reads, so they exist only for someone the gate is open for (section 2); closeness by
-  depth and time together are personal too. Ties, and his hours and money against his goals, are practical.
+  depth and time together are personal too, and so are wants and offers, as part of the persona. Practical, for
+  everyone: what code measures, the exchange counts among them; ties; his hours and money against his goals; and
+  the track record of promises, counted from matters. The track record is read into a persona only behind the
+  gate.
 
 ## 10. The readings
 
@@ -503,18 +510,20 @@ Conduct lines, his asks by name, as counts with quotes: defensive or engages whe
 an apology's parts; whether a mending holds and whether the past is let go (both through links); steers hard or
 lets things be (the same code as taking the lead, shown once). Impulsivity: one research note before the pilot.
 
-- **The Big Five profile** is these rates grouped under the five names. One cursor per name is drawn for a person
-  once the two halves of that person's own evidence give the same answer (section 9) and he recognizes that person's
-  rates: a stable count shows it is repeatable, not that it means the trait. It appears person by person, as their
-  evidence grows. The page and the data agents receive always mark the difference: a rate ("kept 9 of 12 dated
-  promises") is an observation; a Big Five name over several rates is an interpretation, shown as one. Aesthetic openness is left out. Attachment is kept as its two behaviours (asks for
+- **The Big Five profile** is these rates grouped under the five names. A cursor here is a place among the people
+  Life knows, per trait, with the counts and quotes behind it; it is never a score (amended 14 Nov, section 22).
+  One cursor per name is drawn for a person once the two halves of that person's own evidence give the same answer
+  (section 9) and he recognizes that person's rates: a stable count shows it is repeatable, not that it means the
+  trait. It appears person by person, as their evidence grows. The page and the data agents receive always mark the
+  difference: a rate ("kept 9 of 12 dated promises") is an observation; a Big Five name over several rates is an
+  interpretation, shown as one. Aesthetic openness is left out. Attachment is kept as its two behaviours (asks for
   reassurance, shares feelings) and never as a style: the research says a style cannot be read from text.
 - **The Big Five is a grouping, not a measure of its own** (amended 14 Nov, section 22). Extraversion and openness
   can be read from chats today. Agreeableness is half there: warmth yes, tactful or blunt and fair wait for
-  recordings. Conscientiousness needs the record of promises kept; emotional stability needs recordings. Each trait
-  is shown as where the person stands among the people Life knows, with the counts and quotes behind it, never a
-  score, and "too few to say" where that is the case. Said on the read: someone he only chats with keeps a partial
-  profile; it is how they are with him, not in general; it stays an interpretation.
+  recordings. Conscientiousness needs the record of promises kept; emotional stability needs recordings. Each
+  trait's cursor is that place among the people Life knows, and a trait says "too few to say" where that is the
+  case. Said on the read: someone he only chats with keeps a partial profile; it is how they are with him, not in
+  general; it stays an interpretation.
 - **His own persona** (amended 14 Nov, section 22). He takes a real questionnaire once, in a chat with an
   assistant, the result told to Life as his word (done on 14 Nov). Life then sets his own view of himself against
   how he acts. It comes before Life's new reading of him is shown to him, so his answers are not coloured by it.
@@ -545,8 +554,9 @@ How he says he feels over time, by person and by activity. His routines, with hi
 **Time together**, by person and month: days recorded together (the pendant) and days pictured together (Photos),
 counted by code and shown apart from contact by message. Before the chats begin it is the only evidence of a tie,
 and it is shown as that: pictured together, never "close". His view of each person set side by side,
-so "the one he is hardest on" has an answer. Ties between other people. Of these, time together and his view of
-each person are personal (section 2); ties are practical, and are kept as section 3 says (amended 14 Nov, section
+so "the one he is hardest on" has an answer. Ties between other people. Of these, wants and offers, time together and
+his view of each person are personal (section 2). The track record is counted for everyone, from matters, and read
+into a persona only behind the gate; ties are practical, and are kept as section 3 says (amended 14 Nov, section
 22).
 
 **Closeness** is depth: what is confided each way, support exchanged, the personal against the practical; personal
@@ -617,10 +627,11 @@ today's, so today's stays until a subject shows a use for it).
   died and when, a fact in the directory, from his word or as Life's guess with a person check (section 8). A
   death stops forecasts and birthday reminders about that person, and an open matter with them becomes an ending
   check.
-- A part of his life also carries one word, by code: done (ended by his word or by its last open thing); waiting on
-  someone (an open wait); moving (evidence in the last 14 covered days); stuck (open things past their time);
-  dormant (none for 45 covered days); drifting (falling against its own usual). A matter carries the first five,
-  as its matter status (amended 14 Nov, section 22).
+- A part of his life (an area, a project, a goal) also carries one word, by code: done (ended by his word or by its
+  last open thing); waiting on someone (an open wait); moving (evidence in the last 14 covered days); stuck (open
+  things past their time); dormant (none for 45 covered days); drifting (falling against its own usual). A matter
+  carries the first five, as its matter status; a person carries none, and "growing closer or drifting" (section
+  10) stays a personal reading about a person (amended 14 Nov, section 22).
 - **Old years have no episodes** (section 16), so there matters and his own month are read from the evidence
   itself: the observations, mentions and self-reports of the month, and its photo-days (places, who was pictured, his
   captions: for most days before 2011 the only record), grouped by the same small processing step that groups episodes
@@ -667,7 +678,8 @@ beat them. The trigger and the outcomes of each forecast kind are written with i
 - A forecast about a relationship is personal: made only for someone the gate is open for (section 2). None is
   made about someone who died (section 11) (amended 14 Nov, section 22).
 - **The loop**: what happened is new evidence, so counts move. A run of misses about someone flags that subject for
-  a rebuild and becomes a question for him. It never writes a turning point by itself.
+  a rebuild and becomes a check, a kind added when forecasts are built (amended 14 Nov, section 22). It never
+  writes a turning point by itself.
 - Later, each needing his yes because it spends at question time: an agent's free question turned into outcomes;
   testing a message before he sends it.
 
@@ -675,10 +687,10 @@ beat them. The trigger and the outcomes of each forecast kind are written with i
 
 1. **The overview**: his seven areas, each line pointing at a subject. About 1,500 tokens.
 2. **A subject**, one part at a time (the parts are below). The agent says which part it wants; a person's default
-   is the relationship, never the logistics. Each part about 1,500 tokens.
-3. **A span** of that subject: a year, a month.
-4. **The evidence** for a subject, an evidence kind and a span, with quotes, by page.
-5. **The raw**: the messages and turns.
+   is the relationship, never the logistics. Each part about 1,500 tokens. A span of the subject (a year, a month)
+   and its evidence (an evidence kind and a span, with quotes, by page) are parts of this one read, not reads of
+   their own (amended 14 Nov, section 22).
+3. **The raw**: the messages and turns.
 
 **The parts of a subject's read** (amended 14 Nov, section 22):
 
@@ -708,8 +720,9 @@ beat them. The trigger and the outcomes of each forecast kind are written with i
   never called `read_day` in 492 tool calls.
 - The sizes above are starting numbers; the pilot sets them. Agents read Life about as much as Life reads the raw,
   so a small read matters as much as a cheap write.
-- The connector changes in one batch: three reads added (the overview, a span, the evidence); the person and area
-  reads gain the "which part" argument and keep their names. The same batch, so his assistant apps reconnect once,
+- The connector changes in one batch: one read added, the overview; the person and area reads gain the "which
+  part" argument and keep their names, and a year, a month and the evidence are parts of them, not reads of their
+  own. The same batch, so his assistant apps reconnect once,
   carries the list of checks (today's fact-check read becomes the one read of all checks), people by tie, his
   Messenger chats in the chats read, and the two reads for matters (amended 14 Nov, section 22).
 
@@ -771,7 +784,7 @@ Before anything runs, this table is filled with numbers and kept beside the resu
 | Counts | A rate is stable | The two halves of the evidence | The halves fall in the same band for 8 meters in 10 | Minimums raised until they do |
 | Meters | He recognizes the person | His blind rating, three people, once | He marks 7 in 10 right or partly, with right and partly counted apart; never tuned toward | Only the meters he recognized are shown |
 | Histories | A summary answers as well as the raw | The raw read whole where it fits; search over units; today's layers | On 30 questions where the raw fits: not worse than the raw 8 times in 10, and better than today's layers 6 times in 10 on relationship, arc and about-him questions | No histories: evidence, counts and search only |
-| A first ask | Not worse than today | Today's person read, same people | Not worse 9 times in 10 | More subjects kept ahead |
+| A first ask | Not worse than today | Today's person read, same people | Not worse 9 times in 10 | More subjects kept ahead. No longer applies (amended 14 Nov, section 22): no list of subjects is kept current, and a summary exists wherever there is enough evidence (section 11) |
 | Time against goals | The hours are true | One week he checks | Within a fifth of his own count for 4 of his 5 main projects; under a third unassigned | The gap is not written |
 | Coverage | Gaps are known | The outages on record | Every one shows as "not seen" | No trend shown for years it cannot vouch for |
 | The overview | It says where things stand | His own reading of it | He marks at most 2 lines wrong | Reworked before any reader uses it |
@@ -823,7 +836,7 @@ run twice per change (55 and 57 of 76 points at the baseline); a change worth on
 | Coverage | Passed |
 | The practical answers | Passed on every merge |
 | Who is meant | Names and relation words: two model families never placed a mention on a different person (0 of 47 shared). Pronouns: a proof by the line that names the person kept 6 of 55, too strict |
-| Owed | The same exchange read twice and ids; per language; the whole-thread yardstick; links' two bars; counts stable between halves; his blind rating (a page was sent, no rating yet); a first ask; time against goals; the overview; closeness; his word surviving a re-read; forecasts |
+| Owed | The same exchange read twice and ids; per language; the whole-thread yardstick; links' two bars; counts stable between halves; his blind rating (a page was sent, no rating yet); time against goals; the overview; closeness; his word surviving a re-read; forecasts |
 
 - **Who grades.** A judge model, first measured on cases he settled. For facts those cases exist. For relationship
   and arc answers none do: the judge is measured on ten answers he gives a verdict on, in conversation (his call).
@@ -1262,18 +1275,18 @@ And with his feedback on the designs (the last part of this section), in the fif
 | Section | Change |
 |---|---|
 | 2 | Each layer marked practical or personal; the two sides, the gate and how someone switches to personal, as a subsection; histories redone only on new evidence |
-| 3 | The three proofs of who is meant; few candidates per call; where a mention is kept; descriptive ties; what is redone when who is meant changes, a voice named late included |
+| 3 | A stream is read when he spoke in it, small silent groups left out; the three proofs of who is meant; few candidates per call; where a mention is kept; descriptive ties; what is redone when who is meant changes, a voice named late included |
 | 5 | Which reads run where: the mentions read everywhere, connection and conflict only where someone personally close speaks; files shown as lines |
 | 6 | An ending found by a link is an ending check, with no limit a day |
 | 7 | The practical evidence is for everyone, the personal side behind the gate; his words about someone set against his conduct are personal |
 | 8 | Checks replace "questions for him": one shape, six kinds, worked out when read, one list in three places, his answer only from him |
-| 9 | Which counts are personal |
+| 9 | Which counts are personal, which practical (what code measures, the track record) |
 | 10 | The persona and the Big Five grouping are personal, written as sentences from counts and quotes; the Big Five as a grouping, and his own questionnaire; how each writes as description; the communication style guide |
 | 11 | Two sizes, the full text and the headline; each sentence names what it rests on; no list of subjects kept current; people carry no status word, death as a fact |
 | 12 | Forecasts about a relationship are personal; none about someone who died |
-| 13 | The parts of a read, each ending with its next reads; people by tie; the checks as one read; the connector's batch |
+| 13 | The parts of a read, each ending with its next reads, a span and the evidence among them; people by tie; the checks as one read; the connector's batch |
 | 14 | The gate's effect on the reads; summaries only on new evidence; few candidates; each part counted before it runs |
-| 15 | Five list questions join the cases; how the gate, who is meant, checks, the persona and the style guide are judged |
+| 15 | Five list questions join the cases; how the gate, who is meant, checks, the persona and the style guide are judged; the first-ask row no longer applies |
 | 16 | The whole history read once inside one full rebuild, each part counted, his yes on the total; the Messenger import |
 | 17 | The rows the designs change; the rules of `AGENTS.md` they touch |
 | 18 | Ten names added, from "check" on; "check" replaces "question" |
