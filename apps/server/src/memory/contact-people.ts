@@ -19,7 +19,8 @@ import { nameKey, UNKNOWN } from "./units";
 // The contact people (docs/glossary.md): who a handle is, as his Contacts name it, for the handles his messages hold.
 // Contacts answer once and Life keeps the answer (memory/people-contacts.jsonl, appended each night): no read opens
 // Contacts, a card he deletes keeps its person, and a ref stored for good never loses its name. Who a contact person
-// is among everyone (someone in truth/, an earlier guess) is `who.ts`'s to say.
+// is among everyone (someone in truth/, an earlier guess) is `who.ts`'s to say. A birthday once held is carried
+// forward (a card that later loses it keeps it, as a deleted card keeps its person); a changed one appends a line.
 
 /** A contact person as it stands: its id (from its card's), its latest name and birthday, every handle a line gave it. */
 export interface ContactNow {

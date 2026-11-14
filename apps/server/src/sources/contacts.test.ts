@@ -80,6 +80,10 @@ test("Contacts birthdays: seconds from 2001 at noon UTC, the year kept only when
   expect(birthdayOf(388_800, 1604)).toBe("--01-05");
   expect(birthdayOf(388_800, null)).toBe("--01-05");
   expect(birthdayOf(null, 1992)).toBeNull();
+  // 29 Feb with a year that has none is read without the year, never as a date that does not exist.
+  const leapDay = (Date.UTC(2004, 1, 29, 12) - Date.UTC(2001, 0, 1)) / 1000;
+  expect(birthdayOf(leapDay, 1990)).toBe("--02-29");
+  expect(birthdayOf(leapDay, 1992)).toBe("1992-02-29");
 });
 
 test("Contacts read: names from the Mac's and each account's database, a person's name before a company's", () => {
