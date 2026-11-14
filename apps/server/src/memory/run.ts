@@ -213,12 +213,14 @@ export const chunks = <T>(list: T[], n: number) =>
 
 /**
  * Runs `one` over every batch, as many at once as the step's engine takes (`callsAtOnceOf`), the next starting as one
- * ends, each with its own folder `dir/batch-NNN` for its input and reply. A throw starts no new batch.
+ * ends, each with its own folder `dir/batch-NNN` for its input and reply. A throw starts no new batch. `atOnce`: fewer
+ * or more at once than the engine's, for a developer's script that has measured the host (the night never sets it).
  */
 export async function inBatches<T>(
   batches: T[],
   step: Pick<Step, "dir" | "llm">,
-  one: (batch: T, bdir: string) => Promise<void>
+  one: (batch: T, bdir: string) => Promise<void>,
+  atOnce?: number
 ) {
   let next = 0;
   let failed = false;
@@ -239,7 +241,7 @@ export async function inBatches<T>(
   };
   await Promise.all(
     Array.from(
-      { length: Math.min(callsAtOnceOf(step.llm), batches.length) },
+      { length: Math.min(atOnce ?? callsAtOnceOf(step.llm), batches.length) },
       work
     )
   );

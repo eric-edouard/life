@@ -191,6 +191,8 @@ Before adding a helper, use the one that exists:
 | Need | Use |
 |---|---|
 | What running things of his life exist and what belongs to each | the matters (`memory/matters.ts`): `mattersNow` over `readMatters`; steps are units, observations and to-do item keys, never episodes; found by the matters step only (in shadow, off until his `matters` setting) |
+| Who a mention means (name, his relation word, a pronoun's earlier naming) | `placementOf` (`memory/mention-placement.ts`): code's own reading of the words is the floor, a read's pick only adds the earlier naming; the people a line names, `peopleNamedBy` |
+| What a read of exchanges shows a model in one call | `callOf` (`memory/exchange-reads.ts`): speakers by `senderOf`, earlier lines that name someone, `involved` from the speakers and whom the lines name; the live two-person call is `directCallOf` |
 | Whether something is open, where it stands, who it is owed to or waited on, what is next | `matterOf` / `matterBookOf` (`memory/matter-read.ts`), the one rule: open until its newest to-do, promise or wait has an ending; matter status `done`, `waiting_on_someone`, `moving`, `stuck`, `dormant`; a lone open observation or to-do item is a matter of one. Readers (`dueOf`, `openWithOf`, `read_matters`, `read_matter`, the links step) go through `readMatterBook`; never a second test of "open" |
 | Where an observation stands (hidden, gone, replaced, retired) | `observationStatusOf` (`memory-files.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |

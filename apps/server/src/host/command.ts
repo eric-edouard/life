@@ -25,6 +25,7 @@ import {
 } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
+import { placementOf } from "../memory/mention-placement";
 import { readMentions } from "../memory/mentions";
 import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
@@ -42,7 +43,7 @@ import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { tiesNow } from "../memory/ties";
 import { DAYS, gather } from "../memory/units";
-import { placementOf, readPeople } from "../memory/who";
+import { readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
 import {
   dayNow,

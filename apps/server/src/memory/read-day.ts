@@ -16,12 +16,13 @@ import {
   withIndex,
 } from "./index-rows";
 import { episodesWhere, readBy, readLedger } from "./memory-files";
+import { placementOf } from "./mention-placement";
 import { type Mention, readMentionsOn, talkedAboutOf } from "./mentions";
 import { byTime, euros, paid, paymentLine, placedOn } from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import { dueContext, dueOf } from "./read-open-items";
 import { tiesNow } from "./ties";
-import { placementOf, readPeople } from "./who";
+import { readPeople } from "./who";
 import { inDays, localDate, time } from "./zones";
 
 // `bun life memory day <date>` and the connector's `read_day`: what happened that day (its episodes), what is due, its

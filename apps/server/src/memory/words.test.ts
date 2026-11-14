@@ -729,3 +729,31 @@ test("a batch as lines: numbered from 0 across its exchanges, each under its day
   expect(messages).toEqual(batch.flat());
   expect(starts).toEqual([0, 2]);
 });
+
+test("earlier lines come first under their own heading, numbered from 0; the first exchange starts after them", () => {
+  const at = (min: number, text: string): SourceEvent => ({
+    at: `2026-10-01T12:0${min}:00.000Z`,
+    chat: "+1",
+    fromMe: min % 2 === 0,
+    id: String(min),
+    sender: "+1",
+    source: "whatsapp",
+    text,
+  });
+  const before = [at(0, "Léa a annulé"), at(1, "ok")];
+  const batch = [[at(2, "elle abuse")]];
+  const shown = batchLines(batch, (e) => (e.fromMe ? "me" : "Ana"), before);
+  expect(shown.lines.map((l) => l.replace(CLOCK, "HH:MM"))).toEqual([
+    "## Earlier in this conversation",
+    "[0] HH:MM me: Léa a annulé",
+    "[1] HH:MM Ana: ok",
+    "## Exchange 2 · 2026-10-01",
+    "[2] HH:MM me: elle abuse",
+  ]);
+  expect(shown.starts).toEqual([2]);
+  expect(shown.messages).toEqual([...before, ...batch.flat()]);
+  // Without earlier lines the shape is the live one.
+  expect(batchLines(batch, () => "me").lines[0]).toBe(
+    "## Exchange 0 · 2026-10-01"
+  );
+});

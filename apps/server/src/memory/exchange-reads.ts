@@ -10,9 +10,12 @@ import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import { batchesOf, exchangesOf, isFinished, isTwoWay } from "./exchanges";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
+import { peopleNamedBy, saidOf } from "./mention-placement";
+import { involvedOf, type refContext } from "./model-context";
 import { begin, inBatches, type Step } from "./run";
+import type { Tie } from "./ties";
 import type { People } from "./who";
-import { batchLines } from "./words";
+import { batchLines, senderOf } from "./words";
 
 // The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's two-way one-to-one chats,
 // each reply stored as the model gave it in memory/read-replies/ (model output is expensive); the moves are worked out
@@ -42,18 +45,88 @@ export const withOf = (known: string, people: People): With => ({
 });
 
 /** One call: what the model is shown, the messages its lines are, and where each exchange starts in them. */
-export function callOf(batch: SourceEvent[][], withWhom: With) {
+export interface ReadCall {
+  input: object;
+  messages: SourceEvent[];
+  starts: number[];
+}
+
+/** The night's call, for a read worded for two people: the other person's name and relation, and `me`. */
+export function directCallOf(batch: SourceEvent[][], withWhom: With) {
   const { lines, messages, starts } = batchLines(batch, (e) =>
     e.fromMe ? "me" : withWhom.name
   );
   return { input: { lines, with: withWhom }, messages, starts };
 }
-type Call = ReturnType<typeof callOf>;
 
-/** A call to make, with the instant of its newest exchange (the night asks the newest first). */
+/** The most earlier lines a call shows (`namedEarlierOf`): a guess, so the pilot's dry run counts the calls that hit it. */
+export const NAMED_EARLIER_MOST = 12;
+
+/**
+ * The earlier lines of an exchange that a call shows before its first exchange, so a pronoun can point at a naming:
+ * for each person a line names (`peopleNamedBy`), the latest such line (a call line never), the newest
+ * `NAMED_EARLIER_MOST` of them in time order. `cut`: there were more.
+ */
+export function namedEarlierOf(
+  earlier: SourceEvent[],
+  people: Pick<People, "canon" | "resolve">,
+  ties: Tie[]
+) {
+  const latest = new Map<string, SourceEvent>();
+  for (const e of earlier.toSorted((a, b) => a.at.localeCompare(b.at))) {
+    if (!e.phoneCall) {
+      for (const ref of peopleNamedBy(saidOf(e), people, ties)) {
+        latest.set(ref, e);
+      }
+    }
+  }
+  const shown = [...new Set(latest.values())].toSorted((a, b) =>
+    a.at.localeCompare(b.at)
+  );
+  return {
+    cut: shown.length > NAMED_EARLIER_MOST,
+    events: shown.slice(-NAMED_EARLIER_MOST),
+  };
+}
+
+/**
+ * One call of the wording for any number of speakers: the lines of `batch` by `senderOf`, the earlier lines that name
+ * someone (`namedEarlierOf`) first, and `involved`, the directory's people it involves: its speakers that Life places
+ * and whom its lines name (`peopleNamedBy`), so a call never grows with the directory. `directory` is
+ * `refContext(people, new Set(), new Set())`, built once by the caller. `earlierCut`: the cap hit.
+ */
+export function callOf(
+  batch: SourceEvent[][],
+  people: Pick<People, "canon" | "names" | "resolve">,
+  ties: Tie[],
+  directory: ReturnType<typeof refContext>,
+  earlier: SourceEvent[] = []
+) {
+  const { cut, events } = namedEarlierOf(earlier, people, ties);
+  const { lines, messages, starts } = batchLines(
+    batch,
+    (e) => senderOf(e, people),
+    events
+  );
+  const refs = new Set<string>();
+  for (const e of messages.filter((m) => !m.phoneCall)) {
+    const speaker = e.fromMe ? undefined : people.resolve(e.sender);
+    if (speaker) {
+      refs.add(people.canon(speaker));
+    }
+    for (const ref of peopleNamedBy(saidOf(e), people, ties)) {
+      refs.add(ref);
+    }
+  }
+  const input = { involved: involvedOf(directory, refs).people, lines };
+  return { earlierCut: cut, input, messages, starts };
+}
+
+/** A call to make, with the instant of its newest exchange (the night asks the newest first) and the prompt that asks it. */
 export interface Asked {
   at: string;
-  call: Call;
+  call: ReadCall;
+  prompt: string;
   read: ReadName;
 }
 
@@ -90,12 +163,16 @@ const indexes = new Map<string, { index: ReplyIndex; parts: ReadReply[][] }>();
 
 /**
  * The stored exchanges of each read by their first message's key, from the lines made by the read's current prompt
- * (its versioned name: a version changes only when the meaning does, so the digest is never matched on). Built once,
- * and again only when a file grew.
+ * (its versioned name: a version changes only when the meaning does, so the digest is never matched on). `promptOf`:
+ * the night's, `READS`; a trial folder goes by the prompt it is tried with. Built once, and again only when a file grew.
  */
-export function readReplyIndex(where = READ_REPLIES) {
+export function readReplyIndex(
+  where = READ_REPLIES,
+  promptOf = (r: ReadName) => READS[r].prompt
+) {
   const parts = readReplies(where);
-  const kept = indexes.get(where);
+  const id = `${where}|${READ_NAMES.map(promptOf).join()}`;
+  const kept = indexes.get(id);
   if (
     kept?.parts.length === parts.length &&
     kept.parts.every((p, i) => p === parts[i])
@@ -106,7 +183,7 @@ export function readReplyIndex(where = READ_REPLIES) {
     READ_NAMES.map((r) => [r, new Map<string, Held[]>()])
   ) as ReplyIndex;
   for (const line of parts.flat()) {
-    if (line.madeBy.prompt === READS[line.read].prompt) {
+    if (line.madeBy.prompt === promptOf(line.read)) {
       for (const [i, start] of line.starts.entries()) {
         const keys = line.messages.slice(start, line.starts[i + 1]);
         const first = keys[0] ?? "";
@@ -117,7 +194,7 @@ export function readReplyIndex(where = READ_REPLIES) {
       }
     }
   }
-  indexes.set(where, { index, parts });
+  indexes.set(id, { index, parts });
   return index;
 }
 
@@ -173,7 +250,8 @@ export function readExchangeReadWork(
         for (const batch of batchesOf(unread)) {
           pending.push({
             at: batch.at(-1)?.[0]?.at ?? "",
-            call: callOf(batch, withWhom),
+            call: directCallOf(batch, withWhom),
+            prompt: READS[read].prompt,
             read,
           });
         }
@@ -203,49 +281,53 @@ export const storeReply = (
 ) => appendJsonl(readReplyPath(firstAt, where), ReadReply, [line]);
 
 /**
- * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
- * digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that is not one (an
- * object with its `exchanges`), stores nothing and is asked again at the next pass.
+ * Makes each call, a few at a time (`atOnce`: the engine's), and stores its reply as the model gave it, with what made it
+ * (`madeBy`), the digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that
+ * is not one (an object with its `exchanges`), stores nothing and is asked again at the next pass.
  */
 export async function makeReplies(
   asked: Asked[],
   step: Pick<Step, "ask" | "attempt" | "dir" | "llm" | "run">,
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  atOnce?: number
 ) {
-  const wordings = Object.fromEntries(
+  const wordings = new Map(
     await Promise.all(
-      READ_NAMES.map(async (r) => [
-        r,
-        promptDigestOf(await promptText(READS[r].prompt)),
-      ])
+      [...new Set(asked.map((a) => a.prompt))].map(
+        async (p) => [p, promptDigestOf(await promptText(p))] as const
+      )
     )
   );
   let stored = 0;
-  await inBatches(asked, step, async ({ call, read }, dir) => {
-    await step.attempt(
-      async () => {
-        const { prompt } = READS[read];
-        const reply = await step.ask({ dir, input: call.input, prompt });
-        const at = clock().toISOString();
-        storeReply(
-          {
-            at,
-            madeBy: stamp(step.llm, prompt, step.run),
-            messages: call.messages.map(eventKey),
-            promptDigest: wordings[read] as string,
-            read,
-            reply: reply as ReadReply["reply"],
-            schemaVersion: 1,
-            starts: call.starts,
-          },
-          call.messages[0]?.at ?? "",
-          where
-        );
-        stored += 1;
-      },
-      { read }
-    );
-  });
+  await inBatches(
+    asked,
+    step,
+    async ({ call, prompt, read }, dir) => {
+      await step.attempt(
+        async () => {
+          const reply = await step.ask({ dir, input: call.input, prompt });
+          const at = clock().toISOString();
+          storeReply(
+            {
+              at,
+              madeBy: stamp(step.llm, prompt, step.run),
+              messages: call.messages.map(eventKey),
+              promptDigest: wordings.get(prompt) as string,
+              read,
+              reply: reply as ReadReply["reply"],
+              schemaVersion: 1,
+              starts: call.starts,
+            },
+            call.messages[0]?.at ?? "",
+            where
+          );
+          stored += 1;
+        },
+        { read }
+      );
+    },
+    atOnce
+  );
   return { stored };
 }
 

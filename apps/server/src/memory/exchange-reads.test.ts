@@ -5,8 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { eventKey, type SourceEvent } from "../records/source";
+import { Person } from "../records/truth";
 import {
+  callOf,
+  directCallOf,
   makeReplies,
+  namedEarlierOf,
   READS,
   readExchangeReadWork,
   readReplies,
@@ -15,7 +19,9 @@ import {
   storeReply,
 } from "./exchange-reads";
 import { exchangesOf } from "./exchanges";
-import type { People } from "./who";
+import { refContext } from "./model-context";
+import { tiesNow } from "./ties";
+import { foldsOf, type People } from "./who";
 
 const START = Date.parse("2026-10-01T12:00:00.000Z");
 const msg = (ms: number, fromMe: boolean, text = "hello"): SourceEvent => ({
@@ -234,4 +240,149 @@ test("a reply is filed under the month of its first message, not of when it was 
     [eventKey(spring)],
     [eventKey(oct as SourceEvent)],
   ]);
+});
+
+const CLOCK = /\d\d:\d\d/;
+const KNOWN = [
+  ["hugo-blanc", "Hugo Blanc", "friend", ["Hugo"]],
+  ["lea-morel", "Léa Morel", "sister", ["Léa"]],
+  ["anne-morel", "Anne Morel", "mother", []],
+] as const;
+// A directory of 500 made-up people beside the three the call names.
+const crowd = Array.from({ length: 500 }, (_, i) => ({
+  aliases: [],
+  id: `filler-${i}`,
+  name: `Filler Person${i}`,
+  relation: "neighbour",
+}));
+const directoryPeople = [
+  ...KNOWN.map(([id, name, relation, aliases]) => ({
+    aliases: [...aliases],
+    id,
+    name,
+    relation,
+  })),
+  ...crowd,
+];
+const folded = foldsOf(
+  directoryPeople.map((p) => Person.parse(p)),
+  [],
+  [],
+  []
+);
+const crowded = {
+  ...folded,
+  names: new Map(directoryPeople.map((p) => [`person:${p.id}`, p.name])),
+  outsideDirectory: [],
+  truth: {
+    areas: [],
+    me: { text: "" },
+    people: directoryPeople,
+    projects: [],
+  },
+};
+const room = (min: number, sender: string, text: string): SourceEvent => ({
+  ...msg(min * 60_000, sender === "me", text),
+  chat: "room",
+  sender,
+});
+const crowdedTies = tiesNow(crowded as never);
+const directory = refContext(crowded as never, new Set(), new Set());
+
+test("a call with three speakers shows each by name, the earlier lines that name someone, and involves only its speakers and whom its lines name, whatever the directory's size", () => {
+  const earlier = [
+    room(0, "me", "Léa a encore annulé dimanche"),
+    room(1, "me", "ma mère dit que c'est le boulot"),
+    room(2, "me", "Léa encore"),
+    room(3, "me", "rien de spécial"),
+  ];
+  const batch = [
+    [
+      room(10, "Hugo Blanc", "elle abuse"),
+      room(11, "unknown voice 1", "mon frère aussi"),
+    ],
+  ];
+  const call = callOf(batch, crowded as never, crowdedTies, directory, earlier);
+  expect(call.input.lines.map((l) => l.replace(CLOCK, "HH:MM"))).toEqual([
+    "## Earlier in this conversation",
+    "[0] HH:MM me: ma mère dit que c'est le boulot",
+    "[1] HH:MM me: Léa encore",
+    "## Exchange 2 · 2026-10-01",
+    "[2] HH:MM Hugo Blanc: elle abuse",
+    "[3] HH:MM unknown voice 1: mon frère aussi",
+  ]);
+  expect(call.starts).toEqual([2]);
+  expect(call.messages).toHaveLength(4);
+  // Hugo speaks and Life places him; Léa and Anne are named on earlier lines; the 500 others are not in the call.
+  expect(call.input.involved.map((p) => p.ref).sort()).toEqual([
+    "person:anne-morel",
+    "person:hugo-blanc",
+    "person:lea-morel",
+  ]);
+  expect(call.earlierCut).toBe(false);
+});
+
+test("the earlier lines are the latest per person named, twelve at most", () => {
+  const earlier = crowd
+    .slice(0, 15)
+    .map((p, i) => room(i, "me", `${p.name} est venu`));
+  const { cut, events } = namedEarlierOf(
+    earlier,
+    crowded as never,
+    crowdedTies
+  );
+  expect(cut).toBe(true);
+  expect(events).toHaveLength(12);
+  expect(events.at(-1)).toBe(earlier[14] as SourceEvent);
+});
+
+test("the live calls are unchanged: the prompts' names, the two-person input, and what the night asks", () => {
+  expect(READS).toEqual({
+    conflict: { prompt: "memory-conflict.v2" },
+    connection: { prompt: "memory-connection.v3" },
+    mentions: { prompt: "memory-mentions.v1" },
+  });
+  const call = directCallOf([talk], { name: "Ann", relation: "friend" });
+  expect(Object.keys(call.input)).toEqual(["lines", "with"]);
+  fresh();
+  const work = workOf(talk);
+  expect(work?.work.map((w) => w.prompt).sort()).toEqual([
+    READS.conflict.prompt,
+    READS.connection.prompt,
+    READS.mentions.prompt,
+  ]);
+  expect(Object.keys(work?.work[0]?.call.input ?? {}).sort()).toEqual([
+    "lines",
+    "with",
+  ]);
+});
+
+test("a trial folder's index goes by the prompt it is given, the night's by the live one", () => {
+  fresh();
+  const wordingTwo = "memory-mentions.v2";
+  storeReply(
+    {
+      at: "2026-10-04T00:00:00.000Z",
+      madeBy: { engine: "codex", model: "m", prompt: wordingTwo, run: "r" },
+      messages: talk.map(eventKey),
+      promptDigest: "c".repeat(16),
+      read: "mentions",
+      reply: GIVEN,
+      schemaVersion: 1,
+      starts: [0, 2],
+    },
+    talk[0]?.at ?? "",
+    where
+  );
+  const [first] = exchangesOf(talk);
+  expect(replyOf(first ?? [], "mentions", readReplyIndex(where))).toBe(
+    undefined
+  );
+  expect(
+    replyOf(
+      first ?? [],
+      "mentions",
+      readReplyIndex(where, () => wordingTwo)
+    )?.line.promptDigest
+  ).toBe("c".repeat(16));
 });

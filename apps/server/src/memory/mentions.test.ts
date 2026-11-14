@@ -7,6 +7,7 @@ import { Person } from "../records/truth";
 import { episodeText } from "./doubts";
 import { READS, storeReply } from "./exchange-reads";
 import { MENTIONS, mentionsPath, READ_REPLIES } from "./memory-files";
+import { placementOf } from "./mention-placement";
 import {
   type Mention,
   mentionsOf,
@@ -19,7 +20,7 @@ import { OWNER } from "./read-truth";
 import { said } from "./record-fixtures";
 import { tiesNow } from "./ties";
 import { dayUnitId } from "./units";
-import { foldsOf, placementOf } from "./who";
+import { foldsOf } from "./who";
 
 const place = (
   m: Parameters<typeof placementOf>[0],
@@ -343,4 +344,25 @@ test("who an episode talked about: those its units placed, never those taking pa
   ).toEqual([]);
   // The memory line never holds it.
   expect(episodeText(episode, (ref) => ref)).toBe("Dinner; with person:ivan.");
+});
+
+test("a wording that picks keeps the pick and the earlier line's words in the mention; the live prompt's lines stay as before", () => {
+  const picking = stored("memory-mentions.v2", chat, [
+    {
+      ...mention(2, "it", "Lena's sister is moving"),
+      namedOn: 0,
+      ref: "person:alma",
+    },
+    // A line later than the move is no earlier naming.
+    { ...mention(0, "she", "Dinner with Alma"), namedOn: 2, ref: "x" },
+  ]);
+  const [late, pick] = mentionsOf([picking], events, "memory-mentions.v2");
+  expect(pick?.ref).toBe("person:alma");
+  expect(pick?.namedOn).toEqual({ by: "+1", line: chat[0]?.text ?? "" });
+  expect(late?.namedOn).toBeUndefined();
+  // The night's call keeps its own prompt: this one's lines are not its.
+  expect(mentionsOf([picking], events)).toEqual([]);
+  expect(
+    mentionsOf([stored(READS.mentions.prompt)], events)[0]
+  ).not.toHaveProperty("ref");
 });

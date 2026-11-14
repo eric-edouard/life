@@ -1,7 +1,7 @@
 // The words someone uses for a person by what they are to him ("my father", "mon père"): generic vocabulary in English
 // and French, never his data. Each entry is one relation: the words that say it (the first is its name), its group
 // (family, romantic, friend, work or other) and `one` when the word names one person by its nature ("my father"):
-// only those place a person (`placementOf`). A word like "friend" or "brother" may be one of several the directory lists.
+// only those place a person (`placementOf`, `memory/mention-placement.ts`). A word like "friend" or "brother" may be one of several the directory lists.
 
 /** Written without accents: a text is compared as `keyOf` makes it. */
 export const RELATION_WORDS: {
@@ -60,3 +60,25 @@ export const relationWordOf = (text: string) => entryOf(text)?.words[0];
 
 /** Does this relation's name (`relationWordOf`) name one person by its nature? */
 export const namesOne = (word: string) => entryOf(word)?.one === true;
+
+/** Does the text start with its speaker's own possessive ("ma mère", "my dad")? Only then is a relation word the speaker's own. */
+export const saysMine = (text: string) => MINE.test(`${keyOf(text)} `);
+
+/** Pronouns, English and French: the only words an earlier naming may stand for (`placementOf`). A closed list, never a name. */
+const PRONOUNS = new Set([
+  "he",
+  "him",
+  "she",
+  "her",
+  "they",
+  "them",
+  "il",
+  "elle",
+  "lui",
+  "ils",
+  "elles",
+  "eux",
+]);
+
+/** Is the text, whole, one of the pronouns? */
+export const isPronoun = (text: string) => PRONOUNS.has(keyOf(text));

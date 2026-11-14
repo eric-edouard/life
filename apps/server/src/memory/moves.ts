@@ -16,7 +16,15 @@ const RESOURCES = [
   "goods",
   "service",
 ] as const;
-const cited = { line: z.int().min(0), quote: z.string() };
+/**
+ * What every move cites: its line, its quote, and, in the wording for any number of speakers, whom it is aimed at
+ * (`aimedAt`: `me`, `all`, or another speaker as the call's lines name them; checked in `movesOf`).
+ */
+const cited = {
+  aimedAt: z.string().max(80).nullish().catch(undefined),
+  line: z.int().min(0),
+  quote: z.string(),
+};
 const PLAIN_BIDS = [
   "shares",
   "good_news",
@@ -73,6 +81,8 @@ const MentionsMove = z.discriminatedUnion("code", [
   z.object({
     code: z.literal("mention"),
     kind: z.enum(["fact", "judgement"]),
+    // The read's pick of who is meant and the line it points to for a pronoun: kept as given, proven only by `placementOf`.
+    namedOn: z.int().min(0).nullish().catch(undefined),
     purpose: z.enum([
       "informs",
       "plans",
@@ -82,6 +92,7 @@ const MentionsMove = z.discriminatedUnion("code", [
       "asks_advice",
       "jokes",
     ]),
+    ref: z.string().max(80).nullish().catch(undefined),
     reported: z.boolean(),
     scope: z.enum(["act", "person"]),
     tone: z.enum(["positive", "neutral", "negative"]),
@@ -142,12 +153,18 @@ type Listed = z.infer<(typeof MOVES)[ReadName]>;
 export type Code = Listed["code"];
 /** Whose words: the owner's (`me`) or the other person's (`them`). */
 export type Side = "me" | "them";
-/** A move as code checks it: its words found on their line, who wrote it and when from the message, its answer or the line it answers kept only when valid. */
+/**
+ * A move as code checks it: its words found on their line, who wrote it and when from the message, its answer, the line
+ * it answers, whom it is aimed at and the earlier line a mention's pick points to kept only when valid.
+ */
 export type Move = Pick<Listed, "line" | "quote"> & {
+  aimedAt?: string;
   answer?: { kind: "toward" | "away" | "against"; line: number };
   at: string;
   by: Side;
   code: Code;
+  namedOn?: number;
+  ref?: string;
   to?: number;
   who?: string;
 };
@@ -162,9 +179,27 @@ const ExchangeEntry = z.object({
   exchange: z.int().min(0),
   moves: z.array(z.unknown()),
   tension: z.boolean().optional(),
-  // A tone that is none of the three is no tone: it never costs the exchange its moves.
-  tone: z.object({ me: Tone, them: Tone }).catch({}),
+  // One tone per speaker, keyed as the call's lines name them; a tone that is none of the three is no tone: it never costs the exchange its moves.
+  tone: z.record(z.string(), Tone).catch({}),
 });
+
+/** The tone `{ me, them }` the rates read: `them` is the reply's, else the one other speaker's when exactly one gave a tone. */
+function toneOf(tone: Record<string, string | null | undefined>) {
+  const others = Object.entries(tone).filter(
+    ([who, t]) => who !== "me" && who !== "them" && t
+  );
+  return {
+    me: tone.me,
+    them: tone.them ?? (others.length === 1 ? others[0]?.[1] : undefined),
+  } as { me?: "warm" | "neutral" | "cold"; them?: "warm" | "neutral" | "cold" };
+}
+
+/** What a call's messages give a move to check: the earlier lines before its first exchange and each message's speaker. */
+interface Shown {
+  before: SourceEvent[];
+  speakerOf?: (e: SourceEvent) => string;
+  speakers: Set<string>;
+}
 
 /** An exchange of a batch: its messages, from line `start` of the batch. */
 interface Span {
@@ -211,11 +246,37 @@ function answeredOf(m: Listed, line: number, by: SourceEvent, span: Span) {
     : undefined;
 }
 
+/** Whom a move is aimed at, kept only when the call names its speakers: `all`, or a speaker of the call other than the move's own. */
+function aimedOf(m: Listed, by: SourceEvent, { speakerOf, speakers }: Shown) {
+  const to = m.aimedAt;
+  return speakerOf &&
+    to &&
+    to !== speakerOf(by) &&
+    (to === "all" || speakers.has(to))
+    ? to
+    : undefined;
+}
+
+/**
+ * The line a mention's pick points to (`namedOn`), kept only when it is under the move's line, is no call line and sits in
+ * the earlier lines shown to the call or in the move's own exchange: a line the exchange it belongs to can show.
+ */
+function namedOnOf(m: Listed, line: number, span: Span, before: SourceEvent[]) {
+  const n = "namedOn" in m ? m.namedOn : undefined;
+  if (typeof n !== "number" || n >= line) {
+    return;
+  }
+  const said = n < before.length ? before[n] : span.messages[n - span.start];
+  return said && !said.phoneCall && (n < before.length || n >= span.start)
+    ? n
+    : undefined;
+}
+
 /**
  * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
  * there. Every one is kept: counting what a person did once or twice is the rates' (`memory/move-rates.ts`).
  */
-function movesOf(raw: unknown[], span: Span, read: ReadName) {
+function movesOf(raw: unknown[], span: Span, read: ReadName, shown: Shown) {
   const schema: z.ZodType<Listed> = MOVES[read];
   const { entries } = checkedEntries(
     raw,
@@ -238,11 +299,14 @@ function movesOf(raw: unknown[], span: Span, read: ReadName) {
     return [
       {
         ...m,
+        aimedAt: aimedOf(m, message, shown),
         answer: answerOf(m, found.line, message, span),
         at: message.at,
         by: message.fromMe ? "me" : "them",
         line: found.line,
+        namedOn: namedOnOf(m, found.line, span, shown.before),
         quote: found.verbatim,
+        ref: "ref" in m ? (m.ref ?? undefined) : undefined,
         to: answeredOf(m, found.line, message, span),
       } as Move,
     ];
@@ -253,15 +317,24 @@ function movesOf(raw: unknown[], span: Span, read: ReadName) {
 /**
  * A reply's moves as code accepts them, exchange by exchange. An exchange is one the batch really holds, named by its
  * first line (`starts`), once; a move stays inside its exchange; who made it and when come from the message, never
- * from the reply. Throws on a reply that is not one. `dropped`: moves refused; `offLine`: quotes found on another
+ * from the reply. `speakerOf` names a message's speaker as the call's lines did: with it, a move's `aimedAt` is checked
+ * against the call's speakers (without it, dropped). Throws on a reply that is not one. `dropped`: moves refused; `offLine`: quotes found on another
  * line of their exchange; `missing`: exchanges of the batch the reply left out or got wrong.
  */
 export function checkedMoves(
   reply: unknown,
   messages: SourceEvent[],
   starts: number[],
-  read: ReadName = "connection"
+  read: ReadName = "connection",
+  speakerOf?: (e: SourceEvent) => string
 ) {
+  const shown: Shown = {
+    before: messages.slice(0, starts[0] ?? 0),
+    speakerOf,
+    speakers: new Set(
+      speakerOf ? messages.filter((e) => !e.phoneCall).map(speakerOf) : []
+    ),
+  };
   const spans = new Map(
     starts.map((start, i): [number, Span] => {
       const end = starts[i + 1] ?? messages.length;
@@ -283,7 +356,8 @@ export function checkedMoves(
     const { dropped, moves, offLine } = movesOf(
       x.moves,
       spans.get(x.exchange) as Span,
-      read
+      read,
+      shown
     );
     counts.dropped += dropped;
     counts.offLine += offLine;
@@ -292,7 +366,7 @@ export function checkedMoves(
       exchange: x.exchange,
       moves,
       tension: x.tension,
-      tone: x.tone,
+      tone: toneOf(x.tone),
     };
   });
   return { ...counts, exchanges };
@@ -306,13 +380,20 @@ export function checkedMoves(
 export function checkedOf(
   lines: ReadReply[],
   read: ReadName,
-  events: Map<string, SourceEvent>
+  events: Map<string, SourceEvent>,
+  speakerOf?: (e: SourceEvent) => string
 ) {
   const out = new Map<string, CheckedExchange & { messages: SourceEvent[] }>();
   for (const line of lines.filter((l) => l.read === read)) {
     const messages = line.messages.flatMap((id) => events.get(id) ?? []);
     if (messages.length === line.messages.length) {
-      const checked = checkedMoves(line.reply, messages, line.starts, read);
+      const checked = checkedMoves(
+        line.reply,
+        messages,
+        line.starts,
+        read,
+        speakerOf
+      );
       for (const x of checked.exchanges) {
         out.set(line.messages[x.exchange] as string, { ...x, messages });
       }

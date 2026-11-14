@@ -268,6 +268,8 @@ its steps only, never a status. What is open, a matter's status, next step and p
 
 ## read-replies/<YYYY-MM>.jsonl
 
+(A call worded for several speakers may begin `messages` with earlier lines of the exchange, before `starts[0]`: context a pronoun's pick points at, never a move's line.)
+
 What a model answered when it read exchanges of a one-to-one chat (`memory/exchange-reads.ts`), one line per call,
 append-only, in the file of the month of its first message (`messages[0]`'s instant, UTC, so a file never moves and old history is never touched again), not of `at` (when it was made): `read` (`connection`, `mentions` or `conflict`), `reply` (the object
 the model gave, as given: only its `exchanges` list is required, the rest is checked when read), `messages` (the

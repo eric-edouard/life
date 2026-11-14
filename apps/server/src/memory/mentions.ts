@@ -10,15 +10,16 @@ import { eventKey, type SourceEvent } from "../records/source";
 import type { WithPeople } from "./closeness";
 import { READS, readReplies } from "./exchange-reads";
 import { MENTIONS, mentionsPath } from "./memory-files";
-import { checkedOf } from "./moves";
+import { type Said, saidOf } from "./mention-placement";
+import { checkedOf, type Move } from "./moves";
 import { OWNER } from "./read-truth";
-import { dayUnitId, textOf } from "./units";
+import { dayUnitId } from "./units";
 import { localDate } from "./zones";
 
 // The mentions of the mentions read: someone not in the conversation talked about. The replies are stored
 // (`memory/exchange-reads.ts`); the night checks them against the sources once and keeps the result in Life's state
 // (`MENTIONS`, never `memory/`), as the exchange counts are kept. A mention holds the words as written and never a
-// person: who is meant is worked out when read (`placementOf`, `memory/who.ts`), so a fold or a name given later moves it.
+// person: who is meant is worked out when read (`placementOf`, `memory/mention-placement.ts`), so a fold or a name given later moves it.
 
 /** One mention: `who` as the model wrote it, `quote` the words on the message `line` (its text), said by `by`: `OWNER` when he sent it, else the sender as the source names it. */
 const Mention = z
@@ -26,7 +27,11 @@ const Mention = z
     at: isoDateTime,
     by: z.string(),
     line: z.string(),
+    /** The line a pronoun's pick points to, as its read gave it (`placementOf` proves it). */
+    namedOn: z.object({ by: z.string(), line: z.string() }).strict().optional(),
     quote: z.string(),
+    /** The pick of the wording that picks: a person's ref or `unknown`, as given. */
+    ref: z.string().optional(),
     unit: z.string(),
     who: z.string(),
   })
@@ -41,35 +46,40 @@ const Stored = z
   })
   .strict();
 
+/** The mention a checked move of a call's `messages` is, or none when it is not one. */
+export function mentionOf(
+  messages: SourceEvent[],
+  m: Move
+): Mention | undefined {
+  const message = messages[m.line];
+  if (!(m.code === "mention" && m.who && message)) {
+    return undefined;
+  }
+  const earlier = m.namedOn === undefined ? undefined : messages[m.namedOn];
+  const namedOn: Said | undefined = earlier ? saidOf(earlier) : undefined;
+  return {
+    at: message.at,
+    ...saidOf(message),
+    ...(namedOn ? { namedOn } : {}),
+    quote: m.quote,
+    ...(m.ref ? { ref: m.ref } : {}),
+    unit: dayUnitId(message),
+    who: m.who,
+  };
+}
+
 /**
- * Every mention the stored replies of the current mentions prompt hold, checked against `events` (by key), oldest
- * first (an exchange read again after it grew counts once: `checkedOf`).
+ * Every mention the stored replies of `prompt` (the mentions read's current one) hold, checked against `events` (by
+ * key), oldest first (an exchange read again after it grew counts once: `checkedOf`).
  */
 export function mentionsOf(
   lines: ReadReply[],
-  events: Map<string, SourceEvent>
+  events: Map<string, SourceEvent>,
+  prompt = READS.mentions.prompt
 ): Mention[] {
-  const current = lines.filter(
-    (l) => l.madeBy.prompt === READS.mentions.prompt
-  );
+  const current = lines.filter((l) => l.madeBy.prompt === prompt);
   return [...checkedOf(current, "mentions", events).values()]
-    .flatMap((x) =>
-      x.moves.flatMap((m) => {
-        const message = x.messages[m.line];
-        return m.code === "mention" && m.who && message
-          ? [
-              {
-                at: message.at,
-                by: message.fromMe ? OWNER : message.sender,
-                line: textOf(message),
-                quote: m.quote,
-                unit: dayUnitId(message),
-                who: m.who,
-              },
-            ]
-          : [];
-      })
-    )
+    .flatMap((x) => x.moves.flatMap((m) => mentionOf(x.messages, m) ?? []))
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 

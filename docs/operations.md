@@ -309,22 +309,30 @@ first.
   a batch at a time; then the quiet between messages by band. With people named, one table for each one's
   one-to-one chats and mail, in the order given. Counts only, by code, no model; it reads the sources as the night
   does and writes nothing of his. Run it before sizing a read of his history.
-- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> --set <name> [--run] [--engine <engine>] [--model <m>] [--effort <e>] [--label <l>]`
+- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> --set <name> [--prompt <name>] [--first <n>] [--run] [--parallel <n>] [--engine <engine>] [--model <m>] [--effort <e>] [--label <l>]`
   tries one of the rework's reads (`connection`, `mentions`, `conflict`; `READS` names each one's prompt) on a saved
   test set (`pilot-set.ts`, which picks batches from the replies memory stores, or `pilot-voice-set.ts` for recorded
   conversations), so a wording is tried in minutes; `--model`, `--effort` and `--label` name another model of the
-  engine and the trial folder its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
-  far two readers agree, by code and side. Without `--run` it asks nothing: how many batches it would make and at
+  engine and the trial folder its replies are kept in. `--prompt` names another wording (a version file beside the live
+  one) and builds the call that wording takes (`callOf`: files as lines, the people the call involves, earlier lines
+  that name someone); without it the live prompt is asked as the night asks it. `--first` takes the set's first
+  entries; `--parallel` (at most 96) sets the calls at once for this script only, and the first calls are timed and
+  their refusals counted before the rest go on. The dry run prints the people a call involves at most, the earlier
+  lines shown and how many calls hit their cap; a run stops over 40 people a call or a mean over 9,000 tokens.
+  `pilot-agree.ts <read> <label|folder> <label|folder> [--set <a,b>] [--bar 0.7] [--by-eye <n>]` compares two trial
+  folders (a label alone names the one folder `<label>-<digest>`), so two wordings compare: by code and side at the bar
+  (0.5 by default), whom the moves are aimed at, and for mentions who is meant by proof, the picks code agrees with
+  or vetoes, and the pronouns placed by an earlier naming (`--by-eye`: the first `n`, written to his trials folder). Without `--run` it asks nothing: how many batches it would make and at
   most how many tokens. With `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by
   another family), as one `memory.pilot` run, and appends each reply that is one, as the exchange reads do, to a trial
   folder in his data, `docs/memory-rework/pilot/<read>/<label>-<wording>/`: a reworded prompt is a new folder, so it
   is asked again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It prints
   counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
-- **Bringing in the pilot's replies:** once, `bun scripts/bring-in-read-replies.ts` (under the memory lock) appends to
-  `memory/read-replies/` each reply the pilot kept under the label `openrouter` that is of a read's current prompt,
-  covers one two-way one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
-  old folders stay, and a second run appends nothing.
+- **Converting the pilot's earlier answers:** once, `bun scripts/pilot-convert.ts` turns each old file
+  (`pilot/<read>/<label>/*.json`) into a stored line in `pilot/<read>/<label>-<digest>/`, the folders the pilot reads now; a
+  folder that exists is left alone, the old ones stay, nothing is written in `memory/`. It prints counts only and goes
+  with the last trial that compares against old answers.
 - **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
   (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
   it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads

@@ -661,7 +661,10 @@ const unread = (names: string[]) =>
   names.length > 0 ? [`(could not read: ${names.join(", ")})`] : [];
 
 /** Who wrote a message, named as everywhere else: the directory, inferred people, and the handles the owner named. */
-function senderOf(e: SourceEvent, { names, resolve }: People) {
+export function senderOf(
+  e: SourceEvent,
+  { names, resolve }: Pick<People, "names" | "resolve">
+) {
   const who = e.fromMe ? null : resolve(e.sender);
   return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
 }
@@ -678,24 +681,31 @@ export const messageLine = (
 /**
  * An exchange batch as lines a reply can cite, the messages they are, and where each exchange starts: `[n] HH:MM who:
  * text`, `n` counting from 0 over the whole batch as the extractor's lines do, under one heading per exchange giving
- * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
+ * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`). `before`:
+ * earlier lines of the same conversation, shown first under their own heading and numbered from 0, so the first
+ * exchange starts after them; they are context, never an exchange.
  */
 export function batchLines(
   batch: SourceEvent[][],
-  who: (e: SourceEvent) => string
+  who: (e: SourceEvent) => string,
+  before: SourceEvent[] = []
 ) {
-  const messages = batch.flat();
-  const lines: string[] = [];
+  const messages = [...before, ...batch.flat()];
+  const line = (e: SourceEvent, n: number) =>
+    `[${n}] ${messageLine(time(e.at), who(e), textOf(e), e.deleted)}`;
+  const lines: string[] =
+    before.length > 0
+      ? ["## Earlier in this conversation", ...before.map(line)]
+      : [];
   const starts: number[] = [];
-  let start = 0;
+  let start = before.length;
   for (const exchange of batch) {
     const [first] = exchange;
     if (first) {
       starts.push(start);
       lines.push(`## Exchange ${start} · ${localDate(first.at)}`);
       for (const [i, e] of exchange.entries()) {
-        const line = messageLine(time(e.at), who(e), textOf(e), e.deleted);
-        lines.push(`[${start + i}] ${line}`);
+        lines.push(line(e, start + i));
       }
       start += exchange.length;
     }

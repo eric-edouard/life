@@ -9,7 +9,6 @@ import {
   type Unresolved,
   unfoldedOf,
 } from "../records/observation";
-import { namesOne, relationWordOf } from "../records/relation-words";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
@@ -26,7 +25,6 @@ import {
 } from "./memory-files";
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import type { Tie } from "./ties";
 import { nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
@@ -697,37 +695,4 @@ export function meant(
     known: resolved ?? same[0]?.id,
     same: one ? [one, ...same] : same,
   };
-}
-
-/**
- * Who a mention means, with the proof: `name`, the person its whole `who` resolves to (`people.resolve`, so a fold or a
- * name given since moves it); else `relation_word`, when its `who` is a relation's word ("my father") and exactly one
- * of its speaker's `ties` is that relation and the word names one person by its nature (`one`, `records/relation-words.ts`; "my brother" or "my friend" never) (two fathers, or none, mean no one). Either way its words must be on its
- * line; else no one. "Paul's sister" is not "Paul": a part of a name never counts.
- */
-export function placementOf(
-  mention: { by: string; line: string; who: string },
-  people: Pick<People, "resolve">,
-  ties: Tie[]
-) {
-  const words = ` ${nameKey(mention.who)} `;
-  if (!(words.trim() && ` ${nameKey(mention.line)} `.includes(words))) {
-    return null;
-  }
-  const ref = people.resolve(mention.who);
-  if (ref) {
-    return { proof: "name" as const, ref };
-  }
-  const word = relationWordOf(mention.who);
-  const speaker = mention.by === OWNER ? OWNER : people.resolve(mention.by);
-  if (!(word && namesOne(word))) {
-    return null;
-  }
-  const of = new Set(
-    ties.filter((t) => t.by === speaker && t.word === word).map((t) => t.of)
-  );
-  const [only] = of;
-  return of.size === 1 && only
-    ? { proof: "relation_word" as const, ref: only }
-    : null;
 }
