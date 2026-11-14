@@ -13,7 +13,7 @@ import {
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
 import { endingsRead } from "./endings";
-import { isRunning, matterBookOf } from "./matter-read";
+import { matterBookOf } from "./matter-read";
 import {
   daysOf,
   episodesWhere,
@@ -419,14 +419,14 @@ export async function matters(
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed
     await step.attempt(
       async () => {
-        // What is still running (`isRunning`), as of the span's end, with a step in the last `SHOWN_DAYS`.
+        // What is still open, as of the span's end (dormant included: the 45 days decide, not the 14 of `MOVING_DAYS`), with a step in the last `SHOWN_DAYS`.
         const since = daysBefore(work.span.to, SHOWN_DAYS);
         const open = matterBookOf(
           mattersNow(readMatters()).matters,
           records,
           work.span.to
         ).flatMap((v) =>
-          v.lone || !isRunning(v) || (v.steps.at(-1)?.day ?? "") < since
+          v.lone || !v.open || (v.steps.at(-1)?.day ?? "") < since
             ? []
             : [
                 {

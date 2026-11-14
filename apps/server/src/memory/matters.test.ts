@@ -103,6 +103,7 @@ const workOf = (
 test("an errand over three spans lands in one matter, the call's episode with no observation included", async () => {
   const models = await import("../models/llm");
   let minted = "";
+  const shownOpen: string[][] = [];
   const replies = [
     // Span 1: a new matter; one step whose words are not in its record, one ref never shown, an area and a project not in his directory.
     () => ({
@@ -161,6 +162,16 @@ test("an errand over three spans lands in one matter, the call's episode with no
           },
         ],
       };
+    },
+    // A span ending 20 days after the matter's newest step still shows it (dormant, but inside `SHOWN_DAYS`).
+    (input: { open: { id: string }[] }) => {
+      shownOpen.push(input.open.map((m) => m.id));
+      return { matters: [] };
+    },
+    // One ending 50 days after does not.
+    (input: { open: { id: string }[] }) => {
+      shownOpen.push(input.open.map((m) => m.id));
+      return { matters: [] };
     },
   ];
   const DAYS = [
@@ -250,6 +261,28 @@ test("an errand over three spans lands in one matter, the call's episode with no
       await readMatterRecords(people)
     );
     expect(ask).toHaveBeenCalledTimes(3);
+
+    // The matter's newest step is 2026-10-16: an open matter stays offered for 45 days, however dormant.
+    await matters(
+      workOf(
+        [episode("2026-11-04", "Later", "Something else.", 7)],
+        "2026-10-29",
+        "2026-11-05"
+      ),
+      people,
+      await readMatterRecords(people)
+    );
+    await matters(
+      workOf(
+        [episode("2026-12-04", "Much later", "Something else.", 8)],
+        "2026-11-29",
+        "2026-12-05"
+      ),
+      people,
+      await readMatterRecords(people)
+    );
+    expect(ask).toHaveBeenCalledTimes(5);
+    expect(shownOpen).toEqual([[minted], []]);
   } finally {
     now.mockRestore();
     ask.mockRestore();
