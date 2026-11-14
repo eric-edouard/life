@@ -43,6 +43,7 @@ import { runs } from "../memory/run-log";
 import { readBackfill, recordBackfill, weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
+import { tiesNow } from "../memory/ties";
 import { DAYS, gather } from "../memory/units";
 import { placementOf, readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
@@ -340,10 +341,11 @@ const HANDLERS: Record<string, Handler> = {
       return 1;
     }
     const people = await readPeople();
+    const ties = tiesNow(people);
     const all = Object.values(kept).flat();
     const byProof: Record<string, number> = {};
     for (const m of all) {
-      const proof = placementOf(m, people)?.proof ?? "unknown";
+      const proof = placementOf(m, people, ties)?.proof ?? "unknown";
       byProof[proof] = (byProof[proof] ?? 0) + 1;
     }
     console.log(

@@ -16,10 +16,12 @@ import {
   withIndex,
 } from "./index-rows";
 import { episodesWhere, readBy, readLedger } from "./memory-files";
+import { type Mention, readMentionsOn, talkedAboutOf } from "./mentions";
 import { byTime, euros, paid, paymentLine, placedOn } from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import { dueContext, dueOf } from "./read-open-items";
-import { readPeople } from "./who";
+import { tiesNow } from "./ties";
+import { placementOf, readPeople } from "./who";
 import { inDays, localDate, time } from "./zones";
 
 // `bun life memory day <date>` and the connector's `read_day`: what happened that day (its episodes), what is due, its
@@ -34,6 +36,8 @@ export interface DayEpisode {
   /** What was paid during it, in EUR, when payments are on and any was. */
   paid?: number;
   stay?: string;
+  /** Who its units talked about without being in it (`talkedAboutOf`), by name. */
+  talkedAbout?: string[];
 }
 
 /** A unit's episode among those shown (`readBy`'s pick), else undefined: its facts then sit under no episode. */
@@ -88,13 +92,18 @@ export function dayLines({
     ...(episodes.length > 0
       ? [
           "Episodes (what he did, in time order):",
-          ...episodes.flatMap(({ facts: of, episode, paid: spent, stay }) => [
-            episodeLine(episode),
-            ...(stay ? [`    Where he was: ${stay}`] : []),
-            ...(spent ? [`    Paid: ${euros(spent)}`] : []),
-            ...(episode.what ? [`    ${episode.what}`] : []),
-            ...of.map((f) => `    ${f}`),
-          ]),
+          ...episodes.flatMap(
+            ({ facts: of, episode, paid: spent, stay, talkedAbout }) => [
+              episodeLine(episode),
+              ...(stay ? [`    Where he was: ${stay}`] : []),
+              ...(talkedAbout?.length
+                ? [`    Talked about: ${talkedAbout.join(", ")}`]
+                : []),
+              ...(spent ? [`    Paid: ${euros(spent)}`] : []),
+              ...(episode.what ? [`    ${episode.what}`] : []),
+              ...of.map((f) => `    ${f}`),
+            ]
+          ),
           ...(whereUnknown
             ? ["Where he was is unknown: lifelog could not be read."]
             : []),
@@ -163,6 +172,9 @@ export async function day(date: string) {
     ? []
     : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, people);
+  const mentions = readMentionsOn(date);
+  const ties = tiesNow(people);
+  const place = (m: Mention) => placementOf(m, people, ties)?.ref;
   const ofDays = await placedOn(date, date, all, stays ?? []);
   return withIndex((db) => {
     const facts = db
@@ -190,6 +202,12 @@ export async function day(date: string) {
           facts: observationsOf(episode),
           ...(its.length > 0 ? { paid: paid(its) } : {}),
           stay: stay ? where(stay) : undefined,
+          talkedAbout: talkedAboutOf(
+            episode,
+            mentions,
+            place,
+            people.refOf
+          ).map(people.nameOf),
         };
       }),
       facts: observationsOf(undefined),
