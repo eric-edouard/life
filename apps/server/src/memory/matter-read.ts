@@ -347,6 +347,11 @@ export function matterOf(
   };
 }
 
+/** Everyone a matter involves, by role: whom he owes, whom he waits on, who is with it, who was told. */
+export const matterPeopleOf = (
+  v: Pick<MatterView, "owedTo" | "told" | "waitingOn" | "with">
+) => [...v.owedTo, ...v.waitingOn, ...v.with, ...v.told];
+
 /** Running: open and not dormant. What `read_matters` lists. */
 export const isRunning = (v: Pick<MatterView, "open" | "status">) =>
   v.open && v.status !== "dormant";

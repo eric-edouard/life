@@ -1,5 +1,6 @@
 import {
   type Correction,
+  INFERRED_PREFIX,
   INFERRED_USE_AT,
   type InferredPerson,
   type Observation,
@@ -96,6 +97,25 @@ const handleIndex = (people: Person[]): Map<string, string> =>
       })
     )
   );
+
+/**
+ * The test for "this person ref (as folded today) is only a guess": an inferred person his word has not named. `this-is`
+ * or `same-person` to it confirms it. A `not-this-person` refuses one name or handle of it, not the person: one that
+ * holds another handle is still a guess. The one rule (`isGuess` on `readPeople`, so `guessedOf` and the person checks
+ * agree).
+ */
+export function guessTestOf(corrections: Correction[]) {
+  const said = new Set<string>();
+  for (const c of corrections) {
+    if (c.kind === "this-is") {
+      said.add(c.person);
+    } else if (c.kind === "same-person") {
+      said.add(c.to);
+    }
+  }
+  return (ref: string) =>
+    ref.startsWith(`person:${INFERRED_PREFIX}`) && !said.has(ref);
+}
 
 /**
  * Who a name, handle or address reads as, before folds, in this order: what the owner said it is (`this-is`), `truth/`
@@ -487,6 +507,7 @@ export async function readPeople() {
     contacts
   );
   const outsideDirectory = peopleOutsideDirectoryOf(contacts, inferred);
+  const isGuessNow = guessTestOf(corrections);
   /** Who an episode's person ref is as of today. */
   const refOf = (ref: string) =>
     ref.startsWith(UNKNOWN)
@@ -507,6 +528,8 @@ export async function readPeople() {
     contacts,
     corrections,
     inferred,
+    /** Whether a person ref, as it reads today, is only a guess (`guessTestOf`). */
+    isGuess: (ref: string) => isGuessNow(refOf(ref)),
     /** An episode's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
     nameOf: (ref: string) =>
       names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
