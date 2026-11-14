@@ -883,7 +883,7 @@ function engineCard(r: Reads): Card {
       [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
-      // What each tier runs, engine/model@hosts/effort (which steps use which tier: `Tier`, llm.ts).
+      // What each tier shows, engine/model@hosts/effort (`Tier`, llm.ts); the judge is a yardstick, not listed.
       ...(["deep", "main", "fast"] as const).map((tier) => ({
         label: `Model (${tier})`,
         value: llmSpec(llmFor(tier)),

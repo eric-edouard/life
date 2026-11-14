@@ -1,7 +1,7 @@
 // `bun scripts/eval.ts <facts.json> [memory-lines.jsonl] | --fact-check-answers | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
 // checked by hand (~/Life/docs/evals/). Memory lines default to what the memory holds today of the facts' window (`memoryLinesNow`, the words he answers fact checks on);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--fact-check-answers` grades the fact checks the owner answered
-// (memory/fact-check-answers.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
+// (memory/fact-check-answers.jsonl) and records the score (memory/scores.jsonl). A judge model (judge tier) grades each fact.
 // `--json` prints the counts alone, for the bench (scripts/bench.ts). `--judge-cases` measures the judge itself: cases
 // whose grade the owner settled (~/Life/docs/evals/judge-cases-*.json), each judged alone, and how many it gets right.
 
@@ -228,7 +228,7 @@ const rec = await metered("eval", { args });
 const { run } = rec;
 const DIR = join(OUT, "evals", run);
 // The judge's calls, as `inBatches` runs them: in this run's folder, as many at once as its engine takes.
-const JUDGING = { dir: DIR, llm: llmFor("main") };
+const JUDGING = { dir: DIR, llm: llmFor("judge") };
 await ended(rec, async () => {
   if (mode === "--judge-cases") {
     if (!memoryLinesFile) {
@@ -250,7 +250,7 @@ await ended(rec, async () => {
   });
   console.log(
     asJson
-      ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
+      ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("judge")) })
       : [
           `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.both} kept both (stated and contradicted), ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
           ...result.note,

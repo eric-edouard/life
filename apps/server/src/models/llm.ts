@@ -36,6 +36,7 @@ import {
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
   fast: "haiku",
+  judge: "sonnet",
   main: "sonnet",
 };
 // Same model as lifelog. Older codex clients reject it, and this Mac has several (an
@@ -44,6 +45,7 @@ const CLAUDE_MODELS: Record<Tier, string> = {
 const SOL: Record<Tier, string> = {
   deep: "gpt-6.1-sol",
   fast: "gpt-6.1-sol",
+  judge: "gpt-6.1-sol",
   main: "gpt-6.1-sol",
 };
 const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
@@ -56,6 +58,7 @@ const CODEX_HOME = join(MACHINE_DIR, "codex");
 const CODEX_EFFORT: Record<Tier, string> = {
   deep: "high",
   fast: "low",
+  judge: "medium",
   main: "medium",
 };
 // Everything codex could call besides the model itself: recorded speech gets no tools, plugins or memory.
@@ -121,6 +124,7 @@ const DEEPSEEK_FLASH =
 const ALLMODELS_MODELS: Record<Tier, string> = {
   deep: `${DEEPSEEK_FLASH}=low`,
   fast: `${DEEPSEEK_FLASH}=low`,
+  judge: `${DEEPSEEK_FLASH}=high`,
   main: `${DEEPSEEK_FLASH}=high`,
 };
 /**
@@ -128,14 +132,15 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
  * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at high, for what they refuse or fail.
  * Episodes and extraction (the deep tier) think at low (his choice of 14 Nov 2026, after a bench of 6 low runs against
  * 3 high: as many true facts held, about half as many wrong facts, about 3 fewer episodes found of 61, about 10% fewer
- * tokens). Pages, personas, the exchange reads and the judge stay at high until the judge has its own level: it takes
- * the main tier (`memory/tally.ts`) and the stored baselines were graded at high. The fast tier stays at medium.
+ * tokens). The fast tier thinks at medium, the working main tier (pages, personas, the exchange reads) at high, and the
+ * judge tier at high because it is the yardstick: the stored baselines were graded at high and it moves only on purpose.
  */
 const routed = (effort: string) =>
   `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=high`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
   deep: routed("low"),
   fast: routed("medium"),
+  judge: routed("high"),
   main: routed("high"),
 };
 

@@ -228,7 +228,7 @@ late with harm), or spoken asks above about one a day for a month.
   router's own fallback acts only before output begins, and on 29 Oct refuseless opened a day's reply and then died).
   Any other failure (no key, no credit, a reply from a host not listed) skips the rest of that router's hosts.
 - openrouter (`OPENROUTER_API_KEY`, then `ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017, not abliterated, on
-  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), at low effort for episodes and extraction (the deep tier, his choice of 14 Nov 2026), medium for fast and high for the rest (the judge among them), then
+  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), at low effort for episodes and extraction (the deep tier, his choice of 14 Nov 2026), medium for fast and high for the main tier, the judge tier at high (the yardstick, it moves only on purpose), then
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
@@ -326,7 +326,7 @@ first.
   it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads
   (never a tool that writes or acts). The memory under test is his own, as it stands. The agent's connector runs on
   a state dir of its own, with his settings, voice store and search index by links and its own log, so nothing it
-  does lands in his Life's log. A reply is checked by the eval judge, his engine's main tier: each point graded
+  does lands in his Life's log. A reply is checked by the eval judge, his engine's judge tier: each point graded
   stated or not, the case passing when it states all it must and none it must not; a misgrade becomes a judge case.
   Without `--run` it only counts the cases. A run is metered like an eval, refused over the Codex reserve before
   each case, keeps what the agent and the judge read under the run's folder, writes its results (each reply, its

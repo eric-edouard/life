@@ -15,10 +15,11 @@ import {
   hasQuota,
   llmFor,
   llmOverride,
+  llmSpec,
   quota,
   quotaOf,
 } from "./llm";
-import { extractJson, type Tools } from "./model-call";
+import { extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -481,7 +482,7 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 
 test("each provider's model and effort by tier", () => {
   // Regression (28 Oct 2026): allmodels' hosts refuse "medium", which the pages tier used to send.
-  for (const tier of ["deep", "main", "fast"] as const) {
+  for (const tier of TIERS) {
     for (const engine of ["allmodels", "openrouter"] as const) {
       for (const r of routesOf(llmFor(tier, engine).model, engine)) {
         if (r.router === "allmodels") {
@@ -500,6 +501,15 @@ test("each provider's model and effort by tier", () => {
     engine: "claude",
     model: "haiku",
   });
+  // The judge is the yardstick: fixed to what the stored baselines were graded at, whatever the working tiers do.
+  expect(llmSpec(llmFor("judge", "claude"))).toBe("claude/sonnet");
+  expect(llmSpec(llmFor("judge", "codex"))).toBe("codex/gpt-6.1-sol/medium");
+  expect(llmSpec(llmFor("judge", "allmodels"))).toBe(
+    "allmodels/deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=high"
+  );
+  expect(llmSpec(llmFor("judge", "openrouter"))).toBe(
+    "openrouter/openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=high allmodels:deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=high"
+  );
   // The app asks for every key an engine's routes need.
   expect(engineKeys().openrouter).toEqual([
     "OPENROUTER_API_KEY",
