@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Correction } from "../records/observation";
-import { type CheckInputs, checksOf } from "./checks";
+import { type Check, type CheckInputs, checksOf, checksText } from "./checks";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -42,6 +42,7 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
     ...over,
     people: {
       ambiguousCards: over.cards ?? [],
+      contacts: [],
       inferred: (over.inferred ?? []).map((id) => ({
         at: "2026-10-02T10:00:00.000Z",
         confidence: 0.7,
@@ -82,7 +83,12 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
     ref: REF,
     ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
+  expect(check?.guess).toStartWith("Life thinks this is ");
   expect(check?.guess).toContain("the plumber");
+  expect(check?.about).toEqual(["+33600000001"]);
+  const printed = checksText([check as Check]);
+  expect(printed).toContain(`1. [guessed person] ${REF}: Life thinks`);
+  expect(printed).toContain("about: +33600000001");
   expect(check?.evidence?.quote).toBe(`${ID} said hello`);
 });
 

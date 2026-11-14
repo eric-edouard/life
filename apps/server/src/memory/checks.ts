@@ -25,6 +25,8 @@ type CheckKind = "ending" | "person";
 type CheckGroup = "ending" | "guessed person" | "card" | "name";
 
 export interface Check {
+  /** The names and handles the guess is about, as his answer takes them (`nameOrHandle`); none for an ending. */
+  about: string[];
   /** The words of his answer that settle it, as `correct_memory` takes them. */
   answers: string[];
   /** The words the guess rests on, with where and when they were said; none for a Contacts card. */
@@ -75,7 +77,7 @@ export interface CheckInputs {
   paged: ReadonlySet<string>;
   people: Pick<
     People,
-    "ambiguousCards" | "isGuess" | "names" | "refOf" | "resolve"
+    "ambiguousCards" | "contacts" | "isGuess" | "names" | "refOf" | "resolve"
   > & {
     inferred: Pick<
       InferredPerson,
@@ -186,7 +188,7 @@ const newest = (lines: Line[]) =>
 function ranked(
   c: Ctx,
   group: CheckGroup,
-  fields: Pick<Check, "guess" | "ref">,
+  fields: Pick<Check, "about" | "guess" | "ref">,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -197,6 +199,7 @@ function ranked(
     ? [
         {
           check: {
+            about: fields.about,
             answers: ANSWERS[kind],
             evidence: evidence && {
               from: evidence.where ?? "an earlier message",
@@ -222,10 +225,17 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
       return o && isEndingOpen(ref, c)
-        ? ranked(c, "ending", { guess: endingGuessOf(o.text), ref }, [o], [], {
-            quote: link.quote,
-            where: later ? whereOf(later) : c.where.get(link.later),
-          })
+        ? ranked(
+            c,
+            "ending",
+            { about: [], guess: endingGuessOf(o.text), ref },
+            [o],
+            [],
+            {
+              quote: link.quote,
+              where: later ? whereOf(later) : c.where.get(link.later),
+            }
+          )
         : [];
     }),
   /** The three guesses about who someone is: a guessed person, a Contacts card Life cannot place, a name it cannot place. */
@@ -243,7 +253,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             c,
             "guessed person",
             {
-              guess: `Life guesses ${p.namesAndHandles.join(" / ")} is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure).`,
+              about: p.namesAndHandles,
+              guess: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
               ref,
             },
             byGuess.get(ref) ?? [],
@@ -260,7 +271,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         c,
         "card",
         {
-          guess: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}.`,
+          about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
+          guess: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
@@ -285,7 +297,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         c,
         "name",
         {
-          guess: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is.`,
+          about: [...new Set(rows.map((r) => r.nameAsWritten))],
+          guess: `Life cannot tell who "${[...new Set(rows.map((r) => r.nameAsWritten))].join(" / ")}" is`,
           ref: `name:${key}`,
         },
         lines,
@@ -382,9 +395,10 @@ export function checksText(list: Check[]) {
     spread(list),
     "",
     ...list.flatMap((c, i) => [
-      `${i + 1}. [${c.group}] ${c.guess}`,
+      `${i + 1}. [${c.group}] ${c.ref}: ${c.guess}`,
+      ...(c.about.length > 0 ? [`   about: ${c.about.join(", ")}`] : []),
       ...(c.evidence ? [`   "${c.evidence.quote}" (${c.evidence.from})`] : []),
-      `   rides on: ${c.ridesOn.observations} lines, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.answers.join(" | ")}`,
+      `   rides on: ${c.ridesOn.observations} observations, ${c.ridesOn.matters} open matters, ${c.ridesOn.pages} pages. His answer: ${c.answers.join(" | ")}`,
       "",
     ]),
   ].join("\n");

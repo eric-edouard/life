@@ -16,6 +16,7 @@ import {
   dropOld,
   markedSince,
   nightly,
+  readChecksFor,
   runNight,
   runProcessing,
 } from "./nightly";
@@ -214,5 +215,22 @@ test("the night places matters after extraction, with the evidence's failed sour
     for (const spy of spies) {
       spy.mockRestore();
     }
+  }
+});
+
+test("checks that cannot be read are logged and the report has none: the night is not failed", async () => {
+  const mods = await import("../memory/checks");
+  const broke = spyOn(mods, "checksNow").mockRejectedValue(new Error("boom"));
+  const errors: [string, unknown][] = [];
+  try {
+    const list = await readChecksFor({
+      error: (message: string, extra?: unknown) => {
+        errors.push([message, extra]);
+      },
+    } as never);
+    expect(list).toEqual([]);
+    expect(errors).toEqual([["boom", { step: "memory.nightly.checks" }]]);
+  } finally {
+    broke.mockRestore();
   }
 });
