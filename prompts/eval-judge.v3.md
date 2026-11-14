@@ -15,6 +15,10 @@ of then. For each fact, decide what the claims, read together, assert about it:
     but one that names none ("the family", "all of us") doesn't state who takes part;
   - a near-equivalent matches it ("cut down on smoking" for "stop smoking for a while", "a call" for "a morning
     conversation" when the people and the time agree).
+  - a fact that says two things about one subject (who something is for, and what that person is to him) is graded
+    on both: when the claims state one and not the other, it is `absent`. "He bought a ladder for Karim, his
+    neighbour" is `absent` against a claim that he bought a ladder for Karim. A time, within the hour as above, is
+    not a second thing.
 - `contradicted`: a claim asserts something incompatible with the fact: another day, another person, another place,
   another outcome, or a plan where the fact says it was only conditional.
 - `absent`: neither.

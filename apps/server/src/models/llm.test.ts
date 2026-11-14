@@ -144,7 +144,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         engine: "allmodels",
         model: "x/y@refuseless,hopper",
       },
-      prompt: "eval-judge.v2",
+      prompt: "eval-judge.v3",
       run: "r",
     });
   const lastLine = () =>
@@ -233,7 +233,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
           model:
             "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
         },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
       });
     hostsAsked();
@@ -272,7 +272,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         dir: mkdtempSync(join(tmpdir(), "life-chat-")),
         input: {},
         llm: { engine: "allmodels", model: "x/y@" },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
       })
     ).rejects.toThrow("author/model@host[,host]");
@@ -331,7 +331,7 @@ async function spawnBoth(tools?: Tools) {
         dir: mkdtempSync(join(tmpdir(), "life-flags-")),
         input: { a: 1 },
         llm: { engine, model: "m" },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
         // Only Codex is ever given tools.
         tools: engine === "codex" ? tools : undefined,
@@ -570,7 +570,7 @@ test("the one call with tools, the question cases' agent: Codex with one MCP ser
       dir: mkdtempSync(join(tmpdir(), "life-flags-")),
       input: {},
       llm: { engine: "claude", model: "m" },
-      prompt: "eval-judge.v2",
+      prompt: "eval-judge.v3",
       run: "r",
       tools,
     })
