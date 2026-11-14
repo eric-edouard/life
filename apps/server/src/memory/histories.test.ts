@@ -11,6 +11,8 @@ import {
   SENTENCE_CHARS,
 } from "../records/history";
 import {
+  budgetOf,
+  heavyOf,
   historyWorkOf,
   isStoryDue,
   type MonthRead,
@@ -214,7 +216,8 @@ test("the days check counts every day a shown line covers; a `(for <when>)` day 
         { days: [], text: "No day at all." },
       ],
     },
-    shown
+    shown,
+    20
   );
   expect(made.sentences).toEqual([
     { days: ["2026-10-03"], text: "They travelled." },
@@ -225,7 +228,8 @@ test("the days check counts every day a shown line covers; a `(for <when>)` day 
   expect(() =>
     twoSizesOf(
       { headline: "H.", sentences: [{ days: ["2026-10-20"], text: "T." }] },
-      shown
+      shown,
+      20
     )
   ).toThrow("no sentence");
   expect(() =>
@@ -234,10 +238,11 @@ test("the days check counts every day a shown line covers; a `(for <when>)` day 
         headline: 'He said "no".',
         sentences: [{ days: ["2026-10-02"], text: "T." }],
       },
-      shown
+      shown,
+      20
     )
   ).toThrow("quotation marks");
-  expect(() => twoSizesOf({ sentences: [] }, shown)).toThrow();
+  expect(() => twoSizesOf({ sentences: [] }, shown, 20)).toThrow();
 });
 
 test("a sentence over its size, or past the size of a full text, is dropped and counted", () => {
@@ -254,10 +259,83 @@ test("a sentence over its size, or past the size of a full text, is dropped and 
         ...Array.from({ length: 10 }, () => sentence(500)),
       ],
     },
-    shown
+    shown,
+    20
   );
   expect(made.dropped).toEqual({ days: 0, length: 1, quotes: 0, size: 1 });
   expect(made.sentences).toHaveLength(9);
+});
+
+test("a reply keeps at most its month's budget of sentences, the rest dropped as size", () => {
+  const shown = new Set(["2026-10-02"]);
+  const made = twoSizesOf(
+    {
+      headline: "H.",
+      sentences: Array.from({ length: 6 }, (_, i) => ({
+        days: ["2026-10-02"],
+        text: `Sentence ${i}.`,
+      })),
+    },
+    shown,
+    4
+  );
+  expect(made.sentences).toHaveLength(4);
+  expect(made.dropped.size).toBe(2);
+});
+
+const weighed = (d: string, lines: number, top: number, episodes = 0) => ({
+  day: d,
+  weight: { episodes, lines, top },
+});
+
+test("heavy days: none in a month of small days, one dominant day, at most six", () => {
+  expect(
+    heavyOf([weighed("d1", 1, 0), weighed("d2", 2, 0), weighed("d3", 3, 0)])
+  ).toEqual([]);
+  expect(
+    heavyOf([weighed("d1", 1, 0), weighed("d2", 6, 2, 1), weighed("d3", 2, 0)])
+  ).toEqual(["d2"]);
+  // Half the highest score is the bar: 3 top (9.75) lifts d2 (5.5) and not d3 (2.5).
+  expect(
+    heavyOf([
+      weighed("d1", 3, 3),
+      weighed("d2", 4, 1, 1),
+      weighed("d3", 2, 0, 2),
+    ])
+  ).toEqual(["d1", "d2"]);
+  const many = Array.from({ length: 9 }, (_, i) => weighed(`d${i + 1}`, 4, 2));
+  expect(heavyOf(many)).toEqual(["d1", "d2", "d3", "d4", "d5", "d6"]);
+});
+
+test("a month's budget: what it was, two per heavy day (three when busy), the routine days, what is open; clamped", () => {
+  const small = [weighed("d1", 1, 0), weighed("d2", 1, 0)];
+  expect(budgetOf(small, [], false)).toBe(2);
+  expect(budgetOf(small, [], true)).toBe(3);
+  const days = [
+    weighed("d1", 4, 1, 1),
+    weighed("d2", 5, 3, 1),
+    weighed("d3", 1, 0),
+  ];
+  // 1 + 2 + 3 + routine 1
+  expect(budgetOf(days, ["d1", "d2"], false)).toBe(7);
+  expect(budgetOf(days, ["d1", "d2"], true)).toBe(8);
+  // No routine day: no routine sentence.
+  expect(budgetOf(days.slice(0, 2), ["d1", "d2"], false)).toBe(6);
+  expect(budgetOf([], [], false)).toBe(2);
+});
+
+test("a month's input carries its heavy days and budget, functions of the shown lines: no date of today, stable after a retirement", () => {
+  const timeline = [
+    entry("2026-10-02", 3, "decided", {}, 9000),
+    entry("2026-10-02", 3, "took back", {}, 9000),
+    entry("2026-10-09", 1, "quiet", {}, 9000),
+    entry("2026-10-12", 1, "promise", {}, 9000),
+  ];
+  const read = monthInputOf(timeline, "2026-10", "Ann") as MonthRead;
+  expect(read.input.heavy).toEqual(["2026-10-02"]);
+  // 1 + 2 + routine 1; no open line in these made-up lines.
+  expect(read.input.budget).toBe(4);
+  expect(monthInputOf(timeline, "2026-10", "Ann")?.inputs).toBe(read.inputs);
 });
 
 const observationsDb = () => {
@@ -299,7 +377,7 @@ test("a month takes observations as they stood: one retired as history later cha
 
 test("a night takes the newest months first within its calls, a month whose key is stored is not pending, and the dry count reports the largest input and the months cut", () => {
   const read = (month: string, leftOut = 0, inputs = month): MonthRead => ({
-    input: { days: [], leftOut, month, with: "Ann" },
+    input: { budget: 2, days: [], heavy: [], leftOut, month, with: "Ann" },
     inputs,
     month,
     shownDays: [],
@@ -319,7 +397,14 @@ test("a night takes the newest months first within its calls, a month whose key 
     },
   ];
   const work = historyWorkOf(persons, 2, "2026-11-11");
-  expect(work.counts).toMatchObject({ calls: 3, cut: 1, months: 3, people: 2 });
+  expect(work.counts).toMatchObject({
+    budgets: { 2: 3 },
+    calls: 3,
+    cut: 1,
+    heavyDays: { 0: 3 },
+    months: 3,
+    people: 2,
+  });
   expect(work.counts.largest).toBeGreaterThan(0);
   // Two calls: the two October months; Ann's September waits, so she is not whole.
   expect(
@@ -522,7 +607,7 @@ test("a history in a shape the code does not know is an error naming the file an
   expect(readFileSync(path, "utf8")).toBe(stored);
 });
 
-const PROMPT_SENTENCES = /at most (\d+) sentences/;
+const PROMPT_WHOLE = /stays under about ([\d,]+)\s+characters/;
 const PROMPT_ORDINARY =
   /every other sentence is at most\s+about (\d+)\s+characters/;
 const PROMPT_TURNING =
@@ -533,13 +618,14 @@ test("the size the prompt allows is not above what the code keeps", () => {
     new URL("../../../../prompts/memory-history-month.v2.md", import.meta.url),
     "utf8"
   );
-  const [, count] = PROMPT_SENTENCES.exec(prompt) ?? [];
   const [, size] = PROMPT_ORDINARY.exec(prompt) ?? [];
   const [, turning] = PROMPT_TURNING.exec(prompt) ?? [];
-  expect(count).toBeDefined();
+  const [, whole] = PROMPT_WHOLE.exec(prompt) ?? [];
   expect(size).toBeDefined();
+  expect(Number((whole ?? "").replace(",", ""))).toBeLessThanOrEqual(
+    FULL_TEXT_CHARS
+  );
   expect(turning).toBeDefined();
-  expect(Number(count) * Number(size)).toBeLessThanOrEqual(FULL_TEXT_CHARS);
   expect(Number(size)).toBeLessThanOrEqual(Number(turning));
   expect(Number(turning)).toBeLessThanOrEqual(SENTENCE_CHARS);
 });

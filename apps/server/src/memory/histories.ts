@@ -48,6 +48,23 @@ const REPLY_TOKENS = 1500;
 /** The most characters of evidence one month call is shown. */
 const MONTH_INPUT_CHARS = 150_000;
 
+/** A day's score is this many per top-importance line (an episode counts 1, a line a quarter). */
+const TOP_SCORE = 3;
+/** A day is heavy only from this score: a month of small days has no heavy day. */
+const HEAVY_FLOOR = 4;
+/** A day is heavy only from this share of the month's highest score. */
+const HEAVY_SHARE = 0.5;
+/** The most heavy days a month has (the highest scores, ties by the earlier day). */
+const MAX_HEAVY = 6;
+/** A heavy day with this many top-importance lines is given a third sentence. */
+const BUSY_TOP = 3;
+/** The fewest sentences a month is given. */
+const MIN_SENTENCES = 2;
+/** The most sentences a reply keeps, whatever its month's budget. */
+const MAX_SENTENCES = 60;
+/** An open line's kind, as a line writes it after its date: what is still open at the month's end. */
+const OPEN_LINE = / \d{4}-\d\d-\d\d (?:to_do|promise|waiting_on_someone): /;
+
 /** What a day holds, counted from the lines shown for it: where the month's substance is. */
 interface DayWeight {
   episodes: number;
@@ -57,7 +74,11 @@ interface DayWeight {
 
 /** What a month call is shown: the days that hold evidence, oldest first, each with its lines most important first. */
 interface MonthInput {
+  /** The most sentences to write, set by code from how much the month holds (`budgetOf`). */
+  budget: number;
   days: { day: string; lines: string[]; weight: DayWeight }[];
+  /** The days where the month's substance is (`heavyOf`), oldest first. */
+  heavy: string[];
   leftOut: number;
   month: string;
   with: string;
@@ -81,6 +102,46 @@ function coveredDays(e: TimelineEntry, month: string) {
     days.push(d);
   }
   return days;
+}
+
+interface Weighed {
+  day: string;
+  weight: DayWeight;
+}
+
+const scoreOf = (w: DayWeight) => TOP_SCORE * w.top + w.episodes + w.lines / 4;
+
+/** The days where a month's substance is: score at least `HEAVY_SHARE` of the highest and `HEAVY_FLOOR`, at most `MAX_HEAVY`. */
+export function heavyOf(days: Weighed[]) {
+  const top = Math.max(0, ...days.map((d) => scoreOf(d.weight)));
+  return days
+    .filter(
+      (d) =>
+        scoreOf(d.weight) >= HEAVY_FLOOR &&
+        scoreOf(d.weight) >= top * HEAVY_SHARE
+    )
+    .toSorted(
+      (a, b) =>
+        scoreOf(b.weight) - scoreOf(a.weight) || a.day.localeCompare(b.day)
+    )
+    .slice(0, MAX_HEAVY)
+    .map((d) => d.day)
+    .toSorted();
+}
+
+/**
+ * The sentences a month is given, at most: one for what the month was, two per heavy day (three when it holds
+ * `BUSY_TOP` top lines), one for the routine days together, one for what is still open.
+ */
+export function budgetOf(days: Weighed[], heavy: string[], hasOpen: boolean) {
+  const n =
+    1 +
+    days
+      .filter((d) => heavy.includes(d.day))
+      .reduce((sum, d) => sum + (d.weight.top >= BUSY_TOP ? 3 : 2), 0) +
+    (days.length > heavy.length ? 1 : 0) +
+    (hasOpen ? 1 : 0);
+  return Math.min(MAX_SENTENCES, Math.max(MIN_SENTENCES, n));
 }
 
 /**
@@ -108,18 +169,26 @@ export function monthInputOf(
       a.line.localeCompare(b.line)
   );
   const kept = within(ranked, MONTH_INPUT_CHARS, size);
+  const days = [...Map.groupBy(kept, (e) => e.day)]
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(([day, list]) => ({
+      day,
+      lines: list.map(shownLine),
+      weight: {
+        episodes: list.filter((e) => e.kind === "episode").length,
+        lines: list.length,
+        top: list.filter((e) => e.importance >= TOP_AT).length,
+      },
+    }));
+  const heavy = heavyOf(days);
   const input: MonthInput = {
-    days: [...Map.groupBy(kept, (e) => e.day)]
-      .toSorted(([a], [b]) => a.localeCompare(b))
-      .map(([day, list]) => ({
-        day,
-        lines: list.map(shownLine),
-        weight: {
-          episodes: list.filter((e) => e.kind === "episode").length,
-          lines: list.length,
-          top: list.filter((e) => e.importance >= TOP_AT).length,
-        },
-      })),
+    budget: budgetOf(
+      days,
+      heavy,
+      kept.some((e) => e.kind === "observation" && OPEN_LINE.test(e.line))
+    ),
+    days,
+    heavy,
     leftOut: ranked.length - kept.length,
     month,
     with: name,
@@ -191,6 +260,13 @@ export function todayOf(flag: string | undefined, now: string, his = isHis()) {
   return flag;
 }
 
+const countsOf = (values: number[]) =>
+  Object.fromEntries(
+    [...Map.groupBy(values, (v) => v)]
+      .toSorted(([a], [b]) => a - b)
+      .map(([v, list]) => [v, list.length])
+  );
+
 /**
  * The rule of what is read: for each person the months whose stored `inputs` (`built`) differ from what would be shown
  * now, the newest months first across everyone, up to `calls` calls (a call a month). `counts` is the whole of what is
@@ -234,8 +310,11 @@ export function historyWorkOf(
   }));
   return {
     counts: {
+      // Counts only: how many months have each budget, and each number of heavy days.
+      budgets: countsOf(pending.map((p) => p.m.input.budget)),
       calls: pending.length,
       cut: pending.filter((p) => p.m.input.leftOut > 0).length,
+      heavyDays: countsOf(pending.map((p) => p.m.input.heavy.length)),
       largest: Math.max(0, ...pending.map((p) => tokens(p.m))),
       months: pending.length,
       people: new Set(pending.map((p) => p.ref)).size,
@@ -324,7 +403,11 @@ interface Dropped {
  * left, when it holds quotation marks, or when it would pass the size of a full text (counted by reason). A headline
  * holding quotation marks, or no sentence left, is a failed call: the month's last version stands.
  */
-export function twoSizesOf(reply: unknown, shownDays: ReadonlySet<string>) {
+export function twoSizesOf(
+  reply: unknown,
+  shownDays: ReadonlySet<string>,
+  budget: number
+) {
   const r = Reply.parse(reply);
   if (QUOTE_MARKS.test(r.headline)) {
     throw new Error("quotation marks in a month's headline");
@@ -345,7 +428,7 @@ export function twoSizesOf(reply: unknown, shownDays: ReadonlySet<string>) {
       why = "length";
     } else if (
       chars + s.text.length > FULL_TEXT_CHARS ||
-      sentences.length >= 60
+      sentences.length >= Math.min(budget, MAX_SENTENCES)
     ) {
       why = "size";
     }
@@ -477,7 +560,7 @@ export async function histories(pending: HistoryWork) {
             input: m.input,
             prompt: MONTH_PROMPT,
           });
-          const made = twoSizesOf(reply, new Set(m.shownDays));
+          const made = twoSizesOf(reply, new Set(m.shownDays), m.input.budget);
           await write(
             t.ref,
             withMonth(readHistory(t.ref), {
