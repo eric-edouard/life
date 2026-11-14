@@ -681,7 +681,7 @@ export function meant(
  * Who a mention means, with the proof: `name`, the person its whole `who` resolves to (`people.resolve`, so a fold or a
  * name given since moves it); else, when its `who` is a relation's word ("my father") and exactly one of its speaker's
  * `ties` is that relation, that tie's person: `relation_word` for his directory's word, `tie` when someone said it in
- * words (`quote`, `writeTies`). A word that does not name one person by its nature (`namesOne`; "my brother",
+ * words (`quote`, `writeTies`; his directory's listing of that relation, if any, decides alone). A word that does not name one person by its nature (`namesOne`; "my brother",
  * "my friend") is placed only by a tie said in words (two fathers, or none, mean no one). Either way its words must be on its
  * line; else no one. "Paul's sister" is not "Paul": a part of a name never counts.
  */
@@ -700,7 +700,10 @@ export function placementOf(
   }
   const word = relationWordOf(mention.who);
   const speaker = mention.by === OWNER ? OWNER : people.resolve(mention.by);
-  const own = ties.filter((t) => t.by === speaker && t.word === word);
+  const said = ties.filter((t) => t.by === speaker && t.word === word);
+  // His directory is his word: a tie said in words only decides where it lists none of that relation.
+  const listed = said.filter((t) => !t.quote);
+  const own = listed.length > 0 ? listed : said;
   const [only] = own;
   if (!(word && own.length === 1 && only && (only.quote || namesOne(word)))) {
     return null;

@@ -42,23 +42,49 @@ test("a relation's words beside a name that resolves write a tie, as written; a 
   expect(tie).toMatchObject({
     by: "+1",
     of: "Lea",
-    quote: "my partner Lea is ill",
+    quote: "my partner Lea",
     said: "my partner Lea is ill",
     words: "my partner",
   });
   expect(TieId.safeParse(tie?.id).success).toBe(true);
   const lines = (...m: Mention[]) => tieLinesOf(m, people);
-  expect(lines(mention("my friend", "Lea, my friend, came"))[0]?.of).toBe(
-    "Lea"
-  );
+  // The model gives the name as `who` ("Lea") as often as the words: the speaker's own words right before it count.
+  expect(lines(mention("Lea", "ma copine Lea est malade"))[0]).toMatchObject({
+    of: "Lea",
+    quote: "ma copine Lea",
+    words: "ma copine",
+  });
+  // Not the speaker's own relation, not right beside it, a possessive, a name unknown, or no capital: no tie.
+  expect(lines(mention("Lea", "the friend Lea came"))).toEqual([]);
   expect(lines(mention("my friend", "my friend and Lea came"))).toEqual([]);
+  expect(lines(mention("my friend", "my friend, Lea"))).toEqual([]);
   expect(lines(mention("Lea's sister", "Lea's sister came"))).toEqual([]);
   expect(lines(mention("my friend", "my friend Zed came"))).toEqual([]);
-  // A name is no tie, and no one is their own friend.
-  expect(lines(mention("Lea", "my partner Lea is ill"))).toEqual([]);
-  const same = directory([lea], []);
+  expect(lines(mention("my friend", "my friend lea came"))).toEqual([]);
+  // A name beside a vocative is no tie: "Lea, my friend" is "Lea" greeting, not an apposition.
+  expect(lines(mention("my friend", "Lea, my friend"))).toEqual([]);
+  // The words are in the quote, the name only in the line around it.
   expect(
-    tieLinesOf([mention("my partner", "my partner Lea", "Lea")], same)
+    tieLinesOf(
+      [
+        {
+          ...mention("my partner", "my partner"),
+          line: "Dinner with my partner Lea tonight",
+        },
+      ],
+      people
+    )[0]?.quote
+  ).toBe("my partner Lea");
+  // Capitals: a guess's "but" is no name. And no one is their own friend.
+  const but = directory([person("but", "But")]);
+  expect(tieLinesOf([mention("my father", "my father but I")], but)).toEqual(
+    []
+  );
+  expect(
+    tieLinesOf(
+      [mention("my partner", "my partner Lea", "Lea")],
+      directory([lea])
+    )
   ).toEqual([]);
 });
 
@@ -161,9 +187,22 @@ test("a word that names no one by its nature is placed by a tie said in words, o
   expect(tiesNow(people, [...later, ...said1]).map((t) => t.word)).toEqual([
     "boss",
   ]);
-  // His directory's word beats a stored one for the pair, and keeps the quote.
+  // His directory's word beats a stored one for the pair.
   const listed = directory([person("fred", "Fred", "friend"), lea]);
   expect(tiesNow(listed, said1)).toEqual([
-    expect.objectContaining({ quote: "my friend Fred came", word: "friend" }),
+    { by: OWNER, of: "person:fred", word: "friend" },
   ]);
+  // And where it lists his father, a tie said of another person does not make two fathers.
+  const fathers = directory([lea, hugo]);
+  const stray = tieLinesOf(
+    [mention("my father", "my father Lea", OWNER)],
+    fathers
+  );
+  expect(
+    placementOf(
+      mention("my father", "my father", OWNER),
+      fathers,
+      tiesNow(fathers, stray)
+    )
+  ).toEqual({ proof: "relation_word", ref: "person:hugo" });
 });

@@ -269,10 +269,9 @@ its steps only, never a status. What is open, a matter's status, next step and p
 ## ties.jsonl
 
 What two people were said to be to each other (`memory/ties.ts`), one line per quote, append-only, while his `ties` setting is on: `by` (who said it: `person:me` when the
-owner did, the one ref that never moves, else the sender as the source names them), `of` (the name as written, "Lea"), `words` (the relation's words as written, "my partner"), `quote` (his or
-their words, found in the message), `said` (the message's line), `unit` (the day's unit), `at` (when it was said), `id` (`tie_` and 12 hex of a digest of `unit`, `quote` and `words`), `schemaVersion`. A line is
+owner did, the one ref that never moves, else the sender as the source names them), `of` (the name as written, "Lea"), `words` (the relation's words as written, "my partner"), `quote` (the span of the message that says it, "my partner Lea"), `said` (the message's line), `unit` (the day's unit), `at` (when it was said), `id` (`tie_` and 12 hex of a digest of `unit`, `quote` and `words`), `schemaVersion`. A line is
 never rewritten, and holds no other person ref: who `by` and `of` are is worked out when read (`tiesNow`, through `people.resolve`), so a fold or a name given later moves it. The
-present tie of a pair is its newest line, his directory's word over it. `writeTies` (the night, under the lock) is the only writer, takes its lines from the kept mentions whose words are a relation word with a name right beside them, and never writes an `id` already stored or one he called wrong (`not-this-tie`).
+present tie of a pair is its newest line, his directory's word over it. `writeTies` (the night, under the lock) is the only writer, takes its lines from the message line of a kept mention: the speaker's own relation words ("my", "mon", "ma") with a capitalised name that resolves right beside them, as the mention's `who` is one or the other, and never writes an `id` already stored or one he called wrong (`not-this-tie`).
 
 ## read-replies/<YYYY-MM>.jsonl
 

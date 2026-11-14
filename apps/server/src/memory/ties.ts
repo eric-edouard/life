@@ -18,10 +18,11 @@ const CLAUSE_END = /[,;:./()\n]| [-–—] /;
 /** The first clause of a free text: up to the first comma, semicolon, colon, stop, bracket, slash or dash set apart. */
 const firstClause = (text: string) => text.split(CLAUSE_END)[0] ?? "";
 
-/** What follows a relation's words ("my partner Lea"), and what comes before them set apart ("Lea, my partner"). */
-const AFTER = /^[\s,]+(.*)/s;
-const BEFORE = /(.*?)\s*[,(–—-]\s*$/s;
-const WORDS = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
+/** One to three words that may be a name, written with capitals ("Lea", "Jean Luc"): the capitals are checked where it is matched (`CAPITAL`). */
+const NAME = String.raw`[\p{L}'’-]+(?:\s+[\p{L}'’-]+){0,2}`;
+const CAPITAL = /^\p{Lu}/u;
+const NAME_WORD = /\S+/g;
+const ONE = String.raw`(?<![\p{L}\p{N}])`;
 
 /** The ties the stored file holds, every line, in the order appended. */
 export const readTies = () =>
@@ -40,32 +41,61 @@ const removedOf = (corrections: Correction[]) =>
     corrections.flatMap((c) => (c.kind === "not-this-tie" ? c.ties : []))
   );
 
-/**
- * The name a quote gives beside `words` that `resolve` knows: the one right after ("my partner Lea") or, set apart by a
- * comma, bracket or dash, right before ("Lea, my partner"); one to three words, the longest first.
- */
-function nameBeside(
-  quote: string,
+/** The name right after `words` ("my partner Lea") that `resolve` knows, longest first, and the quote that says it. */
+function nameAfter(
+  line: string,
   words: string,
   resolve: Pick<People, "resolve">["resolve"]
 ) {
-  const at = quote.toLowerCase().indexOf(words.toLowerCase());
-  if (at < 0) {
-    return;
+  for (const m of line.matchAll(
+    new RegExp(`${ONE}${RegExp.escape(words)}\\s+(${NAME})`, "giu")
+  )) {
+    const run = m[1] ?? "";
+    for (const w of [...run.matchAll(NAME_WORD)].toReversed()) {
+      const name = run.slice(0, w.index + w[0].length);
+      if (
+        [...name.matchAll(NAME_WORD)].every((x) => CAPITAL.test(x[0])) &&
+        resolve(name) &&
+        !relationWordOf(name)
+      ) {
+        return {
+          name,
+          quote: m[0].slice(0, m[0].length - run.length + name.length),
+          words,
+        };
+      }
+    }
   }
-  const after = quote.slice(at + words.length).match(AFTER)?.[1] ?? "";
-  const before = quote.slice(0, at).match(BEFORE)?.[1] ?? "";
-  const next = after.match(WORDS) ?? [];
-  const last = before.match(WORDS) ?? [];
-  return [3, 2, 1]
-    .flatMap((n) => [next.slice(0, n).join(" "), last.slice(-n).join(" ")])
-    .find((name) => name && resolve(name));
+}
+
+/** The speaker's own relation words right before `name` ("my partner" before "Lea"), and the quote that says it. */
+function wordsBefore(line: string, name: string) {
+  for (const m of line.matchAll(
+    new RegExp(
+      `${ONE}((?:my|mon|ma|mes)\\s+\\p{L}+(?:\\s+\\p{L}+)?)\\s+${RegExp.escape(name)}(?![\\p{L}\\p{N}])`,
+      "giu"
+    )
+  )) {
+    if (relationWordOf(m[1] ?? "") && m[0].endsWith(name)) {
+      return { name, quote: m[0], words: m[1] ?? "" };
+    }
+  }
+}
+
+/** The words and the name a mention's line puts together, from the mention's `who`: the words, else a name. */
+function tieIn(m: Mention, resolve: Pick<People, "resolve">["resolve"]) {
+  if (relationWordOf(m.who)) {
+    return nameAfter(m.line, m.who, resolve);
+  }
+  return resolve(m.who) && CAPITAL.test(m.who)
+    ? wordsBefore(m.line, m.who)
+    : undefined;
 }
 
 /**
- * The ties the mentions say: a mention whose `who` is a relation's words ("my partner") and whose quote has, right
- * beside them, a name that places by proof `name` ("my partner Lea"). Each is a line as it would be stored, never the
- * person said to be someone's own.
+ * The ties the mentions say: the speaker's own relation words right beside a name that places by proof `name` ("my
+ * partner Lea", the tie's quote) in the message line of a mention, whether the mention gives the name as `who` or the
+ * words. Each is a line as it would be stored, never one that says someone is their own.
  */
 export function tieLinesOf(
   mentions: Mention[],
@@ -73,22 +103,21 @@ export function tieLinesOf(
 ): Tie[] {
   const lines = new Map<string, Tie>();
   for (const m of mentions) {
-    const name = relationWordOf(m.who)
-      ? nameBeside(m.quote, m.who, resolve)
-      : undefined;
+    const found = tieIn(m, resolve);
     const by = m.by === OWNER ? OWNER : resolve(m.by);
-    if (name && resolve(name) !== by) {
-      const id = `tie_${digest("sha1", [m.unit, m.quote, m.who].join("|"), 12)}`;
+    if (found && resolve(found.name) !== by) {
+      const { name, quote, words } = found;
+      const id = `tie_${digest("sha1", [m.unit, quote, words].join("|"), 12)}`;
       lines.set(id, {
         at: m.at,
         by: m.by,
         id,
         of: name,
-        quote: m.quote,
+        quote,
         said: m.line,
         schemaVersion: 1,
         unit: m.unit,
-        words: m.who,
+        words,
       });
     }
   }
@@ -121,7 +150,7 @@ export function writeTies(people: Pick<People, "corrections" | "resolve">) {
 /**
  * The ties as they stand, one per pair of people as one says the other is: the stored lines (less those he called
  * wrong) by who and of whom they resolve to today, the newest line of a pair the present one, and his directory's word
- * over a stored one for the same pair (it keeps the quote). His directory: each person whose `relation`'s first clause is a
+ * over a stored one for the same pair. His directory: each person whose `relation`'s first clause is a
  * listed word, whole ("father, lives in Lyon" is; "father of Lena" is not).
  */
 export function tiesNow(
@@ -138,8 +167,7 @@ export function tiesNow(
 ): TieNow[] {
   const removed = removedOf(corrections);
   const now = new Map<string, TieNow>();
-  const keep = (t: TieNow) =>
-    now.set(`${t.by}|${t.of}`, { ...now.get(`${t.by}|${t.of}`), ...t });
+  const keep = (t: TieNow) => now.set(`${t.by}|${t.of}`, t);
   for (const t of stored
     .filter((s) => !removed.has(s.id))
     .toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
