@@ -95,12 +95,12 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
   recorded-days`; a few seconds); closeness and the
-  personas take its last three years. With his `histories` setting on, the same read gives the histories their
-  months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
+  personas take its last three years. With his `histories` setting on, after the night's index (which they read) the histories take their months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
   costs its month only). With his `exchangeReads` setting on, it also gives the exchange reads their finished
-  exchanges without a stored reply (200 calls a night across the three reads, newest first, after the histories; a
+  exchanges without a stored reply (200 calls a night across the three reads, newest first; a
   failure costs its call only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
-  prints the people, months, calls and a token ceiling, with no model; `bun life memory exchange-reads` prints the
+  prints the people, months, calls, a token ceiling, the largest input and the months cut, with no model (`--limit n`
+  caps a run's calls; `--today YYYY-MM-DD` counts that day as today, so the present month closes: refused on his own data); `bun life memory exchange-reads` prints the
   calls and exchanges pending, and `--force` asks the night's share. With his `links` setting on, after the index
   the night reads how open steps of each open matter ended (`links.jsonl`, in shadow); `bun life memory links` prints
   what is due (matters, open steps, calls, a token ceiling) with no model, `bun life memory links <matter id>` each
