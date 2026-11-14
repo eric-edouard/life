@@ -8,6 +8,7 @@ import {
   fullTextOf,
   type History,
   HistoryMonth,
+  SENTENCE_CHARS,
 } from "../records/history";
 import {
   historyWorkOf,
@@ -503,14 +504,16 @@ test("a history in a shape the code does not know is an error naming the file an
   expect(readFileSync(path, "utf8")).toBe(stored);
 });
 
-const PROMPT_SIZE = /up to about ([\d,]+) characters in all/;
+const PROMPT_BUDGET =
+  /at most (\d+) sentences, each at most about (\d+)\s+characters/;
 
 test("the size the prompt allows is not above what the code keeps", () => {
   const prompt = readFileSync(
     new URL("../../../../prompts/memory-history-month.v2.md", import.meta.url),
     "utf8"
   );
-  const said = PROMPT_SIZE.exec(prompt)?.[1];
-  expect(said).toBeDefined();
-  expect(Number(said?.replace(",", ""))).toBeLessThanOrEqual(FULL_TEXT_CHARS);
+  const [, count, size] = PROMPT_BUDGET.exec(prompt) ?? [];
+  expect(count).toBeDefined();
+  expect(Number(count) * Number(size)).toBeLessThanOrEqual(FULL_TEXT_CHARS);
+  expect(Number(size)).toBeLessThanOrEqual(SENTENCE_CHARS);
 });

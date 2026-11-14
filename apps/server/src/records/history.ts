@@ -16,11 +16,14 @@ export const HistoryPart = z
   .strict();
 export type HistoryPart = z.infer<typeof HistoryPart>;
 
+/** One sentence of a month's full text at most, in characters. */
+export const SENTENCE_CHARS = 600;
+
 /** One sentence of a month's full text, with the local days it rests on. */
 const HistorySentence = z
   .object({
     days: z.array(isoDate).min(1),
-    text: z.string().min(1).max(600),
+    text: z.string().min(1).max(SENTENCE_CHARS),
   })
   .strict();
 export type HistorySentence = z.infer<typeof HistorySentence>;

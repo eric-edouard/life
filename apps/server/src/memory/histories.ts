@@ -12,6 +12,7 @@ import {
   fullTextOf,
   History,
   type HistoryMonth,
+  SENTENCE_CHARS,
 } from "../records/history";
 import { TOP_AT } from "../records/unit";
 import { withStore } from "../sources/lifelog";
@@ -325,7 +326,7 @@ export function twoSizesOf(reply: unknown, shownDays: ReadonlySet<string>) {
       why = "quotes";
     } else if (days.length === 0) {
       why = "days";
-    } else if (s.text.length > 600) {
+    } else if (s.text.length > SENTENCE_CHARS) {
       why = "length";
     } else if (
       chars + s.text.length > FULL_TEXT_CHARS ||
