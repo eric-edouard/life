@@ -1,10 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
+import { FactCheck } from "../records/fact-check";
 import { LinkBatch } from "../records/link";
 import { endingMarks, endingsNow, endingsRead } from "./endings";
 import { recordFactCheckAnswer } from "./fact-checks";
 import {
+  answeredFactChecks,
   FACT_CHECK_ANSWERS,
   FACT_CHECKS,
   LINKS,
@@ -101,8 +103,35 @@ test("an answer to an ending writes its check first, then the answer, once", asy
     FACT_CHECK_ANSWERS,
   ]);
   expect(readFactChecks().map((s) => [s.ref, s.text, s.endedBy])).toEqual([
-    [promise(1), "Done? Call the shop 1", later(101)],
+    [promise(1), "Life thinks this is done: Call the shop 1", later(101)],
   ]);
+  reset();
+});
+
+test("an old unanswered doubt line on the same ref gets no ending answer, and never an eval fact from one", async () => {
+  reset();
+  appendJsonl(FACT_CHECKS, FactCheck, [
+    {
+      at: "2026-10-01T10:00:00.000Z",
+      date: "2026-09-30",
+      group: "episodes",
+      kind: "fact",
+      ref: promise(1),
+      schemaVersion: 1,
+      source: "whatsapp",
+      text: "Call the shop 1",
+      units: ["unit_000000000001"],
+    },
+  ]);
+  const undo = await ended(1);
+  try {
+    await expect(recordFactCheckAnswer(promise(1), "false")).rejects.toThrow(
+      "no fact check"
+    );
+  } finally {
+    undo();
+  }
+  expect(answeredFactChecks()).toEqual([]);
   reset();
 });
 

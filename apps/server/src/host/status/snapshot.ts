@@ -162,7 +162,7 @@ async function factCheckCounts() {
   const answers = readFactCheckAnswers();
   return {
     answered: readFactChecks().filter((s) => answers.get(s.ref)?.answer).length,
-    left: (await checksNow()).length,
+    left: await safe(async () => (await checksNow()).length),
   };
 }
 
@@ -1009,6 +1009,7 @@ export const callerOf = (agent: unknown) =>
   typeof agent === "string" ? agent : "an app";
 
 function outputCards(r: Reads): Card[] {
+  const left = r.mem.left.ok ? r.mem.left.value : "?";
   const calls = since(r.mcp, DAY, r.t);
   const byClient = Map.groupBy(calls, (c) => callerOf(c.agent));
   const acts = r.actions.filter(
@@ -1098,13 +1099,13 @@ function outputCards(r: Reads): Card[] {
       name: "Email",
     },
     {
-      facts: [{ label: "Left to answer", value: String(r.mem.left) }],
+      facts: [{ label: "Left to answer", value: String(left) }],
       group: "outputs",
-      headline: `${r.mem.left} to answer`,
+      headline: `${left} to answer`,
       id: "check",
       name: "Fact checks",
       tone: "ok",
-      word: r.mem.left > 0 ? "waiting" : "all answered",
+      word: left === 0 ? "all answered" : "waiting",
     },
   ];
 }

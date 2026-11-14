@@ -31,6 +31,7 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
   const isGuess = guessTestOf(over.corrections ?? []);
   return {
     answered: new Set(),
+    doubted: new Set(),
     endings: new Map(),
     kept: new Set(lines.map((l) => l.id)),
     lines,
@@ -196,4 +197,6 @@ test("an ending rides on its open matter and goes with his answer", () => {
     ridesOn: { matters: 1, observations: 0 },
   });
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
+  // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
+  expect(checksOf({ ...base, doubted: new Set([o.id]) })).toEqual([]);
 });
