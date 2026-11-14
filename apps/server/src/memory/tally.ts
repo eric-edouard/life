@@ -18,7 +18,7 @@ const Grades = z.object({
   ),
 });
 export type Grade = z.infer<typeof Grades>["grades"][number];
-const JUDGE_PROMPT = "eval-judge.v2";
+const JUDGE_PROMPT = "eval-judge.v3";
 /** Who judges: the prompt and the model `judge` calls, what a kept grade was judged by (`--fact-check-answers`, scripts/eval.ts). */
 export const judgedBy = () => `${JUDGE_PROMPT} ${llmSpec(llmFor("judge"))}`;
 

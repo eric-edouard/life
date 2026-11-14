@@ -334,8 +334,10 @@ first.
   stated or not, the case passing when it states all it must and none it must not; a misgrade becomes a judge case.
   Without `--run` it only counts the cases. A run is metered like an eval, refused over the Codex reserve before
   each case, keeps what the agent and the judge read under the run's folder, writes its results (each reply, its
-  points, the tools called and how much they returned) to his data, `docs/evals/question-cases/<run>.json`, and
-  prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
+  points, the tools called, how much they returned, and in `calls` each call's tool, arguments and size in order, names
+  and queries included) to his data, `docs/evals/question-cases/<run>.json`, and
+  prints counts only: by kind and asker, passed of asked, then calls by tool and read parts opened (`openedOf`). It
+  spends his Codex plan for the agent and his engine
   for the judge: show him the count of cases first. `--across <run> <run> … [--baselines n]` (no model) counts the
   points across runs already made, a run being one result file or several joined by `+`: per run, points ok, cases passed
   and `WRONG` marks; then the must-hold points with no `ok` in the first `n` runs, by case id and point number, with
