@@ -27,6 +27,7 @@ import {
   recordFactCheckAnswer,
 } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
+import { readMentions } from "../memory/mentions";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
 import { personas } from "../memory/personas";
@@ -42,7 +43,7 @@ import { readBackfill, recordBackfill, weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { DAYS, gather } from "../memory/units";
-import { readPeople } from "../memory/who";
+import { placementOf, readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import {
   dayNow,
@@ -328,6 +329,29 @@ const HANDLERS: Record<string, Handler> = {
       return sum;
     })(values, rest);
   },
+  /** `mentions`: the kept mentions (the night's) counted by how they are placed, as of today. Counts only, never a word. */
+  mentions: async () => {
+    const kept = readMentions();
+    if (!kept) {
+      console.error("no mentions kept yet: the night keeps them");
+      return 1;
+    }
+    const people = await readPeople();
+    const all = Object.values(kept).flat();
+    const byProof: Record<string, number> = {};
+    for (const m of all) {
+      const proof = placementOf(m, people)?.proof ?? "unknown";
+      byProof[proof] = (byProof[proof] ?? 0) + 1;
+    }
+    console.log(
+      JSON.stringify({
+        byProof,
+        days: Object.keys(kept).length,
+        mentions: all.length,
+      })
+    );
+    return 0;
+  },
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   observation: (_values, [id = ""]) => json(readObservation(id)),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
@@ -367,7 +391,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

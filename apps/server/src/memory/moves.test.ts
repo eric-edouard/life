@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
-import type { SourceEvent } from "../records/source";
-import { checkedMoves } from "./moves";
+import { ReadReply } from "../records/read-reply";
+import { eventKey, type SourceEvent } from "../records/source";
+import { callOf } from "./exchange-reads";
+import { checkedMoves, checkedOf } from "./moves";
 
 const START = Date.parse("2026-10-01T12:00:00.000Z");
 const msg = (
@@ -170,4 +172,48 @@ test("a move whose resource is `standing` (praise, respect) parses: the stored r
   );
   expect(dropped).toBe(0);
   expect(exchanges[0]?.moves).toHaveLength(1);
+});
+
+const SECOND_LINE = /^\[1\] \d\d:\d\d me: bravo$/;
+
+test("a call shows the exchange as numbered lines; a trial reply is checked against the messages it read", () => {
+  const call = callOf([talk], { name: "Ana", relation: "friend" });
+  expect(call.input.lines[0]).toBe("## Exchange 0 · 2026-10-01");
+  expect(call.input.lines[2]).toMatch(SECOND_LINE);
+  expect(call.starts).toEqual([0]);
+
+  const reply = {
+    exchanges: [
+      {
+        exchange: 0,
+        moves: [{ code: "affection", line: 1, quote: "bravo" }],
+        tension: false,
+        tone: { me: "warm", them: "warm" },
+      },
+    ],
+  };
+  const line = ReadReply.parse({
+    at: "2026-10-02T00:00:00.000Z",
+    madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+    messages: call.messages.map(eventKey),
+    promptDigest: "a".repeat(16),
+    read: "connection",
+    reply,
+    schemaVersion: 1,
+    starts: call.starts,
+  });
+  expect(line.messages).toEqual([
+    "whatsapp|+1:0",
+    "whatsapp|+1:1",
+    "whatsapp|+1:2",
+  ]);
+  const events = new Map(talk.map((e) => [eventKey(e), e]));
+  const checked = checkedOf([line], "connection", events);
+  expect([...checked.keys()]).toEqual(["whatsapp|+1:0"]);
+  expect(checked.get("whatsapp|+1:0")?.moves.map((m) => m.code)).toEqual([
+    "affection",
+  ]);
+  // A line that read a message no longer there is left out.
+  expect(checkedOf([line], "connection", new Map()).size).toBe(0);
+  expect(checkedOf([line], "mentions", events).size).toBe(0);
 });

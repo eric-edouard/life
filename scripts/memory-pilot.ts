@@ -20,10 +20,7 @@ import {
   replyOf,
   type With,
 } from "@life/server/src/memory/exchange-reads";
-import {
-  type CheckedExchange,
-  checkedMoves,
-} from "@life/server/src/memory/moves";
+import { checkedOf } from "@life/server/src/memory/moves";
 import { begin } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import {
@@ -33,7 +30,7 @@ import {
   llmSpec,
   promptText,
 } from "@life/server/src/models/llm";
-import type { ReadName, ReadReply } from "@life/server/src/records/read-reply";
+import type { ReadName } from "@life/server/src/records/read-reply";
 import type { SourceEvent } from "@life/server/src/records/source";
 
 /** Where the pilot keeps its files: his data, outside `memory/`, so no lock and no nightly step reads it. */
@@ -56,25 +53,6 @@ export const readSet = (name: string) => {
 /** The trial folder of a read tried by `label` with this wording: a reworded prompt of the same name is a new folder, so it is asked again. */
 export const trialDir = (read: ReadName, label: string, wording: string) =>
   join(KEPT, read, `${label}-${promptDigestOf(wording)}`);
-
-/** Every exchange the stored lines hold for `read`, checked (`checkedMoves`), by its first message's key; only lines whose messages are all in `events`. */
-export function checkedOf(
-  lines: ReadReply[],
-  read: ReadName,
-  events: Map<string, SourceEvent>
-) {
-  const out = new Map<string, CheckedExchange>();
-  for (const line of lines.filter((l) => l.read === read)) {
-    const messages = line.messages.flatMap((id) => events.get(id) ?? []);
-    if (messages.length === line.messages.length) {
-      const checked = checkedMoves(line.reply, messages, line.starts, read);
-      for (const x of checked.exchanges) {
-        out.set(line.messages[x.exchange] as string, x);
-      }
-    }
-  }
-  return out;
-}
 
 /** What a trial read stored under `label` with this wording, checked: `checkedOf` over its folder. */
 export const readKept = (
