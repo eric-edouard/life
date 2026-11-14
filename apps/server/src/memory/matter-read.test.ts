@@ -443,3 +443,15 @@ test("a link's ending is maybe done until his word: the matter stays open; his r
   expect(closed).toMatchObject({ open: false, status: "done" });
   expect(closed?.maybe).toBeUndefined();
 });
+
+test("a placed observation brings the episode holding its unit, with no unit step for it", () => {
+  const [view] = matterBookOf(
+    [{ ...line, steps: [{ ref: obs(5, "", {}).id }] }],
+    records(),
+    "2026-10-20"
+  );
+  expect(view?.steps.map((s) => s.text)).toEqual([
+    "Call the shop",
+    "Call to the shop",
+  ]);
+});

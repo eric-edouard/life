@@ -139,14 +139,15 @@ function indexOf(rec: MatterRecords, placed: ReadonlySet<string>) {
 }
 type Index = ReturnType<typeof indexOf>;
 
-/** The records a matter line names: the episodes holding its units, the observations (any placed, and those at `KEEP_AT` or more of its units), the to-do items (placed, or made from one of those observations). */
+/** The records a matter line names: the episodes holding its units (and those of its placed observations), the observations (any placed, and those at `KEEP_AT` or more of its units), the to-do items (placed, or made from one of those observations). */
 function recordsOf(line: Line, ix: Index) {
   const episodes = new Map<string, Episode>();
   const observations = new Map<string, StepObservation>();
   const items = new Map<string, StepTodoItem>();
   for (const { ref } of line.steps) {
-    const episode = ix.rec.episodeOf.get(ref);
     const observation = ix.byId.get(ref);
+    // A unit step is a unit's ref; an observation step brings the episode of its unit.
+    const episode = ix.rec.episodeOf.get(observation?.unit ?? ref);
     const item = ix.todo.get(ref);
     if (episode) {
       episodes.set(episode.id, episode);
