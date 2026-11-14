@@ -22,7 +22,7 @@ them, what each wanted or asked, what he said about them to others and they abou
 disagreement and how it ended (or that it did not), what changed between them. Say the day in the sentence when it
 matters ("On 17 March…"). Only this month: nothing about what either person is like in general, no advice, no guess.
 
-Size it by what happened. A quiet month is two or three sentences. A busy month may take up to 600 words in all. Never
+Size it by what happened. A quiet month is two or three sentences. A busy month may take up to about 4,000 characters in all (about 550 words). Never
 pad, never repeat.
 
 Whatever the size, always keep: a turning point (something between them began, ended or changed); his decisions

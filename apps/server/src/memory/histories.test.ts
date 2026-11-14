@@ -3,7 +3,12 @@ import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { fullTextOf, type History, HistoryMonth } from "../records/history";
+import {
+  FULL_TEXT_CHARS,
+  fullTextOf,
+  type History,
+  HistoryMonth,
+} from "../records/history";
 import {
   historyWorkOf,
   isStoryDue,
@@ -496,4 +501,16 @@ test("a history in a shape the code does not know is an error naming the file an
   );
   expect(work?.work.map((w) => w.ref) ?? []).not.toContain(ref);
   expect(readFileSync(path, "utf8")).toBe(stored);
+});
+
+const PROMPT_SIZE = /up to about ([\d,]+) characters in all/;
+
+test("the size the prompt allows is not above what the code keeps", () => {
+  const prompt = readFileSync(
+    new URL("../../../../prompts/memory-history-month.v2.md", import.meta.url),
+    "utf8"
+  );
+  const said = PROMPT_SIZE.exec(prompt)?.[1];
+  expect(said).toBeDefined();
+  expect(Number(said?.replace(",", ""))).toBeLessThanOrEqual(FULL_TEXT_CHARS);
 });
