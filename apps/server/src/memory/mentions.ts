@@ -1,14 +1,17 @@
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { z } from "zod";
 import { clock } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import type { Episode } from "../records/episode";
 import { isoDateTime } from "../records/fields";
 import type { ReadReply } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import type { WithPeople } from "./closeness";
 import { READS, readReplies } from "./exchange-reads";
-import { MENTIONS } from "./memory-files";
+import { MENTIONS, mentionsPath } from "./memory-files";
 import { checkedOf } from "./moves";
+import { OWNER } from "./read-truth";
 import { dayUnitId, textOf } from "./units";
 import { localDate } from "./zones";
 
@@ -33,7 +36,7 @@ export type Mention = z.infer<typeof Mention>;
 const Stored = z
   .object({
     built: isoDateTime,
-    /** By local day, so a reader of one day takes only its list. */
+    /** By local day, those of the file's month. */
     days: z.record(z.string(), z.array(Mention)),
   })
   .strict();
@@ -72,8 +75,8 @@ export function mentionsOf(
 
 /**
  * Keeps the mentions of the stored replies, from a read of all his years (`readWithPeople(new Date(0))`), and rewrites
- * the file whole. Like the exchange counts: nothing is written when a source could not be read, or when checking
- * throws; it is logged, `failed` says so and the last file stands.
+ * the month files whole. Like the exchange counts: nothing is written when a source could not be read, or when checking
+ * throws; it is logged, `failed` says so and the last files stand.
  */
 export function writeMentions({
   events,
@@ -87,13 +90,22 @@ export function writeMentions({
       readReplies().flat(),
       new Map(events.map((e) => [eventKey(e), e]))
     );
-    writeJson(
-      MENTIONS,
-      Stored.parse({
-        built: clock().toISOString(),
-        days: Object.fromEntries(Map.groupBy(mentions, (m) => localDate(m.at))),
-      })
+    const built = clock().toISOString();
+    const byMonth = Map.groupBy(
+      [...Map.groupBy(mentions, (m) => localDate(m.at))],
+      ([day]) => day.slice(0, 7)
     );
+    for (const [month, days] of byMonth) {
+      writeJson(
+        mentionsPath(month),
+        Stored.parse({ built, days: Object.fromEntries(days) })
+      );
+    }
+    // A month no mention is left in goes, as does the one file of before the months (14 Nov 2026; goes once it has run).
+    for (const month of monthsKept().filter((m) => !byMonth.has(m))) {
+      rmSync(mentionsPath(month));
+    }
+    rmSync(`${MENTIONS}.json`, { force: true });
     return { failed: 0, mentions: mentions.length };
   } catch (e) {
     log("run.error", {
@@ -104,9 +116,46 @@ export function writeMentions({
   }
 }
 
+const monthsKept = () =>
+  existsSync(MENTIONS)
+    ? readdirSync(MENTIONS)
+        .filter((n) => n.endsWith(".json"))
+        .map((n) => n.slice(0, -".json".length))
+    : [];
+
 /**
- * The kept mentions by local day, or null when the file is missing or in another shape (then there is none).
- * ponytail: the whole file is parsed on each read; one file a month if it ever shows.
+ * The kept mentions by local day, of these months (`YYYY-MM`) or all of them, or null when there are none.
  */
-export const readMentions = () =>
-  Stored.safeParse(readJson(MENTIONS)).data?.days ?? null;
+export function readMentions(months = monthsKept()) {
+  const days = Object.assign(
+    {},
+    ...months.map((m) => Stored.safeParse(readJson(mentionsPath(m))).data?.days)
+  ) as Record<string, Mention[]>;
+  return Object.keys(days).length > 0 ? days : null;
+}
+
+/** The mentions kept for one local day: one month's file is parsed, never every year's. */
+export const readMentionsOn = (day: string) =>
+  readMentions([day.slice(0, 7)])?.[day] ?? [];
+
+/**
+ * The people an episode's units had talked about, in the order first named: whom `place` says each mention means, less
+ * those taking part in it (`refOf` as of today) and him. Worked out when read and shown by `day()` only: the memory
+ * line (`episodeText`) never holds it.
+ */
+export function talkedAboutOf(
+  episode: Pick<Episode, "people" | "units">,
+  mentions: Mention[],
+  place: (mention: Mention) => string | undefined,
+  refOf: (ref: string) => string
+) {
+  const out = new Set([OWNER, ...episode.people.map((p) => refOf(p.ref))]);
+  const about = new Set<string>();
+  for (const m of mentions) {
+    const ref = episode.units.includes(m.unit) ? place(m) : undefined;
+    if (ref && !out.has(ref)) {
+      about.add(ref);
+    }
+  }
+  return [...about];
+}
