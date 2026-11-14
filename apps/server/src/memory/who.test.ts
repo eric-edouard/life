@@ -1,10 +1,25 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { appendJsonl } from "../core/files";
+import { AGENT_WORD } from "../core/names";
+import { LedgerEntry } from "../records/ledger-entry";
+import { Unresolved } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import { Person } from "../records/truth";
+import { readAgent } from "./agent-source";
+import { LEDGER, UNRESOLVED } from "./memory-files";
 import { inferredId } from "./people";
 import { candidateLines } from "./read-person-page";
-import { inferred, people as mapped, said } from "./record-fixtures";
-import { nameKey } from "./units";
-import { foldsOf, meant, namedLike, nearNames } from "./who";
+import { action, inferred, people as mapped, said } from "./record-fixtures";
+import { dayUnitId, nameKey } from "./units";
+import {
+  foldsOf,
+  meant,
+  namedLike,
+  nearNames,
+  readUnresolvedPeople,
+} from "./who";
 
 const INFERRED_ID = /^inf_[a-z0-9-]+$/;
 
@@ -228,4 +243,59 @@ test("nameKey folds Latin accents and keeps every script's letters apart", () =>
 
 test("an inferred id from a Thai name is still a plain slug", () => {
   expect(inferredId("สมชาย ใจดี", "k", new Set())).toMatch(INFERRED_ID);
+});
+
+afterAll(() => {
+  rmSync(LEDGER, { force: true });
+  rmSync(UNRESOLVED, { force: true });
+});
+
+test("an agent's own name opening its report is no unresolved person; other names and other units keep their row", () => {
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  rmSync(LEDGER, { force: true });
+  rmSync(UNRESOLVED, { force: true });
+  appendJsonl(LEDGER, LedgerEntry, [
+    action({
+      after: { agent: "Orbit", confidence: "high" },
+      id: "entry_aaaaaaaaaaaa",
+      instruction: {
+        at: "2026-10-20T14:50:00.000Z",
+        quote: "find it",
+        ref: "j:1",
+      },
+      kind: "ask",
+      target: AGENT_WORD,
+      via: "watch",
+    }),
+    action({
+      after: { outcome: "found", state: "done" },
+      at: "2026-10-20T14:55:00.000Z",
+      id: "entry_bbbbbbbbbbbb",
+      kind: "update",
+      target: "entry_aaaaaaaaaaaa",
+      via: "connector",
+    }),
+  ]);
+  const [report] = readAgent(new Date(0));
+  const agentUnit = dayUnitId(report as SourceEvent);
+  const row = (unit: string, nameAsWritten: string) => ({
+    at: "2026-10-21T10:00:00.000Z",
+    date: "2026-10-20",
+    nameAsWritten,
+    observation: "obs_000000000001",
+    schemaVersion: 1 as const,
+    unit,
+    via: "model" as const,
+  });
+  appendJsonl(UNRESOLVED, Unresolved, [
+    row(agentUnit, "orbit"),
+    row(agentUnit, "Mira"),
+    row("unit_000000000009", "Orbit"),
+  ]);
+  return readUnresolvedPeople().then((rows) =>
+    expect(rows.map((r) => [r.unit, r.nameAsWritten])).toEqual([
+      [agentUnit, "Mira"],
+      ["unit_000000000009", "Orbit"],
+    ])
+  );
 });

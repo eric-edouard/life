@@ -35,8 +35,8 @@ export const newestAgent = (): Newest => ({
       .at(-1) ?? null,
 });
 
-/** The tasks the agent closed done since `since`. */
-export function readAgent(since: Date, before?: Date): SourceEvent[] {
+/** The tasks the agent closed done since `since`, each event with the agent whose report it is. */
+export function readAgentReports(since: Date, before?: Date) {
   return done().flatMap(({ ask, last }) => {
     if (
       Date.parse(last.at) < since.getTime() ||
@@ -46,21 +46,24 @@ export function readAgent(since: Date, before?: Date): SourceEvent[] {
     }
     const quote = ask.instruction.quote.replaceAll("\n", " ");
     const asked = wall(ask.instruction.at);
-    return [
-      {
-        at: last.at,
-        chat: ask.id,
-        chatName: `${askedAgent(ask)}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
-        fromMe: false,
-        id: `${AGENT_WORD}:${ask.id}`,
-        sender: AGENT_WORD,
-        source: AGENT_WORD,
-        text: [
-          `${askedAgent(ask)} reports it did this task (its own report, not checked by Life; not his words).`,
-          `He had asked, ${asked.day} ${asked.hms.slice(0, 5)}: "${quote.length > ASK_MAX ? `${quote.slice(0, ASK_MAX)}…` : quote}"`,
-          `Outcome: ${String(last.after.outcome ?? "")}`,
-        ].join("\n"),
-      },
-    ];
+    const event: SourceEvent = {
+      at: last.at,
+      chat: ask.id,
+      chatName: `${askedAgent(ask)}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
+      fromMe: false,
+      id: `${AGENT_WORD}:${ask.id}`,
+      sender: AGENT_WORD,
+      source: AGENT_WORD,
+      text: [
+        `${askedAgent(ask)} reports it did this task (its own report, not checked by Life; not his words).`,
+        `He had asked, ${asked.day} ${asked.hms.slice(0, 5)}: "${quote.length > ASK_MAX ? `${quote.slice(0, ASK_MAX)}…` : quote}"`,
+        `Outcome: ${String(last.after.outcome ?? "")}`,
+      ].join("\n"),
+    };
+    return [{ agent: askedAgent(ask), event }];
   });
 }
+
+/** The tasks the agent closed done since `since`. */
+export const readAgent = (since: Date, before?: Date): SourceEvent[] =>
+  readAgentReports(since, before).map((r) => r.event);
