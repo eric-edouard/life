@@ -651,3 +651,19 @@ export function meant(
     same: one ? [one, ...same] : same,
   };
 }
+
+/**
+ * Who a mention means, by what it names: the person its whole `who` resolves to (`people.resolve`, so a fold or a name
+ * given since moves it) when those words are on its line; else no one. "Paul's sister" is not "Paul": a part of
+ * a name never counts.
+ */
+export function placementOf(
+  mention: { line: string; who: string },
+  people: Pick<People, "resolve">
+) {
+  const words = ` ${nameKey(mention.who)} `;
+  const ref = people.resolve(mention.who);
+  return ref && words.trim() && ` ${nameKey(mention.line)} `.includes(words)
+    ? { proof: "name" as const, ref }
+    : null;
+}

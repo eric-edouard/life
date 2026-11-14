@@ -36,6 +36,7 @@ import {
   readLedger,
 } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
+import { writeMentions } from "../memory/mentions";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { personas } from "../memory/personas";
@@ -252,6 +253,7 @@ async function readYears(now: Date) {
   const everyYear = await readWithPeople(new Date(0));
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
+  writeMentions(everyYear);
   const { histories: history } = settings();
   // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
   const pending = history

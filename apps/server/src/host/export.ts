@@ -20,6 +20,7 @@ import { openReadOnly } from "../core/sqlite";
 import {
   EXCHANGE_COUNTS,
   INDEX,
+  MENTIONS,
   PASSAGES,
   RECORDED_DAYS,
   VECTORS,
@@ -41,7 +42,7 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the recorded days), the watcher's store (copied whole on its own), and the
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), and the
  * secrets.
  */
 const KEPT_OUT = [
@@ -50,6 +51,7 @@ const KEPT_OUT = [
   PASSAGES,
   VECTORS,
   EXCHANGE_COUNTS,
+  MENTIONS,
   RECORDED_DAYS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
