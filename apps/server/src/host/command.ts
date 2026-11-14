@@ -28,6 +28,7 @@ import {
 } from "../memory/memory-files";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
+import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
 import { personas } from "../memory/personas";
@@ -44,7 +45,7 @@ import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { DAYS, gather } from "../memory/units";
 import { placementOf, readPeople } from "../memory/who";
-import { chatsOf, fetchOf } from "../memory/words";
+import { chatsOf } from "../memory/words";
 import {
   dayNow,
   firstZoneDay,
@@ -72,6 +73,7 @@ const OPTIONS = {
   limit: { type: "string" },
   longitude: { type: "string" },
   only: { type: "string" },
+  part: { type: "string" },
   person: { type: "string" },
   place: { type: "string" },
   radius: { type: "string" },
@@ -79,6 +81,7 @@ const OPTIONS = {
   run: { type: "string" },
   scan: { type: "boolean" },
   since: { type: "string" },
+  span: { type: "string" },
   steps: { type: "string" },
   to: { type: "string" },
   types: { type: "string" },
@@ -243,7 +246,7 @@ const HANDLERS: Record<string, Handler> = {
       : usage(),
   fetch: (values, [id]) =>
     printed(
-      id ? fetchOf(id, count(values["from-turn"]), count(values.limit)) : null
+      id ? openById(id, count(values["from-turn"]), count(values.limit)) : null
     ),
   "historical-units": step((v) => collectHistorical(v)),
   /**
@@ -391,7 +394,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | fact-checks <n> | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|evidence] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | questions | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

@@ -16,6 +16,7 @@ import {
   recordCorrection,
   recordFactCheckAnswer,
 } from "../../memory/memory-files";
+import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
 import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
@@ -27,7 +28,7 @@ import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
 import { recordToldLife } from "../../memory/told-life";
 import { clip } from "../../memory/units";
-import { chatsOf, fetchOf } from "../../memory/words";
+import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
@@ -334,7 +335,7 @@ export function buildServer(readsOnly = false) {
         .describe("Conversation id, unit id or turn ref from another tool"),
       limit: z.int().min(1).max(500).optional(),
     }),
-    ({ id, fromTurn, limit }) => fetchOf(id, fromTurn, limit)
+    ({ id, fromTurn, limit }) => openById(id, fromTurn, limit)
   );
   tool(
     server,

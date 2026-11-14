@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { clock, HOUR } from "../core/clock";
-import { newestDays } from "../core/lists";
+import { newestDays, within } from "../core/lists";
 import type { History } from "../records/history";
 import { conversationsWith, speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
@@ -27,10 +27,12 @@ import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
 import { personaBlock, readPersona } from "./personas";
 import { openWithOf, readOpenItems } from "./read-open-items";
+import { nextReads, PART_CHARS, partErrorOf, type ReadPart } from "./read-part";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
 import { clip, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
+import { asData } from "./words";
 import { dayNow, localDate, localTime, monthsOf } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
@@ -159,13 +161,23 @@ export function heldLines(db: Database, ref: string, timeline: Dated[]) {
  * two people go by lists them, then shows the first; a name on no page nor directory entry is looked for among lifelog's
  * speakers; a name no one goes by says so and lists the names near it.
  */
-export async function person(name?: string, o: { before?: string } = {}) {
+export async function person(
+  name?: string,
+  o: { before?: string; part?: string; span?: string } = {}
+) {
   if (!name) {
     const list = await peoplePages();
     return withIndex((db) => {
       const pages = withPages(db, list);
       return pages.length > 0 ? pages : ["(no people pages yet)"];
     });
+  }
+  // Pages go by whole local days: a day is never cut between two answers.
+  const before = o.before?.slice(0, 10);
+  const part = o.part ?? (before || o.span ? "evidence" : "now");
+  const bad = partErrorOf({ before, part, span: o.span });
+  if (bad) {
+    return asData([`(${bad})`]);
   }
   const folks = await readPeople();
   const { refOf, truth } = folks;
@@ -180,8 +192,6 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const lifelog = mapped?.handles.lifelog;
   const details = detailsBlock(readDetailsOf(folks)(ref), dayNow());
   const close = closenessLine(ref, folks);
-  // Pages go by whole local days: a day is never cut between two answers.
-  const before = o.before?.slice(0, 10);
   const all = await episodesWhere(() => true);
   const live = new Set(all.map((m) => m.id));
   const episodes = all.filter((m) =>
@@ -192,8 +202,9 @@ export async function person(name?: string, o: { before?: string } = {}) {
   // What is open with them (the open matters and the replies he owes; someone Life knows, first page only), read before
   // the index opens (nothing awaits while it is).
   // What code counted between them, first page only, read before the index opens too.
-  const counted = before || !known ? null : readExchangeCounts();
-  const items = before || !known ? [] : await readOpenItems(folks, clock());
+  const first = part === "now";
+  const counted = first && known ? readExchangeCounts() : null;
+  const items = first && known ? await readOpenItems(folks, clock()) : [];
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor directory entry: the lifelog speakers it is part of.
@@ -228,51 +239,104 @@ export async function person(name?: string, o: { before?: string } = {}) {
           line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
         })),
       ].toSorted((a, b) => b.day.localeCompare(a.day));
-      // The history's months beyond the newest (the first page's block) are paged with the rest, each on its last day.
-      const { next, taken } = newestDays(
-        [...timeline, ...history.earlier].toSorted((a, b) =>
-          b.day.localeCompare(a.day)
-        ),
-        (t) => t.day,
-        PAGE_ITEMS,
-        before
-      );
-      const lines = (kind: Dated["kind"]) =>
-        taken.filter((t) => t.kind === kind).map((t) => t.line);
-      const obsLines = lines("observation");
-      return [
-        ...candidateLines(name, same, (who) => linkedCount(db, who)),
-        ...(before
-          ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
-          : [
-              ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
-              ...details,
-              ...close,
-              ...openWithOf(ref, {
-                goals: goalProjects(truth.me.goals),
-                items,
-                today: dayNow(),
-              }),
-              ...situationBlock("Situation", readSituationNow(ref, live)),
-              ...personaBlock(readPersona(ref), dayNow()),
-              ...exchangeCountsBlock(
-                counted && { ...counted, rows: counted.people[ref] ?? [] }
-              ),
-              ...history.block,
-              ...pageAndLatest(db, found?.text ?? null, obsLines),
-              "",
-              ...heldLines(db, ref, timeline),
-            ]),
-        ...section("Earlier months between them and him:", lines("month")),
-        ...section("Episodes with them:", lines("episode")),
-        ...section(recordedTitle(heard), lines("conversation")),
-        "",
-        next
-          ? `Older: the same call with \`before\` ${next}.`
-          : "(nothing older)",
-      ];
+      return partLines({
+        before,
+        candidates: candidateLines(name, same, (who) => linkedCount(db, who)),
+        earlier: history.earlier,
+        heard,
+        now: (obsLines) => [
+          ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
+          ...details,
+          ...close,
+          ...openWithOf(ref, {
+            goals: goalProjects(truth.me.goals),
+            items,
+            today: dayNow(),
+          }),
+          ...situationBlock("Situation", readSituationNow(ref, live)),
+          ...personaBlock(readPersona(ref), dayNow()),
+          ...exchangeCountsBlock(
+            counted && { ...counted, rows: counted.people[ref] ?? [] }
+          ),
+          ...history.block,
+          ...pageAndLatest(db, found?.text ?? null, obsLines),
+          "",
+          ...heldLines(db, ref, timeline),
+        ],
+        part: part as ReadPart,
+        ref,
+        span: o.span,
+        timeline,
+      });
     })
   );
+}
+
+/**
+ * One part of a person's read, from what was gathered: `now`, the first page (`now` builds its block from the
+ * observations shown), or `evidence`, the timeline in `span` (a year or a month; all of it without) by whole days, newest
+ * first, up to `PART_CHARS` characters, and `before` (a day, exclusive) to page back. The history's months beyond the
+ * newest (`earlier`) are paged with the timeline, each on its last day. `evidence` ends with its next read; `now` names
+ * the older page as it always did.
+ */
+export function partLines(o: {
+  before?: string;
+  candidates: string[];
+  earlier: Dated[];
+  heard: { name: string }[];
+  now: (observations: string[]) => string[];
+  part: ReadPart;
+  ref: string;
+  span?: string;
+  timeline: Dated[];
+}) {
+  const evidence = o.part === "evidence";
+  const inSpan = [...o.timeline, ...o.earlier]
+    .filter((t) => !o.span || t.day.startsWith(o.span))
+    .toSorted((a, b) => b.day.localeCompare(a.day));
+  const left = o.before
+    ? inSpan.filter((t) => t.day < (o.before as string))
+    : inSpan;
+  // At least one day, so a part never comes back empty while something is left.
+  const limit = evidence
+    ? Math.max(1, within(left, PART_CHARS, (t) => t.line.length + 1).length)
+    : PAGE_ITEMS;
+  const { next, taken } = newestDays(inSpan, (t) => t.day, limit, o.before);
+  const lines = (kind: Dated["kind"]) =>
+    taken.filter((t) => t.kind === kind).map((t) => t.line);
+  const obsLines = lines("observation");
+  const none = ["(nothing older)"];
+  let ending = none;
+  if (next) {
+    ending = evidence
+      ? nextReads([
+          {
+            ref: {
+              before: next,
+              part: "evidence",
+              span: o.span,
+              subject: o.ref,
+            },
+            what: "older evidence",
+          },
+        ])
+      : [`Older: the same call with \`before\` ${next}.`];
+  }
+  return [
+    ...o.candidates,
+    ...(evidence
+      ? [
+          `Evidence${o.span ? ` in ${o.span}` : ""}${o.before ? `, before ${o.before}` : ""}:`,
+          "Observations:",
+          ...orNone(obsLines),
+        ]
+      : o.now(obsLines)),
+    ...section("Earlier months between them and him:", lines("month")),
+    ...section("Episodes with them:", lines("episode")),
+    ...section(recordedTitle(o.heard), lines("conversation")),
+    "",
+    ...ending,
+  ];
 }
 
 /** The months of a history the first page shows whole; the earlier ones are paged with the timeline. */
