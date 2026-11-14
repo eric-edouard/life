@@ -88,7 +88,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   An optional field that the old lines truly lack, on an append-only file whose latest line per key rules, needs no migration:
   the writer's next line fills it.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, and his answer to a check with the check as it was shown, written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.** They are the only
   copy of his assistant history besides the backup (a conversation he deleted in the app survives only there); a newer

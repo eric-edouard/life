@@ -51,7 +51,7 @@ export async function recordFactCheckAnswer(
   const answered = new Set(
     [...readFactCheckAnswers()].flatMap(([r, a]) => (a.answer ? [r] : []))
   );
-  if (link && o && isEndingOpen(ref, true, { answered, doubted })) {
+  if (link && o && isEndingOpen(ref, { answered, doubted })) {
     if (!lines.some((s) => s.ref === ref && s.endedBy === link.later)) {
       appendJsonl(FACT_CHECKS, FactCheck, [
         {

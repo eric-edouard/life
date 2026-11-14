@@ -3,6 +3,7 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { FactCheck } from "../records/fact-check";
 import { LinkBatch } from "../records/link";
+import { checksNow } from "./checks";
 import { endingMarks, endingsNow, endingsRead } from "./endings";
 import { recordFactCheckAnswer } from "./fact-checks";
 import {
@@ -56,6 +57,8 @@ async function ended(n: number) {
     endings: true,
   } as never);
   const records = spyOn(matters, "readMatterRecords").mockResolvedValue({
+    endings: new Set(),
+    episodes: [],
     maybe: new Map(
       Array.from({ length: n }, (_, i) => [
         promise(i + 1),
@@ -71,12 +74,14 @@ async function ended(n: number) {
     observations: Array.from({ length: n }, (_, i) => ({
       date: "2026-11-01",
       id: promise(i + 1),
+      importance: 3,
       modality: "plan",
       source: { channel: "whatsapp" },
       subjects: ["person:gran"],
       text: `Call the shop ${i + 1}`,
       unit: "unit_000000000001",
     })),
+    todoItems: [],
   } as never);
   return () => {
     on.mockRestore();
@@ -128,6 +133,7 @@ test("an old unanswered doubt line on the same ref gets no ending answer, and ne
     await expect(recordFactCheckAnswer(promise(1), "false")).rejects.toThrow(
       "no fact check"
     );
+    expect((await checksNow()).some((c) => c.ref === promise(1))).toBe(false);
   } finally {
     undo();
   }

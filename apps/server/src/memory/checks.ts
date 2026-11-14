@@ -137,12 +137,11 @@ const ANSWERS = {
 export const endingGuessOf = (step: string) =>
   `Life thinks this is done: ${step}`;
 
-/** Whether an open step with an ending found is an ending check: it has its observation, no old doubt line holds its ref, he has not answered. */
+/** Whether an open step with an ending found is an ending check: no old doubt line holds its ref, he has not answered. */
 export const isEndingOpen = (
   ref: string,
-  hasStep: boolean,
   c: Pick<CheckInputs, "answered" | "doubted">
-) => hasStep && !c.doubted.has(ref) && !c.answered.has(ref);
+) => !(c.doubted.has(ref) || c.answered.has(ref));
 
 /** An ending check always has its evidence: the later step's words. */
 export const isEndingKind = (
@@ -222,7 +221,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     [...c.endings].flatMap(([ref, link]) => {
       const o = c.byId.get(ref);
       const later = c.byId.get(link.later);
-      return o && isEndingOpen(ref, true, c)
+      return o && isEndingOpen(ref, c)
         ? ranked(c, "ending", { guess: endingGuessOf(o.text), ref }, [o], [], {
             quote: link.quote,
             where: later ? whereOf(later) : c.where.get(link.later),
