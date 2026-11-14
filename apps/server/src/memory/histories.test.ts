@@ -125,6 +125,24 @@ test("a month's input holds only its days, oldest first, the most important line
   expect(JSON.stringify(read.input)).not.toContain("2026-11-1");
 });
 
+test("each day carries its weight: lines, top-importance lines and episodes, counted from the lines shown", () => {
+  const timeline = [
+    entry("2026-10-02", 3, "decided", {}, 9000),
+    entry("2026-10-02", 3, "took back", {}, 9000),
+    entry("2026-10-02", 2, "ordinary", {}, 9000),
+    entry("2026-10-02", 1, "episode", {
+      kind: "episode",
+      what: "They talked.",
+    }),
+    entry("2026-10-09", 1, "quiet", {}, 9000),
+  ];
+  const read = monthInputOf(timeline, "2026-10", "Ann") as MonthRead;
+  expect(read.input.days.map((d) => d.weight)).toEqual([
+    { episodes: 1, lines: 4, top: 2 },
+    { episodes: 0, lines: 1, top: 0 },
+  ]);
+});
+
 test("over the budget the least important lines go, a level's last days first, and are counted", () => {
   const timeline = [
     ...Array.from({ length: 28 }, (_, i) =>
@@ -504,16 +522,24 @@ test("a history in a shape the code does not know is an error naming the file an
   expect(readFileSync(path, "utf8")).toBe(stored);
 });
 
-const PROMPT_BUDGET =
-  /at most (\d+) sentences, each at most about (\d+)\s+characters/;
+const PROMPT_SENTENCES = /at most (\d+) sentences/;
+const PROMPT_ORDINARY =
+  /every other sentence is at most\s+about (\d+)\s+characters/;
+const PROMPT_TURNING =
+  /turning point may run longer\s+\(at most about (\d+)\s+characters/;
 
 test("the size the prompt allows is not above what the code keeps", () => {
   const prompt = readFileSync(
     new URL("../../../../prompts/memory-history-month.v2.md", import.meta.url),
     "utf8"
   );
-  const [, count, size] = PROMPT_BUDGET.exec(prompt) ?? [];
+  const [, count] = PROMPT_SENTENCES.exec(prompt) ?? [];
+  const [, size] = PROMPT_ORDINARY.exec(prompt) ?? [];
+  const [, turning] = PROMPT_TURNING.exec(prompt) ?? [];
   expect(count).toBeDefined();
+  expect(size).toBeDefined();
+  expect(turning).toBeDefined();
   expect(Number(count) * Number(size)).toBeLessThanOrEqual(FULL_TEXT_CHARS);
-  expect(Number(size)).toBeLessThanOrEqual(SENTENCE_CHARS);
+  expect(Number(size)).toBeLessThanOrEqual(Number(turning));
+  expect(Number(turning)).toBeLessThanOrEqual(SENTENCE_CHARS);
 });

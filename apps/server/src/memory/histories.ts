@@ -48,9 +48,16 @@ const REPLY_TOKENS = 1500;
 /** The most characters of evidence one month call is shown. */
 const MONTH_INPUT_CHARS = 150_000;
 
+/** What a day holds, counted from the lines shown for it: where the month's substance is. */
+interface DayWeight {
+  episodes: number;
+  lines: number;
+  top: number;
+}
+
 /** What a month call is shown: the days that hold evidence, oldest first, each with its lines most important first. */
 interface MonthInput {
-  days: { day: string; lines: string[] }[];
+  days: { day: string; lines: string[]; weight: DayWeight }[];
   leftOut: number;
   month: string;
   with: string;
@@ -104,7 +111,15 @@ export function monthInputOf(
   const input: MonthInput = {
     days: [...Map.groupBy(kept, (e) => e.day)]
       .toSorted(([a], [b]) => a.localeCompare(b))
-      .map(([day, list]) => ({ day, lines: list.map(shownLine) })),
+      .map(([day, list]) => ({
+        day,
+        lines: list.map(shownLine),
+        weight: {
+          episodes: list.filter((e) => e.kind === "episode").length,
+          lines: list.length,
+          top: list.filter((e) => e.importance >= TOP_AT).length,
+        },
+      })),
     leftOut: ranked.length - kept.length,
     month,
     with: name,
