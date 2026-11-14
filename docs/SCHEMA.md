@@ -266,6 +266,14 @@ to-do item key the call was asked to place: one placed nowhere is so known as as
 areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
 its steps only, never a status. What is open, a matter's status, next step and people by role are worked out when read (`matterOf`); the readers are `read_matters`, `read_matter`, `read_day`'s Due, a person's page and `bun life memory matters list`.
 
+## ties.jsonl
+
+What two people were said to be to each other (`memory/ties.ts`), one line per quote, append-only, while his `ties` setting is on: `by` (who said it: `person:me` when the
+owner did, the one ref that never moves, else the sender as the source names them), `of` (the name as written, "Lea"), `words` (the relation's words as written, "my partner"), `quote` (his or
+their words, found in the message), `said` (the message's line), `unit` (the day's unit), `at` (when it was said), `id` (`tie_` and 12 hex of a digest of `unit`, `quote` and `words`), `schemaVersion`. A line is
+never rewritten, and holds no other person ref: who `by` and `of` are is worked out when read (`tiesNow`, through `people.resolve`), so a fold or a name given later moves it. The
+present tie of a pair is its newest line, his directory's word over it. `writeTies` (the night, under the lock) is the only writer, takes its lines from the kept mentions whose words are a relation word with a name right beside them, and never writes an `id` already stored or one he called wrong (`not-this-tie`).
+
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/exchange-reads.ts`), one line per call,
@@ -311,6 +319,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `not-this-person` | `nameOrHandle`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
+| `not-this-tie` | `ties: [tie_…]` | Those stored ties (`ties.jsonl`) are wrong: gone when read, never written again from that quote |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)

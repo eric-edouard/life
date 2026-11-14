@@ -11,6 +11,7 @@ import {
   slug,
   UnitId,
 } from "./fields";
+import { TieId } from "./tie";
 import { MemoryType } from "./unit";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
@@ -166,7 +167,7 @@ export const PageSection = z.enum([
  * rebuild respects it. `wrong` and `not-important` hide observations (on one page when `page` is set, else
  * everywhere); `outdated` says observations were true and are not anymore (a promise kept, a to-do done): each is
  * retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
- * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`); `reread`
+ * `not-this-person` that it is not, `not-this-tie` that stored ties (`records/tie.ts`) are wrong and never written again, `same-person` that two person refs are one (`from` folds into `to`); `reread`
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
  */
 export const Correction = z
@@ -225,6 +226,13 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("reread"),
         units: z.array(UnitId).min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("not-this-tie"),
+        ties: z.array(TieId).min(1),
       })
       .strict(),
     z

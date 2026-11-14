@@ -64,6 +64,7 @@ import {
 } from "../memory/schedule";
 import { situations } from "../memory/situations";
 import { keptStores } from "../memory/sources";
+import { writeTies } from "../memory/ties";
 import { type Built, gather } from "../memory/units";
 import { observationsNow, readPeople } from "../memory/who";
 import {
@@ -254,6 +255,10 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   writeMentions(everyYear);
+  // Off until his `ties` setting: what the mentions say two people are to each other.
+  if (settings().ties) {
+    writeTies(people);
+  }
   const { histories: history } = settings();
   // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
   const pending = history

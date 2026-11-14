@@ -138,6 +138,11 @@ export const Settings = z
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
     /**
+     * The ties (`memory/ties.ts`): each night keeps what two people are said to be to each other in the mentions
+     * (`memory/ties.jsonl`). Absent means off: nothing is written and only his directory gives ties.
+     */
+    ties: z.literal(true).optional(),
+    /**
      * His to-do list, input and output (`apps/server/src/todo-list/`), and its one backend: his Apple Reminders (remctl) or
      * his Google Tasks (`gog` as `account`). On, Life acts there when he asks and reads his changes back;
      * without it (the default), nothing in Life touches either.
