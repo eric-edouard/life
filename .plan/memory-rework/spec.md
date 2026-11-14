@@ -973,3 +973,42 @@ in his data repo, `docs/memory-rework/status-2026-11-14.md` and `experiments/202
 4. The reads on every source: recordings, groups, mail, in one shape.
 5. Then, untouched: personas, move sequences and track record, closeness, his own month, the overview, his word and
    the directory, forecasts.
+
+### His feedback on the designs (14 Nov, after the night)
+
+Five designs hold the detail, in his data repo, `docs/memory-rework/designs/` (C1 to C5), each ending with his
+decisions, all approved. What they change in this spec:
+
+1. **Practical and personal (C5).** His words: "separate work from personal… so that we don't start building
+   unnecessary personal and arcs… work is all of the practical things, which automatically applies to both".
+   Two sides. Practical, for everyone and everything: units, episodes, observations, matters, who is meant, the
+   mentions read, ties, checks, summaries of what happened and where it stands, the communication style guide.
+   Personal, only where one gate opens: the connection and conflict reads, the persona and the Big Five grouping,
+   what he says about someone set against his conduct, closeness by depth, forecasts about a relationship. The gate
+   is the person's personal closeness level (now or once), one place for every source; every personal step asks it
+   and none decides by itself. Someone switches to personal when a personal tie appears: the relationship reads then
+   run over their whole past with him. A switch for a whole install is for later, and must stay one condition in
+   the gate. Changes: sections 2, 5, 9, 10, 11 and 14.
+2. **Checks (C4)** replace section 8's "questions for him". A check is one guess of Life's that his word would
+   settle, shown with its evidence, in one shape, with kinds (fact, ending, voice, person, tie, appointment). The
+   list is worked out when read. A check exists only when something depends on the guess, and every open one is
+   shown, with no limit. One list for the nightly mail, the connector and the app. Changes: sections 8 and 13.
+3. **When who is meant changes (C1)**: a tie corrected, two people folded into one, a voice named, his correction.
+   References change at once, and what was read or written with the old answer is redone by the night, at any age,
+   only where it was used. A call's candidates stay few: the people of the conversation, those already named, the
+   speaker's ties, the names code finds on the lines. Changes: sections 3 and 8.
+4. **Ties are descriptive (C1)**: the words as said, dated, each side's kept apart, a history, never a fixed list of
+   kinds; one coarse group worked out by code (family, romantic, friend, work, other) to match and to count. Also
+   read from how two people talk, as Life's reading. Changes: section 3.
+5. **The summary standard (C2)**: each month, year and story in two sizes, a full text sized by its evidence and a
+   one-line headline written from it; each sentence names the day, month or year it rests on; every part of a read
+   ends with its next reads, written by code. No list of subjects kept current: a summary is redone only when new
+   evidence for its subject arrived. People carry no status word: the date of the last exchange, and death as a
+   fact. A read across people, people by tie, for list questions. Changes: sections 11 and 13.
+6. **The communication style guide (C2)** is its own practical summary: one way, from him to a person, per kind of
+   channel (instant messaging as one, mail), with his real messages as examples. The persona keeps how each writes
+   as description only. Changes: section 10.
+7. **The Big Five grouping** needs recordings and the record of promises kept for three of its five traits; he
+   takes a questionnaire once, before his own new persona is shown to him. Changes: sections 10 and 15.
+8. **The whole history** is read once, from every source, inside one full rebuild, each part counted before it
+   runs; his Messenger history is imported for it. Changes: sections 16 and 17.
