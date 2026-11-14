@@ -336,7 +336,11 @@ first.
   each case, keeps what the agent and the judge read under the run's folder, writes its results (each reply, its
   points, the tools called and how much they returned) to his data, `docs/evals/question-cases/<run>.json`, and
   prints counts only: by kind and asker, passed of asked. It spends his Codex plan for the agent and his engine
-  for the judge: show him the count of cases first. A regression case of status `scenario` may name a question case
+  for the judge: show him the count of cases first. `--across <run> <run> … [--baselines n]` (no model) counts the
+  points across runs already made, a run being one result file or several joined by `+`: per run, points ok, cases passed
+  and `WRONG` marks; then the must-hold points with no `ok` in the first `n` runs, by case id and point number, with
+  their marks in every run, and how many are `ok` in two of the later runs. Ids and numbers only, printed and written to
+  `docs/evals/question-cases/across-<first file of the last run>.json`. A regression case of status `scenario` may name a question case
   as its `check`.
 - To trace a wrong observation to its step: `bun life memory observation <obs_id>`, and `day` for an episode.
 

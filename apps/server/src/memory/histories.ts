@@ -1,7 +1,10 @@
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { join, relative } from "node:path";
 import { z } from "zod";
 import { readJson } from "../core/files";
 import { newestWithin } from "../core/lists";
+import { log } from "../core/log";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { callCharsOf, stamp } from "../models/llm";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
@@ -98,13 +101,28 @@ export function monthCallsOf(
     });
 }
 
-/** Someone's history; an empty one when there is none or it is in another shape. */
-export const readHistory = (ref: string): History =>
-  History.safeParse(readJson(historyPath(ref))).data ?? {
-    months: [],
-    schemaVersion: 1,
-    story: null,
-  };
+/**
+ * Someone's history: an empty one when there is no file; a file in a shape this code does not know (a month written by
+ * a newer version, a damaged file) is an error naming the file and the month, never an empty history: the next write
+ * would drop every stored month.
+ */
+export function readHistory(ref: string): History {
+  const path = historyPath(ref);
+  if (!existsSync(path)) {
+    return { months: [], schemaVersion: 1, story: null };
+  }
+  const raw = readJson<{ months?: { month?: unknown }[] }>(path);
+  const parsed = History.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  const at = parsed.error.issues[0]?.path;
+  const month =
+    at?.[0] === "months" ? raw?.months?.[Number(at[1])]?.month : undefined;
+  throw new Error(
+    `the history ${relative(OWNER_DATA_DIR, path)} is in a shape this version does not know${month ? ` (month ${String(month)})` : ""}`
+  );
+}
 
 /** One person's months still to read, and whether the night's cap left some of them for a later night. */
 interface PersonWork {
@@ -130,7 +148,18 @@ export async function readHistoryWork(
     return null;
   }
   const direct = directChats(events, people.resolve);
-  const paged = [...(await pagedNow(people))];
+  const everyone = [...(await pagedNow(people))];
+  // A history in an unknown shape is logged once and left out of the work: no month of that person is read, so none is
+  // written over it, and no story call fails for it again.
+  const paged = everyone.filter((ref) => {
+    try {
+      readHistory(ref);
+      return true;
+    } catch (e) {
+      log("run.error", { error: (e as Error).message, step: "memory.history" });
+      return false;
+    }
+  });
   const pending = paged.flatMap((ref) => {
     const name = people.nameOf(ref);
     const built = new Map(readHistory(ref).months.map((m) => [m.month, m]));

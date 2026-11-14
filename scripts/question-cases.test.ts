@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { casesOf, countsOf, runCase } from "./question-cases";
+import {
+  casesOf,
+  countsOf,
+  marksAcross,
+  readRun,
+  runCase,
+} from "./question-cases";
 
 const file = {
   about: "made-up cases",
@@ -92,4 +98,35 @@ test("a reply that is not one is the case's error; the report is counts by kind 
     { asked: 1, cases: 2, key: "B mined", passed: 0 },
     { asked: 2, cases: 2, key: "C owner", passed: 1 },
   ]);
+});
+
+test("the marks across runs: ids and marks only, the must-hold points no baseline run found, a run of two files", () => {
+  const row = (id: string, marks: string[]) => ({
+    id,
+    passed: marks.every((m) => m === "ok"),
+    points: marks.map((mark, i) => ({ id: i < 2 ? `c${i}` : "n0", mark })),
+  });
+  const runs = [
+    [row("C1", ["ok", "miss", "ok"])],
+    // A baseline asked by two processes: its rows are the two files' together.
+    [row("C1", ["miss", "miss", "WRONG"]), row("C2", ["ok", "ok", "ok"])],
+    [row("C1", ["ok", "ok", "ok"])],
+    [row("C1", ["ok", "ok", "ok"])],
+  ];
+  expect(marksAcross(runs, 2)).toEqual({
+    laterOk: 1,
+    never: [{ key: "C1 c1", marks: ["miss", "miss", "ok", "ok"] }],
+    runs: [
+      { cases: 1, passed: 0, points: 3, pointsOk: 2, wrong: 0 },
+      { cases: 2, passed: 1, points: 6, pointsOk: 3, wrong: 1 },
+      { cases: 1, passed: 1, points: 3, pointsOk: 3, wrong: 0 },
+      { cases: 1, passed: 1, points: 3, pointsOk: 3, wrong: 0 },
+    ],
+  });
+});
+
+test("a run with no result file is an error, never a baseline that found nothing", () => {
+  expect(() => readRun("no-such-run+other")).toThrow(
+    "no result file no-such-run"
+  );
 });

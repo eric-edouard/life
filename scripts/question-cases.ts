@@ -2,6 +2,7 @@
 // only tools are Life's connector, reads only, and its reply checked for what it must hold and must not say
 // (docs/operations.md, "Measuring"). The memory under test is his own, as it stands. Without `--run` it only counts
 // the cases. Prints counts, never a question or a reply; `--serve` is the connector over stdio, for the agent.
+// `--across <run> <run> … [--baselines n]` counts the points found across runs already made, no model.
 
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -202,15 +203,90 @@ async function runAll(
   return rows;
 }
 
+/** A key of `marksAcross` that is a must-hold point (`c…`). */
+const MUST_HOLD = /^\S+ c\d+$/;
+
+/** One case as a result file keeps it: only its id, whether it passed and each point's id and mark are read. */
+interface ResultCase {
+  id: string;
+  passed?: boolean;
+  points?: { id: string; mark?: string }[];
+}
+
+/**
+ * The marks of the same points across runs, as ids and marks only (never a question, a point's text or a reply). A
+ * run is the rows of one result file, or of several (a run asked by several processes). Per run: points ok of all,
+ * cases passed, `WRONG` marks. `never`: the must-hold points (`c…`) with no `ok` in the first `baselines` runs, each
+ * with its mark in every run (`-` when the run did not ask it), and `laterOk`, how many of them are ok in at least
+ * two of the later runs.
+ */
+export function marksAcross(runs: ResultCase[][], baselines = 0) {
+  const marked = runs.map(
+    (rows) =>
+      new Map(
+        rows.flatMap((c) =>
+          (c.points ?? []).map(
+            (p) => [`${c.id} ${p.id}`, p.mark ?? "-"] as const
+          )
+        )
+      )
+  );
+  const never = [...new Set(marked.flatMap((m) => [...m.keys()]))]
+    .filter((key) => MUST_HOLD.test(key))
+    .filter(
+      (key) => !marked.slice(0, baselines).some((m) => m.get(key) === "ok")
+    )
+    .map((key) => ({ key, marks: marked.map((m) => m.get(key) ?? "-") }));
+  return {
+    laterOk: never.filter(
+      (n) => n.marks.slice(baselines).filter((m) => m === "ok").length >= 2
+    ).length,
+    never,
+    runs: runs.map((rows, i) => {
+      const marks = [...(marked[i]?.values() ?? [])];
+      return {
+        cases: rows.length,
+        passed: rows.filter((c) => c.passed).length,
+        points: marks.length,
+        pointsOk: marks.filter((m) => m === "ok").length,
+        wrong: marks.filter((m) => m === "WRONG").length,
+      };
+    }),
+  };
+}
+
+/** A run named on the command line: one result file's id, or several joined by `+`. */
+export const readRun = (arg: string) =>
+  arg.split("+").flatMap((id) => {
+    const file = readJson<{ cases: ResultCase[] }>(join(RESULTS, `${id}.json`));
+    if (!file) {
+      throw new Error(`no result file ${id}`);
+    }
+    return file.cases;
+  });
+
 if (import.meta.main) {
-  const { values } = parseArgs({
+  const { positionals, values } = parseArgs({
+    allowPositionals: true,
     options: {
+      across: { type: "boolean" },
+      baselines: { type: "string" },
       only: { type: "string" },
       run: { type: "boolean" },
       serve: { type: "boolean" },
     },
   });
-  if (values.serve) {
+  if (values.across) {
+    const across = marksAcross(
+      positionals.map(readRun),
+      Number(values.baselines ?? 0)
+    );
+    console.table(across.runs);
+    console.table(across.never);
+    console.log(`laterOk: ${across.laterOk} of ${across.never.length}`);
+    const last = positionals.at(-1)?.split("+")[0];
+    writeJson(join(RESULTS, `across-${last}.json`), across);
+  } else if (values.serve) {
     await buildServer(true).connect(new StdioServerTransport());
   } else if (values.run) {
     const cases = casesOf(readJson(CASES), values.only?.split(","));
