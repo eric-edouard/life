@@ -34,8 +34,12 @@ test("a read part ref round-trips, and a malformed one says why", () => {
   for (const bad of [
     "person:Ana/evidence",
     "person:ana",
-    "person:ana/year/2024",
+    "person:ana/year",
+    "person:ana/year/2024-03",
+    "person:ana/month/2024",
+    "person:ana/month/2024-03/before/2024-03-15",
     "person:ana/now/2024",
+    "person:ana/story/before/2024-03-15",
     "person:ana/evidence/March",
     "person:ana/evidence/2024-03/2024-04",
     "person:ana/evidence/before/tomorrow",
@@ -67,9 +71,12 @@ const items = (kind: "observation" | "episode", days: number[], pad = 0) =>
   }));
 const base = {
   candidates: [],
-  earlier: [],
+  counts: [],
+  fixed: [],
   heard: [],
-  now: (obs: string[]) => ["NOW", ...obs],
+  held: () => [],
+  heldYears: [],
+  history: { months: [], schemaVersion: 1 as const, story: null },
   ref: "person:ana",
 };
 
@@ -113,27 +120,6 @@ test("evidence of one span: only its days, and nothing older says so", () => {
   expect(out.join("\n")).not.toContain("ep old");
   expect(out[0]).toBe("Evidence in 2024-03:");
   expect(out.at(-1)).toBe("(nothing older)");
-});
-
-test("the first page is unchanged: its block, 24 items by whole days, then 'Older' naming before", () => {
-  const timeline = [
-    ...items("observation", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
-    ...items("episode", [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]),
-    ...items("observation", [1]),
-  ];
-  const out = partLines({ ...base, part: "now", timeline });
-  expect(out[0]).toBe("NOW");
-  // 24 newest items, then the rest of the last day taken (day 1 has three).
-  expect(out.filter((l) => l.startsWith("- episode")).length).toBe(12);
-  expect(out.at(-1)).toBe("(nothing older)");
-  const many = Array.from({ length: 30 }, (_, i) => ({
-    day: day(i + 1),
-    kind: "episode" as const,
-    line: `- ep ${i + 1}`,
-  }));
-  const page = partLines({ ...base, part: "now", timeline: many });
-  expect(page.filter((l) => l.startsWith("- ep ")).length).toBe(24);
-  expect(page.at(-1)).toBe(`Older: the same call with \`before\` ${day(7)}.`);
 });
 
 test("next reads end a part with each read's ref and what it holds", () => {

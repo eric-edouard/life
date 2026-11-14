@@ -406,8 +406,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
   day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
   facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.
-- `person [name] [--before d] [--part now|evidence] [--span YYYY[-MM]]`: the whole page, when it was built, their details (`memory/details.ts`), what Life holds by source and
-  month, then every observation and episode linked to them, newest first, paging back with `--before` (the `evidence` part, about 6,000 characters, ending with its next read's ref, which `fetch` opens too). `person me` is
+- `person [name] [--before d] [--part now|page|persona|story|year|month|evidence] [--span YYYY[-MM]]`: the `now` part (their details (`memory/details.ts`), closeness, the last exchange, what is open, the Situation, what their time together was about), ending with the refs of the parts `page`, `persona`, `story` (then `year`, `month`, `evidence` below it), each about 6,000 characters with its own next reads; `fetch` opens a ref too. `--before` pages back the `evidence`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
 - `area <name>`, `topics [tag]`, `checks` (everything Life would like him to verify, counted and listed, to read before asking the owner anything).

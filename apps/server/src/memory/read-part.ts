@@ -4,11 +4,22 @@ import { isDay } from "./zones";
 // A read part: one bounded piece of what Life holds about a subject, opened by its ref through `fetch` (and `person
 // --part`), each ending with the exact refs of its deeper reads (`nextReads`). A ref is worked out, never stored.
 
-/** The parts that exist; `now` is a subject's first page, `evidence` its observations, episodes and chats, paged back. */
-const READ_PARTS = ["now", "evidence"] as const;
+/**
+ * The parts that exist: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
+ * summaries, paged back), `month` (its words and days) and `evidence` (observations, episodes and chats, paged back).
+ */
+const READ_PARTS = [
+  "now",
+  "page",
+  "persona",
+  "story",
+  "year",
+  "month",
+  "evidence",
+] as const;
 export type ReadPart = (typeof READ_PARTS)[number];
 
-/** About how many characters an `evidence` part holds; a day is never cut, so the last one may pass it. */
+/** About how many characters a part holds; a day is never cut, so the last one may pass it. */
 export const PART_CHARS = 6000;
 
 /** `<subject ref>/<part>[/<span>][/before/<day>]`, as a value: `person:ana/evidence/2024-03/before/2024-03-15`. */
@@ -30,11 +41,19 @@ export function partErrorOf(o: {
   if (!READ_PARTS.includes(o.part as ReadPart)) {
     return `no part "${o.part}" (parts: ${READ_PARTS.join(", ")})`;
   }
-  if (o.part === "now" && (o.span || o.before)) {
-    return 'the part "now" takes no span and no before';
-  }
   if (o.span && !SPAN.test(o.span)) {
     return `span "${o.span}" is not a year (YYYY) or a month (YYYY-MM)`;
+  }
+  if (o.part === "year" || o.part === "month") {
+    const size = o.part === "year" ? 4 : 7;
+    if (o.span?.length !== size) {
+      return `the part "${o.part}" takes a ${o.part} as its span (${size === 4 ? "YYYY" : "YYYY-MM"})`;
+    }
+  } else if (o.part !== "evidence" && o.span) {
+    return `the part "${o.part}" takes no span`;
+  }
+  if (o.before && o.part !== "evidence" && o.part !== "year") {
+    return `the part "${o.part}" takes no before`;
   }
   if (o.before && !isDay(o.before)) {
     return `before "${o.before}" is not a day (YYYY-MM-DD)`;
