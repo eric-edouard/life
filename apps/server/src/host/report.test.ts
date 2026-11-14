@@ -3,6 +3,7 @@ import { clock, MIN } from "../core/clock";
 import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
+import type { Check } from "../memory/checks";
 import { action, madeBy } from "../memory/record-fixtures";
 import { entryLine, LedgerEntry } from "../records/ledger-entry";
 import { HEALTH } from "./health";
@@ -237,8 +238,8 @@ test("the Birthdays section comes first, each name with when; none when no birth
   expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("What it found"));
 });
 
-type Check = Night["checks"][number];
 const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
+  about: ["+33600000001"],
   answers: ["this-is", "not-this-person"],
   evidence: { from: "whatsapp, 7 Sep", quote: "see you Friday" },
   group: "guessed person",
@@ -255,7 +256,7 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   expect(none.text).not.toContain("tell Life in a chat");
   n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
   n.checks = Array.from({ length: 40 }, (_, i) =>
-    check(`Life thinks this is Zed ${i}, a plumber (80% sure).`, {
+    check(`Life thinks this is Zed ${i}, a plumber (80% sure)`, {
       matters: i === 0 ? 2 : 0,
       observations: i === 0 ? 3 : 1,
       pages: 0,
@@ -263,7 +264,7 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   );
   const { text, html } = successReport("2026-10-15", 1000, n);
   expect(text).toContain(
-    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure).: “see you Friday” (whatsapp, 7 Sep) · settles 3 facts and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure).: “see you Friday” (whatsapp, 7 Sep) · settles 1 fact"
+    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 3 observations and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 1 observation"
   );
   expect(text).not.toContain("more");
   expect(text).toContain("Zed 39,");

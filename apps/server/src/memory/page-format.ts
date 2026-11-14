@@ -393,7 +393,7 @@ const Added = Cited.extend({
 });
 const Past = Cited.extend({ date: z.iso.date() });
 const Rewrite = Cited.extend({ line: z.string() });
-export interface Check {
+export interface ReplyLimits {
   /** Hashes of the live lines that are kept, and the ones among them whose cites changed. */
   changed: Set<string>;
   /** Observations the kept lines already rest on. */
@@ -410,7 +410,7 @@ export interface Check {
 }
 
 /** Why a well-formed new line can't stand, or false. `used`: observations already behind a line. */
-const whyNot = (l: PageLine, c: Check, used: Set<string>, section: Key) =>
+const whyNot = (l: PageLine, c: ReplyLimits, used: Set<string>, section: Key) =>
   (!hasSection(c.layout, section) && "section") ||
   (l.cites.length === 0 && "no-cite") ||
   (l.cites.some((id) => !c.known.byId.has(id)) && "unknown-cite") ||
@@ -427,7 +427,7 @@ const items = (v: unknown) => z.array(z.unknown()).catch([]).parse(v);
  * or that takes in new ones and keeps its own (`rewrite`, by hash). Code keeps any other line as it is. What is refused
  * is counted, not trusted. Retiring an observation is extraction's, where the evidence is (extract.ts).
  */
-export function checkReply(reply: unknown, c: Check) {
+export function checkReply(reply: unknown, c: ReplyLimits) {
   const body = z.record(z.string(), z.unknown()).parse(reply);
   const rejects: { reason: string; text: string }[] = [];
   const used = new Set(c.covered);

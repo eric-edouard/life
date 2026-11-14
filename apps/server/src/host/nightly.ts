@@ -115,6 +115,16 @@ async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
   };
 }
 
+/** The report's Checks. Never fails the night: a failure is logged and the report has none. */
+export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
+  try {
+    return await checksNow();
+  } catch (e) {
+    rec.error((e as Error).message, { step: "memory.nightly.checks" });
+    return [];
+  }
+}
+
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
 function coded(day: string, rec: Pick<RunRecorder, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
@@ -570,7 +580,7 @@ export async function runNight(
       birthdays: (await readBirthdaysNear(await readPeople(), dayNow())).map(
         (b) => ({ name: b.name, relation: b.text })
       ),
-      checks: await checksNow(),
+      checks: await readChecksFor(rec),
       code: commits,
       episodes: found,
       extracted,

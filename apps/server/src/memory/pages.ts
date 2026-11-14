@@ -37,7 +37,6 @@ import { involvedOf, refContext } from "./model-context";
 import {
   assemble,
   bare,
-  type Check,
   changes,
   checkReply,
   generated,
@@ -53,6 +52,7 @@ import {
   parsePage,
   perSection,
   placed,
+  type ReplyLimits,
   renderPage,
   type Sections,
   settle,
@@ -358,7 +358,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
       : write(page, by, r.at);
 
   const current = liveLines(settled.sections);
-  const check = (): Check => ({
+  const check = (): ReplyLimits => ({
     changed: settled.changed,
     covered: new Set(
       Object.values(settled.sections)

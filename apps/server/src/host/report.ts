@@ -7,7 +7,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import type { checksNow } from "../memory/checks";
+import type { Check } from "../memory/checks";
 import {
   type Digest,
   LIFE_MAIL,
@@ -46,7 +46,7 @@ export interface Night {
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
   /** What Life would like him to verify (`checksNow`), most load-bearing first: every one, none left out. */
-  checks: Result<typeof checksNow>;
+  checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   /** The days whose episodes were read again, and how many episodes they hold. */
@@ -79,9 +79,9 @@ const percent = (x: number | null) =>
   x === null ? "-" : `${Math.round(x * 100)}%`;
 
 /** What a check settles, in words: "settles 3 facts and 2 open matters"; a part that is zero is left out. */
-const ridesText = (r: Result<typeof checksNow>[number]["ridesOn"]) =>
+const ridesText = (r: Check["ridesOn"]) =>
   `settles ${[
-    r.observations > 0 && count(r.observations, "fact"),
+    r.observations > 0 && count(r.observations, "observation"),
     r.matters > 0 && count(r.matters, "open matter"),
     r.pages > 0 && count(r.pages, "page"),
   ]

@@ -3,7 +3,6 @@ import type { Observation } from "../records/observation";
 import {
   assemble,
   bodyOf,
-  type Check,
   changes,
   checkReply,
   fit,
@@ -20,6 +19,7 @@ import {
   parsePage,
   perSection,
   placed,
+  type ReplyLimits,
   readLine,
   renderLine,
   renderPage,
@@ -95,7 +95,7 @@ const page = (s = sections(), owner: { section: "now"; text: string }[] = []) =>
     title: "Hans",
   });
 
-const check = (over: Partial<Check> = {}): Check => {
+const check = (over: Partial<ReplyLimits> = {}): ReplyLimits => {
   const s = sections();
   return {
     changed: new Set(),
