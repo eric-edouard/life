@@ -122,24 +122,29 @@ export function withSpans(text: string, dateOf: (id: string) => string[]) {
   return body;
 }
 
-/** A page, whole, with when it was built, when it has one; then the observations found for it. */
+/** A page, whole, with when it was built and where the observations newer than it are (`newer`); nothing when there is none. */
+export function pageBlock(db: Database, text: string | null, newer: string) {
+  const meta = text ? parsePage(text)?.meta : undefined;
+  const dates = db.query<{ date: string }, [string]>(
+    "select date from observations where id = ?"
+  );
+  return text && meta
+    ? [
+        `(page built ${meta.built.slice(0, 16).replace("T", " ")} UTC: newer observations are ${newer}, not on it yet)`,
+        redact(withSpans(text, (id) => dates.all(id).map((r) => r.date))),
+      ]
+    : [];
+}
+
+/** A page, whole, then the observations found for it. */
 export function pageAndLatest(
   db: Database,
   text: string | null,
   found: string[]
 ) {
-  const meta = text ? parsePage(text)?.meta : undefined;
-  const dates = db.query<{ date: string }, [string]>(
-    "select date from observations where id = ?"
-  );
+  const page = pageBlock(db, text, "below");
   return [
-    ...(text && meta
-      ? [
-          `(page built ${meta.built.slice(0, 16).replace("T", " ")} UTC: newer observations are below, not on it yet)`,
-          redact(withSpans(text, (id) => dates.all(id).map((r) => r.date))),
-          "",
-        ]
-      : []),
+    ...(page.length > 0 ? [...page, ""] : []),
     "Latest observations:",
     ...(found.length > 0 ? found : ["(none)"]),
   ];
