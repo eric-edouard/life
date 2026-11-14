@@ -394,16 +394,20 @@ written or removed on a night a source can't be read.
 
 ## histories/<id>.json
 
-The past months between the owner and someone with a page (`pagedNow`), written by `histories.ts` from their
-one-to-one chats and mail threads (`directChats`), while his `histories` setting is on: `months` (oldest first; each
-`month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
-no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call
-was shown, none when nothing was long enough to find; `inputs`, a hash of the prompt version and the lines shown;
-`built`, `madeBy`), `story` (null until one is told: `text`, `through` the year of the newest month it covers, at most the last closed year, `inputs` a hash
+The past months between the owner and someone with a page (`pagedNow`), written by `histories.ts` while his
+`histories` setting is on: `months` (oldest first; each `month` `YYYY-MM`, the local month, with `inputs`, a hash of
+the prompt version and the evidence shown, `built`, `madeBy`, and one of two shapes). In two sizes (a month read by
+`memory-history-month.v2` on, from all the person's evidence of the month, their timeline): `headline` (one line, 25
+words at most, saying nothing its sentences do not) and `sentences` (the full text, in order: each `text`, no quotation
+marks, and `days`, the local days of that month it rests on, each a day a shown line covers; a sentence naming none is
+not stored). As parts (a month read before, from their one-to-one chats and mail threads): `parts`, one per call that
+read it, each a `summary` with no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`,
+words found in a message the call was shown, none when nothing was long enough to find. Never both. A month read
+again takes the two-sizes shape; no migration rewrites one. Beside `months`: `story` (null until one is told: `text`, `through` the year of the newest month it covers, at most the last closed year, `inputs` a hash
 of the prompt version and those months, `built`, `madeBy`), `schemaVersion`. Only closed months, from the setting's
-`from` on; a month of calls only has none. A month is replaced whole when read again (its inputs changed: a late
+`from` on; a month whose evidence fits one read part has none (the agent reads the evidence itself). A month is replaced whole when read again (its inputs changed: a late
 backup, a late mail), the story when its months changed and none still waits; the last version stays in the data
-repo's history. A file is never removed. Nothing is read on a night a source can't be read.
+repo's history. A file is never removed. A file in a shape this code does not know is an error, never read as empty.
 
 ## communication-styles/<id>.json
 

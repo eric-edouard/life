@@ -18,6 +18,7 @@ import {
 } from "./read-person-page";
 
 const madeBy = { engine: "claude", model: "m", prompt: "p", run: "r" } as const;
+const partsOf = (m: History["months"][number]) => ("parts" in m ? m.parts : []);
 const years = [2021, 2022, 2023, 2024, 2025];
 const months = years.flatMap((y) =>
   Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, "0")}`)
@@ -49,7 +50,7 @@ const history: History = {
     text: `Five years of Ana: ${"the story of their friendship. ".repeat(80)}`,
     through: "2025",
   },
-};
+} satisfies History;
 // Two or three days a month: observations, an episode and a recorded conversation, about 300 characters each.
 const timeline = months
   .flatMap((m) =>
@@ -107,7 +108,7 @@ const base = {
 };
 type Part = Parameters<typeof partLines>[0]["part"];
 // What the person's history is, for the read: the whole one, or none read yet.
-let shown = history;
+let shown: History = history;
 const read = (
   _name: string,
   o: { before?: string; part?: string; span?: string }
@@ -180,7 +181,7 @@ test("every part fits its size, ends with next reads that parse and open, and th
   }
   // A day (here a month's entry, up to 1,200 characters) is never cut, so a part may pass the size by one.
   const biggest = Math.max(
-    ...history.months.map((m) => m.parts[0]?.summary.length ?? 0)
+    ...history.months.map((m) => partsOf(m)[0]?.summary.length ?? 0)
   );
   for (const [id, text] of seen) {
     expect(text.length, id).toBeLessThan(PART_CHARS + biggest + 600);
@@ -198,7 +199,7 @@ test("every line of the old first page sits in exactly one part", async () => {
     `Over the years (through 2025): ${history.story?.text}`,
     ...months.map(
       (m) =>
-        `- ${m}: ${history.months.find((x) => x.month === m)?.parts[0]?.summary}`
+        `- ${m} (chats and mail only): ${partsOf(history.months.find((x) => x.month === m) as never)[0]?.summary}`
     ),
     ...months.map((m) => `- "see you on the ${m} Sunday" (${m}-03, them)`),
     ...held(),
@@ -265,11 +266,11 @@ test("a person with a timeline and no history: every month's 'what Life holds' l
 
 test("year pages back by `before`, newest month first, and each month names its days", async () => {
   const first = await open("person:ana/year/2023");
-  expect(first).toContain("- 2023-12:");
+  expect(first).toContain("- 2023-12 (chats and mail only):");
   const next = YEAR_BEFORE.exec(first);
   expect(next).not.toBeNull();
   const second = await open(`person:ana/year/2023/before/${next?.[1]}`);
-  expect(second).not.toContain("- 2023-12:");
+  expect(second).not.toContain("- 2023-12 ");
   expect(second).not.toContain("HELD 2023-01");
   const month = await open("person:ana/month/2023-03");
   expect(month).toContain(
@@ -279,6 +280,54 @@ test("year pages back by `before`, newest month first, and each month names its 
     "- 2023-03-12: 1 observation, 1 episode, 1 conversation"
   );
   expect(month).toContain("person:ana/evidence/2023-03:");
+});
+
+test("a month in two sizes and a month read in parts show side by side: headline and old line in the year, sentences with their days and the old quotes in the month", async () => {
+  const two = {
+    built: "2026-11-11T22:00:00.000Z",
+    headline: "Ana took a job in Lyon and moves in June.",
+    inputs: "two",
+    madeBy,
+    month: "2026-03",
+    sentences: [
+      {
+        days: ["2026-03-02"],
+        text: "On 2 March Ana said she is moving to Lyon.",
+      },
+      {
+        days: ["2026-03-09", "2026-03-17"],
+        text: "He lent her his van and they settled the deposit.",
+      },
+    ],
+  };
+  shown = {
+    ...history,
+    months: [...history.months, two],
+  };
+  try {
+    const year = await open("person:ana/year/2026");
+    expect(year).toContain(`- 2026-03: ${two.headline}`);
+    const old = await open("person:ana/year/2021");
+    expect(old).toContain("- 2021-12 (chats and mail only): What passed");
+    const month = await open("person:ana/month/2026-03");
+    expect(month).toContain(
+      "2026-03 between them and him, from everything Life holds of the month (each sentence ends with the days it rests on):"
+    );
+    expect(month).toContain(
+      "- On 2 March Ana said she is moving to Lyon. (2026-03-02)"
+    );
+    expect(month).toContain(
+      "- He lent her his van and they settled the deposit. (2026-03-09, 2026-03-17)"
+    );
+    expect(await open("person:ana/month/2021-12")).toContain(
+      '- "see you on the 2021-12 Sunday" (2021-12-03, them)'
+    );
+    expect(await open("person:ana/now")).toContain(
+      "person:ana/year/2026: 2026: each month between them in one line"
+    );
+  } finally {
+    shown = history;
+  }
 });
 
 test("someone only heard has no parts: `now` is their evidence, paged back with `before`, ending with the older call", () => {

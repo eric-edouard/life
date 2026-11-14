@@ -255,9 +255,8 @@ export async function nightly(days: number, force = false) {
 
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
- * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
- * his `history` setting is on) and of the exchange reads (`readExchangeReadWork`, only while his `exchangeReads`
- * setting is on) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
+ * failure is logged and the last file stands), and the pending work of the exchange reads (`readExchangeReadWork`, only
+ * while his `exchangeReads` setting is on) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
  * at their newest day), so it is held until they run.
  */
 async function readYears(now: Date) {
@@ -265,17 +264,6 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   writeMentions(everyYear);
-  const { histories: history } = settings();
-  // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
-  const pending = history
-    ? await readHistoryWork(everyYear, people, {
-        from: history.from,
-        today: localDate(now.toISOString()),
-      }).catch((e: Error) => {
-        log("run.error", { error: e.message, step: "memory.history" });
-        return null;
-      })
-    : null;
   // Off until his `exchangeReads` setting. A failure is logged and the night goes on, its exchanges read another night.
   let reads: ExchangeReadWork = null;
   if (settings().exchangeReads) {
@@ -288,7 +276,7 @@ async function readYears(now: Date) {
       });
     }
   }
-  return { everyYear, lastYears: lastYearsOf(everyYear), pending, reads };
+  return { everyYear, lastYears: lastYearsOf(everyYear), reads };
 }
 
 /** The night's links: what is due (`readLinkWork`), judged. */
@@ -522,7 +510,7 @@ export async function runNight(
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();
-    const { everyYear, lastYears, pending, reads } = await readYears(now);
+    const { everyYear, lastYears, reads } = await readYears(now);
     await steps.step("closeness", () => closeness(lastYears));
     const { keyObservations, marked, observed, retired } = await whatIsNew(
       since,
@@ -541,13 +529,6 @@ export async function runNight(
     // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     steps.at = "personas";
     await personas(everyYear);
-    // The histories' months not read yet: a failure is logged and never stops the night.
-    if (pending) {
-      steps.at = "histories";
-      await histories(pending).catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.history" })
-      );
-    }
     // The exchange reads not stored yet: a failure is logged and never stops the night.
     if (reads) {
       steps.at = "exchange reads";
@@ -557,6 +538,20 @@ export async function runNight(
     }
     steps.at = "index";
     await reindex();
+    // The histories' months not read yet, off until his `history` setting: after the index, which they read (until now
+    // it held last night's observations). A failure is logged and never stops the night.
+    const history = settings().histories;
+    if (history) {
+      steps.at = "histories";
+      await readHistoryWork(await readPeople(), {
+        from: history.from,
+        today: localDate(now.toISOString()),
+      })
+        .then((pending) => pending && histories(pending))
+        .catch((e: Error) =>
+          log("run.error", { error: e.message, step: "memory.history" })
+        );
+    }
     // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open
     // tonight. A failure is logged and never stops the night.
     if (settings().links) {

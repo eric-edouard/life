@@ -35,6 +35,7 @@ export interface Row {
   confidence: number;
   date: string;
   id: string;
+  importance: number;
   people: string | null;
   quote: string;
   speaker: string | null;
@@ -71,7 +72,7 @@ export interface UnitRow {
 export const unitLine = (u: UnitRow) =>
   `- ${u.id} ${u.date} ${u.source}: ${clip(u.title, 80)}${u.topics ? ` [${u.topics}]` : ""}`;
 
-export const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when", o.speaker,
+export const COLUMNS = `o.id, o.date, o.importance, o.type, o.text, o.quote, o.channel, o.confidence, o."when", o.speaker,
   (select title from units where id = o.unit) as title,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 export const CURRENT = "o.superseded_by is null";
@@ -81,16 +82,20 @@ export const OBSERVATION_TEXT = "o.text || char(10) || o.quote";
 export const UNIT_TEXT =
   "coalesce(s.title, '') || char(10) || coalesce(s.summary, '') || char(10) || coalesce(s.topics, '')";
 
-/** The observations `clause` finds worth a page line, newest first: `limit` of them (-1: all). */
+/**
+ * The observations `clause` finds worth a page line, newest first: `limit` of them (-1: all). `asStood`: the ones a
+ * newer observation or his `outdated` word retired are kept (true then), for a reading of the past.
+ */
 export function latest(
   db: Database,
   clause: string,
   value: string,
-  limit = LIMIT
+  limit = LIMIT,
+  asStood = false
 ) {
   return db
     .query<Row, [string]>(
-      `select ${COLUMNS} from observations o ${clause} and o.importance >= ${KEEP_AT} and ${CURRENT}
+      `select ${COLUMNS} from observations o ${clause} and o.importance >= ${KEEP_AT} and ${asStood ? "1" : CURRENT}
        order by o.date desc, o.at desc limit ${limit}`
     )
     .all(value);

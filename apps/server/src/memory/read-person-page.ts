@@ -1,10 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { clock, HOUR } from "../core/clock";
 import { newestDays, within } from "../core/lists";
-import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
-import type { History } from "../records/history";
-import { conversationsWith, speakers, withStore } from "../sources/lifelog";
+import { fullTextOf, type History } from "../records/history";
+import { speakers, withStore } from "../sources/lifelog";
 import { closenessLine } from "./closeness";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
@@ -15,18 +14,18 @@ import {
 } from "./exchange-counts";
 import { EXCHANGE_ENDS_AFTER } from "./exchanges";
 import { readHistory } from "./histories";
-import {
-  CURRENT,
-  episodeLine,
-  latest,
-  line,
-  pageBlock,
-  section,
-  withIndex,
-} from "./index-rows";
-import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
+import { CURRENT, pageBlock, section, withIndex } from "./index-rows";
+import { episodesWhere, pagePath, writtenPeople } from "./memory-files";
+import { readMentions } from "./mentions";
 import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
+import {
+  type Dated,
+  episodesOf,
+  mentionsByUnit,
+  talkedAbout,
+  timelineOf,
+} from "./person-timeline";
 import { personaBlock, readPersona } from "./personas";
 import { openWithOf, readOpenItems } from "./read-open-items";
 import {
@@ -38,10 +37,10 @@ import {
 } from "./read-part";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
-import { clip, nameKey } from "./units";
+import { nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { asData } from "./words";
-import { dayNow, localDate, localTime, monthsOf } from "./zones";
+import { dayNow, localDate, monthsOf } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
 // their observations, episodes and recorded conversations, paged back by day; with no name, the people.
@@ -92,13 +91,6 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
       (p) =>
         `- ${p.id}: ${p.name}${p.at ? ` (last seen ${localDate(p.at)})` : ""}`
     );
-}
-
-/** One thing of a person's timeline: its day, which list it shows in, and its line. */
-interface Dated {
-  day: string;
-  kind: "conversation" | "episode" | "month" | "observation";
-  line: string;
 }
 
 const total = (rows: { n: number }[]) => rows.reduce((a, r) => a + r.n, 0);
@@ -215,6 +207,23 @@ export function personFor(
 }
 
 /**
+ * The history a part shows (`story`, `year`, `month`, and `now` for its pointer to the newest year): empty for the other
+ * parts; a history in a shape this version does not know is said (the line, never an empty history), and `now` only
+ * lacks its pointer.
+ */
+function historyFor(ref: string, part: string, now: boolean) {
+  const none: History = { months: [], schemaVersion: 1, story: null };
+  if (!(now || ["story", "year", "month"].includes(part))) {
+    return none;
+  }
+  try {
+    return readHistory(ref);
+  } catch (e) {
+    return now ? none : [`(${(e as Error).message})`];
+  }
+}
+
+/**
  * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates
  * when two people go by the name, their details, closeness, the last exchange, what is open between them, their
  * Situation and what their time together was about; then `page` (who they are, the page Life wrote), `persona` (what
@@ -262,19 +271,17 @@ export async function person(
   const lifelog = mapped?.handles.lifelog;
   const all = await episodesWhere(() => true);
   const live = new Set(all.map((m) => m.id));
-  const episodes = all.filter((m) =>
-    m.people.some((p) => refOf(p.ref) === ref)
+  const episodes = episodesOf(
+    all,
+    ref,
+    refOf,
+    talkedAbout(all, folks, mentionsByUnit(readMentions()))
   );
   // What each part needs, read before the index opens (nothing awaits while it is).
   const now = part === "now" && !!partRef;
-  let history: History = { months: [], schemaVersion: 1, story: null };
-  if (["story", "year", "month"].includes(part)) {
-    try {
-      history = readHistory(ref);
-    } catch (e) {
-      // A history in a shape this version does not know: said, never read as empty.
-      return asData([`(${(e as Error).message})`]);
-    }
+  const history = historyFor(ref, part, now);
+  if (Array.isArray(history)) {
+    return asData(history);
   }
   const counted =
     (now || part === "story") && partRef ? readExchangeCounts() : null;
@@ -308,7 +315,10 @@ export async function person(
           nowLines({
             after: situationBlock("Situation", readSituationNow(ref, live)),
             before: [
-              ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
+              ...episodeTitleLines(
+                episodes.map((e) => e.episode),
+                (r) => refOf(r) === ref
+              ),
               ...detailsBlock(readDetailsOf(folks)(ref), dayNow()),
               ...closenessLine(ref, folks),
               ...lastExchangeLine(rows),
@@ -364,41 +374,9 @@ export function nowLines(o: {
   ];
 }
 
-/** One timeline, newest first: the person's observations, episodes and recorded conversations. */
-function timelineOf(
-  db: Database,
-  store: Parameters<typeof speakers>[0],
-  ref: string,
-  episodes: Episode[],
-  voiceIds: string[]
-): Dated[] {
-  return [
-    ...latest(
-      db,
-      "join observation_subjects l on l.observation = o.id where l.subject = ?",
-      ref,
-      -1
-    ).map((r) => ({
-      day: r.date,
-      kind: "observation" as const,
-      line: line(r),
-    })),
-    ...episodes.toReversed().map((m) => ({
-      day: daysOf(m)[0],
-      kind: "episode" as const,
-      line: episodeLine(m),
-    })),
-    ...conversationsWith(store, voiceIds).map((c) => ({
-      day: localDate(c.start_at),
-      kind: "conversation" as const,
-      line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
-    })),
-  ].toSorted((a, b) => b.day.localeCompare(a.day));
-}
-
 /** The first line of a month's or year's heading, as `year` and `month` parts show it. */
 const HISTORY_ABOUT =
-  "Past months between them and him (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls)";
+  "Past months between them and him (Life's history, written by a model: a month in one line was written from all their evidence of the month, recordings included, each sentence naming a day with evidence; one marked `chats and mail only` from their one-to-one chats and mail, quotes checked; not groups, recordings or what was said on calls)";
 
 /** What `partLines` is made from: the lines each part holds, and the dated entries it pages. */
 interface PartInputs {
@@ -516,7 +494,10 @@ function yearLines(o: PartInputs, months: Dated[]) {
     ...(o.before ? [] : ["", ...held]),
     ...ending([
       ...taken.map((m) =>
-        read({ part: "month", span: m.day.slice(0, 7) }, "its words and days")
+        read(
+          { part: "month", span: m.day.slice(0, 7) },
+          "the month in full, and its days"
+        )
       ),
       ...(next
         ? [read({ before: next, part: "year", span }, "older months")]
@@ -533,7 +514,6 @@ const quoteLine = (q: { at: string; text: string; writer: "owner" | "them" }) =>
 function monthLines(o: PartInputs) {
   const span = o.span as string;
   const row = o.history.months.find((m) => m.month === span);
-  const quotes = (row?.parts ?? []).flatMap((p) => p.quotes).map(quoteLine);
   const days = [
     ...Map.groupBy(
       o.timeline.filter((t) => t.day.startsWith(span)),
@@ -548,7 +528,13 @@ function monthLines(o: PartInputs) {
       return `- ${d}: ${kinds.join(", ")}`;
     });
   let words = [`(no history of ${span} was read yet)`];
-  if (row) {
+  if (row && "sentences" in row) {
+    words = [
+      `${span} between them and him, from everything Life holds of the month (each sentence ends with the days it rests on):`,
+      ...row.sentences.map((s) => `- ${s.text} (${s.days.join(", ")})`),
+    ];
+  } else if (row) {
+    const quotes = row.parts.flatMap((p) => p.quotes).map(quoteLine);
     words = [
       `Their words in ${span} (the month's summary is in ${span.slice(0, 4)}):`,
       ...(quotes.length > 0 ? quotes : ["(none found)"]),
@@ -599,6 +585,14 @@ export function partLines(o: PartInputs) {
             "the years between them: story, counts, what Life holds"
           ),
           evidenceRead(o),
+          ...(months[0]
+            ? [
+                read(
+                  { part: "year", span: months[0].day.slice(0, 4) },
+                  `${months[0].day.slice(0, 4)}: each month between them in one line`
+                ),
+              ]
+            : []),
         ]),
       ];
     case "page":
@@ -621,8 +615,8 @@ export function partLines(o: PartInputs) {
 }
 
 /**
- * A person's history (`histories.ts`) as dated entries: each month's summary, on the month's last day (the paging's
- * key), newest first. Its words are the month part's. Nothing when no month was read yet.
+ * A person's history (`histories.ts`) as dated entries: each month's headline (a month read before: its summary), on the month's last day (the paging's
+ * key), newest first. Its full text and words are the month part's. Nothing when no month was read yet.
  */
 export function historyOf(history: History) {
   return history.months.toReversed().map(
@@ -631,7 +625,10 @@ export function historyOf(history: History) {
       day: monthsOf({ from: `${m.month}-01`, to: `${m.month}-31` })[0]
         ?.to as string,
       kind: "month",
-      line: `- ${m.month}: ${m.parts.map((p) => p.summary).join(" ")}`,
+      line:
+        "sentences" in m
+          ? `- ${m.month}: ${m.headline}`
+          : `- ${m.month} (chats and mail only): ${fullTextOf(m)}`,
     })
   );
 }

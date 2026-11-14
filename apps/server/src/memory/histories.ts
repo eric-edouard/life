@@ -1,105 +1,131 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { readJson } from "../core/files";
-import { newestWithin } from "../core/lists";
+import { newestWithin, within } from "../core/lists";
 import { log } from "../core/log";
-import { OWNER_DATA_DIR } from "../core/paths";
-import { callCharsOf, stamp } from "../models/llm";
-import { QUOTE_CHARS } from "../records/fields";
-import { History, type HistoryMonth, HistoryPart } from "../records/history";
-import type { SourceEvent } from "../records/source";
-import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { batchesOf, exchangesOf } from "./exchanges";
-import { historyPath } from "./memory-files";
-import { foundQuotes } from "./quote-check";
+import { isHis, OWNER_DATA_DIR } from "../core/paths";
+import { CHARS_PER_TOKEN, callCharsOf, stamp } from "../models/llm";
+import {
+  FULL_TEXT_CHARS,
+  fullTextOf,
+  History,
+  type HistoryMonth,
+} from "../records/history";
+import { TOP_AT } from "../records/unit";
+import { withStore } from "../sources/lifelog";
+import { pagedNow } from "./closeness";
+import { episodesWhere, historyPath, readIndex } from "./memory-files";
+import { readMentions } from "./mentions";
+import {
+  episodesOf,
+  mentionsByUnit,
+  type TimelineEntry,
+  talkedAbout,
+  timelineOf,
+} from "./person-timeline";
+import { PART_CHARS } from "./read-part";
 import { begin, inBatches, inputsOf, type Step } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
-import { batchLines } from "./words";
-import { localDate } from "./zones";
+import { isDay } from "./zones";
 
-// A history (docs/glossary.md): a person's past months with him, each summarised once from their one-to-one chats and
-// mail threads (`directChats`, the stream the exchange counts count), and the story of the years. The present month
-// is the situation's; a month is read again only when what it was shown changes (a late backup, a late mail). Stored
-// in memory/histories/ (model output is expensive); what is pending is derived each night from the stored `inputs`.
-// Off until his `history` setting names the month to start from.
+// A history (docs/glossary.md): a person's past months with him, each written once from all their evidence of the month
+// (their timeline: observations, episodes, recorded conversations) in two sizes, a full text of sentences each with the
+// days it rests on and a headline, and the story of the years. The present month is the situation's; a month is read
+// again only when what it was shown changes (a late backup, a late mail). Stored in memory/histories/ (model output is
+// expensive); what is pending is derived each night from the stored `inputs`. Off until his `history` setting names
+// the month to start from.
 
-const MONTH_PROMPT = "memory-history-month.v1";
+const MONTH_PROMPT = "memory-history-month.v2";
 const STORY_PROMPT = "memory-history-story.v1";
 /** The most month calls one night makes: a first build of many years takes several nights, newest months first. */
 const NIGHT_CALLS = 200;
 /** What a call's reply is allowed, in tokens, for the count shown before a run. */
-const REPLY_TOKENS = 600;
+const REPLY_TOKENS = 1500;
+/** The most characters of evidence one month call is shown. */
+const MONTH_INPUT_CHARS = 150_000;
 
-const monthOf = (at: string) => localDate(at).slice(0, 7);
-
-/** One call of a month: what the model is shown, and the messages its quotes are looked for in. */
-interface Call {
-  input: {
-    lines: string[];
-    month: string;
-    part: number;
-    parts: number;
-    with: string;
-  };
-  quotable: SourceEvent[];
+/** What a month call is shown: the days that hold evidence, oldest first, each with its lines most important first. */
+interface MonthInput {
+  days: { day: string; lines: string[] }[];
+  leftOut: number;
+  month: string;
+  with: string;
 }
-/** A closed month between him and one person, as the calls that read it. */
-export interface MonthCalls {
-  calls: Call[];
+/** A closed month to read: what it is shown, its key, and every local day of it a shown line covers. */
+export interface MonthRead {
+  input: MonthInput;
   inputs: string;
   month: string;
+  shownDays: string[];
+}
+
+/** An entry as a month call sees it: `!` first for top importance, an episode's `what` after its line. */
+const shownLine = (e: TimelineEntry) =>
+  `${e.importance >= TOP_AT ? "! " : ""}${e.line}${e.what ? ` What happened: ${e.what}` : ""}`;
+
+/** Every day of `month` an entry covers (an episode's whole span). */
+function coveredDays(e: TimelineEntry, month: string) {
+  const days: string[] = [];
+  for (let d = e.day; d <= e.to && d.startsWith(month); d = daysBefore(d, -1)) {
+    days.push(d);
+  }
+  return days;
 }
 
 /**
- * A person's one-to-one messages as the closed months to read, oldest first: each exchange in the local month it
- * starts in (`localDate`, the zone he was in), months before `from` and the month of `today` left out. A month with
- * nothing a model could quote (calls only) is no month: the exchange counts already show its calls.
+ * A month of a person's timeline as a call is shown it, or null when it is no month: no entry, or all its lines fit
+ * one read part (`PART_CHARS`, the agent reads the evidence itself). The entries as they stood, ranked by importance
+ * then day; kept while they fit `MONTH_INPUT_CHARS`, the rest counted in `leftOut`. The key (`inputs`) is the evidence
+ * shown and nothing else: no date, no later status.
+ * ponytail: over the budget the least important lines go, a level's last days first; read a month in parts if the
+ * count ever shows months cut.
  */
-export function monthCallsOf(
-  stream: SourceEvent[],
+export function monthInputOf(
+  timeline: TimelineEntry[],
+  month: string,
+  name: string
+): MonthRead | null {
+  const size = (e: TimelineEntry) => shownLine(e).length + 1;
+  const entries = timeline.filter((e) => e.day.startsWith(month));
+  if (within(entries, PART_CHARS, size).length === entries.length) {
+    return null;
+  }
+  const ranked = entries.toSorted(
+    (a, b) =>
+      b.importance - a.importance ||
+      a.day.localeCompare(b.day) ||
+      a.line.localeCompare(b.line)
+  );
+  const kept = within(ranked, MONTH_INPUT_CHARS, size);
+  const input: MonthInput = {
+    days: [...Map.groupBy(kept, (e) => e.day)]
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(([day, list]) => ({ day, lines: list.map(shownLine) })),
+    leftOut: ranked.length - kept.length,
+    month,
+    with: name,
+  };
+  return {
+    input,
+    inputs: inputsOf(MONTH_PROMPT, input),
+    month,
+    shownDays: [...new Set(kept.flatMap((e) => coveredDays(e, month)))],
+  };
+}
+
+/** The closed months of a timeline to read, oldest first: months before `from` and the month of `today` left out. */
+export const monthsToReadOf = (
+  timeline: TimelineEntry[],
   name: string,
   o: { from: string; today: string }
-): MonthCalls[] {
-  const byMonth = Map.groupBy(exchangesOf(stream), (x) =>
-    monthOf(x[0]?.at ?? "")
-  );
-  return [...byMonth]
-    .filter(([month]) => month >= o.from && month < o.today.slice(0, 7))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .flatMap(([month, exchanges]) => {
-      const said = exchanges.flat().filter((e) => !e.phoneCall);
-      if (said.length === 0) {
-        return [];
-      }
-      // The month's own exchanges, packed into what one call reads.
-      const batches = batchesOf(exchanges);
-      const calls = batches.map((batch, i) => {
-        const shown = batchLines(batch, (e) => (e.fromMe ? "me" : name));
-        return {
-          input: {
-            lines: shown.lines,
-            month,
-            part: i + 1,
-            parts: batches.length,
-            with: name,
-          },
-          quotable: shown.messages.filter((e) => !e.phoneCall),
-        };
-      });
-      return [
-        {
-          calls,
-          inputs: inputsOf(
-            MONTH_PROMPT,
-            calls.map((c) => c.input)
-          ),
-          month,
-        },
-      ];
-    });
-}
+) =>
+  [...new Set(timeline.map((e) => e.day.slice(0, 7)))]
+    .filter((month) => month >= o.from && month < o.today.slice(0, 7))
+    .toSorted()
+    .flatMap((month) => monthInputOf(timeline, month, name) ?? []);
 
 /**
  * Someone's history: an empty one when there is no file; a file in a shape this code does not know (a month written by
@@ -127,109 +153,197 @@ export function readHistory(ref: string): History {
 /** One person's months still to read, and whether the night's cap left some of them for a later night. */
 interface PersonWork {
   isWhole: boolean;
-  months: MonthCalls[];
+  months: MonthRead[];
   name: string;
   ref: string;
 }
-export type HistoryWork = Awaited<ReturnType<typeof readHistoryWork>>;
+export type HistoryWork = NonNullable<
+  Awaited<ReturnType<typeof readHistoryWork>>
+>;
+
+/** Whether `--today` may be given: never on his own data (the present month closes only on a copy). */
+export function todayOf(flag: string | undefined, now: string, his = isHis()) {
+  if (flag === undefined) {
+    return now;
+  }
+  if (his) {
+    throw new Error("--today is refused on his own data: use a copy");
+  }
+  if (!isDay(flag)) {
+    throw new Error(`--today "${flag}" is not a day (YYYY-MM-DD)`);
+  }
+  return flag;
+}
 
 /**
- * What the histories have to read, from a read of every year (`readWithPeople(new Date(0))`): for whoever has a page,
- * the closed months from `from` on whose stored `inputs` differ from what would be shown now, the newest months first
- * across everyone, up to `NIGHT_CALLS` calls. Null when a source failed (a month must never be summarised without
- * one). `counts` is the whole of what is pending, before the cap: what a run would cost.
+ * The rule of what is read: for each person the months whose stored `inputs` (`built`) differ from what would be shown
+ * now, the newest months first across everyone, up to `calls` calls (a call a month). `counts` is the whole of what is
+ * pending, before the cap: what a run would cost; `largest` the biggest input in tokens (a ceiling) and `cut` the
+ * months whose evidence went over what one call is shown.
  */
-export async function readHistoryWork(
-  { events, failed }: Pick<WithPeople, "events" | "failed">,
-  people: People,
-  o: { from: string; today: string }
+export function historyWorkOf(
+  persons: {
+    built: Map<string, string>;
+    months: MonthRead[];
+    name: string;
+    ref: string;
+  }[],
+  calls: number,
+  today: string
 ) {
-  if (failed.length > 0) {
-    return null;
-  }
-  const direct = directChats(events, people.resolve);
-  const everyone = [...(await pagedNow(people))];
-  // A history in an unknown shape is logged once and left out of the work: no month of that person is read, so none is
-  // written over it, and no story call fails for it again.
-  const paged = everyone.filter((ref) => {
-    try {
-      readHistory(ref);
-      return true;
-    } catch (e) {
-      log("run.error", { error: (e as Error).message, step: "memory.history" });
-      return false;
-    }
-  });
-  const pending = paged.flatMap((ref) => {
-    const name = people.nameOf(ref);
-    const built = new Map(readHistory(ref).months.map((m) => [m.month, m]));
-    return monthCallsOf(direct.get(ref) ?? [], name, o)
-      .filter((m) => built.get(m.month)?.inputs !== m.inputs)
-      .map((m) => ({ m, name, ref }));
-  });
-  const calls = pending.flatMap((p) => p.m.calls);
-  const taken = newestWithin(pending, NIGHT_CALLS, {
+  const pending = persons.flatMap((p) =>
+    p.months
+      .filter((m) => p.built.get(m.month) !== m.inputs)
+      .map((m) => ({ m, name: p.name, ref: p.ref }))
+  );
+  const taken = newestWithin(pending, calls, {
     at: (p) => p.m.month,
-    size: (p) => p.m.calls.length,
+    size: () => 1,
   });
   const took = new Set(taken);
   const waiting = new Set(
     pending.filter((p) => !took.has(p)).map((p) => p.ref)
   );
   const mine = Map.groupBy(taken, (p) => p.ref);
+  const tokens = (m: MonthRead) =>
+    Math.ceil(JSON.stringify(m.input).length / CHARS_PER_TOKEN);
   // Everyone with a page: one with no month to read may still owe a story (a year closed).
-  const work: PersonWork[] = paged.map((ref) => ({
-    isWhole: !waiting.has(ref),
-    months: (mine.get(ref) ?? [])
-      .map((p) => p.m)
+  const work: PersonWork[] = persons.map((p) => ({
+    isWhole: !waiting.has(p.ref),
+    months: (mine.get(p.ref) ?? [])
+      .map((x) => x.m)
       .toSorted((a, b) => a.month.localeCompare(b.month)),
-    name: people.nameOf(ref),
-    ref,
+    name: p.name,
+    ref: p.ref,
   }));
   return {
     counts: {
-      calls: calls.length,
+      calls: pending.length,
+      cut: pending.filter((p) => p.m.input.leftOut > 0).length,
+      largest: Math.max(0, ...pending.map((p) => tokens(p.m))),
       months: pending.length,
       people: new Set(pending.map((p) => p.ref)).size,
-      // A ceiling: the lines shown, at 3 characters a token, plus a full reply for each call.
-      tokens: Math.round(
-        calls.reduce((n, c) => n + c.input.lines.join("\n").length, 0) / 3 +
-          calls.length * REPLY_TOKENS
-      ),
+      // A ceiling: the evidence shown, at `CHARS_PER_TOKEN`, plus a full reply for each call.
+      tokens: pending.reduce((n, p) => n + tokens(p.m) + REPLY_TOKENS, 0),
     },
-    today: o.today,
+    today,
     work,
   };
 }
 
-/** Quotation marks: a summary holding any would carry words no check has seen. */
+/**
+ * What the histories have to read: for whoever has a page, their closed months from `from` on, written from their
+ * timeline in the index (`timelineOf`, observations as they stood), the rule in `historyWorkOf`. Null when the index is
+ * not built. A person whose history is in an unknown shape is logged once and left out: no month of theirs is read,
+ * so none is written over it, and no story call fails for it again.
+ */
+export async function readHistoryWork(
+  people: People,
+  {
+    calls = NIGHT_CALLS,
+    from,
+    today,
+  }: { calls?: number; from: string; today: string }
+) {
+  const all = await episodesWhere(() => true);
+  const talked = talkedAbout(all, people, mentionsByUnit(readMentions()));
+  const paged: { built: Map<string, string>; ref: string }[] = [];
+  for (const ref of await pagedNow(people)) {
+    try {
+      paged.push({
+        built: new Map(readHistory(ref).months.map((m) => [m.month, m.inputs])),
+        ref,
+      });
+    } catch (e) {
+      log("run.error", { error: (e as Error).message, step: "memory.history" });
+    }
+  }
+  const persons = await withStore((store) =>
+    readIndex((db) =>
+      paged.map((p) => {
+        const name = people.nameOf(p.ref);
+        const lifelog = people.truth.people.find(
+          (t) => `person:${t.id}` === p.ref
+        )?.handles.lifelog;
+        const timeline = timelineOf(
+          db,
+          store,
+          p.ref,
+          episodesOf(all, p.ref, people.refOf, talked),
+          lifelog ? [lifelog] : [],
+          true
+        );
+        return {
+          ...p,
+          months: monthsToReadOf(timeline, name, { from, today }),
+          name,
+        };
+      })
+    )
+  );
+  return persons && historyWorkOf(persons, calls, today);
+}
+
+/** Quotation marks: a text holding any would carry words no check has seen. */
 const QUOTE_MARKS = /["“”«»]/;
 
 const Reply = z.object({
-  quotes: z.array(z.string()).default([]),
-  summary: z.string().trim().min(1),
+  headline: z.string().trim().min(1).max(300),
+  sentences: z.array(
+    z.object({ days: z.array(z.string()), text: z.string().trim() })
+  ),
 });
 
+/** What a month's reply lost to the checks, by reason. */
+interface Dropped {
+  days: number;
+  length: number;
+  quotes: number;
+  size: number;
+}
+
 /**
- * A month call's reply as its part: the summary, and only the quotes found in a message it was shown (`foundQuotes`),
- * each with its time and writer. A summary holding quotation marks is a failed call (its words would be unchecked); a
- * part with no quote is kept (a month of short messages has nothing long enough to find).
+ * A month call's reply as the month's two sizes, checked against what it was shown (`shownDays`, every day a shown line
+ * covers): each sentence keeps only its days that were shown, and is dropped, never moved to another day, when none is
+ * left, when it holds quotation marks, or when it would pass the size of a full text (counted by reason). A headline
+ * holding quotation marks, or no sentence left, is a failed call: the month's last version stands.
  */
-export function partOf(reply: unknown, quotable: SourceEvent[]): HistoryPart {
+export function twoSizesOf(reply: unknown, shownDays: ReadonlySet<string>) {
   const r = Reply.parse(reply);
-  if (QUOTE_MARKS.test(r.summary)) {
-    throw new Error("quotation marks in a month's summary");
+  if (QUOTE_MARKS.test(r.headline)) {
+    throw new Error("quotation marks in a month's headline");
   }
-  return HistoryPart.parse({
-    quotes: foundQuotes(r.quotes, quotable)
-      .slice(0, 4)
-      .map((q) => ({
-        at: q.message.at,
-        text: clip(q.text, QUOTE_CHARS),
-        writer: q.message.fromMe ? "owner" : "them",
-      })),
-    summary: r.summary,
-  });
+  const dropped: Dropped = { days: 0, length: 0, quotes: 0, size: 0 };
+  const sentences: { days: string[]; text: string }[] = [];
+  let chars = 0;
+  for (const s of r.sentences) {
+    const days = [
+      ...new Set(s.days.filter((d) => shownDays.has(d))),
+    ].toSorted();
+    let why: keyof Dropped | null = null;
+    if (QUOTE_MARKS.test(s.text) || s.text === "") {
+      why = "quotes";
+    } else if (days.length === 0) {
+      why = "days";
+    } else if (s.text.length > 600) {
+      why = "length";
+    } else if (
+      chars + s.text.length > FULL_TEXT_CHARS ||
+      sentences.length >= 60
+    ) {
+      why = "size";
+    }
+    if (why) {
+      dropped[why] += 1;
+    } else {
+      sentences.push({ days, text: s.text });
+      chars += s.text.length;
+    }
+  }
+  if (sentences.length === 0) {
+    throw new Error("no sentence of a month's reply holds a day it was shown");
+  }
+  return { dropped, headline: r.headline, sentences };
 }
 
 /** A history with one month read again: the month replaced whole, the months kept oldest first. */
@@ -248,7 +362,7 @@ const write = (ref: string, history: History) =>
   );
 
 /**
- * What the story call is shown: the months through `through`, each as its parts' summaries. `through` is the year of the
+ * What the story call is shown: the months through `through`, each as its full text. `through` is the year of the
  * newest month, at most the last closed year: the clock moving alone changes nothing; a story is retold only when a
  * month it does not hold exists.
  */
@@ -265,7 +379,7 @@ export function storyInputOf(history: History, name: string, today: string) {
       .filter((m) => m.month.slice(0, 4) <= through)
       .map((m) => ({
         month: m.month,
-        summary: m.parts.map((p) => p.summary).join(" "),
+        summary: fullTextOf(m),
       })),
     through,
     with: name,
@@ -327,40 +441,43 @@ async function tellStory(
 
 /**
  * Reads the pending months (`readHistoryWork`), a few people at a time, each person's months in order: a month is
- * written when every one of its calls gave a part, else its last version stands and the next night reads it again.
- * Then each person's story. A failure costs its month only, never the night.
+ * one call, written when its reply holds a sentence with a day it was shown, else its last version stands and the next
+ * night reads it again. Then each person's story. A failure costs its month only, never the night.
  */
-export async function histories(pending: NonNullable<HistoryWork>) {
-  const step = await begin("history", "main", { prompt: MONTH_PROMPT });
+export async function histories(pending: HistoryWork) {
+  const step = await begin("history", "deep", { prompt: MONTH_PROMPT });
   let months = 0;
   let stories = 0;
+  let sentences = 0;
+  const dropped: Dropped = { days: 0, length: 0, quotes: 0, size: 0 };
   await inBatches(pending.work, step, async (t, dir) => {
     let isRead = true;
     for (const m of t.months) {
       // biome-ignore lint/performance/noAwaitInLoops: one person's file is written one month at a time
       const done = await step.attempt(
         async () => {
-          const parts: HistoryPart[] = [];
-          for (const [i, call] of m.calls.entries()) {
-            // biome-ignore lint/performance/noAwaitInLoops: a month's parts in order, a failed one ends the month
-            const reply = await step.ask({
-              dir: join(dir, `${m.month}-${i + 1}`),
-              input: call.input,
-              prompt: MONTH_PROMPT,
-            });
-            parts.push(partOf(reply, call.quotable));
-          }
+          const reply = await step.ask({
+            dir: join(dir, m.month),
+            input: m.input,
+            prompt: MONTH_PROMPT,
+          });
+          const made = twoSizesOf(reply, new Set(m.shownDays));
           await write(
             t.ref,
             withMonth(readHistory(t.ref), {
               built: step.now.toISOString(),
+              headline: made.headline,
               inputs: m.inputs,
               madeBy: stamp(step.llm, MONTH_PROMPT, step.run),
               month: m.month,
-              parts,
+              sentences: made.sentences,
             })
           );
           months += 1;
+          sentences += made.sentences.length;
+          for (const k of Object.keys(dropped) as (keyof Dropped)[]) {
+            dropped[k] += made.dropped[k];
+          }
           return true;
         },
         { month: m.month, page: t.ref }
@@ -376,5 +493,5 @@ export async function histories(pending: NonNullable<HistoryWork>) {
     );
     stories += told ? 1 : 0;
   });
-  return step.end({ months, stories });
+  return step.end({ dropped, months, sentences, stories });
 }
