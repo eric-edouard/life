@@ -234,6 +234,7 @@ Before adding a helper, use the one that exists:
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, lifelog's search and Life's alike |
 | Merging two rankings (by meaning, by words) | `fuse` (`apps/server/src/core/fusion.ts`) |
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for lifelog and Life), the one call into lifelog's side that is not its REST contract |
+| Running gog (Google Calendar, Google Tasks) | `gogCall` (`core/gog.ts`): nothing else spawns it |
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
@@ -263,6 +264,7 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 
 ## Gotchas
 
+- Never add a Keychain item for Life from the command line: macOS prompts, the app blocks on it and starts no helper.
 - Every worktree reads and writes the same live data and lock. Point `LIFE_OWNER_DATA_DIR` at a copy to experiment; copy
   `derived/settings.json` into a worktree before model runs, and a copy of the live voice store (`watch/lifelog.sqlite`,
   `sqlite3 .backup`) before a bench. `bun test` uses its own made-up copy.

@@ -1,3 +1,4 @@
+import { gogCall } from "../core/gog";
 import { execOk } from "../core/proc";
 import type { List, TodoItem, TodoListBackend } from "./contract";
 
@@ -48,14 +49,7 @@ const split = (id: string) => {
 
 /** One `gog tasks` call as `account`, its JSON. */
 const gogAs = (account: string) => async (args: string[]) => {
-  const out = await execOk([
-    "gog",
-    "tasks",
-    ...args,
-    `--account=${account}`,
-    "--json",
-    "--no-input",
-  ]);
+  const out = await execOk(...gogCall("tasks", account, args));
   return out.trim() ? (JSON.parse(out) as unknown) : {};
 };
 
