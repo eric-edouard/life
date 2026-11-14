@@ -280,7 +280,10 @@ function publishPassageRows(
         p.end,
         p.hash,
         p.text,
-        JSON.stringify(p.events),
+        // The flag would go stale when he replies later: a passage keeps the event without it.
+        JSON.stringify(
+          p.events.map(({ hasOwnerWrittenInThread: _, ...e }) => e)
+        ),
         normalize(p.text),
         run.start,
         run.end

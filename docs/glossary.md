@@ -75,6 +75,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
 | conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
 | chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
+| hasOwnerWrittenInThread | A mail event's flag: the owner wrote in its thread on any day (the source reads it over the whole index). Kept beside `fromMe`, which is the event's own sender. | |
 | transaction | A mail Mail itself sorted as Transactions (an order, booking, receipt, delivery or bank notice), kept even from a sender he doesn't know. Not a database transaction. | |
 | phone source | Phone & FaceTime call history (`phone`), copied from Apple’s store into `archive/phone.sqlite`; call-only chats keyed by remote handles or explicit participant sets; the Phone app's call log, not the owner's iPhone recordings (lifelog's `phone`). | |
 | phone call | A voice or video call, on Phone & FaceTime or a messaging app: one event of its chat (including a call-only chat), with its length once it ended (0: not picked up), its line written by Life (`callLine`). "Call" alone is a model call. | |

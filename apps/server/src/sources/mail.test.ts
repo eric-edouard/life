@@ -229,6 +229,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       contact: true,
       files: [],
       fromMe: false,
+      hasOwnerWrittenInThread: true,
       id: "mail:abc@example.com",
       sender: "ana@example.com",
       source: "mail",
@@ -242,6 +243,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
       chatName: "Devis",
       files: [],
       fromMe: true,
+      hasOwnerWrittenInThread: true,
       id: "mail:11",
       marked: true,
       sender: "me@mine.test",
@@ -353,4 +355,55 @@ test("a mail is its own words, whole: the history a reply quotes is left out, a 
   const forward =
     "FYI\n---------- Forwarded message ---------\nFrom: Ana <ana@example.com>\nThe plan";
   expect(ownWordsOf(forward)).toBe(forward);
+});
+
+test("readMail flags a thread the owner wrote in on any day, never one holding only his unsent draft", () => {
+  const base = mkdtempSync(join(tmpdir(), "mail-thread-"));
+  const root = join(base, "V10");
+  mkdirSync(join(root, "MailData"), { recursive: true });
+  const db = new Database(join(root, "MailData", "Envelope Index"));
+  db.run(`create table messages (ROWID integer primary key, global_message_id integer, sender integer,
+            subject_prefix text, subject integer, date_received integer, mailbox integer,
+            deleted integer default 0, conversation_id integer default 0,
+            list_id_hash integer default 0, unsubscribe_type integer)`);
+  db.run("create table subjects (ROWID integer primary key, subject text)");
+  db.run(
+    "create table addresses (ROWID integer primary key, address text, comment text)"
+  );
+  db.run("create table mailboxes (ROWID integer primary key, url text)");
+  db.run("create table labels (message_id integer, mailbox_id integer)");
+  db.run(
+    "create table recipients (ROWID integer primary key, message integer, address integer, type integer, position integer)"
+  );
+  db.run(
+    "create table message_global_data (ROWID integer primary key, message_id_header text, model_category integer)"
+  );
+  const acct = "BBBB-2222";
+  db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
+            (2, 'imap://${acct}/Sent'), (3, 'imap://${acct}/Drafts')`);
+  db.run("insert into subjects values (1, 'Trip')");
+  db.run(
+    "insert into addresses values (1, 'Eve@Example.test', ''), (2, 'Me@Mine.test', '')"
+  );
+  const day = 86_400;
+  const t = Date.parse("2026-10-09T08:00:00Z") / 1000;
+  // Thread 7: he wrote ten days before the window, Eve replies inside it. Thread 8: only his unsent draft before it.
+  db.run(`insert into messages values
+            (1, 1, 2, null, 1, ${t - 10 * day}, 2, 0, 7, 0, null),
+            (2, 2, 1, null, 1, ${t}, 1, 0, 7, 0, null),
+            (3, 3, 2, null, 1, ${t - 10 * day}, 3, 0, 8, 0, null),
+            (4, 4, 1, null, 1, ${t}, 1, 0, 8, 0, null)`);
+  db.close();
+  const events = readMail(
+    new Date("2026-10-08T00:00:00Z"),
+    root,
+    join(base, "none.sqlite"),
+    new Map()
+  );
+  expect(
+    events.map((e) => [e.chat, e.hasOwnerWrittenInThread ?? null])
+  ).toEqual([
+    ["mail:7", true],
+    ["mail:8", null],
+  ]);
 });
