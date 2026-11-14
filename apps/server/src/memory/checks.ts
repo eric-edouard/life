@@ -24,7 +24,7 @@ type CheckKind = "ending" | "person";
 /** What a check is, for counting: an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
 type CheckGroup = "ending" | "guessed person" | "card" | "name";
 
-export interface Check {
+interface Check {
   /** The words of his answer that settle it, as `correct_memory` takes them. */
   answers: string[];
   /** The words the guess rests on, with where and when they were said; none for a Contacts card. */
@@ -243,7 +243,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             c,
             "guessed person",
             {
-              guess: `Life guesses ${p.namesAndHandles.join(" / ")} is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure).`,
+              guess: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure).`,
               ref,
             },
             byGuess.get(ref) ?? [],

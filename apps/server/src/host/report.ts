@@ -7,6 +7,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
+import type { checksNow } from "../memory/checks";
 import {
   type Digest,
   LIFE_MAIL,
@@ -44,6 +45,8 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
+  /** What Life would like him to verify (`checksNow`), most load-bearing first: every one, none left out. */
+  checks: Result<typeof checksNow>;
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   /** The days whose episodes were read again, and how many episodes they hold. */
@@ -74,6 +77,16 @@ export const duration = (ms: number) =>
 
 const percent = (x: number | null) =>
   x === null ? "-" : `${Math.round(x * 100)}%`;
+
+/** What a check settles, in words: "settles 3 facts and 2 open matters"; a part that is zero is left out. */
+const ridesText = (r: Result<typeof checksNow>[number]["ridesOn"]) =>
+  `settles ${[
+    r.observations > 0 && count(r.observations, "fact"),
+    r.matters > 0 && count(r.matters, "open matter"),
+    r.pages > 0 && count(r.pages, "page"),
+  ]
+    .filter(Boolean)
+    .join(" and ")}`;
 
 /** One row of a section as text. */
 function textLine(s: Section) {
@@ -146,6 +159,11 @@ export function successReport(day: string, ms: number, n: Night) {
       models,
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
+        ...(n.checks.length > 0
+          ? [
+              "Checks: Life keeps using its guesses; to settle one, tell Life in a chat or the app.",
+            ]
+          : []),
         ...(n.paged.dropped.length > 0
           ? [
               `Pages no longer kept (git has them): ${n.paged.dropped.join(", ")}`,
@@ -173,6 +191,14 @@ export function successReport(day: string, ms: number, n: Night) {
       preheader: `${count(n.keyObservations.length, "new key observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
+        {
+          kind: "pairs",
+          list: n.checks.map((c) => ({
+            name: c.guess,
+            relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
+          })),
+          title: "Checks",
+        },
         {
           kind: "pairs",
           list: [

@@ -82,6 +82,7 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
     ref: REF,
     ridesOn: { matters: 0, observations: 3, pages: 0 },
   });
+  expect(check?.guess).toStartWith("Life thinks this is ");
   expect(check?.guess).toContain("the plumber");
   expect(check?.evidence?.quote).toBe(`${ID} said hello`);
 });

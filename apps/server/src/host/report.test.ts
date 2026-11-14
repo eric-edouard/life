@@ -93,6 +93,7 @@ const night = (facts: number) =>
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     birthdays: [],
+    checks: [],
     code: [],
     episodes: {
       agreement: { agreement: 0.75, labeled: 40 },
@@ -234,6 +235,42 @@ test("the Birthdays section comes first, each name with when; none when no birth
   const { text } = successReport("2026-10-15", 1000, n);
   expect(text).toContain("Birthdays (1)\n- Ana: 17 Oct (in 2 days, turns 30)");
   expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("What it found"));
+});
+
+type Check = Night["checks"][number];
+const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
+  answers: ["this-is", "not-this-person"],
+  evidence: { from: "whatsapp, 7 Sep", quote: "see you Friday" },
+  group: "guessed person",
+  guess,
+  kind: "person",
+  ref: `person:${guess}`,
+  ridesOn,
+});
+
+test("the Checks section lists every row in the order given, after Birthdays, with one note; left out when none", () => {
+  const n = night(1);
+  const none = successReport("2026-10-15", 1000, n);
+  expect(none.text).not.toContain("Checks (");
+  expect(none.text).not.toContain("tell Life in a chat");
+  n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
+  n.checks = Array.from({ length: 40 }, (_, i) =>
+    check(`Life thinks this is Zed ${i}, a plumber (80% sure).`, {
+      matters: i === 0 ? 2 : 0,
+      observations: i === 0 ? 3 : 1,
+      pages: 0,
+    })
+  );
+  const { text, html } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain(
+    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure).: “see you Friday” (whatsapp, 7 Sep) · settles 3 facts and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure).: “see you Friday” (whatsapp, 7 Sep) · settles 1 fact"
+  );
+  expect(text).not.toContain("more");
+  expect(text).toContain("Zed 39,");
+  expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("Checks ("));
+  expect(text.indexOf("Checks (")).toBeLessThan(text.indexOf("What it found"));
+  expect(text).not.toContain("this-is");
+  expect(html.match(/tell Life in a chat or the app/g)).toHaveLength(1);
 });
 
 test("the Code section lists yesterday's rows and this night's new repos", () => {

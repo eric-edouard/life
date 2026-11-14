@@ -8,6 +8,7 @@ import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
+import { checksNow } from "../memory/checks";
 import {
   closeness,
   lastYearsOf,
@@ -569,6 +570,7 @@ export async function runNight(
       birthdays: (await readBirthdaysNear(await readPeople(), dayNow())).map(
         (b) => ({ name: b.name, relation: b.text })
       ),
+      checks: await checksNow(),
       code: commits,
       episodes: found,
       extracted,
