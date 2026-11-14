@@ -455,3 +455,16 @@ test("a placed observation brings the episode holding its unit, with no unit ste
     "Call to the shop",
   ]);
 });
+
+test("a placed observation whose unit no episode holds attaches no episode", () => {
+  const lost = obs(31, "2026-10-18", {
+    text: "Call the shop again",
+    unit: `unit_${pad(99)}`,
+  });
+  const [view] = matterBookOf(
+    [{ ...line, steps: [{ ref: lost.id }] }],
+    records({ observations: [lost] }),
+    "2026-10-20"
+  );
+  expect(view?.steps.map((s) => s.text)).toEqual(["Call the shop again"]);
+});

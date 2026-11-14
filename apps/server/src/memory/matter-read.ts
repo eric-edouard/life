@@ -347,7 +347,7 @@ export function matterOf(
   };
 }
 
-/** Running: open and not dormant. What the matters step shows the model and what `read_matters` lists. */
+/** Running: open and not dormant. What `read_matters` lists. */
 export const isRunning = (v: Pick<MatterView, "open" | "status">) =>
   v.open && v.status !== "dormant";
 
