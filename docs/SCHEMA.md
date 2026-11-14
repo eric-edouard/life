@@ -172,14 +172,14 @@ could not place is no longer asked about (the episodes call asks about the day's
 
 Who his Contacts name among the handles his messages hold, written by the night (`writeContactPeople`,
 `memory/contact-people.ts`; by hand `bun life memory contact-people`), by code, append-only:
-`{schemaVersion: 1, card, name, handles, at}`. `card` is the Contacts card's own id; the person's id is `con_` and a
-digest of it (`contactIdOf`), never a name (truth ids never start with `con_`). A card's latest line gives its name
-and its handles (phones and emails, as written) only grow; a card deleted from Contacts appends nothing and keeps its
+`{schemaVersion: 1, card, name, birthday?, handles, at}`. `card` is the Contacts card's own id; the person's id is `con_` and a
+digest of it (`contactIdOf`), never a name (truth ids never start with `con_`). A card's latest line gives its name,
+its birthday (`--MM-DD` or `YYYY-MM-DD`, when Contacts held one: a line without it is a card whose birthday Life did not hold, and the next night appends one that has it) and its handles (phones and emails, as written) only grow; a card deleted from Contacts appends nothing and keeps its
 person. Only a card with a handle that is a sender Life cannot name, or a handle of someone it guessed, gets a line:
 his address book is never copied. Two cards sharing a handle are one person when they share a name, else the first by
 card id keeps the handle (`ownersOf`). Read below `truth/` and above Life's guesses, a guess's link to
 `truth/` included (`readingOf`: his Contacts are his word on a number). A card named, whole, as someone in `truth/`
-is that person and brings its handles; else a card that shares a handle with someone in `truth/` is that person; else
+is that person and brings its handles; else a card that shares a handle with someone in `truth/` is that person; else one with the first name and the birthday of someone in `truth/` (month and day, and the year when both give one; never either alone) is them; else
 one that shares only a name is them when `truth/` gives them no phone or email to say otherwise (`namesTheSame`). A
 card whose whole name and whose handles say more than one person is no one's, an **ambiguous card** (he renamed a card,
 two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and

@@ -1,3 +1,4 @@
+import { isSameBirthday } from "../records/fields";
 import {
   type Correction,
   INFERRED_PREFIX,
@@ -260,7 +261,8 @@ export function foldsOf(
 
 /**
  * Who a contact card says it is: `people`, whoever its whole name is in truth/ and whoever each of its handles reads
- * as (every handle, so their order never decides), each once; and `maybe`, whoever its name may still be when
+ * as (every handle, so their order never decides), and whoever has the card's first name and birthday
+ * (`isSameFirstNameAndBirthday`), each once; and `maybe`, whoever its name may still be when
  * nothing else says (`namesTheSame`).
  */
 function saidBy(
@@ -278,9 +280,17 @@ function saidBy(
     const ref = read(nameOrHandle);
     return ref && ref !== self ? [ref] : [];
   });
+  const born = people.flatMap((p) => {
+    const ref = `person:${p.id}`;
+    return ref !== self &&
+      !isRuledOut(c, ref) &&
+      isSameFirstNameAndBirthday(c, p)
+      ? [ref]
+      : [];
+  });
   return {
     maybe: byName && namesTheSame(byName, people) ? byName : undefined,
-    people: [...new Set([...(whole ? [whole] : []), ...handled])],
+    people: [...new Set([...(whole ? [whole] : []), ...handled, ...born])],
   };
 }
 
@@ -293,6 +303,18 @@ function namesTheSame(ref: string, people: Person[]) {
   const person = people.find((p) => `person:${p.id}` === ref);
   return !person || handlesOf(person).every((h) => !contactKeyOf(h));
 }
+
+/** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
+const isSameFirstNameAndBirthday = (c: ContactNow, p: Person) => {
+  const first = (name: string) => nameKey(name.trim().split(" ")[0] ?? "");
+  return (
+    !!c.birthday &&
+    !!p.birthday &&
+    first(c.name) !== "" &&
+    first(c.name) === first(p.name) &&
+    isSameBirthday(c.birthday, p.birthday)
+  );
+};
 
 /** Whether a card is named, whole, as someone in truth/: his own label for the card. */
 const isWholeNameOf = (c: ContactNow, ref: string, people: Person[]) =>

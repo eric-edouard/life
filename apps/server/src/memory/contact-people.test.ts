@@ -365,3 +365,86 @@ test("a card whose whole name says one person and whose number says another is n
     "person:bea"
   );
 });
+
+const ruth = Person.parse({
+  birthday: "1980-03-14",
+  handles: { email: [], phone: ["+33600000060"], whatsapp: [] },
+  id: "ruth",
+  name: "Ruth Vale",
+});
+const withBirthday = (c: ContactNow, birthday: string): ContactNow => ({
+  ...c,
+  birthday,
+});
+
+test("a card under another surname with the directory person's first name and birthday folds into them", () => {
+  const c = withBirthday(
+    now("card-ruth", "Ruth Marsh", ["+33600000061"]),
+    "1980-03-14"
+  );
+  expect(foldsOf([ruth], [], [], [c]).canon(`person:${c.id}`)).toBe(
+    "person:ruth"
+  );
+  // A card with no year matches a person with one; years that differ do not.
+  const noYear = withBirthday(c, "--03-14");
+  expect(foldsOf([ruth], [], [], [noYear]).canon(`person:${c.id}`)).toBe(
+    "person:ruth"
+  );
+  const otherYear = withBirthday(c, "1981-03-14");
+  expect(foldsOf([ruth], [], [], [otherYear]).canon(`person:${c.id}`)).toBe(
+    `person:${c.id}`
+  );
+  // The same first name with another birthday stays apart.
+  const otherDay = withBirthday(c, "1980-03-15");
+  expect(foldsOf([ruth], [], [], [otherDay]).canon(`person:${c.id}`)).toBe(
+    `person:${c.id}`
+  );
+});
+
+test("a hyphenated first name is a first name: the first word is taken before the name is normalized", () => {
+  const jp = Person.parse({
+    birthday: "1975-07-01",
+    id: "jean-pierre",
+    name: "Jean-Pierre Vale",
+  });
+  const c = withBirthday(now("card-jp", "Jean-Pierre Marsh", []), "1975-07-01");
+  expect(foldsOf([jp], [], [], [c]).canon(`person:${c.id}`)).toBe(
+    "person:jean-pierre"
+  );
+  const jean = withBirthday(now("card-jean", "Jean Marsh", []), "1975-07-01");
+  expect(foldsOf([jp], [], [], [jean]).canon(`person:${jean.id}`)).toBe(
+    `person:${jean.id}`
+  );
+});
+
+test("a card whose birthday says one person and whose handle says another is ambiguous; one he ruled out does not fold", () => {
+  const c = withBirthday(
+    now("card-ruth", "Ruth Marsh", ["+33677777777"]),
+    "1980-03-14"
+  );
+  const self = `person:${c.id}`;
+  expect(foldsOf([ruth, ...truth], [], [], [c]).ambiguousCards).toEqual([
+    { card: self, people: ["person:bea", "person:ruth"] },
+  ]);
+  // Two directory people with that first name and birthday: torn too.
+  const twin = Person.parse({ ...ruth, id: "ruth-two", name: "Ruth Cole" });
+  expect(foldsOf([ruth, twin], [], [], [c]).ambiguousCards).toHaveLength(1);
+  const notHer = {
+    at: AT,
+    kind: "not-this-person",
+    nameOrHandle: "+33677777777",
+    person: "person:ruth",
+    schemaVersion: 1,
+  };
+  expect(foldsOf([ruth], [], [notHer] as never, [c]).canon(self)).toBe(self);
+});
+
+test("a kept card that gains a birthday appends one line, and a second night none", () => {
+  const first = after([ANA], [], seenOf(ANA_KEY));
+  const born = after([{ ...ANA, birthday: "--05-02" }], first.stored, seenOf());
+  expect(born.lines.map((l) => l.birthday)).toEqual(["--05-02"]);
+  expect(contactsNow(born.stored)[0]?.birthday).toBe("--05-02");
+  expect(
+    after([{ ...ANA, birthday: "--05-02" }], born.stored, seenOf()).lines
+  ).toEqual([]);
+});

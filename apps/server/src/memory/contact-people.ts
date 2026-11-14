@@ -21,8 +21,9 @@ import { nameKey, UNKNOWN } from "./units";
 // Contacts, a card he deletes keeps its person, and a ref stored for good never loses its name. Who a contact person
 // is among everyone (someone in truth/, an earlier guess) is `who.ts`'s to say.
 
-/** A contact person as it stands: its id (from its card's), its latest name, every handle a line gave it. */
+/** A contact person as it stands: its id (from its card's), its latest name and birthday, every handle a line gave it. */
 export interface ContactNow {
+  birthday?: string;
   card: string;
   handles: string[];
   id: string;
@@ -34,6 +35,7 @@ export function contactsNow(lines: ContactPerson[]): ContactNow[] {
   const now = new Map<string, ContactNow>();
   for (const l of lines) {
     now.set(l.card, {
+      birthday: l.birthday,
       card: l.card,
       handles: [
         ...new Set([...(now.get(l.card)?.handles ?? []), ...l.handles]),
@@ -50,7 +52,7 @@ export function contactsNow(lines: ContactPerson[]): ContactNow[] {
  * sender Life cannot name, or a handle of someone it guessed), or it is one already; his whole address book is never
  * copied. A handle belongs to the person who has it (a stored one first, else `ownersOf`): a second card under the
  * same name (the same person in another account) joins it, one under another name does not get that handle. A line
- * is appended only when a person is new, renamed, or has a new handle; a card gone from Contacts appends nothing.
+ * is appended only when a person is new, renamed, or has a new handle or birthday; a card gone from Contacts appends nothing.
  */
 export function contactPeopleOf(
   cards: Contact[],
@@ -78,7 +80,10 @@ export function contactPeopleOf(
   const named = cards
     .flatMap((c) => (c.name ? [{ ...c, name: c.name }] : []))
     .toSorted((a, b) => a.id.localeCompare(b.id));
-  const now = new Map<string, { name: string; handles: string[] }>();
+  const now = new Map<
+    string,
+    { birthday?: string; name: string; handles: string[] }
+  >();
   for (const c of named) {
     const holderOf = (h: string) => holder.get(contactKeyOf(h) ?? "");
     // A person already kept is its card, whatever the card is called now; a new card is whoever holds one of its
@@ -102,6 +107,7 @@ export function contactPeopleOf(
       continue;
     }
     const person = now.get(card) ?? {
+      birthday: before.get(card)?.birthday,
       handles: [...(before.get(card)?.handles ?? [])],
       // A card's own name, when it is among the cards; a joined card has the same name.
       name: c.name,
@@ -110,15 +116,31 @@ export function contactPeopleOf(
     if (c.id === card) {
       person.name = c.name;
     }
+    // The birthday is picked the way the name is: the person's own card first, else the first joined card with one.
+    if (c.birthday && (c.id === card || !person.birthday)) {
+      person.birthday = c.birthday;
+    }
     now.set(card, person);
   }
   return [...now].flatMap(([card, p]): ContactPerson[] => {
     const was = before.get(card);
     const isSeen = p.handles.some((s) => seen.has(contactKeyOf(s) ?? ""));
     const changed =
-      !was || was.name !== p.name || was.handles.length !== p.handles.length;
+      !was ||
+      was.name !== p.name ||
+      was.birthday !== p.birthday ||
+      was.handles.length !== p.handles.length;
     return (was || isSeen) && changed
-      ? [{ at, card, handles: p.handles, name: p.name, schemaVersion: 1 }]
+      ? [
+          {
+            at,
+            birthday: p.birthday,
+            card,
+            handles: p.handles,
+            name: p.name,
+            schemaVersion: 1,
+          },
+        ]
       : [];
   });
 }
