@@ -8,7 +8,7 @@ import { eventKey, type SourceEvent } from "../records/source";
 import type { WithPeople } from "./closeness";
 import { READS, readReplies } from "./exchange-reads";
 import { MENTIONS } from "./memory-files";
-import { checkedLines } from "./moves";
+import { checkedOf } from "./moves";
 import { dayUnitId, textOf } from "./units";
 import { localDate } from "./zones";
 
@@ -40,7 +40,7 @@ const Stored = z
 
 /**
  * Every mention the stored replies of the current mentions prompt hold, checked against `events` (by key), oldest
- * first. An exchange read again after it grew counts once, from its newest line.
+ * first (an exchange read again after it grew counts once: `checkedOf`).
  */
 export function mentionsOf(
   lines: ReadReply[],
@@ -49,35 +49,24 @@ export function mentionsOf(
   const current = lines.filter(
     (l) => l.madeBy.prompt === READS.mentions.prompt
   );
-  const byExchange = new Map<string, Mention[]>();
-  for (const { checked, line, messages } of checkedLines(
-    current,
-    "mentions",
-    events
-  )) {
-    for (const x of checked.exchanges) {
-      byExchange.set(
-        line.messages[x.exchange] as string,
-        x.moves.flatMap((m) => {
-          const message = messages[m.line];
-          return m.code === "mention" && m.who && message
-            ? [
-                {
-                  at: message.at,
-                  by: message.sender,
-                  line: textOf(message),
-                  quote: m.quote,
-                  unit: dayUnitId(message),
-                  who: m.who,
-                },
-              ]
-            : [];
-        })
-      );
-    }
-  }
-  return [...byExchange.values()]
-    .flat()
+  return [...checkedOf(current, "mentions", events).values()]
+    .flatMap((x) =>
+      x.moves.flatMap((m) => {
+        const message = x.messages[m.line];
+        return m.code === "mention" && m.who && message
+          ? [
+              {
+                at: message.at,
+                by: message.sender,
+                line: textOf(message),
+                quote: m.quote,
+                unit: dayUnitId(message),
+                who: m.who,
+              },
+            ]
+          : [];
+      })
+    )
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 

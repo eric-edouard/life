@@ -299,36 +299,23 @@ export function checkedMoves(
 }
 
 /**
- * The stored lines of `read` whose messages are all in `events`, each with its messages and its reply checked
- * (`checkedMoves`): the one way the night and the pilot check stored replies.
+ * Every exchange the stored lines hold for `read`, checked, by its first message's key; only lines whose messages are
+ * all in `events`. An exchange read again after it grew counts once, from its newest line (lines oldest first).
+ * `messages`: the messages of the line that read it, which a move's `line` indexes.
  */
-export function* checkedLines(
-  lines: ReadReply[],
-  read: ReadName,
-  events: Map<string, SourceEvent>
-) {
-  for (const line of lines.filter((l) => l.read === read)) {
-    const messages = line.messages.flatMap((id) => events.get(id) ?? []);
-    if (messages.length === line.messages.length) {
-      yield {
-        checked: checkedMoves(line.reply, messages, line.starts, read),
-        line,
-        messages,
-      };
-    }
-  }
-}
-
-/** Every exchange the stored lines hold for `read`, checked, by its first message's key; only lines whose messages are all in `events`. */
 export function checkedOf(
   lines: ReadReply[],
   read: ReadName,
   events: Map<string, SourceEvent>
 ) {
-  const out = new Map<string, CheckedExchange>();
-  for (const { checked, line } of checkedLines(lines, read, events)) {
-    for (const x of checked.exchanges) {
-      out.set(line.messages[x.exchange] as string, x);
+  const out = new Map<string, CheckedExchange & { messages: SourceEvent[] }>();
+  for (const line of lines.filter((l) => l.read === read)) {
+    const messages = line.messages.flatMap((id) => events.get(id) ?? []);
+    if (messages.length === line.messages.length) {
+      const checked = checkedMoves(line.reply, messages, line.starts, read);
+      for (const x of checked.exchanges) {
+        out.set(line.messages[x.exchange] as string, { ...x, messages });
+      }
     }
   }
   return out;

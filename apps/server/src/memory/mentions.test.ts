@@ -41,18 +41,18 @@ const mention = (line: number, who: string, quote: string) => ({
   tone: "neutral",
   who,
 });
-const stored = (prompt: string) =>
+const stored = (prompt: string, held = chat, moves?: unknown[]) =>
   ReadReply.parse({
     at: "2026-10-09T00:00:00.000Z",
     madeBy: { engine: "codex", model: "m", prompt, run: "r" },
-    messages: chat.map(eventKey),
+    messages: held.map(eventKey),
     promptDigest: "a".repeat(16),
     read: "mentions",
     reply: {
       exchanges: [
         {
           exchange: 0,
-          moves: [
+          moves: moves ?? [
             mention(0, "Alma", "Dinner with Alma"),
             mention(2, "Lena's sister", "Lena's sister is moving"),
             { code: "feels", line: 1, quote: "great", valence: "positive" },
@@ -89,6 +89,18 @@ test("mentions keep the words as written, the day's unit and the sender, never a
   ]);
   // A message gone from the sources leaves its lines out.
   expect(mentionsOf([stored(READS.mentions.prompt)], new Map())).toEqual([]);
+});
+
+test("an exchange read again after it grew counts once, from its newest line", () => {
+  const before = stored(READS.mentions.prompt, chat.slice(0, 2), [
+    mention(0, "Old", "Dinner with Alma"),
+  ]);
+  const grown = stored(READS.mentions.prompt);
+  expect(mentionsOf([before], events).map((m) => m.who)).toEqual(["Old"]);
+  expect(mentionsOf([before, grown], events).map((m) => m.who)).toEqual([
+    "Alma",
+    "Lena's sister",
+  ]);
 });
 
 test("a name is placed; a possessive and a name not on the line are not; a fold moves the person with no rewrite", () => {
