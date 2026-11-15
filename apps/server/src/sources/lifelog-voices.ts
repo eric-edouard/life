@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
-import { call } from "./lifelog";
+import { call, LIVE, type Store } from "./lifelog";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.
@@ -96,4 +96,24 @@ export async function readVoices(from: Date, to: Date) {
     })
   );
   return windows.flat();
+}
+
+/** Every turn someone other than the owner spoke in a live conversation since `since`, by lifelog's own speaker (never a model's): who and when. */
+export function speakerTurns(store: Store, since: Date) {
+  return store.db
+    .query<
+      {
+        at: string;
+        conversation: string;
+        id: string;
+        job: string;
+        name: string | null;
+      },
+      [string]
+    >(
+      `select t.person_id as id, t.person_name as name, t.start_at as at, t.job_id as job, t.conversation_id as conversation from turns t
+        join conversations c on c.id = t.conversation_id
+        where ${LIVE} and t.person_id is not null and t.is_owner = 0 and t.start_at >= ?`
+    )
+    .all(since.toISOString());
 }

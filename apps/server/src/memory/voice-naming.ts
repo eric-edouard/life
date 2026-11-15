@@ -190,15 +190,12 @@ async function readDayFacts(dates: string[], people: People) {
 async function readHeardInPerson(turns: HeardTurn[]) {
   const answered = new Map<string, string[]>();
   const days = [
-    ...new Set(turns.map((t) => new Date(t.at).toISOString().slice(0, 10))),
+    ...new Set(turns.map((t) => Math.floor(Date.parse(t.at) / DAY) * DAY)),
   ];
   for (const group of chunks(days, 8)) {
     // biome-ignore lint/performance/noAwaitInLoops: a few days at a time
     const rows = await Promise.all(
-      group.map((d) => {
-        const from = new Date(`${d}T00:00:00.000Z`);
-        return readVoices(from, new Date(from.getTime() + DAY));
-      })
+      group.map((d) => readVoices(new Date(d), new Date(d + DAY)))
     );
     for (const r of rows.flat()) {
       if (r.basis === "owner" && r.status === "person" && r.personId) {
