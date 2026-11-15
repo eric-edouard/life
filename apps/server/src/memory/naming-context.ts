@@ -45,9 +45,10 @@ export function overlappingPhoneCallsOf(
     const person = chatPerson(chat, people.resolve);
     const senders = (list: SourceEvent[]) =>
       list.filter((e) => !e.fromMe).map((e) => people.resolve(e.sender));
+    // A group call he started carries no one else's sender: the group's senders are who may be on it.
     const refs = person?.startsWith("person:")
       ? [person]
-      : senders(calls.length > 0 ? calls : chat);
+      : ([senders(calls), senders(chat)].find((s) => s.some(Boolean)) ?? []);
     const who = [
       ...new Set(refs.filter((r): r is string => !!r && r !== OWNER)),
     ];
@@ -74,7 +75,7 @@ export interface Signs {
   answered: string[];
   /** In an active fact dated that day whose evidence is not a recording. */
   facts: string[];
-  /** Spoke in person in one of his recordings (any time: `possibleSpeakersOf` keeps the 90 days before). */
+  /** Spoke in person in one of his recordings, the voice named by his own answer and not heard over a phone (any time: `possibleSpeakersOf` keeps the 90 days before). */
   heard: { at: string; ref: string }[];
   /** On a call that overlaps the recording (`overlappingPhoneCallsOf`). */
   onCall: string[];
@@ -85,8 +86,8 @@ export interface Signs {
 /**
  * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, those on a call first. A person is in when any sign
  * holds: on an overlapping call; named by his answer in this conversation; heard in person before the conversation began
- * (`begin`), within `HEARD_WITHIN`, at the same UTC offset as the part at `at` (the owner and a place he lives
- * elsewhere differ); pictured in a photo of that day; in an active fact dated that day that no recording is evidence of.
+ * (`begin`), within `HEARD_WITHIN`, at the UTC offset he had at the part (`offsetAt(at)`): someone heard only while he
+ * was in another time zone, where they may live, does not count; pictured in a photo of that day; in an active fact dated that day that no recording is evidence of.
  * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like.
  */
 export function possibleSpeakersOf(

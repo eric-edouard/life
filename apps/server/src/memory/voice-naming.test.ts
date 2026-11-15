@@ -53,37 +53,71 @@ afterAll(async () => {
 
 type Scene = ReturnType<typeof sceneOf>;
 type Row = Record<string, unknown>;
-/** A store holding c1 (its other voice named `name` by lifelog, or nobody) and a lifelog answering `voices`, or no such route. */
-const sceneOf = (o: { name?: string; voices?: Row[] }) => {
+/**
+ * A store holding c1 (turns of him, then `others` voices in turn; the first named `name` by lifelog, or nobody), and,
+ * with `before`, c0 the day before (the first voice named Dana by lifelog), and a lifelog answering `voices` or no such route.
+ */
+const sceneOf = (o: {
+  before?: boolean;
+  name?: string;
+  others?: number;
+  voices?: (job: string, before: string) => Row[];
+}) => {
   n += 1;
   const store = join(dir, `store-${n}`);
   const where = join(dir, `trial-${n}`);
-  const job = `job-${n}`;
-  const turns = Array.from({ length: 20 }, (_, t) => ({
-    ...turnFixture(
-      t,
-      new Date(Date.parse("2026-10-10T10:00:00.000Z") + t * MIN).toISOString(),
-      t % 2 && o.name ? "p1" : null,
-      t % 2 ? (o.name ?? null) : null,
-      "c1",
-      t % 2 === 0
-    ),
-    jobId: job,
-  }));
+  const [job, before] = [`job-${n}`, `job-${n}-0`];
+  const every = (o.others ?? 1) + 1;
+  const turnsOf = (jobId: string, from: string, count: number, c: string) =>
+    Array.from({ length: count }, (_, t) => ({
+      ...turnFixture(
+        t,
+        new Date(Date.parse(from) + t * MIN).toISOString(),
+        t % every === 1 && o.name ? "p1" : null,
+        t % every === 1 ? (o.name ?? null) : null,
+        c,
+        t % every === 0
+      ),
+      jobId,
+    }));
+  const turns = turnsOf(job, "2026-10-10T10:00:00.000Z", 20, "c1");
+  const earlier = o.before
+    ? turnsOf(before, "2026-10-09T10:00:00.000Z", 6, "c0")
+    : [];
+  const transcript = (count: number) => () => ({
+    turns: Array.from({ length: count }, (_, t) => ({
+      speakerId: `speaker_${t % every}`,
+      text: `remark ${t} ${"w".repeat(1000)}`,
+    })),
+  });
   server?.close();
   server = lifelogServer({
+    "/conversations/c0": () => ({ latestRun: null }),
     "/conversations/c1": () => ({ latestRun: null }),
-    [`/transcription-jobs/${job}/transcript`]: () => ({
-      turns: turns.map((_, t) => ({
-        speakerId: t % 2 ? "speaker_1" : "speaker_0",
-        text: `remark ${t} ${"w".repeat(1000)}`,
-      })),
-    }),
-    ...(o.voices ? { "/speakers/voices": () => o.voices as Row[] } : {}),
+    [`/transcription-jobs/${before}/transcript`]: transcript(6),
+    [`/transcription-jobs/${job}/transcript`]: transcript(20),
+    ...(o.voices ? { "/speakers/voices": () => o.voices?.(job, before) } : {}),
   });
   const open = () => openStore(store);
   const s = open();
-  apply(s, pageFixture({ conversations: [conversation("c1")], turns }), SEEN);
+  apply(
+    s,
+    pageFixture({
+      conversations: [
+        conversation("c1"),
+        ...(o.before
+          ? [
+              conversation("c0", {
+                endAt: "2026-10-09T10:10:00.000Z",
+                startAt: "2026-10-09T10:00:00.000Z",
+              }),
+            ]
+          : []),
+      ],
+      turns: [...earlier, ...turns],
+    }),
+    SEEN
+  );
   s.db.close();
   return { job, open, where };
 };
@@ -129,10 +163,9 @@ const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
 };
 
 test("an unnamed voice is a V in the lines; its reply is kept only as far as it checks, stored under the unnamed turn's key; nothing is asked twice", async () => {
-  const voices = [
-    row(`job-${n + 1}`, { likeness: [{ personId: "p1", score: 0.8 }] }),
-  ];
-  const t = sceneOf({ voices });
+  const t = sceneOf({
+    voices: (job) => [row(job, { likeness: [{ personId: "p1", score: 0.8 }] })],
+  });
   const { done, work } = await run(t, () => ({
     voices: [
       { confidence: "sure", lines: [1], person: "person:ghost", voice: "V1" },
@@ -150,24 +183,87 @@ test("an unnamed voice is a V in the lines; its reply is kept only as far as it 
   expect((await workOf(t)).counts.calls).toBe(0);
 });
 
-test("a recognized voice of someone who could not be there is a V, even though lifelog named it by sound; his own answer keeps its name", async () => {
-  // `job-<n+1>` is the next scene's job: build the voices for it.
-  const asked1 = async (basis: string) => {
-    const job = `job-${n + 1}`;
+test("a person matched by sound is not a possible speaker, and their voice is a V; the same person answered by him the day before is offered", async () => {
+  const day = (answer: string | null) => {
     const s = sceneOf({
+      before: true,
       name: "Dana",
-      voices: [row(job, { basis, personId: "p1", status: "person" })],
+      voices: (job, before) => [
+        row(job, { basis: "recognized", personId: "p1", status: "person" }),
+        row(before, {
+          basis: answer,
+          personId: "p1",
+          status: "person",
+        }),
+      ],
     });
-    return (await run(s, () => ({ voices: [] }))).work;
+    return run(s, () => ({ voices: [] }));
   };
-  const recognized = await asked1("recognized");
-  expect(recognized.counts.parts).toBe(1);
-  const input0 = recognized.asked[0]?.call.input as NamingInput | undefined;
+  // Matched by lifelog's sound yesterday only (never answered by him): not offered, so today's match is shown as a V.
+  const bySound = (await day("recognized")).work;
+  expect(bySound.counts.parts).toBe(1);
+  const input0 = bySound.asked[0]?.call.input as NamingInput | undefined;
   const shown = (input0?.lines ?? []).join("\n");
   expect(shown).toContain(" V1: ");
   expect(shown).not.toContain("Dana");
-  // His own answer: the voice keeps its name and nothing is left to name.
-  expect((await asked1("owner")).counts.parts).toBe(0);
+  expect(input0?.people).toEqual([]);
+  // Answered by him yesterday: offered, so the recognized voice keeps its name and nothing is left to name.
+  expect((await day("owner")).work.counts.parts).toBe(0);
+});
+
+test("a voice named by his answer over a phone does not count as heard in person", async () => {
+  const s = sceneOf({
+    before: true,
+    name: "Dana",
+    voices: (job, before) => [
+      row(job, { basis: "recognized", personId: "p1", status: "person" }),
+      row(before, { basis: "owner", personId: "p1", status: "person" }),
+    ],
+  });
+  server?.close();
+  server = lifelogServer({
+    "/conversations/c0": () => ({
+      latestRun: {
+        result: {
+          speakerIdentities: [
+            {
+              jobId: `job-${n}-0`,
+              kind: "phone",
+              speakerLabel: "speaker_1",
+              withOwner: true,
+            },
+          ],
+        },
+      },
+    }),
+    "/conversations/c1": () => ({ latestRun: null }),
+    [`/transcription-jobs/job-${n}/transcript`]: () => ({
+      turns: Array.from({ length: 20 }, (_, t) => ({
+        speakerId: `speaker_${t % 2}`,
+        text: `remark ${t} ${"w".repeat(1000)}`,
+      })),
+    }),
+    "/speakers/voices": () => [
+      row(s.job, { basis: "recognized", personId: "p1", status: "person" }),
+      row(`job-${n}-0`, { basis: "owner", personId: "p1", status: "person" }),
+    ],
+  });
+  expect((await workOf(s)).counts.parts).toBe(1);
+});
+
+test("a voice named later by his answer asks its part again, and the old guess no longer matches", async () => {
+  const s = sceneOf({ others: 2, voices: (job) => [row(job)] });
+  await run(s, () => ({ voices: [] }));
+  expect((await workOf(s)).counts.calls).toBe(0);
+  const store = s.open();
+  store.db.run(
+    "update turns set person_id = 'p1', person_name = 'Dana' where job_id = ? and turn_index % 3 = 1",
+    [s.job]
+  );
+  store.db.close();
+  const again = await workOf(s);
+  expect(again.counts).toEqual({ calls: 1, parts: 1 });
+  expect(readReplies(s.where).flat()).toHaveLength(1);
 });
 
 test("an older Lifelog Host with no voices route stops the step with a plain message", async () => {

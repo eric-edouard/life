@@ -8,7 +8,7 @@ import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
 
-// The store of a model's reads (docs/glossary.md, "read reply"): each reply kept as the model gave it in
+// The store of a model's reads (docs/glossary.md, "read reply"): each reply kept as given (a voice naming's after `checkedVoices`) in
 // memory/read-replies/ (model output is expensive), what is pending derived from the stored lines (`replyOf`). The
 // one writer and reader of that folder (or of a trial's).
 
@@ -134,7 +134,7 @@ export const storeReply = (
 ) => appendJsonl(readReplyPath(firstAt, where), ReadReply, [line]);
 
 /**
- * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
+ * Makes each call, a few at a time, and stores its reply as given (except the voice naming, stored after `checkedVoices`), with what made it (`madeBy`), the
  * digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that is not one (an
  * object with its `exchanges` or its `summary`), stores nothing, is returned in `failed` and is asked again at the next pass.
  */
