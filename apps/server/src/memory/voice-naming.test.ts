@@ -170,6 +170,47 @@ test("a recognized voice of someone who could not be there is a V, even though l
   expect((await asked1("owner")).counts.parts).toBe(0);
 });
 
+test("the hidden run shows a voice he answered as an unnamed V with no likeness, and asks only parts holding one", async () => {
+  const answered = {
+    basis: "owner",
+    likeness: [{ personId: "p1", score: 0.9 }],
+    personId: "p1",
+    status: "person",
+  };
+  const worksOf = async (o: Row) => {
+    const s = sceneOf({ name: "Dana", voices: [row(`job-${n + 1}`, o)] });
+    const found = await readConversationSummaryWork(
+      NOW,
+      people,
+      {},
+      s.where,
+      s.open
+    );
+    return {
+      hidden: await readVoiceNamingWork(found, people, s.where, s.open, true),
+      shown: await readVoiceNamingWork(found, people, s.where, s.open),
+    };
+  };
+  const one = await worksOf(answered);
+  // Not hidden, his answer names the voice and nothing is asked; hidden, it is V1 with no likeness and no name.
+  expect(one.shown.counts.parts).toBe(0);
+  const input0 = one.hidden.asked[0]?.call.input as NamingInput;
+  expect(input0.lines.join("\n")).toContain(" V1: ");
+  expect(input0.lines.join("\n")).not.toContain("Dana");
+  expect(input0.voices).toEqual([{ likeness: [], voice: "V1" }]);
+  // A voice lifelog named by sound and a mixed one hide nothing; one he answered not relevant is hidden too.
+  expect(
+    (await worksOf({ ...answered, basis: "recognized" })).hidden.counts.parts
+  ).toBe(0);
+  expect(
+    (await worksOf({ ...answered, mixed: true })).hidden.counts.parts
+  ).toBe(0);
+  expect(
+    (await worksOf({ ...answered, personId: null, status: "not_relevant" }))
+      .hidden.counts.parts
+  ).toBe(1);
+});
+
 test("an older Lifelog Host with no voices route stops the step with a plain message", async () => {
   const s = sceneOf({});
   await expect(workOf(s)).rejects.toThrow("needs the new Lifelog Host");

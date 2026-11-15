@@ -117,6 +117,25 @@ test("only the payments backend imports money, and only money.ts runs the money 
   expect(running(MONEY)).toEqual(["apps/server/src/payments/money.ts"]);
 });
 
+// A voice guess stays a guess (docs/glossary.md, "voice guess"): the files that make and read it never send a correction to
+// lifelog (`forward`) or record or read one (`memory-files`' corrections), so nothing a model said can act as his word.
+const NAMING = [
+  "apps/server/src/memory/naming-context.ts",
+  "apps/server/src/memory/voice-guesses.ts",
+  "apps/server/src/memory/voice-naming.ts",
+];
+test("the voice naming files never import forward or the corrections", () => {
+  const reaching = [
+    ...importers(["forward", "FORWARD_KINDS"], "lifelog"),
+    ...importers(
+      ["readCorrections", "recordCorrection", "outdatedBy", "hiding", "hides"],
+      "memory-files"
+    ),
+  ];
+  expect(NAMING.every((f) => files.includes(f))).toBe(true);
+  expect(reaching.filter((f) => NAMING.includes(f))).toEqual([]);
+});
+
 const lifelogTexts = repoFiles(LIFE_CODE_DIR, ["apps/lifelog"], [".ts"])
   .filter((f) => !f.endsWith(".test.ts"))
   .map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")] as const);

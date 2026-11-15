@@ -1,8 +1,7 @@
-import { z } from "zod";
 import { HOUR } from "../core/clock";
 import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
-import { VOICE_NAMING_READ } from "../records/read-reply";
+import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import {
   openStore,
@@ -32,12 +31,8 @@ import {
 } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { begin, chunks, type Step } from "./run";
-import {
-  partLine,
-  type SpokenPart,
-  voiceTokensOf,
-} from "./spoken-conversations";
-import { clip, unnamedTurnKey } from "./units";
+import { partLine, type SpokenPart } from "./spoken-conversations";
+import { clip, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { observationsNow } from "./who";
 import { messageLine } from "./words";
@@ -71,12 +66,6 @@ export interface NamingInput {
   voices: { likeness: { person: string; score: number }[]; voice: string }[];
 }
 
-const Entry = z.object({
-  confidence: z.enum(["sure", "likely", "weak"]),
-  lines: z.array(z.int().min(0)).min(1),
-  person: z.string(),
-  voice: z.string(),
-});
 const LINE_WHO = /^\[\d+\] \S+ (\S+): /;
 const TOKEN = /^V\d+$/;
 
@@ -94,7 +83,7 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
   const offered = new Set(input.people.map((p) => p.ref));
   const seen = new Set<string>();
   const kept = voices.flatMap((v) => {
-    const e = Entry.safeParse(v).data;
+    const e = NamedVoice.safeParse(v).data;
     if (
       !e ||
       seen.has(e.voice) ||
@@ -294,13 +283,16 @@ function messagesAround(offered: string[], part: SpokenPart, c: Context) {
  * `voices` what lifelog says of the voices of its recordings. Who could be there (`possibleSpeakersOf`) decides which
  * names to trust: a voice lifelog named by sound as someone who could not be there (`basis: recognized`) is shown as a
  * `V` token like an unnamed one, and may be guessed again. A voice is its `V` by `voiceTokensOf` over the keys it is
- * stored by (`unnamedTurnKey` for those, the turn's own key for the rest).
+ * stored by (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run, never the
+ * night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them, with no likeness, and whose answers
+ * name no one as possible; a part with none of them is null.
  */
 export function namingOf(
   part: SpokenPart,
   began: string,
   voices: VoiceRow[],
-  c: Context
+  c: Context,
+  hidden?: Set<string>
 ) {
   const jobOf = (n: number) =>
     parseTurnRef(refOf(part.keys[n] as string))?.jobId ?? "";
@@ -318,6 +310,7 @@ export function namingOf(
     {
       answered: voices.flatMap((v) =>
         jobs.has(v.jobId) &&
+        !hidden?.has(voiceKey(v.jobId, v.speakerLabel)) &&
         v.basis === "owner" &&
         v.status === "person" &&
         v.personId
@@ -337,7 +330,7 @@ export function namingOf(
     if (v.owner) {
       return false;
     }
-    if (!v.name) {
+    if (!v.name || hidden?.has(voiceKey(jobOf(n), v.label))) {
       return true;
     }
     const ref = v.from ? c.people.resolve(v.from) : null;
@@ -350,7 +343,11 @@ export function namingOf(
     unnamed[n] ? unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "") : k
   );
   const tokens = voiceTokensOf(keys.filter((_, n) => unnamed[n]));
-  if (tokens.size === 0) {
+  // The hidden run asks only the parts holding a voice it hid.
+  if (
+    tokens.size === 0 ||
+    (hidden && ![...tokens.keys()].some((v) => hidden.has(v)))
+  ) {
     return null;
   }
   const input: NamingInput = {
@@ -369,7 +366,10 @@ export function namingOf(
       ref,
     })),
     voices: [...tokens].map(([voice, token]) => ({
-      likeness: (rows.get(voice)?.likeness ?? []).flatMap((l) => {
+      likeness: (hidden?.has(voice)
+        ? []
+        : (rows.get(voice)?.likeness ?? [])
+      ).flatMap((l) => {
         const person = c.people.resolve(l.personId);
         return person && could.has(person)
           ? [{ person, score: Math.round(l.score * 100) / 100 }]
@@ -381,19 +381,33 @@ export function namingOf(
   return { input, keys };
 }
 
+/** The voices (`voiceKey`) he answered whole, a person or not relevant, and not mixed: what the score's hidden run hides. */
+const hiddenOf = (rows: VoiceRow[]) =>
+  new Set(
+    rows.flatMap((v) =>
+      v.basis === "owner" &&
+      !v.mixed &&
+      (v.status === "person" || v.status === "not_relevant")
+        ? [voiceKey(v.jobId, v.speakerLabel)]
+        : []
+    )
+  );
+
 /** What a run would do: the parts with a voice to name, and the calls due (those with no stored reply under their keys now). */
 export type VoiceNamingWork = Awaited<ReturnType<typeof readVoiceNamingWork>>;
 
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
  * lifelog's voices per part, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
- * pending before the night's cap.
+ * pending before the night's cap. With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
+ * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(
   found: ConversationSummaryWork,
   people: People,
   where = READ_REPLIES,
-  open = openStore
+  open = openStore,
+  hiding = false
 ) {
   const parts = found.parts.flatMap((c) =>
     c.map((part) => ({ began: c[0]?.at ?? part.at, part }))
@@ -415,7 +429,14 @@ export async function readVoiceNamingWork(
         )
       );
       for (const [i, { began, part }] of group.entries()) {
-        const n = namingOf(part, began, voices[i] ?? [], c);
+        const rows = voices[i] ?? [];
+        const n = namingOf(
+          part,
+          began,
+          rows,
+          c,
+          hiding ? hiddenOf(rows) : undefined
+        );
         if (n) {
           named += 1;
           if (!replyOf(n.keys, VOICE_NAMING_READ, index)) {
