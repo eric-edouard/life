@@ -4,21 +4,32 @@
 // "Measuring"). Counts only: no name and no line of text is printed. Without `--run` the hidden mode asks nothing: it
 // prints how many parts and voices it would ask.
 
-import { isAbsolute, relative, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { parseArgs } from "node:util";
 import { clock } from "@life/server/src/core/clock";
-import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
+import { OWNER_DATA_DIR, real } from "@life/server/src/core/paths";
 import { readConversationSummaryWork } from "@life/server/src/memory/conversation-summaries";
 import { READ_REPLIES } from "@life/server/src/memory/memory-files";
 import { READS, readReplies } from "@life/server/src/memory/read-replies";
-import { chunks } from "@life/server/src/memory/run";
-import { guessesOf } from "@life/server/src/memory/voice-guesses";
+import { begin, chunks } from "@life/server/src/memory/run";
+import { spareQuota } from "@life/server/src/memory/schedule";
+import { turnRefOf } from "@life/server/src/memory/units";
+import { voiceGuessesOf } from "@life/server/src/memory/voice-guesses";
 import {
   readVoiceNamingWork,
   voiceNaming,
 } from "@life/server/src/memory/voice-naming";
 import { readPeople } from "@life/server/src/memory/who";
 import { transcripts } from "@life/server/src/memory/words";
+import { llmFor } from "@life/server/src/models/llm";
 import type { ReadReply } from "@life/server/src/records/read-reply";
 import {
   openStore,
@@ -150,13 +161,27 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
   ];
 }
 
-/** Whether `folder` is inside his data: a trial never is (it holds replies, and nothing of his is written but by Life). */
+/** A path with its links resolved as far as it exists (the nearest folder that does), the rest appended as written. */
+const realPath = (p: string): string => {
+  const abs = resolve(p);
+  return existsSync(abs)
+    ? realpathSync(abs)
+    : join(realPath(dirname(abs)), basename(abs));
+};
+
+/**
+ * Whether `folder` is inside his data, reached through a link or not (`~/Life` may be one: `OWNER_DATA_DIR` is its real
+ * path): a trial never is (it holds replies, and nothing of his is written but by Life).
+ */
 export const isInsideData = (folder: string, data = OWNER_DATA_DIR) => {
-  const rel = relative(data, resolve(folder));
+  const rel = relative(real(data), realPath(folder));
   return !(rel.startsWith("..") || isAbsolute(rel));
 };
 
-const refOfKey = (key: string) => key.split(" ")[0] ?? "";
+/** Said last in every score: what the numbers cannot account for. */
+export const LIMITS =
+  "limits: answers in other conversations still feed who could be there; an answer's date is not known, so 'answered since' means 'answered now'";
+
 const WORD = /\S+/g;
 
 /**
@@ -167,7 +192,7 @@ const WORD = /\S+/g;
 async function gather(lines: ReadReply[]) {
   const people = await readPeople();
   const per = [] as {
-    g: ReturnType<typeof guessesOf>[number];
+    g: ReturnType<typeof voiceGuessesOf>[number];
     row?: VoiceRow;
   }[];
   for (const group of chunks(lines, 8)) {
@@ -175,7 +200,7 @@ async function gather(lines: ReadReply[]) {
     const rows = await Promise.all(
       group.map((line) => {
         const ats = line.messages.map((k) =>
-          Date.parse(refOfKey(k).split("@")[1] ?? "")
+          Date.parse(turnRefOf(k).split("@")[1] ?? "")
         );
         return readVoices(
           new Date(Math.min(...ats)),
@@ -187,7 +212,7 @@ async function gather(lines: ReadReply[]) {
       const byVoice = new Map(
         (rows[i] ?? []).map((r) => [voiceKey(r.jobId, r.speakerLabel), r])
       );
-      for (const g of guessesOf(line)) {
+      for (const g of voiceGuessesOf(line)) {
         per.push({ g, row: byVoice.get(g.voice) });
       }
     }
@@ -197,19 +222,21 @@ async function gather(lines: ReadReply[]) {
     const ref = row?.basis === "recognized" ? person(row.personId) : null;
     return ref ? people.refOf(ref) : null;
   };
+  const unplaced = new Set<string>();
   const answerOf = (row?: VoiceRow) => {
     if (row?.basis !== "owner") {
       return null;
     }
-    return row.status === "not_relevant"
-      ? "not_relevant"
-      : person(row.personId);
+    if (row.status === "not_relevant") {
+      return "not_relevant";
+    }
+    return person(row.personId);
   };
   const jobs = [
     ...new Set(
       per.flatMap(({ g, row }) =>
         answerOf(row)
-          ? g.keys.map((k) => parseTurnRef(refOfKey(k))?.jobId ?? "")
+          ? g.keys.map((k) => parseTurnRef(turnRefOf(k))?.jobId ?? "")
           : []
       )
     ),
@@ -221,15 +248,18 @@ async function gather(lines: ReadReply[]) {
         per.flatMap(({ g, row }) =>
           row?.basis !== "owner" &&
           row?.basis !== "recognized" &&
-          g.keys.some((k) => isTurnNamed(s, refOfKey(k)))
+          g.keys.some((k) => isTurnNamed(s, turnRefOf(k)))
             ? [g.voice]
             : []
         )
       ),
     openStore
   );
-  return per.map(({ g, row }) => {
+  const guessed = per.map(({ g, row }) => {
     const answer = answerOf(row);
+    if (!answer && row?.basis === "owner" && row.status === "person") {
+      unplaced.add(g.voice);
+    }
     let apart: Guessed["apart"];
     if (row?.mixed) {
       apart = "mixed";
@@ -250,7 +280,7 @@ async function gather(lines: ReadReply[]) {
       recognized: recognizedOf(row),
       voice: g.voice,
       words: g.keys.reduce((n, k) => {
-        const t = parseTurnRef(refOfKey(k));
+        const t = parseTurnRef(turnRefOf(k));
         return (
           n +
           ((t && words.get(t.jobId)?.[t.turnIndex]?.text.match(WORD)?.length) ||
@@ -259,6 +289,7 @@ async function gather(lines: ReadReply[]) {
       }, 0),
     };
   });
+  return { guessed, unplaced: unplaced.size };
 }
 
 if (import.meta.main) {
@@ -300,7 +331,14 @@ if (import.meta.main) {
       { calls: work.counts.calls, parts: work.counts.parts, voices },
     ]);
     if (values.run) {
-      console.table([await voiceNaming(work, Number.POSITIVE_INFINITY, where)]);
+      // The trial's own step name, apart from the night's in Life's run log, and the pilot's guard on the Codex reserve.
+      await spareQuota(llmFor("main").engine);
+      const step = await begin("voice-naming-trial", "main", {
+        prompts: [READS.voice_naming.prompt],
+      });
+      console.table([
+        await voiceNaming(work, Number.POSITIVE_INFINITY, where, step),
+      ]);
     } else {
       process.exit(0);
     }
@@ -312,5 +350,12 @@ if (import.meta.main) {
         l.read === "voice_naming" &&
         l.madeBy.prompt === READS.voice_naming.prompt
     );
-  console.log(reportOf(scoreOf(await gather(lines))).join("\n"));
+  const { guessed, unplaced } = await gather(lines);
+  console.log(
+    [
+      ...reportOf(scoreOf(guessed)),
+      `answered voices whose lifelog person Life cannot place: ${unplaced}`,
+      LIMITS,
+    ].join("\n")
+  );
 }

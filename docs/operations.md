@@ -325,9 +325,9 @@ first.
   answered (`basis: owner` in lifelog's `GET /speakers/voices`: a person, or `not_relevant`); lifelog gives no date, but a
   guess is only made for a voice no one had answered, so an answer there is since. `--hidden --trial <folder> [--from YYYY-MM-DD] [--run]`
   asks the naming again for the parts holding a voice he answered, those voices shown as unnamed (`hidden` in `namingOf`:
-  no name on its lines, no likeness, not counted among the people who could be there), into the trial folder, which
+  no name on its lines, not counted among the people who could be there; its likeness is lifelog's, which already judges it without the span's own exemplars), into the trial folder, which
   must be outside his data, then scores that folder; without `--run` it prints the parts, calls and voices it would
-  ask. Through the REST contract it cannot hide that other conversations of his answers name the same people (who
+  ask. Known leak: about 3.5% of lifelog's exemplars carry an older conversation id and can remain in a voice's likeness. Through the REST contract it also cannot hide that other conversations of his answers name the same people (who
   was heard in person before, the briefs), and a stored line's voice rows are today's. It prints counts only: wrong per
   100 at sure and at likely, by voice (each counted once, by its newest guess) and by guess; voices with no
   likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; the doubted

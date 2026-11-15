@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
@@ -62,4 +63,15 @@ test("a trial folder inside his data is refused", () => {
   expect(isInsideData(join(OWNER_DATA_DIR, "docs", "trial"))).toBe(true);
   expect(isInsideData(OWNER_DATA_DIR)).toBe(true);
   expect(isInsideData(join(tmpdir(), "voice-trial"))).toBe(false);
+});
+
+test("a trial folder reached through a link into his data is refused, an existing one or a new one under a linked parent", () => {
+  const base = mkdtempSync(join(tmpdir(), "score-link-"));
+  const data = join(base, "data");
+  mkdirSync(join(data, "docs"), { recursive: true });
+  const link = join(base, "Life");
+  symlinkSync(data, link);
+  expect(isInsideData(join(link, "docs"), data)).toBe(true);
+  expect(isInsideData(join(link, "docs", "new", "deeper"), data)).toBe(true);
+  expect(isInsideData(join(base, "elsewhere", "trial"), data)).toBe(false);
 });

@@ -26,7 +26,7 @@ export interface VoiceGuess {
  * The guesses a stored line holds that still check against its own keys: an entry is dropped when a line it cites is
  * absent or is not a turn of its voice, as `voiceTokensOf` numbers the voices of the keys no one had named.
  */
-export function guessesOf(line: ReadReply): VoiceGuess[] {
+export function voiceGuessesOf(line: ReadReply): VoiceGuess[] {
   if (line.read !== "voice_naming") {
     return [];
   }
@@ -58,25 +58,35 @@ export function guessesOf(line: ReadReply): VoiceGuess[] {
 
 /**
  * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of the voice naming's current
- * prompt. An entry whose person is not known today (`me` and `unknown` aside) is dropped. A key is a turn's only while the turn
+ * prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
  * is still unnamed: a turn named since (his answer, lifelog's match, a relabel) has another key and is never looked up.
  */
 export function voiceGuessesNow(
   people: Pick<People, "names" | "refOf">,
   where = READ_REPLIES
 ) {
-  const known = (p: string) =>
-    p === "me" || p === "unknown" || people.names.has(people.refOf(p));
   const now = new Map<string, VoiceGuess>();
   for (const line of readReplies(where).flat()) {
     if (line.madeBy.prompt === READS.voice_naming.prompt) {
-      for (const g of guessesOf(line).filter((x) => known(x.person))) {
+      for (const g of voiceGuessesOf(line)) {
         for (const key of g.keys) {
           if ((now.get(key)?.at ?? "") <= g.at) {
             now.set(key, g);
           }
         }
       }
+    }
+  }
+  // The newest guess of a key is the one that counts: when its person is not known today the key has none, never an older guess.
+  for (const [key, g] of now) {
+    if (
+      !(
+        g.person === "me" ||
+        g.person === "unknown" ||
+        people.names.has(people.refOf(g.person))
+      )
+    ) {
+      now.delete(key);
     }
   }
   return now;

@@ -325,7 +325,7 @@ function messagesAround(offered: string[], part: SpokenPart, c: Context) {
  * names to trust: a voice lifelog named by sound as someone who could not be there (`basis: recognized`) is shown as a
  * `V` token like an unnamed one, and may be guessed again. A voice is its `V` by `voiceTokensOf` over the keys it is
  * stored by (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run, never the
- * night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them, with no likeness, and whose answers
+ * night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them (their likeness stays: lifelog's route already judges it without the span's own exemplars), and whose answers
  * name no one as possible; a part with none of them is null.
  */
 export function namingOf(
@@ -404,10 +404,7 @@ export function namingOf(
       ref,
     })),
     voices: [...tokens].map(([voice, token]) => ({
-      likeness: (hidden?.has(voice)
-        ? []
-        : (rows.get(voice)?.likeness ?? [])
-      ).flatMap((l) => {
+      likeness: (rows.get(voice)?.likeness ?? []).flatMap((l) => {
         const person = c.people.resolve(l.personId);
         return person && could.has(person)
           ? [{ person, score: Math.round(l.score * 100) / 100 }]

@@ -311,7 +311,7 @@ test("the hidden run shows a voice he answered as an unnamed V with no likeness,
     };
   };
   const one = await worksOf(answered);
-  // Not hidden, his answer names the voice and nothing is asked; hidden, it is V1 with no likeness and no name.
+  // Not hidden, his answer names the voice and nothing is asked; hidden, it is V1 with no name.
   expect(one.shown.counts.parts).toBe(0);
   const input0 = one.hidden.asked[0]?.call.input as NamingInput;
   expect(input0.lines.join("\n")).toContain(" V1: ");

@@ -84,16 +84,31 @@ test("a guess is kept for each turn of its voice, the newest wins, and an entry 
   line([entry({ person: "me" })], "2026-10-12T00:00:00.000Z");
   expect(guessOf(MESSAGES[1] as string)).toBe("me");
   expect(guessOf(MESSAGES[2] as string)).toBe("person:dana");
-  // ...but a newer entry that is dropped never overrides it: a person not known now, a cited line absent, one of another
-  // voice (line 2 is V2), or one that is not an unnamed turn (line 0 is his).
+  // ...but a newer entry that is dropped never overrides it: a cited line absent, one of another voice (line 2 is V2),
+  // or one that is not an unnamed turn (line 0 is his).
   for (const bad of [
-    entry({ person: "person:ghost" }),
     entry({ lines: [1, 9] }),
     entry({ lines: [1, 2] }),
     entry({ lines: [0] }),
   ]) {
     line([bad], "2026-10-13T00:00:00.000Z");
     expect(guessOf(MESSAGES[1] as string)).toBe("me");
+  }
+});
+
+test("when the newest guess names a person not known now the key has none, never an older guess", () => {
+  const other = mkdtempSync(join(tmpdir(), "voice-guesses-ghost-"));
+  try {
+    line([entry()], "2026-10-11T00:00:00.000Z", other);
+    line(
+      [entry({ person: "person:ghost" })],
+      "2026-10-12T00:00:00.000Z",
+      other
+    );
+    const now = voiceGuessesNow(people, other);
+    expect(now.get(MESSAGES[1] as string)).toBeUndefined();
+  } finally {
+    rmSync(other, { force: true, recursive: true });
   }
 });
 

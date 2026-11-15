@@ -117,23 +117,17 @@ test("only the payments backend imports money, and only money.ts runs the money 
   expect(running(MONEY)).toEqual(["apps/server/src/payments/money.ts"]);
 });
 
-// A voice guess stays a guess (docs/glossary.md, "voice guess"): the files that make and read it never send a correction to
-// lifelog (`forward`) or record or read one (`memory-files`' corrections), so nothing a model said can act as his word.
-const NAMING = [
-  "apps/server/src/memory/naming-context.ts",
-  "apps/server/src/memory/voice-guesses.ts",
-  "apps/server/src/memory/voice-naming.ts",
-];
-test("the voice naming files never import forward or the corrections", () => {
-  const reaching = [
-    ...importers(["forward", "FORWARD_KINDS"], "lifelog"),
-    ...importers(
-      ["readCorrections", "recordCorrection", "outdatedBy", "hiding", "hides"],
-      "memory-files"
-    ),
-  ];
-  expect(NAMING.every((f) => files.includes(f))).toBe(true);
-  expect(reaching.filter((f) => NAMING.includes(f))).toEqual([]);
+// A voice guess stays a guess (docs/glossary.md, "voice guess"): what acts on his word is pinned to its writers, so a
+// file that reads or makes guesses (`voice-naming.ts`, `naming-context.ts`, `voice-guesses.ts`) can never be one of them:
+// only the connector forwards a correction to lifelog, and only the command and the connector record one.
+test("forward and recordCorrection have only their known importers", () => {
+  expect(importers(["forward"], "lifelog")).toEqual([
+    "apps/server/src/host/http/mcp.ts",
+  ]);
+  expect(importers(["recordCorrection"], "memory-files")).toEqual([
+    "apps/server/src/host/command.ts",
+    "apps/server/src/host/http/mcp.ts",
+  ]);
 });
 
 const lifelogTexts = repoFiles(LIFE_CODE_DIR, ["apps/lifelog"], [".ts"])

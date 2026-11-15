@@ -188,6 +188,9 @@ export const turnKey = (t: LifelogTurn) =>
 export const unnamedTurnKey = (ref: string, label: string) =>
   `${ref} voice:${label}`;
 
+/** The turn ref a key starts with: of a `turnKey`, an `unnamedTurnKey` or a line of `messages`. */
+export const turnRefOf = (key: string) => key.split(" ")[0] ?? "";
+
 /** The voice (its recording and label, `voiceKey`) of an `unnamedTurnKey`. */
 export function voiceOfKey(key: string) {
   const [ref = "", label = ""] = key.split(" voice:");
