@@ -140,7 +140,7 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
   the latest job completed.
 - `ai.running`: the runs in flight, with the conversation's title (the owner's, else the summary's); `waiting`: the
   conversations whose summary is due or waits, as the rolling drain last found them (`rolling.ts` `due`; the rule is
-  `summaries.ts`'s), the running ones aside; `blockedBy`: `macAway` (summaries on, the Mac away)
+  `runs.ts`'s), the running ones aside; `blockedBy`: `macAway` (summaries on, the Mac away)
   or null, the reason `conversation-state.ts` gives; `lastSummaryAt`, the latest valid run. With summaries on, the
   drain works out what is due every tick, the Mac away or not, so the count holds while it is away; off, nothing is
   due.

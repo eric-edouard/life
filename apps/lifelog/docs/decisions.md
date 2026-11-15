@@ -157,7 +157,7 @@ reverse it, change its entry here in the same commit.
   French as anything measured, and Nemotron closer on speakers than pyannote; no open model is good enough on Thai
   (`docs/research/transcription-bench.md`). Apple's and Whisper's transcription were rejected earlier for Thai and
   mixed audio.
-- **Summaries on the owner's subscription, through the Mac.** ChatGPT (Codex) or Claude Code runs every model call
+- **Summaries (now the voices read) on the owner's subscription, through the Mac.** ChatGPT (Codex) or Claude Code runs every model call
   with no tools, settings or MCP servers; when the Mac is away or at its limit, work waits. There is no paid API
   fallback.
 - **Search by meaning runs on the Mac (5 Nov 2026).** EmbeddingGemma-300M under llama.cpp, a Lifelog Host child,
@@ -168,8 +168,9 @@ reverse it, change its entry here in the same commit.
   another platform is a thin port, and one rule has one copy. What must stay on the machine stays: the empty folder
   and no-tools flags (the server could otherwise run tools on the Mac), the outbox until acked, and the subscription
   readings, filtered to percentages before they leave.
-- **Summaries cite their turns.** Both engines answer one strict JSON schema whose claims cite turn ids; output that
-  fails the checks is kept as `invalid` and retried only on the owner's Generate. A run keeps each usable answer, so
+- **A run reads only the voices (15 Nov 2026, prompt version 12).** Chapters, per-chapter summaries, title, TLDR and AI
+  splits are gone; old runs and chapter rows stay as stored (`latestSummary`), and no table is dropped. Both engines
+  answer one strict JSON schema; output that fails the checks is kept as `invalid` and retried only on the owner's Generate. A run keeps each usable answer, so
   an interruption resumes instead of restarting. The owner's title always wins.
 - **Speakers are tokens named when read.** The model writes `{S2}`; the server renders the person's name, else
   "Speaker N", so naming a voice later fixes every summary at no cost.

@@ -1,7 +1,7 @@
 # Processing
 
 What happens to the Pendant's audio after capture. The server does most of it: it keeps the audio, transcribes it,
-groups it into conversations, recognizes speakers and summarizes chapters. The phone's part is short: it labels
+groups it into conversations and recognizes speakers. The phone's part is short: it labels
 speech and uploads it as fragments; the server cuts the blocks. Who owns what between them: [`docs/sync.md`](sync.md).
 
 ## On the phone
@@ -104,15 +104,15 @@ Details of each step are in [`docs/transcription-server.md`](transcription-serve
 4. **Grouping** for the source runs over the block's range, forward-only (`docs/timeline.md`). Conversations change
    in the feed.
 5. **Speakers** are recognized from the job's own audio (below).
-6. **Summaries** roll for every conversation whose words changed (below).
+6. **The voices read** rolls for every conversation whose words changed (below).
 7. **Waiting reasons** are written on each live conversation and logged when they change.
 
 ### Latency
 
 Targets, while the Pendant is connected and the phone online: speech to words about 5 minutes or
-less; a chapter that closes to its summary about 5 minutes with the Mac up; every wait has a reason. `GET /status`
+less; every wait has a reason. `GET /status`
 shows what happened over the last day, as the median and 90th percentile: seconds from a block's last speech to its
-upload, from its upload to its words, and from a chapter's end to its first summary. The phone uploads at each
+upload, and from its upload to its words (the chapter latency of runs before version 12 stays). The phone uploads at each
 Bluetooth sync and when the app comes forward. While the latest heartbeat says the Pendant records and the Pendant's
 heard-through is more than 5 minutes behind, the 5-minute tick sends the phone a silent push to send what is ready
 (`askForUploads`, `ready: "upload"`), so at most one every 5 minutes. Only the iPhone's sources count: a raw-page
@@ -134,7 +134,7 @@ A conversation that isn't finished says why in the feed (`waiting.reason`, `sinc
 sentence. While a job over it isn't completed, the reason is `transcriptionOff` or `creditsOut`. Otherwise, `macAway` while a refused event blocks the Mac's
 watermark (`docs/sync.md`), `phoneQuiet`
 when heard-through is more than 10 minutes behind and before the conversation's end while the Pendant records (audio of
-it the phone hasn't sent), and, with summaries on, for a conversation with words that is still open or due (Summaries,
+it the phone hasn't sent), and, with AI on, for a conversation with words that is still open or due (The voices read,
 below), `macAway` (its summary waits for the Mac).
 
 ### Pausing transcription and AI
@@ -148,9 +148,8 @@ bun run switches transcription off    # transcription | ai | all, on | off
 
 - **Transcription** covers audio to ElevenLabs and voices to `apps/identity`. Off, blocks still go up and wait on the
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
-- **AI** covers summaries, titles and chapters on the Mac, and is off by default: Life reads the words, not the
-  summaries. Off, no summary is made or waited for: nothing is due, and turned back on, the next drain looks at every
-  conversation once. Search's embeddings run on the Mac's embedder, under neither switch.
+- **AI** covers the voices read on the Mac (`pipeline.ai`, the switch's name `ai`), and is off by default. Off, no read is
+  made or waited for: nothing is due, and turned back on, the next drain looks at every conversation once. Search's embeddings run on the Mac's embedder, under neither switch.
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by
@@ -301,65 +300,59 @@ rejected, and rejected strangers remain negative references. The full retention 
 [providers.md](providers.md#speaker-recognition-our-own-service-no-third-party). Keeping an unnamed sample longer
 does not make it anyone's evidence or allow external transmission; only owner-attributed clips become person evidence.
 
-### Summaries
+### The voices read
 
-Summaries run only on the Mac, on the selected ChatGPT or Claude subscription; nothing sends them to a paid API. A
-call is waiting, not failed, when the Mac is away. Owner titles are never sent, so they are never replaced.
+Since prompt version 12 (15 Nov 2026) a run only reads the voices: who each voice without a person is. It makes no
+chapters, summary, title, TLDR or split. Runs of version 11 and before keep theirs as stored: the feed still shows an old
+conversation's title, TLDR and chapters (`latestSummary`, `runs.ts`), and nothing writes them again. A conversation with no
+such run has a null title and TLDR and no chapter.
 
-**One rule, one kind of run** (`rolling.ts`, `intelligence.ts`). Every summary is a roll. A live conversation grouped on
-the server, of talk, is **due** when its words differ from what its last finished roll read (`conversations.turns_fp`:
-its turn keys, and whether it was open), or when its latest run waits. However late its words came (held audio,
-credits out, the phone offline), it is summarized once they are there, and it shows `macAway` while the Mac is gone.
-With summaries on, due conversations roll after each grouping, when the Mac wakes, and every 5 minutes while it is there, three at a
-time, newest first. A drain looks only at the conversations the change log touched since the last one and those left
-due, never at the whole archive. At most one roll per conversation runs; a request during a roll makes one more after
-it.
+The read runs only on the Mac, on the selected ChatGPT or Claude subscription; nothing sends it to a paid API. A call is
+waiting, not failed, when the Mac is away. Owner titles are never replaced.
 
-- A roll reads the tail: the turns after the chapters the latest valid run closed, at most about 24k characters (some
-  20 minutes), and only words before a block still being transcribed. A conversation longer than that rolls window
-  after window until its words are covered; then its fingerprint is kept.
-- One chapters call over the tail; it is told the conversation goes on when it is open or the window ends before its
-  end. A chapter closes when another follows it, before a confident new conversation, when the conversation is closed
-  and the window reaches its end, or when one topic fills the window. Each closed chapter is summarized at once, four
-  at a time (the Mac's slots), then the title and TLDR are written again from every chapter; that call never reads
-  the transcript. Chapters already closed cost no call. A roll that closes nothing keeps nothing.
-- Chapters of the previous run are carried only while their turns are the same, from the first turn: a split keeps
-  the chapters before it, and the piece after it rolls from its own first turn. A piece cut exactly at a chapter keeps
-  its chapters and buys only its title.
-- Each roll is a run (`coverage.mode` `rolling`), so every reader shows the latest valid one. A roll the Mac dropped
-  waits and resumes in place, asking only for what it has no usable answer to (`intelligence_calls`, keyed by run,
-  stage and the call's hash, even one the Mac sent after the call timed out). A restart puts running runs back to
-  waiting at boot. A run still running is never started twice. A failed roll is taken again 5 minutes later, then 10,
-  20, 40, then once an hour.
-- Chapters a turn off are clamped, not refused. An unusable answer (not JSON, cut off, uncited, or a provider error)
-  is asked again twice, 5 and 15 seconds later, for that call alone. A chapter still without a summary keeps its
-  error; the run is invalid only when the title is. Each call keeps its tokens and the turns it read.
-- Each chapter is a `chapters` row, logged for the feed, with an id from its conversation and start, so a chapter
-  summarized again keeps it. It ends where the next starts. `summarizedAt` is its first summary.
-- A confident new conversation (high confidence) is an AI split at its first turn (`owner_edits`, source `ai`, its id
-  from its instant, once). Grouping applies it at once and the new piece rolls on its own; the owner's merge undoes
-  it, and the phone shows "Split by AI · Undo". A medium one stays a suggestion in the feed (`splitSuggestions`):
-  "Split here?" posts a `split` edit, dismissing a `dismissSplit`. Low ones are dropped. The chapters call is told what
-  the phone measured (silences of two minutes or more, where the owner travelled). The same people going on, short
-  asides, dictating, overheard talk and media are never a new conversation. A silence must show five minutes in the
-  turn times.
-- **Generate** (`POST /conversations/{id}/intelligence` with `after`, the run the owner saw): when a run newer than it
-  is valid, running or waiting, nothing happens. Otherwise it rolls again from its first turn, every chapter closing;
-  the summary shown stays until a newer run is valid, and stays for good if the new one ends invalid. With the Mac away
+**One rule, one kind of run** (`rolling.ts`, `intelligence.ts`, `voices-call.ts`). Every read is a roll. A live
+conversation grouped on the server, of talk, is **due** when its words differ from what its last finished roll read
+(`conversations.turns_fp`: its turn keys, and whether it was open), or when its latest run waits. However late its words
+came (held audio, credits out, the phone offline), it is read once they are there, and it shows `macAway` while the Mac is
+gone. With AI on, due conversations roll after each grouping, when the Mac wakes, and every 5 minutes while it is there,
+three at a time, newest first. A drain looks only at the conversations the change log touched since the last one and
+those left due, never at the whole archive. At most one roll per conversation runs; a request during a roll makes one
+more after it.
+
+- A roll reads the turns past what the previous run of this prompt version read (the turns they share, in order), at most
+  about 24k characters (some 20 minutes of talk), and only words before a block still being transcribed. An **open**
+  conversation rolls only a full window; the tail waits until it closes. A longer one rolls window after window until
+  its words are covered; then its fingerprint is kept. About one call per 20 minutes of talk, each turn read once.
+- One voices call per roll (`voicesCall`): for each speaker token of the transcript, its kind (live, phone, media,
+  announcement), whether it talks with the owner, the name said for it with the turns that show it, and the owner's
+  person it seems to be. A name counts only with turns of this conversation; a known person only by a name or alias the
+  owner has. The run's result is `{ speakerIdentities }`, merged with the previous run's over the turns they share (a
+  voice in both takes the newer reading). Its `turns` are those read so far.
+- Each roll is a run (`coverage.mode` `rolling`), so every reader shows the latest valid one: the naming queue
+  and `GET /conversations/{id}` read its `speakerIdentities`. A roll the Mac dropped waits and resumes in place, asking
+  only for what it has no usable answer to (`intelligence_calls`, keyed by run, stage and the call's hash, even one the
+  Mac sent after the call timed out). A restart puts running runs back to waiting at boot. A run still running is never
+  started twice. A failed roll is taken again 5 minutes later, then 10, 20, 40, then once an hour.
+- An unusable answer (not JSON, cut off, or a provider error) is asked again twice, 5 and 15 seconds later. Each call
+  keeps its tokens and the turns it read.
+- A run writes no `owner_edits` and no `chapters` row. Grouping no longer takes AI splits from runs; an AI split already
+  stored still cuts (`docs/timeline.md`). Old "Split here?" suggestions are gone: the feed's `splitSuggestions` is empty.
+- **Generate** (`POST /conversations/{id}/intelligence` with `after`, the run the owner saw; the phone's "Several
+  people" answer sends it too): when a run newer than it is valid, running or waiting, nothing happens (200). Otherwise
+  it reads the voices again from its first turn (202); the run shown stays until a newer run is valid. With the Mac away
   a run waits for it, and starts from the first turn too.
+- The feed's `runId` is the latest valid run of any version, which the phone sends back as `after`; its `title` and
+  `tldr` come from the latest run of version 11 or before. The state `summarized` is set by any valid run, so a new
+  conversation reads "summarized" with no title or TLDR: a wart until the phone drops its summary views.
 
-**What every summary shares.**
+**What every read shares.**
 
 - Each turn's speaker goes to the model as a token (S1, S2…) with a legend: the owner, the owner's people by name,
-  voices not identified yet. Chapter summaries and the TLDR write speakers as `{S2}`, in the past tense; titles name
-  the topic, never a speaker. The run keeps which voices each token stands for (chapter rows keep the tokens too),
-  and the server renders the text when it is read with the one name every reader gives a speaker
-  (`transcript.ts` `speakerNames`): a person's name, the owner's too, else "Speaker N", the conversation's voices
-  without a person numbered in order of first appearance, exactly as the transcript and the feed's
-  `speaker.displayName` call them (`speaker-tokens.ts`). Naming a voice later fixes every summary with no new call;
-  the feed sends the conversations that voice speaks in again, with their chapters and turns.
-- The conversation page heads the transcript with each chapter's title where its first turn starts, once there are
-  two or more; tapping a title plays from there.
+  voices not identified yet. Old summaries wrote speakers as `{S2}`; the server renders that text when it is read with
+  the one name every reader gives a speaker (`transcript.ts` `speakerNames`): a person's name, the owner's too, else
+  "Speaker N", the conversation's voices without a person numbered in order of first appearance, exactly as the
+  transcript and the feed's `speaker.displayName` call them (`speaker-tokens.ts`). Naming a voice later fixes every
+  old summary with no new call; the feed sends the conversations that voice speaks in again, with their chapters.
 - Renaming a person, correcting a speaker or answering "Who's this?" goes through the phone's outbox; the feed brings
   the result back, with changes made elsewhere (the owner's assistant).
 

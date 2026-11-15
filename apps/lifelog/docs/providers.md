@@ -53,7 +53,7 @@ VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for 
   build runs the contract tests, and the service runs its self-check at startup before it serves. It needs 4 GB of
   RAM with every model loaded (about 4.4 GB at its peak), and takes a block at a time.
 
-## Titles and summaries: ChatGPT or Claude on the Mac
+## The voices read: ChatGPT or Claude on the Mac
 
 The server sends each model call to the Mac helper over its socket, and the helper runs
 the selected CLI on the owner's subscription: Codex with `gpt-6.1-sol` and medium reasoning, or
@@ -65,16 +65,15 @@ runs wait. They start as soon as the Mac is back, and every 5 minutes after that
 them to a paid API.
 
 **What is sent**, per call (a call is asked again up to twice when its answer is unusable; a roll sends only the
-tail past the chapters already summarized, and the owner's Generate reads the conversation again from its first turn):
+window past what the previous run read, and the owner's Generate reads the conversation again from its first turn):
 
 - the transcript text, turn by turn, each speaker a token (S1, S2…) with a legend: the owner, the owner's people by
   name, voices not identified yet,
 - each turn's capture time, the recognizer's language codes and the owner's title, if any.
 - the names of the owner's people (to say whether an unnamed speaker is one of them), and which one is the owner.
 
-A roll reads the transcript twice: once for the chapters (a window of about 24,000 characters), then each closed
-chapter's turns for its summary. The title and
-TLDR are written from the chapter summaries alone. No audio, voice embeddings or locations.
+A roll is one call over a window of about 24,000 characters, each turn read once. No title, TLDR or chapters (runs
+before prompt version 12 made them). No audio, voice embeddings or locations.
 Spoken instructions are sent as quoted data, and the model is told never to act on them.
 
 **Retention**
@@ -88,15 +87,13 @@ The server keeps every run: provider, model, reasoning effort, prompt version, r
 tokens and a cost of 0 (`intelligence_runs`). Older runs from the paid OpenAI and Anthropic
 APIs keep their provider and cost. Each new raw call also keeps its own provider, model and reasoning effort,
 including retries. For historical raw calls without these fields, the containing run gives the provenance.
-Reused chapters point to their source run.
 
 Each call's JSON Schema is generated from the zod type the server reads the answer with
 (`contract` in `intelligence.ts`): every key required, no other key, as Codex's strict mode
 wants. An answer that isn't that JSON is unusable and asked again.
 
 **Cost.** $0 a call on the selected subscription. An hour of talk is roughly 16,000 tokens of transcript.
-Reading it twice, plus a chapter per ~4,000 tokens and the title, makes about 35,000 tokens in
-and 2,000 out, which counts against the plan's limits.
+Read once, plus the legend, it is about 17,000 tokens in and a few hundred out, which counts against the plan's limits.
 
 ## Places: Apple, on the phone
 
