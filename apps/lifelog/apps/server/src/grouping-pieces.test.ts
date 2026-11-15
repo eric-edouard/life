@@ -45,21 +45,23 @@ const live = () =>
 
 // Two closed conversations 60 seconds apart from `start` seconds past BASE, then one wide dirty
 // range over both, as a late PUT inside the span marks it.
-const pair = (start: number) => {
+const pair = (start: number, gap = 60, lead = 0) => {
   env.db.insert(sources).values({ id: SOURCE }).run();
   const speech = [
     [start, start + 60],
-    [start + 120, start + 180],
+    [start + 60 + gap, start + 120 + gap],
   ] as const;
   env.db
     .insert(timelineSpans)
     .values({
-      endAt: new Date(at(start + 300)),
+      endAt: new Date(at(start + gap + 300)),
       facts: {
         audible: [],
         breaks: [],
         pauses: [],
-        speech: speech.map(([a, b]) => [iso(a), iso(b)] as [string, string]),
+        speech: speech.map(
+          ([a, b], i) => [iso(i ? a - lead : a), iso(b)] as [string, string]
+        ),
         unanalyzed: [],
       },
       firstPage: 0,
@@ -79,7 +81,7 @@ const pair = (start: number) => {
       }))
     )
     .run();
-  markDirty(env.db, [SOURCE], [at(start), at(start + 300)]);
+  markDirty(env.db, [SOURCE], [at(start), at(start + gap + 300)]);
   groupSource(env.db, SOURCE);
 };
 const OLD = -10_000;
@@ -123,4 +125,15 @@ test("a stored AI split still cuts", () => {
   groupSource(env.db, SOURCE);
   // Cut at 100: the later group claims the anchor of the conversation it holds.
   expect(live()).toEqual([at(60), at(180)]);
+});
+
+// An old piece's first word arrives half a second before its stored start (a job's words land).
+test("a word before an old piece's start, after 5 minutes or more, mints no id", () => {
+  pair(OLD, 400, 0.5);
+  expect(live()).toEqual([at(OLD), at(OLD + 460)]);
+});
+
+test("a word before an old piece's start, under 5 minutes after the one before, joins it and merges nothing", () => {
+  pair(OLD, 60, 0.5);
+  expect(live()).toEqual([at(OLD), at(OLD + 120)]);
 });

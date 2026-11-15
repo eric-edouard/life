@@ -509,14 +509,28 @@ function regroup(
     known.flatMap((c) =>
       (c.retiredAt === null) === live ? (anchorOf(c.id) ?? []) : []
     );
-  // Each conversation begun before PIECES_BEFORE keeps its start as a boundary; first, as the AI
-  // splits are, so the owner's merge joins an old pair.
-  // ponytail: his undo of a split inside old pieces no longer rejoins them; a merge does.
-  const pinned = known.flatMap((c): Edit[] =>
-    c.retiredAt === null && ms(c.captureStartedAt) < PIECES_BEFORE
-      ? [{ ai: true, at: ms(c.captureStartedAt), kind: "split" }]
-      : []
-  );
+  // Each old boundary (before a conversation begun before PIECES_BEFORE) is rebuilt in the middle
+  // of the gap, not at the stored start: a word landing just before that start joins the piece
+  // and keeps its id. The first in the window has none (the cut keeps what precedes it out of
+  // reach). First, as the AI splits are, so the owner's merge joins an old pair.
+  // ponytail: his undo of a split inside old pieces no longer rejoins them, and after he merges
+  // two old pieces under 5 minutes apart, undoing the merge leaves them joined (the retired one
+  // is no longer pinned); a merge always joins.
+  const old = known
+    .filter((c) => c.retiredAt === null)
+    .sort((a, b) => ms(a.captureStartedAt) - ms(b.captureStartedAt));
+  const pinned = old.slice(1).flatMap((c, i): Edit[] => {
+    const before = old[i];
+    return before && ms(c.captureStartedAt) < PIECES_BEFORE
+      ? [
+          {
+            ai: true,
+            at: middle([ms(before.captureEndedAt), ms(c.captureStartedAt)]),
+            kind: "split",
+          },
+        ]
+      : [];
+  });
   const { conversations: grouped } = segment({
     dictation: clip(dictationRanges(tx, cut), cut, stop),
     edits: [...pinned, ...liveEdits(tx)],

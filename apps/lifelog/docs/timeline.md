@@ -139,9 +139,11 @@ that were not real ones, and are gone, so three hours of talk with short pauses 
 an AI split any more; stored ones stay boundaries.
 
 **Pieces made under the old rules.** Conversations begun before `PIECES_BEFORE` (23 Nov 2026, a week after the Host
-install) each keep their start as a boundary: `regroup` prepends an AI split there, so a regroup of a wide span (a late
-PUT of audio) never merges them and retires ids Life cites. His merge still joins them, since it is applied after. His
-undo of a split inside such a piece no longer rejoins it.
+install) keep the boundary before them: `regroup` prepends an AI split in the middle of the gap to the previous
+live conversation (not at the start, which words arriving later move a little earlier), so a regroup of a wide span (a
+late PUT of audio) never merges them and retires ids Life cites. His merge still joins them, since it is applied
+after. His undo of a split inside such a piece no longer rejoins it, and after he merges two old pieces under
+5 minutes apart, undoing the merge leaves them joined (the retired one is no longer pinned).
 
 **Edits** (`POST /edits`: split, merge, undo, dismissed suggestion; kept by the phone's uuid). Stored AI splits (and the pins above) are applied first, like the automatic boundaries, so the owner's merge undoes one for good. The owner's
 follow in edit order and win. An undone edit is skipped, and a dismissed suggestion groups nothing. An edit regroups
@@ -154,7 +156,7 @@ owner's edits apply to it. Imported recordings stay as handed over: the phone
 plays each from its own file, by its id, so the server refuses a split or merge inside one and the app does not offer
 it.
 
-**Forward-only.** A change (spans, a block's words, a moved map, an edit, an AI split) marks its capture range dirty on
+**Forward-only.** A change (spans, a block's words, a moved map, an edit) marks its capture range dirty on
 the source (`sources.dirty_from`, `dirty_to`) in the writer's own transaction. A run takes the source's lock and
 regroups the dirty range: from just before the last conversation starting at or before it (or from its end when the
 change is 5 minutes past it), up to the first closed conversation that starts after it, which stays as it was grouped,
