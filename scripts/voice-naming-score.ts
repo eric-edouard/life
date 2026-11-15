@@ -289,6 +289,7 @@ if (import.meta.main) {
       people,
       where,
       openStore,
+      undefined,
       true
     );
     const voices = work.asked.reduce(

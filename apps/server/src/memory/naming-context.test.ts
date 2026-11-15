@@ -80,6 +80,25 @@ test("a call is with the person of its one-to-one chat, else with the senders of
   expect(lines[0]).toContain("audio call");
 });
 
+test("a group call he started is with the senders of the group's chat", () => {
+  const calls = [
+    callAt(minute(10), 900, { chat: "chat-g2", fromMe: true, sender: "me" }),
+    {
+      ...callAt(minute(-90), 0, { chat: "chat-g2", sender: "+15550000002" }),
+      phoneCall: undefined,
+      text: "hello",
+    },
+  ];
+  const { lines, people: on } = overlappingPhoneCallsOf(
+    calls,
+    FROM,
+    TO,
+    people
+  );
+  expect(on).toEqual(["person:ben"]);
+  expect(lines[0]).toContain("with BEN");
+});
+
 test("the calls shown stop at 600 characters, and every person on a call is still counted", () => {
   const many = Array.from({ length: 30 }, (_, i) =>
     callAt(minute(i), 3600, { id: `call-${i}` })

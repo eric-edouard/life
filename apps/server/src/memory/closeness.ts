@@ -5,7 +5,8 @@ import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Closeness, ClosenessLevel } from "../records/observation";
 import { chatGroups, type SourceEvent } from "../records/source";
-import { type Store, speakerTurns, withStore } from "../sources/lifelog";
+import { type Store, withStore } from "../sources/lifelog";
+import { speakerTurns } from "../sources/lifelog-voices";
 import { CLOSENESS, latestBy, writtenPeople } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER, type Truth } from "./read-truth";
@@ -121,18 +122,33 @@ export function chatDays(
   return days;
 }
 
-/** The days each person spoke in his recordings since `since` (`speakerTurns`: live conversations, lifelog's own speakers). */
+/**
+ * Every turn of someone he spoke with in his recordings since `since` (`speakerTurns`: live conversations, lifelog's own
+ * speakers), with the person it resolves to (never him) and where it was recorded: the one place that decides who
+ * counts as heard.
+ */
+export function heardTurnsOf(
+  store: Store,
+  resolve: (s: string) => string | null,
+  since: Date
+) {
+  return speakerTurns(store, since).flatMap((t) => {
+    const ref = resolve(t.id) ?? (t.name ? resolve(t.name) : null);
+    return ref && ref !== OWNER ? [{ ...t, ref }] : [];
+  });
+}
+
+export type HeardTurn = ReturnType<typeof heardTurnsOf>[number];
+
+/** The days each person spoke in his recordings since `since` (`heardTurnsOf`). */
 export function voiceDays(
   store: Store,
   resolve: (s: string) => string | null,
   since: Date,
   days: Days = new Map()
 ) {
-  for (const t of speakerTurns(store, since)) {
-    const who = resolve(t.id) ?? (t.name ? resolve(t.name) : null);
-    if (who && who !== OWNER) {
-      dayOf(days, who, localDate(t.at)).voice = true;
-    }
+  for (const t of heardTurnsOf(store, resolve, since)) {
+    dayOf(days, t.ref, localDate(t.at)).voice = true;
   }
   return days;
 }

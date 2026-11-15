@@ -1,16 +1,21 @@
-import { HOUR } from "../core/clock";
+import { DAY, HOUR } from "../core/clock";
 import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
 import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
+import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
 import {
-  openStore,
-  parseTurnRef,
-  speakerTurns,
-  withStore,
-} from "../sources/lifelog";
-import { readVoices, type VoiceRow, voiceKey } from "../sources/lifelog-voices";
-import { directChats, readWithPeople } from "./closeness";
+  readVoiceKinds,
+  readVoices,
+  type VoiceRow,
+  voiceKey,
+} from "../sources/lifelog-voices";
+import {
+  directChats,
+  type HeardTurn,
+  heardTurnsOf,
+  readWithPeople,
+} from "./closeness";
 import { type ConversationSummaryWork, refOf } from "./conversation-summaries";
 import { readDetailsOf } from "./details";
 import { withOf } from "./exchange-reads";
@@ -29,7 +34,6 @@ import {
   readReplyIndex,
   replyOf,
 } from "./read-replies";
-import { OWNER } from "./read-truth";
 import { begin, chunks, type Step } from "./run";
 import { partLine, type SpokenPart } from "./spoken-conversations";
 import { clip, unnamedTurnKey, voiceTokensOf } from "./units";
@@ -40,7 +44,7 @@ import { localDate, time } from "./zones";
 
 // The voice naming (docs/glossary.md): one read of each part of a long conversation recorded in person, saying for each
 // voice no one named the person it probably is, from the lines and the day around them. A guess stays a guess: it is
-// stored by `memory/read-replies.ts` as the model gave it (after `checkedVoices`) and acts on nothing: no person is
+// stored by `memory/read-replies.ts` after `checkedVoices` (never as the model gave it) and acts on nothing: no person is
 // created or folded, nothing goes to lifelog, no line any step reads changes. What is pending is derived from the
 // stored lines (`replyOf`) and the keys of the part now (`unnamedTurnKey`); the night asks, behind his `voiceNaming`
 // setting, which gates the calls and never the reading of what is stored.
@@ -98,6 +102,9 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
   });
   return { voices: kept };
 }
+
+/** The recording a turn key is of. */
+const jobOf = (key: string) => parseTurnRef(refOf(key))?.jobId ?? "";
 
 /** What every part is read against, read once for a run. */
 interface Context {
@@ -164,24 +171,71 @@ async function readDayFacts(dates: string[], people: People) {
   return { facts, pictured };
 }
 
+/**
+ * The turns of people he heard in person, of the recordings since `since`: those of a voice his own answer named
+ * (lifelog's `owner` basis, from `/speakers/voices` for each day with such a turn) that lifelog did not hear over a phone
+ * (`readVoiceKinds`). A match by lifelog's sound, or a voice on a speakerphone, never makes anyone possible.
+ */
+async function readHeardInPerson(turns: HeardTurn[]) {
+  const answered = new Map<string, string[]>();
+  const days = [
+    ...new Set(turns.map((t) => Math.floor(Date.parse(t.at) / DAY) * DAY)),
+  ];
+  for (const group of chunks(days, 8)) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few days at a time
+    const rows = await Promise.all(
+      group.map((d) => readVoices(new Date(d), new Date(d + DAY)))
+    );
+    for (const r of rows.flat()) {
+      if (r.basis === "owner" && r.status === "person" && r.personId) {
+        const key = `${r.jobId} ${r.personId}`;
+        answered.set(key, [...(answered.get(key) ?? []), r.speakerLabel]);
+      }
+    }
+  }
+  const named = turns.filter((t) => answered.has(`${t.job} ${t.id}`));
+  const kinds = new Map<string, Awaited<ReturnType<typeof readVoiceKinds>>>();
+  for (const group of chunks(
+    [...new Set(named.map((t) => t.conversation))],
+    8
+  )) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
+    const read = await Promise.all(group.map((id) => readVoiceKinds(id)));
+    for (const [i, id] of group.entries()) {
+      kinds.set(id, read[i] ?? new Map());
+    }
+  }
+  return named.filter((t) =>
+    answered
+      .get(`${t.job} ${t.id}`)
+      ?.some(
+        (label) =>
+          kinds.get(t.conversation)?.get(voiceKey(t.job, label))?.kind !==
+          "phone"
+      )
+  );
+}
+
 async function readContext(
   parts: SpokenPart[],
   people: People,
-  open = openStore
+  open = openStore,
+  chats?: SourceEvent[]
 ): Promise<Context> {
   const first = parts.reduce(
     (a, p) => (p.at < a ? p.at : a),
     parts[0]?.at ?? ""
   );
   const since = new Date(Date.parse(first) - HEARD_WITHIN);
-  const { events } = await readWithPeople(since);
+  const events = chats ?? (await readWithPeople(since)).events;
   const heard = (
-    await withStore((store) => speakerTurns(store, since), open)
-  ).flatMap((t) => {
-    const ref =
-      people.resolve(t.id) ?? (t.name ? people.resolve(t.name) : null);
-    return ref && ref !== OWNER ? [{ at: t.at, ref }] : [];
-  });
+    await readHeardInPerson(
+      await withStore(
+        (store) => heardTurnsOf(store, people.resolve, since),
+        open
+      )
+    )
+  ).map((t) => ({ at: t.at, ref: t.ref }));
   const direct = directChats(events, people.resolve);
   const callDays = new Map(
     [...direct].map(([ref, list]) => [
@@ -294,12 +348,10 @@ export function namingOf(
   c: Context,
   hidden?: Set<string>
 ) {
-  const jobOf = (n: number) =>
-    parseTurnRef(refOf(part.keys[n] as string))?.jobId ?? "";
+  const jobAt = (n: number) => jobOf(part.keys[n] as string);
   const rows = new Map(
     voices.map((v) => [voiceKey(v.jobId, v.speakerLabel), v])
   );
-  const jobs = new Set(part.keys.map((_, n) => jobOf(n)));
   const calls = overlappingPhoneCallsOf(
     c.events,
     part.at,
@@ -309,7 +361,6 @@ export function namingOf(
   const possible = possibleSpeakersOf(
     {
       answered: voices.flatMap((v) =>
-        jobs.has(v.jobId) &&
         !hidden?.has(voiceKey(v.jobId, v.speakerLabel)) &&
         v.basis === "owner" &&
         v.status === "person" &&
@@ -330,12 +381,12 @@ export function namingOf(
     if (v.owner) {
       return false;
     }
-    if (!v.name || hidden?.has(voiceKey(jobOf(n), v.label))) {
+    if (!v.name || hidden?.has(voiceKey(jobAt(n), v.label))) {
       return true;
     }
     const ref = v.from ? c.people.resolve(v.from) : null;
     return (
-      rows.get(voiceKey(jobOf(n), v.label))?.basis === "recognized" &&
+      rows.get(voiceKey(jobAt(n), v.label))?.basis === "recognized" &&
       !(ref && could.has(ref))
     );
   });
@@ -355,7 +406,7 @@ export function namingOf(
     day: part.day,
     lines: part.voices.map((v, n) => {
       const who = unnamed[n]
-        ? (tokens.get(voiceKey(jobOf(n), v.label)) ?? "")
+        ? (tokens.get(voiceKey(jobAt(n), v.label)) ?? "")
         : (v.name ?? "me");
       return partLine(n, v, who);
     }),
@@ -396,9 +447,42 @@ const hiddenOf = (rows: VoiceRow[]) =>
 /** What a run would do: the parts with a voice to name, and the calls due (those with no stored reply under their keys now). */
 export type VoiceNamingWork = Awaited<ReturnType<typeof readVoiceNamingWork>>;
 
+/** One read of lifelog's voices for the whole of a conversation (not for each part), those of its own recordings. */
+async function readConversationVoices(parts: SpokenPart[]) {
+  const jobs = new Set(parts.flatMap((p) => p.keys.map((k) => jobOf(k))));
+  const rows = await readVoices(
+    new Date(parts[0]?.at ?? ""),
+    new Date(Date.parse(parts.at(-1)?.until ?? "") + 1)
+  );
+  return rows.filter((v) => jobs.has(v.jobId));
+}
+
+/** The parts of one conversation with a voice to name, and the calls due among them (those with no stored reply under their keys now). */
+function namingsOf(
+  parts: SpokenPart[],
+  voices: VoiceRow[],
+  c: Context,
+  index: ReturnType<typeof readReplyIndex>,
+  hiding: boolean
+) {
+  const hidden = hiding ? hiddenOf(voices) : undefined;
+  const namings = parts.flatMap((part) => {
+    const n = namingOf(part, parts[0]?.at ?? part.at, voices, c, hidden);
+    return n ? [{ n, part }] : [];
+  });
+  const asked: Asked[] = namings
+    .filter(({ n }) => !replyOf(n.keys, VOICE_NAMING_READ, index))
+    .map(({ n, part }) => ({
+      at: part.at,
+      call: { firstAt: part.at, input: n.input, keys: n.keys, starts: [0] },
+      read: VOICE_NAMING_READ,
+    }));
+  return { asked, named: namings.length };
+}
+
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
- * lifelog's voices per part, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
+ * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
  * pending before the night's cap. With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
@@ -407,51 +491,22 @@ export async function readVoiceNamingWork(
   people: People,
   where = READ_REPLIES,
   open = openStore,
+  chats?: SourceEvent[],
   hiding = false
 ) {
-  const parts = found.parts.flatMap((c) =>
-    c.map((part) => ({ began: c[0]?.at ?? part.at, part }))
-  );
   const asked: Asked[] = [];
   let named = 0;
-  if (parts.length > 0) {
-    const c = await readContext(
-      parts.map((p) => p.part),
-      people,
-      open
-    );
+  const talks = found.parts.filter((c) => c.length > 0);
+  if (talks.length > 0) {
+    const c = await readContext(talks.flat(), people, open, chats);
     const index = readReplyIndex(where);
-    for (const group of chunks(parts, 8)) {
-      // biome-ignore lint/performance/noAwaitInLoops: a few parts at a time
-      const voices = await Promise.all(
-        group.map(({ part }) =>
-          readVoices(new Date(part.at), new Date(Date.parse(part.until) + 1))
-        )
-      );
-      for (const [i, { began, part }] of group.entries()) {
-        const rows = voices[i] ?? [];
-        const n = namingOf(
-          part,
-          began,
-          rows,
-          c,
-          hiding ? hiddenOf(rows) : undefined
-        );
-        if (n) {
-          named += 1;
-          if (!replyOf(n.keys, VOICE_NAMING_READ, index)) {
-            asked.push({
-              at: part.at,
-              call: {
-                firstAt: part.at,
-                input: n.input,
-                keys: n.keys,
-                starts: [0],
-              },
-              read: VOICE_NAMING_READ,
-            });
-          }
-        }
+    for (const group of chunks(talks, 8)) {
+      // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
+      const voices = await Promise.all(group.map(readConversationVoices));
+      for (const [i, parts] of group.entries()) {
+        const done = namingsOf(parts, voices[i] ?? [], c, index, hiding);
+        asked.push(...done.asked);
+        named += done.named;
       }
     }
   }

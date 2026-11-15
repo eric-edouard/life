@@ -85,6 +85,7 @@ import {
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
 import { checks } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
@@ -302,7 +303,7 @@ async function readYears(now: Date) {
  * yet (`conversationSummaries`), then the voices no one named (`voiceNaming`), guessed for the parts the summaries
  * examine. A failure (a Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
  */
-async function readSpokenConversations(now: Date) {
+async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
   const { conversationSummaries: summarise, voiceNaming: name } = settings();
   if (!(summarise || name)) {
     return;
@@ -317,13 +318,14 @@ async function readSpokenConversations(now: Date) {
   } catch (e) {
     log("run.error", {
       error: (e as Error).message,
-      step: "memory.conversation-summaries",
+      step: summarise ? "memory.conversation-summaries" : "memory.voice-naming",
     });
   }
   if (found && name) {
-    await voiceNaming(await readVoiceNamingWork(found, people)).catch(
-      (e: Error) =>
-        log("run.error", { error: e.message, step: "memory.voice-naming" })
+    await voiceNaming(
+      await readVoiceNamingWork(found, people, undefined, undefined, chats)
+    ).catch((e: Error) =>
+      log("run.error", { error: e.message, step: "memory.voice-naming" })
     );
   }
 }
@@ -594,7 +596,7 @@ export async function runNight(
     }
     // The long conversations recorded in person: their summaries and their voice namings, each off until its setting.
     steps.at = "conversation summaries";
-    await readSpokenConversations(now);
+    await readSpokenConversations(now, everyYear.events);
     steps.at = "index";
     await reindex();
     // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open

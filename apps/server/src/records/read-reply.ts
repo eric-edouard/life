@@ -19,7 +19,7 @@ export type ReadName =
   | typeof VOICE_NAMING_READ;
 
 /**
- * One call's reply, a line of the file: the reply as the model gave it (a moves read only needs its `exchanges` list,
+ * One call's reply, a line of the file: the reply as given, except a voice naming's, stored after `checkedVoices` (a moves read only needs its `exchanges` list,
  * the summary its `summary`, the voice naming its `voices`, the rest is checked when read), the key of every message the call showed in order
  * (`messages`: `eventKey`, or `turnKey` for speech, `unnamedTurnKey` for a voice no one named), where each item starts in them (`starts`: each exchange, or `[0]`
  * for a summary or a voice naming), the prompt's name in `madeBy.prompt` and the digest of its text (`promptDigest`). The person and the
