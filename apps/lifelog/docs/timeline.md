@@ -116,8 +116,8 @@ Kit's `FactsBuilder.spans` of the same pages, which the server matches.
 
 ## Grouping (server)
 
-`apps/server/src/grouping.ts`, per source under a lock, from the facts, the transcribed words, Mac dictation, location
-fixes and owner and AI edits. Its cases are in `apps/server/fixtures/segmentation/`. The constants are `POLICY`, in one
+`apps/server/src/grouping.ts`, per source under a lock, from the facts, the transcribed words, Mac dictation and
+owner and stored AI edits. Its cases are in `apps/server/fixtures/segmentation/`. The constants are `POLICY`, in one
 place, and a deploy applies a change forward.
 
 **What counts as speech.** Possible speech is the facts' speech plus the words, less Mac dictation (dictation is not
@@ -126,27 +126,24 @@ conversation), plus unanalyzed audio, plus the time before a span that starts af
 record. A boundary can only fall between possible speech, so it never cuts a sentence or a word. A pause becomes a
 boundary when it has:
 
-- 45 s of unbroken quiet or no recording. A short reply after a shorter pause stays in its conversation. Quiet means
-  no analyzer but Silero heard anything: Silero labels noise and quiet alike as silence.
 - a confirmed recording pause (Pendant telemetry, including the firmware long-press). A pause the app asked for but
   nothing confirmed never splits. A resume never splits: it is confirmed a second or two after recording started. A
   new device session never splits on its own.
-- 5 minutes without speech, even with sound such as TV, traffic or a room's chatter. It was 15 while noise could pass
-  for speech, then 10; a working morning (11 min of speech in 2.5 h, 3–10 min between remarks) stayed one
-  conversation at 10, and 5 gave eight that matched it.
-- 2 minutes without speech, when the owner also moved at least 500 m.
+- 5 minutes without speech (`POLICY.noSpeechGapMs`), even with sound such as TV, traffic or a room's chatter. It was 15
+  while noise could pass for speech, then 10; a working morning (11 min of speech in 2.5 h, 3–10 min between remarks)
+  stayed one conversation at 10, and 5 gave eight that matched it. Closing uses the same constant: a conversation is
+  closed once heard-through is 5 minutes past its end.
 
-**Location** only supports a split, because a venue change doesn't end a conversation that keeps going. It matters for
-travel: walking or driving is noisy, so the trip is rarely silent, yet it usually separates two conversations. It
-never applies to a pause under 2 minutes, so dialogue in a car or on foot stays together. GPS drift can't trigger it:
-both fixes must be accurate to 100 m, and their distance minus both error radii must exceed 500 m.
+That is the whole rule (15 Nov 2026): 45 seconds of quiet, a move of 500 metres and a 60-minute cap cut conversations
+that were not real ones, and are gone, so three hours of talk with short pauses stay one conversation. Nothing writes
+an AI split any more; stored ones stay boundaries.
 
-**The cap.** A conversation over 60 minutes with no boundary is cut at its longest pause, so a summary never waits for
-hours. The cut is kept as an AI split (its id from its instant, as every AI split's): the next run
-makes the same one, and the owner's merge undoes it for good.
+**Pieces made under the old rules.** Conversations begun before `PIECES_BEFORE` (23 Nov 2026, a week after the Host
+install) each keep their start as a boundary: `regroup` prepends an AI split there, so a regroup of a wide span (a late
+PUT of audio) never merges them and retires ids Life cites. His merge still joins them, since it is applied after. His
+undo of a split inside such a piece no longer rejoins it.
 
-**Edits** (`POST /edits`: split, merge, undo, dismissed suggestion; kept by the phone's uuid). AI splits (from any valid
-summary run) are applied first, like the automatic boundaries, so the owner's merge undoes one for good. The owner's
+**Edits** (`POST /edits`: split, merge, undo, dismissed suggestion; kept by the phone's uuid). Stored AI splits (and the pins above) are applied first, like the automatic boundaries, so the owner's merge undoes one for good. The owner's
 follow in edit order and win. An undone edit is skipped, and a dismissed suggestion groups nothing. An edit regroups
 every Pendant source (one today).
 
@@ -234,5 +231,5 @@ Untimed audio (a page with no trustworthy clock) has no place on the timeline, s
   corrected.
 - Playback files are written per derived job with the anchors known then. A later anchor in the same boot moves
   those pages; the files must be rebuilt (as after any clock model change).
-- Every threshold: 45 s, 5 min, 2 min, 500 m, 60 min, 1 s of speech padding, 3 s gaps. Tune them on real days.
+- Every threshold: 5 min, 1 s of speech padding, 3 s gaps. Tune them on real days.
 - Whether sound-only stretches should form conversations (today they don't).

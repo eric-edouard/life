@@ -92,6 +92,10 @@ reverse it, change its entry here in the same commit.
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The
   phone's library is a cache, and the owner's edits travel as intents (`docs/sync.md`). Two owners of the same fact
   disagreed.
+- **One quiet rule (15 Nov 2026).** A conversation ends at a confirmed Pendant pause or after 5 minutes with nobody
+  speaking, and closes on the same constant. The 45-second quiet, the 500-metre move and the 60-minute cap cut pieces
+  that were not conversations; they are gone. Conversations begun before `PIECES_BEFORE` keep their starts as
+  boundaries so their ids, which Life cites, never change (`docs/timeline.md`).
 - **The server keeps the audio and cuts the blocks.** The phone sends speech fragments of whole pages; the server
   keeps them and closes blocks of up to 2 minutes on its own clock, so a retry never needs the phone. The cutter is the
   only way a job is made (`docs/transcription-server.md`).
