@@ -401,8 +401,16 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr. */
+/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr.
+ * A flag the command doesn't know is a usage mistake, not a crash. */
 const crashed = (e: unknown) => {
+  if (
+    e instanceof Error &&
+    String((e as { code?: unknown }).code).startsWith("ERR_PARSE_ARGS_")
+  ) {
+    console.error(String(e));
+    process.exit(2);
+  }
   console.error(e);
   log("run.error", {
     command: process.argv[2],
