@@ -33,11 +33,9 @@ export const conversation = (
   endAt: "2026-10-14T10:10:00.000Z",
   id,
   kind: "conversation",
-  ownerTitle: null,
   retired: null,
   startAt: "2026-10-14T10:00:00.000Z",
   state: "transcribed",
-  title: "The plumber",
   ...over,
 });
 

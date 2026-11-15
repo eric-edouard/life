@@ -1,19 +1,20 @@
 import { clock } from "../core/clock";
 import { redact } from "../core/redact";
 import {
-  conversationsBetween,
   openStore,
   type Stay,
   visits,
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { clip } from "./units";
+import { conversationsBetween } from "../sources/lifelog-conversations";
+import { loadTruth } from "./read-truth";
+import { conversationLabel, lifelogNames } from "./units";
 import { asData } from "./words";
 import { dayRange, isDay, localTime, time } from "./zones";
 
 // `bun life memory places`, and the connector's `read_places_visited`: where the owner was (lifelog's stays, from the iPhone's
-// location history), each stay with the titles of the conversations recorded during it, joined here from Life's store.
+// location history), each stay with the labels of the conversations recorded during it, joined here from Life's store.
 // Coordinates come from the asker: Life does no geocoding.
 
 const MAX = 200;
@@ -88,20 +89,20 @@ export async function placesOf(
     return null;
   }
   const now = clock().toISOString();
+  const byId = lifelogNames(await loadTruth());
   return withStore(
     (store) =>
       asData([
         `Stays (${stays.length}${stays.length === MAX ? ", the newest; narrow the dates for more" : ""}; newest first; \`fetch <id>\` for a recorded conversation):`,
         ...stays.flatMap((s) => {
           const left = s.leftAt ?? now;
-          const during = conversationsBetween(store, s.arrivedAt, left);
+          const during = conversationsBetween(store, s.arrivedAt, left, byId);
           return [
             `- ${localTime(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "now"} ${redact(where(s))}`,
             ...during
               .slice(0, TITLES)
               .map(
-                (c) =>
-                  `    ${c.id} ${time(c.start_at)} ${clip(redact(c.title), 80)}`
+                (c) => `    ${c.id} ${conversationLabel(c.start_at, c.names)}`
               ),
             ...(during.length > TITLES
               ? [`    (${during.length - TITLES} more conversations)`]
