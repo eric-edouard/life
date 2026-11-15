@@ -51,7 +51,7 @@ import { localDate, time } from "./zones";
 // setting, which gates the calls and never the reading of what is stored.
 
 /** The most calls a night makes: a first build takes several nights, the newest first. */
-export const NIGHT_CALLS = 40;
+export const VOICE_NAMING_CALLS = 40;
 /** The one-to-one messages of the possible speakers a call shows: this long either side of the part, this many characters. */
 const MESSAGES_AROUND = 3 * HOUR;
 const MESSAGES_CHARS = 4000;
@@ -443,7 +443,7 @@ export async function readVoiceNamingWork(
  */
 export async function voiceNaming(
   work: Pick<VoiceNamingWork, "asked">,
-  cap = NIGHT_CALLS,
+  cap = VOICE_NAMING_CALLS,
   where = READ_REPLIES,
   step?: Step
 ) {

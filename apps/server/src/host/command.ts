@@ -47,6 +47,11 @@ import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { tiesNow } from "../memory/ties";
 import { DAYS, gather } from "../memory/units";
+import {
+  readVoiceNamingWork,
+  VOICE_NAMING_CALLS,
+  voiceNaming,
+} from "../memory/voice-naming";
 import { placementOf, readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
 import {
@@ -406,11 +411,30 @@ const HANDLERS: Record<string, Handler> = {
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
+  /**
+   * `voice-naming [--from day] [--force]`: how many parts of the conversations the summaries examine have voices to name
+   * and how many calls are due, with no model; `--force` makes them as the night does once his `voiceNaming` setting is
+   * on: the night's share, or with `--from` all of them. Needs a Lifelog Host with `GET /speakers/voices`.
+   */
+  "voice-naming": step(async (v) => {
+    const work = await readVoiceNamingWork(
+      await readConversationSummaryWork(clock(), await readPeople(), {
+        from: v.from,
+      }),
+      await readPeople()
+    );
+    return v.force
+      ? voiceNaming(
+          work,
+          v.from ? Number.POSITIVE_INFINITY : VOICE_NAMING_CALLS
+        )
+      : { ...work.counts, failed: 0 };
+  }),
 };
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

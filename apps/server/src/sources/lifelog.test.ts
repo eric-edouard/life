@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
-import { ConversationAnswer, Voices } from "./lifelog-voices";
 import {
   apply,
   endedOnSilence,
@@ -31,6 +30,7 @@ import {
 } from "./lifelog";
 import { conversationsWith } from "./lifelog-conversations";
 import { Recorded } from "./lifelog-recorded";
+import { ConversationAnswer, Voices } from "./lifelog-voices";
 import {
   conversation,
   lifelogServer,
@@ -517,12 +517,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       defs,
       "conversation"
     ),
-    ...drift(
-      ours(Voices),
-      answer("/speakers/voices", "get"),
-      defs,
-      "voices"
-    ),
+    ...drift(ours(Voices), answer("/speakers/voices", "get"), defs, "voices"),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),

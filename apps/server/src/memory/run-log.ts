@@ -32,6 +32,7 @@ export const SPENDING = [
   "memory.persona",
   "memory.history",
   "memory.conversation-summaries",
+  "memory.voice-naming",
   "memory.links",
   "memory.import",
   "memory.pilot",
