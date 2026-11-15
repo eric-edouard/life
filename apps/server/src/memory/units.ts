@@ -174,6 +174,10 @@ export function conversationLabel(start: string, names: string[]) {
   return `Conversation at ${time(start)}${who.length > 0 ? ` with ${who.join(", ")}` : ""}`;
 }
 
+/** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
+export const turnKey = (t: LifelogConversation["turns"][number]) =>
+  `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
+
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
@@ -202,15 +206,7 @@ export function lifelogUnits(
             unit: {
               date,
               end: c.endedAt < next ? c.endedAt : next,
-              hash: contentHash(
-                [
-                  ...turns.map(
-                    (t, i) =>
-                      `${refs[i]} ${t.owner ? OWNER : (authorOf(t) ?? "")}`
-                  ),
-                  ...marked,
-                ].join("\n")
-              ),
+              hash: contentHash([...turns.map(turnKey), ...marked].join("\n")),
               id: unitId("lifelog", c.id, date),
               key: c.id,
               ...(marked.length > 0 ? { marked } : {}),

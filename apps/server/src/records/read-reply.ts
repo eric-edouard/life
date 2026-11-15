@@ -4,9 +4,9 @@ import { isoDateTime, MadeBy } from "./fields";
 // A stored read reply (memory/read-replies/<YYYY-MM>.jsonl, the month of its first message, docs/SCHEMA.md): what a model answered when it read
 // exchanges of a one-to-one chat, as given.
 
-/** The three reads of an exchange; the shape of each one's moves is `MOVES` (`memory/moves.ts`). */
-export const READ_NAMES = ["conflict", "connection", "mentions"] as const;
-export type ReadName = (typeof READ_NAMES)[number];
+/** The three reads of exchanges (the moves reads); the shape of each one's moves is `MOVES` (`memory/moves.ts`). */
+export const MOVE_READS = ["conflict", "connection", "mentions"] as const;
+export type MoveRead = (typeof MOVE_READS)[number];
 
 /**
  * One call's reply, a line of the file: the reply as the model gave it (only its `exchanges` list is required, the
@@ -20,7 +20,7 @@ export const ReadReply = z
     madeBy: MadeBy,
     messages: z.array(z.string().min(1)).min(1),
     promptDigest: z.string().regex(/^[0-9a-f]{16}$/),
-    read: z.enum(READ_NAMES),
+    read: z.enum(MOVE_READS),
     reply: z.looseObject({ exchanges: z.array(z.unknown()) }),
     schemaVersion: z.literal(1),
     starts: z.array(z.int().min(0)).min(1),

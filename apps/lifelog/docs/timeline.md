@@ -129,7 +129,7 @@ boundary when it has:
 - a confirmed recording pause (Pendant telemetry, including the firmware long-press). A pause the app asked for but
   nothing confirmed never splits. A resume never splits: it is confirmed a second or two after recording started. A
   new device session never splits on its own.
-- 5 minutes without speech (`POLICY.noSpeechGapMs`), even with sound such as TV, traffic or a room's chatter. It was 15
+- 5 minutes without speech (`CONVERSATION_ENDS_AFTER`, `core/quiet.ts`), even with sound such as TV, traffic or a room's chatter. It was 15
   while noise could pass for speech, then 10; a working morning (11 min of speech in 2.5 h, 3–10 min between remarks)
   stayed one conversation at 10, and 5 gave eight that matched it. Closing uses the same constant: a conversation is
   closed once heard-through is 5 minutes past its end.

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { type ReadName, ReadReply } from "../records/read-reply";
+import { type MoveRead, ReadReply } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { folded, locate } from "./quote-check";
 import { checkedEntries } from "./run";
 import { textOf } from "./units";
 
 // The moves a model lists when it reads an exchange: their shapes by read, and the code that checks a reply's moves
-// against the messages. Never stored: the replies are (`memory/exchange-reads.ts`), the moves are worked out when read.
+// against the messages. Never stored: the replies are (`memory/read-replies.ts`), the moves are worked out when read.
 
 const RESOURCES = [
   "affection",
@@ -136,8 +136,8 @@ export const MOVES = {
   conflict: ConflictMove,
   connection: ConnectionMove,
   mentions: MentionsMove,
-} satisfies Record<ReadName, z.ZodType>;
-type Listed = z.infer<(typeof MOVES)[ReadName]>;
+} satisfies Record<MoveRead, z.ZodType>;
+type Listed = z.infer<(typeof MOVES)[MoveRead]>;
 /** The code of a move, of any read. */
 export type Code = Listed["code"];
 /** Whose words: the owner's (`me`) or the other person's (`them`). */
@@ -215,7 +215,7 @@ function answeredOf(m: Listed, line: number, by: SourceEvent, span: Span) {
  * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
  * there. Every one is kept: counting what a person did once or twice is the rates' (`memory/move-rates.ts`).
  */
-function movesOf(raw: unknown[], span: Span, read: ReadName) {
+function movesOf(raw: unknown[], span: Span, read: MoveRead) {
   const schema: z.ZodType<Listed> = MOVES[read];
   const { entries } = checkedEntries(
     raw,
@@ -260,7 +260,7 @@ export function checkedMoves(
   reply: unknown,
   messages: SourceEvent[],
   starts: number[],
-  read: ReadName = "connection"
+  read: MoveRead = "connection"
 ) {
   const spans = new Map(
     starts.map((start, i): [number, Span] => {
@@ -305,7 +305,7 @@ export function checkedMoves(
  */
 export function checkedOf(
   lines: ReadReply[],
-  read: ReadName,
+  read: MoveRead,
   events: Map<string, SourceEvent>
 ) {
   const out = new Map<string, CheckedExchange & { messages: SourceEvent[] }>();
@@ -330,7 +330,7 @@ export interface SeenExchange {
   key: string;
   moves: Move[];
   /** The reads that listed it, so a code is counted only over the exchanges its own read saw. */
-  reads: Set<ReadName>;
+  reads: Set<MoveRead>;
   /** Its first message's source: rates of an exchange opportunity are kept apart by it. */
   source: string;
   tension?: boolean;

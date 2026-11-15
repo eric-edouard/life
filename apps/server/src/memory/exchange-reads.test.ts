@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { eventKey, type SourceEvent } from "../records/source";
+import { callOf, readExchangeReadWork } from "./exchange-reads";
+import { exchangesOf } from "./exchanges";
 import {
   makeReplies,
   READS,
-  readExchangeReadWork,
   readReplies,
   readReplyIndex,
   replyOf,
   storeReply,
-} from "./exchange-reads";
-import { exchangesOf } from "./exchanges";
+} from "./read-replies";
 import type { People } from "./who";
 
 const START = Date.parse("2026-10-01T12:00:00.000Z");
@@ -76,7 +76,7 @@ const readAll = async (events: SourceEvent[], reply: unknown = GIVEN) => {
 };
 const lines = () => readReplies(where).flat();
 const heldBy = (exchange: SourceEvent[] | undefined) =>
-  replyOf(exchange ?? [], "connection", readReplyIndex(where));
+  replyOf((exchange ?? []).map(eventKey), "connection", readReplyIndex(where));
 
 test("every finished exchange is asked once per read, stored as given; a growing chat asks nothing again", async () => {
   fresh();
@@ -234,4 +234,37 @@ test("a reply is filed under the month of its first message, not of when it was 
     [eventKey(spring)],
     [eventKey(oct as SourceEvent)],
   ]);
+});
+
+test("keys as stored before the reshape: a call's keys and a stored line's messages are still `source|id`", () => {
+  fresh();
+  const call = callOf([[msg(0, false), msg(1000, true)]], {
+    name: "Ann",
+    relation: null,
+  });
+  expect(call.keys).toEqual(["whatsapp|0", "whatsapp|1000"]);
+  expect(call.firstAt).toBe(msg(0, false).at);
+  storeReply(
+    {
+      at: "2026-10-04T00:00:00.000Z",
+      madeBy: {
+        engine: "codex",
+        model: "m",
+        prompt: READS.connection.prompt,
+        run: "r",
+      },
+      messages: ["whatsapp|0", "whatsapp|1000"],
+      promptDigest: "c".repeat(16),
+      read: "connection",
+      reply: GIVEN,
+      schemaVersion: 1,
+      starts: [0],
+    },
+    call.firstAt,
+    where
+  );
+  expect(replyOf(call.keys, "connection", readReplyIndex(where))).toBeDefined();
+  expect(
+    replyOf(["whatsapp|0"], "connection", readReplyIndex(where))
+  ).toBeUndefined();
 });

@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ReadName } from "../records/read-reply";
+import type { MoveRead } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import {
   BIDS,
@@ -136,8 +136,8 @@ const CODE_READ = Object.fromEntries(
       }
     )
   )
-) as Record<Code, ReadName>;
-const readOf = (thing: Thing): ReadName => {
+) as Record<Code, MoveRead>;
+const readOf = (thing: Thing): MoveRead => {
   if (thing === "conflict") {
     return "conflict";
   }
@@ -337,7 +337,7 @@ export function placeAmong(rate: Rate, others: Rate[]) {
 export interface ReadOfCalls {
   checked: CheckedExchange[];
   messages: SourceEvent[];
-  read: ReadName;
+  read: MoveRead;
   starts: number[];
 }
 
@@ -360,7 +360,7 @@ export function seenExchanges(reads: ReadOfCalls[]): SeenExchange[] {
         at: first.at,
         key,
         moves: [],
-        reads: new Set<ReadName>(),
+        reads: new Set<MoveRead>(),
         source: first.source,
         tone: {},
         took: new Set<Side>(

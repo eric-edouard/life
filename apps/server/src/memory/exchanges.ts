@@ -1,6 +1,9 @@
 import { HOUR } from "../core/clock";
 import { packed } from "../core/lists";
 import type { SourceEvent } from "../records/source";
+import { textOf } from "./units";
+import { messageLine } from "./words";
+import { localDate, time } from "./zones";
 
 /** With no message for this long an exchange is over: the next message opens a new one. */
 export const EXCHANGE_ENDS_AFTER = 6 * HOUR;
@@ -16,27 +19,41 @@ export const EXCHANGE_BATCH_CHARS = 30_000;
 export const charsOf = (list: SourceEvent[]) =>
   list.reduce((n, e) => n + e.text.length, 0);
 
+/** What `exchangesOf` cuts: an instant and, for something that lasts, where it ends. */
+interface Timed {
+  at: string;
+  end?: string | null;
+}
+const lastMs = (x: Timed) => Date.parse(x.end ?? x.at);
+
 /**
  * A stream of messages cut into exchanges, in time order: each a sitting of talk, a new one once nothing was written
- * for `EXCHANGE_ENDS_AFTER`. The caller chooses the stream: one person's messages across channels, or one chat.
+ * for `quiet`. The caller chooses the stream: one person's messages across channels, or one chat. A spoken
+ * conversation is cut the same way at `CONVERSATION_ENDS_AFTER`.
  */
-export function exchangesOf(list: SourceEvent[]) {
-  const exchanges: SourceEvent[][] = [];
-  let last: SourceEvent | undefined;
+export function exchangesOf<T extends Timed>(
+  list: T[],
+  quiet = EXCHANGE_ENDS_AFTER
+) {
+  const exchanges: T[][] = [];
+  let latest = Number.NEGATIVE_INFINITY;
   for (const e of list.toSorted((a, b) => a.at.localeCompare(b.at))) {
-    if (last && Date.parse(e.at) - Date.parse(last.at) < EXCHANGE_ENDS_AFTER) {
+    if (exchanges.length > 0 && Date.parse(e.at) - latest < quiet) {
       exchanges.at(-1)?.push(e);
     } else {
       exchanges.push([e]);
     }
-    last = e;
+    latest = Math.max(latest, lastMs(e));
   }
   return exchanges;
 }
 
-/** An exchange nothing was written in for `EXCHANGE_ENDS_AFTER` as of `now`: the next message would open a new one, so it can no longer grow. */
-export const isFinished = (exchange: SourceEvent[], now: Date) =>
-  now.getTime() - Date.parse(exchange.at(-1)?.at ?? "") >= EXCHANGE_ENDS_AFTER;
+/** An exchange nothing was written in for `quiet` as of `now`: the next message would open a new one, so it can no longer grow. */
+export const isFinished = (
+  exchange: Timed[],
+  now: Date,
+  quiet = EXCHANGE_ENDS_AFTER
+) => now.getTime() - Math.max(...exchange.map(lastMs)) >= quiet;
 
 /** A two-way chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
 export const isTwoWay = (chat: SourceEvent[]) =>
@@ -48,3 +65,31 @@ export const isTwoWay = (chat: SourceEvent[]) =>
  */
 export const batchesOf = (exchanges: SourceEvent[][]) =>
   packed(exchanges, EXCHANGE_BATCH_CHARS, charsOf);
+
+/**
+ * An exchange batch as lines a reply can cite, the messages they are, and where each exchange starts: `[n] HH:MM who:
+ * text`, `n` counting from 0 over the whole batch as the extractor's lines do, under one heading per exchange giving
+ * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
+ */
+export function batchLines(
+  batch: SourceEvent[][],
+  who: (e: SourceEvent) => string
+) {
+  const messages = batch.flat();
+  const lines: string[] = [];
+  const starts: number[] = [];
+  let start = 0;
+  for (const exchange of batch) {
+    const [first] = exchange;
+    if (first) {
+      starts.push(start);
+      lines.push(`## Exchange ${start} · ${localDate(first.at)}`);
+      for (const [i, e] of exchange.entries()) {
+        const line = messageLine(time(e.at), who(e), textOf(e), e.deleted);
+        lines.push(`[${start + i}] ${line}`);
+      }
+      start += exchange.length;
+    }
+  }
+  return { lines, messages, starts };
+}

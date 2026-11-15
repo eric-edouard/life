@@ -1,0 +1,176 @@
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { clock } from "../core/clock";
+import { appendJsonl, readAppended } from "../core/files";
+import { digest } from "../core/hash";
+import { promptText, stamp } from "../models/llm";
+import { MOVE_READS, type MoveRead, ReadReply } from "../records/read-reply";
+import { READ_REPLIES, readReplyPath } from "./memory-files";
+import { inBatches, type Step } from "./run";
+
+// The store of a model's reads (docs/glossary.md, "read reply"): each reply kept as the model gave it in
+// memory/read-replies/ (model output is expensive), what is pending derived from the stored lines (`replyOf`). The
+// one writer and reader of that folder (or of a trial's).
+
+/** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`. */
+export const READS = {
+  conflict: { prompt: "memory-conflict.v2" },
+  connection: { prompt: "memory-connection.v3" },
+  mentions: { prompt: "memory-mentions.v1" },
+} satisfies Record<MoveRead, { prompt: string }>;
+/** The digest of a prompt's text, stored beside its name and never matched on. */
+export const promptDigestOf = (text: string) => digest("sha256", text, 16);
+
+/** One call: what the model is shown (`input`), the key of each message its lines are, the instant of the first, and where each item starts in them. */
+interface Call {
+  firstAt: string;
+  input: object;
+  keys: string[];
+  starts: number[];
+}
+
+/** A call to make, with the instant of its newest exchange (the night asks the newest first). */
+export interface Asked {
+  at: string;
+  call: Call;
+  read: MoveRead;
+}
+
+/** The month files of a folder of replies (memory's, or a trial's), oldest month first. */
+const filesOf = (dir: string) =>
+  existsSync(dir)
+    ? readdirSync(dir)
+        .filter((n) => n.endsWith(".jsonl"))
+        .sort()
+        .map((n) => join(dir, n))
+    : [];
+
+/** The stored lines of each file of the folder `where`, oldest first; a file is read by `readAppended` (its new lines only). */
+export const readReplies = (where = READ_REPLIES) =>
+  filesOf(where).map((file) =>
+    readAppended(
+      file,
+      ReadReply,
+      (last?: ReadReply[]) => [...(last ?? [])],
+      (all, line) => {
+        all.push(line);
+      }
+    )
+  );
+
+/** A stored exchange: its place in the line that read it, and the keys of its messages. */
+interface Held {
+  index: number;
+  keys: string[];
+  line: ReadReply;
+}
+type ReplyIndex = Record<MoveRead, Map<string, Held[]>>;
+const indexes = new Map<string, { index: ReplyIndex; parts: ReadReply[][] }>();
+
+/**
+ * The stored exchanges of each read by their first message's key, from the lines made by the read's current prompt
+ * (its versioned name: a version changes only when the meaning does, so the digest is never matched on). Built once,
+ * and again only when a file grew.
+ */
+export function readReplyIndex(where = READ_REPLIES) {
+  const parts = readReplies(where);
+  const kept = indexes.get(where);
+  if (
+    kept?.parts.length === parts.length &&
+    kept.parts.every((p, i) => p === parts[i])
+  ) {
+    return kept.index;
+  }
+  const index = Object.fromEntries(
+    MOVE_READS.map((r) => [r, new Map<string, Held[]>()])
+  ) as ReplyIndex;
+  for (const line of parts.flat()) {
+    if (line.madeBy.prompt === READS[line.read].prompt) {
+      for (const [i, start] of line.starts.entries()) {
+        const keys = line.messages.slice(start, line.starts[i + 1]);
+        const first = keys[0] ?? "";
+        index[line.read].set(first, [
+          ...(index[line.read].get(first) ?? []),
+          { index: i, keys, line },
+        ]);
+      }
+    }
+  }
+  indexes.set(where, { index, parts });
+  return index;
+}
+
+/**
+ * What `read` stored for an exchange, by the keys of its messages: the newest line of the read's current prompt that lists it with exactly the
+ * messages it has now (a line that read it before it grew or was filled does not match). Decides both "pending" and
+ * "counted"; undefined when it was never read. An exchange the model skipped in a reply it was asked is still read.
+ */
+export function replyOf(
+  keys: string[],
+  read: MoveRead,
+  index = readReplyIndex()
+) {
+  return index[read]
+    .get(keys[0] ?? "")
+    ?.findLast(
+      (h) =>
+        h.keys.length === keys.length && h.keys.every((k, i) => k === keys[i])
+    );
+}
+
+/**
+ * Stores one reply line in the month file of its batch's first message (`firstAt`): the one writer of
+ * memory/read-replies/ (or of a trial folder).
+ */
+export const storeReply = (
+  line: ReadReply,
+  firstAt: string,
+  where = READ_REPLIES
+) => appendJsonl(readReplyPath(firstAt, where), ReadReply, [line]);
+
+/**
+ * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
+ * digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that is not one (an
+ * object with its `exchanges`), stores nothing and is asked again at the next pass.
+ */
+export async function makeReplies(
+  asked: Asked[],
+  step: Pick<Step, "ask" | "attempt" | "dir" | "llm" | "run">,
+  where = READ_REPLIES
+) {
+  const wordings = Object.fromEntries(
+    await Promise.all(
+      MOVE_READS.map(async (r) => [
+        r,
+        promptDigestOf(await promptText(READS[r].prompt)),
+      ])
+    )
+  );
+  let stored = 0;
+  await inBatches(asked, step, async ({ call, read }, dir) => {
+    await step.attempt(
+      async () => {
+        const { prompt } = READS[read];
+        const reply = await step.ask({ dir, input: call.input, prompt });
+        const at = clock().toISOString();
+        storeReply(
+          {
+            at,
+            madeBy: stamp(step.llm, prompt, step.run),
+            messages: call.keys,
+            promptDigest: wordings[read] as string,
+            read,
+            reply: reply as ReadReply["reply"],
+            schemaVersion: 1,
+            starts: call.starts,
+          },
+          call.firstAt,
+          where
+        );
+        stored += 1;
+      },
+      { read }
+    );
+  });
+  return { stored };
+}

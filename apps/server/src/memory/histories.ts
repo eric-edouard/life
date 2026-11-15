@@ -10,13 +10,12 @@ import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { batchesOf, exchangesOf } from "./exchanges";
+import { batchesOf, batchLines, exchangesOf } from "./exchanges";
 import { historyPath } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { begin, inBatches, inputsOf, type Step } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
-import { batchLines } from "./words";
 import { localDate } from "./zones";
 
 // A history (docs/glossary.md): a person's past months with him, each summarised once from their one-to-one chats and

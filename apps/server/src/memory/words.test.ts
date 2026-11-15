@@ -19,6 +19,7 @@ import {
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import { batchLines } from "./exchanges";
 import { readSearchedTexts } from "./index-writer";
 import { passagesOf, writePassages } from "./passages";
 import type { Truth } from "./read-truth";
@@ -34,7 +35,6 @@ import {
 } from "./units";
 import { embedNew } from "./vectors";
 import {
-  batchLines,
   chatsOf,
   fetchOf,
   focus,
