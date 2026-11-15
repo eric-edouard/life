@@ -39,6 +39,7 @@ import { normalizeTopics } from "./tags";
 import { syncLifelogUnits, writeUnits } from "./unit-writer";
 import {
   applyRules,
+  conversationLabel,
   gather,
   isFrozen,
   lifeChat,
@@ -51,7 +52,7 @@ import {
 } from "./units";
 import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";
-import { dayRange, dayStart, localDate } from "./zones";
+import { dayRange, dayStart, localDate, time } from "./zones";
 
 const people = [
   {
@@ -106,7 +107,6 @@ const conversation: LifelogConversation = {
   endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
   startedAt: "2026-10-25T10:00:00.000Z",
-  title: "",
   turns: [said(0, null, true), said(5, "Gaston"), said(30, "Jean (Me)")],
 };
 
@@ -279,13 +279,12 @@ test("a conversation's day is one unit, built from its turns alone: first and la
     "2026-10-25T10:00:00.000Z",
     conversation.endedAt,
   ]);
-  expect(unit?.title).toBe("Recorded conversation");
+  expect(unit?.title).toBe(
+    `Conversation at ${time(conversation.startedAt)} with Gaston, Jean (Me)`
+  );
   expect(unit?.summary).toBeUndefined();
   // Life holds no words: its text is filled when its day is read (voiceText).
   expect(b?.text).toBe("");
-  expect(
-    lifelogUnits([{ ...conversation, title: "Plumber" }], none)[0]?.unit.title
-  ).toBe("Plumber");
 });
 
 test("a voice given to someone else changes its unit's hash, so its day is read again (29 Oct 2026: 96 voices named, their days kept the old names)", () => {
@@ -852,8 +851,8 @@ test("a sync reads from where the page touched: only those days' files are rewri
     expect(synced.written.map((u) => u.key)).toEqual(["c2"]);
     expect((await readUnits()).map((u) => [u.key, u.title])).toEqual([
       ["c1", "Kept"],
-      ["c3", "The plumber"],
-      ["c2", "The plumber"],
+      ["c3", conversationLabel("2026-10-14T07:00:00.000Z", [])],
+      ["c2", conversationLabel("2026-10-15T09:00:00.000Z", [])],
     ]);
     expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
       added: 0,

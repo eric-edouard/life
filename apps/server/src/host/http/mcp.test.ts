@@ -574,7 +574,7 @@ test("places: each stay lists the conversations recorded during it", async () =>
   expect(answer).toContain("Stays (2");
   expect(answer).toContain("Chatuchak Cafe (13.7563, 100.5018)");
   expect(answer).toContain("c1");
-  expect(answer).toContain("The plumber");
+  expect(answer).toContain("c1 Conversation at");
   // The 13 Oct stay has no conversation, and the 12 Oct one is outside both stays.
   expect(answer).not.toContain("Elsewhere");
   expect(await placesOf({}, read, open)).toBeNull();

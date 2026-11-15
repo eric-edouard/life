@@ -25,7 +25,13 @@ import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
 import type { Tables } from "./sources";
-import { type Built, lifeChat, lifelogUnits, MARKED } from "./units";
+import {
+  type Built,
+  conversationLabel,
+  lifeChat,
+  lifelogUnits,
+  MARKED,
+} from "./units";
 import { embedNew } from "./vectors";
 import {
   batchLines,
@@ -165,6 +171,14 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
   ).toContain("(no turn job-9:0@2026-10-14T10:00:00.000Z");
 });
 
+test("a conversation label: the local time, with who spoke when anybody but him did", () => {
+  const at = "2026-10-25T14:05:00.000Z";
+  expect(conversationLabel(at, [])).toBe(`Conversation at ${time(at)}`);
+  expect(conversationLabel(at, ["Sam", "Mai", "Sam"])).toBe(
+    `Conversation at ${time(at)} with Mai, Sam`
+  );
+});
+
 test("a conversation-day read for its episodes: its title, then who said what and when, an ask marked; a chapter unit keeps its text", async () => {
   const [day] = lifelogUnits(readConversations(open(), new Date(0)), new Set());
   const store = open();
@@ -182,7 +196,7 @@ test("a conversation-day read for its episodes: its title, then who said what an
     () => store
   );
   expect(b?.text.split("\n")).toEqual([
-    "The plumber",
+    conversationLabel("2026-10-14T10:00:00.000Z", ["Plumber"]),
     `${time("2026-10-14T10:00:00.000Z")} speaker_0: Allo`,
     `${time("2026-10-14T10:01:00.000Z")} Plumber: Salut`,
     `${time("2026-10-14T10:06:00.000Z")} speaker_0: Fin`,

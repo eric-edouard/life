@@ -33,12 +33,10 @@ export const Page = z.object({
       endAt: z.string(),
       id: z.string(),
       kind: z.string(),
-      ownerTitle: z.string().nullable(),
       // A retired conversation has a successor, or none (lifelog dropped it, e.g. playback it transcribed by mistake).
       retired: z.object({ successorId: z.string().nullable() }).nullable(),
       startAt: z.string(),
       state: z.string(),
-      title: z.string().nullable(),
     })
   ),
   cursor: z.string(),
@@ -96,7 +94,6 @@ export interface LifelogConversation {
   endedAt: string;
   id: string;
   startedAt: string;
-  title: string;
   turns: (LifelogTurn & { marks: string[] })[];
 }
 
@@ -198,7 +195,7 @@ export function openStore(dir = WATCH) {
   db.run("pragma busy_timeout = 5000");
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
-    title text not null, successor text, closed integer);
+    successor text, closed integer);
   create table if not exists turns (
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
@@ -209,6 +206,14 @@ export function openStore(dir = WATCH) {
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists turns_start on turns (start_at);
   drop table if exists jobs;`);
+  // A store made before the label still has its `title text not null`; two processes may open it at once.
+  try {
+    db.run("alter table conversations drop column title");
+  } catch (e) {
+    if (!String(e).includes("no such column")) {
+      throw e;
+    }
+  }
   // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
   // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
   // chapter unit); drop it once no rollback past this is possible.
@@ -265,7 +270,8 @@ export function readCursor(store: Store) {
 }
 
 /** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not dictation or silence. */
-const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
+export const LIVE =
+  "c.successor is null and c.kind in ('conversation', 'imported')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
   `${job}:${turn}@${at}`;
@@ -337,8 +343,8 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const stored = startOf(db);
   const starts: (string | undefined)[] = [];
   const conversation = db.prepare(
-    `insert or replace into conversations (id, start_at, end_at, kind, state, title, successor, closed)
-    values (?, ?, ?, ?, ?, ?, ?, ?)`
+    `insert or replace into conversations (id, start_at, end_at, kind, state, successor, closed)
+    values (?, ?, ?, ?, ?, ?, ?)`
   );
   const turn = db.prepare(
     `insert into turns (job_id, turn_index, conversation_id, start_at, person_id, person_name, is_owner, end_at, seen_at)
@@ -362,7 +368,6 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
         c.endAt,
         c.kind,
         c.state,
-        c.ownerTitle ?? c.title ?? "",
         successor(c),
         c.closed ? 1 : 0
       );
@@ -431,7 +436,7 @@ export const lastSeen = (store: Store, seconds: number) =>
     )
     .all(`-${seconds} seconds`);
 
-const nameOf = (
+export const nameOf = (
   personId: string | null,
   personName: string | null,
   byId: Map<string, string>
@@ -489,7 +494,6 @@ export function readConversations(
         end_at: string;
         id: string;
         start_at: string;
-        title: string;
       },
       [string]
     >(`select c.* ${live} order by c.start_at`)
@@ -511,7 +515,6 @@ export function readConversations(
               endedAt: c.end_at,
               id: c.id,
               startedAt: c.start_at,
-              title: c.title,
               turns: said,
             },
           ]
@@ -688,18 +691,6 @@ export function speakerTurns(store: Store, since: Date) {
     .all(since.toISOString());
 }
 
-/** The live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */
-export function conversationsWith(store: Store, personIds: string[]) {
-  return store.db
-    .query<{ id: string; start_at: string; title: string }, [string]>(
-      `select c.id, c.start_at, c.title from conversations c
-        where ${LIVE}
-          and c.id in (select conversation_id from turns where person_id in (select value from json_each(?)))
-        order by c.start_at desc`
-    )
-    .all(JSON.stringify(personIds));
-}
-
 export const Hits = z.object({
   hits: z.array(
     z.object({
@@ -797,17 +788,6 @@ export function writeMarks(
   })();
   // Whether they changed: the units on disk carry marks, so only then do they need building again.
   return now() !== before;
-}
-
-/** The live conversations that overlap [from, to): id, start and title. */
-export function conversationsBetween(store: Store, from: string, to: string) {
-  return store.db
-    .query<{ id: string; start_at: string; title: string }, [string, string]>(
-      `select id, start_at, title from conversations c
-        where ${LIVE} and c.start_at < ?1 and c.end_at > ?2
-        order by start_at`
-    )
-    .all(to, from);
 }
 
 const SPECIAL = new Set(["unknown", "media"]);
