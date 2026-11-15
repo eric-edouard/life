@@ -112,8 +112,29 @@ export const transcripts = (turns: LifelogTurn[]) =>
   );
 
 /**
+ * The lines of each group of turns among `turnsById`, from lifelog's words and how it heard the voices of its
+ * `conversations` (`voiceLines`; `keep` drops an unnamed voice by how it was heard). A read that failed throws.
+ */
+export async function turnLines(
+  turnsById: Map<string, LifelogTurn[]>,
+  conversations: string[],
+  resolve: Resolve,
+  keep?: (v: VoiceKind | undefined) => boolean
+) {
+  const jobs = await transcripts([...turnsById.values()].flat());
+  const heard = await readEach(conversations, readVoiceKinds);
+  const kinds = new Map([...heard.values()].flatMap((m) => [...m]));
+  return new Map(
+    [...turnsById].map(([id, said]) => [
+      id,
+      voiceLines(said, jobs, resolve, kinds, keep),
+    ])
+  );
+}
+
+/**
  * The lines of each voice unit among `units`, by unit id: who spoke and when from the watcher's store, the words from
- * lifelog (`voiceLines`). The one way the memory steps read a recording's words.
+ * lifelog (`turnLines`). The one way the memory steps read a recording's words.
  */
 export async function spokenLines(
   units: Unit[],
@@ -135,14 +156,10 @@ export async function spokenLines(
       ),
     open
   );
-  const jobs = await transcripts([...turns.values()].flat());
-  const heard = await readEach(
+  return turnLines(
+    turns,
     voice.map((u) => u.key),
-    readVoiceKinds
-  );
-  const kinds = new Map([...heard.values()].flatMap((m) => [...m]));
-  return new Map(
-    [...turns].map(([id, said]) => [id, voiceLines(said, jobs, resolve, kinds)])
+    resolve
   );
 }
 
@@ -208,9 +225,12 @@ const HEARD: Record<string, string> = {
   media: "(from a screen or speaker) ",
   phone: "(over the phone) ",
 };
+/** Whether a voice talks with him, as lifelog heard it. */
+export const talksWithOwner = (v: VoiceKind) => v.withOwner;
 const heardAs = (v: VoiceKind | undefined) =>
   v
-    ? (HEARD[v.kind] ?? (v.withOwner ? "" : "(nearby, not talking with him) "))
+    ? (HEARD[v.kind] ??
+      (talksWithOwner(v) ? "" : "(nearby, not talking with him) "))
     : "";
 
 /**
@@ -221,7 +241,8 @@ export function voiceLines(
   turns: LifelogTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
   resolve: Resolve,
-  kinds = new Map<string, VoiceKind>()
+  kinds = new Map<string, VoiceKind>(),
+  keep = (_v?: VoiceKind) => true
 ): SourceLine[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
@@ -231,13 +252,17 @@ export function voiceLines(
     const unnamed = t.owner
       ? OWNER
       : `${UNKNOWN}${turn.speakerId ?? "speaker"}`;
+    const kind = kinds.get(voiceKey(t.jobId, turn.speakerId));
+    if (!(t.name || t.owner || keep(kind))) {
+      return [];
+    }
     return [
       {
         at: t.at,
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
-        text: `${t.name || t.owner ? "" : heardAs(kinds.get(voiceKey(t.jobId, turn.speakerId)))}${redact(turn.text)}`,
+        text: `${t.name || t.owner ? "" : heardAs(kind)}${redact(turn.text)}`,
       },
     ];
   });

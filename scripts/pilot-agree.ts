@@ -5,9 +5,9 @@
 
 import { parseArgs } from "node:util";
 import { readWithPeople } from "@life/server/src/memory/closeness";
-import { READS } from "@life/server/src/memory/exchange-reads";
+import { READS } from "@life/server/src/memory/read-replies";
 import { promptText } from "@life/server/src/models/llm";
-import type { ReadName } from "@life/server/src/records/read-reply";
+import type { MoveRead } from "@life/server/src/records/read-reply";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 import { readKept, readSet } from "./memory-pilot";
 
@@ -50,7 +50,7 @@ function gradesOf(move: Record<string, unknown>) {
 
 /** Every exchange an engine read, by the key of its first message: its marks (codes, grades, a tone that is not neutral). */
 const readsOf = (
-  read: ReadName,
+  read: MoveRead,
   engine: string,
   events: Map<string, SourceEvent>,
   wording: string
@@ -162,9 +162,9 @@ if (import.meta.main) {
         "usage: bun scripts/pilot-agree.ts <read> <engine> <engine> | --flag <engine>"
       );
     }
-    const wording = await promptText(READS[name as ReadName].prompt);
-    const a = readsOf(name as ReadName, engineA, events, wording);
-    const b = readsOf(name as ReadName, engineB, events, wording);
+    const wording = await promptText(READS[name as MoveRead].prompt);
+    const a = readsOf(name as MoveRead, engineA, events, wording);
+    const b = readsOf(name as MoveRead, engineB, events, wording);
     const shared = [...a].flatMap(([id, x]): [Read, Read][] => {
       const y = b.get(id);
       return y ? [[x, y]] : [];

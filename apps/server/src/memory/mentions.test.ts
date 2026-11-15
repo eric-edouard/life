@@ -5,7 +5,6 @@ import { ReadReply } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import { Person } from "../records/truth";
 import { episodeText } from "./doubts";
-import { READS, storeReply } from "./exchange-reads";
 import { MENTIONS, mentionsPath, READ_REPLIES } from "./memory-files";
 import {
   type Mention,
@@ -15,6 +14,7 @@ import {
   talkedAboutOf,
   writeMentions,
 } from "./mentions";
+import { READS, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
 import { said } from "./record-fixtures";
 import { tiesNow } from "./ties";

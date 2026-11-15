@@ -10,19 +10,16 @@ import { writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { packed } from "@life/server/src/core/lists";
 import { directChats, readWithPeople } from "@life/server/src/memory/closeness";
-import {
-  READS,
-  readReplies,
-  withOf,
-} from "@life/server/src/memory/exchange-reads";
+import { withOf } from "@life/server/src/memory/exchange-reads";
 import {
   batchesOf,
   exchangesOf,
   isTwoWay,
 } from "@life/server/src/memory/exchanges";
 import { type CheckedExchange, checkedOf } from "@life/server/src/memory/moves";
+import { READS, readReplies } from "@life/server/src/memory/read-replies";
 import { readPeople } from "@life/server/src/memory/who";
-import type { ReadName } from "@life/server/src/records/read-reply";
+import { MOVE_READS, type MoveRead } from "@life/server/src/records/read-reply";
 import {
   chatGroups,
   eventKey,
@@ -46,7 +43,7 @@ const rareIn = (x: CheckedExchange) =>
   x.moves.filter((m) => RARE.has(m.code)).length;
 
 /** What memory stores for `read`, checked, by the first message of each exchange: the lines of the read's current prompt. */
-const storedOf = (read: ReadName, events: Events) =>
+const storedOf = (read: MoveRead, events: Events) =>
   checkedOf(
     readReplies()
       .flat()
@@ -58,7 +55,7 @@ const storedOf = (read: ReadName, events: Events) =>
 /** How much of what is rare each exchange holds, by its first message, over the three reads. */
 function richness(events: Events) {
   const score = new Map<string, number>();
-  for (const read of Object.keys(READS) as ReadName[]) {
+  for (const read of MOVE_READS) {
     for (const [first, x] of storedOf(read, events)) {
       score.set(first, (score.get(first) ?? 0) + rareIn(x));
     }
@@ -67,7 +64,7 @@ function richness(events: Events) {
 }
 
 /** The exchanges holding each of `codes`, by their first message, in the stored `read`. */
-function holdersOf(read: ReadName, codes: string[], events: Events) {
+function holdersOf(read: MoveRead, codes: string[], events: Events) {
   const holders = new Map(codes.map((c) => [c, new Set<string>()]));
   for (const [first, x] of storedOf(read, events)) {
     for (const m of x.moves) {
@@ -124,7 +121,7 @@ if (import.meta.main) {
   // the most exchanges, so every code named gets its cases; else the richest overall.
   const codes = values.codes?.split(",") ?? [];
   const holders = holdersOf(
-    (values.read ?? "connection") as ReadName,
+    (values.read ?? "connection") as MoveRead,
     codes,
     byKey
   );

@@ -9,18 +9,17 @@ import { parseArgs } from "node:util";
 import { readJson } from "@life/server/src/core/files";
 import { Engine } from "@life/server/src/core/names";
 import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
+import { callOf, type With } from "@life/server/src/memory/exchange-reads";
+import { checkedOf } from "@life/server/src/memory/moves";
 import {
   type Asked,
-  callOf,
   makeReplies,
   promptDigestOf,
   READS,
   readReplies,
   readReplyIndex,
   replyOf,
-  type With,
-} from "@life/server/src/memory/exchange-reads";
-import { checkedOf } from "@life/server/src/memory/moves";
+} from "@life/server/src/memory/read-replies";
 import { begin } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import {
@@ -30,8 +29,8 @@ import {
   llmSpec,
   promptText,
 } from "@life/server/src/models/llm";
-import type { ReadName } from "@life/server/src/records/read-reply";
-import type { SourceEvent } from "@life/server/src/records/source";
+import type { MoveRead } from "@life/server/src/records/read-reply";
+import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 
 /** Where the pilot keeps its files: his data, outside `memory/`, so no lock and no nightly step reads it. */
 export const KEPT = join(OWNER_DATA_DIR, "docs", "memory-rework", "pilot");
@@ -51,12 +50,12 @@ export const readSet = (name: string) => {
 };
 
 /** The trial folder of a read tried by `label` with this wording: a reworded prompt of the same name is a new folder, so it is asked again. */
-export const trialDir = (read: ReadName, label: string, wording: string) =>
+export const trialDir = (read: MoveRead, label: string, wording: string) =>
   join(KEPT, read, `${label}-${promptDigestOf(wording)}`);
 
 /** What a trial read stored under `label` with this wording, checked: `checkedOf` over its folder. */
 export const readKept = (
-  read: ReadName,
+  read: MoveRead,
   label: string,
   events: Map<string, SourceEvent>,
   wording: string
@@ -75,7 +74,7 @@ if (import.meta.main) {
       set: { type: "string" },
     },
   });
-  const name = positionals[0] as ReadName;
+  const name = positionals[0] as MoveRead;
   const read: { prompt: string } | undefined = READS[name];
   if (!(read && values.set)) {
     throw new Error(
@@ -96,7 +95,7 @@ if (import.meta.main) {
   const trial = trialDir(name, values.label ?? llm.engine, wording);
   const index = readReplyIndex(trial);
   const toAsk = readSet(values.set).filter(
-    (s) => !s.batch.every((x) => replyOf(x, name, index))
+    (s) => !s.batch.every((x) => replyOf(x.map(eventKey), name, index))
   );
   const asked: Asked[] = toAsk.map((s) => ({
     at: "",

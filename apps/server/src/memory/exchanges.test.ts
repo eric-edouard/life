@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { HOUR } from "../core/clock";
+import { HOUR, MIN } from "../core/clock";
+import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
 import type { SourceEvent } from "../records/source";
 import {
   EXCHANGE_ENDS_AFTER,
@@ -58,4 +59,29 @@ test("a chat is two-way when both sides wrote in it", () => {
   expect(isTwoWay([msg(0), msg(1, true)])).toBe(true);
   expect(isTwoWay([msg(0), msg(1)])).toBe(false);
   expect(isTwoWay([msg(0, true)])).toBe(false);
+});
+
+test("the conversation quiet is 5 minutes: 4:59 stays one, 5:00 cuts, whoever speaks, from the turn's end", () => {
+  expect(CONVERSATION_ENDS_AFTER).toBe(5 * MIN);
+  const turn = (from: number, to: number) => ({
+    at: new Date(START + from).toISOString(),
+    end: new Date(START + to).toISOString(),
+  });
+  const cut = (list: { at: string; end?: string | null }[]) =>
+    exchangesOf(list, CONVERSATION_ENDS_AFTER).map((x) => x.length);
+  expect(cut([turn(0, MIN), turn(MIN + 5 * MIN - 1000, 7 * MIN)])).toEqual([2]);
+  expect(cut([turn(0, MIN), turn(6 * MIN, 7 * MIN)])).toEqual([1, 1]);
+  // An earlier turn that lasts longer holds the next one in; with no end, the start counts.
+  expect(
+    cut([turn(0, 20 * MIN), turn(MIN, 2 * MIN), turn(24 * MIN, 25 * MIN)])
+  ).toEqual([3]);
+  expect(cut([{ at: turn(0, 0).at }, { at: turn(5 * MIN, 0).at }])).toEqual([
+    1, 1,
+  ]);
+  const done = exchangesOf([turn(0, MIN)], CONVERSATION_ENDS_AFTER)[0] ?? [];
+  const at = (ms: number) => new Date(START + ms);
+  expect(isFinished(done, at(6 * MIN - 1), CONVERSATION_ENDS_AFTER)).toBe(
+    false
+  );
+  expect(isFinished(done, at(6 * MIN), CONVERSATION_ENDS_AFTER)).toBe(true);
 });

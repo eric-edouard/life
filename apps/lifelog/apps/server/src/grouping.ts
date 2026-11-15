@@ -6,6 +6,7 @@
 // apps/server/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
 
 import { clock } from "@life/server/src/core/clock";
+import { CONVERSATION_ENDS_AFTER } from "@life/server/src/core/quiet";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
@@ -44,12 +45,9 @@ import { record } from "./events";
 // Epoch milliseconds, [start, end).
 export type Range = [number, number];
 
-// One quiet rule: a conversation ends at a Pendant pause or after this long with nobody
-// speaking, and is closed once heard-through is this far past its end. Tune here; a deploy
-// applies it forward.
+// The quiet that ends a conversation, `CONVERSATION_ENDS_AFTER` (`core/quiet.ts`); a deploy applies a change forward.
 const POLICY = {
   anchorToleranceMs: 2000,
-  noSpeechGapMs: 5 * 60_000,
 };
 
 // Conversations begun before this instant were cut under the old rules (45 seconds of quiet, a
@@ -147,10 +145,10 @@ function activeAudio(input: GroupingInput): Range[] {
   return union([...spoken, ...input.unanalyzed, ...unknownGaps]);
 }
 
-// A confirmed Pendant pause in the gap, or nobody speaking for `noSpeechGapMs`.
+// A confirmed Pendant pause in the gap, or nobody speaking for `CONVERSATION_ENDS_AFTER`.
 const isBoundary = ([from, to]: Range, input: GroupingInput) =>
   input.pauses.some((p) => from <= p && p <= to) ||
-  to - from >= POLICY.noSpeechGapMs;
+  to - from >= CONVERSATION_ENDS_AFTER;
 
 // The stretches between consecutive ranges.
 const gapsOf = (ranges: Range[]): Range[] =>
@@ -284,7 +282,7 @@ function cutBefore(tx: Tx, sourceId: string, from: number) {
   if (!last) {
     return Number.NEGATIVE_INFINITY;
   }
-  if (from >= ms(last.end) + POLICY.noSpeechGapMs) {
+  if (from >= ms(last.end) + CONVERSATION_ENDS_AFTER) {
     return ms(last.end);
   }
   // The one before must end before the cut, so its id stays out of reach of those after.
@@ -658,7 +656,9 @@ function closeAndClassify(
         sql`c.capture_started_at < ${regrouped.stop}`
       )})`
     : sql`false`;
-  const closeBy = heardThrough ? ms(heardThrough) - POLICY.noSpeechGapMs : null;
+  const closeBy = heardThrough
+    ? ms(heardThrough) - CONVERSATION_ENDS_AFTER
+    : null;
   const rows = tx.all<{ id: string }>(sql`
     with live as (
       select c.* from conversations c

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ReadName } from "../records/read-reply";
+import type { MoveRead } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import {
   type MoveRate,
@@ -11,7 +11,7 @@ import {
 } from "./move-rates";
 import type { Code, Move, SeenExchange, Side } from "./moves";
 
-const READS: ReadName[] = ["conflict", "connection", "mentions"];
+const READS: MoveRead[] = ["conflict", "connection", "mentions"];
 const move = (by: Side, code: Code, extra: Partial<Move> = {}): Move => ({
   at: "2026-10-05T12:00:00.000Z",
   by,
@@ -93,7 +93,7 @@ test("an exchange a side did not write in is no opportunity for that side; two s
 });
 
 test("a conflict code ignores the exchanges the conflict read did not see; a flag and a tone count over the exchanges their read saw", () => {
-  const connectionOnly = new Set<ReadName>(["connection"]);
+  const connectionOnly = new Set<MoveRead>(["connection"]);
   const rows = moveRatesOf(
     [
       exchange([move("me", "fault")], { conflict: true, tension: true }),
@@ -102,7 +102,7 @@ test("a conflict code ignores the exchanges the conflict read did not see; a fla
         reads: connectionOnly,
       }),
       exchange([], {
-        reads: new Set<ReadName>(["conflict"]),
+        reads: new Set<MoveRead>(["conflict"]),
         tone: { me: "warm" },
       }),
       exchange([], {
