@@ -1,4 +1,11 @@
-import { LIVE, nameOf, type Store } from "./lifelog";
+import {
+  LIVE,
+  type LifelogTurn,
+  lifelogTurn,
+  nameOf,
+  type Store,
+  type TurnRow,
+} from "./lifelog";
 
 // The live conversations Life lists by who spoke or when, each with what its label needs (`conversationLabel`).
 
@@ -59,3 +66,20 @@ export const conversationsBetween = (
     to,
     from
   );
+
+/**
+ * Every turn of the live conversations, oldest first, each with its lifelog conversation (the voice store's, so the
+ * words of one fetch and the voices it heard are asked of it). The spoken conversations are cut from these
+ * (`memory/spoken-conversations.ts`), whatever conversation lifelog put them in.
+ */
+export const readSpokenTurns = (store: Store, byId: Map<string, string>) =>
+  store.db
+    .query<TurnRow, []>(
+      `select t.* from turns t join conversations c on c.id = t.conversation_id where ${LIVE}
+        order by t.start_at, t.job_id, t.turn_index`
+    )
+    .all()
+    .map((t): LifelogTurn & { conversation: string } => ({
+      ...lifelogTurn(t, byId),
+      conversation: t.conversation_id,
+    }));

@@ -4,7 +4,7 @@ import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { promptText, stamp } from "../models/llm";
-import { MOVE_READS, type MoveRead, ReadReply } from "../records/read-reply";
+import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
 
@@ -12,12 +12,13 @@ import { inBatches, type Step } from "./run";
 // memory/read-replies/ (model output is expensive), what is pending derived from the stored lines (`replyOf`). The
 // one writer and reader of that folder (or of a trial's).
 
-/** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`. */
+/** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`. */
 export const READS = {
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
+  conversation_summary: { prompt: "memory-conversation-summary.v1" },
   mentions: { prompt: "memory-mentions.v1" },
-} satisfies Record<MoveRead, { prompt: string }>;
+} satisfies Record<ReadName, { prompt: string }>;
 /** The digest of a prompt's text, stored beside its name and never matched on. */
 export const promptDigestOf = (text: string) => digest("sha256", text, 16);
 
@@ -33,7 +34,7 @@ interface Call {
 export interface Asked {
   at: string;
   call: Call;
-  read: MoveRead;
+  read: ReadName;
 }
 
 /** The month files of a folder of replies (memory's, or a trial's), oldest month first. */
@@ -64,7 +65,7 @@ interface Held {
   keys: string[];
   line: ReadReply;
 }
-type ReplyIndex = Record<MoveRead, Map<string, Held[]>>;
+type ReplyIndex = Record<ReadName, Map<string, Held[]>>;
 const indexes = new Map<string, { index: ReplyIndex; parts: ReadReply[][] }>();
 
 /**
@@ -82,7 +83,10 @@ export function readReplyIndex(where = READ_REPLIES) {
     return kept.index;
   }
   const index = Object.fromEntries(
-    MOVE_READS.map((r) => [r, new Map<string, Held[]>()])
+    (Object.keys(READS) as ReadName[]).map((r) => [
+      r,
+      new Map<string, Held[]>(),
+    ])
   ) as ReplyIndex;
   for (const line of parts.flat()) {
     if (line.madeBy.prompt === READS[line.read].prompt) {
@@ -107,7 +111,7 @@ export function readReplyIndex(where = READ_REPLIES) {
  */
 export function replyOf(
   keys: string[],
-  read: MoveRead,
+  read: ReadName,
   index = readReplyIndex()
 ) {
   return index[read]
@@ -131,7 +135,7 @@ export const storeReply = (
 /**
  * Makes each call, a few at a time, and stores its reply as the model gave it, with what made it (`madeBy`), the
  * digest of the prompt's text and the keys of the messages it read. A call that fails, or a reply that is not one (an
- * object with its `exchanges`), stores nothing and is asked again at the next pass.
+ * object with its `exchanges` or its `summary`), stores nothing, is returned in `failed` and is asked again at the next pass.
  */
 export async function makeReplies(
   asked: Asked[],
@@ -140,15 +144,17 @@ export async function makeReplies(
 ) {
   const wordings = Object.fromEntries(
     await Promise.all(
-      MOVE_READS.map(async (r) => [
+      [...new Set(asked.map((a) => a.read))].map(async (r) => [
         r,
         promptDigestOf(await promptText(READS[r].prompt)),
       ])
     )
   );
   let stored = 0;
-  await inBatches(asked, step, async ({ call, read }, dir) => {
-    await step.attempt(
+  const failed: Asked[] = [];
+  await inBatches(asked, step, async (one, dir) => {
+    const { call, read } = one;
+    const ok = await step.attempt(
       async () => {
         const { prompt } = READS[read];
         const reply = await step.ask({ dir, input: call.input, prompt });
@@ -160,17 +166,21 @@ export async function makeReplies(
             messages: call.keys,
             promptDigest: wordings[read] as string,
             read,
-            reply: reply as ReadReply["reply"],
+            reply,
             schemaVersion: 1,
             starts: call.starts,
-          },
+          } as ReadReply,
           call.firstAt,
           where
         );
         stored += 1;
+        return true;
       },
       { read }
     );
+    if (!ok) {
+      failed.push(one);
+    }
   });
-  return { stored };
+  return { failed, stored };
 }

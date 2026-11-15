@@ -16,6 +16,10 @@ import {
   readWithPeople,
 } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
+import {
+  conversationSummaries,
+  readConversationSummaryWork,
+} from "../memory/conversation-summaries";
 import { readBirthdaysNear } from "../memory/details";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
@@ -291,6 +295,13 @@ async function readYears(now: Date) {
   return { everyYear, lastYears: lastYearsOf(everyYear), pending, reads };
 }
 
+/** The night's conversation summaries: what is due (`readConversationSummaryWork`), written. */
+async function summariseConversations(now: Date) {
+  return conversationSummaries(
+    await readConversationSummaryWork(now, await readPeople())
+  );
+}
+
 /** The night's links: what is due (`readLinkWork`), judged. */
 async function judgeLinks() {
   const people = await readPeople();
@@ -553,6 +564,17 @@ export async function runNight(
       steps.at = "exchange reads";
       await exchangeReads(reads).catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.exchange-reads" })
+      );
+    }
+    // The long conversations recorded in person with no summary yet, off until his `conversationSummaries` setting: a
+    // failure is logged and never stops the night.
+    if (settings().conversationSummaries) {
+      steps.at = "conversation summaries";
+      await summariseConversations(now).catch((e: Error) =>
+        log("run.error", {
+          error: e.message,
+          step: "memory.conversation-summaries",
+        })
       );
     }
     steps.at = "index";

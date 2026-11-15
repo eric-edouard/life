@@ -99,7 +99,7 @@ async function readEach<T>(keys: string[], read: (key: string) => Promise<T>) {
  * The transcripts of every recording these turns are in. A recording lifelog no longer has (404) has no words; any
  * other failure throws, so a fetch that failed never reads as silence.
  */
-export const transcripts = (turns: LifelogTurn[]) =>
+export const transcripts = (turns: { jobId: string }[]) =>
   readEach(
     turns.map((t) => t.jobId),
     (job) =>

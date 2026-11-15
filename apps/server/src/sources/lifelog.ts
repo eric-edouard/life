@@ -442,7 +442,7 @@ export const nameOf = (
   byId: Map<string, string>
 ) => (personId && byId.get(personId)) || personName;
 
-interface TurnRow {
+export interface TurnRow {
   conversation_id: string;
   end_at: string | null;
   is_owner: number;
@@ -577,7 +577,10 @@ export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-const lifelogTurn = (t: TurnRow, byId: Map<string, string>): LifelogTurn => ({
+export const lifelogTurn = (
+  t: TurnRow,
+  byId: Map<string, string>
+): LifelogTurn => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,

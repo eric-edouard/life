@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { type MoveRead, ReadReply } from "../records/read-reply";
+import {
+  type MoveRead,
+  MoveReply,
+  type ReadReply,
+} from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { folded, locate } from "./quote-check";
 import { checkedEntries } from "./run";
@@ -269,7 +273,7 @@ export function checkedMoves(
     })
   );
   const { entries } = checkedEntries(
-    ReadReply.shape.reply.parse(reply).exchanges,
+    MoveReply.shape.reply.parse(reply).exchanges,
     ExchangeEntry,
     (x) => String(x.exchange),
     (key) => spans.has(Number(key))
@@ -309,7 +313,10 @@ export function checkedOf(
   events: Map<string, SourceEvent>
 ) {
   const out = new Map<string, CheckedExchange & { messages: SourceEvent[] }>();
-  for (const line of lines.filter((l) => l.read === read)) {
+  for (const line of lines) {
+    if (line.read !== read) {
+      continue;
+    }
     const messages = line.messages.flatMap((id) => events.get(id) ?? []);
     if (messages.length === line.messages.length) {
       const checked = checkedMoves(line.reply, messages, line.starts, read);
