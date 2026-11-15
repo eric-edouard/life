@@ -24,7 +24,7 @@ export type ChangeKind =
   | "withdrawn";
 
 // A turn's ref, and the same built in SQL from a `turns t` row. The stored `turns_fp` hashes it
-// (summaries.ts): a new format would re-run every summary.
+// (runs.ts): a new format would re-run every read.
 export const turnRef = (jobId: string, turnIndex: number) =>
   `${jobId}:${turnIndex}`;
 export const TURN_REF = sql`t.job_id || ':' || t.turn_index`;

@@ -28,7 +28,6 @@
       "includes": [
         "apps/lifelog/apps/server/src/grouping.test.ts",
         "apps/lifelog/apps/server/src/grouping.ts",
-        "apps/lifelog/apps/server/src/intelligence.test.ts",
         "apps/lifelog/apps/server/src/jobs.test.ts",
         "apps/lifelog/apps/server/src/jobs.ts",
         "apps/lifelog/apps/server/src/mac-llm.test.ts",

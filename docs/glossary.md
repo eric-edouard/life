@@ -73,7 +73,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into: it ends at a confirmed Pendant pause or after 5 minutes with nobody speaking (`POLICY.noSpeechGapMs`). Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
-| conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
+| conversation-day | A voice unit: one conversation's turns on one local day, titled by its conversation label, its words fetched only when its day is read. | |
+| conversation label | The first line of a conversation-day's text and its unit's title, made by code: "Conversation at 14:05", with " with Sam, Mai" when anybody but the owner spoke (`conversationLabel`, `memory/units.ts`). Not lifelog's generated title or the owner's own title, which Life does not read. | |
 | chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
 | hasOwnerWrittenInThread | A mail event's flag: the owner wrote in its thread on any day (the source reads it over the whole index). Kept beside `fromMe`, which is the event's own sender. | |
 | transaction | A mail Mail itself sorted as Transactions (an order, booking, receipt, delivery or bank notice), kept even from a sender he doesn't know. Not a database transaction. | |

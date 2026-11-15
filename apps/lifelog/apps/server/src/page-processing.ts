@@ -468,7 +468,7 @@ export function pageProcessor(
     );
   return {
     idle: pass.idle,
-    // What follows a regroup (services.ts: chapters, waiting reasons).
+    // What follows a regroup (services.ts: the voices read, waiting reasons).
     onRegrouped(then: () => void) {
       afterRegroup = then;
     },

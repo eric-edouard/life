@@ -38,7 +38,7 @@ back. Most drops are the server restarting, back within seconds. The server tran
 vouched for it, so dictated audio never reaches a provider. If it hasn't heard from the Mac for 2 hours (it is off,
 or the helper is removed), it goes on without it.
 
-The server also uses the socket to run its model calls (chapters, summaries, titles) on your selected ChatGPT or Claude
+The server also uses the socket to run its model calls (the voices read) on your selected ChatGPT or Claude
 subscription. ChatGPT uses Codex with GPT-6.1 Sol at the effort the server asks (medium). The helper has a separate
 Codex home at `~/Library/Application Support/lifelog-quiet/codex`, so personal recordings do not load your engineering
 rules, skills, plugins or tools. Codex runs with `--ephemeral --ignore-user-config --ignore-rules`, a read-only

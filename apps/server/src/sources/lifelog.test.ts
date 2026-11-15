@@ -8,7 +8,6 @@ import { AppleHealthPage } from "./apple-health";
 import {
   apply,
   ConversationAnswer,
-  conversationsWith,
   endedOnSilence,
   Hits,
   isConversationClosed,
@@ -30,6 +29,7 @@ import {
   visits,
   writeMarks,
 } from "./lifelog";
+import { conversationsWith } from "./lifelog-conversations";
 import { Recorded } from "./lifelog-recorded";
 import {
   conversation,
@@ -101,7 +101,7 @@ test("a conversation holds its turns, in order, with the names the directory giv
   apply(
     s,
     pageFixture({
-      conversations: [conversation("c1", { ownerTitle: "Plumber visit" })],
+      conversations: [conversation("c1")],
       turns: [
         turnFixture(1, "2026-10-14T10:04:00.000Z", ANNE, "Anne-Sophie"),
         turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
@@ -109,7 +109,7 @@ test("a conversation holds its turns, in order, with the names the directory giv
     })
   );
   const [c] = readConversations(s, since, new Map([[JEAN, "Jean Dupont"]]));
-  expect(c?.title).toBe("Plumber visit");
+  expect(c?.id).toBe("c1");
   expect(c?.turns.map((t) => [t.turnIndex, t.name])).toEqual([
     [0, "Jean Dupont"],
     [1, "Anne-Sophie"],
@@ -221,8 +221,18 @@ test("a turn's place in its conversation, and a person's conversations newest fi
   expect(turnPlace(s, "job-1", 0)).toEqual({ conversation: "c1", offset: 0 });
   expect(turnPlace(s, "job-1", 2)).toEqual({ conversation: "c1", offset: 2 });
   expect(turnPlace(s, "job-1", 9)).toBeNull();
-  expect(conversationsWith(s, [ANNE]).map((c) => c.id)).toEqual(["c2", "c1"]);
-  expect(conversationsWith(s, [ANNE, "nobody"])).toHaveLength(2);
+  const named = (byId: Map<string, string>) =>
+    conversationsWith(s, [ANNE], byId).map((c) => [c.id, c.names]);
+  // The directory's name beats the one lifelog gave, as in a unit's label.
+  expect(named(new Map([[ANNE, "Anne Directory"]]))).toEqual([
+    ["c2", ["Anne Directory"]],
+    ["c1", ["Anne Directory"]],
+  ]);
+  expect(named(new Map())).toEqual([
+    ["c2", ["Anne-Sophie"]],
+    ["c1", ["Anne-Sophie"]],
+  ]);
+  expect(conversationsWith(s, [ANNE, "nobody"], new Map())).toHaveLength(2);
   expect(speakers(s)).toEqual([{ id: ANNE, name: "Anne-Sophie" }]);
 });
 
@@ -534,6 +544,39 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
   apply(s, p);
   expect(() => readConversations(s, since)).not.toThrow();
   expect(readConversations(s, since)).toEqual([]);
+});
+
+test("a feed page parses with or without lifelog's generated title, and a store made with a title column drops it", () => {
+  for (const extra of [{}, { ownerTitle: null, title: "Plumber" }]) {
+    expect(
+      Page.parse(pageFixture({ conversations: [conversation("c1", extra)] }))
+        .conversations[0]?.id
+    ).toBe("c1");
+  }
+  const dir = mkdtempSync(join(tmpdir(), "life-lifelog-"));
+  try {
+    const old = new Database(storeFiles(dir).file);
+    old.run(`create table conversations (
+      id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
+      title text not null, successor text, closed integer)`);
+    old.close();
+    const upgraded = openStore(dir);
+    apply(
+      upgraded,
+      Page.parse(pageFixture({ conversations: [conversation("c1")] }))
+    );
+    expect(readConversations(upgraded, since)).toEqual([]);
+    expect(
+      upgraded.db
+        .query(
+          "select 1 from pragma_table_info('conversations') where name = 'title'"
+        )
+        .get()
+    ).toBeNull();
+    upgraded.db.close();
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
 
 test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {

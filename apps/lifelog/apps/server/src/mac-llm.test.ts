@@ -16,10 +16,10 @@ import { createApp } from "./app";
 import { sha256Hex } from "./config";
 import { MAC_KILL_MS, macAnswer } from "./mac-llm";
 import { type MacSocket, macSocket } from "./mac-socket";
-import { type ModelCall, macProvider } from "./providers";
+import { macProvider } from "./providers";
+import { latestValid } from "./runs";
 import { services } from "./services";
 import { subscriptions } from "./subscriptions";
-import { latestValid } from "./summaries";
 import { setSwitches, switches } from "./switches";
 import {
   fakeAnswer,
@@ -117,13 +117,7 @@ type Answer = (call: Record<string, unknown>, ws: WebSocket) => object | null;
 const answerWell: Answer = (call) =>
   (call.engine === "codex" ? codexOutput : claudeOutput)(
     call.id,
-    JSON.stringify(
-      fakeAnswer({
-        schema: call.schema as ModelCall["schema"],
-        system: String(call.system),
-        user: String(call.prompt),
-      })
-    ),
+    JSON.stringify(fakeAnswer()),
     [700, 80]
   );
 const calls: Record<string, unknown>[] = [];
@@ -542,7 +536,7 @@ test("Codex uses medium reasoning and stamps every call; a switch doesn't rerun 
   await away(ws);
 });
 
-test("an engine change between calls keeps the running summary on its original model", async () => {
+test("an engine change while a run waits for the Mac keeps it on its original model", async () => {
   let switched = false;
   const ws = await fakeMac((call, socket) => {
     if (switched) {
@@ -564,7 +558,7 @@ test("an engine change between calls keeps the running summary on its original m
   const run = await settledRun(id);
   expect(switches().engine).toBe("codex");
   expect(run.provider).toBe("claude-code");
-  expect(calls.length).toBeGreaterThan(1);
+  expect(calls.length).toBeGreaterThan(0);
   for (const call of calls) {
     expect(call.engine).toBe("claude");
   }
@@ -616,15 +610,10 @@ test("the Mac gets 4 calls at once, the rest wait; a timeout fails only its own 
   await away(ws);
 });
 
-const plans = (call: Record<string, unknown>) =>
-  Object.keys(
-    (call.schema as { properties?: object }).properties ?? {}
-  ).includes("boundaries");
-
 test("an answer after its call's timeout is kept, and the resumed run doesn't ask for it again", async () => {
   let late = true;
   const ws = await fakeMac((call, socket) => {
-    if (!(plans(call) && late)) {
+    if (!late) {
       return answerWell(call, socket);
     }
     late = false;
@@ -647,7 +636,7 @@ test("an answer after its call's timeout is kept, and the resumed run doesn't as
   expect((await summarize(id)).status).toBe(200);
   await s.rolling.drain();
   await settledRun(id);
-  expect(calls.filter(plans)).toHaveLength(1);
+  expect(calls).toHaveLength(1);
   await away(ws);
 });
 

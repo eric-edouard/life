@@ -472,7 +472,7 @@ export const conversations = sqliteTable("conversations", {
     .default("transcribed"),
   // The live conversation that now covers its anchor (or else its range).
   successorId: uuid("successor_id"),
-  // What its last finished roll read: its turn keys and whether it was open (summaries.ts). A
+  // What its last finished roll read: its turn keys and whether it was open (runs.ts). A
   // summary is due when its words differ from it; null: never read, or the owner's Generate.
   turnsFp: text("turns_fp"),
   updatedAt,

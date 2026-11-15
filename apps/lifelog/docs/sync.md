@@ -43,7 +43,7 @@ the top; nothing is lost or sent twice.
 | Raw packs, `source.sqlite` snapshots, audio of old jobs | Phone | Server audio store `raw/…`, `jobs/…` | `PUT /backup/packs/{sourceId}/{name}`, `PUT /backup/source-db/{sourceId}`, `PUT /jobs/{id}/audio`; `GET /backup/{sourceId}` says what is held (`docs/formats.md`) |
 | Conversations, their ranges and ids | Server (grouping) | Phone cache, read-only | Feed |
 | Words (turns in capture time) | Server (`turns`) | Phone cache, read-only | Feed. A conversation's words are the turns starting in its range; each turn carries its `conversationId`, which the phone reads (a regroup logs the turns whose conversation it changed), and `words`, each word's time and length in its text, which playback lights |
-| Chapters, titles, summaries | Server (the Mac runs them) | Phone cache | Feed |
+| Chapters, titles, summaries (runs of version 11 and before; none are made now) | Server | Phone cache | Feed |
 | Speakers, people, voice profiles | Server | Phone cache; answers are requests | Feed; answers through the outbox |
 | Voices to name | Server | The last answer, in Caches (`naming-queue.json`) | `GET /naming-queue`, not in the feed; the one server answer kept outside the cache, shown at once and read again in the background. People and their aliases come in the feed; rename, aliases and merge go through the outbox. A clip is the job's stored audio (`GET /transcripts/{jobId}/audio`, from `audio.start` seconds, never past its stretch of kept speech) or, from before the audio store, the phone's recording, `at` to `until`; its timed `words` count from `at` in both, and its turn (`jobId`, `speakerLabel`, `turnIndex`, `personId`). `likely` is his people with a voice profile, the most like this voice first, for the phone to order its names by. "Several people" names each clip's turn in place (`PUT /transcripts/{jobId}/speakers/{label}` with `turnIndex`), then sends `several` (`people`, `unknown`), all through the outbox; after `several` the phone sends Generate (`POST /conversations/{id}/intelligence`) for each of the voice's conversations |
 | Voices to recheck | Server, derived from named voices and other conversations | `NamingQueue` appends them after the voices to name, outside its count | Device-only `GET /naming-queue/rechecks`, same card shape with kind `recheck`, `namedPersonId` (the person the owner named) and `personId` (the suggested person); existing `POST /naming-queue/answer` settles it; excluded from push, badge and map |
@@ -51,7 +51,7 @@ the top; nothing is lost or sent twice.
 | A press of the Pendant's button | Phone; nothing on the server | The words come back, never stored; only the call's cost (`quick_transcriptions`) | `POST /quick-transcriptions` (the window's Ogg Opus) answers `{ text }` |
 | Location fixes and visits, with Apple's place names | Phone | Server `location_history` | `POST /location-history`, each sent once |
 | A conversation's place | Server (its most accurate named fix) | Phone cache | Feed (`place`) |
-| Split suggestions | Server (the latest valid run's medium boundaries, minus dismissed ones) | Phone cache | Feed (`splitSuggestions`) |
+| Split suggestions | Gone: the feed's `splitSuggestions` is always empty | Phone cache | Feed (`splitSuggestions`) |
 | Quiet ranges from the Mac | Server (made from the events on the Mac's socket) | Phone cache, left out of fragments | Feed |
 | Quiet ranges from playback | Phone | Server `quiet_ranges` (source `playback`) | Left out of fragments on the phone; a closed span goes through the outbox to `POST /quiet-ranges`, in pieces |
 | Mac watermark, Mac LLM state, dictating | Server, live | Phone cache (`feed_state`) | Kept from the last page of a complete pull, with when it ended (`pulledAt`, the last sync the status shows) |
@@ -119,7 +119,7 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
   conversations it speaks in, with their chapters and turns; audio landing before words already there (late, or sent
   newest first) re-sends its conversation's turns, whose numbers may move.
 - Conversations carry `kind`, `state` (`uploaded`, `transcribing`, `transcribed`, `summarized` or `failed`:
-  `conversation-state.ts`, the one rule), `runId` (the summary shown), `place`, `waiting`, `splitSuggestions`, `startEdit` and
+  `conversation-state.ts`, the one rule), `runId` (the latest valid run, any version), `place`, `waiting`, `splitSuggestions`, `startEdit` and
   `endEdit` (the live split each edge comes from, or for `startEdit` else the merge that joined it: what Undo undoes)
   and, once merged away, `retired`; `closed` once grouping is done with it (`packages/db/src/schema` `isSettled`). A dismissed
   suggestion re-sends its conversation.
@@ -133,7 +133,7 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
   `job` with the fragment's id, as is each fragment of a withdrawn job, with `firstPage` and `sourceId`: the phone
   moves its cursor back there before it saves the page (`Driver.pull`), so a kill in between loses nothing.
   Who spoke travels on each turn (`speaker`); naming a voice sends its turns and conversations again.
-- Chapters are rows (`chapters`), written after every valid summary run; an id is stable per conversation and start.
+- Chapters are rows (`chapters`), written only by runs of version 11 and before, and kept; an id is stable per conversation and start.
 - `mac` and `switches` come whole on every page; their log rows only wake long polls.
 
 ## Readers

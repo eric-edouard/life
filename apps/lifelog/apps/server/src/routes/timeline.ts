@@ -54,7 +54,7 @@ export function timelineRoutes({
   worker,
 }: Pick<Services, "db" | "rolling" | "states" | "worker">) {
   // What the request marked dirty (grouping.ts `markDirty`) is regrouped once it committed.
-  // In the background after it: chapters of what is still going on, and waiting reasons.
+  // In the background after it: the voices read of what is still going on, and waiting reasons.
   const regroup = (sourceIds: string[]) => {
     regroupAfterCommit(db, sourceIds);
     rolling.drain();
