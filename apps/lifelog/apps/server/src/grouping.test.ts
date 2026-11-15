@@ -41,13 +41,12 @@ import { setOwnerTitle } from "./titles";
 
 // ---- The cases in apps/server/fixtures/segmentation ------------------------------------------
 
-const BASE = 1_790_000_000_000;
+// After PIECES_BEFORE, so the new rule alone applies; the pin's tests go before it.
+const BASE = 1_800_000_000_000;
 const at = (s: number) => BASE + Math.round(s * 1000);
 const r = ([a, b]: [number, number]): Range => [at(a), at(b)];
 
 interface Case {
-  audible?: [number, number][];
-  capSplits?: number[];
   case: string;
   dictation?: [number, number][];
   edits?: {
@@ -58,12 +57,6 @@ interface Case {
     undone?: boolean;
   }[];
   expected: { end: number; id: string; start: number }[];
-  locations?: {
-    accuracyM: number;
-    at: number;
-    latitude: number;
-    longitude: number;
-  }[];
   pauses?: number[];
   previous?: number[];
   spans: { breaks: string[]; end: number; start: number }[];
@@ -94,10 +87,8 @@ const editOf = (e: NonNullable<Case["edits"]>[number]): Edit[] => {
 };
 
 const NONE = {
-  audible: [],
   dictation: [],
   edits: [],
-  locations: [],
   pauses: [],
   previous: [],
   speech: [],
@@ -107,10 +98,8 @@ const NONE = {
 const inputOf = (raw: Case): GroupingInput => {
   const c = { ...NONE, ...raw };
   return {
-    audible: c.audible.map(r),
     dictation: c.dictation.map(r),
     edits: c.edits.flatMap(editOf),
-    locations: c.locations.map((f) => ({ ...f, at: at(f.at) })),
     pauses: c.pauses.map(at),
     previous: c.previous.map(at),
     spans: c.spans.map((s) => ({ ...s, end: at(s.end), start: at(s.start) })),
@@ -122,10 +111,8 @@ const inputOf = (raw: Case): GroupingInput => {
 
 test("a group claims a live conversation's anchor before a retired one's", () => {
   const input: GroupingInput = {
-    audible: [],
     dictation: [],
     edits: [],
-    locations: [],
     pauses: [],
     previous: [at(5)],
     retired: [at(0)],
@@ -142,13 +129,13 @@ test("a group claims a live conversation's anchor before a retired one's", () =>
 });
 
 test("the shared segmentation cases are there", () => {
-  expect(cases.length).toBeGreaterThanOrEqual(20);
+  expect(cases.length).toBeGreaterThanOrEqual(15);
 });
 
 test.each(cases.map((c) => [c.case, c] as const))(
   "segmentation: %s",
   (_, c) => {
-    const { capSplits, conversations: grouped } = segment(inputOf(c));
+    const { conversations: grouped } = segment(inputOf(c));
     expect(
       grouped.map((g) => ({
         end: g.end,
@@ -158,7 +145,6 @@ test.each(cases.map((c) => [c.case, c] as const))(
     ).toEqual(
       c.expected.map((e) => ({ ...e, end: at(e.end), start: at(e.start) }))
     );
-    expect(capSplits).toEqual((c.capSplits ?? []).map(at));
   }
 );
 
@@ -248,13 +234,13 @@ const logged = (id: string) =>
   env.db.select().from(changeLog).where(eq(changeLog.ref, id)).all().length;
 
 test("a timeline makes conversations with anchor ids, logged, closed once heard-through passes", async () => {
-  const response = await timeline(200, [
+  const response = await timeline(300, [
     span(
       0,
-      [0, 300],
+      [0, 700],
       [
         [0, 60],
-        [120, 180],
+        [400, 460],
       ],
       []
     ),
@@ -262,7 +248,7 @@ test("a timeline makes conversations with anchor ids, logged, closed once heard-
   expect(response.status).toBe(200);
   expect(ranges()).toEqual([
     [at(0), at(0), at(60)],
-    [at(120), at(120), at(180)],
+    [at(400), at(400), at(460)],
   ]);
   const [first, second] = live();
   expect(first?.closedAt).toBeNull();
@@ -527,41 +513,6 @@ test("a split or merge inside an imported recording is refused, not stored", asy
   expect(env.db.select().from(ownerEdits).all()).toEqual([]);
   // Outside it, a split is kept as always.
   expect((await edit({ at: iso(30), kind: "split" })).status).toBe(200);
-});
-
-test("over an hour with no boundary is cut at its longest pause, kept as an AI split", async () => {
-  await timeline(100, [
-    span(
-      0,
-      [0, 5000],
-      [
-        [0, 1000],
-        [1010, 2000],
-        [2030, 4000],
-      ]
-    ),
-  ]);
-  expect(ranges()).toEqual([
-    [at(0), at(0), at(2000)],
-    [at(2030), at(2030), at(4000)],
-  ]);
-  const edits = env.db.select().from(ownerEdits).all();
-  expect(edits.map((e) => [e.source, e.at?.getTime()])).toEqual([
-    ["ai", at(2015)],
-  ]);
-  // The next run reads it as an edit: no second cut.
-  await timeline(100, [
-    span(
-      0,
-      [0, 5000],
-      [
-        [0, 1000],
-        [1010, 2000],
-        [2030, 4000],
-      ]
-    ),
-  ]);
-  expect(env.db.select().from(ownerEdits).all().length).toBe(1);
 });
 
 // A first pass of the states (conversation-state.ts) looks at every conversation.

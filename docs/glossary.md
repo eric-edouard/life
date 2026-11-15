@@ -71,7 +71,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | description | Life's reading of an image, in a sentence or two: a photo's (`sources/photo-descriptions.ts`), written on the Mac by the describer, or a message file's (`description` in `files.jsonl`, written by his provider's fast model, shown as "described by Life"). One concept in two stores. Not a caption (his), not an episode's `what`. | |
 | describer | The local model that writes a photo's description (`models/describer.ts`): Qwen3.5-9B under llama.cpp, started by the watcher only while photos wait. Not the embedder, not Lifelog Host's children. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
-| conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
+| conversation | What lifelog groups the owner's speech into: it ends at a confirmed Pendant pause or after 5 minutes with nobody speaking (`POLICY.noSpeechGapMs`). Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
 | conversation-day | A voice unit: one conversation's turns on one local day, titled by its conversation label, its words fetched only when its day is read. | |
 | conversation label | The first line of a conversation-day's text and its unit's title, made by code: "Conversation at 14:05", with " with Sam, Mai" when anybody but the owner spoke (`conversationLabel`, `memory/units.ts`). Not lifelog's generated title or the owner's own title, which Life does not read. | |

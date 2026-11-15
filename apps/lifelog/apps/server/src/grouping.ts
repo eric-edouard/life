@@ -1,6 +1,6 @@
 // Grouping on the server (rebuild P4), ported from the phone's old Segmentation.swift, run per
 // source from the timeline facts the phone sends (PUT /sources/{id}/timeline), the words, Mac
-// dictation, location moves and owner edits. Forward-only: a change marks its range dirty on the
+// dictation and owner edits. Forward-only: a change marks its range dirty on the
 // source, and a run regroups from the last boundary before it to the first closed conversation
 // after it; a conversation 5 minutes behind heard-through is closed. Cases:
 // apps/server/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
@@ -12,7 +12,6 @@ import {
   holdsTurn,
   isPendant,
   transcriptionJobs as jobs,
-  locationHistory,
   ownerEdits,
   quietRanges,
   sources,
@@ -39,35 +38,26 @@ import {
 } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { logChange, logPlacedIn } from "./change-log";
-import { uuidOf } from "./config";
 import { reportError } from "./diagnostics";
 import { record } from "./events";
-import { distanceM } from "./places";
 
 // Epoch milliseconds, [start, end).
 export type Range = [number, number];
 
-// The phone's old SegmentationPolicy, plus the cap. Tune here; a deploy applies it forward.
+// One quiet rule: a conversation ends at a Pendant pause or after this long with nobody
+// speaking, and is closed once heard-through is this far past its end. Tune here; a deploy
+// applies it forward.
 const POLICY = {
   anchorToleranceMs: 2000,
-  // A conversation longer than this with no boundary is cut at its longest pause (latency).
-  capMs: 60 * 60_000,
-  // Closed once heard-through is this far past its end.
-  closeAfterMs: 5 * 60_000,
-  fixWindowMs: 10 * 60_000,
-  maxFixAccuracyM: 100,
-  movedGapMs: 2 * 60_000,
-  moveMeters: 500,
   noSpeechGapMs: 5 * 60_000,
-  quietGapMs: 45_000,
 };
 
-export interface Fix {
-  accuracyM: number;
-  at: number;
-  latitude: number;
-  longitude: number;
-}
+// Conversations begun before this instant were cut under the old rules (45 seconds of quiet, a
+// move of 500 metres, 60 minutes): each keeps its start as a boundary (`regroup`), so a regroup
+// of the span around it never merges them and retires ids Life cites. A week after the Host
+// install, so a late install leaves none unpinned; pinning a piece made under this rule costs
+// nothing.
+export const PIECES_BEFORE = Date.parse("2026-11-23T00:00:00Z");
 
 // Applied in edited order. `ai` splits go first, so the owner's merge undoes one for good.
 export type Edit =
@@ -75,11 +65,9 @@ export type Edit =
   | { kind: "merge"; from: number; to: number };
 
 export interface GroupingInput {
-  audible: Range[];
   // Mac dictation: not conversation, taken out of speech and words.
   dictation: Range[];
   edits: Edit[];
-  locations: Fix[];
   pauses: number[];
   // Anchors of the live conversations already known here, so ids survive; a group claims one of
   // them before a retired one's (`retired`), so a merge or undo never brings back an id it took out.
@@ -88,7 +76,7 @@ export interface GroupingInput {
   // Continuous capture spans in time order; a break of unknown audio (missing or untimed pages)
   // makes the time since the previous span possible speech.
   spans: { breaks: string[]; end: number; start: number }[];
-  // As Segmentation counts them: `speech(orUncertain: true)`, `audible`, `unanalyzed(spans)`.
+  // As Segmentation counts them: `speech(orUncertain: true)`, `unanalyzed(spans)`.
   speech: Range[];
   unanalyzed: Range[];
   // Transcribed words: speech, so a boundary never falls inside one.
@@ -159,36 +147,10 @@ function activeAudio(input: GroupingInput): Range[] {
   return union([...spoken, ...input.unanalyzed, ...unknownGaps]);
 }
 
-// Good fixes on both sides further apart than their combined error plus `moveMeters`.
-function moved([from, to]: Range, locations: Fix[]) {
-  const usable = locations.filter((f) => f.accuracyM <= POLICY.maxFixAccuracyM);
-  const before = usable
-    .filter((f) => f.at <= from && from - f.at <= POLICY.fixWindowMs)
-    .reduce<Fix | null>((m, f) => (m && m.at >= f.at ? m : f), null);
-  const after = usable
-    .filter((f) => f.at >= to && f.at - to <= POLICY.fixWindowMs)
-    .reduce<Fix | null>((m, f) => (m && m.at <= f.at ? m : f), null);
-  return (
-    before !== null &&
-    after !== null &&
-    distanceM(before, after) - before.accuracyM - after.accuracyM >=
-      POLICY.moveMeters
-  );
-}
-
-function isBoundary(gap: Range, input: GroupingInput, audible: Range[]) {
-  const [from, to] = gap;
-  if (input.pauses.some((p) => from <= p && p <= to)) {
-    return true;
-  }
-  if (to - from >= POLICY.noSpeechGapMs) {
-    return true;
-  }
-  if (subtract([gap], audible).some(([a, b]) => b - a >= POLICY.quietGapMs)) {
-    return true;
-  }
-  return to - from >= POLICY.movedGapMs && moved(gap, input.locations);
-}
+// A confirmed Pendant pause in the gap, or nobody speaking for `noSpeechGapMs`.
+const isBoundary = ([from, to]: Range, input: GroupingInput) =>
+  input.pauses.some((p) => from <= p && p <= to) ||
+  to - from >= POLICY.noSpeechGapMs;
 
 // The stretches between consecutive ranges.
 const gapsOf = (ranges: Range[]): Range[] =>
@@ -219,49 +181,26 @@ function groupsAt(active: Range[], boundaries: number[]) {
   });
 }
 
-// Pure and deterministic. `capSplits` are the cuts the 60-minute cap made this time; the caller
-// keeps them as AI splits so the next run makes the same ones.
+// Pure and deterministic.
 export function segment(input: GroupingInput) {
   const active = activeAudio(input);
-  const audible = union(input.audible);
   let boundaries = gapsOf(active)
-    .filter((gap) => isBoundary(gap, input, audible))
+    .filter((gap) => isBoundary(gap, input))
     .map(middle);
   for (const edit of input.edits) {
     if (edit.kind === "split" && edit.ai) {
       boundaries.push(edit.at);
     }
   }
-  const merges: Range[] = [];
   for (const edit of input.edits) {
     if (edit.kind === "split" && !edit.ai) {
       boundaries.push(edit.at);
     } else if (edit.kind === "merge") {
-      merges.push([edit.from, edit.to]);
       boundaries = boundaries.filter((b) => !(edit.from < b && b < edit.to));
     }
   }
   boundaries.sort((a, b) => a - b);
-
-  // The cap: a group over an hour with no owner merge in it is cut at its longest pause.
-  const capSplits: number[] = [];
-  let groups = groupsAt(active, boundaries);
-  for (;;) {
-    const cut = groups
-      .filter(
-        (g) =>
-          g.end - g.start > POLICY.capMs &&
-          !merges.some(([a, b]) => a < g.end && g.start < b)
-      )
-      .map((g) => longestPause(g.ranges))
-      .find((at) => at !== null);
-    if (cut === undefined || cut === null) {
-      break;
-    }
-    capSplits.push(cut);
-    boundaries = [...boundaries, cut].sort((a, b) => a - b);
-    groups = groupsAt(active, boundaries);
-  }
+  const groups = groupsAt(active, boundaries);
 
   const unclaimed = [input.previous, input.retired ?? []].map((anchors) =>
     [...anchors].sort((a, b) => a - b)
@@ -279,17 +218,7 @@ export function segment(input: GroupingInput) {
   const grouped = groups.map(
     (g): Grouped => ({ ...g, anchor: claim(g) ?? g.start })
   );
-  return { capSplits, conversations: grouped };
-}
-
-// The middle of the longest stretch between two pieces of possible speech; null when none.
-function longestPause(ranges: Range[]) {
-  const gaps = gapsOf(ranges).filter(([a, b]) => b > a);
-  const longest = gaps.reduce<Range | null>(
-    (m, g) => (m && m[1] - m[0] >= g[1] - g[0] ? m : g),
-    null
-  );
-  return longest && middle(longest);
+  return { conversations: grouped };
 }
 
 // ---- Ids ---------------------------------------------------------------------
@@ -309,10 +238,6 @@ export function anchorOf(id: string) {
 
 const ms = (d: Date) => d.getTime();
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-
-// An AI split's id comes from its instant alone (the cap's and a summary's alike): made again, it
-// is the same row, and an owner's undo of it stays.
-export const aiSplitId = (at: number) => uuidOf(`ai-split|${at}`);
 
 // Records that `range` (epoch ms or Dates) changed for these sources, last in the writer's
 // transaction: the next regroup covers it, and a regroup that failed leaves it for the tick
@@ -451,36 +376,10 @@ const dictationRanges = (db: Pick<Db, "select">, after: number) =>
     .all()
     .map((r): Range => [ms(r.start), ms(r.end)]);
 
-const fixes = (db: Pick<Db, "select">, after: number) =>
-  db
-    .select()
-    .from(locationHistory)
-    .where(
-      and(
-        eq(locationHistory.source, "fix"),
-        Number.isFinite(after)
-          ? gte(
-              locationHistory.observedAt,
-              new Date(after - POLICY.fixWindowMs)
-            )
-          : undefined
-      )
-    )
-    .all()
-    .map(
-      (f): Fix => ({
-        accuracyM: f.accuracyM,
-        at: ms(f.observedAt),
-        latitude: f.latitude,
-        longitude: f.longitude,
-      })
-    );
-
 // What a regroup wrote, logged for the feed once nothing more is written (change-log.ts): the
-// conversations, the AI splits, and the ranges of turns whose conversation changed (`turnsMoved`).
+// conversations and the ranges of turns whose conversation changed (`turnsMoved`).
 interface Written {
   conversations: string[];
-  edits: string[];
   ranges: Range[];
 }
 
@@ -497,7 +396,7 @@ export function groupSource(db: Db, sourceId: string) {
     if (!source) {
       return { changed: 0 };
     }
-    const written: Written = { conversations: [], edits: [], ranges: [] };
+    const written: Written = { conversations: [], ranges: [] };
     const { dirtyFrom, dirtyTo } = source;
     let regrouped: { cut: number; stop: number } | null = null;
     if (dirtyFrom && dirtyTo) {
@@ -509,7 +408,6 @@ export function groupSource(db: Db, sourceId: string) {
     }
     closeAndClassify(tx, source, regrouped, written);
     logPlacedIn(tx, written.ranges);
-    logChange(tx, "edit", written.edits);
     logChange(tx, "conversation", written.conversations);
     return { changed: new Set(written.conversations).size };
   });
@@ -543,7 +441,7 @@ export function regroupAfterCommit(db: Db, sourceIds: string[]) {
 }
 
 // Regroups `[from, to]` from the source's timeline spans (the cutover's history among
-// them), its words, Mac dictation, location moves and the edits, between the cut before it
+// them), its words, Mac dictation and the edits, between the cut before it
 // and the stop after it.
 function regroup(
   tx: Tx,
@@ -580,7 +478,7 @@ function regroup(
       )
     )
     .all();
-  const facts = (key: "speech" | "audible" | "unanalyzed") =>
+  const facts = (key: "speech" | "unanalyzed") =>
     clip(
       spans.flatMap((s) => toRanges(s.facts[key])),
       cut,
@@ -611,11 +509,31 @@ function regroup(
     known.flatMap((c) =>
       (c.retiredAt === null) === live ? (anchorOf(c.id) ?? []) : []
     );
-  const { capSplits, conversations: grouped } = segment({
-    audible: facts("audible"),
+  // Each old boundary (before a conversation begun before PIECES_BEFORE) is rebuilt in the middle
+  // of the gap, not at the stored start: a word landing just before that start joins the piece
+  // and keeps its id. The first in the window has none (the cut keeps what precedes it out of
+  // reach). First, as the AI splits are, so the owner's merge joins an old pair.
+  // ponytail: his undo of a split inside old pieces no longer rejoins them, and after he merges
+  // two old pieces under 5 minutes apart, undoing the merge leaves them joined (the retired one
+  // is no longer pinned); a merge always joins.
+  const old = known
+    .filter((c) => c.retiredAt === null)
+    .sort((a, b) => ms(a.captureStartedAt) - ms(b.captureStartedAt));
+  const pinned = old.slice(1).flatMap((c, i): Edit[] => {
+    const before = old[i];
+    return before && ms(c.captureStartedAt) < PIECES_BEFORE
+      ? [
+          {
+            ai: true,
+            at: middle([ms(before.captureEndedAt), ms(c.captureStartedAt)]),
+            kind: "split",
+          },
+        ]
+      : [];
+  });
+  const { conversations: grouped } = segment({
     dictation: clip(dictationRanges(tx, cut), cut, stop),
-    edits: liveEdits(tx),
-    locations: fixes(tx, cut),
+    edits: [...pinned, ...liveEdits(tx)],
     pauses: spans
       .flatMap((s) => s.facts.pauses.map((p) => Date.parse(p.at)))
       .filter((p) => p >= cut && p < stop),
@@ -634,23 +552,6 @@ function regroup(
       stop
     ),
   });
-  if (capSplits.length > 0) {
-    const kept = tx
-      .insert(ownerEdits)
-      .values(
-        capSplits.map((at) => ({
-          at: new Date(at),
-          editedAt: clock(),
-          id: aiSplitId(at),
-          kind: "split" as const,
-          source: "ai" as const,
-        }))
-      )
-      .onConflictDoNothing()
-      .returning({ id: ownerEdits.id })
-      .all();
-    written.edits.push(...kept.map((e) => e.id));
-  }
   write(tx, sourceId, grouped, known, written);
   return { cut, stop };
 }
@@ -757,7 +658,7 @@ function closeAndClassify(
         sql`c.capture_started_at < ${regrouped.stop}`
       )})`
     : sql`false`;
-  const closeBy = heardThrough ? ms(heardThrough) - POLICY.closeAfterMs : null;
+  const closeBy = heardThrough ? ms(heardThrough) - POLICY.noSpeechGapMs : null;
   const rows = tx.all<{ id: string }>(sql`
     with live as (
       select c.* from conversations c
