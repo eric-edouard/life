@@ -1352,3 +1352,42 @@ decisions, all approved. What they change in this spec:
    takes a questionnaire once, before his own new persona is shown to him. Changes: sections 10 and 15.
 8. **The whole history** is read once, from every source, inside one full rebuild, each part counted before it
    runs; his Messenger history is imported for it. Changes: sections 16 and 17.
+
+## 23. What 15 Nov changed
+
+Two changes to the shape, both from one test on one person's month, read by him. The working notes are in his data
+repo, `docs/memory-rework/trials/log-2026-11-15-history-from-words.md` and `status-2026-11-15.md` (the path to
+finish, in five stages).
+
+1. **A history is written from the words, never from the practical observations.** The months trial of 14 Nov fed
+   a month the observations, the episodes and the titles of recordings. His read of one month: it told logistics
+   and a business file, and nothing of what was talked about. Observations are practical by nature; a person's
+   history is the personal side. So a month is made in three steps: gather by code, from every source, what passed
+   between him and the person and what was said of the person elsewhere (to others, in his own writing, to an
+   assistant); a model keeps of the second pile only what says something about the person or about the two of
+   them; then the month is written, in time order. A long pasted text and an assistant's reply are cut by code.
+   Changes: sections 2 and 11.
+2. **One more layer: the account of a long conversation.** A month's size cannot hold an evening of talk. A long
+   conversation in person gets its own account, written once: its subjects in order, what each said on them and
+   where each was left, then how it went between the people, with quotes. Months, years, stories and personas are
+   written from the accounts and the short exchanges, and point down to them. Checked on one evening against every
+   line: 53 of 58 claims held. He approved it as what Life keeps. Changes: sections 2, 5 and 11.
+
+Not decided yet, and his yes is needed on the stored record: what a sitting is (an episode that holds speech, or a
+cut of its own), whether the account is one more output of the one read of section 5 or a read of its own, and its
+price over the whole history.
+
+What the test also showed:
+
+- A wrong name on a voice becomes a wrong sentence in the account. The account treats a voice's name as a guess
+  when the words contradict it, and a voice check comes with it, not after.
+- The measure of section 15 has not moved since the new layers (56, 59 and 57 of 76 against 55 and 57). Of the
+  points never found, most were said in person. The account is the first layer aimed at them, so it is proven on
+  the cases before phase B continues: accounts and months from the words since September, on a copy, for the
+  people of the cases.
+- The cases grade one row of the grid, a person. A small case set for "him" and for "a part of his life" is
+  written before anything is built for those rows.
+
+The order: (1) prove the account on the cases; (2) freeze every wording, phase B, with months from the words in
+place of trial B5; (3) the whole history once, phase C, accounts included; (4) phase D; (5) the observer and
+forecasts, section 22's "not in these phases".
