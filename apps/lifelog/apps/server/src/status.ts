@@ -31,7 +31,6 @@ import type { MacSocket } from "./mac-socket";
 import { macView } from "./quiet-ranges";
 import type { Restic } from "./restic";
 import type { Rolling } from "./rolling";
-import { latestValid } from "./summaries";
 import { switches } from "./switches";
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -136,7 +135,7 @@ export const IdentityStatus = z
   .openapi("IdentityStatus");
 
 // Where the audio and the summaries are now, for the Mac host's menu: polled every 30 s, so a few
-// small queries and the rolling drain's own list of what is due (summaries.ts holds the rule).
+// small queries and the rolling drain's own list of what is due (runs.ts holds the rule).
 export const Pipeline = z
   .object({
     ai: z.object({
@@ -239,10 +238,7 @@ function aiNow(
     running: running.map((r) => ({
       conversationId: r.conversationId,
       startedAt: r.startedAt.toISOString(),
-      title:
-        r.ownerTitle ??
-        latestValid(db, r.conversationId)?.result.title.text ??
-        null,
+      title: r.ownerTitle ?? null,
     })),
     waiting: rolling.due().filter((id) => !rolls.has(id)).length,
   };

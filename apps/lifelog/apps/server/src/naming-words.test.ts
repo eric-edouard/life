@@ -8,8 +8,8 @@ import {
   voiceSamples,
 } from "@lifelog/db/schema";
 import { namingQueue } from "./naming-queue";
-import { PROMPT_VERSION } from "./summary-calls";
 import { seedConversation, storedResult, testDb } from "./testing";
+import { PROMPT_VERSION } from "./voices-call";
 
 const env = testDb();
 afterAll(() => env.drop());

@@ -27,7 +27,6 @@ import { storeHistory } from "./location";
 import { addQuietRange, storeMacHeard } from "./quiet-ranges";
 import { services } from "./services";
 import { storeSubscriptionUsage } from "./subscriptions";
-import { PROMPT_VERSION } from "./summary-calls";
 import {
   mapJob,
   OWNER_TOKEN,
@@ -36,6 +35,7 @@ import {
   testConfig,
   testDb,
 } from "./testing";
+import { LAST_SUMMARY_VERSION, PROMPT_VERSION } from "./voices-call";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
@@ -194,13 +194,14 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
         }))
       )
       .run();
-    // A summary run: the title, the TLDR and an unsure split at the second turn.
+    // A summary run of prompt version 11: the title, the TLDR and an unsure split at the second
+    // turn, which the feed no longer suggests.
     tx.insert(intelligenceRuns)
       .values({
         conversationId: LIVE,
         id: id(15),
         model: "claude-sonnet-5-5",
-        promptVersion: PROMPT_VERSION,
+        promptVersion: LAST_SUMMARY_VERSION,
         provider: "claude-code",
         result: {
           ...storedResult(0, 1),

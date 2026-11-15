@@ -8,9 +8,11 @@ import {
   OWNER_TOKEN,
   rollNow,
   seedConversation,
+  storedResult,
   testConfig,
   testDb,
 } from "./testing";
+import { LAST_SUMMARY_VERSION } from "./voices-call";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
@@ -63,7 +65,19 @@ async function setTitle(id: string, title: string | null, editedAt?: string) {
 test("the latest title edit wins by when it was made, and the owner's beats the generated one", async () => {
   const { id } = seed();
   const model = fakeModel();
-  await rollNow(env.db, model, id);
+  // The summary it had until prompt version 11: nothing writes one any more.
+  env.db
+    .insert(intelligenceRuns)
+    .values({
+      conversationId: id,
+      model: "claude-sonnet-5-5",
+      promptVersion: LAST_SUMMARY_VERSION,
+      provider: "claude-code",
+      result: storedResult(0, 1),
+      state: "valid",
+      turns: [],
+    })
+    .run();
 
   const mac = await setTitle(id, "Plumber visit");
   expect(mac).toMatchObject({ title: "Plumber visit", titleSource: "owner" });
@@ -86,7 +100,6 @@ test("the latest title edit wins by when it was made, and the owner's beats the 
     titleSource: "generated",
   });
   await setTitle(id, "Plumber");
-  env.db.update(intelligenceRuns).set({ state: "invalid" }).run();
   await rollNow(env.db, model, id);
   expect(await setTitle(id, "Older", ago(1))).toMatchObject({
     title: "Plumber",

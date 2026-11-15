@@ -27,7 +27,7 @@ import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
 import { macProvider, type Provider } from "./providers";
 import { type Restic, resticFor } from "./restic";
-import { type Rolling, rollingChapters } from "./rolling";
+import { type Rolling, rollingVoices } from "./rolling";
 import type { Search } from "./search";
 import { switches } from "./switches";
 
@@ -52,8 +52,8 @@ export function services(
     morning = morningPush(db, apns, config.APNS_TOPIC, queue),
     // A visible push another app of the owner's asks for (Life: each voice ask it heard).
     notice = phoneNotice(db, apns, config.APNS_TOPIC),
-    // Summaries, chapter by chapter as conversations go on, on the Mac.
-    rolling = rollingChapters(db, { mac: intelligence, nudge }),
+    // The voices read, window by window as conversations go on, on the Mac.
+    rolling = rollingVoices(db, { mac: intelligence, nudge }),
     // At Lifelog Host's embedder, which index.ts passes; none for tests, so none calls it.
     search = null,
     voices = voiceUpkeep(db),
@@ -95,7 +95,7 @@ export function services(
     macStuckSince: () => mac.stuckSince(),
   });
   // A transcript stored, by whichever path (jobs.ts `complete`, after its turns and grouping): its
-  // conversation's chapters roll, its clean turns are cut and recognized, the phone hears of it,
+  // conversation's voices are read, its clean turns are cut and recognized, the phone hears of it,
   // and its state moves. The 5-minute sweeps catch what a crash cut off.
   worker.onCompleted(async (job) => {
     const log = (what: string) => (error: unknown) =>

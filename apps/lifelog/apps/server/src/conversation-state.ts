@@ -27,7 +27,7 @@ import {
 import { sql } from "drizzle-orm";
 import { logChange, touchedSince } from "./change-log";
 import { latestHeartbeat, pendantRecords } from "./diagnostics";
-import { summaryDue } from "./summaries";
+import { runDue } from "./runs";
 import { switches } from "./switches";
 
 type Reason = (typeof waitingReasons)[number];
@@ -112,7 +112,7 @@ export function waitingOf(f: Facts, w: World): Reason | null {
   if (f.open && f.stalled && w.recording) {
     return "phoneQuiet";
   }
-  // An open conversation always has chapters to come; a closed one while it is due.
+  // An open conversation always has a read to come; a closed one while it is due.
   return f.words && (f.open || f.due) ? summaryWait(w) : null;
 }
 
@@ -159,7 +159,7 @@ export function conversationStates(db: Db, inputs: Inputs) {
         exists (select 1 from turns t where ${holdsTurn()}) as words,
         exists (select 1 from intelligence_runs r
           where r.conversation_id = c.id and r.state = 'valid') as summarized,
-        ${summaryDue(db)} as due
+        ${runDue(db)} as due
       from conversations c
       left join sources s on s.id = c.source_id
       where c.retired_at is null and (${

@@ -20,11 +20,10 @@ const LINE_BREAK = /\r?\n/;
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/grouping.test.ts": 814,
-  "apps/lifelog/apps/server/src/grouping.ts": 957,
-  "apps/lifelog/apps/server/src/intelligence.test.ts": 1055,
+  "apps/lifelog/apps/server/src/grouping.ts": 931,
   "apps/lifelog/apps/server/src/jobs.test.ts": 1486,
   "apps/lifelog/apps/server/src/jobs.ts": 930,
-  "apps/lifelog/apps/server/src/mac-llm.test.ts": 831,
+  "apps/lifelog/apps/server/src/mac-llm.test.ts": 820,
   "apps/lifelog/apps/server/src/naming-queue.test.ts": 830,
   "apps/lifelog/apps/server/src/people.test.ts": 988,
   "apps/lifelog/apps/server/src/people.ts": 1179,

@@ -12,16 +12,14 @@ import {
 } from "@lifelog/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { PARSER_VERSION } from "./elevenlabs";
-import { feed } from "./feed";
-import { anchorId, groupSource, markDirty, saveEdit } from "./grouping";
-import { chapterLatency } from "./latency";
+import { anchorId, groupSource, markDirty } from "./grouping";
 import { MacGone, type ModelCall } from "./providers";
-import { rollingChapters } from "./rolling";
-import { dueConversations, fingerprint } from "./summaries";
-import { PROMPT_VERSION } from "./summary-calls";
+import { rollingVoices } from "./rolling";
+import { dueConversations, fingerprint } from "./runs";
 import { setSwitches } from "./switches";
-import { fakeAnswer, fakeModel, stageOf, testDb } from "./testing";
+import { fakeAnswer, fakeModel, rangeOf, testDb } from "./testing";
 import { rebuildTurns } from "./turns";
+import { PROMPT_VERSION } from "./voices-call";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 
@@ -135,52 +133,10 @@ test("the fingerprint is the one Postgres made: 'open:' while open, md5 of the t
   expect(fingerprint(env.db, c.id)).toBe(md5(refs));
 });
 
-const RANGE = /must cover turns (\d+) to (\d+)/;
-// Chapters of five turns over the range asked; `boundary` adds a confident new conversation
-// there when it starts a chapter of the range.
-function answer(boundary?: number, confidence: "high" | "medium" = "high") {
-  let summaries = 0;
-  return (call: ModelCall) => {
-    if (stageOf(call) === "chapters") {
-      const [, a = "0", b = "0"] = RANGE.exec(call.user) ?? [];
-      const [first, last] = [Number(a), Number(b)];
-      const parts: { endTurnId: number; startTurnId: number; title: string }[] =
-        [];
-      for (let s = first; s <= last; s += 5) {
-        parts.push({
-          endTurnId: Math.min(s + 4, last),
-          startTurnId: s,
-          title: `From ${s}`,
-        });
-      }
-      return {
-        boundaries:
-          boundary !== undefined && boundary > first && boundary <= last
-            ? [
-                {
-                  cause: "people",
-                  confidence,
-                  evidenceTurnIds: [boundary],
-                  reason: "goodbyes, then other people",
-                  turnId: boundary,
-                },
-              ]
-            : [],
-        chapters: parts,
-        languages: ["en"],
-        speakers: [],
-      };
-    }
-    if (stageOf(call) === "chapter") {
-      summaries += 1;
-      return {
-        evidenceTurnIds: [],
-        summary: `Summary ${summaries}.`,
-      };
-    }
-    return fakeAnswer(call);
-  };
-}
+// The turn ids each call was asked about.
+const asked = (calls: ModelCall[]) => calls.map((c) => rangeOf(c));
+// A window of about this many characters holds four of these turns.
+const SMALL = 330;
 
 const conversation = () =>
   env.db
@@ -189,74 +145,61 @@ const conversation = () =>
     .orderBy(asc(conversations.captureStartedAt))
     .all()
     .filter((c) => c.retiredAt === null);
-const rows = () =>
-  env.db.select().from(chapters).orderBy(asc(chapters.startAt)).all();
-const plans = (calls: ModelCall[]) =>
-  calls
-    .filter((c) => stageOf(c) === "chapters")
-    .map((c) => RANGE.exec(c.user)?.slice(1).map(Number));
 
-test("chapters are summarized while the conversation goes on, the last when it closes", async () => {
-  const model = fakeModel(answer());
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+test("an open conversation rolls only a full window; closing reads the tail; each turn is read once", async () => {
+  const model = fakeModel();
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: SMALL });
   block(0, 10, 100);
   await rolling.drain();
-  const [open] = conversation();
-  expect(open?.closedAt).toBeNull();
-  // Turns 0-4 closed (5-9 may go on): summarized, titled, in the feed's table.
-  const first = rows();
-  expect(
-    first.map((r) => [
-      r.title,
-      r.summary,
-      r.startAt.getTime(),
-      r.endAt.getTime(),
-    ])
-  ).toEqual([["From 0", "Summary 1.", at(0), at(50)]]);
-  expect(first[0]?.summarizedAt).not.toBeNull();
-  expect(first[0]?.id).toBeString();
+  // Turns 0-3 and 4-7 are full windows; 8-9 is a partial one: it waits.
+  expect(asked(model.calls)).toEqual([
+    [0, 3],
+    [4, 7],
+  ]);
+  expect(conversation()[0]?.closedAt).toBeNull();
 
-  // The next block: the tail from turn 5 is read, nothing before it.
+  // Nothing new: no call. More talk: the partial window is full now.
+  await rolling.drain();
+  expect(model.calls.length).toBe(2);
   block(100, 10, 200);
   await rolling.drain();
-  expect(rows().map((r) => r.title)).toEqual(["From 0", "From 5", "From 10"]);
-  expect(rows()[0]?.id).toBe(first[0]?.id as string);
+  // The last window is the tail: it waits too.
+  expect(asked(model.calls).slice(2)).toEqual([
+    [8, 11],
+    [12, 15],
+  ]);
 
-  // Nothing new: no call.
+  // Closed: the tail is read, nothing before it.
   const calls = model.calls.length;
-  await rolling.drain();
-  expect(model.calls.length).toBe(calls);
-
-  // Closed: the last chapter closes at the conversation's end and the title settles.
   hear(600);
   await rolling.drain();
-  const all = rows();
-  expect(all.map((r) => r.title)).toEqual([
-    "From 0",
-    "From 5",
-    "From 10",
-    "From 15",
-  ]);
-  expect(all.at(-1)?.endAt.getTime()).toBe(at(200));
-  expect(plans(model.calls)).toEqual([
-    [0, 9],
-    [5, 19],
-    [15, 19],
-  ]);
+  expect(asked(model.calls).slice(calls)).toEqual([[16, 19]]);
   const runs = env.db.select().from(intelligenceRuns).all();
-  // Every roll that closed something is a run of the Mac's, at no cost.
-  expect(runs.map((r) => [r.state, r.provider, r.costUsd])).toEqual([
-    ["valid", "claude-code", 0],
-    ["valid", "claude-code", 0],
-    ["valid", "claude-code", 0],
-  ]);
-  expect(chapterLatency(env.db, new Date(0)).chapters).toBe(4);
+  // Every roll is a run of the Mac's, at no cost, over the turns read so far.
+  expect(runs.map((r) => [r.state, r.provider, r.costUsd])).toEqual(
+    runs.map(() => ["valid", "claude-code", 0])
+  );
+  // A run makes no chapter, no split.
+  expect(env.db.select().from(chapters).all()).toEqual([]);
+  expect(env.db.select().from(ownerEdits).all()).toEqual([]);
+});
+
+test("one window of an open conversation is no run; the conversation closing reads it", async () => {
+  const model = fakeModel();
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
+  block(0, 10, 100);
+  await rolling.drain();
+  expect(model.calls.length).toBe(0);
+  expect(env.db.select().from(intelligenceRuns).all()).toEqual([]);
+  hear(600);
+  await rolling.drain();
+  expect(asked(model.calls)).toEqual([[0, 9]]);
 });
 
 test("summaries off: a due conversation makes no run and nothing is due; turned on, it rolls", async () => {
   setSwitches(env.db, { ai: false });
-  const model = fakeModel(answer());
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const model = fakeModel();
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   block(0, 10, 1000);
   await rolling.drain();
   expect(env.db.select().from(intelligenceRuns).all()).toEqual([]);
@@ -267,130 +210,41 @@ test("summaries off: a due conversation makes no run and nothing is due; turned 
   expect(runs.map((r) => r.state)).toEqual(["valid"]);
 });
 
-test("a confident new conversation becomes an AI split, grouped at once, once", async () => {
-  const model = fakeModel(answer(5));
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
-  block(0, 10, 100);
-  await rolling.drain();
-  const edits = env.db.select().from(ownerEdits).all();
-  expect(edits.map((e) => [e.source, e.kind, e.at?.getTime()])).toEqual([
-    ["ai", "split", at(50)],
-  ]);
-  expect(conversation().map((c) => c.id)).toEqual([
-    anchorId(at(0)),
-    anchorId(at(50)),
-  ]);
-  // Turns 0-4 closed before the new conversation.
-  expect(rows().map((r) => [r.conversationId, r.title])).toEqual([
-    [anchorId(at(0)), "From 0"],
-  ]);
-  await rolling.idle();
-  await rolling.drain();
-  expect(env.db.select().from(ownerEdits).all().length).toBe(1);
-});
-
 // The owner's Generate of the conversation at `id`, and every roll it leads to.
 async function generate(model: ReturnType<typeof fakeModel>, id: string) {
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   rolling.generate(id);
-  await rolling.idle();
-  // The pieces a split made are due: they roll now (in the app, with the split, in the background).
-  await rolling.drain();
   await rolling.idle();
 }
 
-test("Generate stores a confident new conversation as an AI split, once; each piece keeps its own chapters", async () => {
-  const model = fakeModel(answer(5));
+test("Generate reads the voices again from the first turn", async () => {
+  const model = fakeModel();
   block(0, 10, 1000);
-  await generate(model, anchorId(at(0)));
-  const edits = env.db.select().from(ownerEdits).all();
-  expect(edits.map((e) => [e.source, e.kind, e.at?.getTime()])).toEqual([
-    ["ai", "split", at(50)],
-  ]);
-  expect(conversation().map((c) => c.id)).toEqual([
-    anchorId(at(0)),
-    anchorId(at(50)),
-  ]);
-  // Only the chapters before the cut stay the original's; the piece after it rolled on its own.
-  expect(rows().map((r) => [r.conversationId, r.startAt.getTime()])).toEqual([
-    [anchorId(at(0)), at(0)],
-    [anchorId(at(50)), at(50)],
-  ]);
-  // The owner puts it back together; Generate again finds the same boundary and leaves it.
-  saveEdit(env.db, {
-    edit: edits[0]?.id as string,
-    editedAt: new Date().toISOString(),
-    id: randomUUID(),
-    kind: "undo",
-  });
-  groupSource(env.db, SOURCE);
-  expect(conversation().length).toBe(1);
-  await generate(model, anchorId(at(0)));
-  expect(conversation().length).toBe(1);
-  expect(
-    env.db
-      .select()
-      .from(ownerEdits)
-      .all()
-      .filter((e) => e.kind === "split").length
-  ).toBe(1);
-});
-
-test.each([
-  ["a roll", false],
-  ["Generate", true],
-])("a medium boundary from %s is only offered", async (_name, whole) => {
-  const model = fakeModel(answer(5, "medium"));
-  block(0, 10, 100);
-  if (whole) {
-    await generate(model, anchorId(at(0)));
-  } else {
-    // A roll closes chapters before the boundary only once the conversation goes on.
-    const rolling = rollingChapters(env.db, {
-      mac: model,
-      windowChars: 100_000,
-    });
-    await rolling.drain();
-  }
-  expect(env.db.select().from(ownerEdits).all()).toEqual([]);
-  expect(conversation().length).toBe(1);
-  const { conversations: listed } = feed(env.db, 0);
-  expect(listed.map((c) => c.splitSuggestions)).toEqual([
-    [{ at: iso(50), confidence: "medium" }],
-  ]);
-});
-
-test("a chapter summarized again keeps its id", async () => {
-  const model = fakeModel(answer());
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
-  block(0, 10, 600);
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   await rolling.drain();
-  const before = rows();
-  expect(before.map((r) => r.summary)).toEqual(["Summary 1.", "Summary 2."]);
-  // The owner's Generate: from the first turn again, its chapters starting at the same turns.
   await generate(model, anchorId(at(0)));
-  const after = rows();
-  expect(after.map((r) => r.id)).toEqual(before.map((r) => r.id));
-  expect(after.map((r) => r.summary)).toEqual(["Summary 3.", "Summary 4."]);
-  expect(after[0]?.summarizedAt).toEqual(before[0]?.summarizedAt as Date);
+  expect(asked(model.calls)).toEqual([
+    [0, 9],
+    [0, 9],
+  ]);
+  expect(env.db.select().from(intelligenceRuns).all().length).toBe(2);
 });
 
 test("with the Mac away nothing is called; a roll it dropped resumes where it stopped", async () => {
   let ready = false;
   let dropped = false;
-  const respond = answer();
   const model = Object.assign(
-    fakeModel((call) => {
-      if (stageOf(call) === "chapter" && !dropped) {
+    fakeModel(() => {
+      if (!dropped) {
         dropped = true;
         throw new MacGone("the Mac is away");
       }
-      return respond(call);
+      return fakeAnswer();
     }),
     { ready: () => ready }
   );
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
-  block(0, 10, 100);
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
+  block(0, 10, 1000);
   await rolling.drain();
   await rolling.drain();
   expect(model.calls.length).toBe(0);
@@ -405,45 +259,46 @@ test("with the Mac away nothing is called; a roll it dropped resumes where it st
   expect(runs.map((r) => `${r.id} ${r.state}`)).toEqual([
     `${waiting?.id} valid`,
   ]);
-  // The chapters answer was kept: asked once.
-  expect(plans(model.calls)).toEqual([[0, 9]]);
-  expect(rows().length).toBe(1);
+  // The run started again in place: asked twice (the Mac dropped the first), one run.
+  expect(asked(model.calls)).toEqual([
+    [0, 9],
+    [0, 9],
+  ]);
 });
 
 test("at most one roll per conversation at a time; one asked meanwhile follows", async () => {
   const { promise: gate, resolve: release } = Promise.withResolvers<void>();
   let running = 0;
   let most = 0;
-  const respond = answer();
-  const model = fakeModel(async (call) => {
-    if (stageOf(call) === "chapters") {
-      running += 1;
-      most = Math.max(most, running);
-      await gate;
-      running -= 1;
-    }
-    return respond(call);
+  const model = fakeModel(async () => {
+    running += 1;
+    most = Math.max(most, running);
+    await gate;
+    running -= 1;
+    return fakeAnswer();
   });
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: SMALL });
   block(0, 10, 100);
   const first = rolling.drain();
   await Bun.sleep(50);
   block(100, 10, 200);
   const more = [rolling.drain(), rolling.drain()];
   await Bun.sleep(50);
-  expect(plans(model.calls).length).toBe(1);
+  expect(model.calls.length).toBe(1);
   release();
   await Promise.all([first, ...more]);
   await rolling.idle();
   expect(most).toBe(1);
-  expect(plans(model.calls)).toEqual([
-    [0, 9],
-    [5, 19],
+  expect(asked(model.calls)).toEqual([
+    [0, 3],
+    [4, 7],
+    [8, 11],
+    [12, 15],
   ]);
 });
 
 test("without the Mac nothing rolls", async () => {
-  const rolling = rollingChapters(env.db, { mac: null });
+  const rolling = rollingVoices(env.db, { mac: null });
   block(0, 10, 100);
   await rolling.drain();
   await rolling.drain();
@@ -454,18 +309,17 @@ test("a conversation is due whenever its words change, however late: an old one 
   const OLD = -3 * 86_400;
   let ready = false;
   let dropped = false;
-  const respond = answer();
   const model = Object.assign(
-    fakeModel((call) => {
-      if (stageOf(call) === "chapter" && !dropped) {
+    fakeModel(() => {
+      if (!dropped) {
         dropped = true;
         throw new MacGone("the Mac is away");
       }
-      return respond(call);
+      return fakeAnswer();
     }),
     { ready: () => ready }
   );
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   // Three days ago, closed long since; its words come only now (held audio released).
   block(OLD, 10, 1000);
   expect(conversation()[0]?.closedAt).not.toBeNull();
@@ -485,7 +339,6 @@ test("a conversation is due whenever its words change, however late: an old one 
       .all()
       .map((r) => r.state)
   ).toEqual(["valid"]);
-  expect(rows().map((r) => r.title)).toEqual(["From 0", "From 5"]);
   // Read as they are: not due again.
   const calls = model.calls.length;
   await rolling.drain();

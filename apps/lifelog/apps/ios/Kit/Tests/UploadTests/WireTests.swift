@@ -57,7 +57,7 @@ private final class Reports: Sendable {
     #expect(try await library.conversations(before: nil, limit: 10) == [conversation], "the retired one isn't listed")
     #expect(conversation.ownerTitle != nil && conversation.title != nil && conversation.tldr != nil)
     #expect(conversation.place != nil && conversation.waiting?.since != nil)
-    #expect(conversation.splitSuggestions?.isEmpty == false)
+    #expect(conversation.splitSuggestions?.isEmpty == true)
     // The server's one state, and the summary shown, which Generate names as seen.
     #expect(conversation.state == .summarized && conversation.runId != nil)
 

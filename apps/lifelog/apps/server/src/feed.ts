@@ -39,7 +39,7 @@ import type { MacView } from "./mac-socket";
 import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
 import { placeName } from "./places";
 import { macView } from "./quiet-ranges";
-import { latestValidRun, rendererFor, splitsOf } from "./summaries";
+import { latestSummary, latestValid, rendererFor } from "./runs";
 import {
   keptWords,
   personOf,
@@ -255,16 +255,14 @@ function loadConversations(db: Db, ids: string[]) {
     .where(isNull(ownerEdits.undoneAt))
     .all();
   const neighbours = neighboursOf(db, ids);
-  const dismissed = new Set(
-    edits.filter((e) => e.kind === "dismissSplit").map((e) => e.at?.getTime())
-  );
   // ponytail: a run and a place read per conversation; batch them if a page of 500 ever gets slow.
   return rows.map((c) => {
     const [start, end] = [
       c.captureStartedAt.getTime(),
       c.captureEndedAt.getTime(),
     ];
-    const run = latestValidRun(db, c.id);
+    const run = latestValid(db, c.id);
+    const summary = latestSummary(db, c.id);
     const place = placeName(db, start, end);
     const edges = c.retiredAt
       ? NO_EDGES
@@ -279,14 +277,17 @@ function loadConversations(db: Db, ids: string[]) {
       ownerTitleAt: iso(c.ownerTitleAt),
       place,
       retired: c.retiredAt ? { successorId: c.successorId } : null,
-      // The summary shown: what the owner's Generate names as seen (`after`).
+      // The run shown: what the owner's Generate names as seen (`after`).
       runId: run?.id ?? null,
-      splitSuggestions: run ? splitSuggestions(run, start, end, dismissed) : [],
+      // No run suggests splits any more.
+      splitSuggestions: [],
       startAt: c.captureStartedAt.toISOString(),
       startEdit: edges.start,
       state: c.state,
-      title: run?.result.title.text ?? null,
-      tldr: run?.result.tldr.text ?? null,
+      title: summary?.result.title?.text ?? null,
+      tldr: summary?.result.tldr
+        ? rendererFor(db, c.id)(summary.result.tldr.text)
+        : null,
       waiting: c.waitingReason
         ? { reason: c.waitingReason, since: iso(c.waitingSince) }
         : null,
@@ -344,22 +345,6 @@ function edgesOf(
     end: splitIn(end, around?.after ?? end),
     start: splitIn(around?.before ?? start, start) ?? merge ?? null,
   };
-}
-
-// The run's medium-confidence splits inside the conversation, minus the dismissed ones (a high one
-// is already an AI split, intelligence.ts `splitAtBoundaries`).
-function splitSuggestions(
-  run: NonNullable<Awaited<ReturnType<typeof latestValidRun>>>,
-  start: number,
-  end: number,
-  dismissed: Set<number | undefined>
-) {
-  return splitsOf(run.result, run.turns, "medium")
-    .filter(({ at }) => at > start && at < end && !dismissed.has(at))
-    .map(({ at }) => ({
-      at: new Date(at).toISOString(),
-      confidence: "medium" as const,
-    }));
 }
 
 // The live conversation each instant falls in ([start, end)), from one read of those around them.

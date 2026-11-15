@@ -154,8 +154,8 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
    heard-through is 5 minutes past its end ([`docs/timeline.md`](timeline.md)).
 9. **Recognized.** The server cuts the job's clean turns from its own audio, `apps/identity` embeds them, and the
    server decides who spoke each turn.
-10. **Summarized.** Whenever a conversation's words change (one rule, `turns_fp`), the Mac rolls its tail; each
-    chapter that closes is summarized, and the title and TLDR are written again from the chapters.
+10. **Voices read.** Whenever a conversation's words change (one rule, `turns_fp`), the Mac rolls its tail in windows
+    of about 24k characters, one call each, and reads who each unnamed voice is. No chapters, title or TLDR since 15 Nov 2026.
 11. **Back on the phone.** Every change is logged in the same transaction. The feed brings the rows into the cache,
     `SyncStore.generation` moves, and the Library, Search and an open conversation read again. It moves only while
     the app is in front, and once when it comes forward: in the background nothing shows those screens. A silent
@@ -222,7 +222,7 @@ the Library shows rows and the status.
 
 - **ACK deletes audio from the Pendant.** Only `PageSink.ackableIndex` authorizes it. The uploader and the raw backup
   read `SourceStore` and never write it. Never wipe the archive, the Pendant or its pairing.
-- **Summaries never use paid API credits.** They run on the Mac or wait. No paid fallback, no button for one.
+- **The voices read never uses paid API credits.** They run on the Mac or wait. No paid fallback, no button for one.
 - **Never buy audio twice.** A page is in one speech fragment and in one job that isn't failed, checked inside the
   admission transaction by the one writer (`cutter.ts` `holderOf`); a job's pages are its fragments'. The phone sends whole pages from its cursor around the
   pages the server holds; the same fragment sent again answers the same row, and a held page is refused (409). Old

@@ -20,7 +20,6 @@ import { cardClips } from "./naming-clips";
 import { answerVoices, morningPush, namingQueue } from "./naming-queue";
 import { assign, sweep } from "./people";
 import { services } from "./services";
-import { PROMPT_VERSION } from "./summary-calls";
 import {
   mapJob,
   OWNER_TOKEN,
@@ -29,6 +28,7 @@ import {
   testConfig,
   testDb,
 } from "./testing";
+import { PROMPT_VERSION } from "./voices-call";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 beforeAll(() => {
