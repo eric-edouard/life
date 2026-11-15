@@ -77,3 +77,9 @@ test("the renamed settings parse, and the old names are refused", () => {
     expect(() => Settings.parse({ [old]: renamed.todoList })).toThrow();
   }
 });
+
+test("the conversation summaries setting is on only as true", () => {
+  expect(Settings.shape.conversationSummaries.parse(true)).toBe(true);
+  expect(Settings.shape.conversationSummaries.parse(undefined)).toBeUndefined();
+  expect(() => Settings.shape.conversationSummaries.parse(false)).toThrow();
+});

@@ -21,7 +21,7 @@ import {
   readReplyIndex,
   replyOf,
 } from "./read-replies";
-import { begin, chunks } from "./run";
+import { begin, chunks, type Step } from "./run";
 import {
   type SpokenPart,
   spokenConversationsOf,
@@ -105,7 +105,9 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
     .flat()
     .filter(
       (l): l is SummaryLine =>
-        l.read === SUMMARY_READ && l.madeBy.prompt === PROMPT
+        l.read === SUMMARY_READ &&
+        l.madeBy.prompt === PROMPT &&
+        Reply.safeParse(l.reply).success
     );
   if (lines.length === 0) {
     return { current: [], stale: new Set<string>() };
@@ -264,17 +266,18 @@ function pendingOf(
 export async function conversationSummaries(
   found: ConversationSummaryWork,
   cap = NIGHT_CALLS,
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  step?: Step
 ) {
-  const step = await begin("conversation-summaries", "main", {
-    prompts: [PROMPT],
-  });
+  const run =
+    step ??
+    (await begin("conversation-summaries", "main", { prompts: [PROMPT] }));
   const failed = new Set<string>();
   let [calls, stored] = [0, 0];
   for (;;) {
     const work = pendingOf(found.parts, cap - calls, failed, where);
     // biome-ignore lint/performance/noAwaitInLoops: a pass waits for the one before it (a part is given the summary of the part before)
-    const made = await makeReplies(work, step, where);
+    const made = await makeReplies(work, run, where);
     calls += work.length;
     stored += made.stored;
     for (const f of made.failed) {
@@ -284,7 +287,7 @@ export async function conversationSummaries(
       break;
     }
   }
-  return step.end({ calls, stored });
+  return run.end({ calls, stored });
 }
 
 /**

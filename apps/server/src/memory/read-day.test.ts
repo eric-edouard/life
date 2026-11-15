@@ -116,3 +116,21 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
   ).toContain("Where he was is unknown: lifelog could not be read.");
   expect(dayLines({})[0]).toStartWith("Units (0;");
 });
+
+test("day: the conversation summaries follow the episodes, each with what opens it", () => {
+  const line =
+    "- 2026-10-14 12:00 A quote: They agreed. (`fetch person:me/conversation/job-1:0@2026-10-14T10:00:00.000Z`)";
+  const lines = dayLines({
+    facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
+    summaries: [line],
+    units: [],
+  });
+  const at = lines.findIndex((l) => l.startsWith("Conversation summaries"));
+  expect(lines[at]).toContain("`fetch <ref>` opens one");
+  expect(lines[at + 1]).toBe(line);
+  expect(
+    dayLines({ facts: [], units: [] }).some((l) =>
+      l.includes("Conversation summaries")
+    )
+  ).toBe(false);
+});

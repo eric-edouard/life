@@ -188,3 +188,24 @@ test("a part ref opens its person by id: the reader gets byId, the id, the part 
     ],
   ]);
 });
+
+test("the conversation part is his alone and takes the ref of a turn, never a year, a month or `before`", () => {
+  const ref = "person:me/conversation/job-1:3@2026-10-14T10:00:00.000Z";
+  const parsed = parseReadPartRef(ref);
+  expect(parsed).toEqual({
+    ref: {
+      before: undefined,
+      part: "conversation",
+      span: "job-1:3@2026-10-14T10:00:00.000Z",
+      subject: "person:me",
+    },
+  });
+  expect(readPartRefOf((parsed as { ref: ReadPartRef }).ref)).toBe(ref);
+  for (const bad of [
+    "person:me/conversation",
+    "person:me/conversation/2026-10",
+    `${ref}/before/2026-10-15`,
+  ]) {
+    expect(parseReadPartRef(bad)).toHaveProperty("error");
+  }
+});
