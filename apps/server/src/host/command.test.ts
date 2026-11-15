@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { memoryCommand } from "./command";
@@ -31,6 +31,23 @@ test("`bun life act` and `bun life grant` are gone", () => {
       expect(run.stderr.toString()).toContain("change-todo-item");
       expect(run.stderr.toString()).toContain("auto-add");
     }
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test("an unknown flag is a usage mistake, never a crash in the run log", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-cli-"));
+  try {
+    const run = Bun.spawnSync(
+      ["bun", join(import.meta.dir, "cli.ts"), "memory", "--help"],
+      {
+        env: { ...process.env, LIFE_OWNER_DATA_DIR: dir, LIFE_STATE_DIR: dir },
+      }
+    );
+    expect(run.exitCode).toBe(2);
+    expect(run.stderr.toString()).toContain("--help");
+    expect(existsSync(join(dir, "log"))).toBe(false);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
