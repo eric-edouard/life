@@ -12,12 +12,13 @@ import { inBatches, type Step } from "./run";
 // memory/read-replies/ (model output is expensive), what is pending derived from the stored lines (`replyOf`). The
 // one writer and reader of that folder (or of a trial's).
 
-/** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`. */
+/** The prompt of each read; the moves reads' shape is `MOVES`, `memory/moves.ts`, the summary's is `memory/conversation-summaries.ts`, the voice naming's `memory/voice-naming.ts`. */
 export const READS = {
   conflict: { prompt: "memory-conflict.v2" },
   connection: { prompt: "memory-connection.v3" },
   conversation_summary: { prompt: "memory-conversation-summary.v1" },
   mentions: { prompt: "memory-mentions.v1" },
+  voice_naming: { prompt: "memory-voice-naming.v1" },
 } satisfies Record<ReadName, { prompt: string }>;
 /** The digest of a prompt's text, stored beside its name and never matched on. */
 export const promptDigestOf = (text: string) => digest("sha256", text, 16);

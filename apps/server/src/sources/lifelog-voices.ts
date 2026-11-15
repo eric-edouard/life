@@ -58,7 +58,6 @@ export async function readVoiceKinds(conversationId: string) {
 export const voiceKey = (jobId: string, label: string | null) =>
   `${jobId} ${label}`;
 
-
 /** One voice of a recording, as `GET /speakers/voices` gives it: who named it (`basis`: his answer, lifelog's sound, nobody), who, and whom it sounds like. */
 export const Voices = z.array(
   z.object({
@@ -78,27 +77,23 @@ export type VoiceRow = z.infer<typeof Voices>[number];
  * An older Lifelog Host has no such route (404): that throws.
  */
 export async function readVoices(from: Date, to: Date) {
-  const rows: VoiceRow[] = [];
-  for (let at = from.getTime(); at < to.getTime(); at += DAY) {
-    const [start, end] = [
-      new Date(at).toISOString(),
-      new Date(Math.min(at + DAY, to.getTime())).toISOString(),
-    ];
-    try {
-      rows.push(
-        // biome-ignore lint/performance/noAwaitInLoops: a span is a few windows
-        ...Voices.parse(
-          await call(
-            `/speakers/voices?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`
-          )
-        )
+  const starts = Array.from(
+    { length: Math.max(1, Math.ceil((to.getTime() - from.getTime()) / DAY)) },
+    (_, i) => from.getTime() + i * DAY
+  );
+  const windows = await Promise.all(
+    starts.map((at) => {
+      const [start, end] = [at, Math.min(at + DAY, to.getTime())].map((t) =>
+        encodeURIComponent(new Date(t).toISOString())
       );
-    } catch (e) {
-      if ((e as { status?: number }).status === 404) {
-        throw new Error("voice naming needs the new Lifelog Host");
-      }
-      throw e;
-    }
-  }
-  return rows;
+      return call(`/speakers/voices?from=${start}&to=${end}`)
+        .then((rows) => Voices.parse(rows))
+        .catch((e: { status?: number }) => {
+          throw e.status === 404
+            ? new Error("voice naming needs the new Lifelog Host", { cause: e })
+            : e;
+        });
+    })
+  );
+  return windows.flat();
 }

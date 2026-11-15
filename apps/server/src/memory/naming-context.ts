@@ -1,0 +1,161 @@
+import { DAY } from "../core/clock";
+import { chatGroups, type SourceEvent } from "../records/source";
+import type { DetailLine } from "./details";
+import { OWNER } from "./read-truth";
+import { callLine, chatPerson, clip } from "./units";
+import type { People } from "./who";
+import { offsetAt } from "./zones";
+
+// What the voice naming read (`memory/voice-naming.ts`) is told about a conversation, made by code from his rules and
+// never by a model (docs/glossary.md: calls, possible speaker, naming brief). Pure: the caller reads the data.
+
+/** The calls a naming read is shown: at most this many characters. */
+export const CALLS_CHARS = 600;
+/** A person's naming brief: at most this many characters. */
+export const BRIEF_CHARS = 300;
+/** The most people a naming read offers. */
+export const POSSIBLE_SPEAKERS = 12;
+/** A person heard in person counts as a possible speaker for this long afterwards. */
+export const HEARD_WITHIN = 90 * DAY;
+
+/**
+ * His first rule: the phone calls that overlap [from, to), the ones that matter to who is in the room. A picked-up
+ * call overlaps when its span does; one with no end seen when it starts inside; one not picked up never. `people`
+ * are the person refs on them (a one-to-one chat's person, else the senders of the calls), `lines` how a model is shown
+ * them, in time order, at most `CALLS_CHARS` characters.
+ */
+export function overlappingPhoneCallsOf(
+  events: SourceEvent[],
+  from: string,
+  to: string,
+  people: Pick<People, "nameOf" | "resolve">
+) {
+  const [start, end] = [Date.parse(from), Date.parse(to)];
+  const overlaps = ({ at, phoneCall }: SourceEvent) => {
+    const began = Date.parse(at);
+    if (!phoneCall || phoneCall.seconds === 0) {
+      return false;
+    }
+    return phoneCall.seconds === undefined
+      ? began >= start && began < end
+      : began < end && began + phoneCall.seconds * 1000 > start;
+  };
+  const found = [...chatGroups(events).values()].flatMap((chat) => {
+    const calls = chat.filter(overlaps);
+    const person = chatPerson(chat, people.resolve);
+    const senders = (list: SourceEvent[]) =>
+      list.filter((e) => !e.fromMe).map((e) => people.resolve(e.sender));
+    const refs = person?.startsWith("person:")
+      ? [person]
+      : senders(calls.length > 0 ? calls : chat);
+    const who = [
+      ...new Set(refs.filter((r): r is string => !!r && r !== OWNER)),
+    ];
+    return calls.map((call) => ({ at: call.at, call, who }));
+  });
+  found.sort((a, b) => a.at.localeCompare(b.at));
+  const lines: string[] = [];
+  let chars = 0;
+  for (const { call, who } of found) {
+    const names = who.map((r) => people.nameOf(r)).join(", ");
+    const line = `${callLine(call)} with ${names || "someone not known"}`;
+    if (chars + line.length > CALLS_CHARS) {
+      break;
+    }
+    chars += line.length;
+    lines.push(line);
+  }
+  return { lines, people: [...new Set(found.flatMap((f) => f.who))] };
+}
+
+/** What shows that a person could be in the room: each is a list of person refs. */
+export interface Signs {
+  /** Named by his answer in this conversation (lifelog's `owner` basis). */
+  answered: string[];
+  /** In an active fact dated that day whose evidence is not a recording. */
+  facts: string[];
+  /** Spoke in person in one of his recordings (any time: `possibleSpeakersOf` keeps the 90 days before). */
+  heard: { at: string; ref: string }[];
+  /** On a call that overlaps the recording (`overlappingPhoneCallsOf`). */
+  onCall: string[];
+  /** Pictured in a photo of that day. */
+  pictured: string[];
+}
+
+/**
+ * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, those on a call first. A person is in when any sign
+ * holds: on an overlapping call; named by his answer in this conversation; heard in person before the conversation began
+ * (`begin`), within `HEARD_WITHIN`, at the same UTC offset as the part at `at` (the owner and a place he lives
+ * elsewhere differ); pictured in a photo of that day; in an active fact dated that day that no recording is evidence of.
+ * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like.
+ */
+export function possibleSpeakersOf(
+  signs: Signs,
+  at: string,
+  begin: string,
+  cap = POSSIBLE_SPEAKERS
+) {
+  const [before, offset] = [Date.parse(begin), offsetAt(at)];
+  const heard = signs.heard
+    .filter(
+      (h) =>
+        Date.parse(h.at) < before &&
+        Date.parse(h.at) >= before - HEARD_WITHIN &&
+        offsetAt(h.at) === offset
+    )
+    .toSorted((a, b) => b.at.localeCompare(a.at))
+    .map((h) => h.ref);
+  return [
+    ...new Set(
+      [
+        ...signs.onCall,
+        ...signs.answered,
+        ...heard,
+        ...signs.pictured,
+        ...signs.facts,
+      ].filter((r) => r.startsWith("person:") && r !== OWNER)
+    ),
+  ].slice(0, cap);
+}
+
+/** What a person's brief is made of. */
+export interface Brief {
+  /** The local days he spoke with them on a call picked up, within `HEARD_WITHIN` before the conversation. */
+  byCall: string[];
+  details: DetailLine[];
+  /** The local days they spoke in person in his recordings, in the same time. */
+  inPerson: string[];
+  language?: "en" | "fr" | "th";
+  /** The names of the two people most often recorded the same days. */
+  often: string[];
+  relation?: string | null;
+}
+
+const LANGUAGES = { en: "English", fr: "French", th: "Thai" };
+
+/**
+ * His second rule: a short brief of a person, made for naming a voice: what they are to him, their language, family and
+ * where they live, how often and how he last heard them, and who is usually there with them. At most `BRIEF_CHARS`.
+ */
+export function namingBriefOf(b: Brief) {
+  const last = [...b.inPerson, ...b.byCall].toSorted().at(-1);
+  const heard = `heard in person on ${b.inPerson.length} days, by call on ${b.byCall.length} days${last ? `, last on ${last}` : ""}`;
+  const place = b.details.flatMap((d) =>
+    d.kind === "home" || d.kind === "family"
+      ? [`${d.kind === "home" ? "lives in" : "family"} ${d.text}`]
+      : []
+  );
+  return clip(
+    [
+      b.relation,
+      b.language && `speaks ${LANGUAGES[b.language]}`,
+      ...place,
+      heard,
+      b.often.length > 0 &&
+        `often recorded the same days as ${b.often.join(" and ")}`,
+    ]
+      .filter(Boolean)
+      .join("; "),
+    BRIEF_CHARS
+  );
+}
