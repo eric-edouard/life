@@ -4,7 +4,7 @@ import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
 import { turnKey, UNKNOWN } from "./units";
 import type { People } from "./who";
-import { messageLine, talksWithOwner, turnLines } from "./words";
+import { isTalkingWithOwner, messageLine, turnLines } from "./words";
 import { localDate, time } from "./zones";
 
 // The spoken conversations (docs/glossary.md): the owner's recorded speech cut where nobody speaks for
@@ -96,7 +96,7 @@ export async function spokenPartsOf(
     new Map([["c", conversation]]),
     [...new Set(conversation.map((t) => t.conversation))],
     people.resolve,
-    (kind) => !kind || talksWithOwner(kind)
+    isTalkingWithOwner
   );
   const voices = new Map<string, string>();
   let silent = Number.NEGATIVE_INFINITY;

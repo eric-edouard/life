@@ -10,7 +10,7 @@ import { checkedEntries } from "./run";
 import { textOf } from "./units";
 
 // The moves a model lists when it reads an exchange: their shapes by read, and the code that checks a reply's moves
-// against the messages. Never stored: the replies are (`memory/exchange-reads.ts`), the moves are worked out when read.
+// against the messages. Never stored: the replies are (`memory/read-replies.ts`), the moves are worked out when read.
 
 const RESOURCES = [
   "affection",

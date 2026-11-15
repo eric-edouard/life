@@ -24,7 +24,7 @@ interface Timed {
   at: string;
   end?: string | null;
 }
-const endOf = (x: Timed) => Date.parse(x.end ?? x.at);
+const lastMs = (x: Timed) => Date.parse(x.end ?? x.at);
 
 /**
  * A stream of messages cut into exchanges, in time order: each a sitting of talk, a new one once nothing was written
@@ -43,7 +43,7 @@ export function exchangesOf<T extends Timed>(
     } else {
       exchanges.push([e]);
     }
-    latest = Math.max(latest, endOf(e));
+    latest = Math.max(latest, lastMs(e));
   }
   return exchanges;
 }
@@ -53,7 +53,7 @@ export const isFinished = (
   exchange: Timed[],
   now: Date,
   quiet = EXCHANGE_ENDS_AFTER
-) => now.getTime() - Math.max(...exchange.map(endOf)) >= quiet;
+) => now.getTime() - Math.max(...exchange.map(lastMs)) >= quiet;
 
 /** A two-way chat: both sides wrote in it, so there is an exchange to read. One only he or only they wrote in is not. */
 export const isTwoWay = (chat: SourceEvent[]) =>

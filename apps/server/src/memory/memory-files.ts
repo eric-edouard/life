@@ -79,7 +79,7 @@ export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
   join(HISTORIES, `${ref.slice("person:".length)}.json`);
 /**
- * What each read of an exchange answered (`memory/exchange-reads.ts`), append-only, one file per month of the batch's
+ * What each read of an exchange answered (`memory/read-replies.ts`), append-only, one file per month of the batch's
  * first message, read as an instant (UTC on purpose: a file's name never moves), so old history is never touched again.
  */
 export const READ_REPLIES = join(MEMORY, "read-replies");

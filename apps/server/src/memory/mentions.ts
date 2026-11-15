@@ -16,7 +16,7 @@ import { dayUnitId, textOf } from "./units";
 import { localDate } from "./zones";
 
 // The mentions of the mentions read: someone not in the conversation talked about. The replies are stored
-// (`memory/exchange-reads.ts`); the night checks them against the sources once and keeps the result in Life's state
+// (`memory/read-replies.ts`); the night checks them against the sources once and keeps the result in Life's state
 // (`MENTIONS`, never `memory/`), as the exchange counts are kept. A mention holds the words as written and never a
 // person: who is meant is worked out when read (`placementOf`, `memory/who.ts`), so a fold or a name given later moves it.
 
