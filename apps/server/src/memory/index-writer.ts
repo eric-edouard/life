@@ -8,6 +8,11 @@ import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import type { Unit, Verdict } from "../records/unit";
 import {
+  currentSummaries,
+  type HeldSummary,
+  summaryTextOf,
+} from "./conversation-summaries";
+import {
   CURRENT,
   episodeTextNow,
   OBSERVATION_TEXT,
@@ -28,6 +33,7 @@ import {
 import { readPassageTexts } from "./passages";
 import { TRUTH } from "./read-truth";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
+import { localDate } from "./zones";
 
 // derived/memory/index.sqlite: the one writer of the index the read path reads (`buildIndex`, `reindex`,
 // `reindexUnits`), when it is stale (`readStaleness`), and every text `search` ranks by meaning (`readSearchedTexts`).
@@ -48,7 +54,7 @@ create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
 create index unit_topics_topic on unit_topics (topic);
 create table search_hashes (id text primary key, hash text not null);
-create table episode_search (id text primary key, at text, text text);
+create table searched_texts (id text primary key, at text, text text);
 create table rebuilt (at text);`;
 
 /** The supersession that retired `o`, if any (`observationStatusOf`). */
@@ -139,7 +145,8 @@ export function buildIndex(
   statusInputs: ObservationStatusInputs,
   units: IndexedUnit[] = [],
   builtAt = clock(),
-  episodes: Episode[] = []
+  episodes: Episode[] = [],
+  summaries: HeldSummary[] = []
 ) {
   const unique = new Map(observations.map((o) => [o.id, o]));
   writeIndex(path, (db) => {
@@ -155,11 +162,17 @@ export function buildIndex(
     const text = insertInto(db, "search", 3);
     const link = insertInto(db, "observation_subjects", 2);
     const hash = insertInto(db, "search_hashes", 2);
-    const episodeRow = insertInto(db, "episode_search", 3);
+    const textRow = insertInto(db, "searched_texts", 3);
     for (const episode of episodes) {
       const words = episodeTextNow(episode);
       hash.run(episode.id, textHashOf(EMBEDDER_MODEL, words));
-      episodeRow.run(episode.id, daysOf(episode)[0], words);
+      textRow.run(episode.id, daysOf(episode)[0], words);
+    }
+    // A conversation summary is found by the ref of the turn it starts at, the one that opens it.
+    for (const summary of summaries) {
+      const words = summaryTextOf(summary);
+      hash.run(summary.ref, textHashOf(EMBEDDER_MODEL, words));
+      textRow.run(summary.ref, localDate(summary.at), words);
     }
     for (const o of unique.values()) {
       const retired = retirement(o, statusInputs);
@@ -204,7 +217,7 @@ export function readSearchedTexts(db: Database): boolean {
     db.run("attach database ? as search_index", [`file:${INDEX}?mode=ro`]);
     indexed = `select o.date as at, h.hash, ${OBSERVATION_TEXT} as text from search_index.observations o join search_index.search_hashes h on h.id = o.id where ${CURRENT}
       union all select u.date as at, h.hash, ${UNIT_TEXT} as text from search_index.unit_search s join search_index.units u on u.id = s.id join search_index.search_hashes h on h.id = u.id
-      union all select e.at, h.hash, e.text from search_index.episode_search e join search_index.search_hashes h on h.id = e.id`;
+      union all select e.at, h.hash, e.text from search_index.searched_texts e join search_index.search_hashes h on h.id = e.id`;
   }
   const wholePassages = readPassageTexts(db);
   db.run(
@@ -225,7 +238,8 @@ export async function reindex() {
     statusInputs,
     units,
     at,
-    await episodesWhere(() => true)
+    await episodesWhere(() => true),
+    await currentSummaries()
   );
   // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
   console.error(
@@ -274,7 +288,7 @@ export function readStaleness(path = INDEX): "truth" | "index" | null {
         .get()?.at;
       // An index without stored search texts and hashes must rebuild even when its inputs did not change.
       db.query("select id from search_hashes limit 0").all();
-      db.query("select id from episode_search limit 0").all();
+      db.query("select id from searched_texts limit 0").all();
       // One built before the table of who an observation is about took its name.
       db.query("select subject from observation_subjects limit 0").all();
     } finally {

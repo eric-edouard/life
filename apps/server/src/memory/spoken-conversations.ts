@@ -38,35 +38,43 @@ export interface SpokenPart {
   ref: string;
 }
 
-/** The end of each part of lines of these `sizes` and the `gaps` of silence before each line: the longest silence in the part's second half, else the longest anywhere in it. */
+/** The line in [from, to) with the longest silence before it, or -1 when there is none. */
+function widest(gaps: number[], from: number, to: number) {
+  let best = -1;
+  for (let k = from; k < to; k += 1) {
+    if (best < 0 || (gaps[k] ?? 0) > (gaps[best] ?? 0)) {
+      best = k;
+    }
+  }
+  return best;
+}
+
+/** Where the part of lines of these `sizes` starting at `from` ends: the longest silence in its second half, else the longest anywhere in it, else where the next line no longer fits. */
+function partEnd(sizes: number[], gaps: number[], from: number) {
+  let [size, i, half] = [0, from, from + 1];
+  while (
+    i < sizes.length &&
+    size + (sizes[i] ?? 0) <= CONVERSATION_PART_CHARS
+  ) {
+    size += sizes[i] ?? 0;
+    i += 1;
+    if (size < CONVERSATION_PART_CHARS / 2) {
+      half = i + 1;
+    }
+  }
+  if (i >= sizes.length) {
+    return sizes.length;
+  }
+  const late = widest(gaps, half, i);
+  const cut = late >= 0 ? late : widest(gaps, from + 1, i);
+  return cut >= 0 ? cut : Math.max(i, from + 1);
+}
+
+/** Where each part of these lines ends (`partEnd`). */
 function cutsOf(sizes: number[], gaps: number[]) {
   const ends: number[] = [];
-  let from = 0;
-  while (from < sizes.length) {
-    let size = 0;
-    let [best, any] = [-1, -1];
-    let i = from;
-    for (
-      ;
-      i < sizes.length && size + (sizes[i] ?? 0) <= CONVERSATION_PART_CHARS;
-      i += 1
-    ) {
-      if (i > from) {
-        if (any < 0 || (gaps[i] ?? 0) > (gaps[any] ?? 0)) {
-          any = i;
-        }
-        if (
-          size >= CONVERSATION_PART_CHARS / 2 &&
-          (best < 0 || (gaps[i] ?? 0) > (gaps[best] ?? 0))
-        ) {
-          best = i;
-        }
-      }
-      size += sizes[i] ?? 0;
-    }
-    const to = i >= sizes.length ? sizes.length : Math.max(best, any, from + 1);
-    ends.push(to);
-    from = to;
+  for (let from = 0; from < sizes.length; from = ends.at(-1) ?? 0) {
+    ends.push(partEnd(sizes, gaps, from));
   }
   return ends;
 }

@@ -197,8 +197,8 @@ export async function readConversationSummaryWork(
   );
   const parts: SpokenPart[][] = [];
   for (const group of chunks(examined, 8)) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few conversations' words at a time
     parts.push(
+      // biome-ignore lint/performance/noAwaitInLoops: a few conversations' words at a time
       ...(await Promise.all(group.map((c) => spokenPartsOf(c, people))))
     );
   }
@@ -273,6 +273,7 @@ export async function conversationSummaries(
   let [calls, stored] = [0, 0];
   for (;;) {
     const work = pendingOf(found.parts, cap - calls, failed, where);
+    // biome-ignore lint/performance/noAwaitInLoops: a pass waits for the one before it (a part is given the summary of the part before)
     const made = await makeReplies(work, step, where);
     calls += work.length;
     stored += made.stored;
