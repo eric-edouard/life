@@ -1,4 +1,5 @@
 import { SubjectRef } from "../records/fields";
+import { parseTurnRef } from "../sources/lifelog";
 import { isDay } from "./zones";
 
 // A read part: one bounded piece of what Life holds about a subject, opened by its ref through `fetch` (and `person
@@ -6,7 +7,8 @@ import { isDay } from "./zones";
 
 /**
  * The parts that exist: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
- * summaries, paged back), `month` (its words and days) and `evidence` (observations, episodes and chats, paged back).
+ * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back) and
+ * `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
  */
 const READ_PARTS = [
   "now",
@@ -16,6 +18,7 @@ const READ_PARTS = [
   "year",
   "month",
   "evidence",
+  "conversation",
 ] as const;
 export type ReadPart = (typeof READ_PARTS)[number];
 
@@ -32,6 +35,18 @@ export interface ReadPartRef {
 
 const SPAN = /^\d{4}(?:-\d{2})?$/;
 
+/** Why `span` is not one this part takes the form of: a turn's ref for `conversation`, else a year or a month. */
+function spanErrorOf(part: string, span?: string) {
+  if (part === "conversation") {
+    return span && parseTurnRef(span)
+      ? null
+      : 'the part "conversation" takes the ref of a recording\'s turn as its span (<job>:<turn>@<instant>)';
+  }
+  return span && !SPAN.test(span)
+    ? `span "${span}" is not a year (YYYY) or a month (YYYY-MM)`
+    : null;
+}
+
 /** Why these are not a read part (a part that does not exist, a span or `before` that part cannot take), else null. */
 export function partErrorOf(o: {
   before?: string;
@@ -41,15 +56,16 @@ export function partErrorOf(o: {
   if (!READ_PARTS.includes(o.part as ReadPart)) {
     return `no part "${o.part}" (parts: ${READ_PARTS.join(", ")})`;
   }
-  if (o.span && !SPAN.test(o.span)) {
-    return `span "${o.span}" is not a year (YYYY) or a month (YYYY-MM)`;
+  const bad = spanErrorOf(o.part, o.span);
+  if (bad) {
+    return bad;
   }
   if (o.part === "year" || o.part === "month") {
     const size = o.part === "year" ? 4 : 7;
     if (o.span?.length !== size) {
       return `the part "${o.part}" takes a ${o.part} as its span (${size === 4 ? "YYYY" : "YYYY-MM"})`;
     }
-  } else if (o.part !== "evidence" && o.span) {
+  } else if (o.part !== "evidence" && o.part !== "conversation" && o.span) {
     return `the part "${o.part}" takes no span`;
   }
   if (o.before && o.part !== "evidence" && o.part !== "year") {

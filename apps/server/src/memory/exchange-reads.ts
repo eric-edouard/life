@@ -107,10 +107,10 @@ export function readExchangeReadWork(
 /** The night's exchange reads: what is due (`readExchangeReadWork`), asked and stored. A failure costs that call only. */
 export async function exchangeReads(pending: NonNullable<ExchangeReadWork>) {
   const step = await begin("exchange-reads", "main", {
-    prompts: Object.values(READS).map((r) => r.prompt),
+    prompts: MOVE_READS.map((r) => READS[r].prompt),
   });
   return step.end({
-    ...(await makeReplies(pending.work, step)),
     calls: pending.work.length,
+    stored: (await makeReplies(pending.work, step)).stored,
   });
 }

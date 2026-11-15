@@ -7,6 +7,7 @@ import type { History } from "../records/history";
 import { speakers, withStore } from "../sources/lifelog";
 import { conversationsWith } from "../sources/lifelog-conversations";
 import { closenessLine } from "./closeness";
+import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
 import {
@@ -37,7 +38,7 @@ import {
   type ReadPart,
   type ReadPartRef,
 } from "./read-part";
-import { goalProjects } from "./read-truth";
+import { goalProjects, OWNER } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
 import { conversationLabel, lifelogNames, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
@@ -199,6 +200,25 @@ export function heldLines(
   ];
 }
 
+/** What a read says without reading the person: why it is no part, or the part `conversation` (his alone: the summary starting at the turn `span`). Null for any other. */
+async function answeredEarly(
+  name: string,
+  o: { before?: string; part: string; span?: string }
+) {
+  const bad = partErrorOf(o);
+  if (bad || o.part !== "conversation") {
+    return bad ? [`(${bad})`] : null;
+  }
+  if (name !== OWNER.slice("person:".length)) {
+    return ["(only person:me has conversation parts)"];
+  }
+  return (
+    (await conversationSummaryPart(o.span as string)) ?? [
+      "(no conversation summary starts at that turn)",
+    ]
+  );
+}
+
 /** The ref a part read can open again: a person Life knows, whose id a ref can hold; never a name only heard. */
 export function personRefOf(known: string | undefined, id: string) {
   const ref = `person:${id}`;
@@ -241,9 +261,9 @@ export async function person(
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const part = o.part ?? (before || o.span ? "evidence" : "now");
-  const bad = partErrorOf({ before, part, span: o.span });
-  if (bad) {
-    return asData([`(${bad})`]);
+  const early = await answeredEarly(name, { before, part, span: o.span });
+  if (early) {
+    return asData(early);
   }
   const folks = await readPeople();
   const { refOf, truth } = folks;

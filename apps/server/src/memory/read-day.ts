@@ -2,6 +2,7 @@ import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog";
+import { currentSummaries, summaryLine } from "./conversation-summaries";
 import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";
 import { span } from "./episode-span";
@@ -61,6 +62,7 @@ export function dayLines({
   facts = [],
   episodes = [],
   payments: paidLines = [],
+  summaries = [],
   units = [],
   whereUnknown = false,
 }: {
@@ -71,6 +73,7 @@ export function dayLines({
   facts?: string[];
   episodes?: DayEpisode[];
   payments?: string[];
+  summaries?: string[];
   units?: UnitRow[];
   whereUnknown?: boolean;
 }) {
@@ -107,6 +110,13 @@ export function dayLines({
           ...(whereUnknown
             ? ["Where he was is unknown: lifelog could not be read."]
             : []),
+          "",
+        ]
+      : []),
+    ...(summaries.length > 0
+      ? [
+          "Conversation summaries (long conversations recorded in person, written from every line; `fetch <ref>` opens one):",
+          ...summaries,
           "",
         ]
       : []),
@@ -176,6 +186,9 @@ export async function day(date: string) {
   const ties = tiesNow(people);
   const place = (m: Mention) => placementOf(m, people, ties)?.ref;
   const ofDays = await placedOn(date, date, all, stays ?? []);
+  const summaries = (await currentSummaries())
+    .filter((h) => localDate(h.at) === date)
+    .map(summaryLine);
   return withIndex((db) => {
     const facts = db
       .query<Row & { unit: string }, [string]>(
@@ -214,6 +227,7 @@ export async function day(date: string) {
       payments: ofDays.error
         ? [`- Payments unknown: ${ofDays.error}`]
         : ofDays.list.toSorted(byTime).map(paymentLine),
+      summaries,
       units: db
         .query<UnitRow, [string]>(
           "select id, date, source, title, topics, importance from units where date = ? order by source, title"

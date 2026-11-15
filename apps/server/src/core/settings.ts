@@ -76,6 +76,12 @@ export const Settings = z
       .strict()
       .optional(),
     /**
+     * The conversation summaries (`memory/conversation-summaries.ts`): each night writes one for the long conversations
+     * recorded in person that have none, at most 40 calls. Absent means off: no call is made; what is stored is read
+     * all the same.
+     */
+    conversationSummaries: z.literal(true).optional(),
+    /**
      * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
      * model, no image leaves it. Without it, none.
      */

@@ -13,6 +13,7 @@ import { repoMap } from "../sources/git";
 import {
   authorOf,
   type LifelogConversation,
+  type LifelogTurn,
   liveConversations,
   readConversations,
   type Store,
@@ -175,7 +176,7 @@ export function conversationLabel(start: string, names: string[]) {
 }
 
 /** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
-export const turnKey = (t: LifelogConversation["turns"][number]) =>
+export const turnKey = (t: LifelogTurn) =>
   `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
 
 /**

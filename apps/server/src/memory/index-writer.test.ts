@@ -13,6 +13,7 @@ import { buildIndex, readSearchedTexts, readStaleness } from "./index-writer";
 import { INDEX, MEMORY, UNITS } from "./memory-files";
 import { TRUTH } from "./read-truth";
 import { madeBy, unit, verdict } from "./record-fixtures";
+import { localDate } from "./zones";
 
 test("the index is stale when memory/ (units/ aside) or truth/ changed after its reads began; truth/ says so", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-stale-")), "i.sqlite");
@@ -77,7 +78,7 @@ test("stored search hashes keep the exact ranked text and pre-hash indexes rebui
   expect(row?.hash).toBe(textHashOf(EMBEDDER_MODEL, row?.text ?? ""));
   expect(row?.text).toBe("Shop repairs\nA repair quotation\nrepairs budget");
   expect(readStaleness(path)).toBeNull();
-  db.run("drop table episode_search");
+  db.run("drop table searched_texts");
   expect(readStaleness(path)).toBe("index");
   db.run("drop table search_hashes");
   expect(readStaleness(path)).toBe("index");
@@ -126,11 +127,44 @@ test("embedding reads indexed episode text and unit hashes through read-only sto
       text: episodeTextNow(episode),
     });
     expect(texts).toHaveLength(2);
-    expect(() => db.run("delete from search_index.episode_search")).toThrow(
+    expect(() => db.run("delete from search_index.searched_texts")).toThrow(
       "readonly"
     );
   } finally {
     db.close();
     setSettings({ sources: before });
   }
+});
+
+test("a conversation summary is indexed under its first turn's ref, with its day, its text and its hash", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "life-summary-")), "i.sqlite");
+  const summary = {
+    at: "2026-10-14T10:00:00.000Z",
+    doubts: [],
+    keys: ["job-1:0@2026-10-14T10:00:00.000Z me"],
+    quotes: [],
+    ref: "job-1:0@2026-10-14T10:00:00.000Z",
+    subjects: [{ label: "The roof quote", line: 0 }],
+    summary: "They agreed the roof quote.",
+  };
+  buildIndex(
+    [],
+    path,
+    { corrections: [], latest: new Map(), live: new Set(), retired: new Map() },
+    [],
+    new Date("2099-01-01"),
+    [],
+    [summary]
+  );
+  const db = new Database(path);
+  const row = db
+    .query<{ at: string; hash: string; id: string; text: string }, []>(
+      "select s.id, s.at, s.text, h.hash from searched_texts s join search_hashes h on h.id = s.id"
+    )
+    .get();
+  db.close();
+  expect(row?.id).toBe(summary.ref);
+  expect(row?.text).toBe("The roof quote\nThey agreed the roof quote.");
+  expect(row?.at).toBe(localDate(summary.at));
+  expect(row?.hash).toBe(textHashOf(EMBEDDER_MODEL, row?.text ?? ""));
 });

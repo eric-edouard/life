@@ -4,6 +4,11 @@ import { fuse } from "../core/fusion";
 import { redact } from "../core/redact";
 import { searchVoice, turnPlace, withStore } from "../sources/lifelog";
 import {
+  currentSummaries,
+  summaryLine,
+  summaryTextOf,
+} from "./conversation-summaries";
+import {
   COLUMNS,
   CURRENT,
   episodeLine,
@@ -23,7 +28,14 @@ import { nameKey } from "./units";
 import { embedQuery, readNearest } from "./vectors";
 import { readPeople } from "./who";
 import { chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./words";
-import { type DayRange, dayRange, inDays, localTime } from "./zones";
+import {
+  type DayRange,
+  dayRange,
+  daysMeet,
+  inDays,
+  localDate,
+  localTime,
+} from "./zones";
 
 // `bun life memory search <words>` and the connector's `search`: episodes, observations and units matching the words
 // (from derived/memory/index.sqlite), the exact spoken words (lifelog's search), chats and mail, each ranked by meaning
@@ -161,20 +173,13 @@ async function voiceHits(words: string, range: DayRange) {
   }
 }
 
-/** `from`/`to` (local days, both included) bound every section. Each ranks by meaning and by words, fused (`fuse`). */
-export async function search(words: string, o: DayRange = {}) {
-  const range = dayRange(o.from, o.to);
-  const { note, vector } = await embedQuery(words);
-  // lifelog's search is a network call: the chats are read meanwhile.
-  const holds = holdsAll(words);
-  const [voice, chats, mail, all] = await Promise.all([
-    voiceHits(words, range),
-    chatHits(words, range, vector),
-    mailHits(words, range, vector),
-    episodesWhere(() => true),
-  ]);
-  const inside = all.filter(inDays(o));
-  const ranked = fuse([
+/** The ids of `items` best for the query: by meaning (`vector`, the stored hashes of their texts) and by words (`holds`), fused (`fuse`). */
+function rankedOf(
+  vector: number[] | undefined,
+  items: { id: string; text: string }[],
+  holds: (text: string) => boolean
+) {
+  return fuse([
     readNearest(
       vector,
       () =>
@@ -183,16 +188,47 @@ export async function search(words: string, o: DayRange = {}) {
             .query<{ id: string; hash: string }, [string]>(
               "select id, hash from search_hashes where id in (select value from json_each(?))"
             )
-            .all(JSON.stringify(inside.map((m) => m.id)))
+            .all(JSON.stringify(items.map((i) => i.id)))
         ) ?? []
     ),
-    inside
-      .filter((m) => holds(episodeTextNow(m)))
+    items
+      .filter((i) => holds(i.text))
       .toReversed()
-      .map((m) => m.id),
+      .map((i) => i.id),
   ]).map(([id]) => id);
+}
+
+/** `from`/`to` (local days, both included) bound every section. Each ranks by meaning and by words, fused (`fuse`). */
+export async function search(words: string, o: DayRange = {}) {
+  const range = dayRange(o.from, o.to);
+  const { note, vector } = await embedQuery(words);
+  // lifelog's search is a network call: the chats are read meanwhile.
+  const holds = holdsAll(words);
+  const [voice, chats, mail, all, summaries] = await Promise.all([
+    voiceHits(words, range),
+    chatHits(words, range, vector),
+    mailHits(words, range, vector),
+    episodesWhere(() => true),
+    currentSummaries(),
+  ]);
+  const inside = all.filter(inDays(o));
+  const ranked = rankedOf(
+    vector,
+    inside.map((m) => ({ id: m.id, text: episodeTextNow(m) })),
+    holds
+  );
   const top = new Set(ranked.slice(0, LIMIT));
   const found = inside.filter((m) => top.has(m.id));
+  const spoken = summaries.filter((h) => daysMeet(o, localDate(h.at)));
+  const rankedSummaries = rankedOf(
+    vector,
+    spoken.map((h) => ({ id: h.ref, text: summaryTextOf(h) })),
+    holds
+  );
+  const topSummaries = rankedSummaries.slice(0, LIMIT);
+  const foundSummaries = topSummaries.flatMap(
+    (id) => spoken.find((h) => h.ref === id) ?? []
+  );
   const situations = await readSituationsOf(
     words,
     new Set(all.map((m) => m.id)),
@@ -207,6 +243,16 @@ export async function search(words: string, o: DayRange = {}) {
           "Episodes (what happened):",
           ...found.map(episodeLine),
           ...(ranked.length > LIMIT
+            ? [`(the best ${LIMIT}: narrow with \`from\` and \`to\`)`]
+            : []),
+          "",
+        ]
+      : []),
+    ...(foundSummaries.length > 0
+      ? [
+          "Conversation summaries (long conversations recorded in person, written from every line; `fetch <ref>` opens one):",
+          ...foundSummaries.map(summaryLine),
+          ...(rankedSummaries.length > LIMIT
             ? [`(the best ${LIMIT}: narrow with \`from\` and \`to\`)`]
             : []),
           "",
