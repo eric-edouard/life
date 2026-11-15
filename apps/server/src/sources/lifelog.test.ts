@@ -29,8 +29,8 @@ import {
   visits,
   writeMarks,
 } from "./lifelog";
+import { conversationsWith } from "./lifelog-conversations";
 import { Recorded } from "./lifelog-recorded";
-import { conversationsWith } from "./lifelog-talks";
 import {
   conversation,
   lifelogServer,
@@ -221,13 +221,18 @@ test("a turn's place in its conversation, and a person's conversations newest fi
   expect(turnPlace(s, "job-1", 0)).toEqual({ conversation: "c1", offset: 0 });
   expect(turnPlace(s, "job-1", 2)).toEqual({ conversation: "c1", offset: 2 });
   expect(turnPlace(s, "job-1", 9)).toBeNull();
-  expect(
-    conversationsWith(s, [ANNE]).map((c) => ({ id: c.id, names: c.names }))
-  ).toEqual([
-    { id: "c2", names: ["Anne-Sophie"] },
-    { id: "c1", names: ["Anne-Sophie"] },
+  const named = (byId: Map<string, string>) =>
+    conversationsWith(s, [ANNE], byId).map((c) => [c.id, c.names]);
+  // The directory's name beats the one lifelog gave, as in a unit's label.
+  expect(named(new Map([[ANNE, "Anne Directory"]]))).toEqual([
+    ["c2", ["Anne Directory"]],
+    ["c1", ["Anne Directory"]],
   ]);
-  expect(conversationsWith(s, [ANNE, "nobody"])).toHaveLength(2);
+  expect(named(new Map())).toEqual([
+    ["c2", ["Anne-Sophie"]],
+    ["c1", ["Anne-Sophie"]],
+  ]);
+  expect(conversationsWith(s, [ANNE, "nobody"], new Map())).toHaveLength(2);
   expect(speakers(s)).toEqual([{ id: ANNE, name: "Anne-Sophie" }]);
 });
 

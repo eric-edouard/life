@@ -4,7 +4,7 @@ import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { visits, withStore } from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-talks";
+import { conversationsBetween } from "../sources/lifelog-conversations";
 import type { Draft } from "./calendar-events";
 import { episodeText } from "./doubts";
 import { endOf, span } from "./episode-span";
@@ -16,7 +16,8 @@ import {
   readUnitsOf,
 } from "./memory-files";
 import { stayOf, where } from "./places";
-import { clip, conversationLabel } from "./units";
+import { loadTruth } from "./read-truth";
+import { clip, conversationLabel, lifelogNames } from "./units";
 import { readPeople } from "./who";
 import { time } from "./zones";
 
@@ -167,9 +168,10 @@ export async function wanted(now: Date, since?: Date) {
 /** Each draft with the description and location it is written with, one at a time (stays are read as it comes). */
 export async function* described(fresh: Draft[]) {
   // The store is read before any network call, so it is never held open across them.
+  const byId = lifelogNames(await loadTruth());
   const talks = await withStore((store) =>
     fresh.map((d) =>
-      d.allDay ? [] : conversationsBetween(store, d.from, d.to)
+      d.allDay ? [] : conversationsBetween(store, d.from, d.to, byId)
     )
   );
   for (const [i, d] of fresh.entries()) {

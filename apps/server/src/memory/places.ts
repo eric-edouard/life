@@ -7,8 +7,9 @@ import {
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-talks";
-import { conversationLabel } from "./units";
+import { conversationsBetween } from "../sources/lifelog-conversations";
+import { loadTruth } from "./read-truth";
+import { conversationLabel, lifelogNames } from "./units";
 import { asData } from "./words";
 import { dayRange, isDay, localTime, time } from "./zones";
 
@@ -88,13 +89,14 @@ export async function placesOf(
     return null;
   }
   const now = clock().toISOString();
+  const byId = lifelogNames(await loadTruth());
   return withStore(
     (store) =>
       asData([
         `Stays (${stays.length}${stays.length === MAX ? ", the newest; narrow the dates for more" : ""}; newest first; \`fetch <id>\` for a recorded conversation):`,
         ...stays.flatMap((s) => {
           const left = s.leftAt ?? now;
-          const during = conversationsBetween(store, s.arrivedAt, left);
+          const during = conversationsBetween(store, s.arrivedAt, left, byId);
           return [
             `- ${localTime(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "now"} ${redact(where(s))}`,
             ...during

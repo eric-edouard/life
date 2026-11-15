@@ -5,7 +5,7 @@ import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
 import type { History } from "../records/history";
 import { speakers, withStore } from "../sources/lifelog";
-import { conversationsWith } from "../sources/lifelog-talks";
+import { conversationsWith } from "../sources/lifelog-conversations";
 import { closenessLine } from "./closeness";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
@@ -39,7 +39,7 @@ import {
 } from "./read-part";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
-import { conversationLabel, nameKey } from "./units";
+import { conversationLabel, lifelogNames, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { asData } from "./words";
 import { dayNow, localDate, monthsOf } from "./zones";
@@ -301,7 +301,8 @@ export async function person(
         store,
         ref,
         episodes,
-        lifelog ? [lifelog] : heard.map((s) => s.id)
+        lifelog ? [lifelog] : heard.map((s) => s.id),
+        lifelogNames(truth)
       );
       // The lines of the parts that are one block, worked out for the one asked for only.
       const blocks: Record<string, () => string[]> = {
@@ -371,7 +372,8 @@ function timelineOf(
   store: Parameters<typeof speakers>[0],
   ref: string,
   episodes: Episode[],
-  voiceIds: string[]
+  voiceIds: string[],
+  byId: Map<string, string>
 ): Dated[] {
   return [
     ...latest(
@@ -389,7 +391,7 @@ function timelineOf(
       kind: "episode" as const,
       line: episodeLine(m),
     })),
-    ...conversationsWith(store, voiceIds).map((c) => ({
+    ...conversationsWith(store, voiceIds, byId).map((c) => ({
       day: localDate(c.start_at),
       kind: "conversation" as const,
       line: `- ${c.id} ${localDate(c.start_at)}: ${conversationLabel(c.start_at, c.names)}`,

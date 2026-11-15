@@ -206,15 +206,13 @@ export function openStore(dir = WATCH) {
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists turns_start on turns (start_at);
   drop table if exists jobs;`);
-  // A store made before the label still has its `title text not null`.
-  if (
-    db
-      .query(
-        "select 1 from pragma_table_info('conversations') where name = 'title'"
-      )
-      .get()
-  ) {
+  // A store made before the label still has its `title text not null`; two processes may open it at once.
+  try {
     db.run("alter table conversations drop column title");
+  } catch (e) {
+    if (!String(e).includes("no such column")) {
+      throw e;
+    }
   }
   // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
   // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
@@ -438,7 +436,7 @@ export const lastSeen = (store: Store, seconds: number) =>
     )
     .all(`-${seconds} seconds`);
 
-const nameOf = (
+export const nameOf = (
   personId: string | null,
   personName: string | null,
   byId: Map<string, string>
