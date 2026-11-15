@@ -4,15 +4,8 @@
 // "Measuring"). Counts only: no name and no line of text is printed. Without `--run` the hidden mode asks nothing: it
 // prints how many parts and voices it would ask.
 
-import { existsSync, realpathSync } from "node:fs";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-} from "node:path";
+import { mkdirSync, realpathSync, rmSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { clock } from "@life/server/src/core/clock";
 import { OWNER_DATA_DIR, real } from "@life/server/src/core/paths";
@@ -161,22 +154,39 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
   ];
 }
 
-/** A path with its links resolved as far as it exists (the nearest folder that does), the rest appended as written. */
-const realPath = (p: string): string => {
-  const abs = resolve(p);
-  return existsSync(abs)
-    ? realpathSync(abs)
-    : join(realPath(dirname(abs)), basename(abs));
-};
-
-/**
- * Whether `folder` is inside his data, reached through a link or not (`~/Life` may be one: `OWNER_DATA_DIR` is its real
- * path): a trial never is (it holds replies, and nothing of his is written but by Life).
- */
-export const isInsideData = (folder: string, data = OWNER_DATA_DIR) => {
-  const rel = relative(real(data), realPath(folder));
+const inside = (path: string, dir: string) => {
+  const rel = relative(dir, path);
   return !(rel.startsWith("..") || isAbsolute(rel));
 };
+
+const SEGMENTS = /[\\/]/;
+
+/**
+ * The trial folder, made and checked: never inside his data (it holds replies, and nothing of his is written but by Life).
+ * A path with a `..` is refused before anything is resolved (after a link the OS would follow it elsewhere); the folder is
+ * made only when its path, as written, is outside his real data; then its real path, links followed, is checked again and,
+ * when it is inside, only what this run just made is removed. Returns the real folder.
+ */
+export function prepareTrial(folder: string, data = OWNER_DATA_DIR) {
+  if (folder.split(SEGMENTS).includes("..")) {
+    throw new Error("the trial folder has a `..` in its path");
+  }
+  const refused = new Error(
+    "the trial folder must be outside his data (the replies it keeps are not memory)"
+  );
+  if (inside(resolve(folder), real(data))) {
+    throw refused;
+  }
+  const made = mkdirSync(resolve(folder), { recursive: true });
+  const found = realpathSync(resolve(folder));
+  if (inside(found, real(data))) {
+    if (made) {
+      rmSync(made, { force: true, recursive: true });
+    }
+    throw refused;
+  }
+  return found;
+}
 
 /** Said last in every score: what the numbers cannot account for. */
 export const LIMITS =
@@ -308,12 +318,7 @@ if (import.meta.main) {
         "usage: bun scripts/voice-naming-score.ts [--hidden --trial <folder> [--from YYYY-MM-DD] [--run]]"
       );
     }
-    if (isInsideData(values.trial)) {
-      throw new Error(
-        "the trial folder must be outside his data (the replies it keeps are not memory)"
-      );
-    }
-    where = resolve(values.trial);
+    where = prepareTrial(values.trial);
     const people = await readPeople();
     const work = await readVoiceNamingWork(
       await readConversationSummaryWork(clock(), people, { from: values.from }),

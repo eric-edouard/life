@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import {
   type Guessed,
-  isInsideData,
+  prepareTrial,
   reportOf,
   scoreOf,
 } from "./voice-naming-score";
@@ -58,20 +63,26 @@ test("the score counts right and wrong per 100 by voice and by guess, with me, n
   );
 });
 
-test("a trial folder inside his data is refused", () => {
-  expect(isInsideData(join(OWNER_DATA_DIR, "memory", "trial"))).toBe(true);
-  expect(isInsideData(join(OWNER_DATA_DIR, "docs", "trial"))).toBe(true);
-  expect(isInsideData(OWNER_DATA_DIR)).toBe(true);
-  expect(isInsideData(join(tmpdir(), "voice-trial"))).toBe(false);
-});
-
-test("a trial folder reached through a link into his data is refused, an existing one or a new one under a linked parent", () => {
+test("the trial folder: a plain new one is accepted; one inside his data, by a link, after a link with .., or through a dangling link, is refused", () => {
   const base = mkdtempSync(join(tmpdir(), "score-link-"));
   const data = join(base, "data");
   mkdirSync(join(data, "docs"), { recursive: true });
-  const link = join(base, "Life");
-  symlinkSync(data, link);
-  expect(isInsideData(join(link, "docs"), data)).toBe(true);
-  expect(isInsideData(join(link, "docs", "new", "deeper"), data)).toBe(true);
-  expect(isInsideData(join(base, "elsewhere", "trial"), data)).toBe(false);
+  mkdirSync(join(base, "out"));
+  symlinkSync(data, join(base, "Life"));
+  symlinkSync(join(data, "docs"), join(base, "out", "lnk"));
+  symlinkSync(join(data, "nothere"), join(base, "out", "dangling"));
+  const refused = (p: string) => () => prepareTrial(p, data);
+  // Plain: a folder of its own, made.
+  expect(prepareTrial(join(base, "elsewhere", "trial"), data)).toBe(
+    realpathSync(join(base, "elsewhere", "trial"))
+  );
+  expect(refused(join(data, "memory", "trial"))).toThrow();
+  expect(refused(join(base, "Life", "docs"))).toThrow();
+  expect(refused(join(base, "Life", "docs", "new", "deeper"))).toThrow();
+  // `..` after a link would leave the link's folder for data/: refused before anything is resolved or made.
+  expect(refused(`${join(base, "out", "lnk")}/../trial`)).toThrow("`..`");
+  expect(existsSync(join(data, "trial"))).toBe(false);
+  // A dangling link into his data: whatever mkdir does with it, nothing is left in his data.
+  expect(refused(join(base, "out", "dangling", "trial"))).toThrow();
+  expect(existsSync(join(data, "nothere"))).toBe(false);
 });

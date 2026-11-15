@@ -11,7 +11,7 @@ import {
   heardTurnsOf,
   readWithPeople,
 } from "./closeness";
-import { type ConversationSummaryWork, refOf } from "./conversation-summaries";
+import type { ConversationSummaryWork } from "./conversation-summaries";
 import { readDetailsOf } from "./details";
 import { withOf } from "./exchange-reads";
 import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
@@ -31,7 +31,7 @@ import {
 } from "./read-replies";
 import { begin, chunks, type Step } from "./run";
 import { partLine, type SpokenPart } from "./spoken-conversations";
-import { clip, unnamedTurnKey, voiceTokensOf } from "./units";
+import { clip, turnRefOf, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { observationsNow } from "./who";
 import { messageLine } from "./words";
@@ -99,7 +99,7 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
 }
 
 /** The recording a turn key is of. */
-const jobOf = (key: string) => parseTurnRef(refOf(key))?.jobId ?? "";
+const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
 
 /** What every part is read against, read once for a run. */
 interface Context {
@@ -378,7 +378,7 @@ export function namingOf(
     );
   });
   const keys = part.keys.map((k, n) =>
-    unnamed[n] ? unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "") : k
+    unnamed[n] ? unnamedTurnKey(turnRefOf(k), part.voices[n]?.label ?? "") : k
   );
   const tokens = voiceTokensOf(keys.filter((_, n) => unnamed[n]));
   // The hidden run asks only the parts holding a voice it hid.
@@ -450,7 +450,7 @@ function isStored(part: SpokenPart, index: ReturnType<typeof readReplyIndex>) {
   const keys = part.keys.map((k, n) =>
     part.voices[n]?.name || part.voices[n]?.owner
       ? k
-      : unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "")
+      : unnamedTurnKey(turnRefOf(k), part.voices[n]?.label ?? "")
   );
   return Boolean(replyOf(keys, VOICE_NAMING_READ, index));
 }
