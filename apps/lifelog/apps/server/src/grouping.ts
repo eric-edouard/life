@@ -38,7 +38,6 @@ import {
 } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { logChange, logPlacedIn } from "./change-log";
-import { uuidOf } from "./config";
 import { reportError } from "./diagnostics";
 import { record } from "./events";
 
@@ -239,9 +238,6 @@ export function anchorOf(id: string) {
 
 const ms = (d: Date) => d.getTime();
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-
-// ponytail: only the summary run's splits use it (`intelligence.ts`); goes with them (milestone 1).
-export const aiSplitId = (at: number) => uuidOf(`ai-split|${at}`);
 
 // Records that `range` (epoch ms or Dates) changed for these sources, last in the writer's
 // transaction: the next regroup covers it, and a regroup that failed leaves it for the tick

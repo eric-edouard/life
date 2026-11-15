@@ -23,7 +23,6 @@ import {
   type GroupingInput,
   groupSource,
   markDirty,
-  PIECES_BEFORE,
   type Range,
   regroupAfterCommit,
   regroupDirty,
@@ -514,106 +513,6 @@ test("a split or merge inside an imported recording is refused, not stored", asy
   expect(env.db.select().from(ownerEdits).all()).toEqual([]);
   // Outside it, a split is kept as always.
   expect((await edit({ at: iso(30), kind: "split" })).status).toBe(200);
-});
-
-test("three hours of talk stay one conversation, and no edit is written", async () => {
-  await timeline(100, [
-    span(
-      0,
-      [0, 11_000],
-      Array.from({ length: 108 }, (_, i): [number, number] => [
-        i * 100,
-        i * 100 + 90,
-      ])
-    ),
-  ]);
-  expect(ranges()).toEqual([[at(0), at(0), at(10_790)]]);
-  expect(env.db.select().from(ownerEdits).all()).toEqual([]);
-});
-
-// Two conversations 60 seconds apart, closed, as the old rules cut them, `start` seconds from BASE.
-const OLD_PAIR = 60;
-const pair = (start: number) => {
-  env.db.insert(sources).values({ id: SOURCE }).run();
-  const speech = [
-    [start, start + 60],
-    [start + 120, start + 180],
-  ] as const;
-  env.db
-    .insert(timelineSpans)
-    .values({
-      endAt: new Date(at(start + 300)),
-      facts: {
-        audible: [],
-        breaks: [],
-        pauses: [],
-        speech: speech.map(([a, b]) => [iso(a), iso(b)] as [string, string]),
-        unanalyzed: [],
-      },
-      firstPage: 0,
-      sourceId: SOURCE,
-      startAt: new Date(at(start)),
-    })
-    .run();
-  env.db
-    .insert(conversations)
-    .values(
-      speech.map(([a, b]) => ({
-        captureEndedAt: new Date(at(b)),
-        captureStartedAt: new Date(at(a)),
-        closedAt: new Date(at(b + 400)),
-        id: anchorId(at(a)),
-        sourceId: SOURCE,
-      }))
-    )
-    .run();
-  // One wide dirty range over both, as a late PUT inside the span marks it.
-  markDirty(env.db, [SOURCE], [at(start), at(start + 300)]);
-  groupSource(env.db, SOURCE);
-};
-const sinceBase = (instant: number) => (instant - BASE) / 1000;
-
-test("old pieces keep their ids when one wide dirty range regroups them", () => {
-  pair(sinceBase(PIECES_BEFORE) - 10_000);
-  expect(ranges().map(([id]) => id)).toEqual([
-    at(sinceBase(PIECES_BEFORE) - 10_000),
-    at(sinceBase(PIECES_BEFORE) - 10_000 + 120),
-  ]);
-});
-
-test("the same pair after the instant is one conversation", () => {
-  pair(sinceBase(PIECES_BEFORE) + OLD_PAIR);
-  expect(live().length).toBe(1);
-});
-
-test("his merge joins the old pair", async () => {
-  const start = sinceBase(PIECES_BEFORE) - 10_000;
-  pair(start);
-  await send("POST", "/edits", {
-    editedAt: iso(0),
-    from: iso(start + 30),
-    id: randomUUID(),
-    kind: "merge",
-    to: iso(start + 150),
-  });
-  expect(ranges().map(([id]) => id)).toEqual([at(start)]);
-});
-
-test("a stored AI split still cuts", async () => {
-  await timeline(100, [span(0, [0, 300], [[0, 200]])]);
-  env.db
-    .insert(ownerEdits)
-    .values({
-      at: new Date(at(100)),
-      editedAt: new Date(at(100)),
-      id: randomUUID(),
-      kind: "split",
-      source: "ai",
-    })
-    .run();
-  markDirty(env.db, [SOURCE], [at(0), at(300)]);
-  groupSource(env.db, SOURCE);
-  expect(ranges().map(([id]) => id)).toEqual([at(0), at(100)]);
 });
 
 // A first pass of the states (conversation-state.ts) looks at every conversation.

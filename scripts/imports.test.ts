@@ -19,8 +19,7 @@ const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 const LINE_BREAK = /\r?\n/;
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
-  "apps/lifelog/apps/server/src/grouping.test.ts": 814,
-  "apps/lifelog/apps/server/src/grouping.ts": 931,
+  "apps/lifelog/apps/server/src/grouping.ts": 818,
   "apps/lifelog/apps/server/src/jobs.test.ts": 1486,
   "apps/lifelog/apps/server/src/jobs.ts": 930,
   "apps/lifelog/apps/server/src/mac-llm.test.ts": 820,
