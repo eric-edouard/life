@@ -17,7 +17,7 @@ Only the hash goes in the server's environment. Mint again to rotate. A token on
 unknown token 401. The phone's device token opens everything, the reads included.
 
 `GET /capabilities` says what this source offers: `{ contract: 1, capabilities: [...] }`, each of `search`, `places`,
-`corrections` and `status`. The feed and transcripts are always there. Lifelog offers all four.
+`corrections`, `status` and `voices`. The feed and transcripts are always there. Lifelog offers all five.
 
 ## The feed: `GET /changes?since=&wait=`
 
@@ -65,6 +65,13 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
   its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is
   `{ place?, latitude, longitude, arrivedAt, leftAt }`.
+- **voices**: `GET /speakers/voices?from=&to=` (instants, at most 24 hours apart; a reader's token opens it). Read-only.
+  One row for each speaker label of each job with a turn starting in the span: `jobId`, `speakerLabel`, `basis`
+  (`owner`: he answered this voice; `recognized`: lifelog named it by sound; null: nobody named it), `status` and
+  `personId` as stored (`status` `not_relevant` is his answer "not relevant", a person is not meant; null when the
+  label has no row), `mixed` (the label holds several voices), and `likeness`: up to two people, each `personId` and
+  `score`, at least 0.5 like the voice, judged without the exemplars of the span's own conversations. Empty when the label has no voice vector.
+  A score is a likeness, not a probability. The phone never calls it.
 - **corrections**, only the owner's explicit ones, never in the background: `PUT /transcripts/{jobId}/speakers/{label}`
   (with `turnIndex` for one turn), `PUT /conversations/{id}/title`, `PATCH /people/{id}`, `POST /people/{id}/merge`.
   Splits and merges stay in the app.
