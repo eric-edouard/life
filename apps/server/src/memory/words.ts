@@ -225,12 +225,12 @@ const HEARD: Record<string, string> = {
   media: "(from a screen or speaker) ",
   phone: "(over the phone) ",
 };
-/** Whether a voice talks with him, as lifelog heard it. */
-export const talksWithOwner = (v: VoiceKind) => v.withOwner;
+/** Whether a voice talks with him, as lifelog heard it (true for one it never classified). */
+export const isTalkingWithOwner = (v?: VoiceKind) => !v || v.withOwner;
 const heardAs = (v: VoiceKind | undefined) =>
   v
     ? (HEARD[v.kind] ??
-      (talksWithOwner(v) ? "" : "(nearby, not talking with him) "))
+      (isTalkingWithOwner(v) ? "" : "(nearby, not talking with him) "))
     : "";
 
 /**
