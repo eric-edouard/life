@@ -215,6 +215,40 @@ test("a voice given another name makes the part pending again and hides the old 
   ).toEqual(["Redone."]);
 });
 
+/** Gives the voice of turn 1 to `person` (p1 is Dana). */
+const giveVoiceTo = (s: Scene, person: string) => {
+  const store = s.open();
+  store.db.run("update turns set person_id = ? where turn_index = 1", [person]);
+  store.db.close();
+};
+const shown = async (s: Scene) =>
+  (await currentSummaries(s.open, s.where)).map((h) => h.summary);
+const pending = async (s: Scene) =>
+  (await readConversationSummaryWork(NOW, people, {}, s.where, s.open)).counts
+    .parts;
+
+test("a voice renamed and renamed back shows its first summary again with no new call", async () => {
+  const s = sceneOf([{ day: 0, name: "Dana", turns: 20 }]);
+  await run(s, () => ({ ...SAID, summary: "First." }));
+  giveVoiceTo(s, "p2");
+  expect([await shown(s), await pending(s)]).toEqual([[], 1]);
+  giveVoiceTo(s, "p1");
+  expect([await shown(s), await pending(s)]).toEqual([["First."], 0]);
+  await run(s, () => SAID);
+  expect(asked).toHaveLength(0);
+});
+
+test("renamed, summarised again, then renamed back: the first line shows and the second is ignored", async () => {
+  const s = sceneOf([{ day: 0, name: "Dana", turns: 20 }]);
+  await run(s, () => ({ ...SAID, summary: "First." }));
+  giveVoiceTo(s, "p2");
+  await Bun.sleep(5);
+  await run(s, () => ({ ...SAID, summary: "Second." }));
+  expect(await shown(s)).toEqual(["Second."]);
+  giveVoiceTo(s, "p1");
+  expect([await shown(s), await pending(s)]).toEqual([["First."], 0]);
+});
+
 test("the cap bounds a night's calls, newest conversation first", async () => {
   const s = sceneOf([
     { day: 0, turns: 20 },

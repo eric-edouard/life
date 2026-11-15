@@ -1,17 +1,30 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { writeJson } from "../core/files";
 import type { Observation } from "../records/observation";
+import type { ReadReply } from "../records/read-reply";
+import { SUMMARY_READ } from "../records/read-reply";
 import type { Unit } from "../records/unit";
+import { apply, openStore } from "../sources/lifelog";
+import { readSpokenTurns } from "../sources/lifelog-conversations";
+import {
+  conversation,
+  pageFixture,
+  turnFixture,
+} from "../sources/store-fixtures";
+import { currentSummaries } from "./conversation-summaries";
 import { buildIndex, reindexUnits } from "./index-writer";
-import { situationPath } from "./memory-files";
+import { INDEX, readReplyPath, situationPath } from "./memory-files";
 import { heldLines } from "./read-person-page";
+import { READS, storeReply } from "./read-replies";
 import { OWNER } from "./read-truth";
-import { readSituationsOf, matches as searchMatches } from "./search";
+import { madeBy } from "./record-fixtures";
+import { readSituationsOf, search, matches as searchMatches } from "./search";
+import { turnKey } from "./units";
 
 test("search: an observation hit names the unit it comes from and who is in it", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-search-")), "i.sqlite");
@@ -161,5 +174,76 @@ test("a search opens with his situation when it names no one, then others' lines
   } finally {
     rmSync(situationPath(OWNER), { force: true });
     rmSync(situationPath(ANA), { force: true });
+  }
+});
+
+test("search: a conversation summary is found by a word of it and listed with the ref that opens it", async () => {
+  const at = "2026-10-14T10:00:00.000Z";
+  const store = openStore();
+  apply(
+    store,
+    pageFixture({
+      conversations: [conversation("c-search")],
+      turns: [
+        {
+          ...turnFixture(0, at, null, null, "c-search", true),
+          jobId: "job-search",
+        },
+        {
+          ...turnFixture(1, at, "p1", "Dana", "c-search"),
+          jobId: "job-search",
+        },
+      ],
+    })
+  );
+  const keys = readSpokenTurns(store, new Map())
+    .filter((t) => t.jobId === "job-search")
+    .map(turnKey);
+  store.db.close();
+  const line = {
+    at,
+    madeBy: { ...madeBy, prompt: READS.conversation_summary.prompt },
+    messages: keys,
+    promptDigest: "0123456789abcdef",
+    read: SUMMARY_READ,
+    reply: {
+      subjects: [{ label: "Gutter repair", line: 1 }],
+      summary: "They priced the gutter repair.",
+    },
+    schemaVersion: 1,
+    starts: [0],
+  } as ReadReply;
+  storeReply(line, at);
+  try {
+    mkdirSync(dirname(INDEX), { recursive: true });
+    const [held] = await currentSummaries();
+    expect(held?.ref).toBe(`job-search:0@${at}`);
+    buildIndex(
+      [],
+      INDEX,
+      {
+        corrections: [],
+        latest: new Map(),
+        live: new Set(),
+        retired: new Map(),
+      },
+      [],
+      new Date("2099-01-01"),
+      [],
+      held ? [held] : []
+    );
+    const found = await search("gutter");
+    expect(found).toContain("Conversation summaries (");
+    expect(found).toContain(
+      "Gutter repair: They priced the gutter repair. (`fetch person:me/conversation/job-search:0@" +
+        at +
+        "`)"
+    );
+  } finally {
+    rmSync(readReplyPath(at), { force: true });
+    rmSync(INDEX, { force: true });
+    const cleanup = openStore();
+    cleanup.db.run("delete from turns where job_id = 'job-search'");
+    cleanup.db.close();
   }
 });

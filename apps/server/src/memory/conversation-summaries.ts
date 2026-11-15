@@ -13,14 +13,7 @@ import {
 import { readSpokenTurns } from "../sources/lifelog-conversations";
 import { READ_REPLIES } from "./memory-files";
 import { locate } from "./quote-check";
-import {
-  type Asked,
-  makeReplies,
-  READS,
-  readReplies,
-  readReplyIndex,
-  replyOf,
-} from "./read-replies";
+import { type Asked, makeReplies, READS, readReplies } from "./read-replies";
 import { begin, chunks, type Step } from "./run";
 import {
   type SpokenPart,
@@ -117,21 +110,31 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
       new Map(readSpokenTurns(store, new Map()).map((t, i) => [turnKey(t), i])),
     open
   );
+  // One choice for showing and for asking: a line counts when every one of its keys is still its turn's key in
+  // lifelog's store; the newest such line wins over any older line sharing a turn. A line that does not count never
+  // hides one that does (a voice renamed and renamed back shows the first line again).
+  const sorted = lines.toSorted((a, b) => b.at.localeCompare(a.at));
+  const valid = sorted.filter((l) => l.messages.every((k) => order.has(k)));
   const claimed = new Set<string>();
   const current: HeldSummary[] = [];
-  const stale = new Set<string>();
-  for (const line of lines.toSorted((a, b) => b.at.localeCompare(a.at))) {
-    const superseded = line.messages.some((k) => claimed.has(k));
+  for (const line of valid) {
+    if (!line.messages.some((k) => claimed.has(k))) {
+      current.push(heldOf(line));
+    }
     for (const k of line.messages) {
       claimed.add(k);
     }
-    if (!superseded) {
-      if (line.messages.every((k) => order.has(k))) {
-        current.push(heldOf(line));
-      } else {
-        for (const k of line.messages) {
-          stale.add(refOf(k));
-        }
+  }
+  const stale = new Set<string>();
+  for (const line of sorted) {
+    if (
+      !(
+        line.messages.every((k) => order.has(k)) ||
+        line.messages.some((k) => claimed.has(k))
+      )
+    ) {
+      for (const k of line.messages) {
+        stale.add(refOf(k));
       }
     }
   }
@@ -152,6 +155,12 @@ export const currentSummaries = async (
   open = openStore,
   where = READ_REPLIES
 ) => (await heldSummaries(open, where)).current;
+
+/** The summary shown for a part, by the keys of its turns (the one choice that decides both what shows and what is pending). */
+const summaryOfKeys = (current: HeldSummary[]) => {
+  const byKeys = new Map(current.map((h) => [h.keys.join("\n"), h]));
+  return (keys: string[]) => byKeys.get(keys.join("\n"));
+};
 
 /** What `fetch` opens a summary by: its part. */
 export const summaryRefOf = (h: HeldSummary) =>
@@ -205,13 +214,13 @@ export async function readConversationSummaryWork(
     );
   }
   const found = parts.filter((p) => p.length > 0);
-  const index = readReplyIndex(where);
+  const held = summaryOfKeys(await currentSummaries(open, where));
   return {
     counts: {
       conversations: found.length,
-      parts: found.flat().filter((p) => !replyOf(p.keys, SUMMARY_READ, index))
-        .length,
+      parts: found.flat().filter((p) => !held(p.keys)).length,
     },
+    open,
     parts: found,
   };
 }
@@ -222,21 +231,17 @@ export async function readConversationSummaryWork(
  */
 function pendingOf(
   conversations: SpokenPart[][],
+  held: ReturnType<typeof summaryOfKeys>,
   cap: number,
-  skipped: Set<string>,
-  where: string
+  skipped: Set<string>
 ) {
-  const index = readReplyIndex(where);
   const asked: Asked[] = [];
   for (const parts of conversations) {
-    const k = parts.findIndex((p) => !replyOf(p.keys, SUMMARY_READ, index));
+    const k = parts.findIndex((p) => !held(p.keys));
     const part = parts[k];
     if (part && !skipped.has(part.ref)) {
       const before = parts[k - 1];
-      const previous = before
-        ? Reply.safeParse(replyOf(before.keys, SUMMARY_READ, index)?.line.reply)
-            .data?.summary
-        : undefined;
+      const previous = before ? held(before.keys)?.summary : undefined;
       asked.push({
         at: part.at,
         call: {
@@ -275,8 +280,13 @@ export async function conversationSummaries(
   const failed = new Set<string>();
   let [calls, stored] = [0, 0];
   for (;;) {
-    const work = pendingOf(found.parts, cap - calls, failed, where);
-    // biome-ignore lint/performance/noAwaitInLoops: a pass waits for the one before it (a part is given the summary of the part before)
+    const work = pendingOf(
+      found.parts,
+      // biome-ignore lint/performance/noAwaitInLoops: what a pass stored decides the next
+      summaryOfKeys(await currentSummaries(found.open, where)),
+      cap - calls,
+      failed
+    );
     const made = await makeReplies(work, run, where);
     calls += work.length;
     stored += made.stored;
