@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
-import { call } from "./lifelog";
+import { call, parseTurnRef, type Store } from "./lifelog";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.
@@ -96,4 +96,17 @@ export async function readVoices(from: Date, to: Date) {
     })
   );
   return windows.flat();
+}
+
+/** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
+export function isTurnNamed(store: Store, ref: string) {
+  const t = parseTurnRef(ref);
+  return Boolean(
+    t &&
+      store.db
+        .query<{ n: number }, [string, number]>(
+          "select count(*) as n from turns where job_id = ? and turn_index = ? and (person_id is not null or person_name is not null)"
+        )
+        .get(t.jobId, t.turnIndex)?.n
+  );
 }
