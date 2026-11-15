@@ -577,10 +577,7 @@ export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-export const lifelogTurn = (
-  t: TurnRow,
-  byId: Map<string, string>
-): LifelogTurn => ({
+export const lifelogTurn = (t: TurnRow, byId: Map<string, string>) => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,

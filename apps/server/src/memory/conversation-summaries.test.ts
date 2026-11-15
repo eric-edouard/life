@@ -42,6 +42,13 @@ afterAll(async () => {
   await rm(dir, { force: true, recursive: true });
 });
 
+const voiceOf = (t: number, screen?: number) => {
+  if (t === screen) {
+    return "speaker_9";
+  }
+  return t % 2 ? "speaker_1" : "speaker_0";
+};
+
 interface Scene {
   open: () => ReturnType<typeof openStore>;
   where: string;
@@ -110,8 +117,7 @@ const sceneOf = (
         `/transcription-jobs/${job}/transcript`,
         () => ({
           turns: list.map((text, t) => ({
-            speakerId:
-              t === screen ? "speaker_9" : t % 2 ? "speaker_1" : "speaker_0",
+            speakerId: voiceOf(t, screen),
             text,
           })),
         }),
