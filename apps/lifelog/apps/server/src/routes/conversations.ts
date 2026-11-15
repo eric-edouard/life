@@ -8,10 +8,10 @@ import {
   type JobMap,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { latestRun, latestSummary, type Run, runAfter } from "../runs";
 import type { Services } from "../services";
-import { latestRun, latestValidOutput, type Run, runAfter } from "../summaries";
-import { Result } from "../summary-calls";
 import { setOwnerTitle } from "../titles";
+import { Result } from "../voices-call";
 import { ApiError, IdParam, json, notFound, router } from "./common";
 
 const EpochMs = z.int().nonnegative();
@@ -74,12 +74,11 @@ const IntelligenceRun = z
     reasoningEffort: z.string().nullable(),
     result: Result.nullable().openapi({
       description:
-        "Turn ids index into turns. Kept even when invalid. From prompt version 4, chapters come first and each chapter's summary is its own " +
-        "call; boundarySuggestions are only strong ones, each with a cause (people, call, place " +
-        "or silence) and, from prompt version 7, a confidence: high is an AI split, medium is " +
-        "offered for the owner to split at or dismiss. From prompt version 8, chapter summaries and " +
-        "the TLDR write speakers as tokens like {S2}; speakerTokens says which voices each " +
-        "stands for, to render with the name the transcript gives them.",
+        "Turn ids index into turns. Kept even when invalid. Since prompt version 12 a run holds only " +
+        "speakerIdentities: who each voice without a person is, from the turns read so far. Runs " +
+        "of prompt version 11 and before also hold chapters, a title and a TLDR (written as tokens " +
+        "like {S2}, with speakerTokens saying which voices each stands for) and boundarySuggestions; " +
+        "they stay as stored and nothing writes them any more.",
     }),
     state: z.enum(intelligenceStates),
     turns: z.array(
@@ -135,9 +134,9 @@ function conversationView(
   c: typeof conversations.$inferSelect
 ): z.infer<typeof Conversation> {
   const latest = latestRun(db, c.id);
-  const output = latestValidOutput(db, c.id);
+  const output = latestSummary(db, c.id)?.result;
   const jobs = jobsIn(db, c.captureStartedAt, c.captureEndedAt);
-  const generated = output?.title.text ?? null;
+  const generated = output?.title?.text ?? null;
   let titleSource: "owner" | "generated" | "none" = "none";
   if (c.ownerTitle) {
     titleSource = "owner";
@@ -232,12 +231,12 @@ export function conversationRoutes({
     .openapi(
       createRoute({
         description:
-          "The owner's Generate: the title, TLDR, chapters and boundary suggestions again. " +
-          "`after` is the summary he saw (the feed's `runId`, null for none): when a run newer " +
+          "The owner's Generate: the voices of the conversation read again. " +
+          "`after` is the run he saw (the feed's `runId`, null for none): when a run newer " +
           "than it is already valid, running or waiting, nothing happens and it answers 200 with " +
-          "that run, so a replay asks nothing twice. Otherwise it is summarized again from its first " +
+          "that run, so a replay asks nothing twice. Otherwise it is read again from its first " +
           "turn, window after window, on the Mac (the owner's subscription); with the Mac away it " +
-          "waits for it. The summary shown stays until a newer run is valid. Answers 202 with the latest " +
+          "waits for it. The run shown stays until a newer run is valid. Answers 202 with the latest " +
           "run as it stands; read the feed for the rest. Never on a paid API.",
         method: "post",
         path: "/conversations/{id}/intelligence",

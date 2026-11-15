@@ -17,9 +17,9 @@ import { singleFlight } from "./config";
 import { reportError } from "./diagnostics";
 import { type Retries, requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
-import { dueConversations, fingerprint, type Run, splitsOf } from "./summaries";
-import { PROMPT_VERSION, Result } from "./summary-calls";
+import { dueConversations, fingerprint, type Run } from "./runs";
 import { switches } from "./switches";
+import { PROMPT_VERSION } from "./voices-call";
 
 // What a roll reads past the closed chapters: about 20 minutes of talk, some 6k tokens.
 const WINDOW_CHARS = 24_000;
@@ -59,11 +59,6 @@ async function rollWindows(
     }
   }
 }
-
-// A valid roll that found a confident new conversation.
-const splitOff = (run: Run) =>
-  run.state === "valid" &&
-  splitsOf(Result.safeParse(run.result).data, run.turns, "high").length > 0;
 
 export function rollingChapters(
   db: Db,
@@ -106,10 +101,6 @@ export function rollingChapters(
         if (run.state === "valid") {
           // The phone collects it now.
           await nudge("summary", { conversation: id });
-        }
-        if (splitOff(run)) {
-          // Not awaited: this conversation's own roll is the one running.
-          drain();
         }
       }
     );

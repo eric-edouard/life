@@ -21,12 +21,7 @@
       "place": "Bakery, Oakridge 31",
       "retired": null,
       "runId": "00000000-0000-4000-8000-000000000015",
-      "splitSuggestions": [
-        {
-          "at": "2026-10-14T10:00:05.000Z",
-          "confidence": "medium"
-        }
-      ],
+      "splitSuggestions": [],
       "startAt": "2026-10-14T10:00:00.000Z",
       "startEdit": null,
       "state": "summarized",

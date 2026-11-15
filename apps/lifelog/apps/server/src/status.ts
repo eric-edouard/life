@@ -31,7 +31,6 @@ import type { MacSocket } from "./mac-socket";
 import { macView } from "./quiet-ranges";
 import type { Restic } from "./restic";
 import type { Rolling } from "./rolling";
-import { latestValid } from "./summaries";
 import { switches } from "./switches";
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -239,10 +238,7 @@ function aiNow(
     running: running.map((r) => ({
       conversationId: r.conversationId,
       startedAt: r.startedAt.toISOString(),
-      title:
-        r.ownerTitle ??
-        latestValid(db, r.conversationId)?.result.title.text ??
-        null,
+      title: r.ownerTitle ?? null,
     })),
     waiting: rolling.due().filter((id) => !rolls.has(id)).length,
   };

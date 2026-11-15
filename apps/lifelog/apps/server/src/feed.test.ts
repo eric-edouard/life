@@ -4,7 +4,6 @@ import {
   chapters,
   conversations,
   intelligenceRuns,
-  ownerEdits,
   type Turn,
 } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
@@ -16,8 +15,6 @@ import { storeHistory } from "./location";
 import { assign } from "./people";
 import { addQuietRange } from "./quiet-ranges";
 import { services } from "./services";
-import { writeChapters } from "./summaries";
-import { PROMPT_VERSION } from "./summary-calls";
 import {
   OWNER_TOKEN,
   seedConversation,
@@ -25,6 +22,7 @@ import {
   testConfig,
   testDb,
 } from "./testing";
+import { LAST_SUMMARY_VERSION, PROMPT_VERSION } from "./voices-call";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
@@ -350,45 +348,8 @@ test("a long poll answers as soon as something is written, and empty at its time
   expect(empty.more).toBe(false);
 });
 
-test("a conversation carries its place and its unsure splits, minus the dismissed ones", () => {
-  const { id, jobId } = conversation();
-  const capturedAt = (turnIndex: number) =>
-    new Date(start + turnIndex * 5000).toISOString();
-  const result = storedResult(0, 1);
-  env.db
-    .insert(intelligenceRuns)
-    .values({
-      conversationId: id,
-      model: "claude-sonnet-5-5",
-      promptVersion: PROMPT_VERSION,
-      provider: "claude-code",
-      result: {
-        ...result,
-        boundarySuggestions: [
-          {
-            confidence: "medium",
-            evidenceTurnIds: [1],
-            kind: "split_at_turn",
-            reason: "call",
-            turnId: 1,
-          },
-          {
-            confidence: "high",
-            evidenceTurnIds: [1],
-            kind: "split_at_turn",
-            reason: "bye",
-            turnId: 1,
-          },
-        ],
-      },
-      state: "valid",
-      turns: [0, 1].map((turnIndex) => ({
-        capturedAt: capturedAt(turnIndex),
-        jobId,
-        turnIndex,
-      })),
-    })
-    .run();
+test("a conversation carries its place, and no run suggests a split any more", () => {
+  const { id } = conversation();
   // Named fixes around it: the most accurate names it, and the feed hears of it.
   const before = latestSeq(env.db);
   storeHistory(env.db, {
@@ -415,53 +376,93 @@ test("a conversation carries its place and its unsure splits, minus the dismisse
     expect.objectContaining({
       id,
       place: "Bakery, Oakridge 31",
-      splitSuggestions: [{ at: capturedAt(1), confidence: "medium" }],
+      splitSuggestions: [],
     }),
   ]);
-  env.db
-    .insert(ownerEdits)
-    .values({
-      at: new Date(capturedAt(1)),
-      editedAt: new Date(),
-      id: randomUUID(),
-      kind: "dismissSplit",
-    })
-    .run();
-  expect(feed(env.db, 0).conversations[0]?.splitSuggestions).toEqual([]);
 });
 
-test("chapters come from the latest valid run, with stable ids", () => {
-  const { id, jobId } = conversation();
-  env.db
+// The run a conversation had until prompt version 11, with its chapter row as it was written.
+function summarized(id: string, jobId: string) {
+  const turns = [0, 1].map((turnIndex) => ({
+    capturedAt: new Date(start + turnIndex * 5000).toISOString(),
+    jobId,
+    turnIndex,
+  }));
+  const [run] = env.db
     .insert(intelligenceRuns)
     .values({
       conversationId: id,
       model: "claude-sonnet-5-5",
-      promptVersion: PROMPT_VERSION,
+      promptVersion: LAST_SUMMARY_VERSION,
       provider: "claude-code",
       result: storedResult(0, 1),
       state: "valid",
-      turns: [0, 1].map((turnIndex) => ({
-        capturedAt: new Date(start + turnIndex * 5000).toISOString(),
-        jobId,
-        turnIndex,
-      })),
+      turns,
+    })
+    .returning()
+    .all();
+  const chapterId = randomUUID();
+  env.db
+    .insert(chapters)
+    .values({
+      conversationId: id,
+      endAt: new Date(start + 60_000),
+      id: chapterId,
+      runId: run?.id ?? "",
+      startAt: new Date(start),
+      summary: "Everything.",
+      title: "All of it",
     })
     .run();
-  writeChapters(env.db, id);
-  const page = feed(env.db, 0);
-  expect(page.conversations[0]?.title).toBe("Turns 0-1");
-  expect(page.conversations[0]?.tldr).toBe("They talked.");
-  expect(page.chapters).toEqual([
-    expect.objectContaining({
+  logChange(env.db, "chapter", chapterId);
+  logChange(env.db, "conversation", id);
+  return turns;
+}
+
+test("a conversation with a version-11 summary keeps its title, TLDR and chapters when a voices run follows", () => {
+  const { id, jobId } = conversation();
+  const turns = summarized(id, jobId);
+  const shown = () => {
+    const page = feed(env.db, 0);
+    const [c] = page.conversations;
+    return {
+      chapters: page.chapters.map((x) => x.title),
+      runId: c?.runId,
+      title: c?.title,
+      tldr: c?.tldr,
+    };
+  };
+  const old = shown();
+  expect(old).toMatchObject({
+    chapters: ["All of it"],
+    title: "Turns 0-1",
+    tldr: "They talked.",
+  });
+  const [voices] = env.db
+    .insert(intelligenceRuns)
+    .values({
       conversationId: id,
-      endAt: new Date(start + 60_000).toISOString(),
-      startAt: new Date(start).toISOString(),
-      title: "All of it",
-    }),
-  ]);
-  const [before] = env.db.select().from(chapters).all();
-  writeChapters(env.db, id);
-  const [after] = env.db.select().from(chapters).all();
-  expect(after?.id).toBe(before?.id);
+      createdAt: new Date(Date.now() + 1000),
+      model: "claude-sonnet-5-5",
+      promptVersion: PROMPT_VERSION,
+      provider: "claude-code",
+      result: { speakerIdentities: [] },
+      state: "valid",
+      turns,
+    })
+    .returning()
+    .all();
+  // The summary stays; the run the phone sends as `after` is the newest one.
+  expect(shown()).toEqual({ ...old, runId: voices?.id });
+});
+
+test("a new conversation has no title, no TLDR and no chapter", () => {
+  const { id } = conversation();
+  const page = feed(env.db, 0);
+  expect(page.conversations.find((c) => c.id === id)).toMatchObject({
+    runId: null,
+    title: null,
+    tldr: null,
+  });
+  expect(page.chapters).toEqual([]);
 });

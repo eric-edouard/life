@@ -27,7 +27,7 @@ import {
 import { sql } from "drizzle-orm";
 import { logChange, touchedSince } from "./change-log";
 import { latestHeartbeat, pendantRecords } from "./diagnostics";
-import { summaryDue } from "./summaries";
+import { summaryDue } from "./runs";
 import { switches } from "./switches";
 
 type Reason = (typeof waitingReasons)[number];

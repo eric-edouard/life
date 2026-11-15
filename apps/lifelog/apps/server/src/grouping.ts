@@ -912,33 +912,7 @@ function applyEdit(tx: Tx, row: ReturnType<typeof rowOf>, undoing: Undoing) {
   if (range) {
     markDirty(tx, pendantSources(tx), range);
   }
-  logChange(tx, "conversation", dismissedIn(tx, row, undoing));
   logChange(tx, "edit", [row.id, ...undoneIds]);
-}
-
-// The live conversations a dismissed suggestion (or its undo) falls in: their `splitSuggestions`
-// change.
-function dismissedIn(
-  tx: Tx,
-  row: { at: Date | null; kind: string },
-  undoing: Undoing
-) {
-  const at = [row, undoing.target].find((e) => e?.kind === "dismissSplit")?.at;
-  if (!at) {
-    return [];
-  }
-  const holders = tx
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(
-      and(
-        isNull(conversations.retiredAt),
-        lte(conversations.captureStartedAt, at),
-        gt(conversations.captureEndedAt, at)
-      )
-    )
-    .all();
-  return holders.map((c) => c.id);
 }
 
 function rowOf(edit: EditRequest, target: string | null) {

@@ -169,7 +169,7 @@ export function fakeModel(respond: (call: ModelCall) => unknown = fakeAnswer) {
 // Retries that ask again at once, so a test of an unusable answer never waits the backoff.
 export const NO_WAIT = { count: 2, delayMs: 0 };
 
-// One roll of a conversation on `model`, every chapter closing, retries without waiting: its run
+// One roll of a conversation on `model`, retries without waiting: its run
 // once settled, or null when there was nothing to roll.
 export async function rollNow(
   db: Db,
@@ -188,24 +188,14 @@ export async function rollNow(
   return started ? await started.work : null;
 }
 
-// Which call of a run this is, by the schema it asks for.
-export function stageOf(call: ModelCall) {
-  const keys = Object.keys(
-    (call.schema as { properties?: object }).properties ?? {}
-  );
-  if (keys.includes("boundaries")) {
-    return "chapters";
-  }
-  return keys.includes("summary") ? "chapter" : "overview";
-}
-
-const RANGE = /(?:must cover turns|: turns|has turns) (\d+) to (\d+)/;
-const rangeOf = (call: ModelCall) => {
+const RANGE = /The turns shown are (\d+) to (\d+)/;
+// The turn ids a call was asked about.
+export const rangeOf = (call: ModelCall) => {
   const [, a = "0", b = "0"] = RANGE.exec(call.user) ?? [];
   return [Number(a), Number(b)] as const;
 };
 
-// One speaker as the chapters call describes it: live, not talking with the owner, unnamed,
+// One speaker as the voices call describes it: live, not talking with the owner, unnamed,
 // unless `fields` say otherwise.
 export const speakerAnswer = (
   fields: Partial<Record<string, unknown>> & { speaker: string }
@@ -218,27 +208,8 @@ export const speakerAnswer = (
   ...fields,
 });
 
-// A valid answer to whichever call this is: one chapter over the range asked, a summary
-// citing its first turn, and "Turns a-b" over the whole.
-export function fakeAnswer(call: ModelCall) {
-  const [first, last] = rangeOf(call);
-  switch (stageOf(call)) {
-    case "chapters":
-      return {
-        boundaries: [],
-        chapters: [{ endTurnId: last, startTurnId: first, title: "All of it" }],
-        languages: ["en"],
-        speakers: [],
-      };
-    case "chapter":
-      return { evidenceTurnIds: [first], summary: "Everything." };
-    default:
-      return {
-        title: { evidenceTurnIds: [first], text: `Turns ${first}-${last}` },
-        tldr: { evidenceTurnIds: [first, last], text: "They talked." },
-      };
-  }
-}
+// A valid answer to the voices call: no speaker named.
+export const fakeAnswer = () => ({ speakers: [] });
 
 // A stored result as a valid run over turns first..last has it.
 export function storedResult(first: number, last: number) {
