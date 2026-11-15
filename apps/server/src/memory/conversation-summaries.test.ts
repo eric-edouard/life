@@ -48,7 +48,13 @@ interface Scene {
 }
 /** A fresh store and trial folder holding `talks`: for each conversation, how many turns, on which day, and who the other voice is. */
 const sceneOf = (
-  talks: { day: number; name?: string; turns: number }[],
+  talks: {
+    day: number;
+    name?: string;
+    /** A screen voice's turn, with a long silence after it. */
+    screen?: number;
+    turns: number;
+  }[],
   texts: (job: string, turn: number) => string = (job, t) =>
     `${job} remark number ${t} here`
 ): Scene => {
@@ -56,6 +62,9 @@ const sceneOf = (
   const store = join(dir, `store-${n}`);
   const where = join(dir, `trial-${n}`);
   const jobs = new Map<string, string[]>();
+  const withScreen = talks.findIndex((t) => t.screen !== undefined);
+  const screen = talks[withScreen]?.screen;
+  const screenJob = `job-${n}-${withScreen}`;
   const turns = talks.flatMap((talk, c) =>
     Array.from({ length: talk.turns }, (_, t) => {
       const job = `job-${n}-${c}`;
@@ -63,7 +72,9 @@ const sceneOf = (
       list.push(`${texts(job, t)} ${"w".repeat(1000)}`);
       jobs.set(job, list);
       const at = new Date(
-        Date.parse("2026-10-10T10:00:00.000Z") + talk.day * 86_400_000 + t * MIN
+        Date.parse("2026-10-10T10:00:00.000Z") +
+          talk.day * 86_400_000 +
+          (t + (talk.screen !== undefined && t > talk.screen ? 3 : 0)) * MIN
       ).toISOString();
       return {
         ...turnFixture(
@@ -80,13 +91,27 @@ const sceneOf = (
   );
   server?.close();
   server = lifelogServer({
-    "/conversations/c1": () => ({ latestRun: null }),
+    "/conversations/c1": () => ({
+      latestRun: {
+        result: {
+          speakerIdentities: [
+            {
+              jobId: screenJob,
+              kind: "media",
+              speakerLabel: "speaker_9",
+              withOwner: false,
+            },
+          ],
+        },
+      },
+    }),
     ...Object.fromEntries(
       [...jobs].map(([job, list]) => [
         `/transcription-jobs/${job}/transcript`,
         () => ({
           turns: list.map((text, t) => ({
-            speakerId: t % 2 ? "speaker_1" : "speaker_0",
+            speakerId:
+              t === screen ? "speaker_9" : t % 2 ? "speaker_1" : "speaker_0",
             text,
           })),
         }),
@@ -135,7 +160,8 @@ const run = async (
     found,
     cap,
     s.where,
-    stepOf(reply) as unknown as Step
+    stepOf(reply) as unknown as Step,
+    s.open
   );
   return { done: done as { calls: number; stored: number }, found };
 };
@@ -247,6 +273,29 @@ test("renamed, summarised again, then renamed back: the first line shows and the
   expect(await shown(s)).toEqual(["Second."]);
   giveVoiceTo(s, "p1");
   expect([await shown(s), await pending(s)]).toEqual([["First."], 0]);
+});
+
+test("a part's next is the following part of the same conversation, never another conversation", async () => {
+  const two = sceneOf([
+    { day: 0, turns: 20 },
+    { day: 1, turns: 20 },
+  ]);
+  await run(two, () => SAID);
+  const held = await currentSummaries(two.open, two.where);
+  expect(held).toHaveLength(2);
+  expect(held.map((h) => h.next)).toEqual([undefined, undefined]);
+  const long = sceneOf([{ day: 0, turns: 160 }]);
+  await run(long, () => SAID);
+  const [first, second] = await currentSummaries(long.open, long.where);
+  expect(first?.next).toBe(second?.ref);
+  expect(second?.next).toBeUndefined();
+  // A turn left out of the lines (a screen voice) at the cut hides nothing.
+  const cut = sceneOf([{ day: 0, screen: 81, turns: 160 }]);
+  await run(cut, () => SAID);
+  const [one, other] = await currentSummaries(cut.open, cut.where);
+  expect(other).toBeDefined();
+  expect(one?.keys).toHaveLength(81);
+  expect(one?.next).toBe(other?.ref);
 });
 
 test("the cap bounds a night's calls, newest conversation first", async () => {

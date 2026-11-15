@@ -163,7 +163,7 @@ export interface DayRange {
 }
 
 /** Days `first` to `last` reach inside `r`. */
-const daysMeet = (r: DayRange, first: string, last = first) =>
+export const daysMeet = (r: DayRange, first: string, last = first) =>
   (!r.from || last >= r.from.slice(0, 10)) &&
   (!r.to || first <= r.to.slice(0, 10));
 /** An episode that has a day inside `r`. */

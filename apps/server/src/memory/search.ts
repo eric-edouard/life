@@ -28,7 +28,14 @@ import { nameKey } from "./units";
 import { embedQuery, readNearest } from "./vectors";
 import { readPeople } from "./who";
 import { chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./words";
-import { type DayRange, dayRange, inDays, localDate, localTime } from "./zones";
+import {
+  type DayRange,
+  dayRange,
+  daysMeet,
+  inDays,
+  localDate,
+  localTime,
+} from "./zones";
 
 // `bun life memory search <words>` and the connector's `search`: episodes, observations and units matching the words
 // (from derived/memory/index.sqlite), the exact spoken words (lifelog's search), chats and mail, each ranked by meaning
@@ -212,11 +219,7 @@ export async function search(words: string, o: DayRange = {}) {
   );
   const top = new Set(ranked.slice(0, LIMIT));
   const found = inside.filter((m) => top.has(m.id));
-  const spoken = summaries.filter(
-    (h) =>
-      (!o.from || localDate(h.at) >= o.from.slice(0, 10)) &&
-      (!o.to || localDate(h.at) <= o.to.slice(0, 10))
-  );
+  const spoken = summaries.filter((h) => daysMeet(o, localDate(h.at)));
   const rankedSummaries = rankedOf(
     vector,
     spoken.map((h) => ({ id: h.ref, text: summaryTextOf(h) })),

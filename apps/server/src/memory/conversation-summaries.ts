@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
 import { newestWithin } from "../core/lists";
+import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
 import { redact } from "../core/redact";
 import type { ReadReply } from "../records/read-reply";
 import { SUMMARY_READ } from "../records/read-reply";
@@ -11,6 +12,7 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { readSpokenTurns } from "../sources/lifelog-conversations";
+import { exchangesOf } from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import { locate } from "./quote-check";
 import { type Asked, makeReplies, READS, readReplies } from "./read-replies";
@@ -98,17 +100,20 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
     .flat()
     .filter(
       (l): l is SummaryLine =>
-        l.read === SUMMARY_READ &&
-        l.madeBy.prompt === PROMPT &&
-        Reply.safeParse(l.reply).success
+        l.read === SUMMARY_READ && l.madeBy.prompt === PROMPT
     );
   if (lines.length === 0) {
     return { current: [], stale: new Set<string>() };
   }
-  const order = await withStore(
-    (store) =>
-      new Map(readSpokenTurns(store, new Map()).map((t, i) => [turnKey(t), i])),
+  const turns = await withStore(
+    (store) => readSpokenTurns(store, new Map()),
     open
+  );
+  const order = new Map(turns.map((t, i) => [turnKey(t), i]));
+  const talkOf = new Map(
+    exchangesOf(turns, CONVERSATION_ENDS_AFTER).flatMap((c, n) =>
+      c.map((t) => [turnKey(t), n] as const)
+    )
   );
   // One choice for showing and for asking: a line counts when every one of its keys is still its turn's key in
   // lifelog's store; the newest such line wins over any older line sharing a turn. A line that does not count never
@@ -138,11 +143,18 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
       }
     }
   }
-  const byFirst = new Map(
-    current.map((h) => [order.get(h.keys[0] as string), h])
-  );
+  // The next part is the one of the same spoken conversation that starts soonest after this one's last turn.
+  const startOf = (h: HeldSummary) => order.get(h.keys[0] as string) ?? 0;
   for (const h of current) {
-    h.next = byFirst.get((order.get(h.keys.at(-1) as string) ?? -2) + 1)?.ref;
+    const [last, talk] = [
+      order.get(h.keys.at(-1) as string) ?? 0,
+      talkOf.get(h.keys[0] as string),
+    ];
+    h.next = current
+      .filter(
+        (o) => talkOf.get(o.keys[0] as string) === talk && startOf(o) > last
+      )
+      .toSorted((a, b) => startOf(a) - startOf(b))[0]?.ref;
   }
   return {
     current: current.toSorted((a, b) => a.at.localeCompare(b.at)),
@@ -195,7 +207,7 @@ export async function readConversationSummaryWork(
     (store) => readSpokenTurns(store, lifelogNames(people.truth)),
     open
   );
-  const { stale } = await heldSummaries(open, where);
+  const { current, stale } = await heldSummaries(open, where);
   const since = o.from
     ? dayStart(o.from).toISOString()
     : new Date(now.getTime() - SEEN_WITHIN).toISOString();
@@ -214,13 +226,12 @@ export async function readConversationSummaryWork(
     );
   }
   const found = parts.filter((p) => p.length > 0);
-  const held = summaryOfKeys(await currentSummaries(open, where));
+  const held = summaryOfKeys(current);
   return {
     counts: {
       conversations: found.length,
       parts: found.flat().filter((p) => !held(p.keys)).length,
     },
-    open,
     parts: found,
   };
 }
@@ -272,7 +283,8 @@ export async function conversationSummaries(
   found: ConversationSummaryWork,
   cap = NIGHT_CALLS,
   where = READ_REPLIES,
-  step?: Step
+  step?: Step,
+  open = openStore
 ) {
   const run =
     step ??
@@ -283,7 +295,7 @@ export async function conversationSummaries(
     const work = pendingOf(
       found.parts,
       // biome-ignore lint/performance/noAwaitInLoops: what a pass stored decides the next
-      summaryOfKeys(await currentSummaries(found.open, where)),
+      summaryOfKeys(await currentSummaries(open, where)),
       cap - calls,
       failed
     );
