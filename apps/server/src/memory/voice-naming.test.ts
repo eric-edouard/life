@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIN } from "../core/clock";
+import type { SourceEvent } from "../records/source";
 import { apply, openStore } from "../sources/lifelog";
 import {
   conversation,
@@ -27,6 +28,7 @@ const ME_LINE = /^\[0\] \S+ me: /;
 const NOW = new Date("2026-10-20T10:00:00.000Z");
 const SEEN = "2026-10-19T10:00:00.000Z";
 const KNOWN: Record<string, string> = {
+  "+15550000001": "person:dana",
   Dana: "person:dana",
   p1: "person:dana",
 };
@@ -145,7 +147,7 @@ const stepOf = (reply: (i: NamingInput) => unknown) =>
     llm: { engine: "codex", model: "test" },
     run: "r1",
   }) as unknown as Step;
-const workOf = async (s: Scene) => {
+const workOf = async (s: Scene, chats?: SourceEvent[]) => {
   const found = await readConversationSummaryWork(
     NOW,
     people,
@@ -153,7 +155,7 @@ const workOf = async (s: Scene) => {
     s.where,
     s.open
   );
-  return readVoiceNamingWork(found, people, s.where, s.open);
+  return readVoiceNamingWork(found, people, s.where, s.open, chats);
 };
 const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
   asked = [];
@@ -211,44 +213,58 @@ test("a person matched by sound is not a possible speaker, and their voice is a 
   expect((await day("owner")).work.counts.parts).toBe(0);
 });
 
-test("a voice named by his answer over a phone does not count as heard in person", async () => {
-  const s = sceneOf({
-    before: true,
-    name: "Dana",
-    voices: (job, before) => [
-      row(job, { basis: "recognized", personId: "p1", status: "person" }),
-      row(before, { basis: "owner", personId: "p1", status: "person" }),
-    ],
-  });
+const CALL: SourceEvent = {
+  at: "2026-10-09T09:58:00.000Z",
+  chat: "+15550000001",
+  fromMe: false,
+  id: "call-1",
+  phoneCall: { seconds: 3600, video: false },
+  sender: "+15550000001",
+  source: "phone",
+  text: "",
+};
+
+test("a turn of someone inside a phone call with them is not heard in person, even when his answer named it", async () => {
+  const scene = (chats: SourceEvent[]) => {
+    const s = sceneOf({
+      before: true,
+      name: "Dana",
+      voices: (job, before) => [
+        row(job, { basis: "recognized", personId: "p1", status: "person" }),
+        row(before, { basis: "owner", personId: "p1", status: "person" }),
+      ],
+    });
+    return workOf(s, chats);
+  };
+  // No call: answered yesterday, so offered, and today's match keeps its name.
+  expect((await scene([])).counts.parts).toBe(0);
+  // The answer was given during a call with her: she is not offered, today's match is a V.
+  expect((await scene([CALL])).counts.parts).toBe(1);
+  // A call that ended before the turns leaves it as it was.
+  const early = { ...CALL, at: "2026-10-09T08:00:00.000Z" };
+  expect((await scene([early])).counts.parts).toBe(0);
+});
+
+test("a night with nothing new makes no call to lifelog's voices", async () => {
+  const s = sceneOf({ voices: (job) => [row(job)] });
+  await run(s, () => ({ voices: [] }));
+  let calls = 0;
   server?.close();
   server = lifelogServer({
-    "/conversations/c0": () => ({
-      latestRun: {
-        result: {
-          speakerIdentities: [
-            {
-              jobId: `job-${n}-0`,
-              kind: "phone",
-              speakerLabel: "speaker_1",
-              withOwner: true,
-            },
-          ],
-        },
-      },
-    }),
     "/conversations/c1": () => ({ latestRun: null }),
-    [`/transcription-jobs/job-${n}/transcript`]: () => ({
+    [`/transcription-jobs/${s.job}/transcript`]: () => ({
       turns: Array.from({ length: 20 }, (_, t) => ({
         speakerId: `speaker_${t % 2}`,
         text: `remark ${t} ${"w".repeat(1000)}`,
       })),
     }),
-    "/speakers/voices": () => [
-      row(s.job, { basis: "recognized", personId: "p1", status: "person" }),
-      row(`job-${n}-0`, { basis: "owner", personId: "p1", status: "person" }),
-    ],
+    "/speakers/voices": () => {
+      calls += 1;
+      return [];
+    },
   });
-  expect((await workOf(s)).counts.parts).toBe(1);
+  expect((await workOf(s)).counts).toEqual({ calls: 0, parts: 0 });
+  expect(calls).toBe(0);
 });
 
 test("a voice named later by his answer asks its part again, and the old guess no longer matches", async () => {

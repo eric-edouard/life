@@ -5,12 +5,7 @@ import { redact } from "../core/redact";
 import { VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
-import {
-  readVoiceKinds,
-  readVoices,
-  type VoiceRow,
-  voiceKey,
-} from "../sources/lifelog-voices";
+import { readVoices, type VoiceRow, voiceKey } from "../sources/lifelog-voices";
 import {
   directChats,
   type HeardTurn,
@@ -184,11 +179,15 @@ async function readDayFacts(dates: string[], people: People) {
 
 /**
  * The turns of people he heard in person, of the recordings since `since`: those of a voice his own answer named
- * (lifelog's `owner` basis, from `/speakers/voices` for each day with such a turn) that lifelog did not hear over a phone
- * (`readVoiceKinds`). A match by lifelog's sound, or a voice on a speakerphone, never makes anyone possible.
+ * (lifelog's `owner` basis, from `/speakers/voices` for each day with such a turn) that did not fall inside a phone
+ * call he picked up with that same person (`direct`: his one-to-one chats). A match by lifelog's sound never makes
+ * anyone possible. Lifelog's own kinds (phone, screen) are not read: they cover only the voices it could not name.
  */
-async function readHeardInPerson(turns: HeardTurn[]) {
-  const answered = new Map<string, string[]>();
+async function readHeardInPerson(
+  turns: HeardTurn[],
+  direct: Map<string, SourceEvent[]>
+) {
+  const answered = new Set<string>();
   const days = [
     ...new Set(turns.map((t) => Math.floor(Date.parse(t.at) / DAY) * DAY)),
   ];
@@ -199,32 +198,19 @@ async function readHeardInPerson(turns: HeardTurn[]) {
     );
     for (const r of rows.flat()) {
       if (r.basis === "owner" && r.status === "person" && r.personId) {
-        const key = `${r.jobId} ${r.personId}`;
-        answered.set(key, [...(answered.get(key) ?? []), r.speakerLabel]);
+        answered.add(`${r.jobId} ${r.personId}`);
       }
     }
   }
-  const named = turns.filter((t) => answered.has(`${t.job} ${t.id}`));
-  const kinds = new Map<string, Awaited<ReturnType<typeof readVoiceKinds>>>();
-  for (const group of chunks(
-    [...new Set(named.map((t) => t.conversation))],
-    8
-  )) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
-    const read = await Promise.all(group.map((id) => readVoiceKinds(id)));
-    for (const [i, id] of group.entries()) {
-      kinds.set(id, read[i] ?? new Map());
-    }
-  }
-  return named.filter((t) =>
-    answered
-      .get(`${t.job} ${t.id}`)
-      ?.some(
-        (label) =>
-          kinds.get(t.conversation)?.get(voiceKey(t.job, label))?.kind !==
-          "phone"
-      )
-  );
+  // ponytail: a call is of a one-to-one chat; a person on a group call is not caught
+  const onCall = (t: HeardTurn) =>
+    (direct.get(t.ref) ?? []).some((e) => {
+      const began = Date.parse(e.at);
+      const end = began + (e.phoneCall?.seconds ?? 0) * 1000;
+      const at = Date.parse(t.at);
+      return at >= began && at < end;
+    });
+  return turns.filter((t) => answered.has(`${t.job} ${t.id}`) && !onCall(t));
 }
 
 async function readContext(
@@ -239,15 +225,16 @@ async function readContext(
   );
   const since = new Date(Date.parse(first) - HEARD_WITHIN);
   const events = chats ?? (await readWithPeople(since)).events;
+  const direct = directChats(events, people.resolve);
   const heard = (
     await readHeardInPerson(
       await withStore(
         (store) => heardTurnsOf(store, people.resolve, since),
         open
-      )
+      ),
+      direct
     )
   ).map((t) => ({ at: t.at, ref: t.ref }));
-  const direct = directChats(events, people.resolve);
   const callDays = new Map(
     [...direct].map(([ref, list]) => [
       ref,
@@ -443,14 +430,29 @@ async function readConversationVoices(parts: SpokenPart[]) {
   return rows.filter((v) => jobs.has(v.jobId));
 }
 
+/**
+ * Whether a part's naming is already stored under its turns' keys as they stand (a voice nobody named kept as
+ * `unnamedTurnKey`, any other as its own key), decided with no read of lifelog. A part with a voice lifelog named by
+ * sound is not recognised here (rule 3 may have hidden it): it is read again until the night stops examining it.
+ */
+function isStored(part: SpokenPart, index: ReturnType<typeof readReplyIndex>) {
+  const keys = part.keys.map((k, n) =>
+    part.voices[n]?.name || part.voices[n]?.owner
+      ? k
+      : unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "")
+  );
+  return Boolean(replyOf(keys, VOICE_NAMING_READ, index));
+}
+
 /** The parts of one conversation with a voice to name, and the calls due among them (those with no stored reply under their keys now). */
 function namingsOf(
   parts: SpokenPart[],
+  due: SpokenPart[],
   voices: VoiceRow[],
   c: Context,
   index: ReturnType<typeof readReplyIndex>
 ) {
-  const namings = parts.flatMap((part) => {
+  const namings = due.flatMap((part) => {
     const n = namingOf(part, parts[0]?.at ?? part.at, voices, c);
     return n ? [{ n, part }] : [];
   });
@@ -478,15 +480,30 @@ export async function readVoiceNamingWork(
 ) {
   const asked: Asked[] = [];
   let named = 0;
-  const talks = found.parts.filter((c) => c.length > 0);
+  const index = readReplyIndex(where);
+  // Due only if a voice could be named and nothing is stored for the part: decided before any read of lifelog.
+  const talks = found.parts
+    .map((parts) => ({
+      due: parts.filter(
+        (part) => part.voices.some((v) => !v.owner) && !isStored(part, index)
+      ),
+      parts,
+    }))
+    .filter((t) => t.due.length > 0);
   if (talks.length > 0) {
-    const c = await readContext(talks.flat(), people, open, chats);
-    const index = readReplyIndex(where);
+    const c = await readContext(
+      talks.flatMap((t) => t.due),
+      people,
+      open,
+      chats
+    );
     for (const group of chunks(talks, 8)) {
       // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
-      const voices = await Promise.all(group.map(readConversationVoices));
-      for (const [i, parts] of group.entries()) {
-        const done = namingsOf(parts, voices[i] ?? [], c, index);
+      const voices = await Promise.all(
+        group.map((t) => readConversationVoices(t.parts))
+      );
+      for (const [i, t] of group.entries()) {
+        const done = namingsOf(t.parts, t.due, voices[i] ?? [], c, index);
         asked.push(...done.asked);
         named += done.named;
       }

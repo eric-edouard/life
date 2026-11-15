@@ -303,7 +303,7 @@ async function readYears(now: Date) {
  * yet (`conversationSummaries`), then the voices no one named (`voiceNaming`), guessed for the parts the summaries
  * examine. A failure (a Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
  */
-async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
+export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
   const { conversationSummaries: summarise, voiceNaming: name } = settings();
   if (!(summarise || name)) {
     return;
@@ -322,11 +322,12 @@ async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
     });
   }
   if (found && name) {
-    await voiceNaming(
-      await readVoiceNamingWork(found, people, undefined, undefined, chats)
-    ).catch((e: Error) =>
-      log("run.error", { error: e.message, step: "memory.voice-naming" })
-    );
+    // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
+    await readVoiceNamingWork(found, people, undefined, undefined, chats)
+      .then((work) => voiceNaming(work))
+      .catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.voice-naming" })
+      );
   }
 }
 
