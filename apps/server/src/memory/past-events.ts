@@ -3,7 +3,8 @@ import { digest } from "../core/hash";
 import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
-import { conversationsBetween, visits, withStore } from "../sources/lifelog";
+import { visits, withStore } from "../sources/lifelog";
+import { conversationsBetween } from "../sources/lifelog-talks";
 import type { Draft } from "./calendar-events";
 import { episodeText } from "./doubts";
 import { endOf, span } from "./episode-span";
@@ -15,7 +16,7 @@ import {
   readUnitsOf,
 } from "./memory-files";
 import { stayOf, where } from "./places";
-import { clip } from "./units";
+import { clip, conversationLabel } from "./units";
 import { readPeople } from "./who";
 import { time } from "./zones";
 
@@ -90,7 +91,7 @@ export function drafts(episodes: Episode[], k: Known, now: Date): Draft[] {
 /** A timed event's stays (read when it is written) and conversations, as description lines and a location: the stay where he was most of it, else the episode's place. */
 async function located(
   d: Draft,
-  talks: { id: string; start_at: string; title: string }[]
+  talks: { id: string; names: string[]; start_at: string }[]
 ) {
   const stays = (await visits({ from: d.from, to: d.to }))
     .filter((s) => s.arrivedAt < d.to && (s.leftAt ?? d.to) > d.from)
@@ -112,7 +113,9 @@ async function located(
         ? [
             "",
             "Conversations recorded:",
-            ...talks.map((c) => `- ${time(c.start_at)} ${c.title} (${c.id})`),
+            ...talks.map(
+              (c) => `- ${conversationLabel(c.start_at, c.names)} (${c.id})`
+            ),
           ]
         : []),
     ],

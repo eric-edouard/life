@@ -30,8 +30,8 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/people.ts": 1179,
   "apps/lifelog/packages/db/src/schema/index.ts": 1078,
   "apps/server/src/host/status/snapshot.ts": 1216,
-  "apps/server/src/memory/units.test.ts": 1189,
-  "apps/server/src/sources/lifelog.ts": 938,
+  "apps/server/src/memory/units.test.ts": 1188,
+  "apps/server/src/sources/lifelog.ts": 920,
 };
 
 const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(

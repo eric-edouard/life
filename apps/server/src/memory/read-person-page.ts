@@ -4,7 +4,8 @@ import { newestDays, within } from "../core/lists";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
 import type { History } from "../records/history";
-import { conversationsWith, speakers, withStore } from "../sources/lifelog";
+import { speakers, withStore } from "../sources/lifelog";
+import { conversationsWith } from "../sources/lifelog-talks";
 import { closenessLine } from "./closeness";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
@@ -38,10 +39,10 @@ import {
 } from "./read-part";
 import { goalProjects } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
-import { clip, nameKey } from "./units";
+import { conversationLabel, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { asData } from "./words";
-import { dayNow, localDate, localTime, monthsOf } from "./zones";
+import { dayNow, localDate, monthsOf } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
 // their observations, episodes and recorded conversations, paged back by day; with no name, the people.
@@ -391,7 +392,7 @@ function timelineOf(
     ...conversationsWith(store, voiceIds).map((c) => ({
       day: localDate(c.start_at),
       kind: "conversation" as const,
-      line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
+      line: `- ${c.id} ${localDate(c.start_at)}: ${conversationLabel(c.start_at, c.names)}`,
     })),
   ].toSorted((a, b) => b.day.localeCompare(a.day));
 }

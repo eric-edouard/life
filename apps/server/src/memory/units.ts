@@ -168,6 +168,12 @@ export const frozenUnits = (store: Store, units: Unit[]) => {
   return units.filter((u) => isFrozen(u) && live.has(u.key));
 };
 
+/** A recording's label, made by code: "Conversation at 14:05 with Sam, Mai" (his local time; just the time when he was alone). */
+export function conversationLabel(start: string, names: string[]) {
+  const who = [...new Set(names)].sort();
+  return `Conversation at ${time(start)}${who.length > 0 ? ` with ${who.join(", ")}` : ""}`;
+}
+
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
@@ -229,7 +235,10 @@ export function lifelogUnits(
                 fromMe: turns.filter((t) => t.owner).length,
                 items: turns.length,
               },
-              title: c.title || "Recorded conversation",
+              title: conversationLabel(
+                first.at,
+                turns.flatMap((t) => (t.owner || !t.name ? [] : [t.name]))
+              ),
             },
           };
         }

@@ -1,19 +1,19 @@
 import { clock } from "../core/clock";
 import { redact } from "../core/redact";
 import {
-  conversationsBetween,
   openStore,
   type Stay,
   visits,
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { clip } from "./units";
+import { conversationsBetween } from "../sources/lifelog-talks";
+import { conversationLabel } from "./units";
 import { asData } from "./words";
 import { dayRange, isDay, localTime, time } from "./zones";
 
 // `bun life memory places`, and the connector's `read_places_visited`: where the owner was (lifelog's stays, from the iPhone's
-// location history), each stay with the titles of the conversations recorded during it, joined here from Life's store.
+// location history), each stay with the labels of the conversations recorded during it, joined here from Life's store.
 // Coordinates come from the asker: Life does no geocoding.
 
 const MAX = 200;
@@ -100,8 +100,7 @@ export async function placesOf(
             ...during
               .slice(0, TITLES)
               .map(
-                (c) =>
-                  `    ${c.id} ${time(c.start_at)} ${clip(redact(c.title), 80)}`
+                (c) => `    ${c.id} ${conversationLabel(c.start_at, c.names)}`
               ),
             ...(during.length > TITLES
               ? [`    (${during.length - TITLES} more conversations)`]
