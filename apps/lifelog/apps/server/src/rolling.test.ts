@@ -14,7 +14,7 @@ import { asc, eq } from "drizzle-orm";
 import { PARSER_VERSION } from "./elevenlabs";
 import { anchorId, groupSource, markDirty } from "./grouping";
 import { MacGone, type ModelCall } from "./providers";
-import { rollingChapters } from "./rolling";
+import { rollingVoices } from "./rolling";
 import { dueConversations, fingerprint } from "./runs";
 import { setSwitches } from "./switches";
 import { fakeAnswer, fakeModel, rangeOf, testDb } from "./testing";
@@ -148,7 +148,7 @@ const conversation = () =>
 
 test("an open conversation rolls only a full window; closing reads the tail; each turn is read once", async () => {
   const model = fakeModel();
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: SMALL });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: SMALL });
   block(0, 10, 100);
   await rolling.drain();
   // Turns 0-3 and 4-7 are full windows; 8-9 is a partial one: it waits.
@@ -186,7 +186,7 @@ test("an open conversation rolls only a full window; closing reads the tail; eac
 
 test("one window of an open conversation is no run; the conversation closing reads it", async () => {
   const model = fakeModel();
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   block(0, 10, 100);
   await rolling.drain();
   expect(model.calls.length).toBe(0);
@@ -199,7 +199,7 @@ test("one window of an open conversation is no run; the conversation closing rea
 test("summaries off: a due conversation makes no run and nothing is due; turned on, it rolls", async () => {
   setSwitches(env.db, { ai: false });
   const model = fakeModel();
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   block(0, 10, 1000);
   await rolling.drain();
   expect(env.db.select().from(intelligenceRuns).all()).toEqual([]);
@@ -212,7 +212,7 @@ test("summaries off: a due conversation makes no run and nothing is due; turned 
 
 // The owner's Generate of the conversation at `id`, and every roll it leads to.
 async function generate(model: ReturnType<typeof fakeModel>, id: string) {
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   rolling.generate(id);
   await rolling.idle();
 }
@@ -220,7 +220,7 @@ async function generate(model: ReturnType<typeof fakeModel>, id: string) {
 test("Generate reads the voices again from the first turn", async () => {
   const model = fakeModel();
   block(0, 10, 1000);
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   await rolling.drain();
   await generate(model, anchorId(at(0)));
   expect(asked(model.calls)).toEqual([
@@ -243,7 +243,7 @@ test("with the Mac away nothing is called; a roll it dropped resumes where it st
     }),
     { ready: () => ready }
   );
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   block(0, 10, 1000);
   await rolling.drain();
   await rolling.drain();
@@ -277,7 +277,7 @@ test("at most one roll per conversation at a time; one asked meanwhile follows",
     running -= 1;
     return fakeAnswer();
   });
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: SMALL });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: SMALL });
   block(0, 10, 100);
   const first = rolling.drain();
   await Bun.sleep(50);
@@ -298,7 +298,7 @@ test("at most one roll per conversation at a time; one asked meanwhile follows",
 });
 
 test("without the Mac nothing rolls", async () => {
-  const rolling = rollingChapters(env.db, { mac: null });
+  const rolling = rollingVoices(env.db, { mac: null });
   block(0, 10, 100);
   await rolling.drain();
   await rolling.drain();
@@ -319,7 +319,7 @@ test("a conversation is due whenever its words change, however late: an old one 
     }),
     { ready: () => ready }
   );
-  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
   // Three days ago, closed long since; its words come only now (held audio released).
   block(OLD, 10, 1000);
   expect(conversation()[0]?.closedAt).not.toBeNull();

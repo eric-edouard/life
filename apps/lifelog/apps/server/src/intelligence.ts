@@ -247,9 +247,12 @@ async function execute(
 
 // Who the model says each unnamed speaker is. A name counts only with turns that show it,
 // and only turns of this conversation; a known person only when the owner has one by that name
-// or alias.
-function speakerIdentities(speakers: Voices["speakers"], input: Input) {
-  const last = input.turns.length - 1;
+// or alias. Its turns are those up to `last`, the end of the window read.
+function speakerIdentities(
+  speakers: Voices["speakers"],
+  input: Input,
+  last: number
+) {
   return speakers.flatMap((s) => {
     const known = input.unnamed.get(s.speaker);
     if (!known) {
@@ -299,10 +302,28 @@ function carried(previous: Valid, input: Input, prefix: number) {
     });
 }
 
-// Each key once, the fresh one winning.
-const newest = <T>(old: T[], fresh: T[], key: (t: T) => string) => [
-  ...new Map([...old, ...fresh].map((t) => [key(t), t])).values(),
-];
+type Identity = NonNullable<Result["speakerIdentities"]>[number];
+
+// Each voice once, the fresh reading winning, except that a name an earlier window found stays
+// when the fresh one has none (the legend lists every voice, so a later window repeats them).
+function newest(old: Identity[], fresh: Identity[]) {
+  const merged = new Map(old.map((s) => [voiceOf(s), s]));
+  for (const s of fresh) {
+    const before = merged.get(voiceOf(s));
+    merged.set(
+      voiceOf(s),
+      before?.name && !s.name
+        ? {
+            ...s,
+            evidenceTurnIds: before.evidenceTurnIds,
+            name: before.name,
+            personId: s.personId ?? before.personId,
+          }
+        : s
+    );
+  }
+  return [...merged.values()];
+}
 
 interface Roll {
   // The turns the previous run read, still the first ones here.
@@ -336,8 +357,7 @@ async function rolled(
     result: {
       speakerIdentities: newest(
         previous ? carried(previous, input, prefix) : [],
-        speakerIdentities(answered.output.speakers, input),
-        voiceOf
+        speakerIdentities(answered.output.speakers, input, range[1])
       ),
     },
     state: "valid",

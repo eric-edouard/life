@@ -15,7 +15,7 @@ import { latestSeq, touchedSince } from "./change-log";
 import { feed } from "./feed";
 import { requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
-import { type Rolling, rollingChapters } from "./rolling";
+import { type Rolling, rollingVoices } from "./rolling";
 import { latestValid } from "./runs";
 import { services } from "./services";
 import {
@@ -67,7 +67,7 @@ const turns = (n: number, text = "Some words about the plan."): Turn[] =>
 // The app's rolls, which `settled` waits for.
 let rolling: Rolling | null = null;
 function appWith(model: Provider) {
-  rolling = rollingChapters(env.db, {
+  rolling = rollingVoices(env.db, {
     mac: model,
     retries: NO_WAIT,
     windowChars: 100_000,
@@ -527,12 +527,19 @@ test("runs stored before speaker kinds and boundary causes still parse", async (
 });
 
 test("a long transcript is read window after window, each turn once, and the voices heard are kept", async () => {
-  // One voice is named in the first window only, the other in each later one.
+  // One voice is named in the first window only (later windows list it again, unnamed), the other in each later one.
   const model = fakeModel((call) => ({
     speakers:
       rangeOf(call)[0] === 0
-        ? [speakerAnswer({ evidenceTurnIds: [0], name: "Sam", speaker: "S1" })]
+        ? [
+            speakerAnswer({
+              evidenceTurnIds: [0, 29],
+              name: "Sam",
+              speaker: "S1",
+            }),
+          ]
         : [
+            speakerAnswer({ speaker: "S1" }),
             speakerAnswer({
               evidenceTurnIds: [rangeOf(call)[0]],
               name: "Mai",
@@ -553,7 +560,7 @@ test("a long transcript is read window after window, each turn once, and the voi
   mapJob(env.db, jobId, [
     [Date.parse("2026-10-01T00:00:00Z"), Date.parse("2026-10-01T01:00:00Z")],
   ]);
-  const small = rollingChapters(env.db, { mac: model, windowChars: 600 });
+  const small = rollingVoices(env.db, { mac: model, windowChars: 600 });
   small.generate(id);
   await small.idle();
   const runs = env.db.query.intelligenceRuns
@@ -578,7 +585,7 @@ test("a long transcript is read window after window, each turn once, and the voi
   // The last run still holds what the first window found.
   const last = Result.parse(runs.at(-1)?.result);
   expect(last.speakerIdentities).toMatchObject([
-    { name: "Sam", speakerLabel: "speaker_0" },
+    { evidenceTurnIds: [0], name: "Sam", speakerLabel: "speaker_0" },
     { name: "Mai", speakerLabel: "speaker_1" },
   ]);
 });

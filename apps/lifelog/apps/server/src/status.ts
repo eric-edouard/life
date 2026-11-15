@@ -135,7 +135,7 @@ export const IdentityStatus = z
   .openapi("IdentityStatus");
 
 // Where the audio and the summaries are now, for the Mac host's menu: polled every 30 s, so a few
-// small queries and the rolling drain's own list of what is due (summaries.ts holds the rule).
+// small queries and the rolling drain's own list of what is due (runs.ts holds the rule).
 export const Pipeline = z
   .object({
     ai: z.object({

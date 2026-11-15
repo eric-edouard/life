@@ -27,7 +27,7 @@ unknown token 401. The phone's device token opens everything, the reads included
 - A page holds up to 500 changes. Each row comes as it is now; a row changed again comes again with a newer seq. Keep
   rows by key and replace them. `more: true` means ask again at once.
 - `wait=<0..60>` holds the request while nothing is newer, then answers an empty page with the same cursor.
-- `removed` lists rows that are gone, `{ kind, ref }`: a turn moved off, a person merged away, a chapter a new summary
+- `removed` lists rows that are gone, `{ kind, ref }`: a turn moved off, a person merged away, a chapter an old run's rows had,
   dropped, a job withdrawn. Drop them.
 
 What a reader needs from a page:
@@ -52,7 +52,7 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 ## Words on demand
 
 - `GET /transcription-jobs/{id}/transcript`: a job's turns; a turn's index in `turns` is its `turnIndex`.
-- `GET /conversations/{id}`: one conversation with its range, titles, latest summary and jobs.
+- `GET /conversations/{id}`: one conversation with its range, titles, latest valid run and jobs.
 
 ## Optional parts
 

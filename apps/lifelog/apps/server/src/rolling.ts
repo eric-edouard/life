@@ -21,7 +21,7 @@ import { dueConversations, fingerprint, type Run } from "./runs";
 import { switches } from "./switches";
 import { PROMPT_VERSION } from "./voices-call";
 
-// What a roll reads past the closed chapters: about 20 minutes of talk, some 6k tokens.
+// What a roll reads: about 20 minutes of talk, some 6k tokens.
 const WINDOW_CHARS = 24_000;
 // Conversations a drain rolls at once. Their calls share the Mac's MAC_SLOTS (mac-socket.ts); this
 // only keeps a backlog from starting every run at once. ponytail: fixed.
@@ -60,7 +60,7 @@ async function rollWindows(
   }
 }
 
-export function rollingChapters(
+export function rollingVoices(
   db: Db,
   {
     mac,
@@ -78,8 +78,8 @@ export function rollingChapters(
   // Conversations the owner's Generate asked for, rolled from the first turn on their next round.
   const asked = new Set<string>();
 
-  // Rolls one conversation until its words are covered, then keeps what it read. Generate: every
-  // chapter closes.
+  // Rolls one conversation until its words are covered, then keeps what it read. Generate: from
+  // the first turn.
   const once = async (id: string) => {
     const generate = asked.delete(id);
     const conversation = db.query.conversations
@@ -162,9 +162,9 @@ export function rollingChapters(
 
   return {
     drain,
-    // The conversations whose summary is due or waits, as the last drain found them.
+    // The conversations whose read is due or waits, as the last drain found them.
     due: () => [...due],
-    // The owner's Generate: it rolls from its first turn, every chapter closing; the summary shown
+    // The owner's Generate: it rolls from its first turn; the run shown
     // stays until the new run is valid. With the Mac away a run waits for it (the next drain takes
     // it, from the first turn too).
     generate(id: string) {
@@ -203,4 +203,4 @@ export function rollingChapters(
     idle: () => Promise.all([roll.idle(), draining.idle()]),
   };
 }
-export type Rolling = ReturnType<typeof rollingChapters>;
+export type Rolling = ReturnType<typeof rollingVoices>;

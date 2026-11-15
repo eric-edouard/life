@@ -160,7 +160,7 @@ const findJob = (db: Db, match: ProviderMatch) =>
 
 const NO_WORDS = { language_code: "und", language_probability: 0, words: [] };
 
-// What follows a stored transcript beyond its words and grouping (services.ts: chapters, voices,
+// What follows a stored transcript beyond its words and grouping (services.ts: the voices read,
 // the phone's push, waiting reasons). Not awaited: a failure there is logged and left to the
 // 5-minute sweeps.
 export type OnCompleted = (job: Job) => Promise<void>;

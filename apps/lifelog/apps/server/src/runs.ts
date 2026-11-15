@@ -129,7 +129,7 @@ function dueWhere(db: Db, ids: string[] | null) {
     or (select r.state from intelligence_runs r where r.conversation_id = c.id
       order by r.created_at desc limit 1) = 'waiting'))`;
 }
-export const summaryDue = (db: Db) => dueWhere(db, null);
+export const runDue = (db: Db) => dueWhere(db, null);
 
 // A failed roll is tried again 5 minutes after it failed, then 10, 20, 40, then once an hour.
 const backingOff = (
