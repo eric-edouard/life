@@ -137,7 +137,7 @@ const run = async (
     s.where,
     stepOf(reply) as unknown as Step
   );
-  return { done, found };
+  return { done: done as { calls: number; stored: number }, found };
 };
 
 test("the size asked for grows with the part: 300, 400 and 2000 words at 15k, 30k and 150k characters", () => {
