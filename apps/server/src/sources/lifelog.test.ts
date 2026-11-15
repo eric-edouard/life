@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
+import { ConversationAnswer, Voices } from "./lifelog-voices";
 import {
   apply,
-  ConversationAnswer,
   endedOnSilence,
   Hits,
   isConversationClosed,
@@ -516,6 +516,12 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       answer("/conversations/{id}", "get"),
       defs,
       "conversation"
+    ),
+    ...drift(
+      ours(Voices),
+      answer("/speakers/voices", "get"),
+      defs,
+      "voices"
     ),
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Recorded), answer("/recorded", "get"), defs, "recorded"),

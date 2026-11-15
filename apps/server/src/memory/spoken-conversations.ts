@@ -1,8 +1,14 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
-import { type LifelogTurn, turnRef, voiceKey } from "../sources/lifelog";
+import {
+  authorOf,
+  type LifelogTurn,
+  parseTurnRef,
+  turnRef,
+} from "../sources/lifelog";
+import { voiceKey } from "../sources/lifelog-voices";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
-import { turnKey, UNKNOWN } from "./units";
+import { turnKey, unnamedTurnKey } from "./units";
 import type { People } from "./who";
 import { isTalkingWithOwner, messageLine, turnLines } from "./words";
 import { localDate, time } from "./zones";
@@ -25,6 +31,19 @@ export const spokenConversationsOf = (turns: SpokenTurn[], now: Date) =>
     isFinished(c, now, CONVERSATION_ENDS_AFTER)
   );
 
+/** One line of a part as lifelog has it: who spoke it, which voice of its recording, and the words. */
+export interface SpokenVoice {
+  /** The lifelog person id (else the name) that named it, as `authorOf`; null for him or a voice nobody named. */
+  from: string | null;
+  /** The voice's label in its recording (`voiceKey`). */
+  label: string;
+  /** The name lifelog gave it, as the directory names it now; null for him or a voice nobody named. */
+  name: string | null;
+  owner: boolean;
+  text: string;
+  time: string;
+}
+
 /** One call's worth of a conversation: its lines `[n] HH:MM who: text` from 0, and the key of each turn they are. */
 export interface SpokenPart {
   at: string;
@@ -36,7 +55,31 @@ export interface SpokenPart {
   people: string[];
   /** Its first turn's ref: what opens it (`fetch person:me/conversation/<ref>`). */
   ref: string;
+  /** When its last turn ended. */
+  until: string;
+  /** What each line is made of, in order: `lines` are made from these. */
+  voices: SpokenVoice[];
 }
+
+/**
+ * `V1`, `V2`… for the distinct voices among `keys`, by first appearance: the one numbering of the voices of a part. A
+ * key is `unnamedTurnKey`'s; a voice is its recording and label (`voiceKey`).
+ */
+export function voiceTokensOf(keys: string[]) {
+  const tokens = new Map<string, string>();
+  for (const key of keys) {
+    const [ref = "", label = ""] = key.split(" voice:");
+    const voice = voiceKey(parseTurnRef(ref)?.jobId ?? ref, label);
+    if (!tokens.has(voice)) {
+      tokens.set(voice, `V${tokens.size + 1}`);
+    }
+  }
+  return tokens;
+}
+
+/** A line of a part: `[n] HH:MM who: text`. */
+export const partLine = (n: number, v: SpokenVoice, who: string) =>
+  `[${n}] ${messageLine(v.time, who, v.text)}`;
 
 /** The line in [from, to) with the longest silence before it, or -1 when there is none. */
 function widest(gaps: number[], from: number, to: number) {
@@ -98,36 +141,46 @@ export async function spokenPartsOf(
     people.resolve,
     isTalkingWithOwner
   );
-  const voices = new Map<string, string>();
-  let silent = Number.NEGATIVE_INFINITY;
-  const shown = (spoken.get("c") ?? []).flatMap((l) => {
+  const heard = (spoken.get("c") ?? []).flatMap((l) => {
     const t = byRef.get(l.ref);
-    if (!t) {
-      return [];
-    }
+    return t ? [{ l, t }] : [];
+  });
+  const label = (l: { voice?: string }) => l.voice ?? "speaker";
+  // A voice no one named is V1, V2… by its first line, one numbering over the whole conversation.
+  const tokens = voiceTokensOf(
+    heard
+      .filter(({ t }) => !(t.owner || t.name))
+      .map(({ l }) => unnamedTurnKey(l.ref, label(l)))
+  );
+  let silent = Number.NEGATIVE_INFINITY;
+  const shown = heard.map(({ l, t }) => {
+    const unnamed = !(t.owner || t.name);
     let who = "me";
     if (!t.owner && t.name) {
       who = people.nameOf(l.speaker);
-    } else if (!t.owner) {
-      const key = voiceKey(t.jobId, l.speaker.slice(UNKNOWN.length));
-      who = voices.get(key) ?? `V${voices.size + 1}`;
-      voices.set(key, who);
+    } else if (unnamed) {
+      who = tokens.get(voiceKey(t.jobId, label(l))) ?? "";
     }
     const gap = Date.parse(t.at) - silent;
     silent = Math.max(silent, Date.parse(t.end ?? t.at));
-    const text = messageLine(time(t.at), who, l.text);
-    return [
-      {
-        gap,
-        key: turnKey(t),
-        named: !t.owner && !!t.name && who,
-        ref: l.ref,
-        size: text.length + 1,
-        speaker: l.speaker,
-        t,
-        text,
-      },
-    ];
+    const voice: SpokenVoice = {
+      from: authorOf(t),
+      label: label(l),
+      name: !t.owner && t.name ? who : null,
+      owner: t.owner,
+      text: l.text,
+      time: time(t.at),
+    };
+    return {
+      gap,
+      key: turnKey(t),
+      ref: l.ref,
+      size: messageLine(voice.time, who, voice.text).length + 1,
+      speaker: l.speaker,
+      t,
+      voice,
+      who,
+    };
   });
   const chars = shown.reduce((n, s) => n + s.size, 0);
   if (chars < SUMMARY_FROM_CHARS || shown.every((s) => s.speaker === OWNER)) {
@@ -146,9 +199,13 @@ export async function spokenPartsOf(
       chars: part.reduce((n, s) => n + s.size, 0),
       day: localDate(first?.t.at ?? ""),
       keys: part.map((s) => s.key),
-      lines: part.map((s, n) => `[${n}] ${s.text}`),
-      people: [...new Set(part.flatMap((s) => s.named || []))],
+      lines: part.map((s, n) => partLine(n, s.voice, s.who)),
+      people: [...new Set(part.flatMap((s) => s.voice.name || []))],
       ref: first?.ref ?? "",
+      until: new Date(
+        Math.max(...part.map((s) => Date.parse(s.t.end ?? s.t.at)))
+      ).toISOString(),
+      voices: part.map((s) => s.voice),
     };
   });
 }
