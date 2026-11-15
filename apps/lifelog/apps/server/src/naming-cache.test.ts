@@ -58,9 +58,14 @@ async function ready(queue: ReturnType<typeof queueCache>) {
   throw new Error("Voice map worker did not finish");
 }
 
-function seed() {
-  env.db.insert(people).values({ isOwner: true, name: "Owner" }).run();
-  const turns = [0, 1].map((i) => ({
+// A guest's voice of `count` turns, 350 words each; `sampled` false is a voice with no samples.
+function seed(count = 2, sampled = true) {
+  env.db
+    .insert(people)
+    .values({ isOwner: true, name: "Owner" })
+    .onConflictDoNothing()
+    .run();
+  const turns = Array.from({ length: count }, (_, i) => i).map((i) => ({
     end: i * 10 + 9,
     speakerId: "guest",
     start: i * 10,
@@ -78,6 +83,9 @@ function seed() {
       }))
     ),
   });
+  if (!sampled) {
+    return held;
+  }
   env.db
     .insert(voiceSamples)
     .values(
@@ -282,3 +290,23 @@ for (const retry of ["revision", "backoff", "write during build"] as const) {
     }
   });
 }
+
+// 11 Nov: 41 of the owner's 57 cards had no samples, so no names to offer first, and they came
+// before the ones that had.
+test("a voice with no samples comes after the ones with names to offer", () => {
+  const named = seed();
+  const [ana] = env.db.insert(people).values({ name: "Ana" }).returning().all();
+  assign(env.db, {
+    jobId: named.jobId,
+    speakerLabel: "guest",
+    target: { kind: "person", personId: ana?.id ?? "" },
+    turnIndex: null,
+  });
+  const silent = seed(3, false);
+  const heard = seed();
+  expect(
+    namingQueue(env.db)
+      .items()
+      .map((c) => c.id)
+  ).toEqual([`${heard.jobId}/guest`, `${silent.jobId}/guest`]);
+});

@@ -39,14 +39,16 @@ import {
 import {
   centroid,
   decide,
+  exemplarsOf,
   likeness,
+  movedVoice,
   NO_PROFILES,
   nearbyMatch,
-  type Profile,
+  nearbyPerson,
   type Profiles,
 } from "./speakers";
 import { averageLinkage } from "./voice-linkage";
-import { cosine, type Vector } from "./voice-vectors";
+import type { Vector } from "./voice-vectors";
 
 type Assignment = typeof assignments.$inferSelect;
 
@@ -57,7 +59,7 @@ export const isRejected = (
   assignment?.status === "stranger" ||
   (assignment?.source === "owner" &&
     !assignment.candidates &&
-    (assignment.status === "unknown" || assignment.status === "media"));
+    ["unknown", "media", "not_relevant"].includes(assignment.status));
 type Sample = typeof voiceSamples.$inferSelect;
 // What recognition reads of a sample.
 type VoiceSample = Pick<
@@ -138,7 +140,7 @@ export const keepServerSamples = (
             .all()
         : [];
     for (const sample of kept) {
-      evidenceForNew(tx, sample);
+      evidenceFromAnswer(tx, sample);
     }
     tx.update(transcripts)
       .set({ excerptsAt: clock() })
@@ -149,8 +151,8 @@ export const keepServerSamples = (
     }
   });
 
-// New evidence requires the owner's person assignment of the turn or its speaker.
-function evidenceForNew(tx: Db, sample: Sample) {
+// A sample is evidence only of the one person the owner's answer for its turn or speaker names.
+function evidenceFromAnswer(tx: Db, sample: Sample) {
   const owner = speakerOf(
     tx
       .select()
@@ -165,9 +167,8 @@ function evidenceForNew(tx: Db, sample: Sample) {
     sample.speakerLabel,
     sample.turnIndex
   );
-  if (owner?.personId && !owner.candidates) {
-    setEvidence(tx, [sample.id], owner.personId);
-  }
+  const person = owner?.candidates ? null : (owner?.personId ?? null);
+  setEvidence(tx, [sample.id], person);
 }
 
 function setEvidence(db: Db, sampleIds: string[], personId: string | null) {
@@ -206,12 +207,6 @@ type Clip = Pick<
   | "modelRevision"
 >;
 
-// One exemplar per conversation: the centroid of its clips.
-const exemplarsOf = (clips: Clip[]) =>
-  [...Map.groupBy(clips, (r) => r.conversationId).values()].map((c) =>
-    centroid(c.map((r) => r.embedding))
-  );
-
 // Per-model profiles from each person's evidence and the strangers' references.
 export function weighProfiles(
   rows: EvidenceRow[],
@@ -225,21 +220,23 @@ export function weighProfiles(
   const known = byModel(rows);
   const unknown = byModel(strangers);
   return new Map(
-    [...new Set([...known.keys(), ...unknown.keys()])].map((model) => [
-      model,
-      {
-        people: [
-          ...Map.groupBy(known.get(model) ?? [], (r) => r.personId).values(),
-        ].map(
-          (clips): Profile => ({
-            exemplars: exemplarsOf(clips),
+    [...new Set([...known.keys(), ...unknown.keys()])].map((model) => {
+      const references = exemplarsOf(unknown.get(model) ?? []);
+      return [
+        model,
+        {
+          people: [
+            ...Map.groupBy(known.get(model) ?? [], (r) => r.personId).values(),
+          ].map((clips) => ({
+            ...exemplarsOf(clips),
             isOwner: clips[0]?.isOwner ?? false,
             personId: clips[0]?.personId ?? "",
-          })
-        ),
-        strangers: exemplarsOf(unknown.get(model) ?? []),
-      },
-    ])
+          })),
+          strangerConversations: references.conversations,
+          strangers: references.exemplars,
+        },
+      ] as const;
+    })
   );
 }
 export type ProfilesByModel = Map<string, Profiles>;
@@ -406,7 +403,7 @@ export function readVoices(db: Db) {
 }
 
 // One model's samples and their centroid once clean speech reaches minSpeakerSeconds.
-function speakerVoice(speakerSamples: VoiceSample[]) {
+export function speakerVoice(speakerSamples: VoiceSample[]) {
   const model = speakerSamples[0] ? modelKey(speakerSamples[0]) : "";
   const samples = speakerSamples.filter((s) => modelKey(s) === model);
   const seconds = samples.reduce((sum, s) => sum + s.durationSeconds, 0);
@@ -588,27 +585,6 @@ function nameFromNearby(
   }
 }
 
-// The person whose nearby voice is most like `r`, if alike enough and ahead of anyone else's.
-function nearbyPerson(
-  r: { model: string | null; vector: Vector | null },
-  nearby: NearbyVoice[]
-) {
-  const scores = nearby
-    .filter((n) => n.model === r.model)
-    .map((n) => ({
-      personId: n.personId,
-      score: cosine(n.vector, r.vector ?? []),
-    }))
-    .sort((a, b) => b.score - a.score);
-  const [best] = scores;
-  const runnerUp = scores.find((s) => s.personId !== best?.personId);
-  return best &&
-    best.score >= RECOGNITION.nearbyVoice &&
-    best.score - (runnerUp?.score ?? 0) >= RECOGNITION.margin
-    ? best.personId
-    : null;
-}
-
 // The owner's id, from his profile.
 const ownerIn = (profiles: ProfilesByModel) =>
   [...profiles.values()].flatMap((v) => v.people).find((p) => p.isOwner)
@@ -667,6 +643,22 @@ function recognizeJob(
     jobSamples.flatMap((s) =>
       s.clean && s.sample.speakerLabel === label ? [s.sample] : []
     );
+  // No clean sample left (each went to a turn row): judged on the moved turns' samples.
+  const judged = (label: string) => {
+    const own = clean(label);
+    const { model, samples } = speakerVoice(
+      jobSamples.flatMap((s) =>
+        kept.some(
+          (r) => r.speakerLabel === label && r.turnIndex === s.sample.turnIndex
+        ) && s.sample.speakerLabel === label
+          ? [s.sample]
+          : []
+      )
+    );
+    return own.length > 0
+      ? match(own, profiles)
+      : movedVoice(samples, profiles.get(model) ?? NO_PROFILES);
+  };
   const results = [...labels]
     .filter((label) => !answered.some((r) => r.speakerLabel === label))
     .flatMap((label): Recognition[] => {
@@ -674,7 +666,7 @@ function recognizeJob(
       if (old && !jobSamples.some((s) => s.sample.speakerLabel === label)) {
         return [lastKnown(old)];
       }
-      const matched = match(clean(label), profiles);
+      const matched = judged(label);
       const splits = [
         ...Map.groupBy(
           matched.turns.filter((t) => t.voice),
@@ -914,6 +906,7 @@ export type Target =
   | { id: string; kind: "new"; name: string }
   | { kind: "unknown" }
   | { kind: "media" }
+  | { kind: "not_relevant" }
   // Several people (who exist), and the one to fall back on.
   | { candidates: Candidates; kind: "several"; personId: string | null };
 
@@ -951,8 +944,8 @@ export function assign(
     writeOwnerRow(tx, {
       ...input,
       candidates: target.kind === "several" ? target.candidates : null,
-      media: target.kind === "media",
       personId,
+      status: statusOf(target, personId),
     });
     logChange(tx, "assignment", jobId);
     if (personId && target.kind === "new") {
@@ -962,20 +955,20 @@ export function assign(
   });
 }
 
-// Replaces the owner row for a speaker or turn and moves that scope's evidence in this
-// transcript to the person (or drops it: several people are nobody's evidence).
+// Replaces the owner row for a speaker or turn (a second answer of his is `rechecked`) and moves
+// that scope's evidence in this transcript to the person (or drops it: several are nobody's).
 function writeOwnerRow(
   tx: Db,
   scope: {
     candidates: Candidates | null;
     jobId: string;
-    media: boolean;
     personId: string | null;
     speakerLabel: string;
+    status: ReturnType<typeof statusOf>;
     turnIndex: number | null;
   }
 ) {
-  const { candidates, jobId, media, personId, speakerLabel, turnIndex } = scope;
+  const { jobId, personId, speakerLabel, status, turnIndex } = scope;
   const scoped = and(
     eq(assignments.jobId, jobId),
     eq(assignments.speakerLabel, speakerLabel),
@@ -983,16 +976,18 @@ function writeOwnerRow(
       ? isNull(assignments.turnIndex)
       : eq(assignments.turnIndex, turnIndex)
   );
+  const previous = tx.select().from(assignments).where(scoped).get();
   tx.delete(assignments).where(scoped).run();
   const [row] = tx
     .insert(assignments)
     .values({
-      candidates,
+      candidates: scope.candidates,
       jobId,
       personId,
+      rechecked: previous?.source === "owner",
       source: "owner",
       speakerLabel,
-      status: ownerStatus(personId, media),
+      status,
       turnIndex,
     })
     .returning({ id: assignments.id })
@@ -1006,27 +1001,23 @@ function writeOwnerRow(
   setEvidence(
     tx,
     samples.map((s) => s.id),
-    candidates ? null : personId
+    scope.candidates ? null : personId
   );
-  if (candidates) {
+  if (scope.candidates) {
     // Its turns decided among them now, before the summaries the phone asks for.
     recognizeJob(tx, jobId, readProfiles(tx));
   }
 }
 
-const ownerStatus = (personId: string | null, media: boolean) => {
-  if (personId) {
-    return "person" as const;
-  }
-  return media ? ("media" as const) : ("unknown" as const);
+// His answer's status: a person's, else which kind of nobody.
+const statusOf = ({ kind }: Target, personId: string | null) => {
+  const nobody = kind === "media" || kind === "not_relevant" ? kind : "unknown";
+  return personId ? ("person" as const) : nobody;
 };
 
-// The person a target names (created for kind "new"), null for unknown or media,
+// The person a target names (created for kind "new"), null for nobody,
 // undefined if the person doesn't exist.
 function resolveTarget(db: Db, target: Target) {
-  if (target.kind === "unknown" || target.kind === "media") {
-    return null;
-  }
   if (target.kind === "several") {
     return target.personId;
   }
@@ -1036,6 +1027,9 @@ function resolveTarget(db: Db, target: Target) {
       .from(people)
       .where(eq(people.id, target.personId))
       .get()?.id;
+  }
+  if (target.kind !== "new") {
+    return null;
   }
   // The phone chose the id: a replay finds the person made the first time.
   db.insert(people)

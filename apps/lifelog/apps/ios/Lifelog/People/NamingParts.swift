@@ -14,7 +14,8 @@ struct WhoPills: View {
 
     let people: [CachedPerson]
     let suggested: [Pick]
-    let picked: Pick?
+    /// Ticked: one where a passage has one speaker, several under a clip of a several-people voice.
+    let picked: [Pick]
     /// Every passage of the voice rather than this one; `nil` where only the passage can be named.
     var everywhere: Binding<Bool>?
     /// Splits the conversation at the passage; `nil` where it can't be.
@@ -28,7 +29,7 @@ struct WhoPills: View {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         FlowLayout(spacing: 8) {
             ForEach(suggested, id: \.name) { pick in
-                Self.pill(pick.name, pick == picked) { choose(pick) }
+                Self.pill(pick.name, picked.contains(pick)) { choose(pick) }
             }
             Menu("Someone else") {
                 ForEach(people.filter { person in !suggested.contains { $0.target == .person(person.id) } }) {
@@ -36,8 +37,12 @@ struct WhoPills: View {
                     Button(person.name) { choose(Self.pick(person)) }
                 }
                 Button("Someone new", systemImage: "person.badge.plus") { asking = true }
-                Button("Don’t know", systemImage: "questionmark") { choose(Pick(target: .unknown, name: "Don’t know")) }
-                Button("Video or TV", systemImage: "tv") { choose(Pick(target: .media, name: "Video or TV")) }
+                if !suggested.contains(Self.unknown) {
+                    Button(Self.unknown.name, systemImage: "questionmark") { choose(Self.unknown) }
+                }
+                if !suggested.contains(Self.media) {
+                    Button(Self.media.name, systemImage: "tv") { choose(Self.media) }
+                }
                 if let split { Button("Split the conversation here", systemImage: "scissors", action: split) }
             }
             .buttonStyle(.bordered)
@@ -62,6 +67,10 @@ struct WhoPills: View {
         }
         .onChange(of: asking) { draft = "" }
     }
+
+    /// Nobody he can or cares to name.
+    static let unknown = Pick(target: .unknown, name: "Don’t know")
+    static let media = Pick(target: .media, name: "Video or TV")
 
     static func pick(_ person: CachedPerson) -> Pick {
         Pick(target: .person(person.id), name: person.isOwner ? "Me" : person.name)

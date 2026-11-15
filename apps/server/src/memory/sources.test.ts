@@ -31,16 +31,19 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "phone",
     "line",
     "instagram",
+    "messenger",
     "telegram",
     "linkedin",
     "mail",
     "notes",
     "claude",
     "chatgpt",
-    "told",
+    "told-life",
     AGENT_WORD,
     "git",
     "screen",
+    "apple-health",
+    "photos",
   ]);
 });
 
@@ -58,9 +61,10 @@ test("a new source is one descriptor: every table picks it up", () => {
     "phone",
     "line",
     "instagram",
+    "messenger",
     "telegram",
     "linkedin",
-    "told",
+    "told-life",
     "radio",
   ]);
   expect(Object.keys(t.SEARCHED)).toContain("radio");
@@ -70,26 +74,29 @@ test("a new source is one descriptor: every table picks it up", () => {
     "phone",
     "line",
     "instagram",
+    "messenger",
     "telegram",
     "linkedin",
     "mail",
-    "told",
+    "told-life",
     "radio",
   ]);
   expect(Object.keys(t.OWN_WRITING)).toEqual(["notes", "claude", "chatgpt"]);
-  // A source with no search window is not searched (git); mail is searched in its own section.
+  // A source with no search window is not searched (git); mail is searched in its own section; a photo is a passage of its own.
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
     "whatsapp",
     "phone",
     "line",
     "instagram",
+    "messenger",
     "telegram",
     "linkedin",
     "notes",
     "claude",
     "chatgpt",
-    "told",
+    "told-life",
+    "photos",
   ]);
   expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
 });

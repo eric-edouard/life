@@ -76,9 +76,9 @@ test("what changed is counted against the last commit, so a hand run's rewrite s
       },
       owner: [],
       sections: {
-        bond: [],
+        between_us: [],
+        earlier: [],
         health: [],
-        history: [],
         now: lines.map((text) => ({ cites: ["obs_aaaaaaaaaaaa"], text })),
         views: [],
       },

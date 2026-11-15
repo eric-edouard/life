@@ -53,7 +53,7 @@ struct NamingView: View {
 
     /// "2 of 6", or nothing once every voice is named.
     private var progress: String {
-        queue.voices.isEmpty ? "" : "\(answered + 1) of \(answered + queue.count)"
+        queue.voices.isEmpty ? "" : "\(answered + 1) of \(answered + queue.voices.count)"
     }
 
     private func reply(_ voice: NamingQueue.Voice, _ answer: ServerClient.NamingAnswer) {

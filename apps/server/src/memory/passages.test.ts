@@ -7,7 +7,7 @@ import { iso, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { buildIndex } from "./index-writer";
-import { PASSAGES } from "./ledger";
+import { PASSAGES } from "./memory-files";
 import {
   passagesOf,
   preparePassages,
@@ -281,4 +281,101 @@ test("embedding passage selection shares the enabled filter even when a source i
   } finally {
     setSettings({ sources: before });
   }
+});
+
+test("each photo is a passage of its own, found by its description", () => {
+  const path = pathOf();
+  const photos = ["10:00", "10:01"].map(
+    (time, i): SourceEvent => ({
+      at: `2020-04-14T${time}:00.000Z`,
+      chat: "photos",
+      fromMe: true,
+      id: `photos:P${i}`,
+      photo: {
+        description: i ? "A red kite." : "A plate of fish.",
+        pictured: [],
+        scenes: [],
+      },
+      sender: "me",
+      source: "photos",
+      text: i ? "photo · A red kite." : "photo · A plate of fish.",
+    })
+  );
+  writePassages(
+    photos,
+    { from: "2020-04-14", to: "2020-04-14" },
+    [],
+    { photos: readerOf(photos) },
+    path
+  );
+  const before = settings().sources;
+  try {
+    setSettings({ sources: ["photos"] });
+    expect(
+      readPassages({}, false, path)
+        .map((p) => p.id)
+        .sort()
+    ).toEqual(["photos|photos:P0", "photos|photos:P1"]);
+  } finally {
+    setSettings({ sources: before });
+  }
+});
+
+const CALL_LINE = /^\(audio call .+, 1 min\)$/;
+
+test("a phone call in a chat is searched by its line, in the passage of the messages around it", () => {
+  const at = (min: number) =>
+    iso(Date.parse("2026-11-10T09:00:00.000Z") + min * MIN);
+  const said = (
+    id: string,
+    min: number,
+    more: Partial<SourceEvent>
+  ): SourceEvent => ({
+    at: at(min),
+    chat: "c1",
+    fromMe: false,
+    id,
+    sender: "ana",
+    source: "whatsapp",
+    text: "",
+    ...more,
+  });
+  const [passage, ...rest] = passagesOf([
+    said("m1", 0, { text: "calling you" }),
+    said("m2", 1, { phoneCall: { seconds: 90, video: false } }),
+    said("m3", 4, { text: "thanks" }),
+  ]);
+  expect(rest).toEqual([]);
+  expect(passage?.map((e) => e.text)).toEqual([
+    "calling you",
+    expect.stringMatching(CALL_LINE),
+    "thanks",
+  ]);
+});
+
+test("a passage stores a mail event without the thread flag, which would go stale", () => {
+  const path = pathOf();
+  const event: SourceEvent = {
+    at: "2020-05-01T10:00:00.000Z",
+    chat: "mail:7",
+    chatName: "Trip",
+    fromMe: false,
+    hasOwnerWrittenInThread: true,
+    id: "mail:a",
+    sender: "eve@example.test",
+    source: "mail",
+    text: "Trip\nSee you there.",
+  };
+  const window = { from: "2020-05-01", to: "2020-05-01" };
+  writePassages([event], window, [], { mail: readerOf([event]) }, path);
+  const db = new Database(path);
+  const stored = db.query("select events from passages").all() as {
+    events: string;
+  }[];
+  db.close();
+  expect(stored).toHaveLength(1);
+  expect(stored[0]?.events).not.toContain("hasOwnerWrittenInThread");
+  expect(readPassages({}, false, path)[0]?.events[0]).not.toHaveProperty(
+    "hasOwnerWrittenInThread"
+  );
 });

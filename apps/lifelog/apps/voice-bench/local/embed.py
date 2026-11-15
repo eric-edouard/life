@@ -54,7 +54,6 @@ def weights(repo: str, revision: str, file: str | None = None) -> str:
 
 
 def ecapa(_models: Path, revision: str):
-    """Production's model, loaded as apps/identity loads it."""
     from speechbrain.inference.classifiers import EncoderClassifier
 
     path = weights("speechbrain/spkrec-ecapa-voxceleb", revision)
@@ -84,37 +83,6 @@ def redimnet2_plus(models: Path, revision: str):
     encoder.load_state_dict({k: v for k, v in state.items() if k in encoder.state_dict()}, strict=True)
     encoder.eval()
     return lambda wave: encoder(encoder.spec_frontend(torch.from_numpy(wave)[None]))[0]
-
-
-def mect(file: str):
-    def load(models: Path, revision: str):
-        source(models, "ant-research/AntSpeaker", "976f462d7af33a36b5dc2f0d6d75d6f044220d27")
-        import antspeaker.models  # noqa: F401  (registers the models)
-        import torchaudio.compliance.kaldi as kaldi
-        from antspeaker.utils.registry import create_model
-
-        path = weights("AntResearch/AntSpeaker", revision, file)
-        config = torch.load(path, map_location="cpu")["config"]
-        feature = config["feature"]
-        model, _ = create_model(config["model"]).load_model(path)
-        model.eval()
-
-        def embed(wave):
-            fbank = kaldi.fbank(
-                torch.from_numpy(wave)[None] * (1 << 15),
-                num_mel_bins=feature["num_mel_bins"],
-                frame_length=feature["frame_length"],
-                frame_shift=feature["frame_shift"],
-                dither=0.0,
-                energy_floor=0.0,
-                window_type="hamming",
-                sample_frequency=feature["sampling_rate"],
-            )
-            return model(fbank[None].transpose(-1, -2))[0]
-
-        return embed
-
-    return load
 
 
 def wespeaker(repo: str):
@@ -150,23 +118,31 @@ def wespeaker(repo: str):
     return load
 
 
-def identity_pin() -> str:
-    """ECAPA's revision, from the one place production pins it."""
+def identity():
+    """The speech service's module: production's pins and its one speaker-model loader."""
     spec = importlib.util.spec_from_file_location("identity_app", HERE.parents[1] / "identity" / "app.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.MODELS["ecapa"][1]
+    return module
+
+
+def production(models: Path, _revision: str):
+    """Production's speaker model, by apps/identity's own loader and pins."""
+    app = identity()
+    app.MODEL_DIR = str(models / "identity")
+    app.download(("mect-b2",))
+    return app.speaker_model()
 
 
 # name: (pinned revision of the weights, or of the code when the weights are a release file; loader)
 MODELS = {
-    "ecapa": (identity_pin(), ecapa),
+    # Production's model until 11 Nov 2026.
+    "ecapa": ("0f99f2d0ebe89ac095bcc5903c4dd8f72b367286", ecapa),
     "redimnet2-b6": ("c5bbe0b76e37df698c403f8844e41304ceab6307", redimnet2("vb2+vox2_v0")),
     # The same net trained with Chinese speech too: a third of his turns are Thai.
     "redimnet2-b6-cn": ("c5bbe0b76e37df698c403f8844e41304ceab6307", redimnet2("vb2+vox2+cnc2_v0")),
     "redimnet2-plus": ("fd45d1968c0ea91b62ad0d2469eee4607756bb07", redimnet2_plus),
-    "mect-b2": ("fdabda1565f7d2f229a6a09dfff1191dc9faf61a", mect("mect_b2_vb2.pt")),
-    "mect-b2-causal": ("fdabda1565f7d2f229a6a09dfff1191dc9faf61a", mect("mect_b2_vc2_streaming.pt")),
+    "mect-b2": (identity().speaker_pin()[1], production),
     "campplus": ("c5e01c6fcffcce160861e7e79782828320192b5c", wespeaker("Wespeaker/wespeaker-voxceleb-campplus-LM")),
     "resnet293": ("6e6bffe5bf3d772a1f143dc6dbfea58a0799ea83", wespeaker("Wespeaker/wespeaker-voxceleb-resnet293-LM")),
 }

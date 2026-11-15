@@ -1,35 +1,30 @@
-import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
-import { OWNER_DATA_DIR } from "../core/paths";
-import { git } from "../core/proc";
-import { askOnce, hasQuota, llmFor, llmSpec, quota } from "../models/llm";
-import type { Tier } from "../models/model-call";
 import {
-  INFERRED_USE_AT,
-  type InferredPerson,
-  unfoldedOf,
-} from "../records/observation";
-import { isUnderway } from "../records/truth";
-import { OUT, runId } from "./ledger";
-import type { Truth } from "./read-truth";
+  askOnce,
+  callsAtOnceOf,
+  hasQuota,
+  llmFor,
+  llmSpec,
+  quota,
+} from "../models/llm";
+import type { Tier } from "../models/model-call";
+import { OUT, runId } from "./memory-files";
 import { localDate } from "./zones";
 
-// What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls and
-// the context a run sends first.
-
-const PARALLEL = 4;
+// What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls.
 
 /**
  * A run of any kind, logged in derived/log as started now with `fields`: its id is its start instant (`runId`). `error`
  * logs a failure of the run (`what.step` names a sub-step: memory.nightly.actions); `end` logs its end with its duration
- * and returns what it logged (`step` aside). No model: the sweeps use it as is, the steps through `begin`.
+ * and returns what it logged (`step` aside). No model: the processing runs use it as is, the steps through `begin`.
  */
-export function record(step: string, fields: Record<string, unknown>) {
+export function recordRun(step: string, fields: Record<string, unknown>) {
   const now = clock();
   const run = runId(now);
   const started = performance.now();
@@ -51,10 +46,10 @@ export function record(step: string, fields: Record<string, unknown>) {
   };
 }
 
-export type RunRecord = ReturnType<typeof record>;
+export type RunRecorder = ReturnType<typeof recordRun>;
 
 /**
- * A run whose share of his engine's quota is measured (the sweeps, the eval), when the engine has one
+ * A run whose share of his engine's quota is measured (the processing runs, the eval), when the engine has one
  * (`hasQuota`): the quota read as it starts and as it ends, logged on its `run.start` and `run.end` (what it spent is
  * derived from them: `useOf`, run-log.ts). Its tokens are counted either way, from its calls.
  */
@@ -65,7 +60,7 @@ export async function metered(
 ) {
   const read = async () =>
     hasQuota(engine) ? { quota: (await quota(engine)) ?? null } : {};
-  const rec = record(step, { ...fields, ...(await read()) });
+  const rec = recordRun(step, { ...fields, ...(await read()) });
   return {
     ...rec,
     end: async <C extends Record<string, unknown>>(result: C) =>
@@ -91,19 +86,21 @@ export async function ended<T extends Record<string, unknown>>(
 }
 
 /**
- * A sweep's phases (the nightly's, the midday's): `at` is the one running. `step` runs a step, which fails the sweep if
- * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
+ * A processing run's processing steps (the nightly's, a backfill week's): `at` is the one running. `step` runs a step, which fails the processing run if
+ * it failed anything; `failed` logs the processing run's failure at the processing step running and returns its end's fields.
  */
-export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
+export function trackProcessingSteps(
+  rec: Pick<RunRecorder, "error" | "run" | "step">
+) {
   let at = "";
   const p = {
-    /** The phase running; each one entered is logged (`run.phase`), so the run's record holds its phases in order. */
+    /** The processing step running; each one entered is logged (`run.entered`), so the run's record holds them in order. */
     get at() {
       return at;
     },
-    set at(phase: string) {
-      at = phase;
-      log("run.phase", { phase, run: rec.run, step: rec.step });
+    set at(entered: string) {
+      at = entered;
+      log("run.entered", { entered, run: rec.run, step: rec.step });
     },
     failed(e: unknown) {
       const error = (e as Error).message;
@@ -141,7 +138,7 @@ export async function begin(
 ) {
   const llm = llmFor(tier, engine);
   const model = llmSpec(llm);
-  const rec = record(`memory.${step}`, { ...fields, model });
+  const rec = recordRun(`memory.${step}`, { ...fields, model });
   const { now, run } = rec;
   const dir = join(OUT, "runs", `${step}-${run}`);
   await mkdir(dir, { recursive: true });
@@ -175,6 +172,13 @@ export async function begin(
   };
 }
 
+/**
+ * What a call was asked, as one short digest: a result kept with it is still good while the prompt and the input are
+ * the same. `prompt` is its name where a change of wording is a new version, or its text where wording moves freely.
+ */
+export const inputsOf = (prompt: string, input: unknown) =>
+  digest("sha256", `${prompt}\n${JSON.stringify(input)}`, 16);
+
 /** A run in progress, as the step functions receive it. */
 export type Step = Awaited<ReturnType<typeof begin>>;
 
@@ -207,140 +211,36 @@ export const chunks = <T>(list: T[], n: number) =>
     list.slice(i * n, (i + 1) * n)
   );
 
-/** Runs `one` over every batch, a few at a time, each with its own folder `dir/batch-NNN` for its input and reply. */
+/**
+ * Runs `one` over every batch, as many at once as the step's engine takes (`callsAtOnceOf`), the next starting as one
+ * ends, each with its own folder `dir/batch-NNN` for its input and reply. A throw starts no new batch.
+ */
 export async function inBatches<T>(
   batches: T[],
-  dir: string,
+  step: Pick<Step, "dir" | "llm">,
   one: (batch: T, bdir: string) => Promise<void>
 ) {
-  for (let i = 0; i < batches.length; i += PARALLEL) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few calls at a time, not all at once
-    await Promise.all(
-      batches.slice(i, i + PARALLEL).map(async (b, j) => {
-        const bdir = join(dir, `batch-${String(i + j).padStart(3, "0")}`);
+  let next = 0;
+  let failed = false;
+  const work = async () => {
+    while (!failed && next < batches.length) {
+      const i = next;
+      next += 1;
+      const bdir = join(step.dir, `batch-${String(i).padStart(3, "0")}`);
+      try {
+        // biome-ignore lint/performance/noAwaitInLoops: one worker's batches, one after another
         await mkdir(bdir, { recursive: true });
-        await one(b, bdir);
-      })
-    );
-  }
-}
-
-/** Who the owner is and his areas: the start of the context every memory call of a run shares (so it is cached). */
-export function meContext(truth: Truth) {
-  return {
-    areas: truth.areas.map((a) => ({ id: a.id, name: a.name })),
-    me: truth.me.text,
+        await one(batches[i] as T, bdir);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
   };
-}
-
-/**
- * The map as the episodes, extract and pages prompts name it: the people on his map (with those Life inferred) and his
- * projects, every ref a reply may use (`map`). A call's `<context>` (the same for every call of a run, so it is cached)
- * shows the owner, his areas, the people close to him now (`shown`, `contextPeopleBy`) and the projects underway; the
- * others a call involves come in its input (`involvedOf`), so the context stays small as the map grows.
- */
-export function refContext(
-  {
-    canon,
-    inferred,
-    truth,
-  }: {
-    /** Who a person ref is now (`readPeople`). */
-    canon: (ref: string) => string;
-    inferred: InferredPerson[];
-    truth: Truth;
-  },
-  close: ReadonlySet<string>,
-  shown: ReadonlySet<string>
-) {
-  // `close`: close to him personally (`personallyClose`), so what is between them weighs more.
-  const flag = (ref: string) => (close.has(ref) ? { close: true } : {});
-  const underway = new Set(
-    truth.projects.filter(isUnderway).map((p) => `project:${p.id}`)
+  await Promise.all(
+    Array.from(
+      { length: Math.min(callsAtOnceOf(step.llm), batches.length) },
+      work
+    )
   );
-  const map = {
-    people: [
-      ...truth.people.map((p) => ({
-        aliases: p.aliases,
-        name: p.name,
-        ref: `person:${p.id}`,
-        relation: p.relation,
-        ...flag(`person:${p.id}`),
-      })),
-      // One ref per person: an inferred id folded into another is that one.
-      ...unfoldedOf(inferred, canon)
-        .filter((p) => p.confidence >= INFERRED_USE_AT)
-        .map((p) => ({
-          aliases: [] as string[],
-          name: p.name,
-          ref: `person:${p.id}`,
-          relation: `${p.relation} (inferred)`,
-          ...flag(`person:${p.id}`),
-        })),
-    ],
-    projects: truth.projects.map((p) => ({
-      area: p.area,
-      description: p.notes.split("\n\n")[0]?.replace(/\s+/g, " ").slice(0, 300),
-      name: p.name,
-      people: p.people.map((id) => truth.people.find((x) => x.id === id)?.name),
-      ref: `project:${p.id}`,
-      status: p.status,
-    })),
-  };
-  return {
-    context: {
-      ...meContext(truth),
-      people: map.people.filter((p) => shown.has(p.ref)),
-      projects: map.projects.filter((p) => underway.has(p.ref)),
-    },
-    map,
-  };
-}
-
-/** The map's entries a call involves (`refs`) that its context leaves out: its input's `involved`. */
-export function involvedOf(
-  { context, map }: ReturnType<typeof refContext>,
-  refs: ReadonlySet<string>
-) {
-  const inContext = new Set(
-    [...context.people, ...context.projects].map((x) => x.ref)
-  );
-  const pick = <T extends { ref: string }>(list: T[]) =>
-    list.filter((x) => refs.has(x.ref) && !inContext.has(x.ref));
-  return { people: pick(map.people), projects: pick(map.projects) };
-}
-
-/** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
-export function commitMemory(all: string[], message: string) {
-  // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
-  if (!existsSync(join(OWNER_DATA_DIR, ".git"))) {
-    throw new Error(
-      `${OWNER_DATA_DIR} is not a repo of its own: nothing is committed`
-    );
-  }
-  if (git(OWNER_DATA_DIR, ["remote"]).stdout.toString().trim()) {
-    throw new Error(
-      `${OWNER_DATA_DIR}'s repo has a remote: his data is never pushed`
-    );
-  }
-  const paths = all.filter((p) => existsSync(join(OWNER_DATA_DIR, p)));
-  git(OWNER_DATA_DIR, ["add", "--", ...paths]);
-  if (
-    git(OWNER_DATA_DIR, ["diff", "--cached", "--quiet", "--", ...paths])
-      .exitCode === 0
-  ) {
-    return false;
-  }
-  const out = git(OWNER_DATA_DIR, [
-    "commit",
-    "-q",
-    "-m",
-    message,
-    "--",
-    ...paths,
-  ]);
-  if (out.exitCode !== 0) {
-    throw new Error(`git commit failed: ${out.stderr.toString().trim()}`);
-  }
-  return true;
 }

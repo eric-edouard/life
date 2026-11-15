@@ -1,3 +1,4 @@
+import { gogCall } from "../core/gog";
 import { exec, execOk } from "../core/proc";
 import { redact } from "../core/redact";
 import type { Draft } from "../memory/calendar-events";
@@ -60,15 +61,7 @@ const flagsOf = (
 ];
 
 export function googleCalendar(calendar: string, account: string) {
-  const args = (rest: string[]) => [
-    "gog",
-    "calendar",
-    ...rest,
-    `--account=${account}`,
-    "--json",
-    "--no-input",
-  ];
-  const run = (rest: string[]) => execOk(args(rest));
+  const run = (rest: string[]) => execOk(...gogCall("calendar", account, rest));
   return {
     async create(f: EventFields, props: Record<string, string>) {
       const out = await run([
@@ -81,7 +74,9 @@ export function googleCalendar(calendar: string, account: string) {
     },
     /** Whether event `id` is still there: false only when Google says it is gone; any other failure throws. */
     async exists(id: string) {
-      const r = await exec(args(["event", calendar, id]));
+      const r = await exec(
+        ...gogCall("calendar", account, ["event", calendar, id])
+      );
       if (r.code !== 0) {
         if (GONE.test(r.stderr)) {
           return false;

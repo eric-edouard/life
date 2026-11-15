@@ -123,8 +123,8 @@ function appleCalendar(calendar: string, tool: string) {
  * not set up or there is no index yet.
  */
 export async function syncPast(since: Date | undefined, now = clock()) {
-  const { past } = settings();
-  if (!(past && isOn("past"))) {
+  const { pastCalendar: past } = settings();
+  if (!(past && isOn("pastCalendar"))) {
     return null;
   }
   // On: an account, else the app's EventKit tool.

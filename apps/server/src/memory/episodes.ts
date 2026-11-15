@@ -4,7 +4,7 @@ import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { within as fitting } from "../core/lists";
+import { packed } from "../core/lists";
 import { callCharsOf, stamp } from "../models/llm";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
@@ -36,12 +36,13 @@ import {
   runAt,
   type Verdicts,
   verdictOf,
-} from "./ledger";
-import { linkOf } from "./observe";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
 import { answeredBy, checkPeople, unknownIn } from "./people";
 import { staysOf, where } from "./places";
+import { subjectOf } from "./quote-check";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries, involvedOf, refContext } from "./run";
+import { begin, checkedEntries } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
 import { publishUnits } from "./unit-writer";
@@ -245,24 +246,24 @@ function verdictsOf(
 
 /** A person the model named, as a ref: one it was given, or an `unknown:` name resolved by code; never the owner. */
 function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
-  const link = linkOf(ref, ctx.people, ctx.resolve);
+  const link = subjectOf(ref, ctx.people, ctx.resolve);
   if ("ref" in link) {
     return link.ref === OWNER ? null : link.ref;
   }
-  return "surface" in link ? `${UNKNOWN}${link.surface}` : null;
+  return "nameAsWritten" in link ? `${UNKNOWN}${link.nameAsWritten}` : null;
 }
 
-/** Whether these units can make an episode: not when all are what his devices log or his agents did (`isActivity`, agent). */
+/** Whether these units can make an episode: not when all are commits, screen time or agent reports. */
 const isLived = (units: Unit[]) =>
   units.some((u) => {
     const kind = kindOf(u.source);
-    return !isActivity(kind) && kind !== "agent";
+    return kind !== "repo" && kind !== "screen" && kind !== "agent";
   });
 
 /**
  * The model's reply for one day, checked: a verdict for a unit of the day (its content hash in `units`), its area one
  * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); an episode of the day's units
- * (`isLived`), people resolved through the map (the owner left out), an earlier episode's id kept, a new one minted from
+ * (`isLived`), people resolved through the directory (the owner left out), an earlier episode's id kept, a new one minted from
  * the day and its units, `within` mapped from the reply's own ids (`new-1`) to the minted ones; `gone`, episodes of
  * `earlier` he did not hide (`dayFileOf` drops only this day's). Anything else is dropped; `invalid` counts the verdicts dropped.
  */
@@ -360,11 +361,11 @@ export function agreement(
     const u = units.get(l.unitId);
     const v = u && verdictOf(verdicts, u);
     return u && (v || u.drop)
-      ? [{ kept: !!v && v.importance >= KEEP_AT, matters: l.matters }]
+      ? [{ important: l.important, kept: !!v && v.importance >= KEEP_AT }]
       : [];
   });
-  const count = (kept: boolean, matters: boolean) =>
-    pairs.filter((p) => p.kept === kept && p.matters === matters).length;
+  const count = (kept: boolean, important: boolean) =>
+    pairs.filter((p) => p.kept === kept && p.important === important).length;
   const [tp, fp, fn, tn] = [
     count(true, true),
     count(true, false),
@@ -423,8 +424,7 @@ export function dayPartOf(units: Built[], chars: number) {
   const sorted = units.toSorted((a, b) =>
     a.unit.start.localeCompare(b.unit.start)
   );
-  const fit = fitting(sorted, chars, (b) => b.text.length);
-  return fit.length > 0 ? fit : sorted.slice(0, 1);
+  return packed(sorted, chars, (b) => b.text.length)[0] ?? [];
 }
 
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
@@ -448,7 +448,8 @@ export async function episodes(evidence: Evidence) {
     await publishUnits(evidence);
   }
   let verdicts = readVerdicts();
-  const { canon, corrections, inferred, refOf, resolve } = await readPeople();
+  const { outsideDirectory, canon, corrections, inferred, refOf, resolve } =
+    await readPeople();
   // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -458,11 +459,11 @@ export async function episodes(evidence: Evidence) {
   }
   const levels = levelsWith({ canon, corrections });
   const refs = refContext(
-    { canon, inferred, truth },
+    { canon, outsideDirectory, truth },
     personallyClose(levels),
     contextPeopleBy(levels)
   );
-  const onMap = refs.map.people.map((p) => ({ ...p, id: p.ref }));
+  const inDirectory = refs.directory.people.map((p) => ({ ...p, id: p.ref }));
   const taken = new Set(inferred.map((p) => p.id));
   const answered = answeredBy(resolve, inferred);
   const projects = new Set(truth.projects.map((p) => p.id));
@@ -493,7 +494,7 @@ export async function episodes(evidence: Evidence) {
     // The new conversations' words, fetched once for the day: each part takes the ones still new.
     let heard: Built[] | undefined;
     while (unread(units, verdicts, rereads)) {
-      // Who they are today, as the units and the map show them.
+      // Who they are today, as the units and the directory show them.
       const earlier = earlierFor(day, lines, corrections).map((m) =>
         episodeNow(m, refOf)
       );
@@ -513,13 +514,13 @@ export async function episodes(evidence: Evidence) {
         // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).
         const unknown = unknownIn(
           spoken,
-          (s) => answered(s) || named.some((p) => p.surfaces.includes(s))
+          (s) => answered(s) || named.some((p) => p.namesAndHandles.includes(s))
         );
-        // Who an unknown speaker could be, on the map: shown with the rest of what the day involves beyond its context.
+        // Who an unknown speaker could be, in the directory: shown with the rest of what the day involves beyond its context.
         const near = new Map(
           [...unknown.keys()].map((k) => [
             k,
-            nearNames(k, onMap).map((p) => p.ref),
+            nearNames(k, inDirectory).map((p) => p.ref),
           ])
         );
         const involved = involvedOf(
@@ -529,7 +530,7 @@ export async function episodes(evidence: Evidence) {
             ...namedIn(
               [...texts.values(), ...units.map((b) => b.unit.title)],
               resolve,
-              refs.map.projects
+              refs.directory.projects
             ),
             ...earlier.flatMap((m) => m.people.map((p) => p.ref)),
             ...[...near.values()].flat(),
@@ -600,7 +601,7 @@ export async function episodes(evidence: Evidence) {
           earlier: new Set(earlier.map((m) => m.id)),
           hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
           madeBy,
-          people: new Set(refs.map.people.map((p) => p.ref)),
+          people: new Set(refs.directory.people.map((p) => p.ref)),
           resolve,
           units: new Map(shown.map((b) => [b.unit.id, b.unit])),
         });

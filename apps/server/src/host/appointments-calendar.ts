@@ -10,7 +10,7 @@ import {
 } from "../memory/appointments";
 import { type Draft, heldOf, reconcile } from "../memory/calendar-events";
 import { span } from "../memory/episode-span";
-import { APPOINTMENT_EVENTS } from "../memory/ledger";
+import { APPOINTMENT_EVENTS } from "../memory/memory-files";
 import { dayNow, dayStart } from "../memory/zones";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
@@ -119,9 +119,9 @@ export async function drafted(
 
 /** Brings his calendar in line with the appointments; null when it is not set up or there are none yet. */
 export async function syncAppointments(now = clock()) {
-  const { appointments } = settings();
+  const { appointmentsCalendar: appointments } = settings();
   const file = readAppointments();
-  if (!(appointments && isOn("appointments") && file)) {
+  if (!(appointments && isOn("appointmentsCalendar") && file)) {
     return null;
   }
   const cal = googleCalendar(appointments.calendar, appointments.account);

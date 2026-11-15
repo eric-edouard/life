@@ -1,4 +1,4 @@
-// ElevenLabs Scribe v2 over plain fetch. Facts in docs/research/elevenlabs.md.
+// ElevenLabs Scribe over plain fetch. Facts in docs/research/elevenlabs.md.
 // No SDK on purpose: its automatic retries can resubmit a paid POST.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -118,7 +118,10 @@ export async function transcribeNow(
       };
 }
 
-// One POST to Scribe v2 with the fields every send shares, and what its answer means.
+// The model every send uses (Scribe v3 since 11 Nov 2026, docs/decisions.md).
+export const SCRIBE_MODEL = "scribe_v3";
+
+// One POST to Scribe with the fields every send shares, and what its answer means.
 async function post(
   config: Config,
   audio: Blob,
@@ -127,7 +130,7 @@ async function post(
   timeoutMs: number
 ): Promise<SubmitOutcome> {
   const form = new FormData();
-  form.append("model_id", "scribe_v2");
+  form.append("model_id", SCRIBE_MODEL);
   form.append("file", audio, "audio");
   form.append("timestamps_granularity", "word");
   form.append("tag_audio_events", "false");

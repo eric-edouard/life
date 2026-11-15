@@ -7,10 +7,9 @@ import {
   closedConversations,
   groupsOf,
   lanesOf,
-  packed,
   priorFor,
 } from "./extract";
-import { episodesNow } from "./ledger";
+import { episodesNow } from "./memory-files";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
 import { episodeNow } from "./who";
@@ -84,16 +83,18 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     ledger([...verdicts.values(), verdict(b5.unit)]),
     episodesNow(lines, [])
   );
-  // An episode's commits are never read in full, whatever their importance.
-  const commits = built("unit_000000000006", { source: "git" });
-  expect(
-    groupsOf(
-      [b1],
-      [b1, commits],
-      ledger([verdict(b1.unit), verdict(commits.unit, { importance: 1 })]),
-      episodesNow([episode({ units: [U1, "unit_000000000006"] })], [])
-    ).groups.map((g) => g.units.map((b) => b.unit.id))
-  ).toEqual([[U1]]);
+  // Activity stays out of extraction even when it makes an episode or has an inflated verdict.
+  for (const source of ["git", "screen", "apple-health", "photos"] as const) {
+    const activity = built("unit_000000000006", { source });
+    expect(
+      groupsOf(
+        [b1],
+        [b1, activity],
+        ledger([verdict(b1.unit), verdict(activity.unit, { importance: 3 })]),
+        episodesNow([episode({ units: [U1, activity.unit.id] })], [])
+      ).groups.map((g) => g.units.map((b) => b.unit.id))
+    ).toEqual([[U1]]);
+  }
   // U3 is a copy: never read, even though pending; returned apart, to be marked read with nothing in it.
   expect(copies.map((b) => b.unit.id)).toEqual([U3]);
   expect(
@@ -103,17 +104,6 @@ test("extraction reads each unit once and no copy ever; pending units in no epis
     ["ep_000000000002", [U1]],
     [null, ["unit_000000000005"]],
   ]);
-  const sized = (n: number) => ({
-    sources: [
-      {
-        lines: [{ at: "", ref: "", speaker: "", text: "x".repeat(n) }],
-        unit: b1.unit,
-      },
-    ],
-  });
-  expect(
-    packed([sized(60), sized(50), sized(10)], 100).map((c) => c.length)
-  ).toEqual([1, 2]);
 });
 
 test("the calls of one episode share a lane, in order, even when a call joins two episodes' lanes", () => {
@@ -222,9 +212,9 @@ test("earlier facts for an episode: its people's from two weeks before, Jean's o
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
-      entities: ["person:bastien"],
       id,
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
       unit: U4,
       ...over,
     }) as Observation;
@@ -236,8 +226,8 @@ test("earlier facts for an episode: its people's from two weeks before, Jean's o
     { o: o("old", { date: "2026-09-20" }) },
     { o: o("near", { date: "2026-10-14" }) },
     { o: o("own", { date: "2026-10-15", unit: U1 }) },
-    { o: o("his", { date: "2026-10-14", entities: ["person:me"] }) },
-    { o: o("his-old", { date: "2026-10-10", entities: ["person:me"] }) },
+    { o: o("his", { date: "2026-10-14", subjects: ["person:me"] }) },
+    { o: o("his-old", { date: "2026-10-10", subjects: ["person:me"] }) },
     { by: U1, o: o("retired-here", { date: "2026-10-13" }) },
     { by: U3, o: o("retired-elsewhere", { date: "2026-10-13" }) },
     { o: o("same", { date: "2026-10-15" }) },
@@ -290,9 +280,9 @@ test("earlier facts also hold the episode's own units at any age, in their own s
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
-      entities: ["person:bastien"],
       id,
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:bastien"],
       type: "choice",
       unit: U3,
       ...over,
@@ -307,7 +297,7 @@ test("earlier facts also hold the episode's own units at any age, in their own s
     {
       o: o("his-plan", {
         date: "2026-09-25",
-        entities: ["person:me"],
+        subjects: ["person:me"],
         unit: U4,
       }),
     },
@@ -318,7 +308,7 @@ test("earlier facts also hold the episode's own units at any age, in their own s
     {
       o: o("his-loop", {
         date: "2026-09-25",
-        entities: ["person:me"],
+        subjects: ["person:me"],
         type: "to_do",
       }),
     },
@@ -337,9 +327,9 @@ test("an episode read with a person folded since (`episodeNow`) offers that pers
     o: {
       at: "2026-10-14T10:00:00.000Z",
       date: "2026-10-14",
-      entities: ["person:ann"],
       id: "ann-fact",
       madeBy: { ...madeBy, unitHash: "h" },
+      subjects: ["person:ann"],
       unit: U4,
     } as Observation,
   };

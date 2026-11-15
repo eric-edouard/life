@@ -4,7 +4,7 @@ import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { LedgerEntry } from "../records/ledger-entry";
 import { changeFeed, feedPage, listSource, matchesFilter } from "./changes";
-import { LEDGER } from "./ledger";
+import { LEDGER } from "./memory-files";
 import { action } from "./record-fixtures";
 
 /** A feed source of `lines` as they are now. */

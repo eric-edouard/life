@@ -3,6 +3,7 @@ import { clock, MIN } from "../core/clock";
 import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
+import type { Check } from "../memory/checks";
 import { action, madeBy } from "../memory/record-fixtures";
 import { entryLine, LedgerEntry } from "../records/ledger-entry";
 import { HEALTH } from "./health";
@@ -93,6 +94,7 @@ const night = (facts: number) =>
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     birthdays: [],
+    checks: [],
     code: [],
     episodes: {
       agreement: { agreement: 0.75, labeled: 40 },
@@ -103,11 +105,6 @@ const night = (facts: number) =>
       units: 9,
     },
     extracted: { added: 2, model: "codex/m/high", read: 3, retired: 1 },
-    facts: Array.from({ length: facts }, (_, i) => ({
-      id: `obs_${i}`,
-      page: "Shop",
-      text: `fact ${i}`,
-    })),
     files: {
       copied: 1,
       described: 4,
@@ -116,6 +113,11 @@ const night = (facts: number) =>
       read: 2,
     },
     from: "2026-10-12",
+    keyObservations: Array.from({ length: facts }, (_, i) => ({
+      id: `obs_${i}`,
+      page: "Shop",
+      text: `fact ${i}`,
+    })),
     marked: [],
     paged: {
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
@@ -128,7 +130,7 @@ const night = (facts: number) =>
     repos: { suggestions: [] },
     retired: 1,
     spent: [
-      "Model use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
+      "Model use, backfill of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
       "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
     ],
   }) as unknown as Night;
@@ -139,7 +141,7 @@ test("the success email includes every fact, counts pages and lists models once"
     221_000,
     night(564)
   );
-  expect(subject).toBe("Life · 15 Oct · 564 new facts, 1 page");
+  expect(subject).toBe("Life · 15 Oct · 564 new key observations, 1 page");
   expect(text).toContain("What it found (564)");
   for (let i = 0; i < 564; i += 1) {
     expect(text).toContain(`- fact ${i} [Shop]`);
@@ -151,7 +153,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("observations retired: 1");
   expect(text).toContain("Pages no longer kept (git has them): inf_glazier");
   expect(text).toContain("3m 41s");
-  expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
+  expect(text).toContain("Shop: +2 added, 1 moved to Earlier, 0 removed");
   expect(text).toContain("75%");
   expect(text).toContain("Codex quota: 40% used");
   expect(text).toContain(
@@ -236,6 +238,42 @@ test("the Birthdays section comes first, each name with when; none when no birth
   expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("What it found"));
 });
 
+const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
+  about: ["+33600000001"],
+  answers: ["this-is", "not-this-person"],
+  evidence: { from: "whatsapp, 7 Sep", quote: "see you Friday" },
+  group: "guessed person",
+  guess,
+  kind: "person",
+  ref: `person:${guess}`,
+  ridesOn,
+});
+
+test("the Checks section lists every row in the order given, after Birthdays, with one note; left out when none", () => {
+  const n = night(1);
+  const none = successReport("2026-10-15", 1000, n);
+  expect(none.text).not.toContain("Checks (");
+  expect(none.text).not.toContain("tell Life in a chat");
+  n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
+  n.checks = Array.from({ length: 40 }, (_, i) =>
+    check(`Life thinks this is Zed ${i}, a plumber (80% sure)`, {
+      matters: i === 0 ? 2 : 0,
+      observations: i === 0 ? 3 : 1,
+      pages: 0,
+    })
+  );
+  const { text, html } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain(
+    "Checks (40)\n- Life thinks this is Zed 0, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 3 observations and 2 open matters\n- Life thinks this is Zed 1, a plumber (80% sure): “see you Friday” (whatsapp, 7 Sep) · settles 1 observation"
+  );
+  expect(text).not.toContain("more");
+  expect(text).toContain("Zed 39,");
+  expect(text.indexOf("Birthdays")).toBeLessThan(text.indexOf("Checks ("));
+  expect(text.indexOf("Checks (")).toBeLessThan(text.indexOf("What it found"));
+  expect(text).not.toContain("this-is");
+  expect(html.match(/tell Life in a chat or the app/g)).toHaveLength(1);
+});
+
 test("the Code section lists yesterday's rows and this night's new repos", () => {
   const n = night(1);
   expect(successReport("2026-10-15", 1000, n).html).not.toContain(
@@ -259,7 +297,7 @@ test("the Code section lists yesterday's rows and this night's new repos", () =>
 
 test("the HTML email escapes everything that comes from data", () => {
   const n = night(1);
-  n.facts[0] = {
+  n.keyObservations[0] = {
     id: "obs_0",
     page: "<b>Pg</b>",
     text: `<script>alert("x")</script> & co`,
@@ -298,6 +336,16 @@ test("a failed action's alert carries his words and the error", () => {
   expect(mail.subject).toBe("Life · could not add: Buy checked baggage");
   expect(mail.text).toContain("remctl is not installed");
   expect(mail.text).toContain("write that down in the to-dos");
+});
+
+test("the subject counts the key observations it lists, not every new observation", () => {
+  const n = night(3);
+  (n as { observed: number }).observed = 90;
+  const { subject, text } = successReport("2026-10-18", 1000, n);
+  expect(subject).toContain("3 new key observations");
+  expect(subject).not.toContain("90");
+  expect(text).toContain("What it found (3)");
+  expect(text).toContain("90 new observations since the last night");
 });
 
 test("the success email says the window it read and counts the new observations", () => {

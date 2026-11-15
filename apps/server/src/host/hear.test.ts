@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { setSettings, settings } from "../core/settings";
-import { LEDGER, tasksOf } from "../memory/ledger";
+import { LEDGER, tasksOf } from "../memory/memory-files";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   conversation,

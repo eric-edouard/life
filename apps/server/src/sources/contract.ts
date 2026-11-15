@@ -11,7 +11,7 @@ import type { Person } from "../records/truth";
 export interface Newest {
   at: string | null;
   /** More lines for its card (a repo's name, how many committed today). */
-  facts?: { label: string; value: string }[];
+  facts?: { at?: string; label: string; value: string }[];
   /** Each part's newest (the bridged networks): the quietest one decides the card's colour. */
   parts?: { at: string; label: string }[];
   /** His words in it: the app shows them only while Show content is on. */
@@ -52,9 +52,14 @@ export type Descriptor = {
    * message. Without it, the source has no events.
    */
   incoming?: (from?: number) => { end: number; rows: NewRow[] };
+  /**
+   * It records without him doing anything (a chat archive, mail, the pendant): only such a source covers a day
+   * (`memory/coverage.ts`). One that records only when he acts (a photo, a commit, a note) covers nothing.
+   */
+  capturesOnItsOwn?: true;
   /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
   missing?: () => string | undefined;
-  /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
+  /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
   /**
    * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
@@ -77,13 +82,21 @@ export type Descriptor = {
       /**
        * own_writing: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
        * report they did, evidence of it, never anyone's words; screen: the time he spent in each app and website, as his
-       * devices record it.
+       * devices record it; physical: what his devices measure of his body; photos: his library, as Apple's analysis and he
+       * described each photo.
        */
-      kind: "agent" | "chat" | "mail" | "own_writing" | "screen";
+      kind:
+        | "agent"
+        | "chat"
+        | "mail"
+        | "own_writing"
+        | "screen"
+        | "physical"
+        | "photos";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date, before?: Date) => SourceEvent[];
     }
-  /** His commits (whose repos are whose and who he is from his map): one unit per repo and day, never extracted. */
+  /** His commits (whose repos are whose and who he is from his directory): one unit per repo and day, never extracted. */
   | {
       kind: "repo";
       read: (
@@ -96,11 +109,21 @@ export type Descriptor = {
   | { kind: "voice" }
 );
 
-/** Activity: what his devices record he did (commits, Screen Time), never anyone's words: never extracted, importance 1 at most. */
+/** Activity: what his devices record (commits, Screen Time, body measurements, photos), never someone else's words (a photo's caption is his): never extracted, importance 1 at most. */
 export const isActivity = (kind: Descriptor["kind"]) =>
-  kind === "repo" || kind === "screen";
+  kind === "repo" ||
+  kind === "screen" ||
+  kind === "physical" ||
+  kind === "photos";
 
-/** Which project and area a repo belongs to: his map (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
+/** Whether an item is in a `read`'s window: from `since` on, before `before`. */
+export const isWithin = (since: Date, before?: Date) => {
+  const from = since.toISOString();
+  const to = before?.toISOString();
+  return (item: { at: string }) => item.at >= from && (!to || item.at < to);
+};
+
+/** Which project and area a repo belongs to: his directory (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
 export interface Placement {
   area: string | null;
   inferred?: InferredRepo;

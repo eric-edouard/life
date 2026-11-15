@@ -38,6 +38,7 @@ const payment = (over: Partial<Payment>): Payment => ({
   eur: -26,
   id: "t1",
   merchant: "Le Bistrot",
+  note: null,
   paidAt: null,
   spending: true,
   ...over,
@@ -109,6 +110,7 @@ test("a money tx row parses as a Payment", () => {
     eur: -9.57,
     id: "b2c0",
     merchant: "Warrior Ice Arena",
+    note: "Ice skating with Bastien",
     paidAt: "2026-11-02T17:59:12+07:00",
     spending: true,
   };
@@ -116,4 +118,9 @@ test("a money tx row parses as a Payment", () => {
   expect(Payment.parse({ ...row, category: null, paidAt: null }).paidAt).toBe(
     null
   );
+});
+
+test("a payment's note says what it was, on one line", () => {
+  const [placed] = place([payment({ note: "Gift:\nbirthday dress" })], [], []);
+  expect(placed && paymentLine(placed)).toContain('"Gift: birthday dress"');
 });

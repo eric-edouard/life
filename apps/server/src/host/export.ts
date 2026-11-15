@@ -17,7 +17,14 @@ import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
-import { INDEX, PASSAGES, VECTORS } from "../memory/ledger";
+import {
+  EXCHANGE_COUNTS,
+  INDEX,
+  MENTIONS,
+  PASSAGES,
+  RECORDED_DAYS,
+  VECTORS,
+} from "../memory/memory-files";
 import { LOCK, locked } from "../memory/memory-lock";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -35,7 +42,7 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors), the watcher's store (copied whole on its own), and the
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), and the
  * secrets.
  */
 const KEPT_OUT = [
@@ -43,6 +50,9 @@ const KEPT_OUT = [
   INDEX,
   PASSAGES,
   VECTORS,
+  EXCHANGE_COUNTS,
+  MENTIONS,
+  RECORDED_DAYS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
@@ -143,7 +153,7 @@ function leftOut() {
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
     secrets:
-      "the secret files (SECRETS: Life's sign-in, the ask cursor, the app's key, the bridges' account): apps pair again and the bridges' account logs in again, unless they are copied by hand",
+      "the secret files (SECRETS: Life's sign-in, the ask cursor, the app's key, the bridges' account, gog's keyring password): apps pair again and the bridges' account logs in again, unless they are copied by hand",
   };
 }
 
@@ -178,11 +188,17 @@ export async function stage(
   }
   cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });
   for (const p of filesUnder(join(dir, "state"))) {
+    const staged = join(dir, "state", p);
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
       KEPT_OUT_END.some((e) => p.endsWith(e))
     ) {
-      rmSync(join(dir, "state", p), { force: true });
+      rmSync(staged, { force: true });
+    } else if (p.endsWith(".sqlite")) {
+      // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite
+      // like the archive's, never as a file without its -wal, which no reader opens.
+      rmSync(staged);
+      copyDb(join(LIFE_STATE_DIR, p), staged);
     }
   }
   const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));

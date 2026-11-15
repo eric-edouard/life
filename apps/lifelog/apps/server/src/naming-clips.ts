@@ -134,7 +134,9 @@ export function cardClips(
   return (card: Pick<Suggestion, "kind" | "personId" | "voices">): Clip[] => {
     const ranked = rank(
       card.voices,
-      card.kind === "known_person" ? card.personId : null
+      card.kind === "known_person" || card.kind === "recheck"
+        ? card.personId
+        : null
     );
     const fit = ranked.filter((r) => r.score > RECOGNITION.notThem);
     const usable = fit.length > 0 ? fit : ranked;

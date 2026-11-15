@@ -8,6 +8,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
+  EXPORT_ROW,
   incomingArchived,
   insertAll,
   LATEST_VERSIONS,
@@ -20,7 +21,7 @@ import {
 import { type Descriptor, sourceFile } from "./contract";
 import { BRIDGES, configOf, isBridgeAdded, OWNER, userOn } from "./matrix";
 
-// A network bridged on his local homeserver (LINE, Instagram: docs/use/bridges.md), read from Life's own archive. The
+// A network bridged on his local homeserver (LINE, Instagram, Messenger: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
 // archive copies from each pass, so a message deleted before a copy, or while Life is down, is still copied.
 
@@ -108,6 +109,31 @@ function hisIds(bridge: string, template: string) {
   }
 }
 
+/**
+ * The bridge's chats by the network's own id for them (Instagram's `igid`): each one's room and, for a one-to-one,
+ * the other person's id as the bridge writes it. None when the bridge was never added on this Mac.
+ */
+export function portalsOf(bridge: string, bridges = BRIDGES) {
+  const file = join(bridges, bridge, `${bridge}.db`);
+  if (!existsSync(file)) {
+    return new Map<string, { other: string | null; room: string }>();
+  }
+  const db = openReadOnly(file);
+  try {
+    return new Map(
+      db
+        .query<{ igid: string; other: string | null; room: string }, []>(
+          `select json_extract(metadata, '$.igid') as igid, mxid as room, other_user_id as other from portal
+            where mxid is not null and json_extract(metadata, '$.igid') is not null`
+        )
+        .all()
+        .map((p) => [String(p.igid), { other: p.other, room: p.room }])
+    );
+  } finally {
+    db.close();
+  }
+}
+
 /** A room's name: its own (`m.room.name`), else its other joined members' names, his and the bot's left out. */
 function roomNamer(
   hs: ReturnType<typeof openReadOnly>,
@@ -188,7 +214,7 @@ function archivedVersion(
 }
 
 /** Adds message versions and their files to a network's archive (a version already there is skipped): how many were new. */
-function insertVersions(
+export function insertVersions(
   archive: Database,
   files: SQLQueryBindings[][],
   messages: SQLQueryBindings[][]
@@ -365,13 +391,26 @@ interface CallNotice {
   video: boolean;
 }
 
-const INSTAGRAM_CALL =
+const META_CALL =
   /^(?:(?<missed>You missed)|.+ started) an? (?<kind>audio call|video chat)$|^(?<ended>Audio call|Video chat) ended$/;
 // The length's form is the bridge's (`Voice call (5m33s)`, seen Nov 2026); the notice's time is taken as the call's.
 const LINE_CALL =
   /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
 
 const VIDEO = /video/i;
+
+/** A call in the notices of Meta's bridge (Instagram, Messenger): its start, its end, or a missed one. */
+function metaCallOf(text: string): CallNotice | undefined {
+  const g = META_CALL.exec(text)?.groups;
+  if (!g) {
+    return undefined;
+  }
+  const video = VIDEO.test(g.kind ?? g.ended ?? "");
+  if (g.ended) {
+    return { ends: true, video };
+  }
+  return g.missed ? { seconds: 0, video } : { video };
+}
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
@@ -395,20 +434,18 @@ export const NETWORKS = [
     repo: "beeper/line",
   },
   {
-    callOf: (text: string): CallNotice | undefined => {
-      const g = INSTAGRAM_CALL.exec(text)?.groups;
-      if (!g) {
-        return undefined;
-      }
-      const video = VIDEO.test(g.kind ?? g.ended ?? "");
-      if (g.ended) {
-        return { ends: true, video };
-      }
-      return g.missed ? { seconds: 0, video } : { video };
-    },
+    callOf: metaCallOf,
     cmd: "cmd/mautrix-instagram",
     label: "Instagram",
     name: "instagram",
+    repo: "mautrix/meta",
+  },
+  {
+    // ponytail: Instagram's call notices assumed; a Messenger call in another wording stays a plain notice until seen.
+    callOf: metaCallOf,
+    cmd: "cmd/mautrix-meta",
+    label: "Messenger",
+    name: "messenger",
     repo: "mautrix/meta",
   },
   {
@@ -465,11 +502,15 @@ function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
 const keyOf = (r: { at: string; chat: string }) => `${r.chat} ${r.at}`;
 
 /**
- * Of the archive's versions, the latest ones but for what the bridge backfilled from before its cutover (written after
- * it, about a time before it): that time is the earlier copy's.
+ * A version the readers take (alias `m`): not what the bridge backfilled from before its cutover (written after it,
+ * about a time before it: that time is the earlier copy's), but an export row, whose import chose it (`EXPORT_ROW`).
  */
+export const AS_READ = `(${EXPORT_ROW} or not (m.at < coalesce((select min(at) from cutover), '')
+      and m.seenAt >= coalesce((select min(at) from cutover), '')))`;
+
+/** Of the archive's versions, the latest ones the readers take (`AS_READ`). */
 const SINCE_CUTOVER = `${LATEST_VERSIONS}
-    and not (m.at < coalesce((select min(at) from cutover), '') and m.seenAt >= coalesce((select min(at) from cutover), ''))`;
+    and ${AS_READ}`;
 
 /** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`), its calls as phone calls. */
 export function readBridged(
@@ -716,6 +757,7 @@ function bridgeRooms(synapse: string) {
 export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
   return {
+    capturesOnItsOwn: true,
     chatDays: 7,
     incoming: (from?: number) => incomingArchived(name, "eventId", from),
     kind: "chat",

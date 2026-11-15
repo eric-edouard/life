@@ -102,6 +102,15 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
     "Units (2; `fetch <unit id>`; 1 worth nothing not listed):",
     "- unit_000000000001 2026-10-16 whatsapp: Sisters",
   ]);
+  // Who it talked about is its own line; the episode line (the memory line) is not touched.
+  expect(
+    dayLines({
+      episodes: [{ episode: m, facts: [], talkedAbout: ["Alma", "Hugo"] }],
+    })
+  ).toContain("    Talked about: Alma, Hugo");
+  expect(
+    dayLines({ episodes: [{ episode: m, facts: [], talkedAbout: [] }] })
+  ).not.toContain("    Talked about: ");
   expect(
     dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
   ).toContain("Where he was is unknown: lifelog could not be read.");

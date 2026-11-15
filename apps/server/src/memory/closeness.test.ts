@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Closeness, Correction } from "../records/observation";
@@ -16,15 +16,18 @@ import {
   closenessTally,
   contextPeopleBy,
   directChats,
+  directOf,
   dueFor,
   levelsNow,
   pagedBy,
   pagedNow,
   parseLevels,
   personallyClose,
+  readWithPeople,
   voiceDays,
 } from "./closeness";
-import { pagePath } from "./ledger";
+import { LIFE_MAIL } from "./email";
+import { pagePath } from "./memory-files";
 import { foldsOf } from "./who";
 
 const msg = (
@@ -134,7 +137,7 @@ test("a level keeps a page when close or once close, never a service's; his word
     } as never,
   ] as Correction[];
   const levels = levelsNow(rows, {
-    canon: foldsOf([], [], corrections).canon,
+    canon: foldsOf([], [], corrections, []).canon,
     corrections,
   });
   expect(levels.get("person:joe")).toMatchObject({
@@ -191,7 +194,7 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: "closeness.v1",
+        prompt: "memory-closeness.v1",
         run: "r",
       } as never,
     }
@@ -226,7 +229,7 @@ test("voice days are the days someone spoke in a live recording since the window
   ]);
 });
 
-test("judged again only when the rounded counts moved or the prompt changed; everyone on his map, the rest from some lasting", () => {
+test("judged again only when the rounded counts moved or the prompt changed; everyone in his directory, the rest from some lasting", () => {
   const t = (lasting: number) => ({
     ...closenessTally(new Map(), "2026-10-20"),
     lasting,
@@ -236,7 +239,7 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
       "person:ann",
       row("person:ann", {
         counts: bucket(t(3)),
-        madeBy: { prompt: "closeness.v1" } as never,
+        madeBy: { prompt: "memory-closeness.v1" } as never,
       }),
     ],
     [
@@ -431,4 +434,61 @@ test("completed 1:1 calls of every source are voice days, never messages or extr
     voice: 1,
   });
   store.db.close();
+});
+
+test("the read with people leaves out bulk mail and Life's own mail, for every step that reads it", async () => {
+  const sources = await import("./sources");
+  const mail = (id: string, extra: Partial<SourceEvent> = {}): SourceEvent => ({
+    at: "2026-10-01T12:00:00.000Z",
+    chat: id,
+    fromMe: false,
+    id,
+    sender: "ana@example.com",
+    source: "mail",
+    text: "x",
+    ...extra,
+  });
+  const read = () => [
+    mail("from-a-person"),
+    mail("a-newsletter", { bulk: true }),
+    mail("lifes-report", {
+      chatName: `${LIFE_MAIL.subject}10 Nov`,
+      sender: LIFE_MAIL.from as string,
+    }),
+  ];
+  const tables = spyOn(sources, "tables").mockReturnValue({
+    ...sources.tablesOf([]),
+    WITH_PEOPLE: { mail: read },
+  });
+  try {
+    const { events, failed } = await readWithPeople();
+    expect(events.map((e) => e.id)).toEqual(["from-a-person"]);
+    expect(failed).toEqual([]);
+  } finally {
+    tables.mockRestore();
+  }
+});
+
+test("the people named get their one-to-one messages, in the order given; a name that is no one's gets none", async () => {
+  const { readPeople } = await import("./who");
+  const mine = (id: string, chatName: string): SourceEvent => ({
+    at: "2026-10-01T12:00:00.000Z",
+    chat: id,
+    chatName,
+    fromMe: false,
+    id,
+    sender: id,
+    source: "whatsapp",
+    text: "x",
+  });
+  const events = [mine("a", "Test Ana"), mine("b", "Someone Else")];
+  const named = directOf(
+    ["nobody at all", "Test Ana"],
+    events,
+    await readPeople()
+  );
+  expect(named.map((n) => [n.known, n.messages.map((m) => m.id)])).toEqual([
+    [undefined, []],
+    ["test-ana", ["a"]],
+  ]);
 });

@@ -16,7 +16,7 @@ import {
   type Config,
   ownerClock,
   ownerTimeZone,
-  SCRIBE_V2_USD_PER_HOUR,
+  SCRIBE_USD_PER_HOUR,
 } from "./config";
 import { workspaceSpeechToText } from "./elevenlabs";
 import { zonedInstant } from "./location";
@@ -96,7 +96,7 @@ function spendingByDay(
     p.intelligence.unpricedRuns += row.usd === null ? 1 : 0;
   }
   for (const p of byDay.values()) {
-    p.transcription.usd = p.transcription.hours * SCRIBE_V2_USD_PER_HOUR;
+    p.transcription.usd = p.transcription.hours * SCRIBE_USD_PER_HOUR;
     p.totalUsd = p.transcription.usd + p.intelligence.usd;
   }
   return byDay;

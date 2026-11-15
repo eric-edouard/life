@@ -55,7 +55,11 @@ const app = () => {
   return createApp(
     services(config(), env.db, {
       intelligence: null,
-      queue: { items: queue.items, map: () => map },
+      queue: {
+        items: () => queue.items(),
+        map: () => map,
+        rechecks: () => queue.rechecks(),
+      },
     })
   );
 };
@@ -137,6 +141,15 @@ test("map token refuses a turn outside the current map without writing", async (
     });
     expect(response.status).toBe(403);
   }
+  // Several people must all exist, like any person a correction names.
+  const several = await server.request(`/transcripts/${jobId}/speakers/a`, {
+    body: JSON.stringify({
+      target: { kind: "several", people: [randomUUID()], unknown: false },
+    }),
+    headers: headers(OWNER_TOKEN),
+    method: "PUT",
+  });
+  expect(several.status).toBe(404);
   expect(env.db.$client.serialize()).toEqual(before);
 });
 
@@ -256,7 +269,9 @@ function seedMap() {
     exchanges: 12,
     id: "group",
     kind: "new_person" as const,
+    likely: [],
     name: null,
+    namedPersonId: null,
     personId: null,
     seconds: 100,
     voices: [{ conversationId, jobId, speakerLabel: "c" }],
@@ -272,7 +287,11 @@ function seedMap() {
 
 test("map read keeps queue cards/order, ranks through speakers and separates models without writing or caching", async () => {
   const { owner, guest, cards, sampleId } = seedMap();
-  const queue = { items: () => cards, map: () => readVoiceMap(env.db, cards) };
+  const queue = {
+    items: () => cards,
+    map: () => readVoiceMap(env.db, cards),
+    rechecks: () => [],
+  };
   const server = createApp(
     services(config(), env.db, { intelligence: null, queue })
   );
@@ -296,8 +315,18 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
     rankPeople(
       [0.8, 0.6, 0],
       [
-        { exemplars: [[1, 0, 0]], isOwner: true, personId: owner },
-        { exemplars: [[0, 1, 0]], isOwner: false, personId: guest },
+        {
+          conversations: ["reference"],
+          exemplars: [[1, 0, 0]],
+          isOwner: true,
+          personId: owner,
+        },
+        {
+          conversations: ["reference"],
+          exemplars: [[0, 1, 0]],
+          isOwner: false,
+          personId: guest,
+        },
       ]
     ).map(({ personId, score, margin }) => ({ margin, personId, score }))
   );
@@ -620,7 +649,11 @@ test("map names clips in place before the existing several answer, retaining eac
   card.clips = (loadTurns(env.db, id)?.turns ?? []).map((turn) =>
     clipOf(id, turn, null)
   );
-  const queue = { items: () => cards, map: () => readVoiceMap(env.db, cards) };
+  const queue = {
+    items: () => cards,
+    map: () => readVoiceMap(env.db, cards),
+    rechecks: () => [],
+  };
   const server = createApp(
     services(config(), env.db, { intelligence: null, queue })
   );

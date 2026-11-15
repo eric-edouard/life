@@ -19,4 +19,8 @@ test("the bench's page answers this Mac's own page only", async () => {
   expect((await post(`${own}/score`, own)).status).toBe(200);
   expect(scored).toBe(1);
   expect((await post(`${own}/answers`, own)).status).toBe(400);
+  // The page reads his answers back: a reload keeps the queue, and Back knows the latest.
+  expect((await answer(new Request(`${own}/answers.jsonl`))).status).toBe(404);
+  const kept = answerTo("/nowhere", import.meta.path, () => Promise.resolve());
+  expect((await kept(new Request(`${own}/answers.jsonl`))).status).toBe(200);
 });

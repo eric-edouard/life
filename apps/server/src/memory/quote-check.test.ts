@@ -1,0 +1,742 @@
+import { Database } from "bun:sqlite";
+import { expect, test } from "bun:test";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  Extracted,
+  Observation,
+  type Unresolved,
+} from "../records/observation";
+import type { Unit } from "../records/unit";
+import { toExtract } from "./extract";
+import { buildIndex } from "./index-writer";
+import { isCurrent, latestExtractions } from "./memory-files";
+import { locate, parseObservations, type Source } from "./quote-check";
+import {
+  inferred,
+  ledger,
+  people,
+  said,
+  unit,
+  verdict,
+} from "./record-fixtures";
+import { areaLookup } from "./tags";
+import type { Built } from "./units";
+import { aboutNow, chatHandles, foldsOf, namedIn, renamed } from "./who";
+
+const source: Source = {
+  lines: [
+    {
+      at: "2026-10-09T10:00:00.000Z",
+      ref: "job-1:0@2026-10-09T10:00:00.000Z",
+      speaker: "person:me",
+      text: "Il faut que j’appelle le vitrier pour la fenêtre, elle fait 147 sur 44,8.",
+    },
+    {
+      at: "2026-10-09T10:01:00.000Z",
+      ref: "job-1:1@2026-10-09T10:01:00.000Z",
+      speaker: "unknown:speaker_1",
+      text: "Pops veut que tu repeignes la moitié   de la cuisine",
+    },
+    {
+      at: "2026-10-09T10:02:00.000Z",
+      ref: "job-1:2@2026-10-09T10:02:00.000Z",
+      speaker: "unknown:speaker_1",
+      text: "avec tes sœurs. Annesophie arrive demain.",
+    },
+  ],
+  unit: unit(),
+};
+const texts = source.lines.map((l) => l.text);
+
+test("the quote's line counts a message with line breaks as one line", () => {
+  expect(
+    locate("the second message", ["one\ntwo\nthree", "the second message"])
+  ).toEqual({
+    line: 1,
+    verbatim: "the second message",
+  });
+});
+
+test("the quote check ignores accents, case, curly quotes and spacing, and returns the source's own words", () => {
+  expect(locate("il faut que j'appelle le VITRIER", texts)).toEqual({
+    line: 0,
+    verbatim: "Il faut que j’appelle le vitrier",
+  });
+  expect(
+    locate("pour la fenetre, elle fait 147 sur 44,8", texts)?.verbatim
+  ).toBe("pour la fenêtre, elle fait 147 sur 44,8");
+  // Across two lines, and with the source's three spaces.
+  expect(
+    locate(
+      "veut que tu repeignes la moitié de la cuisine avec tes soeurs",
+      texts
+    )
+  ).toEqual({
+    line: 1,
+    verbatim: "veut que tu repeignes la moitié   de la cuisine\navec tes sœurs",
+  });
+  expect(
+    locate("“Annesophie arrive demain.”", ["“Annesophie arrive demain.”"])
+  ).toEqual({
+    line: 0,
+    verbatim: "“Annesophie arrive demain.”",
+  });
+  expect(
+    locate('"Annesophie arrive demain."', ["« Annesophie arrive demain. »"])
+  ).toBeNull();
+});
+
+test("the quote check rejects paraphrases, translations, elisions and quotes too short to cite", () => {
+  expect(locate("Je dois appeler le vitrier", texts)).toBeNull();
+  expect(locate("I have to call the glazier", texts)).toBeNull();
+  expect(locate("Il faut que j’appelle … la fenêtre", texts)).toBeNull();
+  expect(locate("vitrier", texts)).toBeNull();
+});
+
+test("a hinted line wins when the quote is there; otherwise the whole text is searched", () => {
+  const twice = ["on se voit demain soir", "ok on se voit demain soir"];
+  expect(locate("on se voit demain soir", twice, 1)?.line).toBe(1);
+  expect(locate("on se voit demain soir", twice, 7)?.line).toBe(0);
+});
+
+test("an observation is about its subjects, folded, plus the names that resolve now, speaker included", () => {
+  const inferredPeople = [inferred("inf_plumber", ["Plombier"])];
+  const fold = said({
+    from: "person:inf_plumber",
+    kind: "same-person",
+    to: "person:gaston",
+  });
+  const obs = [
+    {
+      id: "obs_1",
+      speaker: "person:me",
+      subjects: ["person:inf_plumber", "project:shop"],
+    },
+    { id: "obs_2", speaker: "person:me", subjects: [] },
+    { id: "obs_3", speaker: "unknown:Plombier", subjects: [] },
+  ] as unknown as Observation[];
+  const rows = [
+    { nameAsWritten: "Plombier", observation: "obs_2" },
+    { nameAsWritten: "Plombier" },
+  ] as unknown as Unresolved[];
+  expect(
+    aboutNow(obs, rows, people, inferredPeople, [fold], []).map(
+      (o) => o.subjects
+    )
+  ).toEqual([
+    ["person:gaston", "project:shop"],
+    ["person:gaston"],
+    ["person:gaston"],
+  ]);
+  // A name that still maps to nobody marks its observation `unmapped`: it is not about Jean alone.
+  const ghost = [
+    { nameAsWritten: "Ghost", observation: "obs_2" },
+  ] as Unresolved[];
+  expect(
+    aboutNow(obs, ghost, people, [], [], []).map((o) => o.unmapped)
+  ).toEqual([false, true, false]);
+});
+
+test("who wrote a fact is who their handle is today: refiled, and an older sentence renamed, with no new reading", () => {
+  const facts = [
+    // Recorded with its handle: the handle is Pops's now, not Gaston's.
+    {
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      subjects: ["person:gaston"],
+      text: "Gas asked Jean for the keys.",
+      unit: "unit_000000000001",
+    },
+    // From before `speakerFrom`: a 1:1 chat's handle says who.
+    {
+      id: "obs_2",
+      speaker: "person:gaston",
+      subjects: [],
+      text: "Gaston will call back.",
+      unit: "unit_000000000002",
+    },
+    // His own fact in that chat follows the move (its author stays him); one whose author did not change stays as is.
+    {
+      id: "obs_3",
+      speaker: "person:me",
+      subjects: ["person:gaston"],
+      text: "Jean paid Gaston.",
+      unit: "unit_000000000002",
+    },
+    {
+      id: "obs_4",
+      speaker: "person:gaston",
+      speakerFrom: "Gaston",
+      subjects: [],
+      text: "Gaston is late.",
+      unit: "unit_000000000003",
+    },
+  ] as unknown as Observation[];
+  const chats = new Map([["unit_000000000002", "+66600000001"]]);
+  const now = aboutNow(facts, [], people, [], [], [], chats);
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:dad",
+    "person:me",
+    "person:gaston",
+  ]);
+  expect(now[0]?.subjects).toEqual(["person:dad"]);
+  expect(now[2]?.subjects).toEqual(["person:dad"]);
+  expect(now.map((o) => o.text)).toEqual([
+    "Jean Senior Dupont asked Jean for the keys.",
+    "Jean Senior Dupont will call back.",
+    "Jean paid Jean Senior Dupont.",
+    "Gaston is late.",
+  ]);
+});
+
+test("an extracted.jsonl line written with `people` (21 Oct only) still reads", () => {
+  expect(
+    Extracted.safeParse({
+      at: "2026-10-21T00:30:00.000Z",
+      observations: 0,
+      people: ["person:me"],
+      prompt: "memory-extract.v5",
+      run: "r",
+      schemaVersion: 1,
+      unit: "unit_000000000001",
+      unitHash: "0000000000000000",
+    }).success
+  ).toBe(true);
+});
+
+test("a move stays out of a unit where that person still writes as themself, and never moves the owner", () => {
+  const facts = [
+    // A family group: one handle is Pops's now, but Gaston also writes there from his own.
+    {
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      subjects: [],
+      text: "Gaston booked the table.",
+      unit: "unit_000000000009",
+    },
+    {
+      id: "obs_2",
+      speaker: "person:gaston",
+      speakerFrom: "Gaston",
+      subjects: ["person:gaston"],
+      text: "Gaston is bringing wine.",
+      unit: "unit_000000000009",
+    },
+    // His own address resolving elsewhere moves no one: he stays him everywhere.
+    {
+      id: "obs_3",
+      speaker: "person:me",
+      speakerFrom: "+66600000001",
+      subjects: ["person:me"],
+      text: "Jean will drive.",
+      unit: "unit_000000000008",
+    },
+  ] as unknown as Observation[];
+  const now = aboutNow(facts, [], people, [], [], []);
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:gaston",
+    "person:dad",
+  ]);
+  expect(now[1]?.subjects).toEqual(["person:gaston"]);
+  expect(now[1]?.text).toBe("Gaston is bringing wine.");
+  expect(now[2]?.subjects).toEqual(["person:me"]);
+  expect(now[2]?.text).toBe("Jean will drive.");
+});
+
+test("two authors filed as one person who now resolve to two different people: neither moves the others", () => {
+  const facts = [
+    {
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      subjects: [],
+      text: "Gaston said yes.",
+      unit: "unit_000000000006",
+    },
+    {
+      id: "obs_2",
+      speaker: "person:gaston",
+      speakerFrom: "Decoy",
+      subjects: ["person:gaston"],
+      text: "Gaston said no.",
+      unit: "unit_000000000006",
+    },
+    {
+      id: "obs_3",
+      speaker: "person:me",
+      subjects: ["person:gaston"],
+      text: "Jean asked Gaston.",
+      unit: "unit_000000000006",
+    },
+  ] as unknown as Observation[];
+  const now = aboutNow(facts, [], people, [], [], []);
+  // Each author is who they are now, but Gaston as named in the unit stays Gaston: two people claim the name.
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:decoy",
+    "person:me",
+  ]);
+  expect(now[2]?.subjects).toEqual(["person:gaston"]);
+  expect(now[2]?.text).toBe("Jean asked Gaston.");
+});
+
+test("a voice kept by lifelog's id resolves by the name lifelog gave it when the directory does not know the id", () => {
+  const facts = [
+    {
+      id: "obs_1",
+      speaker: "unknown:Pops",
+      speakerFrom: "lifelog-id-the-map-lacks",
+      speakerName: "Pops",
+      subjects: [],
+      text: "Pops called.",
+      unit: "unit_000000000007",
+    },
+  ] as unknown as Observation[];
+  const [o] = aboutNow(facts, [], people, [], [], []);
+  expect(o?.speaker).toBe("person:dad");
+  expect(o?.speakerName).toBeUndefined();
+});
+
+test("renaming takes whole words only, any case, longest name first", () => {
+  expect(
+    renamed(
+      "Zoé met ZOÉ's friend Zoéline; Zoé Martin left.",
+      ["Zoé", "Zoé Martin"],
+      "Lou"
+    )
+  ).toBe("Lou met Lou's friend Zoéline; Lou left.");
+});
+
+test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never groups", () => {
+  const chat = (id: string, app: string, key: string) =>
+    ({ id, key, source: app }) as Unit;
+  expect([
+    ...chatHandles([
+      chat("unit_1", "imessage", "+33600000000"),
+      chat("unit_2", "imessage", "a@b.fr"),
+      chat("unit_3", "imessage", "chat123456"),
+      chat("unit_4", "whatsapp", "33600000000@s.whatsapp.net"),
+      chat("unit_5", "whatsapp", "120363000@g.us"),
+      chat("unit_6", "line", "!abc:matrix.local"),
+    ]),
+  ]).toEqual([
+    ["unit_1", "+33600000000"],
+    ["unit_2", "a@b.fr"],
+    ["unit_4", "+33600000000"],
+  ]);
+});
+
+test("a fact whose subjects changed since it was written is marked refiled", () => {
+  const facts = [
+    {
+      id: "obs_1",
+      speaker: "person:me",
+      subjects: ["person:inf_plumber"],
+      text: "A fact.",
+    },
+    {
+      id: "obs_2",
+      speaker: "person:me",
+      subjects: ["person:gaston"],
+      text: "A fact.",
+    },
+  ] as unknown as Observation[];
+  const fold = said({
+    from: "person:inf_plumber",
+    kind: "same-person",
+    to: "person:gaston",
+  });
+  expect(
+    aboutNow(
+      facts,
+      [],
+      people,
+      [inferred("inf_plumber", ["Plombier"])],
+      [fold],
+      []
+    ).map((o) => o.refiled)
+  ).toEqual([true, false]);
+});
+
+const madeBy = {
+  engine: "claude" as const,
+  model: "sonnet",
+  prompt: "memory-extract.v1",
+  run: "r1",
+};
+const SHOP = "shop";
+const ctx = {
+  areas: areaLookup([{ id: SHOP, name: "Shop" }]),
+  candidates: new Set([
+    "person:me",
+    "person:dad",
+    "person:gaston",
+    "project:bakery",
+  ]),
+  madeBy,
+  resolve: foldsOf(people, [], [], []).resolve,
+  sources: new Map([[source.unit.id, source]]),
+};
+const obs = (over: Record<string, unknown>) => ({
+  area: SHOP,
+  confidence: 0.9,
+  importance: 3,
+  line: 0,
+  quote: "Il faut que j'appelle le vitrier",
+  subjects: ["person:me"],
+  text: "Jean will call the glazier about the shop window.",
+  type: "to_do",
+  unit: source.unit.id,
+  when: "2026-10-12",
+  ...over,
+});
+
+test("the extractor's reply is checked: quotes, units, subjects; unknown names resolved or kept as unresolved", () => {
+  const { observations, rejects, unresolved } = parseObservations(
+    {
+      observations: [
+        obs({ subjects: ["person:me", "project:bakery", "person:invented"] }),
+        obs({
+          area: "Invented area",
+          confidence: 0.9,
+          importance: 2,
+          line: 1,
+          quote: "Pops veut que tu repeignes la moitié de la cuisine",
+          subjects: ["unknown:Pops", "unknown:Annesophie"],
+          text: "Jean's father wants him to paint half the kitchen with his sisters.",
+          type: "about_a_person",
+          when: null,
+        }),
+        obs({ quote: "Il faut réparer l'évier", text: "Fix the sink." }),
+        obs({ unit: "unit_invented0000" }),
+        obs({ type: "nothing" }),
+        obs({}),
+      ],
+    },
+    ctx
+  );
+  expect(rejects.map((r) => r.reason).sort()).toEqual([
+    "duplicate",
+    "entity-not-candidate",
+    "invalid",
+    "quote-not-found",
+    "unknown-unit",
+  ]);
+  expect(observations).toHaveLength(2);
+  const [todo, family] = observations;
+  expect(todo).toMatchObject({
+    area: SHOP,
+    quote: "Il faut que j’appelle le vitrier",
+    source: { channel: "lifelog", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
+    speaker: "person:me",
+    subjects: ["person:me", "project:bakery"],
+    when: "2026-10-12",
+  });
+  expect(family?.area).toBeNull();
+  // "Pops" is resolved by code (from the model's unknown: and from the quote); a spoken claim not by Jean is capped.
+  expect(family?.subjects).toEqual(["person:dad"]);
+  expect(family?.confidence).toBe(0.6);
+  expect(unresolved).toEqual([
+    {
+      nameAsWritten: "Annesophie",
+      observation: family?.id ?? "",
+      unit: source.unit.id,
+    },
+  ]);
+  for (const o of observations) {
+    expect(Observation.parse(o)).toEqual(o);
+  }
+  // Same unit, quote and claim: same id on every run.
+  const again = parseObservations({ observations: [obs({})] }, ctx);
+  expect(again.observations[0]?.id).toBe(todo?.id ?? "");
+});
+
+test("about and modality are kept when valid; a replacement stands only for a prior fact said earlier", () => {
+  const prior = (id: string, at: string) =>
+    [id, { at, id } as Observation] as const;
+  const { observations, replaced } = parseObservations(
+    {
+      observations: [
+        obs({
+          about: "person:me",
+          modality: "plan",
+          replaces: [
+            "obs_00000000000a",
+            "obs_00000000000b",
+            "obs_unknown00000",
+          ],
+        }),
+        obs({
+          about: "person:nobody",
+          modality: "rumour",
+          quote: "Pops veut que tu repeignes",
+          text: "Dad wants Jean to paint half the kitchen.",
+        }),
+      ],
+    },
+    {
+      ...ctx,
+      prior: new Map([
+        prior("obs_00000000000a", "2026-10-08T10:00:00.000Z"),
+        prior("obs_00000000000b", "2026-10-09T11:00:00.000Z"),
+      ]),
+    }
+  );
+  const [plan, other] = observations;
+  expect(plan).toMatchObject({
+    about: "person:me",
+    modality: "plan",
+  });
+  expect(replaced.map((r) => [r.old.id, r.by.id])).toEqual([
+    ["obs_00000000000a", plan?.id ?? ""],
+  ]);
+  expect(other?.about).toBeUndefined();
+  expect(other?.modality).toBeUndefined();
+  for (const o of observations) {
+    expect(Observation.parse(o)).toEqual(o);
+  }
+});
+
+test("the observation schema refuses records a later reader could not trust", () => {
+  const [good] = parseObservations(
+    { observations: [obs({})] },
+    ctx
+  ).observations;
+  expect(Observation.safeParse(good).success).toBe(true);
+  for (const bad of [
+    { ...good, id: "obs_nothex" },
+    { ...good, importance: 0 },
+    { ...good, type: "nothing" },
+    { ...good, area: "Shop" },
+    { ...good, subjects: ["dad"] },
+    { ...good, extra: 1 },
+  ]) {
+    expect(Observation.safeParse(bad).success).toBe(false);
+  }
+});
+
+const built = (u: Unit): Built => ({ messages: [], text: "", unit: u });
+test("the cache: a unit is read again only when its content or the prompt changed", () => {
+  const a = unit({ id: "unit_00000000000a" });
+  const b = unit({ id: "unit_00000000000b" });
+  const c = unit({ id: "unit_00000000000c" });
+  const d = unit({ hash: "ffffffffffffffff", id: "unit_00000000000d" });
+  const e = unit({ id: "unit_00000000000e" });
+  const verdicts = ledger([
+    verdict(a, { importance: 2 }),
+    verdict(b, { importance: 0 }),
+    verdict(c, { importance: 3 }),
+    // Judged on older content.
+    verdict(d, { hash: "0123456789abcdef", importance: 3 }),
+    // Importance 1: searchable, never read in full.
+    verdict(e, { importance: 1 }),
+  ]);
+  const extracted = [
+    {
+      at: "2026-10-10T02:00:00.000Z",
+      observations: 2,
+      prompt: "memory-extract.v1",
+      run: "r0",
+      schemaVersion: 1 as const,
+      unit: c.id,
+      unitHash: c.hash,
+    },
+  ];
+  const r = toExtract(
+    [a, b, c, d, e].map(built),
+    verdicts,
+    extracted,
+    "memory-extract.v1"
+  );
+  expect(r.kept.map((k) => k.b.unit.id)).toEqual([a.id, c.id]);
+  expect(r.pending.map((k) => k.b.unit.id)).toEqual([a.id]);
+  expect(r.stale).toBe(1);
+  expect(
+    toExtract([c].map(built), verdicts, extracted, "memory-extract.v2").pending
+  ).toHaveLength(1);
+});
+
+test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
+  const sam = unit({ id: "unit_00000000001a", people: ["person:lou"] });
+  const verdicts = ledger([verdict(sam, { importance: 3 })]);
+  const readLine = (at = "2026-10-10T02:00:00.000Z") => ({
+    at,
+    observations: 1,
+    prompt: "memory-extract.v1",
+    run: "r0",
+    schemaVersion: 1 as const,
+    unit: sam.id,
+    unitHash: sam.hash,
+  });
+  const pending = (
+    lines: ReturnType<typeof readLine>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract(
+      [built(sam)],
+      verdicts,
+      lines,
+      "memory-extract.v1",
+      new Map(rereads)
+    ).pending.length;
+  expect(pending([readLine()])).toBe(0);
+  expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
+  expect(
+    pending(
+      [readLine(), readLine("2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(0);
+  // 04:00+02:00 is 02:00Z: the same instant as the reading, so it is settled.
+  expect(
+    pending(
+      [readLine("2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-22T04:00:00+02:00"]]
+    )
+  ).toBe(0);
+});
+
+test("the index is rebuilt from observations: search ignores accents, who each is about answers by subject", async () => {
+  const { observations } = parseObservations(
+    {
+      observations: [
+        obs({}),
+        obs({
+          line: 1,
+          quote: "Pops veut que tu repeignes la moitié de la cuisine",
+          subjects: ["person:dad"],
+          text: "Jean's father wants him to paint half the kitchen.",
+        }),
+      ],
+    },
+    ctx
+  );
+  const path = join(
+    await mkdtemp(join(tmpdir(), "life-index-")),
+    "index.sqlite"
+  );
+  const first = unit({
+    people: ["person:dad"],
+    summary: "Débat sur l'invention de la programmation",
+  });
+  const indexed = [
+    {
+      unit: first,
+      verdict: verdict(first, {
+        topics: ["philosophy", "ai"],
+        type: "about_a_person",
+      }),
+    },
+    { unit: unit({ id: "unit_000000000002", title: "Counter talk" }) },
+  ];
+  expect(
+    buildIndex(
+      [...observations, ...observations],
+      path,
+      {
+        corrections: [],
+        latest: new Map(),
+        live: new Set(["unit_000000000001", "unit_000000000002"]),
+        retired: new Map(),
+      },
+      indexed
+    )
+  ).toBe(2);
+  const db = new Database(path, { readonly: true });
+  // Units: found by a summary word and by topic; a tag can be narrowed to the units a person is in.
+  expect(
+    db
+      .query<{ id: string }, [string]>(
+        "select id from unit_search where unit_search match ?"
+      )
+      .all("programmation OR philosophy")
+  ).toEqual([{ id: "unit_000000000001" }]);
+  expect(
+    db
+      .query<{ n: number }, [string]>(
+        `select count(*) as n from unit_topics t join unit_people p on p.unit = t.unit where t.topic = ? and p.person = 'person:dad'`
+      )
+      .get("ai")?.n
+  ).toBe(1);
+  const hits = db
+    .query<{ id: string }, [string]>(
+      "select id from search where search match ?"
+    )
+    .all("fenetre OR moitie");
+  expect(hits).toHaveLength(1);
+  expect(
+    db
+      .query<{ n: number }, [string]>(
+        "select count(*) as n from observation_subjects where subject = ?"
+      )
+      .get("person:dad")?.n
+  ).toBe(1);
+  db.close();
+});
+
+test("a unit read before and no longer kept is unkept once (its facts replaced by none), and read again when kept again", () => {
+  const lou = unit({ id: "unit_00000000002b", people: ["person:lou"] });
+  const line = (observations: number, at: string, unkept?: true) => ({
+    at,
+    observations,
+    prompt: "memory-extract.v1",
+    run: at,
+    schemaVersion: 1 as const,
+    unit: lou.id,
+    unitHash: lou.hash,
+    ...(unkept ? { unkept } : {}),
+  });
+  const run = (
+    importance: number,
+    lines: ReturnType<typeof line>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract(
+      [built(lou)],
+      ledger([verdict(lou, { importance })]),
+      lines,
+      "memory-extract.v1",
+      new Map(rereads)
+    );
+  const read = line(3, "2026-10-10T02:00:00.000Z");
+  const reread: [string, string][] = [[lou.id, "2026-10-21T00:00:00.000Z"]];
+  const emptied = line(0, "2026-10-22T02:00:00.000Z", true);
+  // Never read: nothing to replace.
+  expect(run(1, []).unkept).toHaveLength(0);
+  // Read, then re-read and judged lower: unkept.
+  expect(run(1, [read], reread).unkept).toHaveLength(1);
+  // Its unkept line written: settled.
+  expect(run(1, [read, emptied], reread).unkept).toHaveLength(0);
+  // Kept again on the same content: read again, its unkept line being no reading.
+  expect(run(3, [read, emptied], reread).pending).toHaveLength(1);
+  // A fact of the earlier reading is no longer current once the unkept line is the latest.
+  const fact = { madeBy: { run: read.run, unitHash: lou.hash }, unit: lou.id };
+  const statusInputs = (lines: ReturnType<typeof line>[]) => ({
+    latest: latestExtractions(lines),
+    live: new Set([lou.id]),
+  });
+  expect(isCurrent(statusInputs([read]), fact as Observation)).toBe(true);
+  expect(isCurrent(statusInputs([read, emptied]), fact as Observation)).toBe(
+    false
+  );
+});
+
+test("a text names the people and projects whose name, alias or words it uses, a whole name of several words too", () => {
+  const found = namedIn(
+    ["Called Gas about the Garden Shed, then Jean Senior Dupont.", "Nothing"],
+    foldsOf(people, [], [], []).resolve,
+    [{ name: "Garden Shed", ref: "project:shed" }]
+  );
+  expect([...found].sort()).toEqual([
+    "person:dad",
+    "person:gaston",
+    "person:me",
+    "project:shed",
+  ]);
+});

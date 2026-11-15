@@ -10,7 +10,8 @@ const FROM = /\bfrom\s+"(\.{1,2}\/[^"]+)"/g;
 const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
-const GOG_TASKS = /"gog",\s*"tasks"/;
+const GOG = /"gog"/;
+const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
@@ -25,12 +26,11 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/jobs.ts": 930,
   "apps/lifelog/apps/server/src/mac-llm.test.ts": 831,
   "apps/lifelog/apps/server/src/naming-queue.test.ts": 830,
-  "apps/lifelog/apps/server/src/people.test.ts": 991,
-  "apps/lifelog/apps/server/src/people.ts": 1185,
-  "apps/lifelog/packages/db/src/schema/index.ts": 1091,
-  "apps/server/src/host/status/snapshot.ts": 1220,
-  "apps/server/src/memory/observe.test.ts": 848,
-  "apps/server/src/memory/units.test.ts": 1298,
+  "apps/lifelog/apps/server/src/people.test.ts": 988,
+  "apps/lifelog/apps/server/src/people.ts": 1179,
+  "apps/lifelog/packages/db/src/schema/index.ts": 1078,
+  "apps/server/src/host/status/snapshot.ts": 1216,
+  "apps/server/src/memory/units.test.ts": 1189,
   "apps/server/src/sources/lifelog.ts": 938,
 };
 
@@ -92,11 +92,11 @@ const importers = (names: string[], module: string) =>
 const running = (program: RegExp) =>
   files.filter((f) => program.test(texts.get(f) ?? ""));
 
-// 2 Nov 2026: the agent boards wrote his Reminders beside `act`, so the minute pass read each of their items back as
-// his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `act` reaches a backend.
-test("only act writes his to-do list: it alone imports the backend, only the backend imports its implementations, and only they run remctl or gog tasks", () => {
+// 2 Nov 2026: the agent boards wrote his Reminders beside `changeTodoItem`, so the minute pass read each of their items back as
+// his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `changeTodoItem` reaches a backend.
+test("only changeTodoItem writes his to-do list: it alone imports the backend, only the backend imports its implementations, and only they run remctl or gog tasks", () => {
   expect(importers(["backend", "write"], "backend")).toEqual([
-    "apps/server/src/host/act.ts",
+    "apps/server/src/host/change-todo-item.ts",
   ]);
   expect([
     ...importers(["reminders"], "remctl"),
@@ -107,6 +107,8 @@ test("only act writes his to-do list: it alone imports the backend, only the bac
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
+  // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
+  expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.

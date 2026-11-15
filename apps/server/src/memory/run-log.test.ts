@@ -19,11 +19,11 @@ const ev = (
 ) => ({ at, kind, step, ...extra });
 const id = (at: string) => at.replaceAll(":", "-");
 
-test("runs: sweeps hold their steps; failed, unfinished, running and old run-less errors stay visible", () => {
+test("runs: processing runs hold their steps; failed, unfinished, running and old run-less errors stay visible", () => {
   const night = "2026-10-15T00:31:00.000Z";
   const triage = "2026-10-15T00:31:05.000Z";
   const extract = "2026-10-14T11:00:00.000Z";
-  const midday = "2026-10-14T17:00:00.000Z";
+  const backfill = "2026-10-14T17:00:00.000Z";
   const now = "2026-10-15T12:00:00.000Z";
   const events = [
     ev("run.start", "memory.nightly", night, { days: 7, run: id(night) }),
@@ -46,7 +46,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
       failed: 2,
       run: id(extract),
     }),
-    ev("run.start", "memory.midday", midday, { run: id(midday) }),
+    ev("run.start", "memory.backfill", backfill, { run: id(backfill) }),
     ev("run.error", "memory.nightly", "2026-10-13T01:00:00.000Z", {
       error: "triage: 1 failed",
     }),
@@ -55,7 +55,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   ];
   const steps = new Set([
     "memory.nightly",
-    "memory.midday",
+    "memory.backfill",
     "memory.episodes",
     "memory.extract",
     "memory.pages",
@@ -71,12 +71,12 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   });
   expect(by("memory.episodes")).toMatchObject({
     outcome: "ok",
+    processingRun: `memory.nightly/${id(night)}`,
     result: { units: 9 },
-    sweep: `memory.nightly/${id(night)}`,
     window: { from: "2026-10-09" },
   });
   expect(by("memory.extract")?.outcome).toBe("failed");
-  expect(by("memory.midday")?.outcome).toBe("unfinished");
+  expect(by("memory.backfill")?.outcome).toBe("unfinished");
   expect(by("memory.pages")?.outcome).toBe("running");
   expect(list.find((r) => r.startedAt === null)).toMatchObject({
     endedAt: "2026-10-13T01:00:00.000Z",
@@ -86,7 +86,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
   expect(list.some((r) => r.step === "memory.intent")).toBe(false);
 });
 
-test("an interrupted sweep ends where the next one starts: it never claims later steps", () => {
+test("an interrupted processing run ends where the next one starts: it never claims later steps", () => {
   const first = "2026-10-15T00:31:00.000Z";
   const second = "2026-10-16T00:31:00.000Z";
   const later = "2026-10-16T00:32:00.000Z";
@@ -100,15 +100,17 @@ test("an interrupted sweep ends where the next one starts: it never claims later
     new Set(["memory.nightly", "memory.episodes"]),
     null
   );
-  const sweep = (at: string) =>
+  const processingRun = (at: string) =>
     list.find((r) => r.id === `memory.nightly/${id(at)}`);
-  expect(sweep(first)).toMatchObject({
+  expect(processingRun(first)).toMatchObject({
     children: [],
     errors: [],
     outcome: "unfinished",
   });
-  expect(sweep(second)?.children).toEqual([`memory.episodes/${id(later)}`]);
-  expect(sweep(second)?.errors).toHaveLength(1);
+  expect(processingRun(second)?.children).toEqual([
+    `memory.episodes/${id(later)}`,
+  ]);
+  expect(processingRun(second)?.errors).toHaveLength(1);
 });
 
 test("runs page back through the log days, newest first, none lost or repeated, and new runs never shift a cursor", async () => {
@@ -245,11 +247,11 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   );
 });
 
-test("a sweep's run holds its phases in the order it entered them", () => {
+test("a processing run holds its steps in the order it entered them", () => {
   const at = "2026-10-15T00:31:00.000Z";
   const phase = (p: string, s: number) =>
-    ev("run.phase", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
-      phase: p,
+    ev("run.entered", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
+      entered: p,
       run: id(at),
     });
   const list = assembleRuns(
@@ -262,12 +264,12 @@ test("a sweep's run holds its phases in the order it entered them", () => {
     new Set(["memory.nightly"]),
     null
   );
-  expect(list[0]?.phases).toEqual(["repos", "gather", "index"]);
+  expect(list[0]?.processingSteps).toEqual(["repos", "gather", "index"]);
 });
 
 const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
 
-test("spend lines: every run of the window that called a model, oldest first, a sweep's steps under it", () => {
+test("spend lines: every run of the window that called a model, oldest first, a processing run's steps under it", () => {
   const t = (input: number) => ({
     quota: null,
     tokens: { cached: 0, input, output: 0 },
@@ -292,15 +294,15 @@ test("spend lines: every run of the window that called a model, oldest first, a 
     [
       runOf("memory.import/c", "2026-10-28T09:00:00.000Z", { use: t(3000) }),
       runOf("memory.pages/s2", "2026-10-28T01:20:00.000Z", {
-        sweep: "memory.nightly/n",
+        processingRun: "memory.nightly/n",
         use: t(2000),
       }),
       runOf("memory.episodes/s1", "2026-10-28T01:10:00.000Z", {
-        sweep: "memory.nightly/n",
+        processingRun: "memory.nightly/n",
       }),
       runOf("memory.nightly/n", "2026-10-28T01:00:00.000Z", { use: t(3000) }),
       runOf("memory.files/q", "2026-10-28T02:00:00.000Z", { use: null }),
-      runOf("memory.midday/old", "2026-10-26T13:00:00.000Z"),
+      runOf("memory.backfill/old", "2026-10-26T13:00:00.000Z"),
     ],
     "2026-10-27T09:30:00.000Z",
     { id: "memory.nightly/n", quota: undefined }

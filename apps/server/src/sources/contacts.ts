@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
+import { Birthday } from "../records/fields";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. Each record is read whole: its name
 // names the phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a
@@ -48,6 +49,8 @@ export interface Contact {
   birthday: string | null;
   /** Its phone numbers and emails, as written. */
   handles: string[];
+  /** The card's own id, which Photos' People link to (`ZUNIQUEID`). */
+  id: string;
   /** The person's name, else the company's. */
   name: string | null;
   /** Social profiles ("Facebook: claire.d") and web addresses. */
@@ -66,6 +69,7 @@ interface RecordRow {
   id: number;
   last: string | null;
   title: string | null;
+  uid: string;
   year: number | null;
 }
 
@@ -75,15 +79,17 @@ const labelOf = (l: string | null) => l?.replace(BUILT_IN_LABEL, "$1") || null;
 const joined = (parts: (string | null | undefined)[], sep = ", ") =>
   parts.filter(Boolean).join(sep) || null;
 
-/** A birthday as Contacts stores it (seconds from 2001, at noon UTC, and the year apart) in Life's form. */
+/** A birthday as Contacts stores it (seconds from 2001, at noon UTC, and the year apart) in Life's form; a year that makes the day not exist (29 Feb) is left out. */
 export function birthdayOf(seconds: number | null, year: number | null) {
   if (seconds === null) {
     return null;
   }
   const day = new Date(EPOCH_2001 + seconds * 1000).toISOString().slice(5, 10);
-  return year && year >= YEAR_KNOWN_FROM
-    ? `${String(year).padStart(4, "0")}-${day}`
-    : `--${day}`;
+  const full =
+    year && year >= YEAR_KNOWN_FROM
+      ? `${String(year).padStart(4, "0")}-${day}`
+      : "";
+  return Birthday.safeParse(full).success ? full : `--${day}`;
 }
 
 /** The AddressBook databases under `dir`: the Mac's own and each account's. */
@@ -147,7 +153,8 @@ function readFrom(file: string): Contact[] {
     const records = db
       .query<RecordRow, []>(
         `select Z_PK as id, ZFIRSTNAME as first, ZLASTNAME as last, ZORGANIZATION as company, ZJOBTITLE as title,
-                ZDEPARTMENT as department, ZBIRTHDAY as birthday, ZBIRTHDAYYEAR as year from ZABCDRECORD`
+                ZDEPARTMENT as department, ZBIRTHDAY as birthday, ZBIRTHDAYYEAR as year,
+                ZUNIQUEID as uid from ZABCDRECORD`
       )
       .all();
     return records.flatMap((r) => {
@@ -171,6 +178,7 @@ function readFrom(file: string): Contact[] {
           }),
           birthday: birthdayOf(r.birthday, r.year),
           handles: own,
+          id: r.uid,
           name: person ?? r.company,
           profiles: (profiles.get(r.id) ?? []).flatMap((p) =>
             SITE_ONLY.test(p.line as string) ? [] : [p.line as string]
@@ -210,18 +218,26 @@ export function readContactRecords(dir = DIR): Contact[] {
   });
 }
 
-/** Handle key -> the name his Contacts give it (the first name a handle has wins). */
-export function namesOf(contacts: Contact[]) {
-  const names = new Map<string, string>();
-  for (const c of contacts) {
-    for (const key of c.handles.map(contactKeyOf)) {
-      if (c.name && key && !names.has(key)) {
-        names.set(key, c.name);
+/**
+ * Handle key -> the card that owns it: of the named cards holding a handle, the first by card id (a stable order,
+ * whatever order the databases are read in). The one rule for whose a handle is in Contacts.
+ */
+export function ownersOf(contacts: Contact[]) {
+  const owners = new Map<string, Contact & { name: string }>();
+  for (const c of contacts.toSorted((a, b) => a.id.localeCompare(b.id))) {
+    const { name } = c;
+    for (const key of name ? c.handles.map(contactKeyOf) : []) {
+      if (name && key && !owners.has(key)) {
+        owners.set(key, { ...c, name });
       }
     }
   }
-  return names;
+  return owners;
 }
+
+/** Handle key -> the name his Contacts give it (`ownersOf`). */
+export const namesOf = (contacts: Contact[]) =>
+  new Map([...ownersOf(contacts)].map(([key, c]) => [key, c.name]));
 
 /** Handle key -> the name his Contacts give it, read now. */
 export const readContacts = (dir = DIR) => namesOf(readContactRecords(dir));

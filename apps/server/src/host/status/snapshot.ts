@@ -7,23 +7,23 @@ import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
 import { changeFeed } from "../../memory/changes";
+import { checksNow } from "../../memory/checks";
 import {
   CORRECTIONS,
   EPISODES,
   OBSERVATIONS,
-  openFactChecks,
   PAGES,
+  readFactCheckAnswers,
+  readFactChecks,
   readLedger,
-  readRatings,
-  readStatements,
-} from "../../memory/ledger";
+} from "../../memory/memory-files";
 import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
 import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
-import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
+import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
@@ -62,8 +62,8 @@ export interface Card {
   headline: string;
   id: string;
   name: string;
-  /** A running sweep's stations and where it is. */
-  stations?: { name: string; state: "done" | "now" | "todo" }[];
+  /** A running processing run's processing steps and where it is. */
+  processingSteps?: { name: string; state: "done" | "now" | "todo" }[];
   tone: Tone;
   word: string;
 }
@@ -157,18 +157,8 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The fact checks: statements he answered, and those open now. */
-function rated() {
-  const statements = readStatements();
-  const answered = readRatings();
-  return {
-    left: openFactChecks().length,
-    ratings: statements.filter((s) => answered.get(s.ref)?.answer).length,
-    statements: statements.length,
-  };
-}
-
 async function memoryCounts() {
+  const answers = readFactCheckAnswers();
   const [at] = git(OWNER_DATA_DIR, ["log", "-1", "--format=%cI"])
     .stdout.toString()
     .trim()
@@ -180,15 +170,16 @@ async function memoryCounts() {
     filesIn(join(PAGES, "areas"), ".md"),
   ]);
   return {
+    answered: readFactChecks().filter((s) => answers.get(s.ref)?.answer).length,
     commitAt: at ? new Date(at).toISOString() : null,
     corrections: readLineCount(CORRECTIONS),
     episodes: episodes.length,
+    left: await safe(async () => (await checksNow()).length),
     observations: observations.reduce(
       (n, m) => n + readLineCount(join(OBSERVATIONS, m)),
       0
     ),
     pages: people.length + areas.length,
-    ...rated(),
   };
 }
 
@@ -296,7 +287,7 @@ async function reads(now: Date) {
     truth,
     contacts,
     sleepList,
-    swept,
+    spendingRuns,
     actions,
     actionChecks,
     newest,
@@ -313,10 +304,10 @@ async function reads(now: Date) {
     cached("truth", MIN, () => truthState()),
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
-    // The runs that can spend, a sweep's steps inside it (its use counts theirs).
-    cached("sweeps", 15_000, async () => {
+    // The runs that can spend, a processing run's steps inside it (its use counts theirs).
+    cached("spending runs", 15_000, async () => {
       const page = await runs({ limit: 30, steps: SPENDING });
-      return { ...page, items: page.items.filter((x) => !x.sweep) };
+      return { ...page, items: page.items.filter((x) => !x.processingRun) };
     }),
     readLedger(),
     cached("actionChecks", MIN, checks),
@@ -350,8 +341,8 @@ async function reads(now: Date) {
     quotas: of("quota.read", 8),
     sent: of("email.sent", 2),
     sleepList,
+    spendingRuns,
     status,
-    swept,
     t,
     truth,
     turn,
@@ -708,47 +699,45 @@ function captureCards(r: Reads): Card[] {
 }
 
 interface Processing {
-  phase?: string | null;
+  processingRun?: string | null;
+  processingStep?: string | null;
   since?: string;
   state: string;
-  sweep?: string | null;
 }
-type Sweep =
+type ProcessingRun =
   | Reads["status"]["nightly"]
-  | Reads["status"]["midday"]
   | Omit<Reads["status"]["backfill"], "state">;
 
 /** A nightly report's email (`reportKey`), by its key. */
 const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
 /**
- * A sweep's stations: the phases its last good run went through (its steps among them) and any its latest added,
- * done as its latest went through them, the one it is in now, the one it failed at left to do; for the night, then
- * its report, done once that email went.
+ * A processing run's processing steps: those its last good run went through (its steps among them) and any its latest
+ * added, done, now or left to do (where it failed); for the night, then its report, done once that email went.
  */
-export function stationsOf(
-  s: Pick<Sweep, "lastOk" | "latest">,
+export function processingStepsOf(
+  s: Pick<ProcessingRun, "lastOk" | "latest">,
   running: boolean,
   reported: boolean | null
 ) {
-  const latest = s.latest?.phases ?? [];
-  const names = [...new Set([...(s.lastOk?.phases ?? []), ...latest])];
+  const latest = s.latest?.processingSteps ?? [];
+  const names = [...new Set([...(s.lastOk?.processingSteps ?? []), ...latest])];
   const now = running ? latest.at(-1) : undefined;
   const failedAt =
     s.latest?.outcome === "failed"
       ? String(s.latest.result?.failedAt)
       : undefined;
-  const stateOf = (name: string): "done" | "now" | "todo" => {
+  const stepStatusOf = (name: string): "done" | "now" | "todo" => {
     if (name === now) {
       return "now";
     }
     return latest.includes(name) && name !== failedAt ? "done" : "todo";
   };
-  const stations = names.map((name) => ({ name, state: stateOf(name) }));
+  const steps = names.map((name) => ({ name, state: stepStatusOf(name) }));
   return reported === null
-    ? stations
+    ? steps
     : [
-        ...stations,
+        ...steps,
         {
           name: "email",
           state: reported ? ("done" as const) : ("todo" as const),
@@ -756,8 +745,8 @@ export function stationsOf(
       ];
 }
 
-const sweepFacts = (
-  s: Sweep,
+const processingRunFacts = (
+  s: ProcessingRun,
   next?: { earliest: string; why: string }
 ): Fact[] => [
   { at: s.lastOk?.endedAt, label: "Last ok" },
@@ -768,17 +757,19 @@ const sweepFacts = (
     : []),
 ];
 
-/** A sweep: its last run, its stations, what it spent, and when it runs next. */
-function sweepCard(
+/** A processing run: its last run, its processing steps, what it spent, and when it runs next. */
+function processingRunCard(
   r: Reads,
   id: string,
   name: string,
-  s: Sweep,
+  s: ProcessingRun,
   next?: { earliest: string; why: string }
 ): Card {
   const proc = r.status.processing as Processing;
   const running =
-    proc.state === "running" && !!proc.sweep?.startsWith(`memory.${id}/`);
+    proc.state === "running" &&
+    !!proc.processingRun?.startsWith(`memory.${id}/`);
+  const step = proc.processingStep?.replace("memory.", "") ?? "running";
   const { latest } = s;
   const headline = firstOf(
     [running, { tone: "busy", word: "running since" }],
@@ -787,10 +778,7 @@ function sweepCard(
   ).word;
   return {
     ...firstOf(
-      [
-        running,
-        { tone: "busy", word: proc.phase?.replace("memory.", "") ?? "running" },
-      ],
+      [running, { tone: "busy", word: step }],
       [
         latest?.outcome === "failed",
         {
@@ -809,14 +797,14 @@ function sweepCard(
       latest?.outcome === "failed"
         ? [`Failed at ${String(latest.result?.failedAt ?? "?")}`]
         : undefined,
-    facts: sweepFacts(s, next),
+    facts: processingRunFacts(s, next),
     group: "pipeline",
     headline,
     id,
     name,
-    stations:
+    processingSteps:
       running || latest
-        ? stationsOf(
+        ? processingStepsOf(
             s,
             running,
             id === "nightly"
@@ -863,7 +851,7 @@ function engineCard(r: Reads): Card {
         | { resetsAt?: string; used: number }
         | undefined)
     : undefined;
-  const week = r.swept.items.filter(
+  const week = r.spendingRuns.items.filter(
     (x) => spent(x.use) && r.t - Date.parse(x.startedAt ?? "") < 7 * DAY
   );
   const tokens = week.reduce(
@@ -886,7 +874,7 @@ function engineCard(r: Reads): Card {
       [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
-      // What each tier runs, engine/model@hosts/effort (which steps use which tier: `Tier`, llm.ts).
+      // What each tier shows, engine/model@hosts/effort (`Tier`, llm.ts); the judge is a yardstick, not listed.
       ...(["deep", "main", "fast"] as const).map((tier) => ({
         label: `Model (${tier})`,
         value: llmSpec(llmFor(tier)),
@@ -913,7 +901,7 @@ function engineCard(r: Reads): Card {
   };
 }
 
-/** A calendar Life writes to: its events written in 2 days, told apart by what each shows (`by`, a log field). */
+/** A calendar Life writes to: its events written in 2 days, told apart by what each shows (`by`, a log field); failing when its sync, run twice an hour, failed within the hour. */
 function calendarCard(
   r: Reads,
   id: "appointments" | "past",
@@ -921,17 +909,17 @@ function calendarCard(
 ): Card {
   const writes = r.writes.filter((e) => by in e);
   const n = writes.length;
+  const failed = since(r.errorsToday, HOUR, r.t).findLast((e) => e.step === id);
   return {
-    facts: [
-      { at: writes.at(-1)?.at, label: "Last event written" },
-      { label: "Written in 2 days", value: String(n) },
-    ],
+    content: failed && [`${failed.error}`],
+    facts: [{ at: writes.at(-1)?.at, label: "Last event written" }],
     group: "pipeline",
     headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
     id,
-    name: OUTPUTS[id].label,
+    name: OUTPUTS[`${id}Calendar`].label,
     ...firstOf(
-      [!isOn(id), { tone: "idle", word: "off" }],
+      [!isOn(`${id}Calendar`), { tone: "idle", word: "off" }],
+      [!!failed, { tone: "warn", word: "failing" }],
       [n > 0, { tone: "ok", word: "syncing" }],
       [true, { tone: "idle", word: "quiet" }]
     ),
@@ -939,10 +927,10 @@ function calendarCard(
 }
 
 function pipelineCards(r: Reads): Card[] {
+  const { nightly, backfill } = r.status;
   return [
-    sweepCard(r, "nightly", "Nightly", r.status.nightly, r.status.nightly.next),
-    sweepCard(r, "midday", "Midday", r.status.midday, r.status.midday.next),
-    sweepCard(r, "backfill", "Backfill", r.status.backfill),
+    processingRunCard(r, "nightly", "Nightly", nightly, nightly.next),
+    processingRunCard(r, "backfill", "Backfill", backfill),
     backupCard(r),
     engineCard(r),
     calendarCard(r, "past", "episode"),
@@ -968,8 +956,8 @@ function memoryCards(r: Reads): Card[] {
           value: open.ok ? String(open.value) : "?",
         },
         {
-          label: "Statements rated",
-          value: `${mem.ratings} of ${mem.statements}`,
+          label: "Fact checks answered",
+          value: String(mem.answered),
         },
         { at: mem.commitAt, label: "Last commit" },
       ],
@@ -1014,11 +1002,12 @@ export const callerOf = (agent: unknown) =>
   typeof agent === "string" ? agent : "an app";
 
 function outputCards(r: Reads): Card[] {
+  const { left } = r.mem;
   const calls = since(r.mcp, DAY, r.t);
   const byClient = Map.groupBy(calls, (c) => callerOf(c.agent));
   const acts = r.actions.filter(
     (a) =>
-      (REMINDER_KINDS as readonly string[]).includes(a.kind) &&
+      (TODO_CHANGE_KINDS as readonly string[]).includes(a.kind) &&
       !isBookkeeping(a) &&
       r.t - Date.parse(a.at) < DAY
   );
@@ -1048,7 +1037,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("todo_list"), { tone: "idle", word: "off" }],
+        [!isOn("todoList"), { tone: "idle", word: "off" }],
         [
           r.actionChecks.length > 0,
           {
@@ -1077,7 +1066,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.todo_list.label,
+      name: OUTPUTS.todoList.label,
     },
     {
       ...firstOf(
@@ -1103,13 +1092,20 @@ function outputCards(r: Reads): Card[] {
       name: "Email",
     },
     {
-      facts: [{ label: "Left to answer", value: String(r.mem.left) }],
+      ...(left.ok
+        ? {
+            tone: "ok",
+            word: left.value === 0 ? "all answered" : "waiting",
+          }
+        : { tone: "bad", word: "unreadable" }),
+      content: left.ok ? undefined : [`Error: ${left.error}`],
+      facts: [
+        { label: "Left to answer", value: String(left.ok && left.value) },
+      ],
       group: "outputs",
-      headline: `${r.mem.left} to answer`,
+      headline: left.ok ? `${left.value} to answer` : clip(left.error, 200),
       id: "check",
       name: "Fact checks",
-      tone: "ok",
-      word: r.mem.left > 0 ? "waiting" : "all answered",
     },
   ];
 }
@@ -1143,7 +1139,7 @@ function macCards(r: Reads): Card[] {
 /** The last 24 h: runs, failures (the watcher's retries apart), sends and the Mac's sleeps. */
 function todayOf(r: Reads): Tick[] {
   return [
-    ...r.swept.items
+    ...r.spendingRuns.items
       .filter((x) => x.startedAt && r.t - Date.parse(x.startedAt) < DAY)
       .map((x) => ({
         at: x.startedAt ?? "",

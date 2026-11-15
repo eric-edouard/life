@@ -1,21 +1,17 @@
 import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
-import { recentEvents } from "../../core/log";
 import { systemZone } from "../../core/platform";
-import { INDEX } from "../../memory/ledger";
+import { INDEX } from "../../memory/memory-files";
 import { lockedSince } from "../../memory/memory-lock";
-import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
+import { latestRuns, PROCESSING_RUNS, type Run } from "../../memory/run-log";
 import {
   MAX_ATTEMPTS,
-  nextMidday,
   nextNight,
   readBackfill,
-  readMidday,
   readState,
 } from "../../memory/schedule";
 import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
-import type { Quota } from "../../models/llm";
 import { lastCopied } from "../archive";
 import { polling, readHealth } from "../health";
 
@@ -48,16 +44,13 @@ function lastOf(list: Run[], step: string) {
 /**
  * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
  * lifelog in as it arrives; the archive copies chats), extraction (nightly, backfill weeks), consolidation
- * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
+ * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every processing run: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
 export async function lifeStatus(now = clock()) {
   const health = readHealth();
   const lock = lockedSince();
   const night = readState();
-  const middaySlot = readMidday();
-  // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
-  const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = await latestRuns(STATUS_DAYS, lock);
   const running = list.filter((r) => r.outcome === "running");
   let watcher: Record<string, unknown> = { state: "unknown" };
@@ -84,11 +77,6 @@ export async function lifeStatus(now = clock()) {
     extraction: lastOf(list, "memory.extract"),
     indexBuiltAt: dbTime(INDEX),
     lookbackDays: STATUS_DAYS,
-    midday: {
-      ...lastOf(list, "memory.midday"),
-      next: nextMidday(now, middaySlot, quota),
-      slotSpentAt: middaySlot ?? null,
-    },
     nightly: {
       ...lastOf(list, "memory.nightly"),
       maxAttempts: MAX_ATTEMPTS,
@@ -98,14 +86,17 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          // The phase the sweep last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
-          phase:
-            running.find((r) => SWEEPS.has(r.step))?.phases?.at(-1) ??
-            running.find((r) => !SWEEPS.has(r.step))?.step ??
+          processingRun:
+            running.find((r) => PROCESSING_RUNS.has(r.step))?.id ?? null,
+          // The step the processing run last entered (`trackProcessingSteps`, run.ts), else the step running (runs from before 21 Oct).
+          processingStep:
+            running
+              .find((r) => PROCESSING_RUNS.has(r.step))
+              ?.processingSteps?.at(-1) ??
+            running.find((r) => !PROCESSING_RUNS.has(r.step))?.step ??
             null,
           since: lock.toISOString(),
           state: "running",
-          sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,
         }
       : { state: "idle" },
     // Read now: the long-running server's own zone can be the one it started in.

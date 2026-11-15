@@ -13,10 +13,10 @@ import { ObservationId } from "../records/observation";
 import {
   APPOINTMENT_EVENTS,
   APPOINTMENTS,
-  type Standing,
-  stateOf,
-} from "./ledger";
-import { begin, checkedEntries } from "./run";
+  type ObservationStatusInputs,
+  observationStatusOf,
+} from "./memory-files";
+import { begin, checkedEntries, inputsOf } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { zoneNow } from "./zones";
 
@@ -63,16 +63,16 @@ const isRefused = (
  * plans said in the last `UNDATED_DAYS`, and every
  * active fact a held appointment cites, whatever its age.
  */
-export function factsAheadOf(
+export function observationsAheadOf(
   observations: Observation[],
-  standing: Standing,
+  statusInputs: ObservationStatusInputs,
   today: string,
   held: ReadonlySet<string>
 ) {
   const since = daysBefore(today, UNDATED_DAYS);
   return observations.filter(
     (o) =>
-      stateOf(o, standing).state === "active" &&
+      observationStatusOf(o, statusInputs).state === "active" &&
       (held.has(o.id) ||
         (o.when
           ? o.when >= today && o.modality !== "conditional"
@@ -150,11 +150,12 @@ export function checkedAppointments(
       a.end.slice(0, 10) >= ctx.today &&
       a.end >= a.start
   );
-  const factsOf = (facts: readonly string[]) => facts.toSorted().join(" ");
+  const observationIdsKeyOf = (facts: readonly string[]) =>
+    facts.toSorted().join(" ");
   const { entries, invalid } = checkedEntries(
     z.object({ appointments: z.array(z.unknown()) }).parse(reply).appointments,
     valid,
-    (a) => factsOf(a.facts),
+    (a) => observationIdsKeyOf(a.facts),
     () => true
   );
   const ids = heldIdsOf(
@@ -167,7 +168,7 @@ export function checkedAppointments(
   // A new id is its facts' hash, hashed again while another appointment has it (a held one first read from them).
   const used = new Set([...ctx.held.map((h) => h.id), ...ids.filter(Boolean)]);
   const newId = (facts: readonly string[]) => {
-    let id = `apt_${digest("sha1", factsOf(facts), 12)}`;
+    let id = `apt_${digest("sha1", observationIdsKeyOf(facts), 12)}`;
     while (used.has(id)) {
       id = `apt_${digest("sha1", id, 12)}`;
     }
@@ -198,43 +199,41 @@ export async function appointments() {
   const step = await begin("appointments", "main", {
     prompt: APPOINTMENTS_PROMPT,
   });
-  const { observations, standing } = await observationsNow(await readPeople());
+  const { observations, statusInputs } = await observationsNow(
+    await readPeople()
+  );
   const last = readAppointments();
   const held = last?.appointments ?? [];
   const { refused } = readAppointmentEvents();
-  const facts = factsAheadOf(
+  const ahead = observationsAheadOf(
     observations,
-    standing,
+    statusInputs,
     step.today,
     new Set(held.flatMap((a) => a.observations))
   );
   const input = {
-    facts: facts.map((o) => ({
+    held: held.map((a) => ({
+      end: a.end,
+      observations: a.observations,
+      start: a.start,
+      title: a.title,
+    })),
+    here: zoneNow() ?? null,
+    observations: ahead.map((o) => ({
       id: o.id,
       said: o.date,
       text: o.text,
       when: o.when,
     })),
-    held: held.map((a) => ({
-      end: a.end,
-      facts: a.observations,
-      start: a.start,
-      title: a.title,
-    })),
-    here: zoneNow() ?? null,
     today: step.today,
   };
-  const inputs = digest(
-    "sha256",
-    `${APPOINTMENTS_PROMPT}\n${JSON.stringify(input)}`,
-    16
-  );
+  const inputs = inputsOf(APPOINTMENTS_PROMPT, input);
   if (last?.inputs === inputs) {
     return step.end({ appointments: held.length, read: false });
   }
   // A failed call, or a reply with no appointment it could keep, keeps the last ones: the next night reads again.
   const checked =
-    facts.length === 0
+    ahead.length === 0
       ? { appointments: [], invalid: 0 }
       : await step.attempt(async () => {
           const reply = await step.ask({
@@ -245,8 +244,8 @@ export async function appointments() {
           const c = checkedAppointments(reply, {
             held,
             refused,
-            replacedBy: (f) => standing.retired.get(f)?.by,
-            shown: new Set(facts.map((o) => o.id)),
+            replacedBy: (f) => statusInputs.retired.get(f)?.by,
+            shown: new Set(ahead.map((o) => o.id)),
             today: step.today,
           });
           if (c.appointments.length === 0 && c.invalid > 0) {

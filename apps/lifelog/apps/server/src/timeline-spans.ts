@@ -2,14 +2,18 @@
 // (PUT /sources/{id}/timeline); the server writes a raw-page source's from its labels
 // (page-labels.ts `spansOf`). One shape and one writer function for both.
 import { z } from "@hono/zod-openapi";
+import { DAY, MIN } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   holdsPages,
+  isPendant,
   transcriptionJobs as jobs,
+  sources,
   timelineSpans,
 } from "@lifelog/db/schema";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { markDirty } from "./grouping";
+import { and, asc, eq, gte, inArray, ne } from "drizzle-orm";
+import { markDirty, overlapping } from "./grouping";
+import { unioned } from "./page-rules";
 
 export const Instant = z.iso.datetime({ offset: true });
 const Interval = z
@@ -113,4 +117,48 @@ export function saveSpans(tx: Db, sourceId: string, spans: SpanFacts[]) {
     markDirty(tx, [sourceId], [Math.min(...edges), Math.max(...edges)]);
   }
   return movedUnderJobs(tx, sourceId, old, spans);
+}
+
+// The longest pause a stretch of recording runs through.
+const STRETCH_GAP = MIN;
+// How far before a range a span overlapping it may start. A span is one unbroken stretch of capture (the longest
+// held is under 5 h), so one unbroken for over 7 days is read only for its first 7.
+const LONGEST_SPAN = 7 * DAY;
+
+// Recorded (docs/timeline.md): the stretches a Pendant recorded that overlap `[from, to)`, oldest first, whole
+// (not cut at the range), spans under `STRETCH_GAP` apart joined; and the start of the first span held (`since`,
+// null with none): before it lifelog cannot tell. Old-app recordings are no Pendant's.
+export function recorded(db: Pick<Db, "select">, from: Date, to: Date) {
+  const pendants = () =>
+    db
+      .select({ endAt: timelineSpans.endAt, startAt: timelineSpans.startAt })
+      .from(timelineSpans)
+      .innerJoin(sources, eq(sources.id, timelineSpans.sourceId));
+  const first = pendants()
+    .where(isPendant)
+    .orderBy(asc(timelineSpans.startAt))
+    .limit(1)
+    .get();
+  const spans = pendants()
+    .where(
+      and(
+        isPendant,
+        overlapping(timelineSpans.startAt, timelineSpans.endAt, {
+          cut: from.getTime(),
+          stop: to.getTime(),
+        }),
+        gte(timelineSpans.startAt, new Date(from.getTime() - LONGEST_SPAN))
+      )
+    )
+    .all();
+  return {
+    since: first?.startAt.toISOString() ?? null,
+    // The union joins what overlaps or touches: each end is pushed out by the gap for it, then brought back.
+    stretches: unioned(
+      spans.map((s) => [s.startAt.getTime(), s.endAt.getTime() + STRETCH_GAP])
+    ).map(([start, end]) => ({
+      endAt: new Date(end - STRETCH_GAP).toISOString(),
+      startAt: new Date(start).toISOString(),
+    })),
+  };
 }

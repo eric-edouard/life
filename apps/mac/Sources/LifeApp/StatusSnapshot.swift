@@ -36,7 +36,7 @@ struct Card: Decodable, Equatable, Identifiable {
   let headline: String
   let id: String
   let name: String
-  let stations: [Station]?
+  let processingSteps: [ProcessingStep]?
   let tone: Tone
   let word: String
 
@@ -46,7 +46,7 @@ struct Card: Decodable, Equatable, Identifiable {
     let value: String?
   }
 
-  struct Station: Decodable, Equatable, Hashable {
+  struct ProcessingStep: Decodable, Equatable, Hashable {
     let name: String
     let state: String
   }

@@ -22,6 +22,7 @@ export const SourceName = z.enum([
   "lifelog",
   "line",
   "instagram",
+  "messenger",
   "linkedin",
   "telegram",
   "whatsapp",
@@ -30,10 +31,12 @@ export const SourceName = z.enum([
   "mail",
   "git",
   "screen",
+  "apple-health",
+  "photos",
   "notes",
   "claude",
   "chatgpt",
-  "told",
+  "told-life",
   AGENT_WORD,
 ]);
 

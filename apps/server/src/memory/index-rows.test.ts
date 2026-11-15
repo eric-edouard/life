@@ -17,7 +17,7 @@ test("a Between us line shows the days of its first and latest evidence", () => 
     owner: [],
     sections: {
       ...perSection(),
-      bond: [
+      between_us: [
         {
           cites: ["obs_aaaaaaaaaaaa", "obs_bbbbbbbbbbbb"],
           text: "Ana and Jean agreed to keep money apart.",

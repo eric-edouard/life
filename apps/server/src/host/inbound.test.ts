@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { tasksOf } from "../memory/ledger";
+import { tasksOf } from "../memory/memory-files";
 import { action } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import type { Snapshot } from "../todo-list/backend";
 import type { TodoItem } from "../todo-list/contract";
-import { grantRefusal } from "./act";
+import { autoAddRefusal } from "./change-todo-item";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";
@@ -33,11 +33,16 @@ const snap = (live: TodoItem[], over: Partial<Snapshot> = {}): Snapshot => ({
 });
 /** Life's add of reminder 12 (its answer came back), then the first pass's baseline. */
 const added = action({
-  after: { id: 12, link: "AAAA-1", list: "Home", title: "Call the plumber" },
+  after: {
+    deepLinkId: "AAAA-1",
+    id: 12,
+    list: "Home",
+    title: "Call the plumber",
+  },
   id: "entry_00000000add1",
 });
 const base = [added, ...inbound(snap([rem()]), [added], AT)];
-/** One `act` write: its intent first, then its outcome (none when the answer was lost). */
+/** One `changeTodoItem` write: its intent first, then its outcome (none when the answer was lost). */
 const wrote = (
   after: LedgerEntry["after"],
   outcome?: LedgerEntry["result"],
@@ -61,8 +66,8 @@ test("the first pass imports a baseline and reports nothing as his, even what ch
   );
   expect(lines.map((l) => l.kind)).toEqual(["import"]);
   expect(lines[0]).toMatchObject({
-    after: { link: "AAAA-1", title: "Call the plumber today" },
-    via: "reminders",
+    after: { deepLinkId: "AAAA-1", title: "Call the plumber today" },
+    via: "todo_list",
   });
   expect(base.at(-1)?.kind).toBe("import");
 });
@@ -97,7 +102,7 @@ test("a failed tick that never landed: learned once, then his own tick days late
   ];
   const learned = inbound(snap([rem()]), failed, AT);
   expect(learned.map((l) => [l.kind, l.after])).toEqual([
-    ["import", { completed: null, link: "AAAA-1" }],
+    ["import", { completed: null, deepLinkId: "AAAA-1" }],
   ]);
   const later = "2026-10-23T12:00:00.000Z";
   expect(
@@ -114,7 +119,7 @@ test("the list's auto-sort moving a reminder to another section is no change", (
 });
 
 test("conflict: his words win (the Reminders value kept in `before`); his later change in Reminders is his", () => {
-  // He moved it to Thursday in Reminders, then asked in chat for Friday: act's edit read Thursday as `before`.
+  // He moved it to Thursday in Reminders, then asked in chat for Friday: changeTodoItem's edit read Thursday as `before`.
   const ledger = [
     ...base,
     ...wrote({ due: "2026-10-24" }, "ok", {
@@ -144,7 +149,7 @@ test("his tick, edit, priority and urgent flag come back as one line of his, nam
       { completed: true, priority: "high", title: "Call him", urgent: true },
     ],
   ]);
-  expect(lines.every((l) => !l.instruction && l.via === "reminders")).toBe(
+  expect(lines.every((l) => !l.instruction && l.via === "todo_list")).toBe(
     true
   );
   expect(inbound(snap([now]), [...base, ...lines], AT)).toEqual([]);
@@ -186,7 +191,7 @@ test("no authority: his new reminder that reads like an order is one item of his
   expect(lines[0]).toMatchObject({
     kind: "add",
     target: "reminder:30",
-    via: "reminders",
+    via: "todo_list",
   });
   expect(lines[0]?.instruction).toBeUndefined();
   expect(tasksOf([...base, ...lines])).toEqual([]);
@@ -202,16 +207,21 @@ test("no authority: his new reminder that reads like an order is one item of his
   ]);
 });
 
-test("the standing grant switches off when he deletes one of its reminders by hand", () => {
+test("the auto-add permission switches off when he deletes one of its to-do items by hand", () => {
   const on = action({
     after: { on: true },
     at: "2026-10-21T08:00:00.000Z",
     id: "entry_0000000grant",
-    kind: "grant",
-    target: "grant",
+    kind: "auto_add",
+    target: "auto_add",
   });
-  const granted = action({
-    after: { id: 12, link: "AAAA-1", list: "Home", title: "Call the plumber" },
+  const autoAdded = action({
+    after: {
+      deepLinkId: "AAAA-1",
+      id: 12,
+      list: "Home",
+      title: "Call the plumber",
+    },
     at: "2026-10-21T09:00:00.000Z",
     id: "entry_00000000add1",
     instruction: {
@@ -221,7 +231,11 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     },
     via: "connector",
   });
-  const ledger = [on, granted, ...inbound(snap([rem()]), [on, granted], AT)];
+  const ledger = [
+    on,
+    autoAdded,
+    ...inbound(snap([rem()]), [on, autoAdded], AT),
+  ];
   const g = {
     mine: true,
     now: AT,
@@ -232,17 +246,17 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     } as never,
     state: "active",
   };
-  expect(grantRefusal({ ...g, actions: ledger })).toBeUndefined();
+  expect(autoAddRefusal({ ...g, actions: ledger })).toBeUndefined();
   const removed = inbound(snap([], { deleted: [rem()] }), ledger, AT);
-  expect(grantRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
-    "the grant is off: he undid one of its reminders"
+  expect(autoAddRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
+    "the auto-add permission is off: he undid one of its to-do items"
   );
 });
 
 test("the first pass also baselines what is already gone, so the second reports nothing he did before", () => {
   const removed = {
     ...added,
-    after: { id: 13, link: "BBBB-2", title: "Old one" },
+    after: { deepLinkId: "BBBB-2", id: 13, title: "Old one" },
     id: "entry_00000000add2",
     target: "reminder:13",
   };
@@ -340,7 +354,7 @@ test("an add that lands during the read, before its answer is recorded, waits fo
   expect(inbound(snap([rem(), order]), [...base, intent], AT)).toEqual([]);
   const answered = {
     ...intent,
-    after: { id: 33, link: "AAAA-1E", title: "Book the dentist" },
+    after: { deepLinkId: "AAAA-1E", id: 33, title: "Book the dentist" },
     result: "ok" as const,
     target: "reminder:33",
   };

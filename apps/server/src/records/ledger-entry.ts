@@ -6,8 +6,8 @@ import { isoDateTime, MadeBy } from "./fields";
 
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
 
-/** What `act` does to a reminder. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
-export const REMINDER_KINDS = [
+/** What `changeTodoItem` does to a to-do item. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
+export const TODO_CHANGE_KINDS = [
   "add",
   "edit",
   "done",
@@ -18,7 +18,7 @@ export const REMINDER_KINDS = [
 
 /**
  * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
- * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
+ * writes. `ref` is where his words are; `before` and `after` the to-do item's fields; `target` what was touched. An ask
  * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`).
  * `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies until 2 Nov 2026, Life's nudges and his steers until 20 Oct; they only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
@@ -35,18 +35,18 @@ export const LedgerEntry = z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
       .strict()
       .optional(),
-    // "instinct": an email to Instinct, until 19 Oct. "grant": his words in a Claude session turning the standing grant
+    // "instinct": an email to Instinct, until 19 Oct. "auto_add": his words in a Claude session turning the auto-add permission
     // on or off (`after.on`), the latest one standing.
     kind: z.enum([
-      ...REMINDER_KINDS,
+      ...TODO_CHANGE_KINDS,
       "ask",
-      "grant",
-      // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
+      "auto_add",
+      // A to-do item Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
       "import",
       "instinct",
       ...TASK_LINES,
     ]),
-    // "intent": a write outside Life is about to make (`attempt`, act.ts), recorded before it (its outcome is a later line with the same id).
+    // "intent": a write outside Life is about to make (`attempt`, change-todo-item.ts), recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
     // "<prefix>:<id>" (an item of the actions backend: "reminder:<numericId>", "gtask:<list>/<task>"), "<prefix>:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
@@ -64,10 +64,10 @@ export const LedgerEntry = z
       .strict()
       .optional(),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
-    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
+    // "todo_list": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
     via: z.union([
       MadeBy,
-      z.enum(["connector", "reminders", "session", "watch"]),
+      z.enum(["connector", "todo_list", "session", "watch"]),
     ]),
     why: z.string(),
   })
@@ -90,7 +90,7 @@ export function askedAgent(a: LedgerEntry) {
 export const isTaskLine = (a: LedgerEntry) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 
-/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
+/** A line that records no change of its own: a write's intent (its outcome follows), a to-do item's baseline (apps/server/src/host/inbound.ts). */
 export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
@@ -110,12 +110,12 @@ export function entryLine(a: LedgerEntry) {
     .join(", ");
   const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
+    // Until 19 Oct Life also emailed Instinct; those lines stay in ledger.jsonl.
+    auto_add: `the auto-add permission ${a.after.on ? "on" : "off"}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`
       : `“${was}”: ${changed}`,
-    // Until 19 Oct Life also emailed Instinct; those lines stay in ledger.jsonl.
-    grant: `the standing grant ${a.after.on ? "on" : "off"}`,
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
     restore: `restored ${a.target}`,

@@ -86,6 +86,10 @@ export const notifyArgs = (title: string, body: string) =>
         body,
       ];
 
+/** llama.cpp's server, for the describer: the app's bundled one (`LIFE_LLAMA_SERVER`), else the one on PATH (a checkout). */
+export const llamaServer = () =>
+  process.env.LIFE_LLAMA_SERVER ?? Bun.which("llama-server");
+
 /** Google Chrome, for a bridge's sign-in window (`host/sign-in-browser.ts`): the Mac's; none elsewhere. */
 export const CHROME = WINDOWS
   ? undefined

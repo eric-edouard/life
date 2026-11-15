@@ -1,0 +1,1 @@
+Describe this personal photo in one or two factual sentences: what the people are doing and how they seem (happy, relaxed, focused, tense) only if it is visible, the setting (beach, restaurant, home, street…), and anything notable. Transcribe visible text that matters, numbers included. Describe only what is visible; write 'unclear' rather than guess. No names.

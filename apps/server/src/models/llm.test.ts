@@ -15,10 +15,11 @@ import {
   hasQuota,
   llmFor,
   llmOverride,
+  llmSpec,
   quota,
   quotaOf,
 } from "./llm";
-import { extractJson } from "./model-call";
+import { extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -143,7 +144,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         engine: "allmodels",
         model: "x/y@refuseless,hopper",
       },
-      prompt: "eval-judge.v2",
+      prompt: "eval-judge.v3",
       run: "r",
     });
   const lastLine = () =>
@@ -232,7 +233,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
           model:
             "a/b@deepinfra/fp8,morph/fp8=medium allmodels:x/y@refuseless=high",
         },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
       });
     hostsAsked();
@@ -271,7 +272,7 @@ test("an API engine: only his hosts, one at a time in his order, streamed; a hos
         dir: mkdtempSync(join(tmpdir(), "life-chat-")),
         input: {},
         llm: { engine: "allmodels", model: "x/y@" },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
       })
     ).rejects.toThrow("author/model@host[,host]");
@@ -291,7 +292,7 @@ interface Run {
 }
 
 /** One claude call then one codex call, each CLI faked where it is spawned, with secrets in the environment. */
-async function spawnBoth() {
+async function spawnBoth(tools?: Tools) {
   const runs: Run[] = [];
   const spawned = spyOn(Bun, "spawn").mockImplementation(((
     argv: string[],
@@ -330,8 +331,10 @@ async function spawnBoth() {
         dir: mkdtempSync(join(tmpdir(), "life-flags-")),
         input: { a: 1 },
         llm: { engine, model: "m" },
-        prompt: "eval-judge.v2",
+        prompt: "eval-judge.v3",
         run: "r",
+        // Only Codex is ever given tools.
+        tools: engine === "codex" ? tools : undefined,
       });
       expect(reply).toEqual({ ok: true });
     }
@@ -479,7 +482,7 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 
 test("each provider's model and effort by tier", () => {
   // Regression (28 Oct 2026): allmodels' hosts refuse "medium", which the pages tier used to send.
-  for (const tier of ["deep", "main", "fast"] as const) {
+  for (const tier of TIERS) {
     for (const engine of ["allmodels", "openrouter"] as const) {
       for (const r of routesOf(llmFor(tier, engine).model, engine)) {
         if (r.router === "allmodels") {
@@ -498,6 +501,15 @@ test("each provider's model and effort by tier", () => {
     engine: "claude",
     model: "haiku",
   });
+  // The judge is the yardstick: fixed to what the stored baselines were graded at, whatever the working tiers do.
+  expect(llmSpec(llmFor("judge", "claude"))).toBe("claude/sonnet");
+  expect(llmSpec(llmFor("judge", "codex"))).toBe("codex/gpt-6.1-sol/medium");
+  expect(llmSpec(llmFor("judge", "allmodels"))).toBe(
+    "allmodels/deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=high"
+  );
+  expect(llmSpec(llmFor("judge", "openrouter"))).toBe(
+    "openrouter/openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=high allmodels:deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper=high"
+  );
   // The app asks for every key an engine's routes need.
   expect(engineKeys().openrouter).toEqual([
     "OPENROUTER_API_KEY",
@@ -537,4 +549,30 @@ test("one call holds the provider's context, less the answer: his engine reads t
   expect(chars("openrouter")).toBeGreaterThan(2_000_000);
   expect(chars("claude")).toBeLessThan(chars("openrouter"));
   expect(chars("claude")).toBeGreaterThan(0);
+});
+
+test("the one call with tools, the question cases' agent: Codex with one MCP server and nothing else, read-only, no shell; Claude is given none", async () => {
+  const tools = { command: ["bun", "serve.ts"], env: { A: "b" } };
+  const [, codex] = await spawnBoth(tools);
+  const { argv } = codex;
+  expect(argv[argv.indexOf("-s") + 1]).toBe("read-only");
+  for (const off of ["shell_tool", "unified_exec", "sleep_tool"]) {
+    expect(argv[argv.indexOf(off) - 1]).toBe("--disable");
+  }
+  // Code mode stays: it is the way to MCP tools.
+  expect(argv).not.toContain("code_mode_host");
+  expect(argv).not.toContain("--dangerously-bypass-approvals-and-sandbox");
+  const servers = argv.filter((a) => a.startsWith("mcp_servers."));
+  expect(servers.length).toBeGreaterThan(0);
+  expect(servers.every((a) => a.startsWith("mcp_servers.life."))).toBe(true);
+  await expect(
+    askOnce({
+      dir: mkdtempSync(join(tmpdir(), "life-flags-")),
+      input: {},
+      llm: { engine: "claude", model: "m" },
+      prompt: "eval-judge.v3",
+      run: "r",
+      tools,
+    })
+  ).rejects.toThrow("runs no tools");
 });

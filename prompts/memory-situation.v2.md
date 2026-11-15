@@ -15,13 +15,13 @@ The `<context>` at the end of these instructions is one JSON object: `me` (who t
 The user message is one JSON object:
 
 - `page`: `ref` (`person:me` is the owner himself, else someone close to him) and `text`, the page as it is: what he
-  wrote about them, where things stand, what lasts between them ("Between us"), History. Lines he wrote or kept are
+  wrote about them, where things stand, what lasts between them ("Between us"), Earlier. Lines he wrote or kept are
   his word: when an episode disagrees, his line wins.
 - `episodes`: the last 30 days' episodes (all of them for his own situation, those with this person otherwise), oldest
   first: `id`, `day`, `title`, `what`, `place`, `people`.
 - `persona`: what Life read about them and between them and him over years of their messages (his
   own across everyone for `person:me`): `facet` (`traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`,
-  `approach`), `text`, `support` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
+  `approach`), `text`, `backing` (`solid`: seen on 3 days or more, `thin`: fewer, `old`: not seen for a year). May be
   empty.
 - `today`: the local date.
 

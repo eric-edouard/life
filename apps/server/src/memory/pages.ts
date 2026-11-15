@@ -9,8 +9,8 @@ import { git } from "../core/proc";
 import { callCharsOf, stamp } from "../models/llm";
 import {
   Correction,
-  type InferredPerson,
   type Observation,
+  type PersonOutsideDirectory,
 } from "../records/observation";
 import { type Area, isUnderway, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
@@ -23,20 +23,20 @@ import {
 } from "./closeness";
 import {
   CORRECTIONS,
+  type ObservationStatusInputs,
   PAGE_KINDS,
   PAGES,
   pagePath,
   readUnits,
   readUnitsFor,
   readVerdicts,
-  type Standing,
   type Verdicts,
   verdictOf,
-} from "./ledger";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
 import {
   assemble,
   bare,
-  type Check,
   changes,
   checkReply,
   generated,
@@ -52,14 +52,15 @@ import {
   parsePage,
   perSection,
   placed,
+  type ReplyLimits,
   renderPage,
   type Sections,
   settle,
-  slugOf,
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, inBatches, involvedOf, refContext, type Step } from "./run";
+import { begin, inBatches, type Step } from "./run";
+import { nameKey } from "./units";
 import {
   observationsNow,
   type People,
@@ -70,9 +71,9 @@ import {
 } from "./who";
 
 // `bun life memory pages`: the pages step (docs/architecture.md, "The pipeline"). One page per person who has enough to
-// say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
+// say and per area. Each observation has one home page (`homePageOf`). A page is rebuilt from its previous version: lines
 // whose observations are unchanged stay word for word, the model only adds lines for new observations, finishes
-// lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
+// lines or fixes lines whose observations changed, and code ages lines into Earlier and keeps the page within
 // its word budget. Code checks every citation. Nothing is sent.
 
 const PAGES_PROMPT = "memory-pages.v6";
@@ -111,7 +112,7 @@ export function ownerHold(me: Truth["me"]) {
   return `${quote(me.text.split("\n").slice(1).join("\n"))}\n\n_From truth/me.md: yours. Life never edits it._`;
 }
 
-function inferredHold(p: InferredPerson) {
+function inferredHold(p: PersonOutsideDirectory) {
   return `${quote(`**${p.name}** · ${p.relation}`)}\n\n_Inferred by Life from messages (confidence ${p.confidence}), not in truth/: it may be wrong. Tell Claude who this is and it is recorded._`;
 }
 
@@ -149,7 +150,7 @@ const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
 async function targets(observations: Shown[], folks: People) {
-  const { inferred, truth } = folks;
+  const { outsideDirectory, truth } = folks;
   const levels = levelsWith(folks);
   const paged = pagedBy(levels, await waitingOf(truth, folks.canon));
   const close = personallyClose(levels);
@@ -170,11 +171,16 @@ async function targets(observations: Shown[], folks: People) {
           },
         ] as const
     ),
-    ...inferred.map(
+    ...outsideDirectory.map(
       (p) =>
         [
           `person:${p.id}`,
-          { hold: inferredHold(p), name: `${p.name} (inferred)` },
+          p.kind === "inferred"
+            ? { hold: inferredHold(p), name: `${p.name} (inferred)` }
+            : {
+                hold: `${quote(`**${p.name}**`)}\n\n_Named by his Contacts, not in truth/._`,
+                name: p.name,
+              },
         ] as const
     ),
   ]);
@@ -227,9 +233,9 @@ interface Run {
   /** Topic counts of units over the last 90 days, by person ref: "Often talk about". */
   often: (t: Target) => string[];
   rebuild: boolean;
-  /** The map, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
+  /** The directory, and the context the same for every call of a run so the prompt cache hits (`refContext`). */
   refs: ReturnType<typeof refContext>;
-  standing: Standing;
+  statusInputs: ObservationStatusInputs;
   step: Step;
   titles: Map<string, string>;
   today: string;
@@ -252,7 +258,7 @@ const asInput = (o: Observation, titles: Map<string, string>) => ({
 function newCorrections(ref: string, prev: Parsed, r: Run): Correction[] {
   const found = ownerEdits(prev);
   const have = new Set(
-    r.standing.corrections.flatMap((c) =>
+    r.statusInputs.corrections.flatMap((c) =>
       c.kind === "keep-mine" && c.page === ref ? [bare(c.text)] : []
     )
   );
@@ -287,10 +293,10 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const before = await readText(t.path);
   const prev = before ? parsePage(before) : null;
   const added = prev ? newCorrections(t.ref, prev, r) : [];
-  const everything = [...r.standing.corrections, ...added];
+  const everything = [...r.statusInputs.corrections, ...added];
   const known = knownOn(
     t.observations,
-    { ...r.standing, corrections: everything },
+    { ...r.statusInputs, corrections: everything },
     t.ref
   );
   const visible = t.observations.filter((o) => known.byId.has(o.id));
@@ -352,7 +358,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
       : write(page, by, r.at);
 
   const current = liveLines(settled.sections);
-  const check = (): Check => ({
+  const check = (): ReplyLimits => ({
     changed: settled.changed,
     covered: new Set(
       Object.values(settled.sections)
@@ -369,7 +375,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     settled.changed.has(h) ? [k.line] : []
   );
   if (fresh.length === 0 && cited.length === 0) {
-    // Nothing new: no model. Lines still age into History and the budget still holds.
+    // Nothing new: no model. Lines still age into Earlier and the budget still holds.
     const kept = assemble(settled.sections, checkReply({}, check()), known, {
       fixed,
       layout,
@@ -400,7 +406,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     // Who and what the page's observations name beyond the context.
     involved: involvedOf(
       r.refs,
-      new Set([t.ref, ...visible.flatMap((o) => o.entities)])
+      new Set([t.ref, ...visible.flatMap((o) => o.subjects)])
     ),
     // Newest first, within the character budget: what a new page is built from.
     observations: within(
@@ -521,7 +527,7 @@ export async function pages(opts: PagesOptions) {
         (t) =>
           t.ref === `person:${only}` ||
           t.ref === `area:${only}` ||
-          slugOf(t.name) === slugOf(only)
+          (nameKey(only) !== "" && nameKey(t.name) === nameKey(only))
       )
     : all;
   const r: Run = {
@@ -529,7 +535,7 @@ export async function pages(opts: PagesOptions) {
     often: oftenBy(units, verdicts, day, people.refOf),
     rebuild: opts.rebuild ?? false,
     refs,
-    standing: current.standing,
+    statusInputs: current.statusInputs,
     step,
     titles: new Map(
       [
@@ -544,7 +550,7 @@ export async function pages(opts: PagesOptions) {
   };
   const built: BuiltPage[] = [];
   // One bad page keeps its previous version; the next run tries again.
-  await inBatches(chosen, step.dir, (t, bdir) =>
+  await inBatches(chosen, step, (t, bdir) =>
     step.attempt(
       async () => {
         built.push(await buildOne(t, r, bdir));
@@ -585,14 +591,14 @@ export async function pages(opts: PagesOptions) {
       rejects: built.reduce((n, b) => n + b.rejects.length, 0),
       skipped: built.filter((b) => b.skipped).length,
     }),
-    /** Per page that changed since the last commit (the last night): lines added, moved to History and removed. */
+    /** Per page that changed since the last commit (the last night): lines added, moved to Earlier and removed. */
     changes: changedSinceCommit(),
   };
 }
 
 /**
  * Each page that changed since `~/Life`'s last commit (the night's), hand runs' rewrites included, against its
- * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
+ * committed version: lines added, moved to Earlier and removed. A page gone counts its lines removed.
  */
 export function changedSinceCommit(root = OWNER_DATA_DIR, dir = PAGES) {
   if (git(root, ["rev-parse", "--git-dir"]).exitCode !== 0) {

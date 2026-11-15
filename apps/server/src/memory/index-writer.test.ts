@@ -10,21 +10,21 @@ import { setSettings, settings } from "../core/settings";
 import type { Episode } from "../records/episode";
 import { episodeTextNow, UNIT_TEXT } from "./index-rows";
 import { buildIndex, readSearchedTexts, readStaleness } from "./index-writer";
-import { INDEX, MEMORY, UNITS } from "./ledger";
+import { INDEX, MEMORY, UNITS } from "./memory-files";
 import { TRUTH } from "./read-truth";
 import { madeBy, unit, verdict } from "./record-fixtures";
 
 test("the index is stale when memory/ (units/ aside) or truth/ changed after its reads began; truth/ says so", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-stale-")), "i.sqlite");
   expect(readStaleness(path)).toBe("index");
-  const standing = {
+  const statusInputs = {
     corrections: [],
     latest: new Map(),
     live: new Set<string>(),
     retired: new Map(),
   };
   const later = new Date(Date.now() + DAY);
-  buildIndex([], path, standing, [], later);
+  buildIndex([], path, statusInputs, [], later);
   expect(readStaleness(path)).toBeNull();
   const touch = (file: string) => {
     const at = new Date(later.getTime() + MIN);

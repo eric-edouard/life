@@ -14,7 +14,7 @@ self.onmessage = ({ data }: MessageEvent<string | null>) => {
   // Revision and rows belong to one SQLite snapshot; naming writes can proceed through WAL.
   const result = db.transaction(() => {
     const seen = latestSeq(db);
-    return { map: queue.projection(), seen };
+    return { map: queue.projection(), rechecks: queue.rechecks(), seen };
   });
   self.postMessage(result);
 };

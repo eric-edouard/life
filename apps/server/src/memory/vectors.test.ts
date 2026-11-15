@@ -10,7 +10,7 @@ import {
   textHashOf,
   vectorOf,
 } from "../core/embedder";
-import { VECTORS } from "./ledger";
+import { VECTORS } from "./memory-files";
 import { embedNew, embedQuery, readNearest } from "./vectors";
 
 const searched =

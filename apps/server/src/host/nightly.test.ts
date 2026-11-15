@@ -9,10 +9,17 @@ import {
 import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
-import { latestExtractions, OUT } from "../memory/ledger";
+import { latestExtractions, OUT } from "../memory/memory-files";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
-import { dropOld, markedSince, nightly } from "./nightly";
+import {
+  dropOld,
+  markedSince,
+  nightly,
+  readChecksFor,
+  runNight,
+  runProcessing,
+} from "./nightly";
 
 test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {
   const u = unit({ marked: ["j:1@a", "j:2@a"] });
@@ -149,5 +156,81 @@ test("a queued historical backfill is withheld from the scheduler until prompts 
     quota.mockRestore();
     online.mockRestore();
     live.mockRestore();
+  }
+});
+
+test("the night places matters after extraction, with the evidence's failed sources; the backfill's processing run does not", async () => {
+  const stopped = new Error("stopped after matters");
+  const mods = {
+    contacts: await import("../memory/contact-people"),
+    episodes: await import("../memory/episodes"),
+    extract: await import("../memory/extract"),
+    index: await import("../memory/index-writer"),
+    matters: await import("../memory/matters"),
+    models: await import("../models/llm"),
+    recorded: await import("../memory/recorded-days"),
+    repos: await import("../memory/repos"),
+    settings: await import("../core/settings"),
+    units: await import("../memory/units"),
+    who: await import("../memory/who"),
+  };
+  const none = { failed: 0 } as never;
+  const spies = [
+    spyOn(mods.settings, "settings").mockReturnValue({
+      engine: "claude",
+      matters: true,
+    } as never),
+    spyOn(mods.who, "readPeople").mockResolvedValue({} as never),
+    spyOn(mods.units, "gather").mockResolvedValue({
+      failed: ["mail"],
+    } as never),
+    spyOn(mods.episodes, "episodes").mockResolvedValue(none),
+    spyOn(mods.extract, "extract").mockResolvedValue(none),
+    spyOn(mods.index, "reindex").mockResolvedValue(undefined as never),
+    spyOn(mods.repos, "mapRepos").mockResolvedValue({ failed: 0 } as never),
+    spyOn(mods.contacts, "writeContactPeople").mockReturnValue(
+      undefined as never
+    ),
+    spyOn(mods.recorded, "writeRecordedDays").mockRejectedValue(stopped),
+    spyOn(mods.models, "isOnline").mockResolvedValue(false),
+  ];
+  const work = spyOn(mods.matters, "readMatterWork").mockResolvedValue(null);
+  const records = spyOn(mods.matters, "readMatterRecords").mockResolvedValue(
+    {} as never
+  );
+  try {
+    // The backfill's run: no matters.
+    await runProcessing("memory.backfill", {
+      from: "2026-10-01",
+      to: "2026-10-07",
+    });
+    expect(work).not.toHaveBeenCalled();
+    // The night's run: matters, given the sources that failed, after extraction.
+    await runNight(7, new Date("2026-11-05T03:00:00Z"), "2026-11-05", true);
+    expect(work).toHaveBeenCalledTimes(1);
+    expect(work.mock.calls[0]?.[2]).toEqual(["mail"]);
+  } finally {
+    work.mockRestore();
+    records.mockRestore();
+    for (const spy of spies) {
+      spy.mockRestore();
+    }
+  }
+});
+
+test("checks that cannot be read are logged and the report has none: the night is not failed", async () => {
+  const mods = await import("../memory/checks");
+  const broke = spyOn(mods, "checksNow").mockRejectedValue(new Error("boom"));
+  const errors: [string, unknown][] = [];
+  try {
+    const list = await readChecksFor({
+      error: (message: string, extra?: unknown) => {
+        errors.push([message, extra]);
+      },
+    } as never);
+    expect(list).toEqual([]);
+    expect(errors).toEqual([["boom", { step: "memory.nightly.checks" }]]);
+  } finally {
+    broke.mockRestore();
   }
 });

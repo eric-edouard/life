@@ -6,12 +6,13 @@ Sources: the official docs, read from their raw `.md` versions on 2026-10-07, th
 
 | id | status | use |
 |---|---|---|
-| `scribe_v2` | current batch model, launched 2026-01-09 | **use this** |
+| `scribe_v3` | current batch model, launched 2026-11-10; $0.20/h, same API | **use this** (since 11 Nov 2026) |
+| `scribe_v2` | batch model, launched 2026-01-09; still available | used until 11 Nov 2026 |
 | `scribe_v2_medical` | batch fine-tune for clinical audio; same price and API | not relevant |
 | `scribe_v2_realtime` | WebSocket, ~150 ms latency, $0.39/h | not needed |
 | `scribe_v1` | **deprecated** ("outclassed"; replacement is `scribe_v2`) | do not use |
 
-There is no model newer than v2. ([models](https://elevenlabs.io/docs/overview/models), [STT overview](https://elevenlabs.io/docs/overview/capabilities/speech-to-text))
+Scribe v3 (10 Nov 2026) claims 27% fewer word errors than v2 over 102 languages (Thai 28%, English 23%) and 12% fewer speaker errors; on the owner's test set it lost to Nemotron 3 at splitting Scribe v2's merged voices and won a blind Thai listening test against v2, 3 to 1 with 6 ties (11 Nov). ([models](https://elevenlabs.io/docs/overview/models), [STT overview](https://elevenlabs.io/docs/overview/capabilities/speech-to-text))
 
 ## 2. Sync vs async, webhooks, retrieval, idempotency
 
@@ -90,7 +91,7 @@ There is no model newer than v2. ([models](https://elevenlabs.io/docs/overview/m
 
 | item | price |
 |---|---|
-| Scribe v2 / v2 Medical batch | **$0.22 / audio-hour** (confirmed) |
+| Scribe v3, v2 / v2 Medical batch | **$0.20 / audio-hour** (confirmed 2026-11-11; v2 was $0.22 on 2026-10-07) |
 | Scribe v2 Realtime | **$0.39 / hour** (confirmed) |
 | Keyterm prompting | +$0.05 / h |
 | Entity detection | +$0.07 / h |
@@ -110,7 +111,7 @@ There is no model newer than v2. ([models](https://elevenlabs.io/docs/overview/m
 
 ## 9. Recommendation for lifelog
 
-1. **Model:** `scribe_v2` batch only.
+1. **Model:** `scribe_v3` batch only.
 2. **Request fields:** `diarize=true`, no `num_speakers`, `timestamps_granularity=word`, `tag_audio_events=false`, `no_verbatim=false`, and **no `language_code`**. Code-switching relies on auto-detect.
    - Detect language per turn locally. For Thai, check the Unicode range U+0E00–U+0E7F. For EN vs FR, use a small text language-ID model.
    - Store `logprob` with each word.
@@ -131,7 +132,7 @@ There is no model newer than v2. ([models](https://elevenlabs.io/docs/overview/m
    - Avoid fragments under about 20 s: diarization and language detection get weak, and the 20 s keyterm minimum applies.
    - Link speakers across chunks with local embeddings.
 6. **Keyterms:** at most about 50–100 owner-curated proper nouns (people, places, Thai names in Thai script plus romanized forms). Stay at or under 100 to avoid the 20 s minimum, and A/B test for false insertions before enabling by default. That adds about 23% to the base cost.
-7. **Expected cost:** $0.22 per cleaned speech-hour, or $0.27 with keyterms. Enforce the monthly hours cap server-side using `audio_duration_secs` from each response.
+7. **Expected cost:** $0.20 per cleaned speech-hour, or $0.25 with keyterms. Enforce the monthly hours cap server-side using `audio_duration_secs` from each response.
 
 ## 10. Unverified or contradictory (verify empirically)
 

@@ -463,15 +463,8 @@ test("a stranger's clips: the turns he said aren't anyone he knows, never severa
   // Media and several people say nobody he doesn't know.
   const other = conversation(clip(75), clip(76));
   await assign(other, "speaker_0", { target: { kind: "media" } });
-  answerSpeaker(env.db, {
-    jobId: other,
-    speakerLabel: "speaker_1",
-    target: {
-      candidates: { people: [ana.personId], unknown: true },
-      kind: "several",
-      personId: null,
-    },
-    turnIndex: null,
+  await assign(other, "speaker_1", {
+    target: { kind: "several", people: [ana.personId], unknown: true },
   });
   // Each clip's voice is its own axis: turns 1 and 2.
   expect(
@@ -515,6 +508,13 @@ test("a single-turn correction moves exactly that turn's evidence", async () => 
   });
   expect(evidenceOf("Clara")).toEqual([0]);
   expect(evidenceOf("Bob")).toEqual([2]);
+
+  // Several people speak in turn 0: nobody's evidence.
+  await assign(clara.jobId, "speaker_0", {
+    target: { kind: "several", people: [], unknown: true },
+    turnIndex: 0,
+  });
+  expect(evidenceOf("Clara")).toEqual([]);
 
   // Later the whole speaker is set to unknown: Bob keeps the corrected turn.
   await assign(clara.jobId, "speaker_0", { target: { kind: "unknown" } });
@@ -577,7 +577,7 @@ test("merging moves evidence and assignments", async () => {
   expect(speaker(rows, "speaker_0")?.personId).toBe(a.personId);
 });
 
-test("unclean turns are refused and short speakers stay unknown", async () => {
+test("unclean turns are refused and a short speaker is named at the short bar", async () => {
   await enroll("Clara", v([0, 1]));
   const messy = transcript([
     turn("speaker_0", 0, 5),
@@ -614,11 +614,8 @@ test("unclean turns are refused and short speakers stay unknown", async () => {
   );
   expect(upload(stretched, 0, v([0, 1])).status).toBe(422);
 
-  const rows = recognize(messy); // 5 s of clean speech < 8 s
-  expect(speaker(rows, "speaker_0")).toMatchObject({
-    score: null,
-    status: "unknown",
-  });
+  const rows = recognize(messy); // 5 s of clean speech < 8 s: the short bar, a person only
+  expect(speaker(rows, "speaker_0")).toMatchObject({ status: "person" });
 });
 
 test("a recurring unnamed voice becomes a candidate at night, not a person", async () => {

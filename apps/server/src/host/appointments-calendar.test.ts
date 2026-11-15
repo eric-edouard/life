@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { appendJsonl } from "../core/files";
 import { readAppointmentEvents } from "../memory/appointments";
-import { APPOINTMENT_EVENTS } from "../memory/ledger";
+import { APPOINTMENT_EVENTS } from "../memory/memory-files";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import { appointmentDraft, drafted } from "./appointments-calendar";
 

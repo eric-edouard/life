@@ -7,8 +7,8 @@ import { readSettings, Settings, setSettings, settings } from "./settings";
 test("a corrupt settings file throws instead of switching engine; a missing one is every default", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
   expect(readSettings(path)).toEqual({
+    agentReportSenders: [],
     engine: "claude",
-    reports: [],
     sources: [],
   });
   writeFileSync(path, '{"engine": "co');
@@ -60,4 +60,20 @@ test("the historical engine is optional and strict, independent of the ordinary 
   expect(
     Settings.safeParse({ backfillEngine: "codex", inferred: true }).success
   ).toBe(false);
+});
+
+test("the renamed settings parse, and the old names are refused", () => {
+  const renamed = {
+    appointmentsCalendar: { account: "a@example.com", calendar: "Life" },
+    deviceNames: {},
+    histories: { from: "2025-01" },
+    pastCalendar: { calendar: "Past" },
+    reposFolder: "~/Work",
+    sources: ["told-life"],
+    todoList: { backend: "reminders" },
+  };
+  expect(() => Settings.parse(renamed)).not.toThrow();
+  for (const old of ["todo_list", "repos", "past", "history", "devices"]) {
+    expect(() => Settings.parse({ [old]: renamed.todoList })).toThrow();
+  }
 });

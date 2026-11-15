@@ -39,7 +39,7 @@ export const RecordingKind = z.enum([
 
 /**
  * The importance policy: the importance from which a unit is kept and its observations are shown. Extraction reads a kept unit
- * in full; pages and searches list its claims. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
+ * in full; pages and searches list its observations. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
  * mostly right. A importance-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with an episode that
  * holds a kept unit.
  */
@@ -48,7 +48,7 @@ export const KEEP_AT = 2;
 /** The importance from which a unit is worth a searchable line, and is read with its episode. */
 export const SEARCHABLE_AT = 1;
 
-/** The top importance: what must not be missed (an open item, a reminder the grant may make, a new fact the nightly email lists). */
+/** The top importance: what must not be missed (an open item, a to-do item the auto-add permission may make, a new fact the nightly email lists). */
 export const TOP_AT = 3;
 
 /**
@@ -83,12 +83,12 @@ export type Verdict = z.infer<typeof Verdict>;
  */
 export const FileEntry = z
   .object({
+    description: z.string().optional(),
     hash: ContentHash,
     madeBy: MadeBy.optional(),
     ref: z.string(),
     schemaVersion: z.literal(1),
     text: z.string().optional(),
-    what: z.string().optional(),
   })
   .strict();
 
@@ -134,17 +134,27 @@ export const Unit = z
 
 export type Unit = z.infer<typeof Unit>;
 
-/** memory/zones.jsonl: the owner's IANA time zone from `from` on. */
+/**
+ * memory/zones.jsonl: the owner's IANA time zone from `from` on. `source` marks a run the history collection derived,
+ * from his sent mail's Date headers or his photos' offsets; absent, it is a record of where he was.
+ */
 export const Zone = z
-  .object({ from: isoDateTime, schemaVersion: z.literal(1), tz: z.string() })
+  .object({
+    from: isoDateTime,
+    schemaVersion: z.literal(1),
+    source: z.enum(["mail", "photos"]).optional(),
+    tz: z.string(),
+  })
   .strict();
+
+export type Zone = z.infer<typeof Zone>;
 
 /** The owner's label on a unit: does it matter, and optionally the right type and area (an id from truth/areas.yaml). memory/labels.jsonl. */
 export const MemoryLabel = z
   .object({
     area: z.string().optional(),
     at: isoDateTime.optional(),
-    matters: z.boolean(),
+    important: z.boolean(),
     schemaVersion: z.literal(1).optional(),
     type: MemoryType.optional(),
     unitId: UnitId,

@@ -10,22 +10,22 @@ import { readImessage } from "../sources/imessage";
 import { imessageFixture, whatsappFixture } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { showFiles, triage } from "./message-files";
-import { locate } from "./observe";
+import { locate } from "./quote-check";
 
 const madeBy = {
   engine: "codex" as const,
   model: "m",
-  prompt: "files.v1",
+  prompt: "message-file-description.v1",
   run: "r",
 };
 const hashOf = (s: string) => digest("sha256", s, 16);
 const id: FileEntry = {
+  description: "French national identity card of Anne-Sophie.",
   hash: hashOf("id-card"),
   madeBy,
   ref: "imessage:at_0",
   schemaVersion: 1,
   text: "RÉPUBLIQUE FRANÇAISE CARTE NATIONALE D'IDENTITÉ",
-  what: "French national identity card of Anne-Sophie.",
 };
 const photo = (ref: string, path?: string): SourceFile => ({
   mime: "image/heic",
@@ -46,7 +46,7 @@ const event = (...files: SourceFile[]): SourceEvent => ({
 
 test("a file read once shows its description by its ref, also once it is gone; one never read and gone is a tag", () => {
   const known = new Map([[id.ref, id]]);
-  const line = `[photo IMG_2910.HEIC, described by Life: ${id.what} | text: ${id.text}]`;
+  const line = `[photo IMG_2910.HEIC, described by Life: ${id.description} | text: ${id.text}]`;
   expect(showFiles([event(photo(id.ref, "/here.heic"))], known)[0]?.text).toBe(
     line
   );
@@ -112,6 +112,22 @@ test("a photo-only message carries its attachments as files, a link preview left
   expect(showFiles(read(since), new Map())[0]?.text).toBe(
     "[photo IMG_2910.HEIC]\n[audio Audio Message.caf, not on this Mac]"
   );
+});
+
+test("a phone call has no words and no file, and is kept: its readers write its line", () => {
+  const call = {
+    at: "2026-11-10T09:00:00.000Z",
+    chat: "+33600000001",
+    fromMe: false,
+    id: "phone:+33600000001/1",
+    phoneCall: { seconds: 90, video: false },
+    sender: "+33600000001",
+    source: "phone" as const,
+    text: "",
+  };
+  expect(
+    showFiles([call, { ...call, phoneCall: undefined }], new Map())
+  ).toEqual([call]);
 });
 
 test("media rows are files: the archive's copy, a document's name, a photo never downloaded", () => {

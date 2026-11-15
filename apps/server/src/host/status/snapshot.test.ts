@@ -2,10 +2,10 @@ import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
 import {
+  processingStepsOf,
   quietestAt,
   redCards,
   snapshot,
-  stationsOf,
   toneOf,
   waking,
   wokeAt,
@@ -64,9 +64,13 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
   expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
 });
 
-test("a sweep's stations are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
-  const run = (phases: string[], outcome: string, failedAt?: string) =>
-    ({ outcome, phases, result: failedAt ? { failedAt } : {} }) as never;
+test("a processing run's steps are the steps it recorded: done, now, the one it failed at still to do, then the night's report", () => {
+  const run = (processingSteps: string[], outcome: string, failedAt?: string) =>
+    ({
+      outcome,
+      processingSteps,
+      result: failedAt ? { failedAt } : {},
+    }) as never;
   const all = [
     "repos",
     "gather",
@@ -81,7 +85,7 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
   const state = (list: { name: string; state: string }[]) =>
     list.map((x) => `${x.name}:${x.state}`);
   expect(
-    state(stationsOf({ lastOk: ok, latest: ok }, false, true)).slice(-3)
+    state(processingStepsOf({ lastOk: ok, latest: ok }, false, true)).slice(-3)
   ).toEqual(["actions:done", "commit:done", "email:done"]);
   const failed = run(
     [
@@ -98,11 +102,16 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
     "commit"
   );
   expect(
-    state(stationsOf({ lastOk: ok, latest: failed }, false, false)).slice(-2)
+    state(
+      processingStepsOf({ lastOk: ok, latest: failed }, false, false)
+    ).slice(-2)
   ).toEqual(["commit:todo", "email:todo"]);
   const running = run(["repos", "gather", "episodes"], "running");
   expect(
-    state(stationsOf({ lastOk: ok, latest: running }, true, null)).slice(1, 4)
+    state(processingStepsOf({ lastOk: ok, latest: running }, true, null)).slice(
+      1,
+      4
+    )
   ).toEqual(["gather:done", "episodes:now", "extract:todo"]);
 });
 
@@ -154,6 +163,40 @@ test(
     // The made-up settings set a connector and no Past calendar.
     expect(cards.get("past")?.word).toBe("off");
     expect(cards.get("connector")?.word).toBe("serving");
+  },
+  MIN
+);
+
+test(
+  "a calendar whose sync failed within the hour says failing, whatever it wrote before",
+  async () => {
+    const { setSettings, settings } = await import("../../core/settings");
+    const { log } = await import("../../core/log");
+    const { pastCalendar: past } = settings();
+    // Past the snapshot's cache of the log, which earlier tests filled.
+    const later = performance.now() + HOUR;
+    const timer = spyOn(performance, "now").mockReturnValue(later);
+    try {
+      setSettings({
+        pastCalendar: {
+          account: "owner@example.com",
+          calendar: "past@example.com",
+        },
+      });
+      log("run.error", {
+        error: "Error: gog calendar: no token",
+        step: "past",
+      });
+      const card = (await snapshot()).cards.find((c) => c.id === "past");
+      expect(card).toMatchObject({
+        content: ["Error: gog calendar: no token"],
+        tone: "warn",
+        word: "failing",
+      });
+    } finally {
+      timer.mockRestore();
+      setSettings({ pastCalendar: past });
+    }
   },
   MIN
 );

@@ -5,6 +5,7 @@ import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
 import { conversationsBetween, visits, withStore } from "../sources/lifelog";
 import type { Draft } from "./calendar-events";
+import { episodeText } from "./doubts";
 import { endOf, span } from "./episode-span";
 import {
   episodesNow,
@@ -12,9 +13,8 @@ import {
   readEpisodes,
   readIndex,
   readUnitsOf,
-} from "./ledger";
+} from "./memory-files";
 import { stayOf, where } from "./places";
-import { episodeText } from "./statements";
 import { clip } from "./units";
 import { readPeople } from "./who";
 import { time } from "./zones";

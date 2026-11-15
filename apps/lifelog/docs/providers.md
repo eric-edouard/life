@@ -6,8 +6,8 @@ Which outside services see what, and what we keep. Transcription (ElevenLabs) is
 
 ## Speaker recognition: our own service, no third party
 
-Voices are recognized by `apps/identity`, the speech service, which you run yourself. It wraps SpeechBrain's ECAPA
-model (`speechbrain/spkrec-ecapa-voxceleb`, pinned to one revision), beside the transcription models (Nemotron 3,
+Voices are recognized by `apps/identity`, the speech service, which you run yourself. It wraps the MECT-B2
+model (`AntResearch/AntSpeaker`, weights and code each pinned to one revision), beside the transcription models (Nemotron 3,
 VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for recognition.
 
 **Flow**

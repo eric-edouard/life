@@ -1,7 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
-import type { InferredPerson } from "../records/observation";
-import { Person, Project } from "../records/truth";
-import { begin, involvedOf, metered, phases, record, refContext } from "./run";
+import { mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { llmFor } from "../models/llm";
+import {
+  begin,
+  inBatches,
+  inputsOf,
+  metered,
+  recordRun,
+  trackProcessingSteps,
+} from "./run";
 import { runs } from "./run-log";
 
 /** The run as the status reads' `read_processing_runs` reads it back from the (test) log. */
@@ -10,7 +19,7 @@ const read = async (step: string, run: string) =>
 
 test("a run is logged as started, then ended with its duration, under its start instant", async () => {
   const step = "memory.test-ok";
-  const rec = record(step, { days: 1 });
+  const rec = recordRun(step, { days: 1 });
   const summary = rec.end({ calls: 2, outcome: "ok" });
   expect(summary).toEqual({
     calls: 2,
@@ -29,7 +38,7 @@ test("a run is logged as started, then ended with its duration, under its start 
 
 test("a failure is the run's error, and its end says it failed", async () => {
   const step = "memory.test-failed";
-  const rec = record(step, {});
+  const rec = recordRun(step, {});
   rec.error("offline", { unit: "u1" });
   rec.end({ error: "offline", failedAt: "triage", outcome: "failed" });
   expect(await read(step, rec.run)).toMatchObject({
@@ -39,15 +48,15 @@ test("a failure is the run's error, and its end says it failed", async () => {
   });
 });
 
-test("a sweep fails at the phase whose step failed anything, its errors and sub-steps' under its run", async () => {
-  const step = "memory.midday";
-  const rec = record(step, {});
-  const phase = phases(rec);
-  await phase.step("triage", async () => ({ failed: 0 }));
+test("a processing run fails at the processing step whose step failed anything, its errors and sub-steps' under its run", async () => {
+  const step = "memory.backfill";
+  const rec = recordRun(step, {});
+  const steps = trackProcessingSteps(rec);
+  await steps.step("triage", async () => ({ failed: 0 }));
   rec.error("offline", { step: `${step}.push` });
-  const failure = await phase
+  const failure = await steps
     .step("extract", async () => ({ failed: 2 }))
-    .catch(phase.failed);
+    .catch(steps.failed);
   rec.end(failure);
   expect(failure).toEqual({
     error: "2 failed",
@@ -62,70 +71,6 @@ test("a sweep fails at the phase whose step failed anything, its errors and sub-
     outcome: "failed",
     result: { failedAt: "extract" },
   });
-});
-
-test("a call's context shows the people close now and the projects underway; the rest of the map comes as involved", () => {
-  const person = (id: string) => Person.parse({ id, name: id.toUpperCase() });
-  const project = (id: string, status: Project["status"]) => ({
-    ...Project.parse({ area: "work", id, name: id, schemaVersion: 1, status }),
-    notes: "",
-  });
-  const refs = refContext(
-    {
-      canon: (ref) => ref,
-      inferred: [],
-      truth: {
-        areas: [],
-        chats: [],
-        me: { text: "me" },
-        people: [person("ann"), person("bob"), person("cy")],
-        projects: [project("app", "active"), project("old", "done")],
-      },
-    },
-    new Set(["person:bob"]),
-    new Set(["person:ann"])
-  );
-  expect(refs.context.people.map((p) => p.ref)).toEqual(["person:ann"]);
-  expect(refs.context.projects.map((p) => p.ref)).toEqual(["project:app"]);
-  expect(refs.map.people.map((p) => p.ref)).toEqual([
-    "person:ann",
-    "person:bob",
-    "person:cy",
-  ]);
-  const involved = involvedOf(
-    refs,
-    new Set(["person:ann", "person:bob", "project:old", "person:nobody"])
-  );
-  expect(involved.people.map((p) => [p.ref, p.close])).toEqual([
-    ["person:bob", true],
-  ]);
-  expect(involved.projects.map((p) => [p.ref, p.status])).toEqual([
-    ["project:old", "done"],
-  ]);
-});
-
-test("the map shows each person once: an inferred id folded into another is left out", () => {
-  const guess = (id: string) =>
-    ({ confidence: 0.9, id, name: id, relation: "a guess" }) as InferredPerson;
-  const refs = refContext(
-    {
-      canon: (ref) => (ref === "person:inf_ann" ? "person:ann" : ref),
-      inferred: [guess("inf_ann"), guess("inf_dee")],
-      truth: {
-        areas: [],
-        chats: [],
-        me: { text: "me" },
-        people: [Person.parse({ id: "ann", name: "Ann" })],
-        projects: [],
-      },
-    },
-    new Set(),
-    new Set()
-  );
-  expect(refs.map.people.map((p) => p.ref)).toEqual([
-    "person:ann",
-    "person:inf_dee",
-  ]);
 });
 
 test("a step uses its explicit engine without changing the ordinary engine", async () => {
@@ -146,7 +91,7 @@ test("a metered run reads only its explicit engine quota at start and end", asyn
   }
 });
 
-test("a sweep's selected engine reaches collection, attachments, episodes and extraction", async () => {
+test("a processing run's selected engine reaches collection, attachments, episodes and extraction", async () => {
   const sources = await import("./sources");
   const files = await import("./message-files");
   const steps = await import("./run");
@@ -187,4 +132,52 @@ test("a sweep's selected engine reaches collection, attachments, episodes and ex
     described.mockRestore();
     ready.mockRestore();
   }
+});
+
+test("a call's inputs digest is pinned: the one personas, situations and appointments kept (a change rebuilds them all)", () => {
+  expect(inputsOf("memory-persona.v2", { a: 1 })).toBe("dba367e9d7038416");
+  expect(inputsOf("p", { a: 1 })).not.toBe(inputsOf("q", { a: 1 }));
+});
+
+test("batches run as many at once as their engine takes, the next starting as one ends; a throw starts no new one", async () => {
+  const most = async (engine: "codex" | "openrouter", n: number) => {
+    const dir = mkdtempSync(join(tmpdir(), "batches-"));
+    let [now, top] = [0, 0];
+    const ran: number[] = [];
+    await inBatches(
+      Array.from({ length: n }, (_, i) => i),
+      { dir, llm: llmFor("main", engine) },
+      async (i) => {
+        now += 1;
+        top = Math.max(top, now);
+        await Bun.sleep(1);
+        ran.push(i);
+        now -= 1;
+      }
+    );
+    expect(ran.toSorted((a, b) => a - b)).toEqual(
+      Array.from({ length: n }, (_, i) => i)
+    );
+    expect(readdirSync(dir).length).toBe(n);
+    return top;
+  };
+  expect(await most("openrouter", 100)).toBe(32);
+  expect(await most("codex", 100)).toBe(4);
+  expect(await most("openrouter", 3)).toBe(3);
+
+  const started: number[] = [];
+  const failing = inBatches(
+    Array.from({ length: 20 }, (_, i) => i),
+    {
+      dir: mkdtempSync(join(tmpdir(), "batches-")),
+      llm: llmFor("main", "codex"),
+    },
+    async (i) => {
+      started.push(i);
+      await Bun.sleep(1);
+      throw new Error("refused");
+    }
+  );
+  await expect(failing).rejects.toThrow("refused");
+  expect(started.toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3]);
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDate, slug } from "./fields";
+import { Birthday, isoDate, slug } from "./fields";
 
 // Truth (truth/): owner-approved, in git, the only data that must survive a rebuild.
 
@@ -17,12 +17,7 @@ const Handles = z
 export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
-    // `--MM-DD`, or `YYYY-MM-DD` when the year is known.
-    birthday: z
-      .string()
-      .regex(/^(--|\d{4}-)\d{2}-\d{2}$/)
-      .refine((b) => isoDate.safeParse(b.replace("--", "2000-")).success)
-      .optional(),
+    birthday: Birthday.optional(),
     handles: Handles.default({ email: [], phone: [], whatsapp: [] }),
     id: slug,
     language: z.enum(["en", "fr", "th"]).optional(),

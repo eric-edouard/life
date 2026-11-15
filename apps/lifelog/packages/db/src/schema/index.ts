@@ -1,9 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
-import { bytesOf, vectorOf } from "@life/server/src/core/embedder";
 import { isNull, type SQLWrapper, sql } from "drizzle-orm";
 import {
-  customType,
   index,
   integer,
   primaryKey,
@@ -15,21 +12,19 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-// SQLite, one file, one writer (docs/architecture.md). Instants are epoch milliseconds (Date in
-// code), ids text uuids, JSON text read and written by Drizzle, booleans 0 and 1.
-const instant = (name: string) => integer(name, { mode: "timestamp_ms" });
-const boolean = (name: string) => integer(name, { mode: "boolean" });
-const json = <T = unknown>(name: string) =>
-  text(name, { mode: "json" }).$type<T>();
-const uuid = (name: string) => text(name);
-const newId = () => randomUUID();
+import {
+  boolean,
+  createdAt,
+  instant,
+  json,
+  newId,
+  updatedAt,
+  uuid,
+  vector,
+} from "./columns";
 
-// A vector as Life's core stores it: scored in JS (search.ts), never by the database.
-const vector = customType<{ data: number[]; driverData: Uint8Array }>({
-  dataType: () => "blob",
-  fromDriver: (bytes) => Array.from(vectorOf(bytes)),
-  toDriver: bytesOf,
-});
+// biome-ignore lint/performance/noBarrelFile: the schema index is the tables contract.
+export { appleHealth } from "./apple-health";
 
 // Pendant pages: [[first, last], …] inclusive, sorted, touching ones joined. Admission never buys a
 // page a job or fragment already holds, failed or not (cutter.ts `holderOf`, under the one writer).
@@ -137,13 +132,6 @@ export interface ParsedTranscript {
   turns: Turn[];
   words: Word[];
 }
-
-const createdAt = instant("created_at").notNull().$defaultFn(clock);
-
-const updatedAt = instant("updated_at")
-  .notNull()
-  .$defaultFn(clock)
-  .$onUpdate(clock);
 
 // The ledger. Usage is computed from it (state <> 'failed'), by admittedAt.
 export const transcriptionJobs = sqliteTable(
@@ -320,16 +308,15 @@ export const turns = sqliteTable(
 );
 
 // ---- Speakers and people ----------------------------------------------------
-//
-// A transcript speaker label ("speaker_0") is assigned to a person, to unknown, a stranger, or to an
-// unnamed candidate cluster. Only owner actions create people or add voice evidence;
-// recognition only writes assignments with source "recognized".
-
+// A speaker label ("speaker_0") goes to a person, unknown, a stranger or an unnamed candidate cluster;
+// `not_relevant` is his "Not relevant" (maybe someone he knows; never asked again, never a stranger).
+// Only owner actions create people or add voice evidence; recognition writes only source "recognized".
 export const speakerStatuses = [
   "person",
   "unknown",
   "candidate",
   "media",
+  "not_relevant",
   // Recognized only: sounds like the voices he answered "Not anyone I know" for (people.ts).
   "stranger",
 ] as const;
@@ -406,6 +393,7 @@ export const speakerAssignments = sqliteTable(
     // "Several people" before `candidates`: waits in the queue as it is; dropped once none is left.
     mixed: boolean("mixed").notNull().default(false),
     personId: uuid("person_id").references(() => people.id),
+    rechecked: boolean("rechecked").notNull().default(false),
     score: real("score"),
     source: text("source", { enum: assignmentSources }).notNull(),
     speakerLabel: text("speaker_label").notNull(),
@@ -423,12 +411,11 @@ export const speakerAssignments = sqliteTable(
   ]
 );
 
-// A card of the voices to name (naming-queue.ts): a group of unnamed voices that talked with the
-// owner, with the name the summaries heard for it. Its id is the group's: the unnamed group
-// recognition keeps, or its one voice's id (`voiceId`, job/label).
+// A naming card (naming-queue.ts), identified by its voice group or job/label.
 export const suggestionKinds = [
   "new_person",
   "known_person",
+  "recheck",
   "several",
 ] as const;
 export type Candidates = NonNullable<
@@ -441,10 +428,10 @@ export interface Suggestion {
   // Turns it traded with the owner (one each way).
   exchanges: number;
   id: string;
-  // known_person: the summaries think it is `personId`.
   kind: (typeof suggestionKinds)[number];
   name: string | null;
-  personId: string | null;
+  namedPersonId: string | null; // recheck: the person he named
+  personId: string | null; // known_person: who the summaries think it is; recheck: who it sounds like
   seconds: number;
   voices: {
     conversationId: string;

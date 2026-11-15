@@ -1,6 +1,7 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
+import { createMcpHandler } from "@modelcontextprotocol/server";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -15,9 +16,9 @@ import {
   settings,
   connector as settingsOf,
 } from "../../core/settings";
-import { LEDGER } from "../../memory/ledger";
+import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
-import { readTold, TOLD } from "../../memory/told";
+import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
   conversation,
@@ -28,7 +29,7 @@ import {
 } from "../../sources/store-fixtures";
 import { ask } from "../asks";
 import { ownerTokens } from "./auth";
-import { correct, createMcp } from "./mcp";
+import { buildServer, correct, createMcp } from "./mcp";
 
 const { metadata, origin, resource: RESOURCE } = settingsOf();
 const ISSUER = `${origin}/auth`;
@@ -160,7 +161,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: fifteen read-only tools; `correct_memory` asks for approval, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -176,6 +177,8 @@ test("tools/list: fifteen read-only tools; `correct_memory` asks for approval, `
     "read_day",
     "read_fact_checks",
     "read_life_status",
+    "read_matter",
+    "read_matters",
     "read_memory_changes",
     "read_new_events",
     "read_observation",
@@ -185,6 +188,38 @@ test("tools/list: fifteen read-only tools; `correct_memory` asks for approval, `
     "read_processing_runs",
     "search",
     "tell_life",
+  ]);
+  // The arguments' names are pinned too: a part of a read goes through `fetch`'s `id`, never a new argument.
+  expect(
+    json.result.tools
+      .map(
+        (t: { inputSchema: { properties?: object }; name: string }) =>
+          `${t.name}(${Object.keys(t.inputSchema.properties ?? {})
+            .sort()
+            .join(",")})`
+      )
+      .sort()
+  ).toEqual([
+    "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
+    "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
+    "fetch(fromTurn,id,limit)",
+    "read_agent_asks(cursor,limit)",
+    "read_area_page(name)",
+    "read_chats(before,chat,from,to,who)",
+    "read_day(date)",
+    "read_fact_checks()",
+    "read_life_status()",
+    "read_matter(id)",
+    "read_matters(area,person,project)",
+    "read_memory_changes(about,cursor,limit,run,since,types)",
+    "read_new_events(arguments,cursor,event,limit)",
+    "read_observation(id)",
+    "read_open_todo_items(list)",
+    "read_person_page(before,name)",
+    "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
+    "read_processing_runs(cursor,limit,steps)",
+    "search(from,query,to)",
+    "tell_life(asked,said)",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
@@ -569,8 +604,8 @@ test("places: each stay lists the conversations recorded during it", async () =>
 });
 
 test("with the actions output off, the connector offers no Reminders tool", async () => {
-  const on = settings().todo_list;
-  setSettings({ todo_list: null });
+  const on = settings().todoList;
+  setSettings({ todoList: null });
   try {
     const { json } = await rpc(await token(), "tools/list");
     const names = json.result.tools.map((t: { name: string }) => t.name);
@@ -578,7 +613,27 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     expect(names).not.toContain("read_open_todo_items");
     expect(names).toContain("read_agent_asks");
   } finally {
-    setSettings({ todo_list: on });
+    setSettings({ todoList: on });
+  }
+});
+
+test("read_fact_checks keeps its output keys: factChecks, each with doubts, from, quote, ref, text", async () => {
+  const checks = await import("../../memory/checks");
+  const evidence = { from: "f", quote: "q" };
+  const check = [{ evidence, guess: "g", kind: "ending", ref: "a" }];
+  const spy = spyOn(checks, "checksNow").mockResolvedValue(check as never);
+  try {
+    const { json } = await rpc(await token(), "tools/call", {
+      arguments: {},
+      name: "read_fact_checks",
+    });
+    const body = JSON.parse(json.result.content[0].text);
+    expect(Object.keys(body)).toEqual(["factChecks"]);
+    expect(Object.keys(body.factChecks[0]).sort().join()).toBe(
+      "doubts,from,quote,ref,text"
+    );
+  } finally {
+    spy.mockRestore();
   }
 });
 
@@ -592,7 +647,7 @@ test("a fact check's answer is his: an agent's token is refused", async () => {
 });
 
 test("tell_life keeps his words verbatim, marked, the question as the assistant's line; an agent's call is refused", async () => {
-  rmSync(TOLD, { force: true });
+  rmSync(TOLD_LIFE, { force: true });
   const tell = async (over: Record<string, unknown>) =>
     (
       await rpc(await token(over), "tools/call", {
@@ -605,7 +660,7 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
     ).json.result;
   expect(await tell({})).toMatchObject({ isError: true });
   expect(await tell({ agent: undefined })).toMatchObject({ isError: false });
-  const [asked, said] = readTold(new Date(0));
+  const [asked, said] = readToldLife(new Date(0));
   expect(asked).toMatchObject({
     fromMe: false,
     text: "Where did you grow up?",
@@ -613,7 +668,132 @@ test("tell_life keeps his words verbatim, marked, the question as the assistant'
   expect(said).toMatchObject({
     fromMe: true,
     marked: true,
-    source: "told",
+    source: "told-life",
     text: "In Lyon, until 12.",
   });
+});
+
+test("built to serve reads only (the question cases' agent), the connector registers no tool that writes or acts", async () => {
+  const handler = createMcpHandler(() => buildServer(true));
+  const res = await handler.fetch(
+    new Request(RESOURCE, {
+      body: JSON.stringify({ id: 1, jsonrpc: "2.0", method: "tools/list" }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+      },
+      method: "POST",
+    })
+  );
+  const body = await res.text();
+  const data = body.split("\n").find((l) => l.startsWith("data:"));
+  const tools: { annotations: Record<string, boolean>; name: string }[] =
+    JSON.parse(data ? data.slice(5) : body).result.tools;
+  const names = tools.map((t) => t.name);
+  expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
+  for (const writes of ["correct_memory", "change_todo_item", "tell_life"]) {
+    expect(names).not.toContain(writes);
+  }
+  expect(names).toContain("read_person_page");
+  expect(names).toContain("search");
+});
+
+test("read_matters lists the open matters, of one project when asked; read_matter opens one with its steps", async () => {
+  const who = await import("../../memory/who");
+  const matters = await import("../../memory/matters");
+  const step = (kind: string, text: string, day: string, ref: string) => ({
+    at: `${day}T10:00:00.000Z`,
+    day,
+    ended: false,
+    kind,
+    quote: `"${text}" said Gran`,
+    ref,
+    text,
+  });
+  const view = (over: object) => ({
+    areas: [],
+    lone: false,
+    open: true,
+    owedTo: [],
+    projects: [],
+    told: [],
+    waitingOn: [],
+    with: [],
+    ...over,
+  });
+  const steps = [
+    step("episode", "Gran's watch", "2026-10-02", "ep_000000000001"),
+    step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
+  ];
+  const errand = view({
+    id: "matter_aaaaaaaaaaaa",
+    name: "Mend Gran's watch",
+    next: steps[1],
+    owedTo: ["person:gran"],
+    projects: ["shop-fit-out"],
+    status: "moving",
+    steps,
+    with: ["person:partner"],
+  });
+  const other = view({
+    id: "matter_bbbbbbbbbbbb",
+    name: "Renew the lease",
+    next: step(
+      "waiting_on_someone",
+      "Landlord's reply",
+      "2026-10-01",
+      "obs_000000000009"
+    ),
+    status: "waiting_on_someone",
+    steps: [],
+    waitingOn: ["person:shop"],
+  });
+  const people = spyOn(who, "readPeople").mockResolvedValue({
+    nameOf: (r: string) => r.replace("person:", ""),
+    truth: {
+      areas: [],
+      projects: [{ id: "shop-fit-out", name: "Shop fit-out" }],
+    },
+  } as never);
+  const book = spyOn(matters, "readMatterBook").mockResolvedValue([
+    errand,
+    other,
+    {
+      ...view({ id: "matter_cccccccccccc", name: "Old", steps: [] }),
+      open: false,
+      status: "done",
+    },
+  ] as never);
+  try {
+    const call = async (name: string, args: object) =>
+      (await rpc(await token(), "tools/call", { arguments: args, name })).json
+        .result.content[0].text as string;
+    const all = await call("read_matters", {});
+    expect(all).toContain(
+      "- matter_aaaaaaaaaaaa Mend Gran's watch [moving]; owed to gran; next: Call the shop (2026-10-12)"
+    );
+    expect(all).toContain("waiting on shop");
+    expect(all).not.toContain("Old");
+    const ofProject = await call("read_matters", { project: "Shop fit-out" });
+    expect(ofProject).toContain("matter_aaaaaaaaaaaa");
+    expect(ofProject).not.toContain("matter_bbbbbbbbbbbb");
+    const one = (
+      await call("read_matter", { id: "matter_aaaaaaaaaaaa" })
+    ).split("\n");
+    expect(one.slice(0, 4)).toEqual([
+      "matter_aaaaaaaaaaaa Mend Gran's watch [moving]",
+      "owed to: gran",
+      "with: partner",
+      "Projects: shop-fit-out",
+    ]);
+    expect(one).toContain(
+      '- 2026-10-12 promise obs_000000000005: Call the shop ""Call the shop" said Gran"'
+    );
+    expect(await call("read_matter", { id: "matter_zzzzzzzzzzzz" })).toBe(
+      "No matter matter_zzzzzzzzzzzz."
+    );
+  } finally {
+    people.mockRestore();
+    book.mockRestore();
+  }
 });

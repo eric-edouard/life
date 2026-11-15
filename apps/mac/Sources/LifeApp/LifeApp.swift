@@ -282,7 +282,7 @@ struct SettingsView: View {
     }
     // The to-do list with Reminders as its backend; null turns it off.
     let todoList: Any = on ? ["backend": "reminders"] as Any : NSNull()
-    await set(["todo_list": todoList])
+    await set(["todoList": todoList])
     await supervisor.restart()
   }
 

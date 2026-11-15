@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
+  conversationJobs,
   conversations,
   live,
   people,
@@ -21,7 +22,7 @@ import {
   speakerAssignments,
   voiceSamples,
 } from "@lifelog/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock } from "./config";
@@ -37,6 +38,7 @@ import {
   type Target,
   voiceId,
 } from "./people";
+import { likelyOf, recheckOf } from "./sounds-like";
 import { latestValid } from "./summaries";
 import type { Result } from "./summary-calls";
 import { type LoadedTurn, loadTurns } from "./transcript";
@@ -237,6 +239,7 @@ function cardOf(
     id: group,
     kind: personId ? "known_person" : "new_person",
     name: mostOf(voices.flatMap((v) => v.names)),
+    namedPersonId: null,
     personId,
     seconds: Math.round(seconds),
     voices: voices.map(({ conversationId, jobId, speakerLabel }) => ({
@@ -247,7 +250,109 @@ function cardOf(
   };
 }
 
-export type Card = Suggestion & { clips: Clip[]; words: number };
+// `likely`: everyone, the most like its voice first (the phone orders its names by it).
+export type Card = Suggestion & {
+  clips: Clip[];
+  likely: string[];
+  words: number;
+};
+
+// The voices to recheck: each speaker he named, judged without its own conversations
+// (sounds-like.ts `recheckOf`), the most doubtful first. A turn with its own answer is not the
+// speaker's sample.
+// ponytail: every named voice is judged again on each build (0.7 s for 700 of them, in the
+// worker); keep each voice's verdict between builds if that grows.
+function readRechecks(
+  db: Db,
+  reader: ReturnType<typeof readVoices>,
+  clip: ReturnType<typeof readClip>
+) {
+  const rows = db
+    .select()
+    .from(speakerAssignments)
+    .where(
+      and(
+        eq(speakerAssignments.source, "owner"),
+        isNull(speakerAssignments.turnIndex),
+        isNotNull(speakerAssignments.personId),
+        isNull(speakerAssignments.candidates),
+        eq(speakerAssignments.rechecked, false),
+        sql`exists (select 1 from ${conversationJobs} c where c.job_id = ${speakerAssignments.jobId})`
+      )
+    )
+    .all();
+  const clipsOf = cardClips(db, reader, clip);
+  return rows
+    .flatMap((row) => {
+      const samples = reader.samples([row]);
+      const heard =
+        row.personId &&
+        recheckOf(
+          samples,
+          row.personId,
+          reader.profiles,
+          new Set(samples.map((s) => s.conversationId))
+        );
+      if (!heard) {
+        return [];
+      }
+      const group = voiceId(row.jobId, row.speakerLabel);
+      const voices = new Map<string, Voice>();
+      for (const sample of samples) {
+        const found = clip(sample);
+        if (!found) {
+          continue;
+        }
+        const voice =
+          voices.get(found.conversationId) ??
+          newVoice(
+            found.conversationId,
+            found.turn,
+            row.speakerLabel,
+            group,
+            false
+          );
+        voice.seconds += found.turn.endSeconds - found.turn.startSeconds;
+        voice.words.set(
+          turnRef(row.jobId, sample.turnIndex),
+          found.turn.words.length
+        );
+        voices.set(found.conversationId, voice);
+      }
+      if (!voices.size) {
+        return [];
+      }
+      const members = [...voices.values()];
+      const card: Suggestion = {
+        ...cardOf(
+          group,
+          members,
+          members.reduce((sum, v) => sum + v.seconds, 0),
+          0
+        ),
+        kind: "recheck",
+        namedPersonId: row.personId,
+        personId: heard.personId,
+      };
+      return [
+        {
+          card: {
+            ...card,
+            clips: clipsOf(card),
+            likely: likelyOf(reader.samples(card.voices), reader.profiles),
+            words: members.reduce(
+              (sum, v) =>
+                sum + [...v.words.values()].reduce((a, b) => a + b, 0),
+              0
+            ),
+          },
+          share: heard.share,
+        },
+      ];
+    })
+    .sort((a, b) => b.share - a.share)
+    .map(({ card }) => card);
+}
 
 // Split groups are map-only cards; their members include every sample, even past the clip cut.
 function readSplitCards(
@@ -296,6 +401,7 @@ function readSplitCards(
         // Map point/card ids are strings: turns/ reserves the split-group namespace.
         ...cardOf(`turns/${group}`, voices, seconds, 0),
         clips,
+        likely: [],
         words,
       };
       return clips.length
@@ -421,8 +527,8 @@ const conversationsOf = (db: Db) =>
     .all()
     .map((c) => c.id);
 
-// Only eligible, returned cards get clips. Playable cards come first, then the most words a
-// name unlocks, so the first card is useful to hear and to answer.
+// Only eligible, returned cards get clips. Playable cards first, then those with samples (names
+// to offer, a profile to teach), then the most words a name unlocks: the first card is useful.
 function cardsOf(
   db: Db,
   voices: Voice[],
@@ -432,13 +538,19 @@ function cardsOf(
   const clipsOf = cardClips(db, reader, clip);
   return suggest(db, voices, reader)
     .map(({ card, words }) => ({
-      card: { ...card, clips: clipsOf(card) },
+      card: {
+        ...card,
+        clips: clipsOf(card),
+        likely: likelyOf(reader.samples(card.voices), reader.profiles),
+      },
       words,
     }))
     .sort(
       (a, b) =>
         Number(b.card.clips.some((c) => c.audio || c.at)) -
-          Number(a.card.clips.some((c) => c.audio || c.at)) || b.words - a.words
+          Number(a.card.clips.some((c) => c.audio || c.at)) ||
+        Number(b.card.likely.length > 0) - Number(a.card.likely.length > 0) ||
+        b.words - a.words
     )
     .map(({ card, words }) => ({ ...card, words }));
 }
@@ -497,6 +609,7 @@ export function readVoiceMap(
 export function namingQueue(db: Db) {
   let kept: {
     items: ReturnType<typeof cardsOf>;
+    rechecks: Card[];
     reader: ReturnType<typeof readVoices>;
     clip: ReturnType<typeof readClip>;
     ownerId: string;
@@ -537,6 +650,7 @@ export function namingQueue(db: Db) {
         items: cardsOf(db, [...voices.values()].flat(), reader, clip),
         ownerId: owner.id,
         reader,
+        rechecks: readRechecks(db, reader, clip),
         seen: touched.through,
         voices,
       };
@@ -547,6 +661,10 @@ export function namingQueue(db: Db) {
       const items = this.items();
       return readVoiceMap(db, items, kept?.reader, kept?.clip);
     },
+    rechecks() {
+      this.items();
+      return kept?.rechecks ?? [];
+    },
   };
 }
 
@@ -555,6 +673,7 @@ export type CardAnswer =
   | { kind: "assign"; personId: string }
   | { kind: "ignore" }
   | { kind: "media" }
+  | { kind: "not_relevant" }
   | { kind: "several"; people: string[]; unknown: boolean };
 
 // The person an answer already names: the one picked, or the one whose name or alias the owner
@@ -573,9 +692,9 @@ function existingPerson(db: Db, action: CardAnswer) {
 
 // "Several people": who, named passage by passage in place, and the one besides the owner to
 // fall back on in a closed set (owner, Oct 15).
-function severalTarget(
+export function severalTarget(
   db: Db,
-  { people: ids, unknown }: Extract<CardAnswer, { kind: "several" }>
+  { people: ids, unknown }: { people: string[]; unknown: boolean }
 ): Target {
   const chosen = db.select().from(people).where(inArray(people.id, ids)).all();
   const [other, more] = chosen.filter((p) => !p.isOwner);
@@ -603,8 +722,8 @@ export function answerVoices(
     let target: Target = { kind: "unknown" };
     if (several) {
       target = several;
-    } else if (action.kind === "media") {
-      target = { kind: "media" };
+    } else if (action.kind === "media" || action.kind === "not_relevant") {
+      target = { kind: action.kind };
     } else if (personId) {
       target = { kind: "person", personId };
     } else if (action.kind === "confirm") {

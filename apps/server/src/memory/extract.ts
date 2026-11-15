@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
+import { packed } from "../core/lists";
 import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import {
@@ -19,19 +20,20 @@ import {
   isRereadSince,
   latestBy,
   OBSERVATIONS,
+  observationStatusOf,
   readBy,
   readEpisodes,
   readVerdicts,
   rereadAt,
   SUPERSESSIONS,
-  stateOf,
   UNRESOLVED,
   type Verdicts,
   verdictOf,
-} from "./ledger";
-import { parseObservations, type Reject, type Source } from "./observe";
+} from "./memory-files";
+import { involvedOf, refContext } from "./model-context";
+import { parseObservations, type Reject, type Source } from "./quote-check";
 import { othersIn } from "./read-truth";
-import { begin, inBatches, involvedOf, refContext } from "./run";
+import { begin, inBatches } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup } from "./tags";
 import { type Built, type Evidence, MARKED, UNKNOWN } from "./units";
@@ -141,29 +143,9 @@ export function groupsOf(
   return { copies: pending.filter((b) => copied.has(b.unit.id)), groups };
 }
 
-/** Groups packed into calls of at most `budget` characters of lines; a group is never split. */
-export function packed<T extends { sources: Source[] }>(
-  groups: T[],
-  budget = BUDGET
-) {
-  const out: T[][] = [];
-  let current: T[] = [];
-  let chars = 0;
-  for (const g of groups) {
-    const n = g.sources.reduce((k, x) => k + size(x), 0);
-    if (current.length > 0 && chars + n > budget) {
-      out.push(current);
-      current = [];
-      chars = 0;
-    }
-    current.push(g);
-    chars += n;
-  }
-  if (current.length > 0) {
-    out.push(current);
-  }
-  return out;
-}
+/** The characters of a group's lines: what a call of groups is packed by (`packed`). */
+const groupSize = (g: { sources: Source[] }) =>
+  g.sources.reduce((n, x) => n + size(x), 0);
 
 /**
  * A group cut between its days into runs that fit the budget (a day is never cut): an episode over the budget alone, a
@@ -176,7 +158,8 @@ export function byDays<T extends Group & { sources: Source[] }>(
   const days = Map.groupBy(group.sources, (s) => s.unit.date).values();
   return packed(
     [...days].map((sources) => ({ sources })),
-    budget
+    budget,
+    groupSize
   ).map((run) => {
     const sources = run.flatMap((d) => d.sources);
     const ids = new Set(sources.map((s) => s.unit.id));
@@ -192,7 +175,7 @@ export function byDays<T extends Group & { sources: Source[] }>(
  * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
- * reading: the readers resolve a fact's author and entities as of today (`aboutNow`). `unkept`: units read before
+ * reading: the readers resolve a fact's author and subjects as of today (`aboutNow`). `unkept`: units read before
  * that their latest verdict no longer keeps (content changed, or a re-read judged them lower): their facts are
  * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading).
  */
@@ -244,7 +227,7 @@ async function appendObservations(list: Observation[]) {
 }
 
 /**
- * Calls in lanes, run PARALLEL lanes at a time and a lane's calls one after another: the calls holding one episode (cut
+ * Calls in lanes, several lanes at once (`inBatches`) and a lane's calls one after another: the calls holding one episode (cut
  * between its days) share a lane, in order, so its later days see what its earlier ones wrote.
  */
 export function lanesOf<T extends { episode: Episode | null }[]>(calls: T[]) {
@@ -299,14 +282,14 @@ export function priorFor(
   const people = new Set(othersIn(peopleOf(group)));
   const about = (o: Observation) =>
     o.date >= daysBefore(day, PRIOR_DAYS) &&
-    (o.entities.some((e) => people.has(e)) ||
-      (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
+    (o.subjects.some((e) => people.has(e)) ||
+      (othersIn(o.subjects).length === 0 && o.date >= daysBefore(day, 1)));
   const own = new Set(group.episode?.units);
   const ofEpisode = (o: Observation) => own.has(o.unit);
   const lasting = (o: Observation) =>
     o.type === "about_a_person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
-    o.entities.some((e) => people.has(e) && close.has(e));
+    o.subjects.some((e) => people.has(e) && close.has(e));
   const slots: [(o: Observation) => boolean, number][] = [
     [about, max],
     [ofEpisode, EPISODE_MAX],
@@ -360,7 +343,7 @@ export async function extract(evidence: Evidence) {
       ...b,
       unit: unitNow(b.unit, refOf),
     }));
-  const [written, { observations: known, standing }] = await Promise.all([
+  const [written, { observations: known, statusInputs }] = await Promise.all([
     readEpisodes(),
     observationsNow(people),
   ]);
@@ -373,7 +356,7 @@ export async function extract(evidence: Evidence) {
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
-    const s = stateOf(o, standing);
+    const s = observationStatusOf(o, statusInputs);
     if (s.state === "retired") {
       // One he said is outdated (retired by itself: a rating or a correction) is closed for good.
       return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
@@ -409,16 +392,20 @@ export async function extract(evidence: Evidence) {
       // In time order: a call sees the facts its lane's calls and the lanes before wrote (`lanesOf`).
       .toSorted((a, b) =>
         (a.units[0]?.unit.date ?? "").localeCompare(b.units[0]?.unit.date ?? "")
-      )
+      ),
+    BUDGET,
+    groupSize
   );
   const lanes = lanesOf(calls);
 
   const levels = levelsWith(people);
   const close = personallyClose(levels);
   const refs = refContext(people, close, contextPeopleBy(levels));
-  // Refs are checked against the whole map, not only what a call was shown.
+  // Refs are checked against the whole directory, not only what a call was shown.
   const candidates = new Set(
-    [refs.map.people, refs.map.projects].flatMap((l) => l.map((x) => x.ref))
+    [refs.directory.people, refs.directory.projects].flatMap((l) =>
+      l.map((x) => x.ref)
+    )
   );
 
   const madeBy = stamp(step.llm, EXTRACT_PROMPT, step.run);
@@ -476,9 +463,9 @@ export async function extract(evidence: Evidence) {
             ...namedIn(
               sources.flatMap((s) => s.lines.map((l) => l.text)),
               resolve,
-              refs.map.projects
+              refs.directory.projects
             ),
-            ...prior.flatMap((o) => o.entities),
+            ...prior.flatMap((o) => o.subjects),
           ])
         ),
         prior: prior.map((o) => ({ date: o.date, id: o.id, text: o.text })),
@@ -515,22 +502,22 @@ export async function extract(evidence: Evidence) {
         unresolved.push({
           at,
           date: date.get(u.unit) ?? today,
+          nameAsWritten: u.nameAsWritten,
           observation: u.observation,
           schemaVersion: 1,
-          surface: u.surface,
           unit: u.unit,
           via: "model",
         });
       }
       finished.push(...sources);
     });
-  await inBatches(lanes, step.dir, async (lane, bdir) => {
+  await inBatches(lanes, step, async (lane, bdir) => {
     for (const [k, call] of lane.entries()) {
       // biome-ignore lint/performance/noAwaitInLoops: a lane's calls go in order, each seeing the facts of the last
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);
     }
   });
-  // Names lifelog gave a voice that the map doesn't know (a chat's unknown senders are handles, not names).
+  // Names lifelog gave a voice that the directory doesn't know (a chat's unknown senders are handles, not names).
   for (const { unit } of finished.filter(
     (s) => kindOf(s.unit.source) === "voice"
   )) {
@@ -538,8 +525,8 @@ export async function extract(evidence: Evidence) {
       unresolved.push({
         at,
         date: unit.date,
+        nameAsWritten: p.slice(UNKNOWN.length),
         schemaVersion: 1,
-        surface: p.slice(UNKNOWN.length),
         unit: unit.id,
         via: "speaker",
       });
@@ -565,7 +552,7 @@ export async function extract(evidence: Evidence) {
     ...[...finished, ...copies].map(({ unit }) =>
       line(unit, perUnit.get(unit.id) ?? 0)
     ),
-    // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, ledger.ts).
+    // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, memory-files.ts).
     ...unkept.map(({ unit }) => ({ ...line(unit, 0), unkept: true as const })),
   ]);
   await appendJsonl(UNRESOLVED, Unresolved, unresolved);

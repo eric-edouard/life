@@ -1,11 +1,13 @@
 import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
+import { count } from "../core/lists";
 import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
+import type { Check } from "../memory/checks";
 import {
   type Digest,
   LIFE_MAIL,
@@ -18,7 +20,6 @@ import type { describeFiles } from "../memory/message-files";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
-import { count } from "../memory/units";
 import { localDate, localTime, time, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../records/ledger-entry";
@@ -44,17 +45,19 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
+  /** What Life would like him to verify (`checksNow`), most load-bearing first: every one, none left out. */
+  checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   /** The days whose episodes were read again, and how many episodes they hold. */
   episodes: Result<typeof episodes>;
   extracted: Result<typeof extract>;
-  /** The importance-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
-  facts: { id: string; page: string; text: string }[];
   /** The files the night read (`describeFiles`): its failed calls and missing tools never fail the night. */
   files?: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
+  /** The importance-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
+  keyObservations: { id: string; page: string; text: string }[];
   /** Each unit holding his words to Life (its marks), read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): hand runs' included. */
@@ -65,7 +68,7 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: hand runs' included. */
   retired: number;
-  /** What the model calls of the last 24 h spent, a line per run and per sweep's step (`spent`, nightly.ts). */
+  /** What the model calls of the last 24 h spent, a line per run and per processing run's step (`spent`, nightly.ts). */
   spent: string[];
 }
 
@@ -75,15 +78,25 @@ export const duration = (ms: number) =>
 const percent = (x: number | null) =>
   x === null ? "-" : `${Math.round(x * 100)}%`;
 
+/** What a check settles, in words: "settles 3 facts and 2 open matters"; a part that is zero is left out. */
+const ridesText = (r: Check["ridesOn"]) =>
+  `settles ${[
+    r.observations > 0 && count(r.observations, "observation"),
+    r.matters > 0 && count(r.matters, "open matter"),
+    r.pages > 0 && count(r.pages, "page"),
+  ]
+    .filter(Boolean)
+    .join(" and ")}`;
+
 /** One row of a section as text. */
 function textLine(s: Section) {
   switch (s.kind) {
-    case "facts":
+    case "observations":
       return s.list.map((f) => `- ${f.text} [${f.page}]`);
     case "changes":
       return s.list.map(
         (c) =>
-          `- ${c.page}: +${c.added} added, ${c.moved} moved to History, ${c.removed} removed`
+          `- ${c.page}: +${c.added} added, ${c.moved} moved to Earlier, ${c.removed} removed`
       );
     default:
       return s.list.map((p) => `- ${p.name}: ${p.relation}`);
@@ -139,13 +152,18 @@ export function successReport(day: string, ms: number, n: Night) {
     ...new Set([n.episodes, n.extracted, n.paged].map((s) => s.model)),
   ].join(", ");
   const mail = compose(
-    `${date} · ${count(n.facts.length, "new fact")}, ${count(changes.length, "page")}${done.length > 0 ? `, ${count(done.length, "action")}` : ""}`,
+    `${date} · ${count(n.keyObservations.length, "new key observation")}, ${count(changes.length, "page")}${done.length > 0 ? `, ${count(done.length, "action")}` : ""}`,
     {
       date,
       failure: null,
       models,
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
+        ...(n.checks.length > 0
+          ? [
+              "Checks: Life keeps using its guesses; to settle one, tell Life in a chat or the app.",
+            ]
+          : []),
         ...(n.paged.dropped.length > 0
           ? [
               `Pages no longer kept (git has them): ${n.paged.dropped.join(", ")}`,
@@ -170,9 +188,17 @@ export function successReport(day: string, ms: number, n: Night) {
         ...n.spent,
         "Failures: none",
       ],
-      preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
+      preheader: `${count(n.keyObservations.length, "new key observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
+        {
+          kind: "pairs",
+          list: n.checks.map((c) => ({
+            name: c.guess,
+            relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
+          })),
+          title: "Checks",
+        },
         {
           kind: "pairs",
           list: [
@@ -196,12 +222,19 @@ export function successReport(day: string, ms: number, n: Night) {
           title: "Code yesterday",
         },
         { kind: "pairs", list: n.marked, title: "Told Life" },
-        { kind: "facts", list: n.facts, title: "What it found" },
+        {
+          kind: "observations",
+          list: n.keyObservations,
+          title: "What it found",
+        },
         { kind: "pairs", list: n.episodes.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },
       ],
       stats: [
-        { label: "new facts", value: String(n.facts.length) },
+        {
+          label: "new key observations",
+          value: String(n.keyObservations.length),
+        },
         { label: "pages changed", value: String(changes.length) },
         { label: "people inferred", value: String(n.episodes.people.length) },
         { label: "agreement", value: percent(a.agreement) },
@@ -259,7 +292,7 @@ function alert(
   return compose(subject, { date, label, weekday, ...rest });
 }
 
-/** The watcher's alert (`mailStuckLock`): a run has held the lock over 3 hours, so no night or midday can start. */
+/** The watcher's alert (`mailStuckLock`): a run has held the lock over 3 hours, so no night or backfill can start. */
 export const lockReport = (since: string) =>
   alert(since, "Life nightly", {
     failure: {
@@ -267,7 +300,7 @@ export const lockReport = (since: string) =>
       step: "the lock",
     },
     notes: [
-      "No night or midday starts while it holds it. Details: derived/log, and the pid in ~/Life/.nightly.lock",
+      "No night or backfill starts while it holds it. Details: derived/log, and the pid in ~/Life/.nightly.lock",
     ],
     preheader: `A run has held the lock since ${time(since)}.`,
     stats: [{ label: "held since", value: time(since) }],
@@ -300,7 +333,7 @@ export const redReport = (
       step: "its status",
     },
     notes: [
-      "A source Life can't read holds its days back: no episodes or facts for them until it reads again.",
+      "A source Life can't read holds its days back: no episodes or observations for them until it reads again.",
       "Details: the app's status cards, derived/log",
     ],
     preheader: `Broken now: ${red.map((c) => c.name).join(", ")}.`,

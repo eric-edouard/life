@@ -1,5 +1,6 @@
-import { clock, daysBefore, MIN } from "../core/clock";
+import { clock, daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
+import { count } from "../core/lists";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { redact } from "../core/redact";
@@ -18,14 +19,18 @@ import {
   turnRef,
   withStore,
 } from "../sources/lifelog";
-import { WEB } from "../sources/screen";
+import {
+  deviceDayText,
+  measurementDayText,
+  photoDayText,
+} from "./activity-days";
 import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
   readFiles,
   readInferredRepos,
   readUnits,
-} from "./ledger";
+} from "./memory-files";
 import { describeFiles, showFiles } from "./message-files";
 import { OWNER, ownerIn, type Truth } from "./read-truth";
 import {
@@ -62,6 +67,8 @@ export interface Message {
   at: string;
   bulk?: boolean;
   fromMe: boolean;
+  /** Mail only: see `SourceEvent.hasOwnerWrittenInThread`. */
+  hasOwnerWrittenInThread?: boolean;
   id: string;
   /** The sender is someone he knows: a person `resolve` names, or (mail) one his Contacts hold. */
   known: boolean;
@@ -72,7 +79,7 @@ export interface Message {
 }
 
 /** Who a name, handle or address is (`foldsOf`, who.ts: the one resolver), or null. */
-export type Resolve = (surface: string) => string | null;
+export type Resolve = (nameOrHandle: string) => string | null;
 
 export interface Built {
   messages: Message[];
@@ -83,18 +90,37 @@ export interface Built {
 
 export const unitId = (...parts: string[]) =>
   `unit_${digest("sha1", parts.join("|"), 12)}`;
-/** The id of the chat-day (thread-day, note-day, repo-day) an event is in. */
+/** The id of the chat-day (thread-day, note-day, repo-day, device-day, measurement-day or photo-day) an event is in. */
 export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
 
-/** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
+/**
+ * Lower case, no accents, Latin letters and digits only: the recipe of stored text and ids (observation ids, entry ids,
+ * slugs, the passages column, topic tags), never to change. Names are compared with `nameKey`.
+ */
 export const normalize = (s: string) =>
   s
     .normalize("NFD")
     .replace(MARKS, "")
     .toLowerCase()
     .replace(NON_ALNUM, " ")
+    .trim();
+
+// Latin accents and variation selectors (the emoji "❤️" is two characters): dropped; other scripts' marks tell words apart.
+const DROPPED_MARKS = /[\u0300-\u036f\ufe00-\ufe0f]/g;
+const NOT_NAME = /[^\p{L}\p{N}\p{M}]+/gu;
+
+/**
+ * How a person's or a project's name is compared, computed fresh on both sides: lower case, Latin accents removed,
+ * letters, digits and marks of every script kept. Never stored, never an id: ids and stored text use `normalize`.
+ */
+export const nameKey = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(DROPPED_MARKS, "")
+    .toLowerCase()
+    .replace(NOT_NAME, " ")
     .trim();
 
 const SUMMARY_MAX = 300;
@@ -108,7 +134,7 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
 /** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
 const agentReports = () => [
   ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
-  ...settings().reports,
+  ...settings().agentReportSenders,
 ];
 
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
@@ -116,7 +142,7 @@ export const MARKED = "[He asked Life to keep what he says here.]";
 
 /**
  * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its
- * conversation is live (`frozenUnits`), never built again, as the facts, his ratings and corrections cite it (AGENTS.md);
+ * conversation is live (`frozenUnits`), never built again, as the facts, his fact-check answers and corrections cite it (AGENTS.md);
  * its conversation gets no conversation-days.
  * ponytail: a conversation that had chapters when conversation-days came stays chapter-only, even if it grows after;
  * build days for its later turns if that matters.
@@ -222,23 +248,39 @@ export function oneToOne(b: Built) {
     : undefined;
 }
 
-/** Events cut into one list per unit: source, chat (or thread, note, repo) and local day. */
+/** One list per chat-day, thread-day, note-day, repo-day, device-day, measurement-day or photo-day, by source and local day. */
 const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** One chat's, thread's, note's, repo's or device's events of a day, cut into its unit by its source's kind. */
+/** A chat-day, thread-day, note-day, repo-day, device-day, measurement-day or photo-day, cut by its source's kind. */
 function cut(list: SourceEvent[], resolve: Resolve) {
   const kind = kindOf((list[0] as SourceEvent).source);
   if (kind === "repo") {
     return repoDay(list);
   }
-  return kind === "screen" ? deviceDay(list) : chatDay(list, resolve);
+  if (kind === "screen") {
+    return activityDay(list, deviceDayText(list));
+  }
+  if (kind === "photos") {
+    return activityDay(list, photoDayText(list));
+  }
+  return kind === "physical"
+    ? activityDay(list, measurementDayText(list))
+    : chatDay(list, resolve);
 }
 
 /** Chat-days, mail thread-days, note-days and repo-days: every event of one chat, thread, note or repo on one local day. */
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => cut(list, resolve));
+
+/**
+ * The units of every source but lifelog, from their events with files shown (`showFiles`), the code rules applied: the
+ * night's (`gather`) and the watcher's today (`buildTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
+ * meet these, so the `duplicate` rule is the same either way.
+ */
+export const sourceUnitsOf = (shown: SourceEvent[], resolve: Resolve) =>
+  applyRules(messageUnits(shown, resolve), keptConversations());
 
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
@@ -272,6 +314,7 @@ export const lineOf = (
 ) =>
   `${time(at)} ${speaker.startsWith(UNKNOWN) ? unknownAs : speaker.replace(PERSON, "")}: ${text}`;
 
+// ponytail: call durations keep their stored text; unify with minutes only with a hash migration.
 const lengthOf = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -354,6 +397,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       at: e.at,
       bulk: e.bulk,
       fromMe: e.fromMe,
+      hasOwnerWrittenInThread: e.hasOwnerWrittenInThread,
       id: e.id,
       known: !!e.contact || resolve(e.sender) !== null,
       sender: e.sender,
@@ -381,7 +425,12 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
         ...new Set(
           sorted.flatMap((e) => {
             if (e.fromMe) {
-              return [OWNER];
+              return [
+                OWNER,
+                ...(e.photo?.pictured ?? []).map(
+                  (p) => `${UNKNOWN}${p.handle ?? p.name}`
+                ),
+              ];
             }
             return written ? [`${UNKNOWN}${e.sender}`] : [];
           })
@@ -405,10 +454,6 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
     },
   };
 }
-
-/** "1 commit", "2 commits". */
-export const count = (n: number, noun: string) =>
-  `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /** "+4,673 −199": the lines of some repo-days. */
 export function lineCounts(stats: Unit["stats"][]) {
@@ -449,41 +494,17 @@ function repoDay(list: SourceEvent[]): Built {
   };
 }
 
-/** "1 h 38 min", "12 min". */
-function minutes(ms: number) {
-  const m = Math.round(ms / MIN);
-  return m < 60
-    ? `${m} min`
-    : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
-}
-
-/** A device-day's stints this long are its lines; shorter ones count in its totals only. */
-const LINE_STINT = 5 * MIN;
-
-/**
- * The unit of one device's Screen Time on a local day (a device-day), made like a chat-day: the time by app and website
- * (a minute or more), then each stint of 5 minutes or more. The title: the time in apps and the top one.
- */
-function deviceDay(list: SourceEvent[]): Built {
+/** A device-day, measurement-day or photo-day, made like a chat-day of its lines; its text is their body (a device-day's its totals), its title their headline. */
+function activityDay(
+  list: SourceEvent[],
+  { body, headline, lines }: ReturnType<typeof deviceDayText>
+): Built {
   list.sort((a, b) => a.at.localeCompare(b.at));
-  const length = (e: SourceEvent) =>
-    Date.parse(e.until ?? e.at) - Date.parse(e.at);
-  const lines = list.filter((e) => length(e) >= LINE_STINT);
   const { messages, unit } = chatDay(
     lines.length > 0 ? lines : list,
     () => null
   );
-  const totals = [...Map.groupBy(list, (e) => e.text)]
-    .map(([what, l]) => ({ ms: l.reduce((n, e) => n + length(e), 0), what }))
-    .filter((t) => t.ms >= MIN)
-    .sort((a, b) => b.ms - a.ms);
-  const apps = totals.filter((t) => !t.what.startsWith(WEB));
-  const [top] = apps;
-  const body = [
-    `Time: ${totals.map((t) => `${t.what} ${minutes(t.ms)}`).join(", ")}`,
-    ...lines.map((e) => `${time(e.at)}–${time(e.until ?? e.at)} ${e.text}`),
-  ].join("\n");
-  const title = `${unit.title}: ${minutes(apps.reduce((n, t) => n + t.ms, 0))} in apps${top ? `, most ${top.what} ${minutes(top.ms)}` : ""}`;
+  const title = `${unit.title}: ${headline}`;
   return {
     messages,
     text: `${title}\n${body}`,
@@ -495,6 +516,7 @@ function deviceDay(list: SourceEvent[]): Built {
         .at(-1) as string,
       hash: contentHash(body),
       start: (list.at(0) as SourceEvent).at,
+      stats: { ...unit.stats, chars: body.length },
       summary: clip(body.split("\n")[0] as string),
       title,
     },
@@ -512,7 +534,7 @@ interface Thread {
   messages: Pick<Message, "bulk" | "fromMe" | "sender">[];
   unit: Pick<Unit, "source" | "title">;
 }
-/** Mail the owner never wrote in, other than his agents' reports (the model judges those: he asked for their to-dos). */
+/** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
 const isMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   !t.messages.some((m) => m.fromMe || agentReports().includes(m.sender));
@@ -531,7 +553,7 @@ export const isLifeOutput = (
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
-/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered. */
+/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
 export const searchableMail = (events: SourceEvent[]) =>
@@ -579,11 +601,15 @@ const RULES: [
       ),
   ],
   ["newsletter", newsletter],
-  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in, other than a transaction
-  // (a bulk one is still a newsletter, above): search still finds it.
+  // Mail from no one he knows (a shop, a service, a stranger) in a thread he never wrote in (on any day), other than a
+  // transaction (a bulk one is still a newsletter, above): search still finds it.
   [
     "not-a-person",
-    (b) => isMail(b) && !b.messages.some((m) => m.known || m.transaction),
+    (b) =>
+      isMail(b) &&
+      !b.messages.some(
+        (m) => m.known || m.transaction || m.hasOwnerWrittenInThread
+      ),
   ],
 ];
 
@@ -601,7 +627,7 @@ export function applyRules(built: Built[], kept = new Set<string>()) {
 }
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
-/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
+/** A source's events since `since`: a repo's are read with his directory (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
 const readOf = (
   s: Read,
   since: Date,
@@ -637,7 +663,7 @@ export function builtFor(
   }
 }
 
-/** Lifelog person id -> the name on the map, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+/** Lifelog person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
 export const lifelogNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>
@@ -655,7 +681,7 @@ export const DAYS = 7;
 /**
  * The evidence of a window of local days: every source (lifelog,
  * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
- * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
+ * what the later stages need around them. The one reader of the sources for the memory steps: a processing run gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the episodes step caps
@@ -668,9 +694,7 @@ export async function gather(
 ) {
   const since = dayStart(window.from);
   const before = dayStart(daysBefore(window.to, -1));
-  const failed: string[] = [];
-  const repos = repoMap(truth, await readInferredRepos());
-  const ctx = { me: ownerIn(truth.people), repos };
+  const { failed, read, repos } = await readSourceEvents(since, before, truth);
   // Lifelog's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
   // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
   const sources = readySources().filter(
@@ -696,18 +720,6 @@ export async function gather(
         failed
       )
     : [];
-  const read = await Promise.all(
-    sources
-      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
-      .map(async (s) => ({
-        events: await safely(
-          s.name,
-          () => readOf(s, since, ctx, before),
-          failed
-        ),
-        s,
-      }))
-  );
   // The recent messages' files are described, then every message's shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = options.historical
@@ -723,12 +735,10 @@ export async function gather(
   }));
   const built = [
     ...chapters.map(frozen),
-    ...applyRules(
-      [
-        ...voice,
-        ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
-      ],
-      keptConversations()
+    ...applyRules(voice, keptConversations()),
+    ...sourceUnitsOf(
+      shown.flatMap(({ events }) => events),
+      resolve
     ),
   ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
@@ -740,8 +750,11 @@ export async function gather(
     events: shown.flatMap(({ events }) => events),
     failed,
     files,
+    // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {
-      lifelog: lifelog.length,
+      ...(sources.some((s) => s.kind === "voice") && {
+        lifelog: lifelog.length,
+      }),
       ...Object.fromEntries(
         shown.map(({ events, s }) => [s.name, events.length])
       ),
@@ -757,6 +770,35 @@ export async function gather(
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
+
+/**
+ * Every readable source's events but lifelog's, from `since` to `before`, in the registry's order, each read through
+ * `guard`: `safely` logs every read (a processing run's), `quietly` only a failure (the watcher's, every few minutes). A source
+ * that throws is named in `failed` and gives no rows.
+ */
+export async function readSourceEvents(
+  since: Date,
+  before: Date | undefined,
+  truth: Truth,
+  guard: typeof safely = safely
+) {
+  const failed: string[] = [];
+  const repos = repoMap(truth, await readInferredRepos());
+  const ctx = { me: ownerIn(truth.people), repos };
+  const read = await Promise.all(
+    readySources()
+      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
+      .map(async (s) => ({
+        events: await guard(
+          s.name,
+          () => readOf(s, since, ctx, before),
+          failed
+        ),
+        s,
+      }))
+  );
+  return { failed, read, repos };
+}
 
 /**
  * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations

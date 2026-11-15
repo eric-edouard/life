@@ -15,11 +15,11 @@ import {
   unitLine,
   withIndex,
 } from "./index-rows";
-import { episodesWhere, readIndex } from "./ledger";
+import { episodesWhere, readIndex } from "./memory-files";
 import { OWNER } from "./read-truth";
 import { readSituationNow, situated, situationBlock } from "./situations";
 import { listening } from "./sources";
-import { normalize } from "./units";
+import { nameKey } from "./units";
 import { embedQuery, readNearest } from "./vectors";
 import { readPeople } from "./who";
 import { chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./words";
@@ -218,7 +218,7 @@ export async function search(words: string, o: DayRange = {}) {
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
     "",
-    "Chats and notes (the best passages: a chat's messages close in time, or a note's version; each heading says where to read more):",
+    "Chats and notes (the best passages: a chat's messages close in time, a note's version, or one photo with its place, scenes, words and description; each heading says where to read more):",
     ...chats,
     "",
     `Mail (no newsletters: the best ${MAIL_HITS} thread-days; each its unit, \`fetch <unit>\` for the thread):`,
@@ -240,7 +240,7 @@ export async function readSituationsOf(
   isNow: boolean
 ) {
   const { names, nameOf, truth } = await readPeople();
-  const said = ` ${normalize(words).split(SPACES).join(" ")} `;
+  const said = ` ${nameKey(words).split(SPACES).join(" ")} `;
   const aliases = (ref: string) =>
     truth.people.find((p) => `person:${p.id}` === ref)?.aliases ?? [];
   const refs = await situated();
@@ -248,7 +248,7 @@ export async function readSituationsOf(
     (ref) =>
       ref !== OWNER &&
       [names.get(ref), ...aliases(ref)].some(
-        (n) => n && said.includes(` ${normalize(n)} `)
+        (n) => n && said.includes(` ${nameKey(n)} `)
       )
   );
   const whole = mentioned.length > 0 || !isNow ? mentioned : [OWNER];

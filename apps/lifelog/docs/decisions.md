@@ -35,11 +35,20 @@ reverse it, change its entry here in the same commit.
 
 ## Server
 
-- **The voice bench keeps its own answers and its own page (owner's choice, 10 Nov 2026).** What the owner answers
-  in the bench's review goes to the bench's `answers.jsonl`, never to the archive: the bench reads the archive
-  read-only, and his naming changes only in the app. Its page is a development tool the CLI serves on 127.0.0.1
-  from the bench's private folder, not a page lifelog serves: no token, no tunnel, and its only writes are an
-  answer and a new scoring, from its own origin.
+- **Recheck a named voice once (owner's ask, 10 Nov 2026).** Without that voice's conversations, at least half
+  its sampled turns must first guess another person; the named person must still have a profile.
+  The most frequent other person is suggested. The only stored fact is `speaker_assignments.rechecked`, set
+  when an owner answer replaces an owner row of the same scope; recognition never sets it.
+  Rechecks are derived in the naming worker, outside the morning push, badge and map. The phone asks them after the voices to name, "Keep X" first.
+
+- **The voice bench's answers reach the archive through the server (owner's decision, 10 Nov 2026, reversing his
+  "bench only" of that morning).** His review found many of his past names wrong, so they belong in lifelog. The
+  review still writes the bench's `answers.jsonl`; `bench apply` lists what differs from his answers in the archive
+  now, and `--write` sends each as his own correction (`PUT /transcripts/{jobId}/speakers/{speakerLabel}`, with the
+  reader's corrections token, on this Mac). The bench never opens the archive to write, and stores no "sent" mark:
+  a second run compares again. That route takes "several people" too, for a speaker or one turn: nobody's evidence.
+  The bench's page stays a development tool the CLI serves on 127.0.0.1 from the bench's private folder: no token,
+  no tunnel, and its only writes are an answer and a new scoring, from its own origin.
 - **A local voice map on the Mac (owner’s yes, 9 Nov 2026).** lifelog serves its first page at `/voices`,
   a static shell with vendored Plotly and no personal data. A scoped `map` token opens only `GET /speakers/map`,
   the queue’s existing audio and answer routes, and per-turn naming PUT only for (job, label, turn) triples
@@ -101,9 +110,37 @@ reverse it, change its entry here in the same commit.
   the context router, where Thai was spotted but only parts went to Scribe (343, about 13 h), are heard by Scribe
   whole once more (a step since removed; `transcripts.scribe_words_at` marks them). Their words change turn by
   turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
+- **Scribe's speakers redone by Nemotron 3, once (11 Nov 2026).** Before Life's memory was rebuilt, every completed
+  Scribe job (5,963 with audio; Scribe merged two people under one voice in about 12% of the voices he named)
+  took who-spoke-when from the speech service's own diarizer, run on Modal GPUs (a one-off step, removed after its
+  run: `rediarize.ts`, `local/modal_speakers.py`, `bench rediarize`, in git history). Scribe's words, turns
+  and indexes stay: he preferred them to Nemotron 3.5's on 10 of 10 blind spots, and Nemotron 3.5's better overlap
+  needs its own words. One map (each old label to the new label holding most of its seconds) moves every row keyed by
+  label; an owner answer stays whole only where its voice did not merge with another. Nemotron 3 separated 61% of the
+  sentences he gave someone else inside Scribe's voices (Nemotron 3.5: 56%). The run relabeled 2,856 jobs, found 2,459 already
+  matching and left 648 with no speech; after it, the stored speakers separate 67% of those sentences. A block Scribe transcribes after the run
+  (Thai, or a speech-service failure) still carries Scribe's speakers.
+- **The speech service's turns follow the speaker who has the floor (13 Nov 2026).** Nemotron 3's diarizer hears
+  overlapping voices, but the transcriber writes one stream of words, and that stream follows whoever was already
+  speaking. The service used to cut a turn where the next one starts and never go back, so when B spoke inside A's
+  sentence, the rest of A's sentence belonged to no turn and its words went to the nearest turn, usually B's. Now the
+  one speaking keeps the floor until their segment ends, then the earliest-started of the segments still covering
+  takes over; someone who starts meanwhile gets the words only once the first stops. Of the short runs of words that
+  fell inside another speaker's turn, 93% were pieces of that speaker's sentence, not reactions. Measured on 150
+  ordinary blocks: 8.5% of speech seconds had lost their speaker, and the new turns change the speaker of 6.9% of
+  words. Turns stay a partition, so nothing that reads them changed. The stored speech jobs take the corrected turns once, turn by turn
+  (their words, turns and turn indexes kept; each stored turn takes the label of the new turn holding most of its
+  seconds; owner answers, names, samples and summary guesses follow their voices). That puts right about half of the
+  misplaced words, not all: a stored turn made by the old cut can hold two speakers' words. A job is taken only when
+  the old cut, run on the recomputed segments, reproduces its stored speakers; one that does not was heard differently
+  and is left alone. The run (13 Nov 2026): of 5,019 completed speech jobs, 3,482 could be reproduced and were taken
+  (1,052 have no words, 180 no stored speakers, 305 were heard differently at the time). 1,220 changed and 2,262 already
+  matched. 5,143 turns took another speaker (13.7% of those jobs' turns). Unnamed turns went from 32,124 to 31,427. On a
+  copy, the voice eval's other people's turns given to the owner went from 112 to 66. The step, its route and its tests
+  are deleted (in git history: PR 476), like the 11 Nov one. A true re-split of stored turns (renumbering them) was not done.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
-  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is
+  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe (v3 since 11 Nov 2026: $0.20/h like v2 now, its answers keep v2's shape, and it won the owner's blind Thai test against v2). The owner's goal (29 Oct 2026) is
   the best transcription in every language wherever he is. VoxLingua's top guess misses most short Thai (it hears Lao,
   Javanese, English and dozens more, and Parakeet writes made-up words), so a turn is routed by a small logistic model
   over VoxLingua's scores and the rest of the block, its weights fitted by `bench context fit` on blocks Scribe heard
@@ -162,8 +199,11 @@ reverse it, change its entry here in the same commit.
 
 ## People, places and search
 
-- **Speaker recognition is self-hosted.** SpeechBrain ECAPA on a small CPU service, so voices and embeddings never
-  reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
+- **Speaker recognition is self-hosted.** MECT-B2 (AntSpeaker) on a small CPU service, so voices and embeddings never
+  reach a third party. It replaced SpeechBrain ECAPA on 11 Nov 2026: on the owner's known voices its first guess was
+  right more often than any other model's (`docs/research/voice-bench.md`). Its licence is CC BY-NC-SA: fine for a
+  personal install, to settle before lifelog is sold. The stored samples were embedded again once, on Modal CPUs
+  (his yes of 11 Nov; the audio in memory only), except those on audio from before blocks, which were dropped. Only the owner creates people and adds evidence; a match needs a score and a lead over the
   runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
 - One list of voices to name covers the whole history (owner's decision, 9 Nov 2026). Exact average linkage uses
@@ -191,6 +231,15 @@ reverse it, change its entry here in the same commit.
 - **"Not anyone I know" is a stranger the owner doesn't care about** (the owner's words, 3 Nov 2026). A voice that
   sounds more like those than like anyone named is a stranger too (status `stranger`): never named, grouped,
   recovered or asked about. Its samples remain negative references.
+- **"Not relevant" is its own answer** (the owner, 11 Nov 2026: "sometimes people I know but lazy to input name or
+  think they're not relevant"). Status `not_relevant`: that voice is not asked about again, its samples kept, never a stranger's
+  reference, so a friend's voice left unnamed teaches no stranger; the same person in a later conversation is a new
+  voice and may be asked once more. Earlier "Not anyone I know" answers stay as given.
+- **The phone's names follow the voice** (11 Nov 2026): the name pills are ordered by the card's `likely` (his people with a voice profile, the most like the voice first), then by
+  name. "Several people" is answered by ticking who is in it; naming a clip stays the precise path and adds to the
+  ticks. With a tick, nobody unknown is sent.
+  Under a clip, people add up: a clip several of them speak in is sent as that turn's `several` (the owner, 11 Nov:
+  "within cards I can't select several people"); "Don't know", a video or someone new stand alone.
 - **Places come from the phone's fixes and Apple's names**, on the device and free. No Google, no saved places. The
   server keeps the whole location history, behind the same auth as everything else.
 - **Search: keywords on the phone, meaning on the server.** The phone's trigram index always works offline; the
@@ -220,6 +269,15 @@ reverse it, change its entry here in the same commit.
   minutes before it says so.
 - **The Pendant's button asks an AI.** One press transcribes the last minute at once and offers it to Claude or
   ChatGPT; nothing of it is stored on the server but its cost.
+
+## Apple Health
+
+- Apple Health has its own sequence cursor in `apple_health`, outside `change_log`. A day's hundreds of
+  measurements must not wake the phone's voice long poll or Life's voice watcher. Only the device token opens
+  `GET /apple-health` and `POST /apple-health`.
+- The phone reads sleep and workouts from Health, never writes to it, and keeps one acknowledged end per kind. Health is
+  its durable store; a failed chunk is read again. The seven-day overlap catches recent changes, not deletions or
+  measurements arriving more than seven days late.
 
 ## The repo
 

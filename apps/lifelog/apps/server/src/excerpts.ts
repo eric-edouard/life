@@ -75,9 +75,21 @@ export const excerptRange = (turn: {
   Math.min(turn.end, turn.start + EXCERPTS.maxSeconds),
 ];
 
-// The bucket key of a job's audio identity may hear: a block's that no quiet range touches.
-// "never" for any other (an old job's, or one with dictation or playback in it); null when there
-// is nothing to cut (no audio, or cut already).
+// Whether identity may hear a job's audio: a block's that no quiet range touches.
+export const mayHear = (
+  db: Db,
+  job: {
+    map: Parameters<typeof touchesQuiet>[1] | null;
+    objectKey: string | null;
+  }
+) =>
+  !!job.objectKey &&
+  isBlockKey(job.objectKey) &&
+  !!job.map &&
+  !touchesQuiet(db, job.map);
+
+// The bucket key of a job's audio identity may hear (`mayHear`). "never" for any other (an old job's, or one
+// with dictation or playback in it); null when there is nothing to cut (no audio, or cut already).
 function audioToCut(db: Db, jobId: string) {
   const row = db
     .select({
@@ -92,9 +104,7 @@ function audioToCut(db: Db, jobId: string) {
   if (!row?.objectKey || row.cutAt) {
     return null;
   }
-  return isBlockKey(row.objectKey) && row.map && !touchesQuiet(db, row.map)
-    ? row.objectKey
-    : "never";
+  return mayHear(db, row) ? row.objectKey : "never";
 }
 
 // ponytail: in-process, one replica, like the other loops; `busy` keeps a webhook and the tick

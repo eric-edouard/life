@@ -127,7 +127,7 @@ happened.
 - `replaces`: ids from `prior` this observation shows are no longer true, or [].
 - `validFrom`, `validTo`: `YYYY-MM-DD` or null. The days the claim holds (a trip from 10 to 14 Oct; a new job from
   1 Nov). Null when unknown.
-- `entities`: everyone and everything the claim names or involves, `about` included, chosen **only** from the `ref` values in `people` and `projects`, the context's or `involved`'s
+- `subjects`: everyone and everything the claim names or involves, `about` included, chosen **only** from the `ref` values in `people` and `projects`, the context's or `involved`'s
   (copy them exactly, e.g. `person:dad`, `project:house`). Include `person:me` when it is about
   the owner himself. When a claim is about one of the `projects`, whether named or only implied by its people and subject
   ("the app", "le site", "le prompt", ads, a feature), add the project's `ref` and name the project in `text`. If no
@@ -138,4 +138,4 @@ happened.
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"observations":[{"unit":"unit_…","about":"person:me","modality":"fact","text":"…","quote":"…","line":0,"type":"…","when":null,"area":null,"importance":2,"confidence":0.8,"validFrom":null,"validTo":null,"entities":["person:…"],"replaces":[]}]}
+{"observations":[{"unit":"unit_…","about":"person:me","modality":"fact","text":"…","quote":"…","line":0,"type":"…","when":null,"area":null,"importance":2,"confidence":0.8,"validFrom":null,"validTo":null,"subjects":["person:…"],"replaces":[]}]}

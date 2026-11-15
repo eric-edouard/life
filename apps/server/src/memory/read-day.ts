@@ -2,6 +2,7 @@ import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { lifelogMissing } from "../sources/lifelog";
+import { readCoverage, type SourceDay } from "./coverage";
 import { BIRTHDAY_DAYS, readBirthdaysNear } from "./details";
 import { span } from "./episode-span";
 import {
@@ -14,11 +15,13 @@ import {
   unitLine,
   withIndex,
 } from "./index-rows";
-import { episodesWhere, readBy, readLedger } from "./ledger";
+import { episodesWhere, readBy, readLedger } from "./memory-files";
+import { type Mention, readMentionsOn, talkedAboutOf } from "./mentions";
 import { byTime, euros, paid, paymentLine, placedOn } from "./payments";
 import { stayOf, staysOf, where } from "./places";
 import { dueContext, dueOf } from "./read-open-items";
-import { readPeople } from "./who";
+import { tiesNow } from "./ties";
+import { placementOf, readPeople } from "./who";
 import { inDays, localDate, time } from "./zones";
 
 // `bun life memory day <date>` and the connector's `read_day`: what happened that day (its episodes), what is due, its
@@ -33,6 +36,8 @@ export interface DayEpisode {
   /** What was paid during it, in EUR, when payments are on and any was. */
   paid?: number;
   stay?: string;
+  /** Who its units talked about without being in it (`talkedAboutOf`), by name. */
+  talkedAbout?: string[];
 }
 
 /** A unit's episode among those shown (`readBy`'s pick), else undefined: its facts then sit under no episode. */
@@ -51,6 +56,7 @@ export const shownEpisode =
 export function dayLines({
   actions = [],
   born = [],
+  covered = [],
   due = [],
   facts = [],
   episodes = [],
@@ -60,6 +66,7 @@ export function dayLines({
 }: {
   actions?: readonly LedgerEntry[];
   born?: string[];
+  covered?: SourceDay[];
   due?: string[];
   facts?: string[];
   episodes?: DayEpisode[];
@@ -77,7 +84,7 @@ export function dayLines({
       : []),
     ...(due.length > 0
       ? [
-          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
+          "Due (open items, most pressing first: to-dos, promises and his to-do items for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
           ...due,
           "",
         ]
@@ -85,13 +92,18 @@ export function dayLines({
     ...(episodes.length > 0
       ? [
           "Episodes (what he did, in time order):",
-          ...episodes.flatMap(({ facts: of, episode, paid: spent, stay }) => [
-            episodeLine(episode),
-            ...(stay ? [`    Where he was: ${stay}`] : []),
-            ...(spent ? [`    Paid: ${euros(spent)}`] : []),
-            ...(episode.what ? [`    ${episode.what}`] : []),
-            ...of.map((f) => `    ${f}`),
-          ]),
+          ...episodes.flatMap(
+            ({ facts: of, episode, paid: spent, stay, talkedAbout }) => [
+              episodeLine(episode),
+              ...(stay ? [`    Where he was: ${stay}`] : []),
+              ...(talkedAbout?.length
+                ? [`    Talked about: ${talkedAbout.join(", ")}`]
+                : []),
+              ...(spent ? [`    Paid: ${euros(spent)}`] : []),
+              ...(episode.what ? [`    ${episode.what}`] : []),
+              ...of.map((f) => `    ${f}`),
+            ]
+          ),
           ...(whereUnknown
             ? ["Where he was is unknown: lifelog could not be read."]
             : []),
@@ -106,6 +118,7 @@ export function dayLines({
       : []),
     `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
     ...units.filter((u) => !isNoise(u)).map(unitLine),
+    ...coveredLines(covered),
     ...(actions.length > 0
       ? [
           "",
@@ -116,6 +129,29 @@ export function dayLines({
         ]
       : []),
   ];
+}
+
+/**
+ * A day's coverage as lines: which capturing sources were captured, which Life did not see (and why), which it cannot
+ * tell. An empty list (no capturing source on) gives none.
+ */
+export function coveredLines(covered: SourceDay[]) {
+  const named = (state: SourceDay["state"]) =>
+    covered
+      .filter((c) => c.state === state)
+      .map((c) => `${c.label}${c.why ? ` (${c.why})` : ""}`)
+      .join(state === "captured" ? ", " : "; ");
+  const row = (title: string, state: SourceDay["state"]) =>
+    named(state) ? [`- ${title}: ${named(state)}`] : [];
+  return covered.length > 0
+    ? [
+        "",
+        'Coverage (sources that capture on their own; "not seen" is not "quiet"):',
+        ...row("Captured", "captured"),
+        ...row("Not seen", "not_seen"),
+        ...row("Unknown", "unknown"),
+      ]
+    : [];
 }
 
 export async function day(date: string) {
@@ -136,6 +172,9 @@ export async function day(date: string) {
     ? []
     : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, people);
+  const mentions = readMentionsOn(date);
+  const ties = tiesNow(people);
+  const place = (m: Mention) => placementOf(m, people, ties)?.ref;
   const ofDays = await placedOn(date, date, all, stays ?? []);
   return withIndex((db) => {
     const facts = db
@@ -145,12 +184,13 @@ export async function day(date: string) {
       )
       .all(date);
     const of = shownEpisode(byEpisode, new Set(episodes));
-    const factsOf = (m: Episode | undefined) =>
+    const observationsOf = (m: Episode | undefined) =>
       facts.filter((f) => of(f.unit) === m).map(line);
     return dayLines({
       actions,
       born,
-      due: dueOf(db, date, context),
+      covered: readCoverage(db, date, date).days.get(date),
+      due: dueOf(date, context),
       episodes: episodes.map((episode) => {
         const s = span(episode);
         const stay = s.allDay
@@ -159,12 +199,18 @@ export async function day(date: string) {
         const its = ofDays.list.filter((p) => p.episode === episode);
         return {
           episode,
-          facts: factsOf(episode),
+          facts: observationsOf(episode),
           ...(its.length > 0 ? { paid: paid(its) } : {}),
           stay: stay ? where(stay) : undefined,
+          talkedAbout: talkedAboutOf(
+            episode,
+            mentions,
+            place,
+            people.refOf
+          ).map(people.nameOf),
         };
       }),
-      facts: factsOf(undefined),
+      facts: observationsOf(undefined),
       payments: ofDays.error
         ? [`- Payments unknown: ${ofDays.error}`]
         : ofDays.list.toSorted(byTime).map(paymentLine),

@@ -45,7 +45,8 @@
   let selected = null;
   let everyBlend = false;
   const hidden = new Set([UNANSWERED.id]);
-  // Answered in this visit: out of the queue before the next scoring.
+  // The turns he answered in the bench, the latest last (the bench's answers file, then this
+  // visit's): their cards are out of the queue. Back takes the latest card out of it again.
   const answered = new Set();
 
   const labelOf = (key) => {
@@ -491,8 +492,30 @@
       status(`The answer was not kept (${failed.status}).`);
       return;
     }
-    answered.add(card.turns[0]);
-    status(`${answered.size} answered. Score again to count them.`);
+    for (const id of card.turns) {
+      answered.delete(id);
+      answered.add(id);
+    }
+    status("Kept. Score again to count your answers.");
+    clip = 0;
+    drawReview(true);
+  }
+
+  // The card he answered last comes back, to answer again: the latest answer of a turn counts.
+  // Only cards of this scoring: a card answered before the last score is no longer in the report.
+  function back() {
+    const order = [...answered];
+    const [card] = report.review
+      .filter((c) => answered.has(c.turns[0]))
+      .sort((a, b) => order.indexOf(b.turns[0]) - order.indexOf(a.turns[0]));
+    if (!card) {
+      status("Nothing to go back to since the last scoring.");
+      return;
+    }
+    for (const id of card.turns) {
+      answered.delete(id);
+    }
+    status("Back on the voice before. Answer it again to change it.");
     clip = 0;
     drawReview(true);
   }
@@ -545,12 +568,19 @@
     for (const button of document.querySelectorAll("#review [data-kind]")) {
       button.onclick = () => answer(button.dataset.kind);
     }
+    el("review-back").onclick = back;
     el("review-other").onchange = () => {
       if (el("review-other").value) {
         answer("person", el("review-other").value);
       }
     };
-    const KEYS = { m: "media", n: "unknown", s: "skipped", v: "several" };
+    const KEYS = {
+      b: back,
+      m: () => answer("media"),
+      n: () => answer("unknown"),
+      s: () => answer("skipped"),
+      v: () => answer("several"),
+    };
     document.addEventListener("keydown", (event) => {
       const box = el("review-card").getBoundingClientRect();
       const isInView = box.bottom > 0 && box.top < window.innerHeight;
@@ -571,7 +601,7 @@
         clip += key === " " ? 0 : 1;
         drawClip(item, true);
       } else if (KEYS[key]) {
-        answer(KEYS[key]);
+        KEYS[key]();
       } else if (person) {
         answer("person", person);
       }
@@ -584,7 +614,6 @@
         if (!response.ok) {
           throw new Error(`scoring failed (${response.status})`);
         }
-        answered.clear();
         await load();
         status("Scored with your answers.");
       } catch (error) {
@@ -636,6 +665,15 @@
       return;
     }
     report = await response.json();
+    // None yet is no file.
+    const kept = await fetch("/answers.jsonl");
+    const lines = kept.ok ? (await kept.text()).split("\n") : [];
+    answered.clear();
+    for (const line of lines.filter(Boolean)) {
+      const { id } = JSON.parse(line);
+      answered.delete(id);
+      answered.add(id);
+    }
     const counts = Map.groupBy(report.turns, groupOf);
     // People by how many turns he named them for: the most heard get the brand's own colours.
     const named = report.people

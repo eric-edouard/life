@@ -23,6 +23,8 @@ export const asHeard = (w: string) =>
 
 export const Settings = z
   .object({
+    /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
+    agentReportSenders: z.array(z.email()).default([]),
     /**
      * His agents by name (what Life calls each): the words that wake it ("hey <word>", `hear.ts`) and how lifelog
      * mishears them (a misheard wake counts only on his own turn, as low confidence). An agent is known on the
@@ -54,7 +56,7 @@ export const Settings = z
       )
       .optional(),
     /** His calendar (Google's, through `gog` as `account`) that Life keeps its appointments in, marked unconfirmed (`host/appointments-calendar.ts`). */
-    appointments: z
+    appointmentsCalendar: z
       .object({ account: z.string(), calendar: z.string() })
       .strict()
       .optional(),
@@ -73,18 +75,53 @@ export const Settings = z
       })
       .strict()
       .optional(),
+    /**
+     * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
+     * model, no image leaves it. Without it, none.
+     */
+    describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
-    devices: z.record(z.string().min(1), z.string().min(1)).optional(),
+    deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
+    /**
+     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): readers learn of links as "maybe done" and he is
+     * asked in conversation whether each is right (an ending check). Absent means off: nothing is asked, readers
+     * ignore links. Needs `links`.
+     */
+    endings: z.literal(true).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
+    /**
+     * The exchange reads (`memory/exchange-reads.ts`): each night asks the three reads of the finished exchanges of
+     * his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is stored is
+     * read all the same.
+     */
+    exchangeReads: z.literal(true).optional(),
+    /**
+     * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
+     * not read, for whoever has a page. Absent means off: no month is read.
+     */
+    histories: z
+      .object({ from: z.string().regex(/^\d{4}-\d{2}$/) })
+      .strict()
+      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
     lifelog: z.object({ url: z.url() }).strict().optional(),
+    /**
+     * The links (`memory/links.ts`): each night reads how the open steps of each matter ended. Absent
+     * means off: nothing is read. Nothing but `bun life memory links` reads the links yet.
+     */
+    links: z.literal(true).optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
+    /**
+     * The matters (`memory/matters.ts`): each night places the episodes, facts and reminders not placed yet in the
+     * running things of his life. Absent means off: nothing is read. Nothing reads the matters yet.
+     */
+    matters: z.literal(true).optional(),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
-    past: z
+    pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
@@ -96,10 +133,8 @@ export const Settings = z
       .object({ backend: z.literal("money") })
       .strict()
       .optional(),
-    /** Who mails him his agents' reports: their mail is judged, not dropped as `not-a-person`. */
-    reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
-    repos: z.string().optional(),
+    reposFolder: z.string().optional(),
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
     /**
@@ -107,7 +142,7 @@ export const Settings = z
      * his Google Tasks (`gog` as `account`). On, Life acts there when he asks and reads his changes back;
      * without it (the default), nothing in Life touches either.
      */
-    todo_list: z
+    todoList: z
       .discriminatedUnion("backend", [
         z.object({ backend: z.literal("reminders") }).strict(),
         z

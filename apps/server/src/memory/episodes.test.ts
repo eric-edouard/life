@@ -13,7 +13,7 @@ import {
   parseDay,
   unread,
 } from "./episodes";
-import { daysOf, episodesNow, isRereadSince, rereadAt } from "./ledger";
+import { daysOf, episodesNow, isRereadSince, rereadAt } from "./memory-files";
 import type { Truth } from "./read-truth";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { areaLookup } from "./tags";
@@ -46,7 +46,7 @@ const episode = (over: Partial<Episode> = {}): Episode => ({
   ...over,
 });
 
-test("a day's reply is checked: verdicts and episodes for its own units only, people from the map, ids kept or minted", () => {
+test("a day's reply is checked: verdicts and episodes for its own units only, people from the directory, ids kept or minted", () => {
   const u1 = unit({ id: U1 });
   const commits = unit({ id: U2, source: "git" });
   const ctx = {
@@ -201,6 +201,44 @@ test("a day's reply is checked: verdicts and episodes for its own units only, pe
     kind: "conversation",
     type: "nothing",
   });
+});
+
+test("health and photo episodes survive alone; activity importance stays capped; repo, screen and agents cannot make episodes", () => {
+  const sources = ["apple-health", "photos", "git", "screen", "agent"] as const;
+  for (const source of sources) {
+    const health = unit({ id: U1, source });
+    const parsed = parseDay(
+      {
+        episodes: [
+          {
+            end: "2026-10-16 07:00",
+            id: "new-1",
+            importance: 1,
+            people: [],
+            start: "2026-10-15 23:00",
+            title: "Sleep",
+            units: [U1],
+            what: "Slept.",
+          },
+        ],
+        verdicts: [{ id: U1, importance: 3, reason: "r", type: "news" }],
+      },
+      {
+        areas: new Map(),
+        day: "2026-10-15",
+        earlier: new Set(),
+        hidden: new Set(),
+        madeBy,
+        people: new Set(),
+        resolve: () => null,
+        units: new Map([[U1, health]]),
+      }
+    );
+    expect(parsed.episodes).toHaveLength(
+      source === "apple-health" || source === "photos" ? 1 : 0
+    );
+    expect(parsed.verdicts[0]?.importance).toBe(source === "agent" ? 3 : 1);
+  }
 });
 
 test("the next days see an episode until the day after it ends; the latest day's line is current; an older prompt's episode is not seen", () => {
@@ -425,12 +463,12 @@ test("agreement: kept means importance 2+, code-rule drops count as skipped, lab
     judged(ue, "news", 2), // kept, matters
   ]);
   const labels: MemoryLabel[] = [
-    { matters: true, unitId: "unit_00000000000a" },
-    { matters: false, unitId: "unit_00000000000b" },
-    { matters: true, unitId: "unit_00000000000c" },
-    { matters: false, unitId: "unit_00000000000d" },
-    { matters: true, unitId: "unit_00000000000e" },
-    { matters: true, unitId: "unit_0000000000ff" },
+    { important: true, unitId: "unit_00000000000a" },
+    { important: false, unitId: "unit_00000000000b" },
+    { important: true, unitId: "unit_00000000000c" },
+    { important: false, unitId: "unit_00000000000d" },
+    { important: true, unitId: "unit_00000000000e" },
+    { important: true, unitId: "unit_0000000000ff" },
   ];
   expect(agreement(labels, units, verdicts)).toEqual({
     agreement: 3 / 5,

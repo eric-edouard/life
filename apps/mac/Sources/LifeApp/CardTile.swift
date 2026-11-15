@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A card in the status snapshot: its name and state, its headline, when it happened, a running sweep's stations.
+/// A card in the status snapshot: its name and state, its headline, when it happened, a running processing run's steps.
 struct CardTile: View {
   let card: Card
   /// The status snapshot lists it in trouble (`StatusSnapshot.trouble`).
@@ -26,13 +26,13 @@ struct CardTile: View {
       if let at = card.at {
         Text(ago(at)).font(Brand.mono(10.5)).foregroundStyle(Brand.muted)
       }
-      if let stations = card.stations, !stations.isEmpty {
+      if let processingSteps = card.processingSteps, !processingSteps.isEmpty {
         HStack(spacing: 3) {
-          ForEach(stations, id: \.self) { s in
+          ForEach(processingSteps, id: \.self) { s in
             Capsule().fill(color(s.state)).frame(height: 3)
           }
         }
-        .accessibilityLabel("Now at \(stations.first { $0.state == "now" }?.name ?? "the end")")
+        .accessibilityLabel("Now at \(processingSteps.first { $0.state == "now" }?.name ?? "the end")")
       }
     }
     .padding(.horizontal, 12)

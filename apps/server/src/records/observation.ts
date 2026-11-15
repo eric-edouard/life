@@ -1,12 +1,14 @@
 import { z } from "zod";
+import { digest } from "../core/hash";
 import { SourceName } from "../core/names";
 import {
-  EntityRef,
+  Birthday,
   EpisodeId,
   isoDate,
   isoDateTime,
   MadeBy,
   PersonRef,
+  SubjectRef,
   slug,
   UnitId,
 } from "./fields";
@@ -29,17 +31,17 @@ export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
 
-/** Life's inferred people not folded into another (`foldsOf`): one id per person. */
-export const unfoldedOf = (
-  inferred: InferredPerson[],
+/** The people outside the directory (inferred, or named by his Contacts) not folded into another (`foldsOf`): one id per person. */
+export const unfoldedOf = <P extends { id: string }>(
+  people: P[],
   canon: (ref: string) => string
-) => inferred.filter((p) => canon(`person:${p.id}`) === `person:${p.id}`);
+) => people.filter((p) => canon(`person:${p.id}`) === `person:${p.id}`);
 
 /** L2: one small dated claim, cited to the exact place in its source. memory/observations/<yyyy-mm>.jsonl. */
 export const Observation = z
   .object({
-    /** The one person or project the claim is about (from memory-extract.v3; `entities` also lists who it mentions). */
-    about: EntityRef.optional(),
+    /** The one person or project the claim is about (from memory-extract.v3; `subjects` also lists who it mentions). */
+    about: SubjectRef.optional(),
     /** An id from truth/areas.yaml, or null when none fits. */
     area: slug.nullable(),
     /** When it was said or written (the cited line's time). */
@@ -47,8 +49,6 @@ export const Observation = z
     confidence: z.number().min(0).max(1),
     /** Local day of `at` in `tz`. */
     date: isoDate,
-    /** People and projects the claim is about. */
-    entities: z.array(EntityRef),
     /** obs_ + hash of unit, type, quote and claim: re-extracting the same thing gives the same id. */
     id: ObservationId,
     importance: z.int().min(1).max(3),
@@ -73,6 +73,8 @@ export const Observation = z
     speakerFrom: z.string().optional(),
     /** A readable name for an unknown speaker (the 1:1 chat's title), next to the raw id in `speaker`. */
     speakerName: z.string().optional(),
+    /** People and projects the claim is about. */
+    subjects: z.array(SubjectRef),
     text: z.string().min(1).max(500),
     type: MemoryType.exclude(["nothing"]),
     tz: z.string(),
@@ -110,9 +112,9 @@ export const Unresolved = z
   .object({
     at: isoDateTime,
     date: isoDate,
+    nameAsWritten: z.string().min(1),
     observation: z.string().optional(),
     schemaVersion: z.literal(1),
-    surface: z.string().min(1),
     unit: z.string(),
     via: z.enum(["model", "speaker"]),
   })
@@ -131,7 +133,7 @@ export const Supersession = z
     by: ObservationId,
     madeBy: MadeBy,
     observation: ObservationId,
-    page: EntityRef.optional(),
+    page: SubjectRef.optional(),
     schemaVersion: z.literal(1),
     validTo: isoDate,
     why: z.string().max(300),
@@ -141,17 +143,22 @@ export const Supersession = z
 export type Supersession = z.infer<typeof Supersession>;
 
 /** How close someone is to the owner, in his personal life or his work: `faded` was close, not any more. */
-export const Level = z.enum(["inner", "regular", "acquaintance", "faded"]);
+export const ClosenessLevel = z.enum([
+  "inner",
+  "regular",
+  "acquaintance",
+  "faded",
+]);
 
-export type Level = z.infer<typeof Level>;
+export type ClosenessLevel = z.infer<typeof ClosenessLevel>;
 
-/** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
+/** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, between_us on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
   "views",
   "health",
-  "bond",
+  "between_us",
   "now",
-  "history",
+  "earlier",
 ]);
 
 /**
@@ -171,7 +178,7 @@ export const Correction = z
         kind: z.enum(["wrong", "not-important"]),
         // Observations (obs_…) and, from 18 Oct, episodes (ep_…).
         observations: z.array(z.union([ObservationId, EpisodeId])).min(1),
-        page: EntityRef.optional(),
+        page: SubjectRef.optional(),
       })
       .strict(),
     z
@@ -185,7 +192,7 @@ export const Correction = z
       .object({
         ...Correcting,
         kind: z.literal("keep-mine"),
-        page: EntityRef,
+        page: SubjectRef,
         section: PageSection,
         text: z.string().min(1),
       })
@@ -194,16 +201,16 @@ export const Correction = z
       .object({
         ...Correcting,
         kind: z.literal("this-is"),
+        nameOrHandle: z.string().min(1),
         person: PersonRef,
-        surface: z.string().min(1),
       })
       .strict(),
     z
       .object({
         ...Correcting,
         kind: z.literal("not-this-person"),
+        nameOrHandle: z.string().min(1),
         person: PersonRef,
-        surface: z.string().min(1),
       })
       .strict(),
     z
@@ -226,8 +233,8 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("closeness"),
         person: PersonRef,
-        personal: Level.optional(),
-        work: Level.optional(),
+        personal: ClosenessLevel.optional(),
+        work: ClosenessLevel.optional(),
       })
       .strict(),
   ])
@@ -237,12 +244,15 @@ export const Correction = z
 
 export type Correction = z.infer<typeof Correction>;
 
+/** What a person outside the directory goes by: handles (a phone, an email, a network's id) or names, at least one. */
+const NamesOrHandles = z.array(z.string().min(1)).min(1);
+
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
 export const INFERRED_PREFIX = "inf_";
 
 /**
  * memory/people-inferred.jsonl: who Life thinks an unknown handle or name is, from the messages and observations
- * around it. Model-owned and append-only (the latest record for a surface wins); used automatically below truth/ and
+ * around it. Model-owned and append-only (the latest record for a name or handle wins); used automatically below truth/ and
  * the owner's corrections, and never written into truth/.
  */
 export const InferredPerson = z
@@ -258,6 +268,8 @@ export const InferredPerson = z
     madeBy: MadeBy,
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */
     name: z.string().min(1),
+    /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
+    namesAndHandles: NamesOrHandles,
     /**
      * The person in truth/ it is, when the call judged it is them (used as them from INFERRED_USE_AT, `foldsOf`); null
      * when it judged no one there is; absent on guesses made before the call could link, asked once more (`answeredBy`).
@@ -266,12 +278,38 @@ export const InferredPerson = z
     project: slug.nullable(),
     relation: z.string().min(1),
     schemaVersion: z.literal(1),
-    /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
-    surfaces: z.array(z.string().min(1)).min(1),
   })
   .strict();
 
 export type InferredPerson = z.infer<typeof InferredPerson>;
+
+/** The id prefix of the people his Contacts name (`ContactPerson`); truth ids never start with it either. */
+export const CONTACT_PREFIX = "con_";
+
+/**
+ * memory/people-contacts.jsonl: a card of his Contacts whose handle appears in his messages, as Contacts name it. Written
+ * by code (the night's `writeContactPeople`), append-only: a card's latest line gives its name, and its handles only
+ * grow. Who it is does not rest on the card any more: a card he deletes keeps its person (his answer, 12 Nov 2026).
+ * Used below truth/ and above Life's own guesses (`readingOf`): his Contacts are his word on who a number is.
+ */
+export const ContactPerson = z
+  .object({
+    at: isoDateTime,
+    /** The card's birthday when Contacts held one; a line without it is a card whose birthday Life did not hold. */
+    birthday: Birthday.optional(),
+    /** The card's own id in Contacts; the person's id is derived from it (`contactIdOf`), never from a name. */
+    card: z.string().min(1),
+    /** The card's phones and emails, as written. */
+    handles: NamesOrHandles,
+    name: z.string().min(1),
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+export type ContactPerson = z.infer<typeof ContactPerson>;
+
+/** A contact person's id: the prefix and a digest of its card's id. */
+export const contactIdOf = (card: string) =>
+  `${CONTACT_PREFIX}${digest("sha1", card, 12)}`;
 
 /**
  * memory/repos-inferred.jsonl: which project a code repo belongs to, as Life guesses (folder name under ~/Work, or
@@ -304,6 +342,8 @@ export const Imported = z
   .object({
     at: isoDateTime,
     conversation: z.string().min(1),
+    /** A hash of the conversation's latest version as the model reads it (its title and the start of his kept messages), before twins in other conversations are dropped; lines from before have none. */
+    hash: z.string().optional(),
     keep: z.boolean(),
     madeBy: MadeBy,
     schemaVersion: z.literal(1),
@@ -325,12 +365,48 @@ export const Closeness = z
     counts: z.string(),
     madeBy: MadeBy,
     person: PersonRef,
-    personal: Level,
+    personal: ClosenessLevel,
     schemaVersion: z.literal(1),
     service: z.boolean(),
     why: z.string().min(1).max(300),
-    work: Level,
+    work: ClosenessLevel,
   })
   .strict();
 
 export type Closeness = z.infer<typeof Closeness>;
+
+/** Someone outside the directory, as every listing of people needs them: a contact person, or one Life inferred. */
+export interface PersonOutsideDirectory {
+  /** A guess's confidence; a contact person has none. */
+  confidence?: number;
+  id: string;
+  kind: "contact" | "inferred";
+  name: string;
+  namesAndHandles: string[];
+  relation: string;
+}
+
+/** What Life says of someone it knows only from his Contacts: a card names them, nothing tells what they are to him. */
+export const IN_CONTACTS = "in his Contacts";
+
+/** Everyone outside the directory, folded or not (`unfoldedOf` for one id per person): the contact people, then the inferred. */
+export const peopleOutsideDirectoryOf = (
+  contacts: { handles: string[]; id: string; name: string }[],
+  inferred: InferredPerson[]
+): PersonOutsideDirectory[] => [
+  ...contacts.map((c) => ({
+    id: c.id,
+    kind: "contact" as const,
+    name: c.name,
+    namesAndHandles: c.handles,
+    relation: IN_CONTACTS,
+  })),
+  ...inferred.map((p) => ({
+    confidence: p.confidence,
+    id: p.id,
+    kind: "inferred" as const,
+    name: p.name,
+    namesAndHandles: p.namesAndHandles,
+    relation: p.relation,
+  })),
+];

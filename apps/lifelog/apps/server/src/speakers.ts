@@ -13,13 +13,14 @@
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
 import type { Candidates } from "@lifelog/db/schema";
-import { RECOGNITION } from "./config";
+import { NAMING, RECOGNITION } from "./config";
 import { averageLinkageSync } from "./voice-linkage";
 
 import { cosine, type Vector } from "./voice-vectors";
 
 // A person's voice: one centroid per conversation of their evidence (people.ts `weighProfiles`).
 export interface Profile {
+  conversations: string[];
   exemplars: Vector[];
   isOwner: boolean;
   personId: string;
@@ -29,14 +30,54 @@ export interface Profile {
 // strangers' (people.ts `weighProfiles`).
 export interface Profiles {
   people: Profile[];
+  strangerConversations: string[];
   strangers: Vector[];
 }
-export const NO_PROFILES: Profiles = { people: [], strangers: [] };
+export const NO_PROFILES: Profiles = {
+  people: [],
+  strangerConversations: [],
+  strangers: [],
+};
+
+// Each centroid belongs to one conversation; filtering never changes its vector or order.
+export function profilesWithout(
+  profiles: Profiles,
+  excluded: Set<string>
+): Profiles {
+  const without = (exemplars: Vector[], conversations: string[]) => ({
+    conversations: conversations.filter((id) => !excluded.has(id)),
+    exemplars: exemplars.filter(
+      (_, i) => !excluded.has(conversations[i] ?? "")
+    ),
+  });
+  const strangers = without(profiles.strangers, profiles.strangerConversations);
+  return {
+    people: profiles.people.flatMap((p) => {
+      const kept = without(p.exemplars, p.conversations);
+      return kept.exemplars.length ? [{ ...p, ...kept }] : [];
+    }),
+    strangerConversations: strangers.conversations,
+    strangers: strangers.exemplars,
+  };
+}
 
 function unit(v: Vector): Vector {
   const norm = Math.hypot(...v) || 1;
   return v.map((x) => x / norm);
 }
+
+// One exemplar per conversation: the centroid of its clips.
+export const exemplarsOf = (
+  clips: { conversationId: string; embedding: Vector }[]
+) => {
+  const grouped = Map.groupBy(clips, (r) => r.conversationId);
+  return {
+    conversations: [...grouped.keys()],
+    exemplars: [...grouped.values()].map((c) =>
+      centroid(c.map((r) => r.embedding))
+    ),
+  };
+};
 
 export const centroid = (vectors: Vector[]): Vector =>
   unit(vectors.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0))));
@@ -64,6 +105,28 @@ export function rankPeople(vector: Vector, profiles: Profile[]) {
       person.score -
       (ranked[i === 0 ? 1 : 0]?.score ?? RECOGNITION.matchThreshold),
   }));
+}
+
+// A voice he named that sounds like someone else (a recheck): the share of its turns whose first
+// guess is another person, and that person, once the share reaches `NAMING.recheckShare`. Null
+// when the named person has no evidence elsewhere: nothing to compare with.
+export function soundsLikeOf(
+  vectors: Vector[],
+  namedPersonId: string,
+  profiles: Profile[]
+) {
+  if (!(vectors.length && profiles.some((p) => p.personId === namedPersonId))) {
+    return null;
+  }
+  const others = vectors.flatMap((v) => {
+    const personId = rankPeople(v, profiles)[0]?.personId;
+    return personId && personId !== namedPersonId ? [personId] : [];
+  });
+  const share = others.length / vectors.length;
+  const [personId] = [...Map.groupBy(others, (id) => id)]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([id]) => id);
+  return personId && share >= NAMING.recheckShare ? { personId, share } : null;
 }
 
 const nearest = (vector: Vector, profiles: Profile[]) =>
@@ -95,14 +158,20 @@ const isMoreLikeStrangers = (strangers: Vector[], v: Vector, score: number) =>
   strangers.length > 0 &&
   likeness(v, strangers) > score + RECOGNITION.strangerLead;
 
-// Who a speaker's voice is: its nearest person, at `matchThreshold` and `margin` ahead of the
-// next, unless it sounds more like the strangers (`isStranger`).
-function nameOf(vector: Vector, { strangers, people }: Profiles) {
+// Who a speaker's voice is: its nearest person, at the bar's likeness and lead over the next
+// (the ordinary one, or a short voice's), unless it sounds more like the strangers (`isStranger`).
+const ORDINARY: { margin: number; threshold: number } = {
+  margin: RECOGNITION.margin,
+  threshold: RECOGNITION.matchThreshold,
+};
+function nameOf(
+  vector: Vector,
+  { strangers, people }: Profiles,
+  bar = ORDINARY
+) {
   const best = nearest(vector, people);
   const matched =
-    best &&
-    best.score >= RECOGNITION.matchThreshold &&
-    best.margin >= RECOGNITION.margin
+    best && best.score >= bar.threshold && best.margin >= bar.margin
       ? best
       : null;
   // Weighed for a voice that missed too, so the nearby step leaves it alone. A stranger is as like
@@ -123,6 +192,62 @@ function nameOf(vector: Vector, { strangers, people }: Profiles) {
     personId: matched && !isStranger ? matched.personId : null,
   };
 }
+
+// A voice under `minSpeakerSeconds` (samples, no vector) is compared at the short bar, for a
+// person only: `nameOf`'s `isStranger` is not used (it stays unnamed, never marked stranger),
+// and its `vector` stays null, so it is no nearby reference and joins no unnamed group.
+function shortNameOf(
+  samples: { embedding: Vector }[],
+  vector: Vector | null,
+  voices: Profiles,
+  candidates?: Candidates | null
+) {
+  return !(vector || candidates) && samples.length > 0
+    ? nameOf(centroid(samples.map((s) => s.embedding)), voices, {
+        margin: RECOGNITION.shortVoiceMargin,
+        threshold: RECOGNITION.shortVoiceThreshold,
+      })
+    : null;
+}
+
+// The person whose nearby voice is most like `r`, if alike enough and ahead of anyone else's.
+export function nearbyPerson(
+  r: { model: string | null; vector: Vector | null },
+  nearby: { model: string; personId: string; vector: Vector }[]
+) {
+  const scores = nearby
+    .filter((n) => n.model === r.model)
+    .map((n) => ({
+      personId: n.personId,
+      score: cosine(n.vector, r.vector ?? []),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const [best] = scores;
+  const runnerUp = scores.find((s) => s.personId !== best?.personId);
+  return best &&
+    best.score >= RECOGNITION.nearbyVoice &&
+    best.score - (runnerUp?.score ?? 0) >= RECOGNITION.margin
+    ? best.personId
+    : null;
+}
+
+// A voice whose clean samples all left for turn rows: named at the short bar from the samples of
+// the turns recognition moved. A person only: no turns, no vector (it is no reference), no group.
+export const movedVoice = (
+  samples: { embedding: Vector }[],
+  voices: Profiles
+) => {
+  const named = shortNameOf(samples, null, voices);
+  return {
+    isStranger: false,
+    margin: named?.best?.margin ?? null,
+    model: null,
+    personId: named?.personId ?? null,
+    score: named?.best?.score ?? null,
+    turns: [],
+    vector: null,
+  };
+};
 
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
@@ -147,7 +272,8 @@ function decisionOf(
   const profiles = voices.people;
   const owner = profiles.find((p) => p.isOwner)?.personId;
   const named = vector && !candidates ? nameOf(vector, voices) : null;
-  const personId = named?.personId ?? null;
+  const heard = named ?? shortNameOf(samples, vector, voices, candidates);
+  const personId = heard?.personId ?? null;
   // Among candidates: the nearest of them, `margin` ahead; a closed set (no "unknown too", each
   // with a profile) takes a weaker match. Else a turn nearest the owner's voice is his.
   const among = profiles.filter(
@@ -186,9 +312,9 @@ function decisionOf(
       : [];
   return {
     isStranger: named?.isStranger ?? false,
-    margin: named?.best?.margin ?? null,
+    margin: heard?.best?.margin ?? null,
     personId,
-    score: named?.best?.score ?? null,
+    score: heard?.best?.score ?? null,
     turns,
     vector,
   };

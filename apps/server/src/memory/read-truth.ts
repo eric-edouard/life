@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { INFERRED_PREFIX } from "../records/observation";
+import { CONTACT_PREFIX, INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
   AreasFile,
@@ -24,8 +24,8 @@ export function ownerIn(people: Person[]): Person {
 /** The owner as an entity ref: the center of his memory. */
 export const OWNER = `person:${ME}`;
 /** The people other than the owner among an observation's entity refs. */
-export const othersIn = (entities: string[]) =>
-  entities.filter((e) => e.startsWith("person:") && e !== OWNER);
+export const othersIn = (subjects: string[]) =>
+  subjects.filter((e) => e.startsWith("person:") && e !== OWNER);
 /** The first paragraph of truth/me.md. */
 const ABOUT = /^# Me\n\n(.+(?:\n.+)*)/;
 /** truth/me.md's goals: the block under `## Goals`, his words in his priority order. */
@@ -116,6 +116,11 @@ function checkPeople(people: Person[], issues: string[]): Set<string> {
         `person ${p.id}: "${INFERRED_PREFIX}" ids are Life's inferred people`
       );
     }
+    if (p.id.startsWith(CONTACT_PREFIX)) {
+      issues.push(
+        `person ${p.id}: "${CONTACT_PREFIX}" ids are the people his Contacts name`
+      );
+    }
     for (const h of new Set(handlesOf(p))) {
       const other = owner.get(h);
       if (other && other !== p.id) {
@@ -162,7 +167,7 @@ function checkGoals(
   }
 }
 
-/** Empty means the map is consistent: every reference points at something that exists. */
+/** Empty means the directory is consistent: every reference points at something that exists. */
 export function integrity({
   areas,
   people,

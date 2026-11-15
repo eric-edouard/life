@@ -1,5 +1,7 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
 // engine (`claude -p` or `codex exec` on his subscriptions, or an API router: OpenRouter, allmodels); and how full his Codex quota is.
+// The one call with tools is the question cases' agent (scripts/question-cases.ts): Codex, given Life's connector,
+// reads only, and nothing else (his word, 10 Nov 2026).
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +23,7 @@ import {
   NONE,
   type Tier,
   type Tokens,
+  type Tools,
 } from "./model-call";
 import {
   askRoutes,
@@ -33,6 +36,7 @@ import {
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
   fast: "haiku",
+  judge: "sonnet",
   main: "sonnet",
 };
 // Same model as lifelog. Older codex clients reject it, and this Mac has several (an
@@ -41,6 +45,7 @@ const CLAUDE_MODELS: Record<Tier, string> = {
 const SOL: Record<Tier, string> = {
   deep: "gpt-6.1-sol",
   fast: "gpt-6.1-sol",
+  judge: "gpt-6.1-sol",
   main: "gpt-6.1-sol",
 };
 const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
@@ -53,10 +58,18 @@ const CODEX_HOME = join(MACHINE_DIR, "codex");
 const CODEX_EFFORT: Record<Tier, string> = {
   deep: "high",
   fast: "low",
+  judge: "medium",
   main: "medium",
 };
 // Everything codex could call besides the model itself: recorded speech gets no tools, plugins or memory.
 const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
+// The question cases' agent reaches MCP tools only through code mode's `exec` (a V8 isolate with no file system or
+// network), so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its
+// nested `clock__curr_time` reads the real time, which is the time its questions are asked at (verified 21 Oct 2026 on
+// codex 0.162.1 against a fake provider, no quota spent).
+const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
+/** The name a call's one MCP server goes by. */
+const SERVER = "life";
 const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
@@ -111,18 +124,23 @@ const DEEPSEEK_FLASH =
 const ALLMODELS_MODELS: Record<Tier, string> = {
   deep: `${DEEPSEEK_FLASH}=low`,
   fast: `${DEEPSEEK_FLASH}=low`,
+  judge: `${DEEPSEEK_FLASH}=high`,
   main: `${DEEPSEEK_FLASH}=high`,
 };
 /**
  * OpenRouter's model for every tier, his choice of 8 Nov 2026: the same model, not abliterated, about half the price, on
  * fp8 hosts OpenRouter lists as keeping no data; then allmodels' abliterated one at high, for what they refuse or fail.
- * Episodes, extraction and the pages and personas think at high (his ask, 9 Nov 2026), the fast tier at medium.
+ * Episodes and extraction (the deep tier) think at low (his choice of 14 Nov 2026, after a bench of 6 low runs against
+ * 3 high: as many true facts held, about half as many wrong facts, about 3 fewer episodes found of 61, about 10% fewer
+ * tokens). The fast tier thinks at medium, the working main tier (pages, personas, the exchange reads) at high, and the
+ * judge tier at high because it is the yardstick: the stored baselines were graded at high and it moves only on purpose.
  */
 const routed = (effort: string) =>
   `openrouter:deepseek/deepseek-v4.1-flash-1017@deepinfra/fp8,morph/fp8=${effort} allmodels:${DEEPSEEK_FLASH}=high`;
 const OPENROUTER_MODELS: Record<Tier, string> = {
-  deep: routed("high"),
+  deep: routed("low"),
   fast: routed("medium"),
+  judge: routed("high"),
   main: routed("high"),
 };
 
@@ -188,7 +206,8 @@ export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
 const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
-const promptText = (prompt: string) =>
+/** A prompt's text, by its name (`prompts/<name>.md`). */
+export const promptText = (prompt: string) =>
   Bun.file(join(LIFE_CODE_DIR, "prompts", `${prompt}.md`)).text();
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
@@ -270,7 +289,7 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
   };
 }
 
-async function askCodex({ dir, images, input, llm, system }: ModelCall) {
+async function askCodex({ dir, images, input, llm, system, tools }: ModelCall) {
   if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
     // codex refuses a CODEX_HOME that doesn't exist, even to log in.
     await mkdir(CODEX_HOME, { recursive: true });
@@ -282,7 +301,8 @@ async function askCodex({ dir, images, input, llm, system }: ModelCall) {
   const events = await cli(
     "codex",
     (cwd) => [
-      // The pinned binary, read-only, and none of the extras (CODEX_OFF).
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With `tools`, its MCP calls are approved by
+      // config.
       ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
@@ -294,8 +314,22 @@ async function askCodex({ dir, images, input, llm, system }: ModelCall) {
         'web_search="disabled"',
         "skills.bundled.enabled=false",
         "skills.include_instructions=false",
+        ...(tools
+          ? [
+              `mcp_servers.${SERVER}.command=${toml(tools.command[0] ?? "")}`,
+              `mcp_servers.${SERVER}.args=[${tools.command.slice(1).map(toml).join(",")}]`,
+              `mcp_servers.${SERVER}.env={${Object.entries(tools.env)
+                .map(([k, v]) => `${k}=${toml(v)}`)
+                .join(",")}}`,
+              `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
+              "features.view_image=false",
+            ]
+          : []),
       ].flatMap((c) => ["-c", c]),
-      ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
+      ...(tools ? CODEX_AGENT_OFF : CODEX_TOOLS).flatMap((f) => [
+        "--disable",
+        f,
+      ]),
       ...["--json", "-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
@@ -385,6 +419,8 @@ const codexQuota = async () =>
  */
 interface Provider {
   ask: (call: ModelCall) => Promise<Answer>;
+  /** How many of its calls a step runs at once (`inBatches`). */
+  callsAtOnce: number;
   /** Tokens one call can hold, the smallest of its models and routes (fallback included). */
   contextTokens: number;
   effort?: Record<Tier, string>;
@@ -394,7 +430,14 @@ interface Provider {
   keys: string[];
   models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
+  /** Whether a call of it may be given tools (`Tools`): Codex only, the question cases' agent. */
+  tools?: true;
 }
+// A call to an API engine costs the Mac nothing while it waits: on 12 Nov 2026, 103 calls at up to 96 at once on
+// openrouter were each answered by their first host, none refused. allmodels at this many is not measured. An engine
+// that starts a program on the Mac for each call (claude, codex) is held to a few.
+const API_CALLS_AT_ONCE = 32;
+const CLI_CALLS_AT_ONCE = 4;
 /** An API engine: its calls go through its routes, which name its host and keys. */
 function apiEngine(
   engine: Router,
@@ -410,6 +453,7 @@ function apiEngine(
   ];
   return {
     ask: askRoutes,
+    callsAtOnce: API_CALLS_AT_ONCE,
     contextTokens,
     host: new URL(ROUTERS[engine].url).host,
     keys: routers.map((r) => ROUTERS[r].key),
@@ -422,6 +466,7 @@ const PROVIDERS: Record<Engine, Provider> = {
   allmodels: apiEngine("allmodels", ALLMODELS_MODELS, 1_048_576),
   claude: {
     ask: askClaude,
+    callsAtOnce: CLI_CALLS_AT_ONCE,
     contextTokens: 200_000,
     host: "api.anthropic.com",
     keys: [],
@@ -429,23 +474,34 @@ const PROVIDERS: Record<Engine, Provider> = {
   },
   codex: {
     ask: askCodex,
+    callsAtOnce: CLI_CALLS_AT_ONCE,
     contextTokens: 272_000,
     effort: CODEX_EFFORT,
     host: "chatgpt.com",
     keys: [],
     models: SOL,
     quota: codexQuota,
+    tools: true,
   },
   openrouter: apiEngine("openrouter", OPENROUTER_MODELS, 1_048_576),
 };
 
+/** How many calls of `llm`'s engine run at once. */
+export const callsAtOnceOf = (llm: Llm) => PROVIDERS[llm.engine].callsAtOnce;
+
+/**
+ * The fewest characters a token holds, a low bound on purpose: a text of n characters is at most n / CHARS_PER_TOKEN
+ * tokens. So what is sized by it fits, and a count of tokens made with it is a ceiling.
+ */
+export const CHARS_PER_TOKEN = 3;
+
 /**
  * Characters of input one call of `llm` can take: its context less room for the answer (the API engines' cap, taken
- * for the CLI engines too), at 3 characters a token (a margin that covers the prompt). What a step reads whole is
- * held to it, never to a number of its own.
+ * for the CLI engines too), at `CHARS_PER_TOKEN` (a margin that covers the prompt). What a step reads whole is held
+ * to it, never to a number of its own.
  */
 export const callCharsOf = (llm: Llm) =>
-  (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * 3;
+  (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * CHARS_PER_TOKEN;
 
 /**
  * Whether Life is online: his main engine's provider answers at all (any HTTP status) within 5 s. Offline (travelling,
@@ -472,7 +528,7 @@ export const hasQuota = (engine?: Engine) =>
   PROVIDERS[llmFor("main", engine).engine].quota !== undefined;
 
 /**
- * One shot with no tools, no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
+ * One shot with no tools (but `tools`, the question cases' agent's one MCP server), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
@@ -487,8 +543,13 @@ export async function askOnce(opts: {
   llm: Llm;
   prompt: string;
   run: string;
+  /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
+  tools?: Tools;
 }) {
   const { dir, llm } = opts;
+  if (opts.tools && !PROVIDERS[llm.engine].tools) {
+    throw new Error(`${llm.engine} runs no tools: only Codex is given any`);
+  }
   const context =
     opts.context === undefined
       ? ""
@@ -507,6 +568,7 @@ export async function askOnce(opts: {
       input: opts.input,
       llm,
       system,
+      tools: opts.tools,
     });
     ({ fields } = answer);
     if (answer.refusal) {

@@ -39,6 +39,15 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         let client = Set(T.allCases.map(\.rawValue)).subtracting(phoneOnly)
         #expect((server.contains("unknown") ? client : client.subtracting(["unknown"])) == server, "\(T.self)")
     }
+    try mirrors(AppleHealthMeasurement.Stage.self, "SleepStage")
+    let components = try #require(spec["components"] as? [String: Any])
+    let schemas = try #require(components["schemas"] as? [String: [String: Any]])
+    let union = try #require(schemas["Measurement"]?["oneOf"] as? [[String: String]])
+    let kinds = try union.flatMap { ref in
+        let name = try #require(ref["$ref"]?.split(separator: "/").last.map(String.init))
+        return try values(spec, name, ["kind"])
+    }
+    #expect(Set(kinds) == Set(AppleHealthMeasurement.Kind.allCases.map(\.rawValue)).subtracting(["unknown"]))
     try mirrors(ServerClient.Switches.Engine.self, "Switches", "engine")
     try mirrors(ServerClient.MacLLM.Reason.self, "MacLlm", "reason")
     try mirrors(ServerClient.NamingItem.Kind.self, "QueueItem", "kind")

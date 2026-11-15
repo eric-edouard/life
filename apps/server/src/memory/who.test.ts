@@ -1,6 +1,27 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { appendJsonl } from "../core/files";
+import { AGENT_WORD } from "../core/names";
+import { LedgerEntry } from "../records/ledger-entry";
+import { Unresolved } from "../records/observation";
+import type { SourceEvent } from "../records/source";
+import { Person } from "../records/truth";
+import { readAgent } from "./agent-source";
+import { LEDGER, UNRESOLVED } from "./memory-files";
+import { inferredId } from "./people";
 import { candidateLines } from "./read-person-page";
-import { meant, namedLike, nearNames } from "./who";
+import { action, inferred, people as mapped, said } from "./record-fixtures";
+import { messageUnits, nameKey } from "./units";
+import {
+  foldsOf,
+  meant,
+  namedLike,
+  nearNames,
+  readUnresolvedPeople,
+} from "./who";
+
+const INFERRED_ID = /^inf_[a-z0-9-]+$/;
 
 test("person: a name two people go by lists both, with relation and count", () => {
   const people = [
@@ -63,7 +84,7 @@ test("a name means who it resolves to, listed first among those going by it; a n
   const mean = (name: string, resolve: (s: string) => string | null) =>
     meant(name, {
       canon: (r: string) => r,
-      inferred: [],
+      outsideDirectory: [],
       resolve,
       truth: { people } as never,
     });
@@ -85,4 +106,197 @@ test("a name means who it resolves to, listed first among those going by it; a n
     ["ann", "claire", "claire-friend"],
   ]);
   expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
+});
+
+test("names resolve cheapest first: handles, then names and aliases, else nothing", () => {
+  const { resolve } = foldsOf(mapped, [], [], []);
+  expect(resolve("+66600000001")).toBe("person:dad");
+  expect(resolve("pops")).toBe("person:dad");
+  expect(resolve("Jean (Me)")).toBe("person:me");
+  expect(resolve("Annesophie")).toBeNull();
+});
+
+test("a surface resolves to what the owner said, else truth, else a confident inferred person, never against a correction", () => {
+  const inferredPeople = [
+    inferred("inf_plumber", ["+33611111111", "Plombier"]),
+    inferred("inf_maybe", ["+33622222222"], 0.3),
+  ];
+  const { resolve } = foldsOf(
+    mapped,
+    inferredPeople,
+    [
+      said({
+        kind: "this-is",
+        nameOrHandle: "+33633333333",
+        person: "person:gaston",
+      }),
+      said({
+        kind: "not-this-person",
+        nameOrHandle: "Pops",
+        person: "person:dad",
+      }),
+      said({
+        from: "person:inf_plumber",
+        kind: "same-person",
+        to: "person:gaston",
+      }),
+    ],
+    []
+  );
+  expect(resolve("+33633333333")).toBe("person:gaston");
+  expect(resolve("+66600000001")).toBe("person:dad");
+  // The model's guess is used, and folded into the person the owner says it is.
+  expect(resolve("plombier")).toBe("person:gaston");
+  expect(resolve("+33622222222")).toBeNull();
+  expect(resolve("Pops")).toBeNull();
+  expect(foldsOf(mapped, inferredPeople, [], []).resolve("plombier")).toBe(
+    "person:inf_plumber"
+  );
+  expect(
+    foldsOf(
+      [],
+      [],
+      [said({ from: "person:a", kind: "same-person", to: "person:a" })],
+      []
+    ).canon("person:a")
+  ).toBe("person:a");
+});
+
+test("a surface the call linked to someone in truth/ is them, and so is every guess going by it, until he says otherwise", () => {
+  const linked = (confidence: number) => ({
+    ...inferred("inf_gas-1", ["Gas B"], confidence),
+    person: "person:gaston",
+  });
+  // An older guess for the same surface, with a page of its own: the newest confident answer decides.
+  const older = inferred("inf_gas", ["Gas B", "+33644444444"]);
+  const both = [older, linked(0.6)];
+  expect(foldsOf(mapped, both, [], []).resolve("Gas B")).toBe("person:gaston");
+  expect(foldsOf([], both, [], []).canon("person:inf_gas")).toBe(
+    "person:gaston"
+  );
+  expect(foldsOf(mapped, both, [], []).resolve("+33644444444")).toBe(
+    "person:gaston"
+  );
+  // Unsure, the link is not used; a newer confident answer with no link takes it back, and every id the surface was
+  // given reads as that answer (one surface, one person).
+  expect(
+    foldsOf([], [older, linked(0.4)], [], []).canon("person:inf_gas")
+  ).toBe("person:inf_gas");
+  const unlinked = foldsOf(
+    [],
+    [older, linked(0.6), inferred("inf_gas-2", ["Gas B"])],
+    [],
+    []
+  ).canon;
+  expect(unlinked("person:inf_gas")).toBe("person:inf_gas-2");
+  expect(unlinked("person:inf_gas-1")).toBe("person:inf_gas-2");
+  // His word on the surface beats the link.
+  const not = said({
+    kind: "not-this-person",
+    nameOrHandle: "Gas B",
+    person: "person:gaston",
+  });
+  expect(foldsOf([], both, [not], []).canon("person:inf_gas")).toBe(
+    "person:inf_gas-1"
+  );
+  expect(foldsOf(mapped, both, [not], []).resolve("Gas B")).toBe(
+    "person:inf_gas-1"
+  );
+  // A surface that is a name in the directory reads as them, and so does a guess made for it before.
+  expect(
+    foldsOf(mapped, [inferred("inf_gaston-x", ["Gaston"])], [], []).canon(
+      "person:inf_gaston-x"
+    )
+  ).toBe("person:gaston");
+});
+
+test("a name in another script resolves to its own person only, never every word of any script", () => {
+  const thai = {
+    card: "card-thai",
+    handles: [],
+    id: "contact_thai",
+    name: "สมชาย ใจดี",
+  };
+  const truth = [
+    Person.parse({ aliases: [], id: "ivan", name: "Иван Петров" }),
+    Person.parse({ aliases: [], id: "gaston", name: "Gaston Roy" }),
+  ];
+  const { resolve } = foldsOf(truth, [], [], [thai]);
+  expect(resolve("Иван Петров")).toBe("person:ivan");
+  expect(resolve("สมชาย ใจดี")).toBe("person:contact_thai");
+  expect(resolve("gaston roy")).toBe("person:gaston");
+  for (const word of ["แม่", "王", "Москва", "()", "!!"]) {
+    expect(resolve(word)).toBeNull();
+  }
+});
+
+test("nameKey folds Latin accents and keeps every script's letters apart", () => {
+  expect(nameKey("Élodie")).toBe(nameKey("elodie"));
+  expect(nameKey("sœur")).toBe("sœur");
+  const names = ["สมชาย ใจดี", "王小明", "Иван Петров"];
+  expect(names.every((n) => nameKey(n) !== "")).toBe(true);
+  expect(new Set(names.map(nameKey)).size).toBe(names.length);
+  expect(nameKey("น้ำ")).not.toBe(nameKey("นำ"));
+  expect(nameKey("Maman ❤️")).toBe(nameKey("Maman"));
+  expect(nameKey("❤️")).toBe("");
+});
+
+test("an inferred id from a Thai name is still a plain slug", () => {
+  expect(inferredId("สมชาย ใจดี", "k", new Set())).toMatch(INFERRED_ID);
+});
+
+afterAll(() => {
+  rmSync(LEDGER, { force: true });
+  rmSync(UNRESOLVED, { force: true });
+});
+
+test("an agent's own name opening its report is no unresolved person; other names and other units keep their row", () => {
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  rmSync(LEDGER, { force: true });
+  rmSync(UNRESOLVED, { force: true });
+  appendJsonl(LEDGER, LedgerEntry, [
+    action({
+      after: { agent: "Orbit", confidence: "high" },
+      id: "entry_aaaaaaaaaaaa",
+      instruction: {
+        at: "2026-10-20T14:50:00.000Z",
+        quote: "find it",
+        ref: "j:1",
+      },
+      kind: "ask",
+      target: AGENT_WORD,
+      via: "watch",
+    }),
+    action({
+      after: { outcome: "found", state: "done" },
+      at: "2026-10-20T14:55:00.000Z",
+      id: "entry_bbbbbbbbbbbb",
+      kind: "update",
+      target: "entry_aaaaaaaaaaaa",
+      via: "connector",
+    }),
+  ]);
+  const [report] = readAgent(new Date(0));
+  const agentUnit = messageUnits([report as SourceEvent], () => null)[0]?.unit
+    .id as string;
+  const row = (unit: string, nameAsWritten: string) => ({
+    at: "2026-10-21T10:00:00.000Z",
+    date: "2026-10-20",
+    nameAsWritten,
+    observation: "obs_000000000001",
+    schemaVersion: 1 as const,
+    unit,
+    via: "model" as const,
+  });
+  appendJsonl(UNRESOLVED, Unresolved, [
+    row(agentUnit, "orbit"),
+    row(agentUnit, "Mira"),
+    row("unit_000000000009", "Orbit"),
+  ]);
+  return readUnresolvedPeople().then((rows) =>
+    expect(rows.map((r) => [r.unit, r.nameAsWritten])).toEqual([
+      [agentUnit, "Mira"],
+      ["unit_000000000009", "Orbit"],
+    ])
+  );
 });

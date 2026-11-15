@@ -1,7 +1,7 @@
 // How well one embedding model, or a blend of several, names the owner's known voices. Profiles and
 // ranking are the server's (`weighProfiles` through `profilesWithout`, `rankPeople`); no server
 // threshold is used: the bench sweeps its own, so models with different score ranges compare fairly.
-import { profilesWithout } from "@lifelog/server/scripts/eval-voices";
+import { profilesOf } from "@lifelog/server/scripts/eval-voices";
 import {
   NO_PROFILES,
   type Profile,
@@ -54,6 +54,7 @@ export function callsOf(items: Heard[], turns: Heard[]): Call[] {
   };
   const own = Map.groupBy(turns, (t) => t.jobId);
   const cached = new Map<string, Profile[]>();
+  const without = profilesOf(data);
   return [...Map.groupBy(items, (i) => i.jobId)].flatMap(([jobId, inJob]) => {
     const conversations = new Set(
       [...inJob, ...(own.get(jobId) ?? [])].map((t) => t.conversationId)
@@ -61,8 +62,7 @@ export function callsOf(items: Heard[], turns: Heard[]): Call[] {
     const key = [...conversations].sort().join();
     const people =
       cached.get(key) ??
-      ([...profilesWithout(data, conversations).values()][0] ?? NO_PROFILES)
-        .people;
+      ([...without(conversations).values()][0] ?? NO_PROFILES).people;
     cached.set(key, people);
     return inJob.map((item) => callOf(item, rankPeople(item.vector, people)));
   });

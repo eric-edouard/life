@@ -9,7 +9,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 | Folder | What | Default |
 |---|---|---|
-| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
+| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, each kept whole as an export copy by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
 | `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, assets | Life.app: the helper's resources; a checkout: the checkout |
 | `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
@@ -21,13 +21,17 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
   removes through those links.
 - Every worktree reads and writes the same `OWNER_DATA_DIR` and shares its one lock (`OWNER_DATA_DIR/.nightly.lock`). Point `LIFE_OWNER_DATA_DIR` at
   a copy to experiment, and copy `derived/settings.json` into a worktree before model runs (without it, calls go to the
-  default engine).
+  default engine); copy settings.json again after a rename.
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`apps/server/src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing. It has its own home folder too (`HOME`,
   `apps/server/src/core/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
   contacts or repos, and it reads nothing of the machine (`mac.ts`).
 - Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/host/export.ts`).
+- gog (the calendar steps, Google Tasks) needs `GOG_KEYRING_PASSWORD`, which the helper under Life.app does not have: it reads
+  `SECRETS.gogKeyring` (`core/gog.ts`). Keep it with `GOG_KEYRING_PASSWORD=… LIFE_STATE_DIR=<the app's state folder> bun life gog-keyring`
+  from a shell holding the variable (a checkout's `LIFE_STATE_DIR` is its own `derived/`, so set it); a restore or a new Mac runs it again.
+  Never add a Keychain item from the command line: macOS prompts, and the app blocks and starts no helper.
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 - What stays bounded: the nightly deletes each run's model files and each eval's judge calls (`LIFE_STATE_DIR/memory/runs`, `/evals`) after 30 days and the
   event log's days (`LIFE_STATE_DIR/log`) after a year (`dropOld`; the backups keep 24 months). Each
@@ -39,7 +43,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
 the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
-sources, the agents (their wake words), the agents' report senders, the Reminders and Past calendar plugins.
+sources, `describePhotos` (the local photo describer), the agents (their wake words), the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, email, git). So a new key lands
@@ -57,7 +61,7 @@ every Keychain secret in its environment:
 
 | Service | What it does |
 |---|---|
-| `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
+| `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
@@ -85,15 +89,36 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 `turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
 
-- **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
+- **The night:** once a day after 05:00 (late enough that a night out is over and read whole: his decision, 11 Nov 2026), up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's episodes and the index. Facts wait for the night, which reads each unit once its day is done. No commit or email; a failure only logs (the next slot and the night read the day again).
-  The nightly commits and its report counts what the midday runs found.
-- **A day read again** (each slot, the night): only its new units go in full, those with no verdict on their current
+  It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
+  which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
+  recorded-days`; a few seconds); closeness and the
+  personas take its last three years. With his `histories` setting on, the same read gives the histories their
+  months not read yet (closed months from the setting's `from`, newest first, 200 calls a night at most; a failure
+  costs its month only). With his `exchangeReads` setting on, it also gives the exchange reads their finished
+  exchanges without a stored reply (200 calls a night across the three reads, newest first, after the histories; a
+  failure costs its call only). Before turning it on or moving `from` back: `bun life memory histories --from YYYY-MM`
+  prints the people, months, calls and a token ceiling, with no model; `bun life memory exchange-reads` prints the
+  calls and exchanges pending, and `--force` asks the night's share. With his `links` setting on, after the index
+  the night reads how open steps of each open matter ended (`links.jsonl`, in shadow); `bun life memory links` prints
+  what is due (matters, open steps, calls, a token ceiling) with no model, `bun life memory links <matter id>` each
+  open step with the ending found. With his `endings` setting on, readers show a found ending as "maybe done: <quote>" (the matter stays open) and every one is an ending check for him to answer in conversation (`checksNow`; nothing is drawn: the check is written, a fact check with `endedBy` set, its text the check's guess (earlier ones start "Done?"), only with his answer): right (or outdated) is the `outdated` correction on the step, wrong removes the link between those two ids for good and shows no further "maybe done" on that step. `bun life memory links` also prints the marks from his answers (`endingMarks`): closed side, of the last 50 endings he judged none wrong; open side, a stand-in for the spec's open-side mark until he checks open items, of the last 50 things he said were done on his own at most 2 that the links had not ended. With his `matters` setting on, after extraction the night places the day's episodes, observations and
+  to-do items in matters (`matters.jsonl`, in shadow); `bun life memory matters` prints what is due (calls, episodes,
+  to-do items) with no model, `--force` places the night's days, `--since YYYY-MM-DD` places one week at a time from
+  that day to today, in order (each week sees the matters of the weeks before; a failed source gives no work), and
+  `bun life memory matters list` prints each matter with its areas, projects, steps and newest day.
+- **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
+  (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the
+  embed timer). A file sent today stays a tag, and today has no episodes, facts or Past calendar events, until the
+  night reads the day (his decision, 11 Nov 2026: the midday runs read each day three times for about 11% of the
+  tokens). A source that fails keeps its units and is retried 5 minutes later (`watch.today` in the log).
+- **A day read again** (the night): only its new units go in full, those with no verdict on their current
   content by the episodes prompt (or `reread` since); the rest go as stubs (title, times, the verdict's reason), never
   fetched. The day's episodes as they stand are the state; the reply adds or changes some and names those gone. A chat-day
   with one new message is new as a whole (ponytail: per message would need a record of what was read).
-- **Backup:** once the night is done, or from 06:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
+- **Backup:** once the night is done, or from 09:00 (`afterNightDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - **Bridges:** restarted once a day by the same rule (`healBridges`, its tries in `LIFE_STATE_DIR/memory/bridges.json`),
   before the source alert: a restart heals a hung bridge and makes each check its login anew, so a dead session shows
   red and the alert emails it.
@@ -102,11 +127,11 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Everything looks back 7 days.
 - **Backfill:** scheduled historical model reading is paused until prompts are frozen. The saved range stays pending;
   collection and imports do not mark it processed. Imports and future model backfills require `backfillEngine`, with
-  no fallback to `engine`; the night and midday still use `engine`.
-- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no midday and no backfill week, and
+  no fallback to `engine`; the night still uses `engine`.
+- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no backfill week, and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
-  each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
+  each processing run, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
   is derived when read: `useOf` in `run-log.ts`.
 - **Failures:** a failed model call (one waits up to an hour, `MODEL_TIMEOUT_MS`) or a source that throws fails the
   whole night: non-zero exit, nothing committed, a failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
@@ -117,7 +142,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 ## Historical collection
 
 ```sh
-bun life memory units --from 2025-01-01 --to 2025-12-31
+bun life memory historical-units --from 2025-01-01 --to 2025-12-31
 ```
 
 This model-free step reads source history one owner-local month at a time under the memory lock. With no range, it
@@ -125,14 +150,25 @@ starts at the earliest available history and stops before the nightly seven-day 
 reaches that window is rejected. Voice is skipped entirely; existing voice chapters and unavailable-source units stay
 as stored. Files retain existing descriptions or tags. A failed source aborts the month's publication; retries reconcile
 the same days, including empty ones. Completion explicitly rebuilds the index. No verdict, episode, observation,
-inferred person, extraction marker or processed state is written, so pages, ratings, appointments, open items and the
+inferred person, extraction marker or processed state is written, so pages, fact-check answers, appointments, open items and the
 nightly new-fact count do not change.
 
-Before earlier units are created, raw Date headers from the owner's sent mail supply whole-hour offsets as
-`Etc/GMT±N`, with IANA's reversed sign. Past zones append only before the first stored unit day; known coverage stays.
-A day with no sent mail takes the nearest valid run (ties earlier) and is reported as a gap. Conflicting or non-hour
-offsets defer their days without rounding or guessing cities. Later model backfill re-derives gap evidence from the
-same headers and treats those days as uncertain; it never silently moves stored unit dates or ids.
+Before earlier units are created, each day's zone is derived from its own evidence as `Etc/GMT±N`, with IANA's reversed
+sign, read for the sources that are on and readable (`historicalZonesOf`). Photos that agree on one offset decide the day
+(`source: "photos"`; only photos that place him: his own devices' or with coordinates, not a Mac's import). Photos that
+split fall back to mail, since the phone recorded a move. Else sent mail's Date headers agree on one offset (`source: "mail"`).
+A quarter-hour photo (+5:30) defers its day. Mail says only whole-hour zones: one with no usable header, -0000 or a
+quarter hour says nothing, and a noise offset (+2:01) is ignored. A day with no evidence, or whose mail splits, takes the
+nearest day that has some (ties earlier) and is reported as a gap, except a travel day: its own mail names both the
+zone of the known day before and of the one after, and they differ (a clock change included). Travel days stay
+deferred, with no units: no step reads his answers about a day before the recorded zones (a `zones.jsonl` line without
+`source` would end the derived era there), so they wait for a future source of evidence.
+Only the days before the derived era ends (the first zone record without `source`) are set, so a day his recorded zones
+cover is never deferred, and the era's last day is deferred when it would end after that record begins.
+Stored zones are corrected only by appended lines (`supersedingRuns`), and only when the window covers the whole derived
+era; a narrower one appends nothing. A settled day (a day a record cites by a unit id, a day on or after the first episode,
+a deferred day that holds units, each with one neighbour) keeps its stored zone, so no cited unit moves. Later
+model backfill re-derives gap evidence and treats those days as uncertain.
 
 Search passages live in their own derived SQLite store, outside `index.sqlite`. Each belongs to the first message's
 unit and is identified by source plus first-message id. Reconciliation follows complete grouping runs across adjacent
@@ -146,7 +182,7 @@ bun life memory passages --from 2025-01-01 --to 2025-12-31
 The rebuild publishes one month at a time and reports the first failed month to retry. Both paths check uncertainty
 across the complete passage run, including neighboring days outside the requested range; a run touching a deferred
 day waits whole. Boundary source reads are shared once per source and interval. Vectors are pruned only when every
-enabled source is available and collected passage coverage is complete.
+enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
@@ -163,6 +199,10 @@ enabled source is available and collected passage coverage is complete.
 - The minute pass (`tick`, `watch.ts`) runs on its own one-minute timer beside the hearing loop, never awaited by it
   (a lifelog outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
   log). The report's Actions section lists every ask.
+- When `apple-health` is ready, the minute timer syncs lifelog's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
+- With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet handled, taken from the setting's day on (`{"from": "YYYY-MM-DD"}`; older ones wait for a backfill) (60 a pass,
+  newest first) with a local model: Qwen3.5-9B under llama.cpp, started for the pass and stopped after, downloaded once to `MACHINE_DIR/models`
+  (pinned sizes and hashes, `core/pinned.ts`). Progress is the photos source card (Described n of m, No image, Last failure) and the log kind `photos.describe`.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a
@@ -172,18 +212,19 @@ late with harm), or spoken asks above about one a day for a month.
 
 ## remctl and Reminders quirks
 
-- `bun life act --check` says whether remctl can act now (read-only).
+- `bun life change-todo-item --check` says whether remctl can act now (read-only).
 - remctl works through its signed Capability Host, only by absolute path (`~/bin/remctl`).
 - A read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new
-  reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
+  reminder is re-sorted after it exists: `changeTodoItem` re-assigns the asked section 3 s after an add.
 
 ## Model engines
 
 - Calls go through `apps/server/src/models/llm.ts` (an API engine's through `routers.ts`): `claude -p` or the pinned `codex` on the owner's subscription, or
   an API engine with his keys (allmodels since 28 Oct 2026, openrouter since 8 Nov), chosen with
   `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
-  call, keys, whether it may run tools, and its quota.
+  call, keys, whether it may run tools, its quota, and how many of its calls a step runs at once (`callsAtOnce`: 32 for
+  an API engine, 4 for one that starts a program on the Mac).
 - An API engine's model is its routes (`routesOf`): `router:author/model@host,host[=effort]`, then the next router's
   after a space; a router left out is the engine's own, an effort left out the tier's (a route's effort wins over `LIFE_LLM`'s). Each router (`ROUTERS`) is one endpoint and one key. The hosts are
   asked one at a time in that order, streamed, within one 60-minute deadline: a host that errs, sends nothing for 5
@@ -191,17 +232,18 @@ late with harm), or spoken asks above about one a day for a month.
   router's own fallback acts only before output begins, and on 29 Oct refuseless opened a day's reply and then died).
   Any other failure (no key, no credit, a reply from a host not listed) skips the rest of that router's hosts.
 - openrouter (`OPENROUTER_API_KEY`, then `ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017, not abliterated, on
-  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), at high effort for the deep and main tiers and medium for fast (his ask, 9 Nov 2026), then
+  `deepinfra/fp8` then `morph/fp8` (both listed by OpenRouter as keeping no data, `zdr`), at low effort for episodes and extraction (the deep tier, his choice of 14 Nov 2026), medium for fast and high for the main tier, the judge tier at high (the yardstick, it moves only on purpose), then
   allmodels' abliterated one on Refuseless then Hopper at high (his choice, 8 Nov 2026): about half the price, the abliterated model for what the plain one refuses. `isOnline`
   asks only the first router. allmodels (`ALLMODELS_API_KEY`) runs the abliterated one alone; it ignores `zdr`, so its
   host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
-  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a sweep's steps under
+  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under
   it; the quota lines appear only for an engine that has one (`hasQuota`).
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `apps/server/src/models/llm.ts` runs them in an empty temp folder.
+  The one exception is the question cases' agent (Measuring, below): Codex, given Life's connector, reads only.
 - The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, an API engine's as its routes), only
   on a copy of the data; `LIFE_LLM` is refused on the live data.
 
@@ -227,6 +269,15 @@ stores kept in the export are copied consistently with SQLite's `VACUUM INTO`.
 manifest, never over existing data, never into an existing archive. Setting up a backup and restoring one, step by
 step: [Back up and restore](use/backup.md).
 
+The same verb brings in an export of his: an assistant's (above), or Instagram's (`docs/sources.md`). An Instagram
+export, by hand: unzip it (its `your_instagram_activity/messages` tree is all that is read), run
+`bun life import <folder> --dry` for the counts (chats, messages, those already held, files kept and missing,
+photos to describe; nothing is written), then, with Life quit (the archive has one writer; the command waits for it),
+`bun life import <folder>`: the rows are written and the files cloned (it says so, and lets go of the archive:
+Life can be started again), then the photos are described with the backfill engine and the export's days collected
+into units. The same command again adds nothing and finishes what a stopped run left. Rows in an archive are never removed: read the dry counts
+first.
+
 ## The nightly report
 
 - It goes out in HTML, in plain text and as a complete HTML attachment, because mail clients clip long bodies.
@@ -241,18 +292,59 @@ step: [Back up and restore](use/backup.md).
 - **Timeline score:** `bun scripts/timeline.ts <truth.json>` scores the episodes memory holds for a truth file's days
   (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
   missed, extra, duplicates, and start, end and place against lifelog's stays.
-- **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
-  From 29 Oct 2026 the statements he answers are the doubtful ones, not a random spread: don't compare a score across that day.
-  Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
-  A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its statement, the claims on its units as of
-  its day, the judge and the claims it cites are unchanged; only the rest are judged again. A batch now holds only those,
-  so a grade sees other neighbours' claims than before: from 5 Nov 2026 a score may shift a little for that alone.
+- **Fact checks:** `bun scripts/eval.ts --fact-check-answers` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
+  From 29 Oct 2026 the fact checks he answers are the doubtful ones, not a random spread: don't compare a score across that day. From 14 Nov 2026 nothing is drawn: his answers on people are corrections, so the stored facts stay and are graded, but new ones come only from a line with a doubt of its own.
+  Only a score after a re-read means anything. It holds the lock through its judge calls: not near 05:00.
+  A grade is kept (`LIFE_STATE_DIR/memory/fact-check-grades.json`, rebuildable) while its fact check, the memory lines on its units as of
+  its day, the judge and the memory lines it cites are unchanged; only the rest are judged again. A batch now holds only those,
+  so a grade sees other neighbours' memory lines than before: from 5 Nov 2026 a score may shift a little for that alone.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real episodes and
   extract over the truth set's days, once per candidate, on an empty copy of the data, and grades each run's facts and
   timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
-- To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for an episode.
+- **Exchange sizes:** `bun scripts/exchange-sizes.ts [person…]` counts how his chats and mail with people cut into
+  exchanges, over every year, by source and year: messages, exchanges, their size, how many have one side only, and
+  for the chats both sides wrote in their characters, at most how many tokens that is, and the calls that read them
+  a batch at a time; then the quiet between messages by band. With people named, one table for each one's
+  one-to-one chats and mail, in the order given. Counts only, by code, no model; it reads the sources as the night
+  does and writes nothing of his. Run it before sizing a read of his history.
+- **The memory rework's pilot:** `bun scripts/memory-pilot.ts <read> --set <name> [--run] [--engine <engine>] [--model <m>] [--effort <e>] [--label <l>]`
+  tries one of the rework's reads (`connection`, `mentions`, `conflict`; `READS` names each one's prompt) on a saved
+  test set (`pilot-set.ts`, which picks batches from the replies memory stores, or `pilot-voice-set.ts` for recorded
+  conversations), so a wording is tried in minutes; `--model`, `--effort` and `--label` name another model of the
+  engine and the trial folder its replies are kept in. `pilot-agree.ts <read> <label> <label> [--set <name>]` prints how
+  far two readers agree, by code and side. Without `--run` it asks nothing: how many batches it would make and at
+  most how many tokens. With `--run` it asks his engine at the main tier (or `--engine`'s, for the checking pass by
+  another family), as one `memory.pilot` run, and appends each reply that is one, as the exchange reads do, to a trial
+  folder in his data, `docs/memory-rework/pilot/<read>/<label>-<wording>/`: a reworded prompt is a new folder, so it
+  is asked again. It writes nothing in `memory/`, so it holds no lock; `LIFE_LLM` stays refused on his data. It prints
+  counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
+  reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
+- **Bringing in the pilot's replies:** once, `bun scripts/bring-in-read-replies.ts` (under the memory lock) appends to
+  `memory/read-replies/` each reply the pilot kept under the label `openrouter` that is of a read's current prompt,
+  covers one two-way one-to-one chat and holds an exchange no stored reply reads yet. It prints counts only; the pilot's
+  old folders stay, and a second run appends nothing.
+- **Question cases:** `bun scripts/question-cases.ts [--only id,…] [--run]` asks his question cases
+  (`docs/evals/question-cases.json` in his data: his question as he asked it, the points a right reply holds, those
+  it must not say) to a headless agent, Codex's main tier, whose only tools are Life's connector serving its reads
+  (never a tool that writes or acts). The memory under test is his own, as it stands. The agent's connector runs on
+  a state dir of its own, with his settings, voice store and search index by links and its own log, so nothing it
+  does lands in his Life's log. A reply is checked by the eval judge, his engine's judge tier: each point graded
+  stated or not, the case passing when it states all it must and none it must not; a misgrade becomes a judge case.
+  Without `--run` it only counts the cases. A run is metered like an eval, refused over the Codex reserve before
+  each case, keeps what the agent and the judge read under the run's folder, writes its results (each reply, its
+  points, the tools called, how much they returned, and in `calls` each call's tool, arguments and size in order, names
+  and queries included) to his data, `docs/evals/question-cases/<run>.json`, and
+  prints counts only: by kind and asker, passed of asked, then calls by tool and read parts opened (`openedOf`). It
+  spends his Codex plan for the agent and his engine
+  for the judge: show him the count of cases first. `--across <run> <run> … [--baselines n]` (no model) counts the
+  points across runs already made, a run being one result file or several joined by `+`: per run, points ok, cases passed
+  and `WRONG` marks; then the must-hold points with no `ok` in the first `n` runs, by case id and point number, with
+  their marks in every run, and how many are `ok` in two of the later runs. Ids and numbers only, printed and written to
+  `docs/evals/question-cases/across-<first file of the last run>.json`. A regression case of status `scenario` may name a question case
+  as its `check`.
+- To trace a wrong observation to its step: `bun life memory observation <obs_id>`, and `day` for an episode.
 
 ## Audits
 
@@ -266,19 +358,19 @@ case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
 - It commits only its own files, by path (`git commit -- <files>`), and only while the connector's `read_life_status` shows
   `processing` idle: the nightly stages `memory/` and `truth/` in the same repo, and a bare commit would take them.
 - A second Claude session, with fresh context, makes an adversarial pass on the findings before any fix is proposed.
-  The fix, once the owner approves its scope, takes the normal path: a worktree, a PR, a golden-rule verdict.
+  The fix, once the owner approves its scope, takes the normal path: a worktree, a PR, a debt verdict.
 - The audit file quotes only what a finding needs (ids, cursors and refs otherwise). Its sections, in order:
   1. **Complaint:** the ask id, recording and turn, spoken and recorded instants.
   2. **Scope:** this case and a named window of related ones.
   3. **Expected vs promised:** what the owner expected, and what the docs promised then (the commit checked).
   4. **Snapshot at intake:** the connector's `read_life_status` `observedAt` and its `read_memory_changes` cursor (page `read_memory_changes` from the
-     intake instant until `remaining` is 0, keep the last), and the open reminders that bear on it (ids and titles).
+     intake instant until `remaining` is 0, keep the last), and the open to-do items that bear on it (ids and titles).
   5. **Timeline:** each row an utterance, a fact (with its id), an inference or a gap; event time apart from
      ingestion time.
   6. **Stages:** each stage letter (below) pass, fail (proven), fail (inferred) or unknown (a gap), with evidence.
   7. **Hypotheses,** and the counterexamples that killed them.
   8. **Cause:** proven, or the observability that is missing. Never one dressed as the other.
-  9. **Coverage:** the tools used, the caps hit, what was unavailable. What an agent read is its `mcp.call` lines in
+  9. **Tools used:** the tools used, the caps hit, what was unavailable. What an agent read is its `mcp.call` lines in
      the log; what a report listed is its run's `listed` (`read_processing_runs`).
   10. **Adversarial pass:** what it found and how each point was settled.
   11. **Proposal:** a bounded fix, its regression case, success criteria.
@@ -296,7 +388,7 @@ when that folder exists:
 - model stages: facts graded by `bun scripts/eval.ts`, rerun when a prompt changes (a flaky case passes 2 runs of 3);
 - the judge itself: judge cases (`docs/evals/judge-cases-*.json`, `bun scripts/eval.ts --judge-cases <file>`), the grades
   the owner settled for facts a judge got wrong; a judge prompt or model changes only when it agrees with at least 9
-  of 10. A fact with a `date` (every rated statement has one) is judged as of that day, against the claims said by then:
+  of 10. A fact with a `date` (every answered fact check has one) is judged as of that day, against the memory lines said by then:
   true then is never wrong because it changed later;
 
 Cases only accumulate. The stage letters: capture (C), hearing and routing (H), extraction (E), ownership (O), task
@@ -318,22 +410,23 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   first; hash progress survives restarts. Normalized float32 partitions hold at most 4,096 rows, and exact search
   merges bounded best candidates without loading or sorting every vector.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time. A turn ref (an ask's `ref`) opens
-  its conversation as it is now, 5 turns before it.
+  its conversation as it is now, 5 turns before it. An imported conversation's id (`claude:<id>`, `chatgpt:<id>`, as
+  search cites it) gives it whole from its export copy, the assistant's replies too, kept or not by the import; a page
+  is at most 200 lines and 50,000 characters.
 - `day <YYYY-MM-DD>`: the birthdays of that day and the next 7; what is due (`openItems`, ranked); what he did: the
   day's episodes in time order, each with where he was (its stay), what happened and its key facts (`readBy`); the key
   facts in no episode; the units (those judged worth nothing only counted); and what Life changed that day and why.
-- `person [name] [--before d]`: the whole page, when it was built, their details (`memory/details.ts`), what Life holds by source and
-  month, then every observation and episode linked to them, newest first, paging back with `--before`. `person me` is
+- `person [name] [--before d] [--part now|page|persona|story|year|month|evidence] [--span YYYY[-MM]]`: the `now` part (their details (`memory/details.ts`), closeness, the last exchange, what is open, the Situation, what their time together was about), ending with the refs of the parts `page`, `persona`, `story` (then `year`, `month`, `evidence` below it), each about 6,000 characters with its own next reads; `fetch` opens a ref too. `--before` pages back the `evidence`. `person me` is
   the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
-- `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
+- `area <name>`, `topics [tag]`, `checks` (everything Life would like him to verify, counted and listed, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
   the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
-- `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
+- `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the directory is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
-- `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
+- `status`, `runs`, `changes`, `observation`: the status reads (`docs/status-reads.md`).
 
-Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`,
+Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`, `messenger.sqlite`,
 `linkedin.sqlite`, `telegram.sqlite`, `notes.sqlite`, each with a `deleted` view, and `screen.sqlite`, Screen Time's records) and `~/Library/Messages/chat.db`, read-only.

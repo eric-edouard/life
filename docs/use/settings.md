@@ -31,7 +31,7 @@ Life can read the commits in every git repository under one folder. Turn on **Gi
 settings, then name the folder:
 
 ```sh
-bun life settings set '{"repos":"~/Code"}'
+bun life settings set '{"reposFolder":"~/Code"}'
 ```
 
 ## Your devices in Screen Time
@@ -41,18 +41,37 @@ Life reads Screen Time from the Mac and from each iPhone or iPad that shares it.
 one left out shows as "iOS device":
 
 ```sh
-bun life settings set '{"devices":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"iPhone 17"}}'
+bun life settings set '{"deviceNames":{"ED032E56-…":"iPhone Duo","33DF71A7-…":"iPhone 17"}}'
 ```
 
 ## Older months
 
 ```sh
-bun life memory units --from 2026-01-01 --to 2026-09-30
+bun life memory historical-units --from 2026-01-01 --to 2026-09-30
 ```
 
-Each night reads the last 7 days. Older history can be collected for search without model calls, one month at a time;
-its end must be before those 7 days. Omit the dates to collect the available history. Collection reports unavailable
+Each night reads the last 7 days. Older months can be collected for search without model calls, one month at a time;
+their end must be before those 7 days. Omit the dates to collect every available month. Collection reports unavailable
 sources and uncertain time zones. Historical model backfill is paused until its prompts are ready.
+
+## History
+
+```sh
+bun life settings set '{"histories":{"from":"2026-09"}}'
+```
+
+Off until you set it. Each night Life then summarises, once, every finished month from `from` on between you and each
+person with a page, from your one-to-one chats and mail; a month is read again only when its messages change. Your
+assistant sees it on each person's page. Before turning it on or moving `from` back, `bun life memory histories --from 2026-09` prints how many
+people, months and model calls that is, calling no model.
+
+## Endings
+
+```sh
+bun life settings set '{"endings":true}'
+```
+
+Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, the matter shows "maybe done" and stays open. Your assistant asks you about each ("Done? ..."): right, and the matter closes; wrong, and Life never ties those two records again. `bun life memory links` prints, from your answers, whether Life's endings can be trusted yet.
 
 ## Your claude.ai and ChatGPT history
 
@@ -62,12 +81,16 @@ bun life import ~/Downloads/claude-export --dry
 bun life import ~/Downloads/claude-export
 ```
 
-Download your data from claude.ai or ChatGPT and unzip it first. The optional `backfillEngine` selects the runner for
+Download your data from claude.ai or ChatGPT and unzip it first (a large ChatGPT export comes as several
+`conversations-000.json` files: Life reads them as one). The optional `backfillEngine` selects the runner for
 imports and historical model backfills; without it those jobs are off. Codex uses your subscription quota, while an
-API engine uses its paid credits. This setting leaves the nightly and midday runner unchanged.
+API engine uses its paid credits. This setting leaves the nightly runner unchanged.
 
-The dry run copies nothing and calls no model. The real import judges conversations in batches of ten, resumes missing
-judgments when repeated, and refuses a different export of the same assistant. A failed Codex call waits for a retry.
-Once judging finishes, Life collects the older messages and updates search without reading them for facts.
+The dry run copies nothing and calls no model; it says what is new in the export. A newer export imports the same way:
+Life keeps every export as it came, never replacing an older one, so a conversation you deleted in the app stays in Life.
+Each conversation reads at its latest version, and the real import judges in batches of ten only the new conversations
+and those whose beginning changed, resuming missing judgments when repeated. A failed Codex call waits for a retry.
+Life collects the older messages it touched and updates search without reading them for facts. Any conversation, even
+one Life did not keep, can be read back whole by its id.
 
 Next: [back up and restore](backup.md).

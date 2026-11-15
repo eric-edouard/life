@@ -1,4 +1,4 @@
-import { closeSync, existsSync, openSync } from "node:fs";
+import { closeSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
@@ -6,13 +6,18 @@ import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import {
+  earliestAppleHealth,
+  newestAppleHealth,
+  readAppleHealth,
+} from "../sources/apple-health";
+import {
   archiveDb,
   incomingArchived,
   readEarliestArchived,
 } from "../sources/archived";
 import {
   FORMATS,
-  importOf,
+  hasExportCopy,
   newestAssistant,
   readAssistant,
   readEarliestAssistant,
@@ -44,6 +49,12 @@ import {
   newestPhone,
   readPhone,
 } from "../sources/phone";
+import {
+  earliestPhoto,
+  newestPhoto,
+  PHOTOS_DB,
+  readPhotos,
+} from "../sources/photos";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
 import {
   copyWhatsapp,
@@ -53,9 +64,13 @@ import {
   readWhatsapp,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
-import { readFiles } from "./ledger";
+import { readFiles } from "./memory-files";
 import { showFiles } from "./message-files";
-import { newestTold, readEarliestTold, readTold } from "./told";
+import {
+  newestToldLife,
+  readEarliestToldLife,
+  readToldLife,
+} from "./told-life";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, below).
@@ -76,6 +91,7 @@ export const FULL_DISK = "Full Disk Access for Life";
 const LISTED: Descriptor[] = [
   // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, snapshot.ts).
   {
+    capturesOnItsOwn: true,
     kind: "voice",
     label: "Pendant",
     missing: lifelogMissing,
@@ -83,6 +99,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 6 * HOUR,
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     earliest: readEarliestImessage,
     group: isImessageGroup,
@@ -98,6 +115,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 24 * HOUR,
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     group: isWhatsappGroup,
     handleOf: phoneOf,
@@ -117,6 +135,7 @@ const LISTED: Descriptor[] = [
     },
   },
   {
+    capturesOnItsOwn: true,
     chatDays: 7,
     group: isPhoneGroup,
     kind: "chat",
@@ -130,6 +149,7 @@ const LISTED: Descriptor[] = [
   },
   ...NETWORKS.map(bridgedSource),
   {
+    capturesOnItsOwn: true,
     earliest: readEarliestMail,
     incoming: incomingMail,
     kind: "mail",
@@ -163,15 +183,15 @@ const LISTED: Descriptor[] = [
       deleted: {},
     },
   },
-  // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
-  // amber; its newest is his newest imported message.
+  // His claude.ai and ChatGPT history, imported from their exports (memory/imports.ts): it gets new items only when he
+  // imports a newer export, so its card is never amber; its newest is his newest imported message.
   ...(["claude", "chatgpt"] as const).map(
     (name): Descriptor => ({
       earliest: () => readEarliestAssistant(name),
       imported: true,
       kind: "own_writing",
       label: FORMATS[name].label,
-      missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
+      missing: () => (hasExportCopy(name) ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
       read: (since, before) => readAssistant(name)(since, undefined, before),
@@ -180,12 +200,12 @@ const LISTED: Descriptor[] = [
   ),
   // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
   {
-    earliest: readEarliestTold,
+    earliest: readEarliestToldLife,
     kind: "chat",
     label: "Told Life",
-    name: "told",
-    newest: newestTold,
-    read: readTold,
+    name: "told-life",
+    newest: newestToldLife,
+    read: readToldLife,
     silentAfter: Number.POSITIVE_INFINITY,
   },
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
@@ -202,7 +222,7 @@ const LISTED: Descriptor[] = [
     earliest: readEarliestCommit,
     kind: "repo",
     label: "Git",
-    missing: () => (settings().repos ? undefined : "no repos folder set"),
+    missing: () => (settings().reposFolder ? undefined : "no repos folder set"),
     name: "git",
     newest: newestCommit,
     read: (since, { me, repos }, before) =>
@@ -220,6 +240,28 @@ const LISTED: Descriptor[] = [
     read: (since, before) => readScreen(since, undefined, undefined, before),
     silentAfter: 24 * HOUR,
     store: { copies: "events", copy: () => copyScreen() },
+  },
+  {
+    earliest: earliestAppleHealth,
+    kind: "physical",
+    label: "Apple Health",
+    missing: lifelogMissing,
+    name: "apple-health",
+    newest: newestAppleHealth,
+    read: readAppleHealth,
+    silentAfter: 48 * HOUR,
+  },
+  // His photo library, read in place from Photos' own store: Photos keeps its history, so nothing is copied.
+  {
+    earliest: earliestPhoto,
+    kind: "photos",
+    label: "Photos",
+    macOnly: true,
+    missing: () => unreadable(PHOTOS_DB, FULL_DISK),
+    name: "photos",
+    newest: newestPhoto,
+    read: readPhotos,
+    silentAfter: 7 * 24 * HOUR,
   },
 ];
 
@@ -285,6 +327,13 @@ const withFiles =
   (since: Date, before?: Date): SourceEvent[] =>
     showFiles(read(since, before), readFiles());
 
+/** Whether search reads a source's text as passages (`passages.ts`): chats, mail, his own writing and his photos, one passage each. */
+export const isSearched = (s: Pick<Descriptor, "kind">) =>
+  s.kind === "chat" ||
+  s.kind === "mail" ||
+  s.kind === "own_writing" ||
+  s.kind === "photos";
+
 /**
  * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
  * a source's name to its reader (its events showing their files), in cut order.
@@ -306,7 +355,7 @@ export function tablesOf(sources: Descriptor[]) {
     /** His own writing (his notes, his imported assistant chats), as days of his persona: read by personas only. */
     OWN_WRITING: readers((s) => s.kind === "own_writing"),
     /** What `search` reads chat messages and notes from: the sources it has a window for. */
-    SEARCHED: readers((s) => s.kind === "chat" || s.kind === "own_writing"),
+    SEARCHED: readers((s) => isSearched(s) && s.kind !== "mail"),
     /** The mail `search` reads, in a section of its own. */
     SEARCHED_MAIL: readers((s) => s.kind === "mail"),
     /**
@@ -331,14 +380,17 @@ export type Tables = ReturnType<typeof tablesOf>;
 export async function safely<T>(
   source: string,
   read: () => T[] | Promise<T[]>,
-  failed: string[]
+  failed: string[],
+  isEveryReadLogged = true
 ): Promise<T[]> {
   const started = performance.now();
   const ms = () => Math.round(performance.now() - started);
   try {
     // ponytail: no timeout, every reader is synchronous (a timer could not fire); a hung source holds the run.
     const rows = await read();
-    log("source.read", { count: rows.length, ms: ms(), ok: true, source });
+    if (isEveryReadLogged) {
+      log("source.read", { count: rows.length, ms: ms(), ok: true, source });
+    }
     return rows;
   } catch (e) {
     log("source.read", {
@@ -351,3 +403,7 @@ export async function safely<T>(
     return [];
   }
 }
+
+/** `safely`, logging only a failure: a read repeated every few minutes (the watcher's sync of today). */
+export const quietly: typeof safely = (source, read, failed) =>
+  safely(source, read, failed, false);

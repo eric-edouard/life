@@ -15,12 +15,14 @@ type VoiceMap = ReturnType<typeof readVoiceMap> & { building?: boolean };
 export interface QueueCache {
   items: () => Card[] | Promise<Card[]>;
   map: () => VoiceMap | null;
+  rechecks: () => Card[] | Promise<Card[]>;
 }
 
 export function queueCache(db: Db) {
   let worker: Worker | null = null;
   let map: VoiceMap | null = null;
   let seen: number | null = null;
+  let rechecks: Card[] = [];
   let pending:
     | (ReturnType<typeof Promise.withResolvers<void>> & { revision: number })
     | null = null;
@@ -62,11 +64,11 @@ export function queueCache(db: Db) {
         (w as unknown as { unref: () => void }).unref();
         w.onmessage = ({
           data,
-        }: MessageEvent<{ map: VoiceMap; seen: number }>) => {
+        }: MessageEvent<{ map: VoiceMap; rechecks: Card[]; seen: number }>) => {
           if (worker !== w) {
             return;
           }
-          ({ map, seen } = data);
+          ({ map, rechecks, seen } = data);
           failure = null;
           pending?.resolve();
           pending = null;
@@ -88,28 +90,36 @@ export function queueCache(db: Db) {
     }
     return map ? { ...map, building: pending !== null } : null;
   };
+  const readSnapshot = async () => {
+    const requested = latestSeq(db);
+    // Catch up through this request, without chasing writes that arrive while it waits.
+    while (seen === null || seen < requested) {
+      const previous = map;
+      readMap();
+      // biome-ignore lint/performance/noAwaitInLoops: one in-flight snapshot; a newer request may need its successor
+      await pending?.promise;
+      if (map === previous) {
+        break; // Keep the displayed map; queue readers must reject a stale snapshot.
+      }
+    }
+    if (!map || seen === null || seen < requested) {
+      throw new Error("Voice map worker could not build the naming queue");
+    }
+    return map;
+  };
   return {
     close,
     async items() {
-      const requested = latestSeq(db);
-      // Catch up through this request, without chasing writes that arrive while it waits.
-      while (seen === null || seen < requested) {
-        const previous = map;
-        readMap();
-        // biome-ignore lint/performance/noAwaitInLoops: one in-flight snapshot; a newer request may need its successor
-        await pending?.promise;
-        if (map === previous) {
-          break; // Keep the displayed map; queue readers must reject a stale snapshot.
-        }
-      }
-      if (!map || seen === null || seen < requested) {
-        throw new Error("Voice map worker could not build the naming queue");
-      }
+      const snapshot = await readSnapshot();
       const scope: VoiceScope = "speaker";
-      return map.cards
+      return snapshot.cards
         .filter((card) => card.scope === scope)
         .map(({ scope: _, ...card }) => card);
     },
     map: readMap,
+    async rechecks() {
+      await readSnapshot();
+      return rechecks;
+    },
   };
 }

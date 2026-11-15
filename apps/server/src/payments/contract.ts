@@ -15,6 +15,8 @@ export const Payment = z.object({
   eur: z.number(),
   id: z.string(),
   merchant: z.string(),
+  /** What it was, in words, as the backend knows it (his answer or a sure guess), or null: then Life's day is the clue. */
+  note: z.string().nullable(),
   /** When it was paid (an instant with its offset), or null when the bank gives only the day. */
   paidAt: z.iso.datetime({ offset: true }).nullable(),
   /** Whether it counts in his spending (the backend's rule): not income, not money held for someone else. */

@@ -53,7 +53,7 @@ test("a press's audio comes back as words at once; only its cost is kept, and it
     form?.get("model_id"),
     form?.get("diarize"),
     form?.get("webhook"),
-  ]).toEqual(["scribe_v2", "false", null]);
+  ]).toEqual(["scribe_v3", "false", null]);
   const [row] = env.db.select().from(quickTranscriptions).all();
   expect(row?.durationSeconds).toBe(60);
   expect(

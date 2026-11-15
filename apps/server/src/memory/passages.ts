@@ -4,16 +4,23 @@ import { dirname } from "node:path";
 import { clock, DAY, daysBefore, iso, MIN } from "../core/clock";
 import { CANDIDATES, EMBEDDER_MODEL, textHashOf } from "../core/embedder";
 import { openReadOnly } from "../core/sqlite";
-import type { SourceEvent } from "../records/source";
-import { PASSAGES } from "./ledger";
+import { chatGroups, eventKey, type SourceEvent } from "../records/source";
+import { PASSAGES } from "./memory-files";
 import {
   enabledSources,
+  isSearched,
   kindOf,
   readySources,
   type Tables,
   tables,
 } from "./sources";
-import { dayUnitId, isLifeOutput, normalize, searchableMail } from "./units";
+import {
+  dayUnitId,
+  isLifeOutput,
+  normalize,
+  searchableMail,
+  textOf,
+} from "./units";
 import { type DayRange, dayStart, localDate, type Window } from "./zones";
 
 // Rebuildable source text, independent of index.sqlite. Each passage belongs to its first message's unit.
@@ -28,7 +35,8 @@ create table if not exists coverage (source text, start text, end text, primary 
 /** A chat's consecutive messages, anchored after a natural silence; writing a neighboring day keeps the same cuts. */
 export function passagesOf(events: SourceEvent[]) {
   const passages: SourceEvent[][] = [];
-  const chats = Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
+  // A phone call is searched by its line, as every reader shows it.
+  const chats = chatGroups(events.map((e) => ({ ...e, text: textOf(e) })));
   for (const list of chats.values()) {
     let open: SourceEvent[] = [];
     let chars = 0;
@@ -74,7 +82,7 @@ const rowOf = (events: SourceEvent[]): Passage => {
     end: events.at(-1)?.at ?? first.at,
     events,
     hash: textHashOf(EMBEDDER_MODEL, text),
-    id: `${first.source}|${first.id}`,
+    id: eventKey(first),
     source: first.source,
     start: first.at,
     text,
@@ -134,11 +142,8 @@ function readEdges(
   to: string,
   readers: Readers
 ) {
-  const out = new Map(events.map((e) => [`${e.source}|${e.id}`, e]));
-  const chats = Map.groupBy(
-    events.filter((e) => kindOf(e.source) === "chat"),
-    (e) => `${e.source}|${e.chat}`
-  );
+  const out = new Map(events.map((e) => [eventKey(e), e]));
+  const chats = chatGroups(events.filter((e) => kindOf(e.source) === "chat"));
   for (const list of chats.values()) {
     const first = list[0] as SourceEvent;
     const read = readers[first.source];
@@ -155,7 +160,7 @@ function readEdges(
         direction,
         read
       )) {
-        out.set(`${e.source}|${e.id}`, e);
+        out.set(eventKey(e), e);
       }
     }
   }
@@ -165,10 +170,7 @@ function readEdges(
 /** Natural run bounds are computed once, independently of the size-based passage cuts. */
 function runBoundsOf(events: SourceEvent[]) {
   const bounds = new Map<string, { start: string; end: string }>();
-  for (const list of Map.groupBy(
-    events,
-    (e) => `${e.source}|${e.chat}`
-  ).values()) {
+  for (const list of chatGroups(events).values()) {
     let run: { start: string; end: string } | undefined;
     let last: SourceEvent | undefined;
     for (const e of list.toSorted(
@@ -182,7 +184,7 @@ function runBoundsOf(events: SourceEvent[]) {
         run = { end: e.at, start: e.at };
       }
       run.end = e.at;
-      bounds.set(`${e.source}|${e.id}`, run);
+      bounds.set(eventKey(e), run);
       last = e;
     }
   }
@@ -278,7 +280,10 @@ function publishPassageRows(
         p.end,
         p.hash,
         p.text,
-        JSON.stringify(p.events),
+        // The flag would go stale when he replies later: a passage keeps the event without it.
+        JSON.stringify(
+          p.events.map(({ hasOwnerWrittenInThread: _, ...e }) => e)
+        ),
         normalize(p.text),
         run.start,
         run.end
@@ -327,10 +332,10 @@ export function preparePassages(
     const blocked = new Set(
       expanded
         .filter((e) => deferred.has(localDate(e.at)))
-        .map((e) => bounds.get(`${e.source}|${e.id}`))
+        .map((e) => bounds.get(eventKey(e)))
     );
     const eligible = expanded.filter(
-      (e) => !blocked.has(bounds.get(`${e.source}|${e.id}`))
+      (e) => !blocked.has(bounds.get(eventKey(e)))
     );
     mkdirSync(dirname(path), { recursive: true });
     const db = new Database(path);
@@ -351,10 +356,7 @@ export function preparePassages(
             );
           }
         }
-        for (const list of Map.groupBy(
-          expanded,
-          (e) => `${e.source}|${e.chat}`
-        ).values()) {
+        for (const list of chatGroups(expanded).values()) {
           const ordered = list.toSorted((a, b) => a.at.localeCompare(b.at));
           const first = ordered[0] as SourceEvent;
           db.query(
@@ -466,7 +468,7 @@ export function readPassages(
   }
 }
 
-/** Coverage must span every source without a gap before absent hashes can safely be pruned. */
+/** The collected windows must span every source without a gap before absent hashes can safely be pruned. */
 export function readPassageTexts(db: Database): boolean {
   if (!existsSync(PASSAGES)) {
     db.run(
@@ -486,9 +488,7 @@ export function readPassageTexts(db: Database): boolean {
     `create temp view passage_texts as select end as at, hash, text from passage_store.passages where ${where}`
   );
   const ready = readySources();
-  const searched = enabledSources().filter(
-    (s) => s.kind === "chat" || s.kind === "own_writing" || s.kind === "mail"
-  );
+  const searched = enabledSources().filter(isSearched);
   const isWhole = searched.every((source) => {
     if (!ready.includes(source)) {
       return false;

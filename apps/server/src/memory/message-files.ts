@@ -11,19 +11,19 @@ import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { emlxPart } from "../sources/mail";
-import { FILES, readFiles } from "./ledger";
+import { FILES, readFiles } from "./memory-files";
 import { begin, chunks, inBatches } from "./run";
 
 // A message's files: each read once into memory/files.jsonl (`describeFiles`, from `gather`), then shown as a line of
 // its message (`showFiles`) with what was read off it, so every step, search and the connector see it with no path of
 // their own. Video, voice notes and a file never read on this Mac stay a tag.
 
-const FILES_PROMPT = "files.v1";
+const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
 const PER_CALL = 8;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
 /** The long side, in pixels, of the image a model is shown. */
-const IMAGE_PX = "1600";
+const IMAGE_PX = 1600;
 /** What textutil reads as text: Word, RTF, OpenDocument text, plain text. */
 const DOCUMENT = /msword|rtf$|opendocument\.text|wordprocessingml|^text\/plain/;
 /** What Messages leaves in a message's text where a file was: U+FFFC. */
@@ -40,13 +40,14 @@ const SPACE = /\s+/g;
 function fileLine(f: SourceFile, e: FileEntry | undefined) {
   const kind =
     KINDS.find(([mime]) => f.mime.startsWith(mime))?.[1] ?? "document";
-  const read = `${e?.what ? `, described by Life: ${e.what}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
+  const read = `${e?.description ? `, described by Life: ${e.description}` : ""}${e?.text ? ` | text: ${e.text}` : ""}`;
   return `[${kind}${f.name ? ` ${f.name}` : ""}${read || (f.path ? "" : ", not on this Mac")}]`;
 }
 
 /**
  * Events with their files as lines of their text, in place of the U+FFFC a file leaves in it; an event with neither
- * text nor file is left out. Every reader of chats and mail goes through it.
+ * text nor file is left out, but a phone call, whose line its readers write (`textOf`). Every reader of chats and
+ * mail goes through it.
  */
 export const showFiles = (
   events: SourceEvent[],
@@ -59,7 +60,7 @@ export const showFiles = (
     ]
       .filter(Boolean)
       .join("\n");
-    return text ? [{ ...e, text }] : [];
+    return text || e.phoneCall ? [{ ...e, text }] : [];
   });
 
 type Readable = SourceFile & { path: string };
@@ -106,6 +107,15 @@ async function run(cmd: string[]) {
   return r.stdout;
 }
 
+/** `src` as a JPEG at `out` with its long side at most `px` pixels; false when `sips` failed (logged). */
+export async function toJpeg(src: string, out: string, px: number) {
+  const made = await run([
+    ...["sips", "-s", "format", "jpeg", "-Z", String(px), src],
+    ...["--out", out],
+  ]);
+  return made !== undefined;
+}
+
 /** Read by code: a document's text, a PDF's text layer. Else the JPEG a model is shown: a photo, a scan's first page. */
 async function prepare(f: Readable, base: string): Promise<Read | undefined> {
   const bytes = await bytesOf(f);
@@ -126,11 +136,7 @@ async function prepare(f: Readable, base: string): Promise<Read | undefined> {
     return { text: layer };
   }
   const image = `${base}.jpg`;
-  const made = await run([
-    ...["sips", "-s", "format", "jpeg", "-Z", IMAGE_PX, src],
-    ...["--out", image],
-  ]);
-  return made === undefined ? undefined : { image };
+  return (await toJpeg(src, image, IMAGE_PX)) ? { image } : undefined;
 }
 
 /**
@@ -169,7 +175,11 @@ export async function triage(
 
 const Reply = z.object({
   files: z.array(
-    z.object({ id: z.string(), text: z.string().nullish(), what: z.string() })
+    z.object({
+      description: z.string(),
+      id: z.string(),
+      text: z.string().nullish(),
+    })
   ),
 });
 
@@ -181,11 +191,16 @@ const Reply = z.object({
  * night for a week); the nightly email counts it.
  */
 export async function describeFiles(events: SourceEvent[], engine?: Engine) {
-  const step = await begin("files", "fast", { prompt: FILES_PROMPT }, engine);
+  const step = await begin(
+    "files",
+    "fast",
+    { prompt: MESSAGE_FILE_DESCRIPTION_PROMPT },
+    engine
+  );
   const { copies, fresh } = await triage(
     events,
     [...readFiles().values()].filter(
-      (e) => !e.madeBy || e.madeBy.prompt === FILES_PROMPT
+      (e) => !e.madeBy || e.madeBy.prompt === MESSAGE_FILE_DESCRIPTION_PROMPT
     )
   );
   /** The ledger's lines for one content, one per ref it was met under. */
@@ -208,7 +223,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     );
     await appendJsonl(FILES, FileEntry, [...copies, ...read]);
     const shown = prepared.filter((p) => "image" in p);
-    const madeBy = stamp(step.llm, FILES_PROMPT, step.run);
+    const madeBy = stamp(step.llm, MESSAGE_FILE_DESCRIPTION_PROMPT, step.run);
     let described = 0;
     /** One call on `batch`; a failed call on several files tries each alone, so a bad image leaves only itself a tag. */
     const describe = async (batch: typeof shown, dir: string) => {
@@ -224,7 +239,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
                 type: b.file.mime,
               })),
             },
-            prompt: FILES_PROMPT,
+            prompt: MESSAGE_FILE_DESCRIPTION_PROMPT,
           })
         )
       );
@@ -237,11 +252,11 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
       }
       const entries = (reply?.files ?? []).flatMap((r) => {
         const b = batch[Number(r.id) - 1];
-        const [what, text] = [words(r.what), words(r.text ?? "")];
+        const [description, text] = [words(r.description), words(r.text ?? "")];
         return b
           ? lines(b, {
               madeBy,
-              ...(what ? { what } : {}),
+              ...(description ? { description } : {}),
               ...(text ? { text } : {}),
             })
           : [];
@@ -249,7 +264,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
       described += entries.length;
       await appendJsonl(FILES, FileEntry, entries);
     };
-    await inBatches(chunks(shown, PER_CALL), step.dir, describe);
+    await inBatches(chunks(shown, PER_CALL), step, describe);
     return step.end({
       copied: copies.length,
       described,

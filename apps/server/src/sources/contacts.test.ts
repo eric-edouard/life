@@ -29,7 +29,7 @@ function make(
   mkdirSync(join(path, ".."), { recursive: true });
   const db = new Database(path);
   db.run(
-    "create table ZABCDRECORD (Z_PK integer primary key, ZFIRSTNAME text, ZLASTNAME text, ZORGANIZATION text, ZJOBTITLE text, ZDEPARTMENT text, ZBIRTHDAY real, ZBIRTHDAYYEAR integer)"
+    "create table ZABCDRECORD (Z_PK integer primary key, ZFIRSTNAME text, ZLASTNAME text, ZORGANIZATION text, ZJOBTITLE text, ZDEPARTMENT text, ZBIRTHDAY real, ZBIRTHDAYYEAR integer, ZUNIQUEID text)"
   );
   db.run("create table ZABCDPHONENUMBER (ZOWNER integer, ZFULLNUMBER text)");
   db.run("create table ZABCDEMAILADDRESS (ZOWNER integer, ZADDRESS text)");
@@ -44,7 +44,7 @@ function make(
   );
   db.run("create table ZABCDURLADDRESS (ZOWNER integer, ZURL text)");
   for (const [i, r] of rows.entries()) {
-    db.run("insert into ZABCDRECORD values (?, ?, ?, ?, ?, null, ?, ?)", [
+    db.run("insert into ZABCDRECORD values (?, ?, ?, ?, ?, null, ?, ?, ?)", [
       i + 1,
       r.first ?? null,
       r.last ?? null,
@@ -52,6 +52,7 @@ function make(
       r.title ?? null,
       r.birthday?.[0] ?? null,
       r.birthday?.[1] ?? null,
+      `card-${i + 1}`,
     ]);
     for (const h of r.handles) {
       db.run(
@@ -79,6 +80,10 @@ test("Contacts birthdays: seconds from 2001 at noon UTC, the year kept only when
   expect(birthdayOf(388_800, 1604)).toBe("--01-05");
   expect(birthdayOf(388_800, null)).toBe("--01-05");
   expect(birthdayOf(null, 1992)).toBeNull();
+  // 29 Feb with a year that has none is read without the year, never as a date that does not exist.
+  const leapDay = (Date.UTC(2004, 1, 29, 12) - Date.UTC(2001, 0, 1)) / 1000;
+  expect(birthdayOf(leapDay, 1990)).toBe("--02-29");
+  expect(birthdayOf(leapDay, 1992)).toBe("1992-02-29");
 });
 
 test("Contacts read: names from the Mac's and each account's database, a person's name before a company's", () => {
@@ -136,6 +141,7 @@ test("Contacts records: read whole (work, birthday, addresses, family, profiles)
       addresses: ["12 rue Neuve, 44000 Nantes, France (Home)"],
       birthday: "1990-01-05",
       handles: ["+33 6 11 11 11 11", "claire@example.com"],
+      id: "card-1",
       name: "Claire",
       profiles: ["Facebook: claire.d", "https://claire.example"],
       related: ["Mother: Anne"],

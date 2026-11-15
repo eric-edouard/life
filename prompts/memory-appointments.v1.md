@@ -13,10 +13,10 @@ The user message is one JSON object:
 
 - `today`: his day now, `YYYY-MM-DD`.
 - `here`: the IANA time zone he is in now, or null.
-- `facts`: each has `id`, `said` (the day it was said, which "tomorrow" or "Wednesday" counts from), `when` (the day
+- `observations`: each has `id`, `said` (the day it was said, which "tomorrow" or "Wednesday" counts from), `when` (the day
   it is for, or null) and `text`. Every fact holds now: Life already dropped the ones a later fact replaced.
-- `held`: the appointments Life holds now, each with `title`, `start`, `end` and `facts` (the ids it was read from).
-  Use them to keep an appointment the same, never as evidence: every field you give comes from `facts`. Give one
+- `held`: the appointments Life holds now, each with `title`, `start`, `end` and `observations` (the ids it was read from).
+  Use them to keep an appointment the same, never as evidence: every field you give comes from `observations`. Give one
   again to change it; one you leave out stays as it is while its facts hold.
 
 ## What is an appointment

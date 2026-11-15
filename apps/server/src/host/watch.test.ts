@@ -3,7 +3,7 @@ import { rmSync } from "node:fs";
 import { HOUR, MIN } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as proc from "../core/proc";
-import { LEDGER, tasksOf } from "../memory/ledger";
+import { LEDGER, tasksOf } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
 import { apply } from "../sources/lifelog";

@@ -327,7 +327,7 @@ struct Passage: View {
             if !all.contains(pick) { all.append(pick) }
         }
         return WhoPills(
-            people: store.people, suggested: suggested, picked: current,
+            people: store.people, suggested: suggested, picked: [current].compactMap(\.self),
             everywhere: line.speaker.label == nil ? nil : $everywhere,
             split: store.conversation?.isImported == true ? nil : { store.splitting = line }
         ) { pick in

@@ -20,6 +20,32 @@ export const SourceFile = z
   .strict();
 
 export type SourceFile = z.infer<typeof SourceFile>;
+/**
+ * What Photos knows of a photo, and he wrote: `pictured` is who Apple's People names in it (by name and, when Apple links a
+ * Contacts card, its handle), `scenes` Apple's labels for it, `ocr` the words it found in it, `description` Life's own
+ * reading of the image (the glossary's description). Not a unit's `people` (refs).
+ */
+export const Photo = z
+  .object({
+    address: z.string().optional(),
+    caption: z.string().optional(),
+    description: z.string().optional(),
+    favorite: z.literal(true).optional(),
+    ocr: z.array(z.string()).optional(),
+    // The zone it was taken in, as Photos wrote it (a name like "GMT+0700"), and its offset from UTC in seconds.
+    offset: z.int().optional(),
+    pictured: z.array(
+      z.object({ handle: z.string().optional(), name: z.string() }).strict()
+    ),
+    place: z.string().optional(),
+    point: z.object({ lat: z.number(), lon: z.number() }).strict().optional(),
+    scenes: z.array(z.string()),
+    video: z.literal(true).optional(),
+    zone: z.string().optional(),
+  })
+  .strict();
+
+export type Photo = z.infer<typeof Photo>;
 /** A normalized source event. Ids are stable per source, so syncing twice never duplicates. */
 export const SourceEvent = z
   .object({
@@ -36,6 +62,8 @@ export const SourceEvent = z
     deleted: z.boolean().optional(),
     files: z.array(SourceFile).optional(),
     fromMe: z.boolean(),
+    // Mail only: the owner wrote in this event's thread, on any day (not only the event's own).
+    hasOwnerWrittenInThread: z.literal(true).optional(),
     id: z.string(),
     // His words to Life, to keep (a mark): mail he sent only to himself, a `tell_life` line. Set by its reader; a
     // self-chat's messages are marked by `chatDay` (units.ts), which knows whose a chat is.
@@ -46,6 +74,8 @@ export const SourceEvent = z
       .object({ seconds: z.int().min(0).optional(), video: z.boolean() })
       .strict()
       .optional(),
+    // Photos only.
+    photo: Photo.optional(),
     removed: z.int().min(0).optional(),
     // The sender's handle as the source shows it: phone, email, a network's participant id; git: the author's name.
     sender: z.string(),
@@ -54,9 +84,16 @@ export const SourceEvent = z
     text: z.string(),
     // Mail only: Mail sorted it as a transaction (an order, booking, receipt, delivery or bank notice).
     transaction: z.literal(true).optional(),
-    // Screen Time only: when the app or website left the front.
+    // Screen Time: when the app or website left the front; Apple Health: when a workout or night ended.
     until: isoDateTime.optional(),
   })
   .strict();
 
 export type SourceEvent = z.infer<typeof SourceEvent>;
+/** An event's key across sources: its source and its id (`source|id`). */
+export const eventKey = (e: Pick<SourceEvent, "id" | "source">) =>
+  `${e.source}|${e.id}`;
+
+/** Messages by chat, in the order given. */
+export const chatGroups = (events: SourceEvent[]) =>
+  Map.groupBy(events, (e) => `${e.source}|${e.chat}`);

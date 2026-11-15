@@ -19,9 +19,10 @@ import {
   readVerdicts,
   type Verdicts,
   verdictOf,
-} from "./ledger";
+} from "./memory-files";
+import { meContext } from "./model-context";
 import { loadTruth, ownerIn } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { begin, checkedEntries, chunks, inBatches } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf } from "./tags";
 import { clip, lineCounts } from "./units";
@@ -33,7 +34,7 @@ import { localDate } from "./zones";
 // about itself (memory/repos-inferred.jsonl, used at once below truth/). Only repos with his commits are asked about,
 // so upstream clones never are; a repo is asked about once per prompt version.
 
-const REPOS_PROMPT = "repos.v1";
+const REPO_PROJECT_PROMPT = "repo-project.v1";
 const PER_CALL = 20;
 const README_FILES = ["README.md", "AGENTS.md", "CLAUDE.md"];
 const README_MAX = 600;
@@ -98,7 +99,7 @@ function readme(path: string) {
 }
 
 export async function mapRepos() {
-  const step = await begin("repos", "fast", { prompt: REPOS_PROMPT });
+  const step = await begin("repos", "fast", { prompt: REPO_PROJECT_PROMPT });
   const [truth, inferredRepos] = await Promise.all([
     loadTruth(),
     readInferredRepos(),
@@ -107,7 +108,7 @@ export async function mapRepos() {
   const known = new Set([
     ...repoMap(truth, []).keys(),
     ...inferredRepos
-      .filter((g) => g.madeBy.prompt === REPOS_PROMPT)
+      .filter((g) => g.madeBy.prompt === REPO_PROJECT_PROMPT)
       .map((g) => g.repo),
   ]);
 
@@ -123,7 +124,7 @@ export async function mapRepos() {
   const ctx = {
     areas: areaLookup(truth.areas),
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, REPOS_PROMPT, step.run),
+    madeBy: stamp(step.llm, REPO_PROJECT_PROMPT, step.run),
     projects: new Map(truth.projects.map((p) => [p.id, p.area])),
   };
   const context = {
@@ -140,13 +141,13 @@ export async function mapRepos() {
   let invalid = 0;
   let unknownProject = 0;
   // One bad call costs only its repos: they are asked again next time.
-  await inBatches(chunks(candidates, PER_CALL), step.dir, (batch, dir) =>
+  await inBatches(chunks(candidates, PER_CALL), step, (batch, dir) =>
     step.attempt(async () => {
       const json = await step.ask({
         context,
         dir,
         input: { repos: batch },
-        prompt: REPOS_PROMPT,
+        prompt: REPO_PROJECT_PROMPT,
       });
       const checked = parseInferredRepos(
         json,
@@ -236,8 +237,8 @@ const ACTIVE_DAYS = 30;
 const SUGGESTION_MAX = 100;
 
 /**
- * `bun life memory repos [project|area|repo]`: the repos on his map, by project, with where they are and the last 30 days
- * of commits (local, a few seconds). Repos not on the map (upstream clones) are not shown.
+ * `bun life memory repos [project|area|repo]`: the repos in his directory, by project, with where they are and the last 30 days
+ * of commits (local, a few seconds). Repos not in the directory (upstream clones) are not shown.
  */
 export async function reposOf(filter?: string) {
   const [truth, inferredRepos] = await Promise.all([
@@ -285,7 +286,7 @@ export async function reposOf(filter?: string) {
     ...Map.groupBy(wanted, ([, r]) => r.project ?? `~${r.area ?? ""}`),
   ].sort(([a], [b]) => a.localeCompare(b));
   return asData([
-    `Repos by project (truth = his map; inferred = what Life inferred), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
+    `Repos by project (truth = his directory; inferred = what Life inferred), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
     ...(groups.length === 0 ? ["(no repo matches)"] : []),
     ...groups.map(([project, list]) => {
       const area = list[0]?.[1].area ?? "no area";

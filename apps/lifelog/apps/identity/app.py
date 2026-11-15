@@ -2,14 +2,15 @@
 
 POST /embed-ranges  body: Ogg Opus (any rate or channels, up to 16 MB). Headers X-Identity-Secret
               and X-Ranges, a JSON list of [start, end] seconds of the file (at most 400).
-              -> {embeddings: one {embedding: 192 floats, L2-normalized, durationSeconds} or null
+              -> {embeddings: one {embedding: 192 floats (MECT-B2), L2-normalized, durationSeconds} or null
                   per range (null when it lies outside the file or holds under 0.5 s; one over
                   30 s is cut to its first 30 s), modelId, modelRevision}
 POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
               -> {durationSeconds, turns: [{start, end, speaker, language, scores}], words: [{start, end,
                   text}], models: {name: "id@revision"}}
                   turns: Nemotron 3's speaker turns in time order, one speaker's joined across a
-                  gap under 0.5 s, made exclusive (a turn ends where the next starts); speaker
+                  gap under 0.5 s, made exclusive (whoever is speaking keeps the floor until their segment ends;
+                  the earliest-started still covering takes over); speaker
                   "0", "1"…; language VoxLingua107's top code ("en", "th"…) and scores its
                   probabilities of en, fr and th, for a turn of a second or more, else null.
                   words: Parakeet Ultra's over the whole block. Routing them is the caller's.
@@ -45,8 +46,10 @@ MODEL_DIR = os.environ.get("MODEL_DIR", "/models")
 RUNTIME = os.environ.get("SPEECH_RUNTIME", "mlx" if sys.platform == "darwin" else "onnx")
 THREADS = int(os.environ.get("THREADS", "0")) or os.cpu_count() or 1
 # name: (Hugging Face repo, pinned revision, the files used; None for all)
+# MECT-B2's code: AntSpeaker is no package, so `download` unpacks this commit of it beside the weights.
+ANTSPEAKER = ("ant-research/AntSpeaker", "976f462d7af33a36b5dc2f0d6d75d6f044220d27")
 MODELS = {
-    "ecapa": ("speechbrain/spkrec-ecapa-voxceleb", "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286", None),
+    "mect-b2": ("AntResearch/AntSpeaker", "fdabda1565f7d2f229a6a09dfff1191dc9faf61a", ["mect_b2_vb2.pt"]),
     "voxlingua": (
         "speechbrain/lang-id-voxlingua107-ecapa",
         "0253049ae131d6a4be1c4f0d8b0ff483a0f8c8e9",
@@ -97,11 +100,66 @@ def provenance(name: str) -> str:
     return f"{repo}@{revision}"
 
 
-def download():
+def speaker_pin() -> tuple[str, str]:
+    """The speaker model as samples name it: its weights file, and their revision with the code's commit
+    (the features are computed by that code, so a new commit is a new model)."""
+    repo, revision, (file,) = MODELS["mect-b2"]
+    return f"{repo}/{file}", f"{revision}+{ANTSPEAKER[1]}"
+
+
+def antspeaker_path() -> str:
+    return os.path.join(model_path("mect-b2"), f"AntSpeaker-{ANTSPEAKER[1]}")
+
+
+def download(names=tuple(MODELS)):
+    import tarfile
+    import tempfile
+    import urllib.request
+
     from huggingface_hub import snapshot_download
 
-    for name, (repo, revision, files) in MODELS.items():
+    for name in names:
+        repo, revision, files = MODELS[name]
         snapshot_download(repo, revision=revision, local_dir=model_path(name), allow_patterns=files)
+    if "mect-b2" in names and not os.path.exists(antspeaker_path()):
+        repo, commit = ANTSPEAKER
+        with urllib.request.urlopen(f"https://github.com/{repo}/archive/{commit}.tar.gz") as archive:
+            # The archive's one folder is AntSpeaker-<commit>; renamed into place, so a cut download is fetched again.
+            with tempfile.TemporaryDirectory(dir=model_path("mect-b2")) as part:
+                tarfile.open(fileobj=archive, mode="r|gz").extractall(part, filter="data")
+                os.rename(os.path.join(part, os.path.basename(antspeaker_path())), antspeaker_path())
+
+
+def speaker_model():
+    """MECT-B2 (AntSpeaker): 16 kHz samples to an embedding tensor. The one loader: the voice bench and
+    a one-off run elsewhere use it, so every vector comes from the same code."""
+    import torch
+
+    sys.path.insert(0, antspeaker_path())
+    import antspeaker.models  # noqa: F401  (registers the models)
+    import torchaudio.compliance.kaldi as kaldi
+    from antspeaker.utils.registry import create_model
+
+    path = os.path.join(model_path("mect-b2"), MODELS["mect-b2"][2][0])
+    config = torch.load(path, map_location="cpu")["config"]
+    feature = config["feature"]
+    model, _ = create_model(config["model"]).load_model(path)
+    model.eval()
+
+    def embed(samples):
+        fbank = kaldi.fbank(
+            torch.from_numpy(samples)[None] * (1 << 15),
+            num_mel_bins=feature["num_mel_bins"],
+            frame_length=feature["frame_length"],
+            frame_shift=feature["frame_shift"],
+            dither=0.0,
+            energy_floor=0.0,
+            window_type="hamming",
+            sample_frequency=feature["sampling_rate"],
+        )
+        return model(fbank[None].transpose(-1, -2))[0]
+
+    return embed
 
 
 class Models:
@@ -110,12 +168,11 @@ class Models:
     def __init__(self):
         import torch
         from speechbrain.inference.classifiers import EncoderClassifier as Classifier
-        from speechbrain.inference.speaker import EncoderClassifier
         from transformers import AutoModelForAudioFrameClassification, AutoProcessor
 
         torch.set_num_threads(THREADS)
         cpu = {"device": "cpu"}
-        self.ecapa = EncoderClassifier.from_hparams(model_path("ecapa"), savedir=model_path("ecapa"), run_opts=cpu)
+        self.speaker = speaker_model()
         self.voxlingua = Classifier.from_hparams(model_path("voxlingua"), savedir=model_path("voxlingua"), run_opts=cpu)
         self.processor = AutoProcessor.from_pretrained(model_path("nemotron"))
         self.nemotron = AutoModelForAudioFrameClassification.from_pretrained(model_path("nemotron")).eval()
@@ -175,18 +232,32 @@ def words_of(tokens: list[tuple[str, float, float]]) -> list[dict]:
 
 
 def exclusive(turns_in: list[dict]) -> list[dict]:
-    """Turns in time order, a turn joined to the one before when it is the same speaker's within
-    JOIN_GAP_SECONDS (as the bench's turns), each ending where the next starts; empty ones go."""
-    turns = []
+    """Turns in time order that never overlap. One speaker's segments join across a gap under
+    JOIN_GAP_SECONDS (as the bench's turns). At each instant the speaker is the covering segment that
+    started first (the earlier in sorted order on equal starts): whoever is speaking keeps the floor, and
+    someone who starts meanwhile gets the words only once the first stops. Time no segment covers stays
+    a gap; empty turns go."""
+    segments = []
     for turn in sorted(turns_in, key=lambda t: t["start"]):
-        last = turns[-1] if turns else None
+        last = segments[-1] if segments else None
         if last and last["speaker"] == turn["speaker"] and turn["start"] - last["end"] < JOIN_GAP_SECONDS:
             last["end"] = max(last["end"], turn["end"])
         else:
-            turns.append(dict(turn))
-    for previous, following in zip(turns, turns[1:]):
-        previous["end"] = min(previous["end"], following["start"])
-    return [t for t in turns if t["end"] > t["start"]]
+            segments.append(dict(turn))
+    # ponytail: quadratic in the segments of one block; a heap if blocks ever hold thousands
+    edges = sorted({edge for s in segments for edge in (s["start"], s["end"])})
+    turns: list[dict] = []
+    for start, end in zip(edges, edges[1:]):
+        covering = [i for i, s in enumerate(segments) if s["start"] <= start and s["end"] >= end]
+        if not covering:
+            continue
+        top = segments[min(covering)]
+        last = turns[-1] if turns else None
+        if last and last["speaker"] == top["speaker"] and start - last["end"] < JOIN_GAP_SECONDS:
+            last["end"] = end
+        else:
+            turns.append({**top, "end": end, "start": start})
+    return turns
 
 
 def embed(models: Models, samples) -> list[float]:
@@ -194,7 +265,7 @@ def embed(models: Models, samples) -> list[float]:
     import torch
 
     with torch.inference_mode():
-        out = models.ecapa.encode_batch(torch.from_numpy(samples).unsqueeze(0))
+        out = models.speaker(samples)
     vector = out.reshape(-1).numpy().astype(np.float64)
     norm = np.linalg.norm(vector)
     if vector.shape != (DIMENSIONS,) or not np.isfinite(vector).all() or norm == 0:
@@ -337,13 +408,13 @@ class Handler(BaseHTTPRequestHandler):
 
         def answer(embeddings):
             found = iter(embeddings)
-            repo, revision, _ = MODELS["ecapa"]
+            model, revision = speaker_pin()
             return {
                 "embeddings": [
                     None if c is None else {"durationSeconds": c.size / SAMPLE_RATE, "embedding": next(found)}
                     for c in clips
                 ],
-                "modelId": repo,
+                "modelId": model,
                 "modelRevision": revision,
             }
 

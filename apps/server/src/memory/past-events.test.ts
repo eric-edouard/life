@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
 import { buildIndex } from "./index-writer";
-import { EPISODES, INDEX, readBy, UNITS } from "./ledger";
+import { EPISODES, INDEX, readBy, UNITS } from "./memory-files";
 import { drafts, wanted } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 
@@ -151,9 +151,9 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
     const noted = (n: number) =>
       ({
         date: "2026-10-18",
-        entities: [],
         id: `obs_${n}`,
         source: { channel: "lifelog", ref: "x" },
+        subjects: [],
         text: `Fact ${n}.`,
         unit: `unit_00000000000${n}`,
       }) as unknown as Observation;

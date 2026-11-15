@@ -22,15 +22,16 @@ type LogKind =
   | "mcp.call"
   | "model.run"
   | "offline"
+  | "photos.describe"
   | "quota.read"
   | "run.start"
   | "run.end"
   | "run.error"
-  | "run.phase"
+  | "run.entered"
   | "source.read"
   | "sync.pull";
 
-/** A run event's line (`run.start`, `run.phase`, `run.end`, `run.error`): every one names its step. */
+/** A run event's line (`run.start`, `run.entered`, `run.end`, `run.error`): every one names its step. */
 export interface LogEvent {
   at: string;
   kind: string;

@@ -10,24 +10,27 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
-import { personaPath } from "./ledger";
+import { exchangeCountsOf, pairCountsOf } from "./exchange-counts";
+import { personaPath } from "./memory-files";
 import {
+  backingOf,
   betweenOf,
   groupDaysOf,
   isDue,
-  pairCountsOf,
   personaBlock,
   personaLines,
+  personaShownOf,
+  personaWindowOf,
   readingsOf,
   readPersona,
   recordingsOf,
   sampleOf,
   shownDaysOf,
   spokenOf,
-  supportOf,
 } from "./personas";
 import type { Truth } from "./read-truth";
 import { unit as unitFixture } from "./record-fixtures";
+import { inputsOf } from "./run";
 
 const whoOf = (e: SourceEvent) => (e.fromMe ? "him" : "Dad");
 
@@ -151,34 +154,13 @@ test("a line is solid on 3 days, thin on fewer, old when its newest quote is ove
   const q = (day: string) => ({ at: `${day}T12:00:00.000Z`, text: "x" });
   const today = "2026-11-08";
   expect(
-    supportOf([q("2026-01-01"), q("2026-02-01"), q("2026-03-01")], today)
+    backingOf([q("2026-01-01"), q("2026-02-01"), q("2026-03-01")], today)
   ).toBe("solid");
-  expect(supportOf([q("2026-01-01"), q("2026-01-01")], today)).toBe("thin");
-  expect(supportOf([], today)).toBe("thin");
+  expect(backingOf([q("2026-01-01"), q("2026-01-01")], today)).toBe("thin");
+  expect(backingOf([], today)).toBe("thin");
   expect(
-    supportOf([q("2024-01-01"), q("2024-02-01"), q("2025-01-01")], today)
+    backingOf([q("2024-01-01"), q("2024-02-01"), q("2025-01-01")], today)
   ).toBe("old");
-});
-
-test("counts: messages and deletions each way, who opens after 6 hours of quiet, median answer minutes", () => {
-  const c = pairCountsOf([
-    msg("2026-10-01", 0, false, "a"),
-    msg("2026-10-01", 10, true, "b"),
-    msg("2026-10-01", 12, false, "c", { deleted: true }),
-    msg("2026-10-01", 600, true, "d"),
-    msg("2026-10-02", 0, true, "e"),
-  ]);
-  expect(c).toEqual({
-    days: 2,
-    got: 2,
-    gotDeleted: 1,
-    heAnswersIn: 10,
-    heOpened: 2,
-    sent: 3,
-    sentDeleted: 0,
-    theyAnswerIn: 2,
-    theyOpened: 1,
-  });
 });
 
 test("a persona is rebuilt when there is none, or a week old with new messages", () => {
@@ -194,7 +176,7 @@ test("a persona is rebuilt when there is none, or a week old with new messages",
   );
 });
 
-test("a reader shows the readings with their support, and the writing lines under Communication style", () => {
+test("a reader shows the readings with their backing, and the writing lines under How each writes", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
     {
@@ -377,4 +359,51 @@ test("an old chapter is read by its words while lifelog holds its turns, by its 
   } finally {
     server.close();
   }
+});
+
+test("a persona's window is 3 years ending at the newest day of all four lists, so the clock alone changes nothing", () => {
+  const direct = [
+    msg("2020-01-05", 0, false, "too old"),
+    msg("2021-06-01", 0, false, "inside"),
+    msg("2024-02-01", 0, true, "newest"),
+  ];
+  const days = (events: SourceEvent[], kind: "direct" | "own_writing") =>
+    shownDaysOf(events, kind, whoOf, () => "Ana");
+  const lists = (writing: SourceEvent[] = []) => ({
+    groups: [],
+    recordings: [],
+    writing: days(writing, "own_writing"),
+    written: days(direct, "direct"),
+  });
+  const digest = (writing: SourceEvent[] = []) => {
+    const t = personaWindowOf(lists(writing));
+    return inputsOf(
+      "p",
+      personaShownOf({ ...t, ref: "person:ana" }, direct, "Ana", 100_000).shown
+    );
+  };
+  // Nothing in the window reads today: the same lists, the same digest, on any day.
+  expect(personaWindowOf(lists()).written.map((d) => d.day)).toEqual([
+    "2021-06-01",
+    "2024-02-01",
+  ]);
+  const base = digest();
+  expect(digest()).toBe(base);
+  // The counts are over the windowed messages only.
+  const {
+    shown: { counts },
+  } = personaShownOf(
+    { ...personaWindowOf(lists()), ref: "person:ana" },
+    direct,
+    "Ana",
+    100_000
+  );
+  expect(counts).toEqual(pairCountsOf(exchangeCountsOf(direct.slice(1))));
+  expect(counts).not.toEqual(pairCountsOf(exchangeCountsOf(direct)));
+  // A newer day in any list moves the window and changes the digest: here his own writing, two years on.
+  const later = [msg("2026-03-01", 0, true, "his note", { chat: "notes" })];
+  expect(personaWindowOf(lists(later)).written.map((d) => d.day)).toEqual([
+    "2024-02-01",
+  ]);
+  expect(digest(later)).not.toBe(base);
 });

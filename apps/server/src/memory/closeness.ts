@@ -3,15 +3,16 @@ import { DAY, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { Closeness, Level } from "../records/observation";
-import type { SourceEvent } from "../records/source";
+import { Closeness, ClosenessLevel } from "../records/observation";
+import { chatGroups, type SourceEvent } from "../records/source";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
-import { CLOSENESS, latestBy, writtenPeople } from "./ledger";
+import { CLOSENESS, latestBy, writtenPeople } from "./memory-files";
+import { meContext } from "./model-context";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { begin, checkedEntries, chunks, inBatches } from "./run";
 import { kindOf, safely, tables } from "./sources";
-import { chatPerson } from "./units";
-import { type People, readPeople } from "./who";
+import { chatPerson, isLifeOutput } from "./units";
+import { meant, type People, readPeople } from "./who";
 import { dayNow, localDate } from "./zones";
 
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
@@ -19,14 +20,14 @@ type Folds = Pick<People, "canon" | "corrections">;
 
 // Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
 // with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his
-// recordings, how recent. The fast model reads those counts with who they are on his map and judges a level,
+// recordings, how recent. The fast model reads those counts with who they are in his directory and judges a level,
 // personal and work apart (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a
 // page. No model output is counted (a level never feeds the counts that judge it), so a level cannot raise itself.
 
-const CLOSENESS_PROMPT = "closeness.v1";
+const MEMORY_CLOSENESS_PROMPT = "memory-closeness.v1";
 const PER_CALL = 40;
-/** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
-const YEARS = 3;
+/** Years back: closeness counts from today (a day older weighs under an eighth of a recent one in `lasting`); a persona reads from the person's newest day. */
+export const YEARS = 3;
 
 /**
  * One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a
@@ -63,10 +64,7 @@ export function directChats(
 ) {
   const byPerson = new Map<string, SourceEvent[]>();
   const one = events.filter((e) => !e.bulk);
-  for (const list of Map.groupBy(
-    one,
-    (e) => `${e.source}|${e.chat}`
-  ).values()) {
+  for (const list of chatGroups(one).values()) {
     const who = chatPerson(list, resolve);
     if (who && who !== OWNER) {
       const theirs = byPerson.get(who) ?? [];
@@ -78,6 +76,22 @@ export function directChats(
     }
   }
   return byPerson;
+}
+
+/**
+ * The one-to-one messages of each person named (a name or an id, read as `read_person_page` reads it: `meant`), in
+ * the order given; `known` is undefined, and the messages none, for a name that is no one's.
+ */
+export function directOf(
+  names: string[],
+  events: SourceEvent[],
+  people: People
+) {
+  const direct = directChats(events, people.resolve);
+  return names.map((name) => {
+    const { known } = meant(name, people);
+    return { known, messages: direct.get(`person:${known}`) ?? [] };
+  });
 }
 
 /** The 1:1 chats' and mail threads' days by person (`directChats`): a group is not a measure of closeness. */
@@ -191,16 +205,16 @@ export function dueFor(
       ref !== OWNER &&
       (waiting.has(ref) || t.lasting >= JUDGED_FROM) &&
       (judged.get(ref)?.counts !== bucket(t) ||
-        judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
+        judged.get(ref)?.madeBy.prompt !== MEMORY_CLOSENESS_PROMPT)
   );
 }
 
 const Entry = z.object({
   person: z.string(),
-  personal: Level,
+  personal: ClosenessLevel,
   service: z.boolean().default(false),
   why: z.string().min(1).max(300),
-  work: Level,
+  work: ClosenessLevel,
 });
 
 /** The model's reply checked: one line per person asked about, once; anything else counted, never trusted. */
@@ -238,7 +252,12 @@ export function levelsNow(
 ) {
   const out = new Map<
     string,
-    { personal: Level; service: boolean; why: string; work: Level }
+    {
+      personal: ClosenessLevel;
+      service: boolean;
+      why: string;
+      work: ClosenessLevel;
+    }
   >();
   // A person folded into another (`same-person`) is that one: only the kept person's own judgment counts (their counts
   // took the folded one's in).
@@ -273,13 +292,13 @@ export function levelsNow(
 }
 
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
-const PAGED = new Set<Level>(["inner", "regular", "faded"]);
+const PAGED = new Set<ClosenessLevel>(["inner", "regular", "faded"]);
 /** The levels of someone close now. */
-const NOW = new Set<Level>(["inner", "regular"]);
+const NOW = new Set<ClosenessLevel>(["inner", "regular"]);
 
 /**
  * The people every memory call's context shows (`refContext`): the owner and those close to him now, personally or at work, not a
- * service. Everyone else on the map comes in a call's input when it involves them (`involvedOf`).
+ * service. Everyone else in the directory comes in a call's input when it involves them (`involvedOf`).
  */
 export const contextPeopleBy = (levels: ReturnType<typeof levelsNow>) =>
   new Set([
@@ -335,7 +354,7 @@ export async function pagedNow(people: Folds & Pick<People, "truth">) {
 export const levelsWith = (people: Folds) => levelsNow(readCloseness(), people);
 
 /**
- * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his map (he
+ * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone in his directory (he
  * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
  * Each as the person they are now (one folded into another is that one).
  */
@@ -349,12 +368,17 @@ export async function waitingOf(
   ]);
 }
 
+/** Where the last YEARS years start: what closeness reads. */
+const yearsAgo = () =>
+  new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
+
 /**
- * His chats and mail with people over the last YEARS years (`WITH_PEOPLE`), read once a night for closeness and
- * personas; `failed`, the sources that could not be read. Nothing older is ever read.
+ * His chats and mail with people since `since` (`WITH_PEOPLE`), bulk mail and Life's own output left out; `failed`,
+ * the sources that could not be read. The night reads every year once (`new Date(0)`): the exchange counts take all
+ * of it, closeness its last YEARS years (`lastYearsOf`), the personas all of it (each reads the YEARS years ending at
+ * the person's newest day).
  */
-export async function readWithPeople() {
-  const since = new Date(`${daysBefore(dayNow(), YEARS * 365)}T00:00:00Z`);
+export async function readWithPeople(since = yearsAgo()) {
   const failed: string[] = [];
   const events = (
     await Promise.all(
@@ -362,26 +386,41 @@ export async function readWithPeople() {
         safely(name, () => read(since), failed)
       )
     )
-  ).flat();
+  )
+    .flat()
+    .filter((e) => !(e.bulk || isLifeOutput(e)));
   return { events, failed, since };
 }
 export type WithPeople = Awaited<ReturnType<typeof readWithPeople>>;
+
+/** The last YEARS years of a longer read, as a read from there would give them. */
+export function lastYearsOf(all: WithPeople): WithPeople {
+  const since = yearsAgo();
+  const from = since.toISOString();
+  return {
+    events: all.events.filter((e) => e.at >= from),
+    failed: all.failed,
+    since,
+  };
+}
 
 /**
  * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
  * the fast model about those whose counts moved since their last judgment (or never judged, or under an older prompt).
  */
 export async function closeness({ events, failed, since }: WithPeople) {
-  const step = await begin("closeness", "fast", { prompt: CLOSENESS_PROMPT });
+  const step = await begin("closeness", "fast", {
+    prompt: MEMORY_CLOSENESS_PROMPT,
+  });
   const people = await readPeople();
-  const { inferred, names, resolve, truth } = people;
+  const { outsideDirectory, names, resolve, truth } = people;
   const today = localDate(step.now.toISOString());
   // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
   // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, since, days));
   const relation = new Map<string, string>([
-    ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
+    ...outsideDirectory.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
   const waiting = await waitingOf(truth, people.canon);
@@ -399,12 +438,12 @@ export async function closeness({ events, failed, since }: WithPeople) {
   const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, CLOSENESS_PROMPT, step.run),
+    madeBy: stamp(step.llm, MEMORY_CLOSENESS_PROMPT, step.run),
   };
   let written = 0;
   let invalid = 0;
   if (failed.length === 0) {
-    await inBatches(chunks(due, PER_CALL), step.dir, (batch, dir) =>
+    await inBatches(chunks(due, PER_CALL), step, (batch, dir) =>
       step.attempt(async () => {
         const json = await step.ask({
           context: meContext(truth),
@@ -418,7 +457,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
             })),
             today,
           },
-          prompt: CLOSENESS_PROMPT,
+          prompt: MEMORY_CLOSENESS_PROMPT,
         });
         const checked = parseLevels(
           json,

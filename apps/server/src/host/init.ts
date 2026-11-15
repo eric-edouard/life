@@ -2,13 +2,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "../core/clock";
-import { appendJsonl } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
-import { readZoneHere } from "../memory/zones";
-import { Zone } from "../records/unit";
+import { noteZones, readZoneHere } from "../memory/zones";
 
 // A new install's data: the smallest truth that validates (only the owner), his zone from now on, and the data repo
 // the nightly commits to. Everything else is learned from his sources; goals, people and projects come when he says.
@@ -49,15 +47,14 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
     writeFile(join(truth, "areas.yaml"), yaml("areas", [])),
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
-    appendJsonl(join(data, "memory", "zones.jsonl"), Zone, [
-      {
-        from: now.toISOString(),
-        schemaVersion: 1,
-        // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
-        // unreadable: there is no earlier zone to stand.
-        tz: (await readZoneHere()) ?? systemZone() ?? "UTC",
-      },
-    ]),
+    // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
+    // unreadable: there is no earlier zone to stand.
+    readZoneHere().then((tz) =>
+      noteZones(
+        [{ from: now.toISOString(), tz: tz ?? systemZone() ?? "UTC" }],
+        join(data, "memory", "zones.jsonl")
+      )
+    ),
   ]);
   const issues = integrity(await loadTruth(data));
   if (issues.length > 0) {

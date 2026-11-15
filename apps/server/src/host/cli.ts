@@ -5,6 +5,7 @@ import { daysBefore } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
+import { writeSecret } from "../core/secret";
 import {
   agentNames,
   readSettings,
@@ -12,8 +13,8 @@ import {
   setSettings,
   settings,
 } from "../core/settings";
-import { collectHistory } from "../memory/history";
-import { dryRun, importExport } from "../memory/imports";
+import { collectHistorical } from "../memory/historical-collection";
+import { dryRun, importExport, importInstagramExport } from "../memory/imports";
 import { reindex } from "../memory/index-writer";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
@@ -21,13 +22,22 @@ import { DAYS } from "../memory/units";
 import { dayNow, dayRange } from "../memory/zones";
 import { engineKeys, readEngine } from "../models/llm";
 import { entryLine } from "../records/ledger-entry";
+import {
+  copyInstagramExport,
+  isInstagramExport,
+} from "../sources/instagram-export";
 import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
-import { Asked, actAsked, requested, setGrant } from "./act";
 import { archiveCommand } from "./archive";
 import { ask, timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
+import {
+  Asked,
+  changeAskedTodoItem,
+  requested,
+  setAutoAdd,
+} from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
@@ -45,9 +55,9 @@ const only = () => {
   return names.length === 1 ? names[0] : undefined;
 };
 
-/** `act` and the grant need the actions output: off, they say so and do nothing. */
+/** `change-todo-item` and `auto-add` need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
-  const why = off("todo_list");
+  const why = off("todoList");
   if (why) {
     console.error(why);
   }
@@ -55,33 +65,6 @@ const pluginOff = () => {
 };
 
 const commands: Record<string, () => number | Promise<number>> = {
-  /**
-   * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
-   * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
-   */
-  async act() {
-    const [arg] = process.argv.slice(3);
-    if (pluginOff()) {
-      return 2;
-    }
-    if (arg === "--check") {
-      const problems = await checks();
-      console.log(problems.join("\n") || "ready");
-      return problems.length > 0 ? 1 : 0;
-    }
-    let asked: Asked;
-    try {
-      asked = Asked.parse(JSON.parse(arg ?? ""));
-    } catch (e) {
-      console.error(
-        `usage: bun life act '<json>' | --check\n${(e as Error).message}`
-      );
-      return 2;
-    }
-    const done = await actAsked(asked, "session");
-    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
-    return done.result === "failed" ? 1 : 0;
-  },
   /**
    * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
    * the Mac, every source with whether he turned it on, what keeps it from being read now and whether that is Full
@@ -103,7 +86,7 @@ const commands: Record<string, () => number | Promise<number>> = {
           const installed = await remctlVersion();
           return {
             installed,
-            on: settings().todo_list?.backend === "reminders",
+            on: settings().todoList?.backend === "reminders",
             /** remctl as Life wants it: installed, at the pinned release. */
             ready: installed === REMCTL_RELEASE.version,
             release: REMCTL_RELEASE,
@@ -122,7 +105,7 @@ const commands: Record<string, () => number | Promise<number>> = {
         started: started(),
         status: { key: localKey(), url: `http://127.0.0.1:${LOCAL_PORT}/` },
         /** The to-do list backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
-        todoList: settings().todo_list?.backend ?? null,
+        todoList: settings().todoList?.backend ?? null,
       })
     );
     return 0;
@@ -182,10 +165,55 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return 0;
   },
+  /**
+   * The auto-add permission (decision 2), only on his own words in this conversation: `auto-add on|off '<his words>'`. Off
+   * until he says yes; his undo of one of its to-do items turns it off again.
+   */
+  async "auto-add"() {
+    if (pluginOff()) {
+      return 2;
+    }
+    const [state, ...words] = process.argv.slice(3);
+    const said = words.join(" ").trim();
+    if (!(state === "on" || state === "off") || said.length < 3) {
+      console.error("usage: bun life auto-add on|off '<his words>'");
+      return 2;
+    }
+    const done = await setAutoAdd(state === "on", said);
+    console.log(`${done.id}: ${entryLine(done)}`);
+    return 0;
+  },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
   backup,
   /** The messaging bridges: `bridge [status] | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
   bridge: () => bridgeCommand(process.argv.slice(3)),
+  /**
+   * Acts on the owner's clear request, for a Claude session: `change-todo-item '<json>'` (a change with `said`, his words, and
+   * `why`); `change-todo-item --check` (read-only: can the actions backend write now?). Every action is recorded in memory/ledger.jsonl.
+   */
+  async "change-todo-item"() {
+    const [arg] = process.argv.slice(3);
+    if (pluginOff()) {
+      return 2;
+    }
+    if (arg === "--check") {
+      const problems = await checks();
+      console.log(problems.join("\n") || "ready");
+      return problems.length > 0 ? 1 : 0;
+    }
+    let asked: Asked;
+    try {
+      asked = Asked.parse(JSON.parse(arg ?? ""));
+    } catch (e) {
+      console.error(
+        `usage: bun life change-todo-item '<json>' | --check\n${(e as Error).message}`
+      );
+      return 2;
+    }
+    const done = await changeAskedTodoItem(asked, "session");
+    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
+    return done.result === "failed" ? 1 : 0;
+  },
   /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
   async connect() {
     const origin = await connect(process.argv.includes("--public"));
@@ -223,26 +251,24 @@ const commands: Record<string, () => number | Promise<number>> = {
     return 0;
   },
   /**
-   * The standing grant (decision 2), only on his own words in this conversation: `grant on|off '<his words>'`. Off
-   * until he says yes; his undo of one of its reminders turns it off again.
+   * Keeps gog's keyring password (`core/gog.ts`) for the helper, which has no shell profile: reads it from this
+   * process's own `GOG_KEYRING_PASSWORD`, never from an argument, and says only whether it kept it.
    */
-  async grant() {
-    if (pluginOff()) {
-      return 2;
+  "gog-keyring"() {
+    const password = process.env.GOG_KEYRING_PASSWORD?.trim();
+    if (!password) {
+      console.log("nothing to keep (GOG_KEYRING_PASSWORD is not set)");
+      return 1;
     }
-    const [state, ...words] = process.argv.slice(3);
-    const said = words.join(" ").trim();
-    if (!(state === "on" || state === "off") || said.length < 3) {
-      console.error("usage: bun life grant on|off '<his words>'");
-      return 2;
-    }
-    const done = await setGrant(state === "on", said);
-    console.log(`${done.id}: ${entryLine(done)}`);
+    writeSecret("gogKeyring", password);
+    console.log("kept");
     return 0;
   },
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
-   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   * install, checked before and counted after), his claude.ai or ChatGPT export (a newer one lands beside the older),
+   * or his Instagram export (an unzipped folder: its messages go into the Instagram archive, with Life quit, since
+   * the archive has one writer). `--dry` only counts.
    */
   async import() {
     const { positionals, values } = parseArgs({
@@ -268,26 +294,33 @@ const commands: Record<string, () => number | Promise<number>> = {
       );
       return 0;
     }
+    const isInstagram = isInstagramExport(dir);
     if (values.dry) {
-      console.log(JSON.stringify(dryRun(dir)));
+      console.log(
+        JSON.stringify(
+          isInstagram ? copyInstagramExport(dir, { dry: true }) : dryRun(dir)
+        )
+      );
       return 0;
     }
     // Its copy goes into his data: a new install starts first (`init`), or brings a Life export.
     if (!started()) {
       console.error(
-        "Start Life first (or import a Life export): an assistant export goes into a set-up Life"
+        "Start Life first (or import a Life export): an export of his goes into a set-up Life"
       );
       return 2;
     }
     return step(async () => {
-      const result = await importExport(dir);
-      if (result.failed > 0 || result.unjudged > 0) {
+      const result = isInstagram
+        ? await importInstagramExport(dir)
+        : await importExport(dir);
+      if (result.failed > 0 || ("unjudged" in result && result.unjudged > 0)) {
         return result;
       }
       const cutoff = daysBefore(dayNow(), DAYS);
       if (result.units?.from && daysBefore(result.units.from, 1) <= cutoff) {
         // UTC days padded on each side include every local day before historical zones are installed.
-        const collection = await collectHistory({
+        const collection = await collectHistorical({
           from: daysBefore(result.units.from, 1),
           to: [daysBefore(result.units.to ?? cutoff, -1), cutoff].sort()[0],
         });
@@ -368,8 +401,16 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr. */
+/** A crash of any command, thrown or a promise nobody awaited, is a run error the triage reads, not only stderr.
+ * A flag the command doesn't know is a usage mistake, not a crash. */
 const crashed = (e: unknown) => {
+  if (
+    e instanceof Error &&
+    String((e as { code?: unknown }).code).startsWith("ERR_PARSE_ARGS_")
+  ) {
+    console.error(String(e));
+    process.exit(2);
+  }
   console.error(e);
   log("run.error", {
     command: process.argv[2],
