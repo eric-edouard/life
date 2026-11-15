@@ -701,34 +701,6 @@ export const messageLine = (
   `${at} ${who}: ${text.replaceAll("\n", " ")}${deleted ? " (deleted)" : ""}`;
 
 /**
- * An exchange batch as lines a reply can cite, the messages they are, and where each exchange starts: `[n] HH:MM who:
- * text`, `n` counting from 0 over the whole batch as the extractor's lines do, under one heading per exchange giving
- * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
- */
-export function batchLines(
-  batch: SourceEvent[][],
-  who: (e: SourceEvent) => string
-) {
-  const messages = batch.flat();
-  const lines: string[] = [];
-  const starts: number[] = [];
-  let start = 0;
-  for (const exchange of batch) {
-    const [first] = exchange;
-    if (first) {
-      starts.push(start);
-      lines.push(`## Exchange ${start} · ${localDate(first.at)}`);
-      for (const [i, e] of exchange.entries()) {
-        const line = messageLine(time(e.at), who(e), textOf(e), e.deleted);
-        lines.push(`[${start + i}] ${line}`);
-      }
-      start += exchange.length;
-    }
-  }
-  return { lines, messages, starts };
-}
-
-/**
  * Where to read more of messages `read_chats` does not read: an imported conversation whole by its id, a note's versions
  * by the units memory has (`units`) of their days.
  */

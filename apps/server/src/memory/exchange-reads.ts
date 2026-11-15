@@ -2,7 +2,13 @@ import { newestWithin } from "../core/lists";
 import { MOVE_READS } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
-import { batchesOf, exchangesOf, isFinished, isTwoWay } from "./exchanges";
+import {
+  batchesOf,
+  batchLines,
+  exchangesOf,
+  isFinished,
+  isTwoWay,
+} from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import {
   type Asked,
@@ -13,7 +19,6 @@ import {
 } from "./read-replies";
 import { begin } from "./run";
 import type { People } from "./who";
-import { batchLines } from "./words";
 
 // The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's two-way one-to-one chats,
 // each reply stored by `memory/read-replies.ts`; the moves are worked out from it when read (`checkedMoves`), never

@@ -1,6 +1,9 @@
 import { HOUR } from "../core/clock";
 import { packed } from "../core/lists";
 import type { SourceEvent } from "../records/source";
+import { textOf } from "./units";
+import { messageLine } from "./words";
+import { localDate, time } from "./zones";
 
 /** With no message for this long an exchange is over: the next message opens a new one. */
 export const EXCHANGE_ENDS_AFTER = 6 * HOUR;
@@ -62,3 +65,31 @@ export const isTwoWay = (chat: SourceEvent[]) =>
  */
 export const batchesOf = (exchanges: SourceEvent[][]) =>
   packed(exchanges, EXCHANGE_BATCH_CHARS, charsOf);
+
+/**
+ * An exchange batch as lines a reply can cite, the messages they are, and where each exchange starts: `[n] HH:MM who:
+ * text`, `n` counting from 0 over the whole batch as the extractor's lines do, under one heading per exchange giving
+ * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
+ */
+export function batchLines(
+  batch: SourceEvent[][],
+  who: (e: SourceEvent) => string
+) {
+  const messages = batch.flat();
+  const lines: string[] = [];
+  const starts: number[] = [];
+  let start = 0;
+  for (const exchange of batch) {
+    const [first] = exchange;
+    if (first) {
+      starts.push(start);
+      lines.push(`## Exchange ${start} · ${localDate(first.at)}`);
+      for (const [i, e] of exchange.entries()) {
+        const line = messageLine(time(e.at), who(e), textOf(e), e.deleted);
+        lines.push(`[${start + i}] ${line}`);
+      }
+      start += exchange.length;
+    }
+  }
+  return { lines, messages, starts };
+}

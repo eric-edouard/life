@@ -22,7 +22,7 @@ export const READS = {
 export const promptDigestOf = (text: string) => digest("sha256", text, 16);
 
 /** One call: what the model is shown (`input`), the key of each message its lines are, the instant of the first, and where each item starts in them. */
-export interface Call {
+interface Call {
   firstAt: string;
   input: object;
   keys: string[];
