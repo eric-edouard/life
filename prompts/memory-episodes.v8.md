@@ -89,6 +89,9 @@ Adjust the usual importance to the content: a routine bank notice is news at 1; 
 service is a to_do at 3; a confirmation of something already done or announced (a transfer that went through, a
 scheduled debit, an order confirmed) is 1, or 2 when the amount is large, never 3: 3 is for what still needs the owner. An
 idea with no one involved is 1. Messages the owner wrote himself (`me`) count more than messages he only received.
+A plan the owner takes part in, on a day ahead (a meeting, a meal, an outing, a call, a visit, an appointment, a
+trip), is at least 2, its confirmations and reminders too, in a group chat as much as one to one: choice once it is
+agreed, to_do at 3 while he still owes the answer. A plan is no episode, so its unit is all that keeps it.
 Strangers and customers talking near the recorder are nothing unless the owner is part of it. A recording with "no decisions or plans"
 in it is usually 0 or 1, unless the owner sets out his own views in it (below).
 
@@ -134,6 +137,7 @@ What he marked (type, area, and whether it matters to him):
 - Reminder of an occupational-health visit for a shop employee: waiting_on_someone, shop, doesn't matter (0-1).
 - A friend's chat about a great party at a villa: about_a_person, friends, doesn't matter (0-1).
 - The owner thinking aloud about an idea for his dictation and coding tools: idea, work, doesn't matter (1).
+- In a group chat a friend invites him and his girlfriend to a park tomorrow at 1pm; he answers he will come: choice, friends, matters (2).
 - "0100000000 called you" notification: nothing, no area, doesn't matter (0).
 - The owner asks the building office to add someone back to the face-scan entry: waiting_on_someone, work, matters (2).
 - Recording: where Anne-Sophie sleeps each night of her Nantes stay: about_a_person, relationships, matters (2).
