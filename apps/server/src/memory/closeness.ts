@@ -2,6 +2,7 @@ import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Closeness, ClosenessLevel } from "../records/observation";
 import { chatGroups, type SourceEvent } from "../records/source";
@@ -221,7 +222,10 @@ export function dueFor(
       ref !== OWNER &&
       (waiting.has(ref) || t.lasting >= JUDGED_FROM) &&
       (judged.get(ref)?.counts !== bucket(t) ||
-        judged.get(ref)?.madeBy.prompt !== MEMORY_CLOSENESS_PROMPT)
+        !isPromptVersion(
+          judged.get(ref)?.madeBy.prompt ?? "",
+          MEMORY_CLOSENESS_PROMPT
+        ))
   );
 }
 

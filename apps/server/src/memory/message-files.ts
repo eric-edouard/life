@@ -8,6 +8,7 @@ import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { exec } from "../core/proc";
 import { stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { emlxPart } from "../sources/mail";
@@ -200,7 +201,9 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
   const { copies, fresh } = await triage(
     events,
     [...readFiles().values()].filter(
-      (e) => !e.madeBy || e.madeBy.prompt === MESSAGE_FILE_DESCRIPTION_PROMPT
+      (e) =>
+        !e.madeBy ||
+        isPromptVersion(e.madeBy.prompt, MESSAGE_FILE_DESCRIPTION_PROMPT)
     )
   );
   /** The ledger's lines for one content, one per ref it was met under. */

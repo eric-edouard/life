@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { imageOf } from "../apps/server/src/host/describe-photos";
-import { promptText } from "../apps/server/src/models/llm";
+import { promptText } from "../apps/server/src/models/prompt-parts";
 import {
   DESCRIPTIONS,
   type Description,
@@ -58,7 +58,7 @@ export async function describeInCloud(
   try {
     const sent = (async () => {
       proc.stdin.write(
-        `${JSON.stringify({ prompt: (await promptText(PHOTO_DESCRIPTION_PROMPT)).trim() })}\n`
+        `${JSON.stringify({ prompt: promptText(PHOTO_DESCRIPTION_PROMPT).trim() })}\n`
       );
       for (const w of photos) {
         // biome-ignore lint/performance/noAwaitInLoops: one image in memory at a time

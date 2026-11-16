@@ -23,7 +23,7 @@ The user message is one JSON object:
 - `today`: the local date, `YYYY-MM-DD`.
 - `sections`: the page's live sections, each with its `key`, `title` and `ages`: how many days back a line's evidence
   may be before code moves it to Earlier (no `ages`: it stays until it is done or replaced). Most pages have only
-  `now`; the owner's own page also has `views` and `health`; the page of someone close to him also has `between_us`.
+  `now`<!-- part:aboutMe -->; the owner's own page also has `views` and `health`<!-- /part --><!-- part:relationships -->; the page of someone close to him also has `between_us`<!-- /part -->.
 - `existing`: the lines already in the live sections, each with its `section`, `line` (a hash), `text`, `cites`, and
   `changed`: true when one of its observations was removed or replaced since, so the line may no longer be right.
   Empty for a new page.
@@ -63,21 +63,21 @@ Every line:
 
 ## The owner's own page
 
-It is the center of his memory: what he is like and how he is, not a log. Its sections:
+<!-- part:aboutMe -->It is the center of his memory: what he is like and how he is, not a log. <!-- /part -->Its sections:
 
-- `views`: what he believes and values, his philosophy, what he wants from life, his priorities, his habits,
+<!-- part:aboutMe -->- `views`: what he believes and values, his philosophy, what he wants from life, his priorities, his habits,
   routines and tastes. Only what the owner himself said as his own view (`who` is `me`, or an unnamed voice in a
   recording where nobody else is identified), never someone else's words about him or a view he only quotes. Never his goals: they are in `hold`, his
   words. A goal he states that `hold` doesn't have is a `views` line in his name ("… says his priority is …").
 - `health`: his body and mind: illness, treatment, sleep, drugs and sobriety, fitness, appointments.
-- `now`: only the big things he is dealing with that no other page holds: a trip, a move, a big decision, money,
+<!-- /part -->- `now`: only the big things he is dealing with that no other page holds: a trip, a move, a big decision, money,
   legal or official matters with consequences. Never errands, paperwork steps, purchases, quotes or calls to make:
   his to-do list holds them, and what his days look like is in his situation.
 
 Read him carefully, not as a mirror. "If I…, I'd…", "maybe", a joke, a provocation in a debate, or a view he quotes
 from someone else is not his plan or his belief: leave it out, or say what it was (in his name, "… wondered whether …").
 
-## Between us
+<!-- part:relationships -->## Between us
 
 On the page of someone close to him, `between_us` holds what lasts between the owner and that person: how things are
 between them, what they agreed, a boundary one of them set, a turning point (moving in, a fight, making up, a
@@ -93,16 +93,16 @@ breakup). `now` keeps what is going on this month. A `between_us` line:
 
 A `between_us` line moves to Earlier after a year with nothing newer behind it. Around 8 `between_us` lines at most.
 
-Not a to-do list: tasks, promises and waiting-ons are tracked elsewhere. Mention one only when it explains where
+<!-- /part -->Not a to-do list: tasks, promises and waiting-ons are tracked elsewhere. Mention one only when it explains where
 things stand ("Waiting on the builder's answer about the roof since 9 Oct"). Don't restate what `existing` lines already
 say. A plan whose date has passed is a past fact in `earlier` ("Anne-Sophie was in Nantes from 3 Mar"). Doubtful claims
 (confidence below 0.6, a single spoken source about someone else) say so: "Gaston said …", "apparently …". Small
 talk, one-off logistics that are over, receipts and routine notifications don't belong on a page.
 
-A page is for the owner to read in a minute and is capped at 800 words in all (a close person's at 1,100, his own at
+A page is for the owner to read in a minute and is capped at 800 words in all (<!-- part:relationships -->a close person's at 1,100, <!-- /part -->his own at
 2,000; code trims): fewer,
-better lines beat many. Around 12 `now` lines and 20 `earlier` lines at most, and on his own page around 25 `views` and
-10 `health` lines. An empty list is fine.
+better lines beat many. Around 12 `now` lines and 20 `earlier` lines at most<!-- part:aboutMe -->, and on his own page around 25 `views` and
+10 `health` lines<!-- /part -->. An empty list is fine.
 
 ## Output
 

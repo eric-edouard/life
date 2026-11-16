@@ -1,4 +1,5 @@
 import { settings } from "../core/settings";
+import { isPromptVersion } from "../models/prompt-parts";
 import { NamedVoice, type ReadReply } from "../records/read-reply";
 import { READ_REPLIES } from "./memory-files";
 import { READS, readReplies } from "./read-replies";
@@ -67,7 +68,7 @@ export function voiceGuessesNow(
 ) {
   const now = new Map<string, VoiceGuess>();
   for (const line of readReplies(where).flat()) {
-    if (line.madeBy.prompt === READS.voice_naming.prompt) {
+    if (isPromptVersion(line.madeBy.prompt, READS.voice_naming.prompt)) {
       for (const g of voiceGuessesOf(line)) {
         for (const key of g.keys) {
           if ((now.get(key)?.at ?? "") <= g.at) {
