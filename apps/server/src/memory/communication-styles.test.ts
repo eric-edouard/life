@@ -4,11 +4,11 @@ import type { SourceEvent } from "../records/source";
 import {
   communicationStyleBlock,
   communicationStyles,
+  communicationStyleTargetsOf,
   inputOf,
   readCommunicationStyle,
   styleLines,
   styleSampleOf,
-  targetsOf,
 } from "./communication-styles";
 import { communicationStylePath } from "./memory-files";
 import { nowLines } from "./read-person-page";
@@ -62,7 +62,7 @@ test("only paged people with a 1:1 chat or mail are read", () => {
     ["person:ana", [msg(1, true)]],
     ["person:bob", [msg(2, true, { source: "agent" })]],
   ]);
-  const targets = targetsOf(
+  const targets = communicationStyleTargetsOf(
     new Set(["person:ana", "person:bob", "person:cy", "person:me"]),
     direct
   );

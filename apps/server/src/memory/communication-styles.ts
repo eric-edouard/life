@@ -144,7 +144,7 @@ export function styleLines(
 }
 
 /** Each paged person's sample, those with any 1:1 chat or mail only. */
-export const targetsOf = (
+export const communicationStyleTargetsOf = (
   paged: Set<string>,
   direct: Map<string, SourceEvent[]>
 ) =>
@@ -163,7 +163,10 @@ export async function communicationStyles({ events, failed }: WithPeople) {
   }
   const people = await readPeople();
   const direct = directChats(events, people.resolve);
-  const targets = targetsOf(await pagedNow(people), direct).map((t) => {
+  const targets = communicationStyleTargetsOf(
+    await pagedNow(people),
+    direct
+  ).map((t) => {
     const input = inputOf(people.nameOf(t.ref), t.sample);
     return { ...t, input, inputs: inputsOf(COMMUNICATION_STYLE_PROMPT, input) };
   });
