@@ -199,7 +199,7 @@ test("an extracted.jsonl line written with `people` (21 Oct only) still reads", 
       at: "2026-10-21T00:30:00.000Z",
       observations: 0,
       people: ["person:me"],
-      prompt: "memory-extract.v5",
+      prompt: "memory-extract.v6",
       run: "r",
       schemaVersion: 1,
       unit: "unit_000000000001",
@@ -414,7 +414,7 @@ test("the extractor's reply is checked: quotes, units, subjects; unknown names r
           when: null,
         }),
         obs({ quote: "Il faut réparer l'évier", text: "Fix the sink." }),
-        obs({ unit: "unit_invented0000" }),
+        obs({ quote: "dit nulle part", unit: "unit_invented0000" }),
         obs({ type: "nothing" }),
         obs({}),
       ],
@@ -455,6 +455,49 @@ test("the extractor's reply is checked: quotes, units, subjects; unknown names r
   // Same unit, quote and claim: same id on every run.
   const again = parseObservations({ observations: [obs({})] }, ctx);
   expect(again.observations[0]?.id).toBe(todo?.id ?? "");
+});
+
+test("a fact citing a unit the call never had is kept under the one unit holding its quote (case extract-1-owing-direction)", () => {
+  // The model wrote an episode's id as the unit; the quote is in exactly one unit of the call.
+  const kept = parseObservations(
+    { observations: [obs({ unit: "unit_ebaaaba8de06" })] },
+    ctx
+  );
+  expect(kept.rejects).toEqual([]);
+  expect(kept.observations[0]?.unit).toBe(source.unit.id);
+  expect(kept.observations[0]?.id).toBe(
+    parseObservations({ observations: [obs({})] }, ctx).observations[0]?.id
+  );
+  // A neighbour's id: the cited unit lacks the quote, the one unit holding it is meant.
+  const other = {
+    ...source,
+    lines: [],
+    unit: { ...source.unit, id: "unit_000000000003" },
+  };
+  const moved = parseObservations(
+    { observations: [obs({ unit: other.unit.id })] },
+    {
+      ...ctx,
+      sources: new Map([
+        [source.unit.id, source],
+        [other.unit.id, other],
+      ]),
+    }
+  );
+  expect(moved.observations[0]?.unit).toBe(source.unit.id);
+  // Two units hold the quote: which one is a guess, so it stays rejected.
+  const twin = { ...source, unit: { ...source.unit, id: "unit_000000000002" } };
+  const both = parseObservations(
+    { observations: [obs({ unit: "unit_ebaaaba8de06" })] },
+    {
+      ...ctx,
+      sources: new Map([
+        [source.unit.id, source],
+        [twin.unit.id, twin],
+      ]),
+    }
+  );
+  expect(both.rejects.map((r) => r.reason)).toEqual(["unknown-unit"]);
 });
 
 test("about and modality are kept when valid; a replacement stands only for a prior fact said earlier", () => {

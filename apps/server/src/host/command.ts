@@ -117,9 +117,22 @@ export const step =
 
 type Handler = (values: Values, rest: string[]) => Promise<number>;
 
-/** A hand-run step's evidence: its last `--days` days, gathered once for it (a processing run gathers once for all its steps). */
-const gathered = async (v: Values) =>
-  gather(lastDays(clock(), Number(v.days ?? DAYS)), await readPeople());
+/**
+ * A hand-run step's evidence: `--from` to `--to` (one day when `--to` is left out), else its last `--days` days,
+ * gathered once for it (a processing run gathers once for all its steps).
+ */
+const gathered = async (v: Values) => {
+  const to = v.to ?? v.from;
+  if (v.from && !(isDay(v.from) && to && isDay(to))) {
+    throw new Error("--from and --to are days: YYYY-MM-DD");
+  }
+  return gather(
+    v.from && to
+      ? { from: v.from, to }
+      : lastDays(clock(), Number(v.days ?? DAYS)),
+    await readPeople()
+  );
+};
 
 const scan = step(() => mapRepos());
 

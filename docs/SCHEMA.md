@@ -132,7 +132,7 @@ between days to fit a call (a unit in several episodes with the one reaching fur
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
 include the `about_a_person` facts of the last year about the people close to the owner (`priorFor`). The model context marks those
-people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones).
+people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones). From `memory-extract.v6` (16 Nov) money or a thing asked for whose direction the lines leave open is written in the asker's words, never as who owes whom.
 
 | Field | Meaning |
 |---|---|

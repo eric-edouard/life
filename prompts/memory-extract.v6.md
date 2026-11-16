@@ -85,6 +85,11 @@ replaced later in the episode is not written; write the final one. Conditional t
 "maybe"), jokes, hypotheticals and someone quoting another person or reading an AI's text aloud are not plans or
 beliefs: leave them out, or write them as what they are, with `modality`.
 
+**Who owes whom.** Write a direction (a to_do, promise or waiting_on_someone about money or a thing, "X owes Y") only
+when the lines state who gives to whom. When they leave it open ("can I have the transfer today?", with nothing saying
+who sends to whom), write the request as news in the asker's words ("Ana asked {{owner}} about the transfer"), never as a
+debt either way.
+
 **Outcomes.** When the lines show how an open thing ended (asked and answered, sent, received, done, happened,
 cancelled), write what happened as a fact, never the open state the same lines settle ("waiting for", "needs to", a
 plan). Write a to_do, promise, waiting_on_someone or plan only when nothing in the episode settles it. A settled arrangement and
