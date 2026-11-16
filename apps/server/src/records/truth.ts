@@ -18,8 +18,8 @@ export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
     birthday: Birthday.optional(),
-    // What Life calls them in prompts and what it writes (the owner: "Jean Paul" for Jean Paul Dupont), when not their name's first word.
-    called: z.string().min(1).optional(),
+    // The owner's only (read by `readOwnerName`): what Life calls them in prompts and what it writes, when not their name's first word.
+    called: z.string().trim().min(1).optional(),
     handles: Handles.default({ email: [], phone: [], whatsapp: [] }),
     id: slug,
     language: z.enum(["en", "fr", "th"]).optional(),
@@ -45,7 +45,7 @@ export function ownerIn(people: Person[]): Person {
   }
   return me;
 }
-/** A name's first word: what a person is called ("Jean" for "Jean Dupont"). */
+/** A name's first word ("Jean" for "Jean Dupont"). */
 export const firstNameOf = (name: string) => name.trim().split(" ")[0] ?? "";
 
 export const Chat = z

@@ -11,7 +11,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". In prompts and what they write, his name: `{{owner}}`, filled by `readOwnerName` (the first word of his name in `truth/`), never a pronoun. | |
+| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". In prompts and what they write, his name: `{{owner}}`, filled by `readOwnerName` (his `called` in `truth/`, else his name's first word), never a pronoun. | |
 | memory language | The language his memory is written in, asked at the first run beside his name: the `memoryLanguage` setting, `{{language}}` in prompts. Absent: English. Quotes stay as said; topic tags stay English. | |
 | agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
