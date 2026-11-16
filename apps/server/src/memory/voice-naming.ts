@@ -95,7 +95,7 @@ interface Known {
 export function checkedVoices(
   reply: unknown,
   input: NamingInput,
-  known: Known = { noOne: new Set(), onCall: [] }
+  known: Known
 ) {
   const { voices } = (reply ?? {}) as { voices?: unknown };
   if (!Array.isArray(voices)) {
@@ -565,7 +565,7 @@ function namingsOf(
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
  * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
- * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
+ * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person, not relevant or "Not anyone I know",
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(

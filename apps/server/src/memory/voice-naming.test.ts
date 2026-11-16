@@ -166,6 +166,9 @@ const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
   return { done: done as { calls: number; stored: number }, work };
 };
 
+/** What code knows beside the model's input, when it knows nothing. */
+const NOTHING_KNOWN = { noOne: new Set<string>(), onCall: [] };
+
 test("an unnamed voice is a V in the lines; its reply is kept only as far as it checks, stored under the unnamed turn's key; nothing is asked twice", async () => {
   const t = sceneOf({
     voices: (job) => [row(job, { likeness: [{ personId: "p1", score: 0.8 }] })],
@@ -427,7 +430,7 @@ const entry = (o: Record<string, unknown>) => ({
 
 test("a reply keeps an entry only when its person is offered, me or unknown, its lines are lines of that voice and its confidence is one of three", () => {
   const kept = (e: Record<string, unknown>) =>
-    checkedVoices({ voices: [entry(e)] }, input).voices.length;
+    checkedVoices({ voices: [entry(e)] }, input, NOTHING_KNOWN).voices.length;
   expect(kept({})).toBe(1);
   expect(kept({ person: "me" })).toBe(1);
   expect(kept({ person: "unknown" })).toBe(1);
@@ -436,9 +439,13 @@ test("a reply keeps an entry only when its person is offered, me or unknown, its
   expect(kept({ lines: [1, 9] })).toBe(0);
   expect(kept({ confidence: "certain" })).toBe(0);
   expect(kept({ lines: [1], voice: "Dana" })).toBe(0);
-  const twice = checkedVoices({ voices: [entry({}), entry({})] }, input);
+  const twice = checkedVoices(
+    { voices: [entry({}), entry({})] },
+    input,
+    NOTHING_KNOWN
+  );
   expect(twice.voices).toHaveLength(1);
-  expect(() => checkedVoices({}, input)).toThrow();
+  expect(() => checkedVoices({}, input, NOTHING_KNOWN)).toThrow();
   expect(unnamedTurnKey("job-1:3", "speaker_1")).toBe(
     "job-1:3 voice:speaker_1"
   );

@@ -175,6 +175,18 @@ test("an exchange the model skipped stays read; a failed call or a non-reply sto
     ask: () => Promise.reject(new Error("down")),
   };
   await makeReplies(workOf(talk)?.work ?? [], failing as never, where);
+  // A reply its call's own check refuses is stored nowhere and comes back as failed.
+  const refused = (workOf(talk)?.work ?? []).map((a) => ({
+    ...a,
+    call: {
+      ...a.call,
+      checked: () => {
+        throw new Error("not a reply");
+      },
+    },
+  }));
+  const made = await makeReplies(refused, stepOf(GIVEN) as never, where);
+  expect(made.failed).toHaveLength(refused.length);
   expect(lines()).toHaveLength(0);
   expect(workOf(talk)?.work).toHaveLength(3);
 });
