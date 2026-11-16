@@ -144,6 +144,7 @@ test("a conversation summary is indexed under its first turn's ref, with its day
     keys: ["job-1:0@2026-10-14T10:00:00.000Z me"],
     quotes: [],
     ref: "job-1:0@2026-10-14T10:00:00.000Z",
+    speakers: [],
     subjects: [{ label: "The roof quote", line: 0 }],
     summary: "They agreed the roof quote.",
   };

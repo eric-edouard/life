@@ -20,6 +20,7 @@ import { type Asked, makeReplies, READS, readReplies } from "./read-replies";
 import { begin, chunks, type Step } from "./run";
 import {
   type SpokenPart,
+  type SpokenTurn,
   spokenConversationsOf,
   spokenPartsOf,
 } from "./spoken-conversations";
@@ -65,21 +66,33 @@ export interface HeldSummary {
   next?: string;
   quotes: { line: number; quote: string }[];
   ref: string;
+  /** Who else spoke in it, as lifelog named them (`personId`, `name`), each once: who they are is `heardPersonOf`'s. */
+  speakers: { id: string | null; name: string | null }[];
   /** Only the subjects whose line is one of its lines. */
   subjects: { label: string; line: number }[];
   summary: string;
 }
 
-function heldOf(line: SummaryLine): HeldSummary {
+function heldOf(
+  line: SummaryLine,
+  turnOf: (key: string) => SpokenTurn | undefined
+): HeldSummary {
   const r = Reply.parse(line.reply);
   const keys = line.messages;
   const ref = turnRefOf(keys[0] as string);
+  const named = keys.flatMap((k) => {
+    const t = turnOf(k);
+    return t && !t.owner && (t.personId || t.name)
+      ? [{ id: t.personId, name: t.name }]
+      : [];
+  });
   return {
     at: ref.slice(ref.indexOf("@") + 1),
     doubts: r.doubts.filter((d): d is string => typeof d === "string"),
     keys,
     quotes: r.quotes.flatMap((q) => Quote.safeParse(q).data ?? []),
     ref,
+    speakers: [...new Map(named.map((v) => [`${v.id} ${v.name}`, v])).values()],
     subjects: r.subjects.flatMap((s) => {
       const o = Subject.safeParse(s).data;
       return o && o.line < keys.length ? [o] : [];
@@ -123,7 +136,7 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
   const current: HeldSummary[] = [];
   for (const line of valid) {
     if (!line.messages.some((k) => claimed.has(k))) {
-      current.push(heldOf(line));
+      current.push(heldOf(line, (k) => turns[order.get(k) ?? -1]));
     }
     for (const k of line.messages) {
       claimed.add(k);

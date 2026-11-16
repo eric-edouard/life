@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
-import { isPromptVersion, promptText } from "../models/prompt-parts";
+import { isPromptVersion, MAY_KEEP, promptText } from "../models/prompt-parts";
 import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
@@ -151,7 +151,12 @@ export async function makeReplies(
   const wordings = Object.fromEntries(
     [...new Set(asked.map((a) => a.read))].map((r) => [
       r,
-      promptDigestOf(promptText(READS[r].prompt, step.keeps(READS[r].prompt))),
+      promptDigestOf(
+        promptText(
+          READS[r].prompt,
+          step.keeps(READS[r].prompt) ? [MAY_KEEP] : []
+        )
+      ),
     ])
   );
   let stored = 0;

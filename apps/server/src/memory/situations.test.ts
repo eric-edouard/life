@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { writeJson } from "../core/files";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
-import { promptNameOf, promptText } from "../models/prompt-parts";
+import { MAY_KEEP, promptNameOf, promptText } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { situationPath } from "./memory-files";
 import { inputsOf } from "./run";
@@ -220,7 +220,7 @@ test("a reader shows the situation made under the variant now: with his words on
       madeBy: {
         engine: "claude",
         model: "m",
-        prompt: promptNameOf("memory-situation.v3", mayKeep),
+        prompt: promptNameOf("memory-situation.v3", mayKeep ? [MAY_KEEP] : []),
         run: "r",
       },
       page: REF,

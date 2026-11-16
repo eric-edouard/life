@@ -122,10 +122,19 @@ export function chatDays(
   return days;
 }
 
+/** Who a voice lifelog named (its person id, its name) is as someone he heard: the person it resolves to, never him. */
+export const heardPersonOf = (
+  resolve: (s: string) => string | null,
+  id: string | null | undefined,
+  name: string | null | undefined
+) => {
+  const ref = voicePersonOf(resolve, id, name);
+  return ref === OWNER ? null : ref;
+};
+
 /**
  * Every turn of someone he spoke with in his recordings since `since` (`speakerTurns`: live conversations, lifelog's own
- * speakers), with the person it resolves to (never him) and where it was recorded: the one place that decides who
- * counts as heard.
+ * speakers), with the person it resolves to (`heardPersonOf`) and where it was recorded.
  */
 export function heardTurnsOf(
   store: Store,
@@ -133,8 +142,8 @@ export function heardTurnsOf(
   since: Date
 ) {
   return speakerTurns(store, since).flatMap((t) => {
-    const ref = voicePersonOf(resolve, t.id, t.name);
-    return ref && ref !== OWNER ? [{ ...t, ref }] : [];
+    const ref = heardPersonOf(resolve, t.id, t.name);
+    return ref ? [{ ...t, ref }] : [];
   });
 }
 

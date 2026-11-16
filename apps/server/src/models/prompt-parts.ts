@@ -33,11 +33,15 @@ export const renderedOf = (text: string, keeps: (part: string) => boolean) =>
     keeps(part) ? body : ""
   );
 
-/** The part that is on while the owner has said what Life may keep (`mayKeep`, docs/SCHEMA.md): not an add-on. */
+/** The part that is on while the owner has said what Life may keep (`mayKeep`, docs/SCHEMA.md): a call part. */
 export const MAY_KEEP = "mayKeep";
+/** The part on while a history month's call shows a conversation he had in person with the person (`personal/histories.ts`). */
+export const IN_PERSON = "inPerson";
+/** The call parts: parts no add-on switches, on only when the call says so (`on`). */
+const CALL_PARTS = [IN_PERSON, MAY_KEEP];
 
-const isOn = (part: string, mayKeep: boolean) =>
-  part === MAY_KEEP ? mayKeep : hasAddOn(part as AddOn);
+const isOn = (part: string, on: readonly string[]) =>
+  CALL_PARTS.includes(part) ? on.includes(part) : hasAddOn(part as AddOn);
 
 /**
  * What the owner is called in prompts and in what they write: the first word of his name in truth/people.yaml, read
@@ -58,28 +62,27 @@ const OWNER_RULE = `{{owner}} is the person whose memory this is: \`me\` in line
 
 /**
  * What a call is shown of `prompt` (its name): the owner rule then its file, parts of the add-ons that are off cut
- * out, the `mayKeep` part cut out unless `mayKeep` (the call's context holds his text), `{{owner}}` his name and
- * `{{language}}` the language his memory is written in. A prompt's name, not this text, keys its outputs: its wording
- * changes nothing stored.
+ * out, each call part cut out unless the call has it `on` (`mayKeep`: its context holds his text), `{{owner}}` his
+ * name and `{{language}}` the language his memory is written in. A prompt's name, not this text, keys its outputs: its
+ * wording changes nothing stored.
  */
-export const promptText = (prompt: string, mayKeep = false) =>
-  renderedOf(`${OWNER_RULE}${sourceOf(prompt)}`, (p) => isOn(p, mayKeep))
+export const promptText = (prompt: string, on: readonly string[] = []) =>
+  renderedOf(`${OWNER_RULE}${sourceOf(prompt)}`, (p) => isOn(p, on))
     .replaceAll("{{owner}}", readOwnerName())
     .replaceAll("{{language}}", settings().memoryLanguage);
 
 /**
  * The name a call's output is stamped with: `prompt` while every add-on part it holds is on, else
- * `<prompt>-without-<its off parts, sorted, joined by "-">`; then `-with-mayKeep` when `mayKeep` and the prompt holds
- * that part. With no text of his the name is what it was before the part existed.
+ * `<prompt>-without-<its off parts, sorted, joined by "-">`; then `-with-<the call parts it holds that are on, sorted,
+ * joined by "-">`. With no call part on, the name is what it was before the call parts existed.
  */
-export function promptNameOf(prompt: string, mayKeep = false) {
+export function promptNameOf(prompt: string, on: readonly string[] = []) {
   const parts = partsIn(sourceOf(prompt));
-  const off = parts.filter((p) => p !== MAY_KEEP && !isOn(p, false));
+  const off = parts.filter((p) => !(CALL_PARTS.includes(p) || isOn(p, [])));
+  const calls = parts.filter((p) => CALL_PARTS.includes(p) && on.includes(p));
   const without =
     off.length === 0 ? prompt : `${prompt}-without-${off.join("-")}`;
-  return mayKeep && parts.includes(MAY_KEEP)
-    ? `${without}-with-${MAY_KEEP}`
-    : without;
+  return calls.length === 0 ? without : `${without}-with-${calls.join("-")}`;
 }
 
 /**

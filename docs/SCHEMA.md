@@ -401,11 +401,11 @@ written or removed on a night a source can't be read.
 ## histories/<id>.json
 
 The past months between the owner and someone with a page (`pagedNow`), written by `personal/histories.ts` from their
-one-to-one chats and mail threads (`directChats`), while the `histories` add-on is on: `months` (oldest first; each
-`month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
+one-to-one chats and mail threads (`directChats`) and the summaries of the conversations recorded in person where their voice is named (`currentSummaries`, `heardPersonOf`), while the `histories` add-on is on: `months` (oldest first; each
+`month` `YYYY-MM`, the local month its exchanges and conversations start in; `parts`, one per call that read it, each a `summary` with
 no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call
 was shown, none when nothing was long enough to find; `inputs`, a hash of the prompt version and the lines shown;
-`built`, `madeBy`), `story` (null until one is told: `text`, `through` the year of the newest month it covers, at most the last closed year, `inputs` a hash
+`built`, `madeBy`, stamped `-with-inPerson` when a call showed a conversation in person), `story` (null until one is told: `text`, `through` the year of the newest month it covers, at most the last closed year, `inputs` a hash
 of the prompt version and those months, `built`, `madeBy`), `schemaVersion`. Only closed months, from the setting's
 `from` on; a month of calls only has none. A month is replaced whole when read again (its inputs changed: a late
 backup, a late mail), the story when its months changed and none still waits; the last version stays in the data
