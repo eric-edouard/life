@@ -90,9 +90,9 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
       whereUnknown: false,
     })
   ).toEqual([
-    "Episodes (what he did, in time order):",
+    "Episodes (what Test did, in time order):",
     episodeLine(m),
-    "    Where he was: Rouen",
+    "    Where Test was: Rouen",
     "    They drove to Rouen.",
     "    - obs_1 a fact of the trip",
     "",
@@ -113,7 +113,7 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
   ).not.toContain("    Talked about: ");
   expect(
     dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
-  ).toContain("Where he was is unknown: lifelog could not be read.");
+  ).toContain("Where Test was is unknown: lifelog could not be read.");
   expect(dayLines({})[0]).toStartWith("Units (0;");
 });
 

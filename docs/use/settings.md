@@ -73,6 +73,15 @@ Life.app has one switch for each, under "About you and the people close to you" 
   change. Your assistant sees it on each person's page. Before turning it on or moving `from` back,
   `bun life memory histories --from 2026-09` prints how many people, months and model calls that is, calling no model.
 
+## Memory language
+
+```sh
+bun life settings set '{"memoryLanguage":"French"}'
+```
+
+The language Life writes your memory in (titles, facts, pages, summaries); Life.app asks it on its first run, beside
+your name. Absent: English. Quotes stay in the language they were said in. Already written memory is not rewritten.
+
 ## Mentions
 
 ```sh

@@ -190,9 +190,12 @@ test("with every part on the situation prompt is its file bar the markers; with 
   try {
     setSettings({ personal: { aboutMe: {}, personas: {}, relationships: {} } });
     const all = promptText("memory-situation.v3");
-    expect(all).toBe(file.replace(MAY_KEEP_PART, "").replace(MARKERS, ""));
-    expect(new Bun.CryptoHasher("sha256").update(all).digest("hex")).toBe(
-      "4cac9fed7f0ebe257223157cc55c9e3656addc3457a88df863b8144a321ae37c"
+    expect(all).toEndWith(
+      file
+        .replace(MAY_KEEP_PART, "")
+        .replace(MARKERS, "")
+        .replaceAll("{{owner}}", "Test")
+        .replaceAll("{{language}}", "English")
     );
     setSettings({ personal: { aboutMe: {}, personas: {} } });
     const without = promptText("memory-situation.v3");

@@ -3,6 +3,7 @@ import { fuse } from "../core/fusion";
 import { newestDays } from "../core/lists";
 import { redact } from "../core/redact";
 import { chatGroups, type SourceEvent } from "../records/source";
+import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { readImportedConversation } from "../sources/assistants";
 import { repoMap } from "../sources/git";
@@ -26,7 +27,7 @@ import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
 import type { SourceLine } from "./quote-check";
-import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
+import { handlesOf, OWNER, type Truth } from "./read-truth";
 import {
   isDirect,
   kindOf,

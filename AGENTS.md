@@ -137,6 +137,11 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   His answer is the only thing written, with the check as shown (`fact-checks.jsonl`).
 - **He is the center, not one more person:** his page and his situation are projections like everyone close's; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
+- **Prompts and what they write name the owner, never a pronoun** (his words of 16 Nov 2026): a prompt says `{{owner}}`, which
+  `promptText` fills with `readOwnerName` (`models/prompt-parts.ts`, from `truth/`), and states the rule first; never he, him, his,
+  she, her or "the owner" for him (`prompt-parts.test.ts` checks). Memory is written in his `memoryLanguage` (`{{language}}`);
+  quotes stay as said, topic tags English. A label digested with stored work (`him` in the persona and style inputs) changes
+  with its prompt's next version.
 - **Facts are read by episode:** one call per day reads the day, its new units in full (`episodes.ts`), then extraction reads an
   episode's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an

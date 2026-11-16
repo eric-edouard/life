@@ -1,6 +1,7 @@
 import { clock, daysBefore } from "../core/clock";
 import { within } from "../core/lists";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
+import { readOwnerName } from "../models/prompt-parts";
 import { ClosenessLevel } from "../records/observation";
 import { levelsWith } from "./closeness";
 import { QUOTE_MAX, section } from "./index-rows";
@@ -116,9 +117,9 @@ export function openWithOf(
   return items.length > 0
     ? [
         "",
-        "Open with them (done when Life sees it done or he says so):",
-        ...section("He owes them:", his),
-        ...section("He waits on:", waits),
+        `Open with them (done when Life sees it done or ${readOwnerName()} says so):`,
+        ...section(`${readOwnerName()} owes them:`, his),
+        ...section(`${readOwnerName()} waits on:`, waits),
         ...(more > 0
           ? [
               `${more} more open with them, ranked lower: \`read_matters\` with person ${ref.slice(ref.indexOf(":") + 1)}.`,

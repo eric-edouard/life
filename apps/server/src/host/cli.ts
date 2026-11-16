@@ -330,25 +330,30 @@ const commands: Record<string, () => number | Promise<number>> = {
       return result;
     })({}, []);
   },
-  /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
+  /** A new install's data, once: `init --name <his name> [--language <his memory's>] [--email a]… [--phone +33…]…`. */
   async init() {
     const { values: v } = parseArgs({
       args: process.argv.slice(3),
       options: {
         email: { multiple: true, type: "string" },
+        language: { type: "string" },
         name: { type: "string" },
         phone: { multiple: true, type: "string" },
       },
     });
     if (!v.name) {
       console.error(
-        "usage: bun life init --name <name> [--email a]… [--phone +33…]…"
+        "usage: bun life init --name <name> [--language English] [--email a]… [--phone +33…]…"
       );
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
     // The core, on from the first run; the personal add-ons stay off until he switches them.
-    setSettings({ conversationSummaries: true, mentionsRead: true });
+    setSettings({
+      conversationSummaries: true,
+      mentionsRead: true,
+      ...(v.language ? { memoryLanguage: v.language } : {}),
+    });
     console.log("Life: data ready");
     return 0;
   },

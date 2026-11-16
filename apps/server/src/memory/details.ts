@@ -144,7 +144,7 @@ export const birthdaysNear = (
     .toSorted((x, y) => x.b.left - y.b.left)
     .map(({ b, p }) => ({ id: p.id, name: p.name, text: birthdayText(b) }));
 
-const SOURCE_NAMES = { contacts: "Contacts", truth: "his directory" };
+const SOURCE_NAMES = { contacts: "Contacts", truth: "the directory" };
 
 /** Someone's details as their page shows them, one line each, with where each comes from; `today` dates a birthday. */
 export function detailsBlock(lines: DetailLine[], today: string) {

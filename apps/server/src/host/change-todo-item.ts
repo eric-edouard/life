@@ -229,7 +229,7 @@ export async function setAutoAdd(on: boolean, said: string) {
     schemaVersion: 1,
     target: "auto_add",
     via: "session",
-    why: "his words",
+    why: "the owner's words",
   };
   await appendJsonl(LEDGER, LedgerEntry, [line]);
   return line;
@@ -286,7 +286,7 @@ export function autoAddTodoItem(
       change,
       instruction: { at: o.at, quote: o.quote, ref: o.id },
       via: "connector",
-      why: "the standing grant: his own spoken to-do",
+      why: "the standing grant: the owner's own spoken to-do",
     });
   });
   autoAdding = run.catch(() => undefined);

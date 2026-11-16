@@ -29,6 +29,7 @@ import { type People, readPeople, unitNow } from "../memory/who";
 import { messageLine, spokenLines } from "../memory/words";
 import { localDate, time } from "../memory/zones";
 import { callCharsOf } from "../models/llm";
+import { readOwnerName } from "../models/prompt-parts";
 import type { FoundQuote } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
@@ -101,7 +102,7 @@ export function personaBlock(
   return [
     ...(readings.length > 0
       ? [
-          `Persona (what they are like, want and can give, and what keeps happening between them and him, read every ${REBUILD_AFTER / DAY} days from 3 years of their messages, group chats and his recordings with them; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `Persona (what they are like, want and can give, and what keeps happening between them and ${readOwnerName()}, read every ${REBUILD_AFTER / DAY} days from 3 years of their messages, group chats and ${readOwnerName()}'s recordings with them; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
           `- in short: ${persona?.gist}`,
           ...readings.map(
             (l) =>

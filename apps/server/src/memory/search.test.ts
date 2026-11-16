@@ -150,7 +150,7 @@ test("a search opens with his situation when it names no one, then others' lines
     await expect(
       readSituationsOf("what bothers me lately", live, new Set([ep]), true)
     ).resolves.toEqual([
-      `His situation ${header}`,
+      `Test's situation ${header}`,
       `- He argues with his father about the house. [${ep}]`,
       "",
       `Situation with Test Ana, on the episodes below ${header}`,
@@ -173,7 +173,7 @@ test("a search opens with his situation when it names no one, then others' lines
       `- Ana helps with the house. [${ep}]`,
       `- Ana moved flats. [${other}]`,
       "",
-      `His situation, on the episodes below ${header}`,
+      `Test's situation, on the episodes below ${header}`,
       `- He argues with his father about the house. [${ep}]`,
       "",
     ]);

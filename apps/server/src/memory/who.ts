@@ -10,7 +10,7 @@ import {
   unfoldedOf,
 } from "../records/observation";
 import { namesOne, relationWordOf } from "../records/relation-words";
-import type { Person } from "../records/truth";
+import { firstNameOf, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
 import { readAgentReports } from "./agent-source";
@@ -307,7 +307,7 @@ function namesTheSame(ref: string, people: Person[]) {
 
 /** Whether a card has the first name and the birthday of someone in truth/: proof enough, never one alone. The first word is taken before `nameKey`, which would split "Jean-Pierre". */
 const isSameFirstNameAndBirthday = (c: ContactNow, p: Person) => {
-  const first = (name: string) => nameKey(name.trim().split(" ")[0] ?? "");
+  const first = (name: string) => nameKey(firstNameOf(name));
   return (
     !!c.birthday &&
     !!p.birthday &&

@@ -1,3 +1,4 @@
+import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { entryLine, isListed, type LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
@@ -80,6 +81,7 @@ export function dayLines({
   units?: UnitRow[];
   whereUnknown?: boolean;
 }) {
+  const owner = readOwnerName();
   // Worth nothing: a verdict below SEARCHABLE_AT (a unit with none yet is listed).
   const isNoise = (u: UnitRow) =>
     typeof u.importance === "number" && u.importance < SEARCHABLE_AT;
@@ -90,7 +92,7 @@ export function dayLines({
       : []),
     ...(due.length > 0
       ? [
-          "Due (open items, most pressing first: to-dos, promises and his to-do items for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
+          `Due (open items, most pressing first: to-dos, promises and ${owner}'s to-do items for this day or up to a week overdue, waiting items on their day, undated ones and replies ${owner} owes the day after and 3 days after):`,
           ...due,
           "",
         ]
@@ -100,11 +102,11 @@ export function dayLines({
       : []),
     ...(episodes.length > 0
       ? [
-          "Episodes (what he did, in time order):",
+          `Episodes (what ${owner} did, in time order):`,
           ...episodes.flatMap(
             ({ facts: of, episode, paid: spent, stay, talkedAbout }) => [
               episodeLine(episode),
-              ...(stay ? [`    Where he was: ${stay}`] : []),
+              ...(stay ? [`    Where ${owner} was: ${stay}`] : []),
               ...(talkedAbout?.length
                 ? [`    Talked about: ${talkedAbout.join(", ")}`]
                 : []),
@@ -114,7 +116,7 @@ export function dayLines({
             ]
           ),
           ...(whereUnknown
-            ? ["Where he was is unknown: lifelog could not be read."]
+            ? [`Where ${owner} was is unknown: lifelog could not be read.`]
             : []),
           "",
         ]
@@ -130,7 +132,11 @@ export function dayLines({
       ? ["Key observations in no episode:", ...facts, ""]
       : []),
     ...(paidLines.length > 0
-      ? ["Payments (his accounts and wallet, in time order):", ...paidLines, ""]
+      ? [
+          `Payments (${owner}'s accounts and wallet, in time order):`,
+          ...paidLines,
+          "",
+        ]
       : []),
     `Units (${units.length}; \`fetch <unit id>\`${noise > 0 ? `; ${noise} worth nothing not listed` : ""}):`,
     ...units.filter((u) => !isNoise(u)).map(unitLine),

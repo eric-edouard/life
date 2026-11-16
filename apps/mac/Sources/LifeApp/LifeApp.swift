@@ -83,6 +83,9 @@ struct SettingsView: View {
   let supervisor: Supervisor
   @State private var name = ""
   @State private var email = ""
+  /// The language his memory is written in (`memoryLanguage`): the Mac's own, named in English, until he changes it.
+  @State private var language = Locale(identifier: "en")
+    .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
   @State private var engine = "claude"
   @State private var keys: [String: String] = [:]
   @State private var agentName = ""
@@ -111,8 +114,9 @@ struct SettingsView: View {
         Section("Who you are") {
           TextField("Your name", text: $name)
           TextField("Your email", text: $email)
+          TextField("Your main language (Life writes your memory in it)", text: $language)
           Button("Start Life") { Task { await start() } }
-            .disabled(name.isEmpty || installing)
+            .disabled(name.isEmpty || language.isEmpty || installing)
         }
         Section("Or bring your Life") {
           Button("Import an export…") { Task { await importExport() } }
@@ -255,7 +259,7 @@ struct SettingsView: View {
   }
 
   private func start() async {
-    let r = await Helper.run(["init", "--name", name] + (email.isEmpty ? [] : ["--email", email]))
+    let r = await Helper.run(["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
     status = r.code == 0 ? "Life is set up." : r.err
     await supervisor.start()
     await load()

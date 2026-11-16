@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../core/proc";
-import { integrity, loadTruth, ownerIn } from "../memory/read-truth";
+import { integrity, loadTruth } from "../memory/read-truth";
+import { ownerIn } from "../records/truth";
 import { lifelogServer } from "../sources/store-fixtures";
 import { init } from "./init";
 
