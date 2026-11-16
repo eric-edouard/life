@@ -13,7 +13,6 @@ import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { hold, release } from "../core/lock";
 import { settings } from "../core/settings";
-import { stamp } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
@@ -274,7 +273,7 @@ export async function importExport(folder: string) {
   const due = plan.due();
   const ctx = {
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, IMPORT_KEEP_PROMPT, step.run),
+    madeBy: step.madeBy(IMPORT_KEEP_PROMPT),
     source,
   };
   const context = meContext(await loadTruth());

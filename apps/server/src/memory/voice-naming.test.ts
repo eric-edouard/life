@@ -147,6 +147,7 @@ const stepOf = (reply: (i: NamingInput) => unknown) =>
     attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
     dir: join(dir, "run"),
     end: (counts: unknown) => counts,
+    keeps: () => false,
     llm: { engine: "codex", model: "test" },
     madeBy: (prompt: string) =>
       stamp({ engine: "codex", model: "test" }, prompt, "r1"),

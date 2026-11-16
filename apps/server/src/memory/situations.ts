@@ -5,7 +5,6 @@ import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { endingAtNewest } from "../core/lists";
-import { stamp } from "../models/llm";
 import { promptNameOf } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { Situation, SituationLine } from "../records/situation";
@@ -209,7 +208,7 @@ export async function situations(
           built: step.now.toISOString(),
           inputs,
           lines,
-          madeBy: stamp(step.llm, SITUATION_PROMPT, step.run),
+          madeBy: step.madeBy(SITUATION_PROMPT),
           page: t.ref,
           schemaVersion: 1,
         };

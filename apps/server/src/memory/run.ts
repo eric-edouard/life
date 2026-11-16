@@ -148,12 +148,12 @@ export async function begin(
   const stats = { calls: 0, failed: 0 };
   // What the owner says Life may keep (truth/me.md): every call of a prompt that has the sentence gets it in its context.
   const mayKeep = await loadMayKeep();
+  const keeps = (prompt: string) => mayKeep !== undefined && hasMayKeep(prompt);
   return {
     async ask(opts: Omit<Parameters<typeof askOnce>[0], "llm" | "run">) {
-      const context =
-        mayKeep !== undefined && hasMayKeep(opts.prompt)
-          ? { ...(opts.context as object | undefined), mayKeep }
-          : opts.context;
+      const context = keeps(opts.prompt)
+        ? { ...(opts.context as object | undefined), mayKeep }
+        : opts.context;
       const json = await askOnce({ ...opts, context, llm, run });
       stats.calls += 1;
       return json;
@@ -173,10 +173,11 @@ export async function begin(
     end: <C extends Record<string, unknown>>(counts: C) =>
       rec.end({ ...stats, model, ...counts }),
     error: rec.error,
+    /** Whether a call of `prompt` is given his words on what Life may keep (and shown its sentence). */
+    keeps,
     llm,
     /** A call's `madeBy` for `prompt`: its name says whether his words on what Life may keep were given. */
-    madeBy: (prompt: string) =>
-      stamp(llm, prompt, run, mayKeep !== undefined && hasMayKeep(prompt)),
+    madeBy: (prompt: string) => stamp(llm, prompt, run, keeps(prompt)),
     now,
     run,
     stats,

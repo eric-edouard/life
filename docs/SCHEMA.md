@@ -64,7 +64,7 @@ new person named in Photos moves it.
 
 ## truth/me.md: What Life may keep
 
-An optional section `## What Life may keep` in `truth/me.md`, parsed like `## Goals` (`readMe`, `memory/read-truth.ts`): free text in his own words on what Life may and may not keep ("nothing about my health"). Absent or empty, there is no limit. Only he writes it. A call of a prompt that holds the `mayKeep` part gets the text as `mayKeep` in its context and is stamped `<prompt>-with-mayKeep`.
+An optional section `## What Life may keep` in `truth/me.md`, parsed like `## Goals` (`readMe`, `memory/read-truth.ts`): free text in his own words on what Life may and may not keep ("nothing about my health"). Absent or empty, there is no limit. It governs what the models write from now on, not the sources, units, archive or search index. Only he writes it. A call of a prompt that holds the `mayKeep` part gets the text as `mayKeep` in its context and is stamped `<prompt>-with-mayKeep`.
 
 ## verdicts.jsonl
 

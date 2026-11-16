@@ -116,7 +116,7 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
       const held = file(prompt).includes("part:mayKeep");
       const text = promptText(prompt, true);
       expect(
-        text.includes("what the owner says Life may and may not keep")
+        text.includes("the owner's own words on what Life must not keep")
       ).toBe(held);
       expect(promptNameOf(prompt, true)).toBe(
         held ? `${prompt}-with-mayKeep` : prompt

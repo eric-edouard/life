@@ -6,12 +6,14 @@ import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { stamp } from "../models/llm";
+import { promptText } from "../models/prompt-parts";
 import { MOVE_READS } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import { callOf, readExchangeReadWork, readsOn } from "./exchange-reads";
 import { exchangesOf } from "./exchanges";
 import {
   makeReplies,
+  promptDigestOf,
   READS,
   readReplies,
   readReplyIndex,
@@ -67,10 +69,15 @@ const stepOf = (reply: unknown) => ({
   // As a run's `attempt`: a failure costs that piece only.
   attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
   dir: join(dir, "run"),
+  keeps: () => false,
   llm: { engine: "codex", model: "test" },
   madeBy: (prompt: string) =>
     stamp({ engine: "codex", model: "test" }, prompt, "r1"),
   run: "r1",
+});
+const keepsStep = (keeps: boolean) => ({
+  ...stepOf(GIVEN),
+  keeps: () => keeps,
 });
 const workOf = (events: SourceEvent[], now = LATER) =>
   readExchangeReadWork({ events, failed: [] }, people, now, where, MOVE_READS);
@@ -305,4 +312,21 @@ test("the night asks connection and conflict on the relationshipReads add-on, me
       personal: personal ?? null,
     });
   }
+});
+
+test("a reply's stored digest is the digest of the wording shown: with his words on what Life may keep, the sentence is in it", async () => {
+  const digestOf = async (keeps: boolean) => {
+    fresh();
+    await makeReplies(
+      workOf(talk)?.work ?? [],
+      keepsStep(keeps) as never,
+      where
+    );
+    return lines().find((l) => l.read === "connection")?.promptDigest;
+  };
+  const without = promptDigestOf(promptText("memory-connection.v3"));
+  const withIt = promptDigestOf(promptText("memory-connection.v3", true));
+  expect(withIt).not.toBe(without);
+  expect(await digestOf(false)).toBe(without);
+  expect(await digestOf(true)).toBe(withIt);
 });

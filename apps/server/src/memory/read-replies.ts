@@ -142,13 +142,16 @@ export const storeReply = (
  */
 export async function makeReplies(
   asked: Asked[],
-  step: Pick<Step, "ask" | "attempt" | "dir" | "llm" | "madeBy" | "run">,
+  step: Pick<
+    Step,
+    "ask" | "attempt" | "dir" | "keeps" | "llm" | "madeBy" | "run"
+  >,
   where = READ_REPLIES
 ) {
   const wordings = Object.fromEntries(
     [...new Set(asked.map((a) => a.read))].map((r) => [
       r,
-      promptDigestOf(promptText(READS[r].prompt)),
+      promptDigestOf(promptText(READS[r].prompt, step.keeps(READS[r].prompt))),
     ])
   );
   let stored = 0;

@@ -1,5 +1,5 @@
 You read what passed between the owner and one person during one month, in their one-to-one chats and mail, and you
-summarise it for an assistant that will later need to know how things went between them over the years.<!-- part:mayKeep --> When the context has `mayKeep`, it is what the owner says Life may and may not keep: leave out anything it says not to keep, and never quote it.<!-- /part -->
+summarise it for an assistant that will later need to know how things went between them over the years.<!-- part:mayKeep --> When the context has `mayKeep`, it is the owner's own words on what Life must not keep: leave out anything it rules out and never quote his words; it never makes you keep more than these instructions ask.<!-- /part -->
 
 The input is JSON: `month` (YYYY-MM), `with` (the person's name), `part` and `parts` (a large month is read in several
 parts: this is one of them, summarise only what it shows), and `lines`: exchanges in time order, each under a heading
