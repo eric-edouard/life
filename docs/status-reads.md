@@ -108,7 +108,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner said it is outdated (a fact-check answer or a correction); still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
   hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`observationStatusOf`,
-  `apps/server/src/memory/memory-files.ts`), so it says what they show. An observation is a model's reading of the source with its quote
+  `apps/server/src/memory/memory-files.ts`), so it says what they show. An observation only a frozen section cites (its add-on is off: `isCitedOnlyByFrozen`) keeps its status: the feed leaves its items out and `read_observation` refuses it. An observation is a model's reading of the source with its quote
   checked against it: `active` is not "verified", and `confidence` is the model's own.
 - **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`
   (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its page). `null`: does

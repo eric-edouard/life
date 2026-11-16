@@ -5,7 +5,7 @@ import type { Episode } from "../records/episode";
 import { KEEP_AT } from "../records/unit";
 import { episodeText } from "./doubts";
 import { readIndex } from "./memory-files";
-import { bodyOf, generated, parsePage, renderLine } from "./page-format";
+import { generated, parsePage, renderLine, shownBody } from "./page-format";
 import { SURE_AT } from "./quote-check";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
@@ -105,10 +105,10 @@ export function withIndex(lines: (db: Database) => string[]) {
   return out === null ? NOT_BUILT : asData(out);
 }
 
-/** The page's text, each Between us line followed by the days of its first and latest evidence. */
+/** The page's text without its frozen sections (`shownBody`), each Between us line followed by the days of its first and latest evidence. */
 export function withSpans(text: string, dateOf: (id: string) => string[]) {
   const parsed = parsePage(text);
-  let body = bodyOf(text);
+  let body = shownBody(text);
   for (const l of parsed ? generated(parsed).between_us : []) {
     const days = l.cites.flatMap(dateOf).toSorted();
     const rendered = renderLine("between_us", l);

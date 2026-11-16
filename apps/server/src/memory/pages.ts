@@ -46,12 +46,12 @@ import {
   newOn,
   oftenLine,
   ownerEdits,
-  type PageLine,
   type PageMeta,
   type Parsed,
   parsePage,
   perSection,
   placed,
+  previousSections,
   type ReplyLimits,
   renderPage,
   type Sections,
@@ -312,8 +312,8 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     (l, i, all) => all.findIndex((x) => bare(x.text) === bare(l.text)) === i
   );
   const layout = layoutOf(t.ref, t.close);
-  const old = prev && !r.rebuild ? generated(prev) : perSection<PageLine>();
-  const settled = settle(old, known);
+  const old = previousSections(prev, r.rebuild, layout.frozen);
+  const settled = settle(old, known, layout.frozen);
   const fresh = newOn(
     visible.filter((o) => !known.retired.has(o.id)),
     prev && !r.rebuild ? prev.meta : null
