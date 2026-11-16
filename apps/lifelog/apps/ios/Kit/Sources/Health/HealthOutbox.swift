@@ -62,7 +62,7 @@ public actor HealthOutbox {
         guard !flushing else { return pending().count }
         flushing = true
         defer { flushing = false }
-        for (url, sent) in pending() where sent.notBefore <= now && (sent.urgent || !lowPowerMode) {
+        for (url, sent) in pending() where !(sent.notBefore > now) && (sent.urgent || !lowPowerMode) {
             let delivery = await send(sent.path, sent.body)
             // A repeat may have rewritten it while it was out (`replacing`): that version still goes.
             guard var envelope = read(url) else { continue }

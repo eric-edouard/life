@@ -70,7 +70,9 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   (`owner`: he answered this voice; `recognized`: lifelog named it by sound; null: nobody named it), `status` and
   `personId` as stored (`status` `not_relevant` is his answer "not relevant", a person is not meant; null when the
   label has no row), `mixed` (the label holds several voices), and `likeness`: up to two people, each `personId` and
-  `score`, at least 0.5 like the voice, judged without the exemplars of the span's own conversations. Empty when the label has no voice vector.
+  `score`, at least the likeness threshold (`RECOGNITION.likenessThreshold`) like the voice, judged without the exemplars of the span's own conversations. Empty when the label has no voice vector.
+  `basis: null` can come with the status `stranger`, `candidate` or `unknown` from recognition. A label whose turns the
+  owner answered one by one has no whole-label answer here; each such turn's name is in the transcript.
   A score is a likeness, not a probability. The phone never calls it.
 - **corrections**, only the owner's explicit ones, never in the background: `PUT /transcripts/{jobId}/speakers/{label}`
   (with `turnIndex` for one turn), `PUT /conversations/{id}/title`, `PATCH /people/{id}`, `POST /people/{id}/merge`.
