@@ -31,19 +31,32 @@ export const renderedOf = (text: string, keeps: (part: string) => boolean) =>
     keeps(part) ? body : ""
   );
 
-const isOn = (part: string) => hasAddOn(part as AddOn);
+/** The part that is on while the owner has said what Life may keep (`mayKeep`, docs/SCHEMA.md): not an add-on. */
+export const MAY_KEEP = "mayKeep";
 
-/** What a call is shown of `prompt` (its name): its file, parts of the add-ons that are off cut out. */
-export const promptText = (prompt: string) =>
-  renderedOf(sourceOf(prompt), isOn);
+const isOn = (part: string, mayKeep: boolean) =>
+  part === MAY_KEEP ? mayKeep : hasAddOn(part as AddOn);
 
 /**
- * The name a call's output is stamped with: `prompt` while every part it holds is on, else
- * `<prompt>-without-<its off parts, sorted, joined by "-">`.
+ * What a call is shown of `prompt` (its name): its file, parts of the add-ons that are off cut out, and the `mayKeep`
+ * part cut out unless `mayKeep` (the call's context holds his text).
  */
-export function promptNameOf(prompt: string) {
-  const off = partsIn(sourceOf(prompt)).filter((p) => !isOn(p));
-  return off.length === 0 ? prompt : `${prompt}-without-${off.join("-")}`;
+export const promptText = (prompt: string, mayKeep = false) =>
+  renderedOf(sourceOf(prompt), (p) => isOn(p, mayKeep));
+
+/**
+ * The name a call's output is stamped with: `prompt` while every add-on part it holds is on, else
+ * `<prompt>-without-<its off parts, sorted, joined by "-">`; then `-with-mayKeep` when `mayKeep` and the prompt holds
+ * that part. With no text of his the name is what it was before the part existed.
+ */
+export function promptNameOf(prompt: string, mayKeep = false) {
+  const parts = partsIn(sourceOf(prompt));
+  const off = parts.filter((p) => p !== MAY_KEEP && !isOn(p, false));
+  const without =
+    off.length === 0 ? prompt : `${prompt}-without-${off.join("-")}`;
+  return mayKeep && parts.includes(MAY_KEEP)
+    ? `${without}-with-${MAY_KEEP}`
+    : without;
 }
 
 /**
@@ -51,4 +64,10 @@ export function promptNameOf(prompt: string) {
  * add-on is not a new version, so what was made under any variant counts as made by the base.
  */
 export const isPromptVersion = (stamped: string, base: string) =>
-  stamped === base || stamped.startsWith(`${base}-without-`);
+  stamped === base ||
+  stamped.startsWith(`${base}-without-`) ||
+  stamped.startsWith(`${base}-with-`);
+
+/** Whether `prompt` holds the `mayKeep` sentence: the only prompts a call gives his text to. */
+export const hasMayKeep = (prompt: string) =>
+  partsIn(sourceOf(prompt)).includes(MAY_KEEP);

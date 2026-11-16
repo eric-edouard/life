@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { packed } from "../core/lists";
-import { stamp } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import {
@@ -409,7 +408,7 @@ export async function extract(evidence: Evidence) {
     )
   );
 
-  const madeBy = stamp(step.llm, EXTRACT_PROMPT, step.run);
+  const madeBy = step.madeBy(EXTRACT_PROMPT);
   const reasons = new Map(kept.map(({ b, reason }) => [b.unit.id, reason]));
   const observations: Observation[] = [];
   const retired: Supersession[] = [];

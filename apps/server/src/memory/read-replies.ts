@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
-import { stamp } from "../models/llm";
 import { isPromptVersion, promptText } from "../models/prompt-parts";
 import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
@@ -143,13 +142,16 @@ export const storeReply = (
  */
 export async function makeReplies(
   asked: Asked[],
-  step: Pick<Step, "ask" | "attempt" | "dir" | "llm" | "run">,
+  step: Pick<
+    Step,
+    "ask" | "attempt" | "dir" | "keeps" | "llm" | "madeBy" | "run"
+  >,
   where = READ_REPLIES
 ) {
   const wordings = Object.fromEntries(
     [...new Set(asked.map((a) => a.read))].map((r) => [
       r,
-      promptDigestOf(promptText(READS[r].prompt)),
+      promptDigestOf(promptText(READS[r].prompt, step.keeps(READS[r].prompt))),
     ])
   );
   let stored = 0;
@@ -165,7 +167,7 @@ export async function makeReplies(
         storeReply(
           {
             at,
-            madeBy: stamp(step.llm, prompt, step.run),
+            madeBy: step.madeBy(prompt),
             messages: call.keys,
             promptDigest: wordings[read] as string,
             read,

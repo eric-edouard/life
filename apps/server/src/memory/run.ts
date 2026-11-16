@@ -12,9 +12,12 @@ import {
   llmFor,
   llmSpec,
   quota,
+  stamp,
 } from "../models/llm";
 import type { Tier } from "../models/model-call";
+import { hasMayKeep } from "../models/prompt-parts";
 import { OUT, runId } from "./memory-files";
+import { readMayKeep } from "./read-truth";
 import { localDate } from "./zones";
 
 // What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls.
@@ -143,9 +146,15 @@ export async function begin(
   const dir = join(OUT, "runs", `${step}-${run}`);
   await mkdir(dir, { recursive: true });
   const stats = { calls: 0, failed: 0 };
+  // What the owner says Life may keep (truth/me.md): every call of a prompt that has the sentence gets it in its context.
+  const mayKeep = readMayKeep();
+  const keeps = (prompt: string) => mayKeep !== undefined && hasMayKeep(prompt);
   return {
     async ask(opts: Omit<Parameters<typeof askOnce>[0], "llm" | "run">) {
-      const json = await askOnce({ ...opts, llm, run });
+      const context = keeps(opts.prompt)
+        ? { ...(opts.context as object | undefined), mayKeep }
+        : opts.context;
+      const json = await askOnce({ ...opts, context, llm, run });
       stats.calls += 1;
       return json;
     },
@@ -164,7 +173,11 @@ export async function begin(
     end: <C extends Record<string, unknown>>(counts: C) =>
       rec.end({ ...stats, model, ...counts }),
     error: rec.error,
+    /** Whether a call of `prompt` is given his words on what Life may keep (and shown its sentence). */
+    keeps,
     llm,
+    /** A call's `madeBy` for `prompt`: its name says whether his words on what Life may keep were given. */
+    madeBy: (prompt: string) => stamp(llm, prompt, run, keeps(prompt)),
     now,
     run,
     stats,

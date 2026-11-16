@@ -7,7 +7,6 @@ import { digest } from "../core/hash";
 import { log } from "../core/log";
 import type { Engine } from "../core/names";
 import { exec } from "../core/proc";
-import { stamp } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
@@ -226,7 +225,7 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     );
     await appendJsonl(FILES, FileEntry, [...copies, ...read]);
     const shown = prepared.filter((p) => "image" in p);
-    const madeBy = stamp(step.llm, MESSAGE_FILE_DESCRIPTION_PROMPT, step.run);
+    const madeBy = step.madeBy(MESSAGE_FILE_DESCRIPTION_PROMPT);
     let described = 0;
     /** One call on `batch`; a failed call on several files tries each alone, so a bad image leaves only itself a tag. */
     const describe = async (batch: typeof shown, dir: string) => {

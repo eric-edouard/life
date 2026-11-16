@@ -5,7 +5,6 @@ import { clock, DAY } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
-import { stamp } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { InferredRepo } from "../records/observation";
@@ -125,7 +124,7 @@ export async function mapRepos() {
   const ctx = {
     areas: areaLookup(truth.areas),
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, REPO_PROJECT_PROMPT, step.run),
+    madeBy: step.madeBy(REPO_PROJECT_PROMPT),
     projects: new Map(truth.projects.map((p) => [p.id, p.area])),
   };
   const context = {

@@ -154,10 +154,15 @@ export function llmFor(tier: Tier, engine = readEngine()): Llm {
 }
 
 /** Recorded on everything a model made; the engine stays out of the cache key, so switching engines re-runs nothing. */
-export const stamp = (llm: Llm, prompt: string, run: string) => ({
+export const stamp = (
+  llm: Llm,
+  prompt: string,
+  run: string,
+  mayKeep = false
+) => ({
   engine: llm.engine,
   model: llm.model,
-  prompt: promptNameOf(prompt),
+  prompt: promptNameOf(prompt, mayKeep),
   run,
 });
 
@@ -551,8 +556,16 @@ export async function askOnce(opts: {
     opts.context === undefined
       ? ""
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
-  const system = `${promptText(opts.prompt)}${context}`;
-  const made = { ...stamp(llm, opts.prompt, opts.run), effort: llm.effort };
+  // His words on what Life may keep (`mayKeep`) in the context switch on the prompt's sentence about them.
+  const mayKeep =
+    typeof opts.context === "object" &&
+    opts.context !== null &&
+    "mayKeep" in opts.context;
+  const system = `${promptText(opts.prompt, mayKeep)}${context}`;
+  const made = {
+    ...stamp(llm, opts.prompt, opts.run, mayKeep),
+    effort: llm.effort,
+  };
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));
   const started = performance.now();

@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { writeJson } from "../core/files";
-import { LIFE_CODE_DIR } from "../core/paths";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
 import { promptNameOf, promptText } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
@@ -20,6 +20,7 @@ import {
 } from "./situations";
 
 const MARKERS = /<!-- \/?part(:\w+)? -->/g;
+const MAY_KEEP_PART = /<!-- part:mayKeep -->.*?<!-- \/part -->/;
 const RELATIONSHIP_WORDS = /jealous|couple|Between us|get along|close: true/;
 const REF = "person:test-ana";
 const A = "ep_aaaaaaaaaaaa";
@@ -189,7 +190,7 @@ test("with every part on the situation prompt is its file bar the markers; with 
   try {
     setSettings({ personal: { aboutMe: {}, personas: {}, relationships: {} } });
     const all = promptText("memory-situation.v3");
-    expect(all).toBe(file.replace(MARKERS, ""));
+    expect(all).toBe(file.replace(MAY_KEEP_PART, "").replace(MARKERS, ""));
     expect(new Bun.CryptoHasher("sha256").update(all).digest("hex")).toBe(
       "4cac9fed7f0ebe257223157cc55c9e3656addc3457a88df863b8144a321ae37c"
     );
@@ -202,5 +203,36 @@ test("with every part on the situation prompt is its file bar the markers; with 
     );
   } finally {
     setSettings({ personal: was ?? null });
+  }
+});
+
+test("a reader shows the situation made under the variant now: with his words on what Life may keep, only the one stamped -with-mayKeep", () => {
+  const me = join(OWNER_DATA_DIR, "truth", "me.md");
+  const was = readFileSync(me, "utf8");
+  const madeUnder = (mayKeep: boolean) => {
+    writeJson(situationPath(REF), {
+      built: "2026-11-05T00:00:00.000Z",
+      inputs: "0123456789abcdef",
+      lines: [{ cites: [A], text: "Ana stays at his flat since 20 Mar." }],
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: promptNameOf("memory-situation.v3", mayKeep),
+        run: "r",
+      },
+      page: REF,
+      schemaVersion: 1,
+    });
+    return readSituationNow(REF, new Set([A])).length;
+  };
+  try {
+    expect([madeUnder(false), madeUnder(true)]).toEqual([1, 0]);
+    writeFileSync(
+      me,
+      `${was}\n## What Life may keep\nNothing about my health.\n`
+    );
+    expect([madeUnder(false), madeUnder(true)]).toEqual([0, 1]);
+  } finally {
+    writeFileSync(me, was);
   }
 });
