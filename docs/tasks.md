@@ -105,7 +105,7 @@ with). `read_day`'s Due and `changeTodoItem`'s duplicate check read the ledger, 
 it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
-`read_matters` (the running matters, open and not dormant, of a person, project or area: id, name, matter status, owed to, waiting on, next) and `read_matter` (one matter: its steps in time order with dates and quotes, its people by role, projects, areas and status) are the connector's reads of them; they read only.
+`read_matters` (the running matters, open and not dormant, of a person, project or area: id, name, matter status, owed to, waiting on, next) and `read_matter` (one matter, by its id or the id of one of its steps, so an agent anchored on a record finds its matter again after a re-group: its steps in time order with dates and quotes, its people by role, projects, areas and status) are the connector's reads of them; they read only.
 
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
