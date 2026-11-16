@@ -76,53 +76,25 @@ export const Settings = z
       .strict()
       .optional(),
     /**
-     * The conversation summaries (`memory/conversation-summaries.ts`): each night writes one for the long conversations
-     * recorded in person that have none, at most 40 calls. Absent means off: no call is made; what is stored is read
-     * all the same.
-     */
-    conversationSummaries: z.literal(true).optional(),
-    /**
      * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
      * model, no image leaves it. Without it, none.
      */
     describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
-    /**
-     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): a link ends its step at once, "probably" (a
-     * matter it closes reads probably done), and he is asked in conversation whether each is right (an ending check). Absent means off: nothing is asked, readers
-     * ignore links. Needs `links`.
-     */
-    endings: z.literal(true).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
     lifelog: z.object({ url: z.url() }).strict().optional(),
-    /**
-     * The links (`memory/links.ts`): each night reads how the open steps of each matter ended. Absent
-     * means off: nothing is read. The readers use them only with `endings`.
-     */
-    links: z.literal(true).optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
-    /**
-     * The matters (`memory/matters.ts`): each night places the episodes, facts and reminders not placed yet in the
-     * running things of his life. Absent means off: nothing is read. Read by `read_day`'s Due, a person's page, `read_matters` and `read_matter`.
-     */
-    matters: z.literal(true).optional(),
     /**
      * The language his memory is written in (asked at the first run beside his name): every prompt's `{{language}}`
      * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
      */
     memoryLanguage: z.string().min(1).default("English"),
-    /**
-     * The mentions read (`memory/exchange-reads.ts`): each night asks the read of who is talked about for the finished
-     * exchanges of his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is
-     * stored is read all the same.
-     */
-    mentionsRead: z.literal(true).optional(),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
@@ -203,7 +175,7 @@ export function readSettings(path = SETTINGS): Settings {
 }
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
-function writeSettings(path: string, value: unknown) {
+export function writeSettings(path: string, value: unknown) {
   // Each process its own temp file: the app starts several at once, each may rename an old file.
   writeFileSync(
     `${path}.${process.pid}.tmp`,

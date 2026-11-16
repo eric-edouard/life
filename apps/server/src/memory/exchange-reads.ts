@@ -1,6 +1,4 @@
 import { hasAddOn } from "../core/add-ons";
-import { newestWithin } from "../core/lists";
-import { settings } from "../core/settings";
 import { MOVE_READS, type MoveRead } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
@@ -21,22 +19,16 @@ import {
 } from "./read-replies";
 import { begin } from "./run";
 import type { People } from "./who";
+import { dayStart } from "./zones";
 
 // The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's two-way one-to-one chats,
 // each reply stored by `memory/read-replies.ts`; the moves are worked out from it when read (`checkedMoves`), never
-// stored. Connection and conflict are the `relationshipReads` add-on, mentions is his `mentionsRead` setting: each
-// gates its calls and never the reading of what is stored.
+// stored. The mentions read is core; connection and conflict are the `relationshipReads` add-on, which gates their
+// calls and never the reading of what is stored.
 
-/** The reads the night asks: the mentions read on `mentionsRead`, connection and conflict on the `relationshipReads` add-on. */
-export const readsOn = () =>
-  MOVE_READS.filter((read) =>
-    read === "mentions"
-      ? settings().mentionsRead
-      : hasAddOn("relationshipReads")
-  );
-
-/** The most calls a night makes across the three reads: a first build takes several nights, the newest first. */
-const NIGHT_CALLS = 200;
+/** The reads the night asks: the mentions read, and connection and conflict on the `relationshipReads` add-on. */
+export const readsOn = (): readonly MoveRead[] =>
+  hasAddOn("relationshipReads") ? MOVE_READS : ["mentions"];
 
 /** Who a person is, as a read is told: their name and what they are to him in his directory. */
 export interface With {
@@ -65,20 +57,22 @@ export type ExchangeReadWork = ReturnType<typeof readExchangeReadWork>;
 
 /**
  * What the exchange reads have to ask, from a read of every year (`readWithPeople(new Date(0))`): for each person's
- * two-way one-to-one chats, the finished exchanges a read has no stored reply for, batched per chat (`batchesOf`),
- * the newest calls first up to `NIGHT_CALLS`. Null when a source failed (an exchange must never be read without
- * one). `counts` is the whole of what is pending, before the cap: what a run would cost.
+ * two-way one-to-one chats, the exchanges finished since the local day `from` (the night's window: a night reads only
+ * what is new) that a read has no stored reply for, batched per chat (`batchesOf`). Null when a source failed (an
+ * exchange must never be read without one). An exchange copied in late with old times is never asked.
  */
 export function readExchangeReadWork(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   people: People,
   now: Date,
+  from: string,
   where = READ_REPLIES,
-  reads: readonly MoveRead[] = readsOn()
+  reads = readsOn()
 ) {
   if (failed.length > 0) {
     return null;
   }
+  const since = dayStart(from).toISOString();
   const index = readReplyIndex(where);
   const pending: Asked[] = [];
   for (const [ref, messages] of directChats(events, people.resolve)) {
@@ -88,7 +82,9 @@ export function readExchangeReadWork(
     const withWhom = withOf(ref.slice("person:".length), people);
     for (const chat of chatGroups(messages).values()) {
       const finished = isTwoWay(chat)
-        ? exchangesOf(chat).filter((x) => isFinished(x, now))
+        ? exchangesOf(chat).filter(
+            (x) => isFinished(x, now) && (x.at(-1)?.at ?? "") >= since
+          )
         : [];
       for (const read of reads) {
         const unread = finished.filter(
@@ -104,16 +100,7 @@ export function readExchangeReadWork(
       }
     }
   }
-  return {
-    counts: {
-      calls: pending.length,
-      exchanges: pending.reduce((n, p) => n + p.call.starts.length, 0),
-    },
-    work: newestWithin(pending, NIGHT_CALLS, {
-      at: (p) => p.at,
-      size: () => 1,
-    }),
-  };
+  return pending;
 }
 
 /** The night's exchange reads: what is due (`readExchangeReadWork`), asked and stored. A failure costs that call only. */
@@ -122,7 +109,7 @@ export async function exchangeReads(pending: NonNullable<ExchangeReadWork>) {
     prompts: readsOn().map((r) => READS[r].prompt),
   });
   return step.end({
-    calls: pending.work.length,
-    stored: (await makeReplies(pending.work, step)).stored,
+    calls: pending.length,
+    stored: (await makeReplies(pending, step)).stored,
   });
 }

@@ -30,7 +30,7 @@ import { dayNow } from "./zones";
 // one's own quote. Each judged batch is one appended line of memory/links.jsonl: the result, and the
 // record of which pairs that prompt judged, so what is due is derived and no prompt pays for a pair twice (a new prompt
 // asks every still-open step again; one already ended is never open). A link never
-// deletes: what it ends is worked out when read (`endingsOf`). Off until his `links` setting.
+// deletes: what it ends is worked out when read (`endingsOf`).
 
 const PROMPT = "memory-links.v4";
 /** The most open steps, and later steps, one call is shown. */

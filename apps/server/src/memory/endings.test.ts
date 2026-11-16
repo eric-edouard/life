@@ -49,13 +49,9 @@ const linked = (n: number) =>
   ]);
 const everything = () => true;
 
-/** Makes `n` open promises each ended by a link current for `readMatterRecords`, with `endings` on; returns what undoes it. */
+/** Makes `n` open promises each ended by a link current for `readMatterRecords`; returns what undoes it. */
 async function ended(n: number) {
-  const settings = await import("../core/settings");
   const matters = await import("./matters");
-  const on = spyOn(settings, "settings").mockReturnValue({
-    endings: true,
-  } as never);
   const records = spyOn(matters, "readMatterRecords").mockResolvedValue({
     episodes: [],
     linkEndings: new Map(
@@ -83,10 +79,7 @@ async function ended(n: number) {
     retired: new Map(),
     todoItems: [],
   } as never);
-  return () => {
-    on.mockRestore();
-    records.mockRestore();
-  };
+  return () => records.mockRestore();
 }
 
 test("an answer to an ending writes its check first, then the answer, once", async () => {
@@ -141,19 +134,6 @@ test("an old unanswered doubt line on the same ref gets no ending answer, and ne
   reset();
 });
 
-test("with endings off readers ignore links", async () => {
-  reset();
-  linked(2);
-  const settings = await import("../core/settings");
-  const off = spyOn(settings, "settings").mockReturnValue({} as never);
-  try {
-    expect(endingsRead(everything).linkEndings.size).toBe(0);
-  } finally {
-    off.mockRestore();
-  }
-  reset();
-});
-
 test("wrong removes those two ids' link for good and ends the step no more; right retires it", async () => {
   reset();
   linked(2);
@@ -166,17 +146,7 @@ test("wrong removes those two ids' link for good and ends the step no more; righ
   const { endings, refused } = endingsNow(everything);
   expect(endings.has(promise(1))).toBe(false);
   expect([...refused]).toEqual([promise(1)]);
-  const settings = await import("../core/settings");
-  const on = spyOn(settings, "settings").mockReturnValue({
-    endings: true,
-  } as never);
-  try {
-    expect([...endingsRead(everything).linkEndings.keys()]).toEqual([
-      promise(2),
-    ]);
-  } finally {
-    on.mockRestore();
-  }
+  expect([...endingsRead(everything).linkEndings.keys()]).toEqual([promise(2)]);
   // His right is the existing outdated word on the open step; his wrong corrects nothing.
   expect(
     readCorrections().map((c) => [

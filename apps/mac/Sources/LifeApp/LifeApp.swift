@@ -361,7 +361,8 @@ struct SettingsView: View {
   }
 }
 
-/// The personal add-ons the settings screen switches (`core/add-ons.ts`), in plain words.
+/// The personal add-ons the settings screen switches (`core/add-ons.ts`), in plain words. `relationshipReads` has no
+/// switch until something shows its reads; one already on stays on (a switch writes back the whole `personal`).
 enum AddOn {
   /// `histories` starts this many years back from now.
   static let historiesYearsBack = 5
@@ -369,7 +370,6 @@ enum AddOn {
     ("aboutMe", "Pages about you", "Adds what Life notices about your views and health to your pages."),
     ("relationships", "Between us", "Adds a section to the page of each person close to you."),
     ("personas", "What people are like", "Each week, what each person is like and what repeats between you."),
-    ("relationshipReads", "How your talks went", "Each night, how each finished chat with someone went."),
     ("histories", "Month by month", "Summarises each past month with each person, from five years back."),
   ]
 }
