@@ -44,7 +44,7 @@ struct SoundEvidence {
         for chunk in page.chunks {
             let millis = Double(opened) + Double(max(chunk.timeOffsetMillis ?? 0, 0))
             let at = Date(timeIntervalSince1970: millis / 1000)
-            guard abs(now.timeIntervalSince(at)) <= Self.liveWindow, newestEvent.map({ at >= $0 }) ?? true else {
+            guard abs(now.timeIntervalSince(at)) <= Self.liveWindow, newestEvent.map({ !(at < $0) }) ?? true else {
                 continue
             }
             // Pre-roll audio comes just before the start marker; the stop marker follows the last packet.

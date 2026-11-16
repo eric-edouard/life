@@ -108,7 +108,7 @@ function seed() {
     .run();
   const row = (
     speakerLabel: string,
-    status: "person" | "unknown" | "not_relevant",
+    status: "person" | "unknown" | "not_relevant" | "stranger",
     source: "owner" | "recognized",
     personId: string | null,
     mixed = false
@@ -120,6 +120,7 @@ function seed() {
       row("b", "person", "recognized", near),
       row("e", "not_relevant", "owner", null),
       row("f", "unknown", "owner", null, true),
+      row("d", "stranger", "recognized", null),
     ])
     .run();
   return { jobId, near, own };
@@ -159,12 +160,17 @@ test("each label says who answered it, its status and whom it sounds like, never
     personId: null,
     status: "not_relevant",
   });
+  expect(by.d).toMatchObject({
+    basis: null,
+    personId: null,
+    status: "stranger",
+  });
   expect(by.f).toMatchObject({ basis: "owner", mixed: true });
   expect(by.a?.mixed).toBe(false);
   // Unnamed: with a vector it has a likeness, without one it has none.
   expect(by.c).toMatchObject({ basis: null, personId: null, status: null });
   expect(by.c?.likeness.map((l) => l.personId)).toEqual([near]);
-  expect(by.d).toMatchObject({ basis: null, likeness: [], status: null });
+  expect(by.d?.likeness).toEqual([]);
   // Judged with the span's own exemplars, the other person would match perfectly.
   const all = readProfiles(env.db).get("m@r")?.people ?? [];
   expect(rankPeople([0, 1, 0], all)[0]?.personId).toBe(own);
@@ -175,6 +181,7 @@ test("a span over 24 hours or a malformed instant is refused, and so is a missin
   expect((await get(span("2026-10-02T02:00:01Z"), "reader")).status).toBe(400);
   expect((await get(span("2026-10-02T02:00:00Z"), "reader")).status).toBe(200);
   expect((await get(span("soon"), "reader")).status).toBe(400);
+  expect((await get(span("2026-10-01T01:00:00Z"), "reader")).status).toBe(400);
   expect((await get(span())).status).toBe(401);
   expect((await get(span(), "nobody")).status).toBe(401);
   expect((await get(span(), OWNER_TOKEN)).status).toBe(200);

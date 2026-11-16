@@ -22,7 +22,7 @@ extension CaptureStatus {
     }
 
     static func stepped(_ new: Date?, previous: Date?) -> Date? {
-        guard let new, let previous, new >= previous, new.timeIntervalSince(previous) < screenStep else { return new }
+        guard let new, let previous, !(new < previous), new.timeIntervalSince(previous) < screenStep else { return new }
         return previous
     }
 

@@ -7,10 +7,11 @@ import { eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";
+import { RECOGNITION } from "../config";
 import { answerVoices, severalTarget } from "../naming-queue";
 import { aliasesOf, assign, merge, personRow } from "../people";
 import type { Services } from "../services";
-import { voicesIn } from "../sounds-like";
+import { readSpeakerVoices } from "../sounds-like";
 import { Instant } from "../timeline-spans";
 import { VOICE_SCOPES } from "../voice-map";
 import {
@@ -201,15 +202,17 @@ export function speakerRoutes({
           "`basis` says whether the owner answered it (`owner`), lifelog named it by sound (`recognized`) or " +
           'nobody did (null); `status` and `personId` are as stored (`not_relevant` is his answer "not relevant"; ' +
           "null status: no row); `mixed` when the label holds several voices; `likeness` the top two people at " +
-          "least 0.5 like its voice, judged without the exemplars of the span's own conversations. Empty without a voice vector.",
+          `least ${RECOGNITION.likenessThreshold} like its voice, judged without the exemplars of the span's own conversations. Empty without a voice vector.`,
         method: "get",
         path: "/speakers/voices",
         request: {
-          query: z
-            .object({ from: Instant, to: Instant })
-            .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= DAY, {
-              message: "at most 24 hours",
-            }),
+          query: z.object({ from: Instant, to: Instant }).refine(
+            (q) => {
+              const span = Date.parse(q.to) - Date.parse(q.from);
+              return span >= 0 && span <= DAY;
+            },
+            { message: "from at most 24 hours before to, never after" }
+          ),
         },
         responses: {
           200: json(
@@ -234,7 +237,7 @@ export function speakerRoutes({
       }),
       (c) => {
         const { from, to } = c.req.valid("query");
-        return c.json(voicesIn(db, new Date(from), new Date(to)), 200);
+        return c.json(readSpeakerVoices(db, new Date(from), new Date(to)), 200);
       }
     )
     .openapi(

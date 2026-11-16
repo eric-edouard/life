@@ -51,7 +51,7 @@ public struct PendantChangeReducer: Sendable, Codable, Equatable {
         defer { wasRecording = recording }
         guard let wasRecording, wasRecording != recording else { return [] }
         let intent: RecordingIntent = recording ? .resume : .pause
-        if let request, request.intent == intent, observed.at >= request.at {
+        if let request, request.intent == intent, !(observed.at < request.at) {
             self.request = nil
             return []
         }
@@ -75,7 +75,7 @@ public struct PendantChangeReducer: Sendable, Codable, Equatable {
                 }
             }
             if let since = reconnectedAt {
-                let backlog = status.backlog.flatMap { $0.at >= since ? $0.value.pages : nil }
+                let backlog = status.backlog.flatMap { !($0.at < since) ? $0.value.pages : nil }
                 if backlog != nil || now.timeIntervalSince(since) >= Self.backlogWait {
                     reconnectedAt = nil
                     effects += [.clear(.pendantDisconnected), .postReconnected(catchingUpPages: backlog)]

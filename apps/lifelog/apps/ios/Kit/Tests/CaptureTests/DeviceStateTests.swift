@@ -114,7 +114,7 @@ import Testing
             await harness.advanceClock(by: .seconds(600))
             await harness.coordinator.refreshStatus()
             #expect(
-                await eventually { await harness.status().batteryPercent?.at ?? .distantPast >= before.at + 600 },
+                await eventually { !(await harness.status().batteryPercent?.at ?? .distantPast < before.at + 600) },
                 "re-read, not left to go stale")
             #expect(await harness.status().batteryPercent?.value == 82)
             #expect(await harness.status().recording.isPaused)

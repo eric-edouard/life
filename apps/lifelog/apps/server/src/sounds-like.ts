@@ -62,7 +62,7 @@ const LIKENESS_PEOPLE = 2;
 // who answered it, and whom it sounds like. Read-only. Profiles are read once for the whole call
 // (every evidence clip: the one costly step); a label is ranked without the exemplars of the
 // conversations over the span and of its own samples, so a voice never meets itself.
-export function voicesIn(db: Db, from: Date, to: Date) {
+export function readSpeakerVoices(db: Db, from: Date, to: Date) {
   const labels = db
     .selectDistinct({ jobId: turns.jobId, speakerLabel: turns.speakerLabel })
     .from(turns)
@@ -75,15 +75,15 @@ export function voicesIn(db: Db, from: Date, to: Date) {
     return [];
   }
   const jobIds = [...new Set(labels.map((l) => l.jobId))];
-  const rows = Map.groupBy(
+  const rows = new Map(
     db
       .select()
       .from(assignments)
       .where(
         and(inArray(assignments.jobId, jobIds), isNull(assignments.turnIndex))
       )
-      .all(),
-    (r) => voiceId(r.jobId, r.speakerLabel)
+      .all()
+      .map((r) => [voiceId(r.jobId, r.speakerLabel), r] as const)
   );
   const samples = Map.groupBy(
     db
@@ -117,7 +117,7 @@ export function voicesIn(db: Db, from: Date, to: Date) {
   return labels
     .map(({ jobId, label }) => {
       const key = voiceId(jobId, label);
-      const row = rows.get(key)?.[0];
+      const row = rows.get(key);
       const own = samples.get(key) ?? [];
       const voice = speakerVoice(own);
       const without = new Set([...spans, ...own.map((s) => s.conversationId)]);
