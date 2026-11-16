@@ -1,9 +1,13 @@
-import { QUOTE_MAX } from "./index-rows";
 import { isRunning, type MatterStepNow, type MatterView } from "./matter-read";
 import { readMatterBook } from "./matters";
-import { clip } from "./units";
+import {
+  endingWords,
+  oneLine,
+  rankContextOf,
+  rankedMattersOf,
+} from "./read-open-items";
 import { meant, readPeople } from "./who";
-import { dayNow, localDate } from "./zones";
+import { dayNow } from "./zones";
 
 // The connector's reads of matters (`read_matters`, `read_matter`): the matters as `matterOf` reads them now. Reads only.
 
@@ -20,30 +24,11 @@ const WHO = [
   ["told", (v: MatterView) => v.told],
 ] as const;
 
-const words = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
-
-/** How a step ended, in words, with its day: none while open. */
-export const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
-  if (!e) {
-    return "";
-  }
-  const on = localDate(e.at);
-  if (e.by === "link") {
-    return ` (probably ended ${on}: "${words(e.quote)}")`;
-  }
-  if (e.by === "ticked") {
-    return ` (ticked ${on})`;
-  }
-  return e.replacedBy
-    ? ` (ended ${on}: replaced by ${e.replacedBy})`
-    : ` (ended ${on}: "${words(e.why)}")`;
-};
-
 const stepLine = (s: MatterStepNow) =>
-  `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${words(s.quote)}"`;
+  `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${oneLine(s.quote)}"`;
 
 /**
- * The running matters (open, not dormant), the newest step first, of one `person`, `project` or `area` when given: each with its matter
+ * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each with its matter
  * status, who it is owed to, who is waited on and what is next.
  */
 export async function openMatters(q: {
@@ -65,12 +50,19 @@ export async function openMatters(q: {
     return `No ${missing} goes by that name.`;
   }
   const ref = known && `person:${known}`;
-  const open = (await readMatterBook(people, dayNow())).filter(
+  const today = dayNow();
+  const running = (await readMatterBook(people, today)).filter(
     (v) =>
       isRunning(v) &&
       (!ref || WHO.some(([, of]) => of(v).includes(ref))) &&
       (!area || v.areas.includes(area)) &&
       (!project || v.projects.includes(project))
+  );
+  const open = rankedMattersOf(
+    running,
+    people.nameOf,
+    today,
+    rankContextOf(people)
   );
   return open.length === 0
     ? "No running matter."
