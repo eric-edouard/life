@@ -421,6 +421,8 @@ export const readCorrections = (): Correction[] => [
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface ObservationStatusInputs {
   corrections: Correction[];
+  /** Cited only by lines of a section whose add-on is off (`frozenOnlyOf`); left out, none. */
+  frozenOnly?: ReadonlySet<string>;
   latest: Map<string, Extracted>;
   live: Set<string>;
   retired: Map<string, Retirement>;
@@ -579,6 +581,12 @@ type ObservationStatus = ReturnType<typeof observationStatusOf>;
 export const shows = (s: ObservationStatus, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
+
+/** Whether only a section whose add-on is off cites `o` (`frozenOnlyOf`): each reader hides it through this, the steps that compute never ask. */
+export const isCitedOnlyByFrozen = (
+  o: Observation,
+  s: ObservationStatusInputs
+) => Boolean(s.frozenOnly?.has(o.id));
 
 /** The observations that show in the index: neither hidden everywhere nor replaced. */
 export const shownOf = (

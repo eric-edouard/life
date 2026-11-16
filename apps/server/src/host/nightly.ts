@@ -43,6 +43,7 @@ import {
 } from "../memory/matters";
 import {
   commitMemory,
+  isCitedOnlyByFrozen,
   newSince,
   OUT,
   readLedger,
@@ -76,6 +77,7 @@ import {
 } from "../memory/schedule";
 import { situations } from "../memory/situations";
 import { keptStores } from "../memory/sources";
+import { forReaders } from "../memory/status-inputs";
 import { type Built, gather } from "../memory/units";
 import { readVoiceNamingWork, voiceNaming } from "../memory/voice-naming";
 import { observationsNow, readPeople } from "../memory/who";
@@ -487,9 +489,16 @@ export function markedSince(
  */
 async function whatIsNew(since: string, from: string, built: Built[]) {
   const people = await readPeople();
-  const { all, observations, statusInputs } = await observationsNow(people);
+  const {
+    all,
+    observations,
+    statusInputs: computed,
+  } = await observationsNow(people);
+  const statusInputs = await forReaders(computed);
   const isNew = newSince(all, since);
-  const fresh = observations.filter((o) => o.date >= from && isNew(o));
+  const fresh = observations.filter(
+    (o) => o.date >= from && isNew(o) && !isCitedOnlyByFrozen(o, statusInputs)
+  );
   const ids = new Set(fresh.map((o) => o.id));
   const { homes } = placed(observations, people.truth, await pagedNow(people));
   return {

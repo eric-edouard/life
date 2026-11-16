@@ -5,12 +5,14 @@ import type { Observation } from "../records/observation";
 import { pagedNow } from "./closeness";
 import {
   episodesNow,
+  isCitedOnlyByFrozen,
   observationStatusOf,
   readEpisodes,
   shows,
 } from "./memory-files";
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
+import { forReaders } from "./status-inputs";
 import { observationsNow, type People, readPeople } from "./who";
 import { when } from "./zones";
 
@@ -97,7 +99,9 @@ export const factCheckKindOf = (o: {
  */
 export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const people = await readPeople();
-  const { observations, statusInputs } = await observationsNow(people);
+  const { observations, statusInputs: computed } =
+    await observationsNow(people);
+  const statusInputs = await forReaders(computed);
   const paged = await pagedNow(people);
   const { homes } = placed(observations, people.truth, paged);
   const home = new Map(
@@ -106,7 +110,8 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const episodes = episodesNow(await readEpisodes(), people.corrections);
   const facts = observations.flatMap((o) => {
     const s = observationStatusOf(o, statusInputs);
-    if (s.state !== "active") {
+    // Never asked about what only a section whose add-on is off cites (`isCitedOnlyByFrozen`).
+    if (s.state !== "active" || isCitedOnlyByFrozen(o, statusInputs)) {
       return [];
     }
     const page = home.get(o.id);

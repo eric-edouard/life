@@ -1,8 +1,19 @@
 import { expect, test } from "bun:test";
+import { setSettings, settings } from "../core/settings";
 import { withSpans } from "./index-rows";
 import { layoutOf, perSection, renderPage } from "./page-format";
 
 test("a Between us line shows the days of its first and latest evidence", () => {
+  const was = settings().personal;
+  setSettings({ personal: { aboutMe: {}, relationships: {} } });
+  try {
+    spans();
+  } finally {
+    setSettings({ personal: was ?? null });
+  }
+});
+
+const spans = () => {
   const text = renderPage({
     hold: "> Ana.",
     layout: layoutOf("person:ana", true),
@@ -33,4 +44,4 @@ test("a Between us line shows the days of its first and latest evidence", () => 
   expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
     "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
-});
+};

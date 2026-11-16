@@ -370,12 +370,17 @@ const dated = (l: PageLine, k: Known): PageLine => ({
  * The previous page's lines against what is true now. A line whose observations are all still shown stays word for
  * word. One that lost some (hidden by a correction, homed elsewhere, or replaced by a newer observation) keeps its live
  * cites and is flagged `changed`, so the model may rewrite it; one with none left is dropped, or moved to Earlier
- * when its observations were only replaced.
+ * when its observations were only replaced. The `frozen` sections (`layoutOf`) pass through untouched: their add-on is
+ * off, so none of their lines is judged or dropped.
  */
-export function settle(prev: Sections, k: Known) {
+export function settle(prev: Sections, k: Known, frozen: Key[] = []) {
   const out = perSection<PageLine>();
   const changed = new Set<string>();
   for (const { key } of SECTIONS) {
+    if (frozen.includes(key)) {
+      out[key] = prev[key];
+      continue;
+    }
     const live = key !== "earlier";
     for (const l of prev[key]) {
       const alive = l.cites.filter((id) => k.byId.has(id));
@@ -399,6 +404,24 @@ export function settle(prev: Sections, k: Known) {
     }
   }
   return { changed, sections: out };
+}
+
+/**
+ * The generated lines a page build starts from: the previous page's, or none on a rebuild, which starts the live
+ * sections over but never a `frozen` one (its add-on is off, its lines are kept).
+ */
+export function previousSections(
+  prev: Parsed | null,
+  rebuild: boolean,
+  frozen: Key[]
+) {
+  const stored = prev ? generated(prev) : perSection<PageLine>();
+  return rebuild
+    ? {
+        ...perSection<PageLine>(),
+        ...Object.fromEntries(frozen.map((key) => [key, stored[key]])),
+      }
+    : stored;
 }
 
 const Cited = z.object({
@@ -530,7 +553,8 @@ export function assemble(
   opts: { fixed: number; layout: Layout; today: string }
 ): Sections {
   const out = perSection<PageLine>();
-  for (const { key } of LIVE) {
+  const { frozen } = opts.layout;
+  for (const { key } of LIVE.filter((x) => !frozen.includes(x.key))) {
     for (const l of settled[key]) {
       const h = lineHash(renderLine(key, l));
       // A section the page no longer has (he is no longer close) leaves its lines in Earlier.
@@ -546,7 +570,11 @@ export function assemble(
   }
   out.earlier.push(...settled.earlier, ...m.earlier);
   const again = settle(out, k).sections;
-  const aged = { ...again, earlier: [...again.earlier] };
+  const aged = {
+    ...again,
+    ...Object.fromEntries(frozen.map((key) => [key, settled[key]])),
+    earlier: [...again.earlier],
+  };
   for (const { key, ...s } of opts.layout.live) {
     if (s.ages !== undefined) {
       const edge = daysBefore(opts.today, s.ages);
@@ -649,6 +677,49 @@ export function oftenLine(counts: Map<string, number>, top = 8) {
 
 /** A page file as a reader sees it: everything but its frontmatter. */
 export const bodyOf = (text: string) => text.replace(FRONT, "").trim();
+
+/** The headings of a page's frozen sections (`layoutOf`), which readers hide. */
+export const frozenTitles = (ref: string) =>
+  new Set(layoutOf(ref).frozen.map((k) => SECTION[k].title));
+
+/** The section a body line opens, or undefined. */
+export const headingOf = (line: string) => line.match(HEADING)?.[1];
+
+/** A page as readers show it: `bodyOf` without the sections its layout freezes (`layoutOf`); the file keeps them. */
+export function shownBody(text: string) {
+  const page = parsePage(text)?.meta.page;
+  const frozen = page ? frozenTitles(page) : new Set<string>();
+  let skip = false;
+  return bodyOf(text)
+    .split("\n")
+    .filter((line) => {
+      const heading = headingOf(line);
+      skip = heading === undefined ? skip : frozen.has(heading);
+      return !skip;
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * The observations cited by lines of a frozen section and by no line of a live one, on any page: they show only
+ * through that section, so readers hide them with it (`isCitedOnlyByFrozen`, memory-files.ts). An observation no page line cites is not one.
+ */
+export function frozenOnlyOf(pages: Parsed[]) {
+  const live = new Set<string>();
+  const frozen = new Set<string>();
+  for (const { meta, raw } of pages) {
+    const held = layoutOf(meta.page).frozen;
+    for (const { key } of SECTIONS) {
+      for (const line of raw[key]) {
+        for (const id of readLine(key, line).cites) {
+          (held.includes(key) ? frozen : live).add(id);
+        }
+      }
+    }
+  }
+  return new Set([...frozen].filter((id) => !live.has(id)));
+}
 
 const SPACES = / +/g;
 /** A name as a slug, how page files are named: "Money & admin" -> "money-admin". */
