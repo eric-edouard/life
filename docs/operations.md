@@ -127,10 +127,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **Offline** (his model provider unreachable, `isOnline`: travelling, a VPN down): a tick runs nothing and logs
   `offline`; a run that fails while offline spends no try and sends no mail.
 - Everything looks back 7 days.
-- **Backfill:** scheduled historical model reading is paused until prompts are frozen. The saved range stays pending;
-  collection and imports do not mark it processed. Imports and future model backfills require `backfillEngine`, with
+- **Backfill:** no tick reads past days with a model until prompts are frozen. Imports and future model backfills require `backfillEngine`, with
   no fallback to `engine`; the night still uses `engine`.
-- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no backfill week, and
+- **Quota:** over 75% of the Codex quota (`reserved`) imports and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
   each processing run, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
-import { doubtsOf, episodeGroup, episodeText } from "./doubts";
+import { episodeGroup, episodeText, guessedOf } from "./doubts";
 import { guessTestOf } from "./who";
 
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();
 
-test("a fact is doubtful when who it's about is only inferred; low confidence only counts beside it", () => {
+test("a line rests on a guess when who it's about is only inferred, each guessed person once, as read today", () => {
   const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
   const peopleWith = (corrections: Parameters<typeof guessTestOf>[0] = []) => ({
     isGuess: (r: string) => guessTestOf(corrections)(refOf(r)),
@@ -15,23 +15,17 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
   const people = peopleWith();
   const o = (over = {}) => ({
     about: undefined,
-    confidence: 0.9,
     subjects: ["person:zoe"],
-    unit: "unit_a",
     ...over,
   });
-  expect(doubtsOf(o(), people)).toEqual([]);
-  expect(doubtsOf(o({ confidence: 0.2 }), people)).toEqual([]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), people)).toEqual([
-    "guessed-person",
+  expect(guessedOf(o(), people)).toEqual([]);
+  expect(guessedOf(o({ about: "person:inf_kit" }), people)).toEqual([
+    "person:inf_kit",
   ]);
-  // An inferred person he since named is not a guess; one a ref folds into still is.
-  expect(doubtsOf(o({ subjects: ["person:sam"] }), people)).toEqual([
-    "guessed-person",
-  ]);
+  // A ref that folds into an inferred person rests on that guess, once.
   expect(
-    doubtsOf(o({ about: "person:inf_kit", confidence: 0.2 }), people)
-  ).toEqual(["guessed-person", "low-confidence"]);
+    guessedOf(o({ about: "person:sam", subjects: ["person:inf_sam"] }), people)
+  ).toEqual(["person:inf_sam"]);
   // His word that it is them ends the doubt; a refusal of one handle does not.
   const said = peopleWith([
     {
@@ -42,8 +36,8 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
       schemaVersion: 1,
     },
   ]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), said)).toEqual([
-    "guessed-person",
+  expect(guessedOf(o({ about: "person:inf_kit" }), said)).toEqual([
+    "person:inf_kit",
   ]);
   const confirmed = peopleWith([
     {
@@ -54,7 +48,7 @@ test("a fact is doubtful when who it's about is only inferred; low confidence on
       schemaVersion: 1,
     },
   ]);
-  expect(doubtsOf(o({ about: "person:inf_kit" }), confirmed)).toEqual([]);
+  expect(guessedOf(o({ about: "person:inf_kit" }), confirmed)).toEqual([]);
 });
 
 test("an episode is said as its title, time (a same-day end as a time only), place and the people it was with", () => {

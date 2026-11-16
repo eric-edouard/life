@@ -24,7 +24,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
 | `capture.archive.{whatsapp,line,instagram,messenger,linkedin,telegram,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the episodes step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
-| `extraction` | nightly and backfill weeks | derived/log, `memory.extract` |
+| `extraction` | nightly | derived/log, `memory.extract` |
 | `consolidation` | pages: nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | last written: by the watcher on any lifelog change (its units' rows) or newer input (the whole index), and by each processing run: **not new memory** | index file time |
 
@@ -35,8 +35,6 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 - `processing`: `running` while a run holds the lock (`since`, the `processingRun` and the step in progress as `processingStep`), else
   `idle`.
 - `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`).
-- `backfill`: the backfill's runs (`latest`, `lastOk`, `lastFailed`) and `state`: its range (`next`, `to`), `failures`
-  of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
 - `nightly.next`: `{earliest, latest, why}`. The nightly tick runs every 30 min, so a run is expected
   between the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures
   today: no more tries until tomorrow" or "today's night succeeded". Not a countdown.

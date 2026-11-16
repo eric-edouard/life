@@ -11,13 +11,12 @@ import {
   shows,
 } from "./memory-files";
 import { placed } from "./page-format";
-import { SURE_AT } from "./quote-check";
 import { forReaders } from "./status-inputs";
 import { observationsNow, type People, readPeople } from "./who";
 import { when } from "./zones";
 
-// What the memory holds in words (`memoryLinesNow`, which the eval judges too) and which lines are doubtful (`doubtsOf`).
-// Who he is asked about is `checksNow`'s (`checks.ts`).
+// What the memory holds in words (`memoryLinesNow`, which the eval judges too). Who he is asked about is `checksNow`'s
+// (`checks.ts`).
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
@@ -53,9 +52,6 @@ export function episodeGroup(
 }
 type Draft = Omit<FactCheck, "at" | "schemaVersion">;
 
-/** Why a memory line may be wrong, by rules on what is stored: who it is about is only inferred, the model was unsure. */
-export type Doubt = "guessed-person" | "low-confidence";
-
 /** The guessed people a line rests on (`isGuess`, folded as read today), each once: the one rule for "who it is about is only guessed". */
 export const guessedOf = (
   o: Pick<Observation, "about" | "subjects">,
@@ -68,20 +64,7 @@ export const guessedOf = (
   ),
 ];
 
-/** An observation's doubts (the one place "doubtful" is decided): low confidence counts only beside another doubt. */
-export function doubtsOf(
-  o: Pick<Observation, "about" | "confidence" | "subjects" | "unit">,
-  people: Pick<People, "isGuess" | "refOf">
-): Doubt[] {
-  const found: Doubt[] =
-    guessedOf(o, people).length > 0 ? ["guessed-person"] : [];
-  return found.length > 0 && o.confidence < SURE_AT
-    ? [...found, "low-confidence"]
-    : found;
-}
-
 export type MemoryLine = Omit<Draft, "group"> & {
-  doubts: Doubt[];
   group: Draft["group"] | null;
   importance: number;
 };
@@ -118,7 +101,6 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
     return [
       {
         date: o.date,
-        doubts: doubtsOf(o, people),
         group: page && shows(s, page) ? page : null,
         importance: o.importance,
         kind: factCheckKindOf(o),
@@ -133,7 +115,6 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
     ...facts,
     ...episodes.map((m) => ({
       date: m.day,
-      doubts: [],
       group: episodeGroup(m, paged, people.refOf),
       importance: m.importance,
       kind: "episode" as const,

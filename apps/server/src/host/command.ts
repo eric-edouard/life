@@ -43,7 +43,7 @@ import { day } from "../memory/read-day";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
-import { readBackfill, recordBackfill, weekFrom } from "../memory/schedule";
+import { weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { tiesNow } from "../memory/ties";
@@ -55,13 +55,7 @@ import {
 } from "../memory/voice-naming";
 import { placementOf, readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
-import {
-  dayNow,
-  firstZoneDay,
-  isDay,
-  lastDays,
-  type Window,
-} from "../memory/zones";
+import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
@@ -183,26 +177,6 @@ const HANDLERS: Record<string, Handler> = {
   },
   appointments: step(() => appointments()),
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
-  backfill(v) {
-    if (!(v.from && v.to && isDay(v.from) && isDay(v.to) && v.from <= v.to)) {
-      return Promise.resolve(usage());
-    }
-    // His zones must cover it first: a past zone can't be added once memory has units of its days (SCHEMA.md).
-    if (v.from < firstZoneDay()) {
-      console.error(
-        `record his zones from ${v.from} first (memory/zones.jsonl starts on ${firstZoneDay()})`
-      );
-      return Promise.resolve(1);
-    }
-    // The ticks read it, a week each, when no night is due (nightly.ts); not while a week runs.
-    const { from, to } = v;
-    return locked(() => {
-      // A new range keeps the weeks this day read already: setting it again never lifts the day's cap.
-      recordBackfill({ ...readBackfill(), failures: 0, next: from, to });
-      console.log(`backfill set: ${from} to ${to}, a few weeks a day`);
-      return Promise.resolve(0);
-    }).then((code) => code ?? 1);
-  },
   changes: (v) =>
     json(
       changeFeed({
@@ -465,7 +439,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

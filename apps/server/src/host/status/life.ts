@@ -4,12 +4,7 @@ import { systemZone } from "../../core/platform";
 import { INDEX } from "../../memory/memory-files";
 import { lockedSince } from "../../memory/memory-lock";
 import { latestRuns, PROCESSING_RUNS, type Run } from "../../memory/run-log";
-import {
-  MAX_ATTEMPTS,
-  nextNight,
-  readBackfill,
-  readState,
-} from "../../memory/schedule";
+import { MAX_ATTEMPTS, nextNight, readState } from "../../memory/schedule";
 import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
 import { lastCopied } from "../archive";
@@ -43,7 +38,7 @@ function lastOf(list: Run[], step: string) {
 }
 /**
  * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
- * lifelog in as it arrives; the archive copies chats), extraction (nightly, backfill weeks), consolidation
+ * lifelog in as it arrives; the archive copies chats), extraction (nightly), consolidation
  * (pages: nightly) and the index (rebuilt by the watcher on any lifelog change and by every processing run: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
@@ -63,10 +58,6 @@ export async function lifeStatus(now = clock()) {
     };
   }
   return {
-    backfill: {
-      ...lastOf(list, "memory.backfill"),
-      state: readBackfill() ?? null,
-    },
     capture: {
       archive: copiedByStore(),
       // The key keeps its name for the status reads' contract: the verdicts are the episodes step's since 18 Oct.

@@ -188,7 +188,7 @@ one that shares only a name is them when `truth/` gives them no phone or email t
 card whose whole name and whose handles say more than one person is no one's, an **ambiguous card** (he renamed a card,
 two people share one, a number serves two): Life does not guess, each handle `truth/` knows still reads as its person, and
 `bun life memory checks` lists the card for him to say; a guess made for
-one of its handles reads as the contact person (`foldsOf`). Life neither doubts a contact person (`doubtsOf`) nor asks
+one of its handles reads as the contact person (`foldsOf`). A contact person is never a guess (`isGuess`), and Life never asks
 the model who its handle is (`answeredBy`). Code-owned: Contacts are the source, his `this-is` and `not-this-person` still rule.
 
 ## people-inferred.jsonl
