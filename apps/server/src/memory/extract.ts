@@ -430,7 +430,9 @@ export async function extract(evidence: Evidence) {
       const prior = [
         ...new Map(
           call
-            .flatMap((g) => priorFor(g, standingNow, reread, step.run, close))
+            .flatMap((g) =>
+              priorFor(g, standingNow, reread, step.run, refs.close)
+            )
             .map((o) => [o.id, o])
         ).values(),
       ];
@@ -539,7 +541,7 @@ export async function extract(evidence: Evidence) {
   const line = (unit: Built["unit"], found: number) => ({
     at,
     observations: found,
-    prompt: EXTRACT_PROMPT,
+    prompt: madeBy.prompt,
     run: step.run,
     schemaVersion: 1 as const,
     unit: unit.id,

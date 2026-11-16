@@ -227,6 +227,10 @@ export function renderPage(opts: {
         .filter((x) => (keeps(layout, x.section) ? x.section : "now") === key)
         .map((o) => o.text),
     ];
+    // A frozen section shows only what it holds: a page that never had it gets no empty heading.
+    if (section.length === 0 && !hasSection(layout, key)) {
+      continue;
+    }
     body.push(
       `## ${title}`,
       "",

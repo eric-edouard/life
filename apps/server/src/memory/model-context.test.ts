@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { setSettings, settings } from "../core/settings";
 import {
   type InferredPerson,
@@ -6,6 +6,11 @@ import {
 } from "../records/observation";
 import { Person, Project } from "../records/truth";
 import { involvedOf, refContext } from "./model-context";
+
+const was = settings().personal;
+// His install: the relationships add-on on.
+beforeAll(() => setSettings({ personal: { relationships: {} } }));
+afterAll(() => setSettings({ personal: was ?? null }));
 
 test("a call's context shows the people close now and the projects underway; the rest of the directory comes as involved", () => {
   const person = (id: string) => Person.parse({ id, name: id.toUpperCase() });
@@ -81,8 +86,7 @@ test("the directory shows each person once: an inferred id folded into another i
 });
 
 test("no one is flagged close while the relationships add-on is off", () => {
-  const was = settings().personal;
-  const ref = () =>
+  const refs = () =>
     refContext(
       {
         canon: (r) => r,
@@ -97,12 +101,15 @@ test("no one is flagged close while the relationships add-on is off", () => {
       },
       new Set(["person:bob"]),
       new Set(["person:bob"])
-    ).context.people;
+    );
+  const ref = () => refs().context.people;
   try {
+    expect(refs().close.size).toBe(1);
     expect(ref()).toEqual([expect.objectContaining({ close: true })]);
     setSettings({ personal: { aboutMe: {} } });
+    expect(refs().close.size).toBe(0);
     expect(ref().map((p) => "close" in p)).toEqual([false]);
   } finally {
-    setSettings({ personal: was ?? null });
+    setSettings({ personal: { relationships: {} } });
   }
 });

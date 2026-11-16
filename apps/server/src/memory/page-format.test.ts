@@ -32,8 +32,10 @@ const B = "obs_bbbbbbbbbbbb";
 const C = "obs_cccccccccccc";
 const D = "obs_dddddddddddd";
 const TODAY = "2026-10-20";
-const PLAIN = layoutOf("person:hans");
-const OWNED = layoutOf("person:me");
+/** Every add-on on: his install. */
+const ON = () => true;
+const PLAIN = layoutOf("person:hans", false, ON);
+const OWNED = layoutOf("person:me", false, ON);
 
 const obs = (id: string, date: string, over: Partial<Observation> = {}) =>
   ({
@@ -572,7 +574,7 @@ test("his page renders its sections in order and reads back; other pages keep No
 });
 
 test("a close person's page has Between us before Now; once not close, its lines go to Earlier", () => {
-  const close = layoutOf("person:hans", true);
+  const close = layoutOf("person:hans", true, ON);
   const s = of({
     between_us: [
       { cites: [A], text: "Hans and Jean agreed to keep money apart." },
@@ -647,7 +649,7 @@ test("a page keeps what it was offered: rendered and parsed back, nothing is new
   };
   const rendered = renderPage({
     hold: "",
-    layout: layoutOf("person:sam", false),
+    layout: layoutOf("person:sam", false, ON),
     meta: offeredMeta,
     often: [],
     owner: [],
@@ -709,4 +711,29 @@ test("with relationships off a close person's Between us is frozen: not offered,
   const owner = layoutOf("person:me", false, (a) => a !== "aboutMe");
   expect(owner.frozen).toEqual(["views", "health"]);
   expect(owner.live.map((l) => l.key)).toEqual(["now"]);
+});
+
+test("with relationships off a page that never had Between us has no such heading and its file does not change", () => {
+  const off = layoutOf("person:hans", false, () => false);
+  const write = (layout: typeof off) =>
+    renderPage({
+      hold: "> Hans.",
+      layout,
+      meta: {
+        built: "2026-10-18T02:00:00.000Z",
+        madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+        name: "Hans",
+        page: "person:hans",
+        schemaVersion: 1,
+        seen: "r",
+      },
+      owner: [],
+      sections: sections(),
+      title: "Hans",
+    });
+  expect(write(off)).not.toContain("Between us");
+  expect(write(off)).toBe(write(PLAIN));
+  expect(write(layoutOf("person:me", false, () => false))).not.toContain(
+    "Views"
+  );
 });
