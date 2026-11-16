@@ -48,7 +48,7 @@ export interface Truth {
   projects: (Project & { notes: string })[];
 }
 
-/** His directory is new: it holds only him and no goals (the setup interview, `docs/use/settings.md`). */
+/** His directory is new: it holds only him and no goals (the setup interview, `docs/use/connect.md`). */
 export const isDirectoryNew = (truth: Pick<Truth, "me" | "people">) =>
   truth.people.length === 1 && !truth.me.goals;
 
