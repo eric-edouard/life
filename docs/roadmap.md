@@ -58,7 +58,7 @@ Each picks up from where it stopped.
 - Naming voices from context: it runs, hidden, and is shown once its likely guesses are wrong less than once in 100.
 - Relationship readings: stored, their switch hidden until something shows them.
 - The backfill of older months through the models, after the scaling work.
-- Labels in prompts that still say "him" (issue 558), each at its step's next prompt version.
+- Labels in prompts that still name the owner by a pronoun (issue 558), each at its step's next prompt version.
 - A server version ([server plan](plans/2026-10-22-server.md)), structured logging, and people reconciled by each
   source's own identifiers (handles, phones, emails) rather than voice.
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the

@@ -68,7 +68,7 @@ And without being asked:
   notification and a page in the app, or [by email](docs/use/settings.md#the-report-by-email).
 - The Past calendar: every episode as an event in a calendar of its own, so your week looks back at you where you
   already look ahead. Life can also put the appointments it reads in your messages into your Google calendar, marked
-  as Life's. Neither has a screen yet: both are settings ([the agent, the connector and actions](docs/tasks.md)).
+  as Life's. Both are settings ([the agent, the connector and actions](docs/tasks.md)).
 - If a source stops reading (WhatsApp signed out, a bridge down), one notice that day saying which.
 - Say "hey Orbit, book the dentist" near your recorder, Orbit being an agent of yours: Life hears it and Orbit picks
   it up. Optional: [set up your agent](docs/use/agent.md).
@@ -179,7 +179,7 @@ open dist/Life.app
 6. Ask your assistant to read your page and set Life up with you: your goals, the people close to you, your
    projects, and what Life must not keep.
 
-The email report, backups, older months and the rest with no screen yet: [settings](docs/use/settings.md).
+What has no screen yet: [settings](docs/use/settings.md).
 
 ## Privacy
 

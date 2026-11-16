@@ -205,8 +205,7 @@ someone else is capped at 0.6 confidence.
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
-| Network | Tailscale: Claude Code reaches the Mac on the tailnet; claude.ai and ChatGPT through Tailscale Funnel, a public address with only Life's sign-in in front. |
-| Backup and mail | restic, encrypted, wherever the `backup` setting points; Resend for the report, else a notification. |
+| Mail | Resend for the report, else a notification. The backup and the network are above. |
 
 ## The code
 
