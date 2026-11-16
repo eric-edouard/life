@@ -19,6 +19,7 @@ import {
 import { type CheckedExchange, checkedOf } from "@life/server/src/memory/moves";
 import { READS, readReplies } from "@life/server/src/memory/read-replies";
 import { readPeople } from "@life/server/src/memory/who";
+import { isPromptVersion } from "@life/server/src/models/prompt-parts";
 import { MOVE_READS, type MoveRead } from "@life/server/src/records/read-reply";
 import {
   chatGroups,
@@ -47,7 +48,7 @@ const storedOf = (read: MoveRead, events: Events) =>
   checkedOf(
     readReplies()
       .flat()
-      .filter((l) => l.madeBy.prompt === READS[read].prompt),
+      .filter((l) => isPromptVersion(l.madeBy.prompt, READS[read].prompt)),
     read,
     events
   );

@@ -357,7 +357,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
       ? null
       : write(page, by, r.at);
 
-  const current = liveLines(settled.sections);
+  const current = liveLines(settled.sections, layout);
   const check = (): ReplyLimits => ({
     changed: settled.changed,
     covered: new Set(

@@ -33,7 +33,7 @@ A voice's name can be wrong (a waiter carrying someone's name). Where the words 
 }
 ```
 
-- `summary`: plain prose, in the order things came: every subject that took real space, each with what each person said about it and where it was left. Then one short paragraph on how it went between them: who led, how each sounded toward the other, any disagreement and how it ended (or that it did not), anything said that changes how things stand between them. Arrangements (where to eat, who pays, the way home) get a clause at most. Only what the lines show. At most `words` words. No quotation marks inside it.
+- `summary`: plain prose, in the order things came: every subject that took real space, each with what each person said about it and where it was left.<!-- part:relationships --> Then one short paragraph on how it went between them: who led, how each sounded toward the other, any disagreement and how it ended (or that it did not), anything said that changes how things stand between them.<!-- /part --> Arrangements (where to eat, who pays, the way home) get a clause at most. Only what the lines show. At most `words` words. No quotation marks inside it.
 - `subjects`: a short label for each subject in the summary, in order, and `line`, the number of the line where it begins.
 - `quotes`: 1 to 3 short passages copied exactly from one line, with that line's number.
 - `doubts`: one entry per voice whose shown name looks wrong, with the line numbers that show it (empty when none).

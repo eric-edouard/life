@@ -25,6 +25,7 @@ import {
   type Tokens,
   type Tools,
 } from "./model-call";
+import { promptNameOf, promptText } from "./prompt-parts";
 import {
   askRoutes,
   MAX_TOKENS,
@@ -156,7 +157,7 @@ export function llmFor(tier: Tier, engine = readEngine()): Llm {
 export const stamp = (llm: Llm, prompt: string, run: string) => ({
   engine: llm.engine,
   model: llm.model,
-  prompt,
+  prompt: promptNameOf(prompt),
   run,
 });
 
@@ -205,10 +206,6 @@ export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
 
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
 const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
-
-/** A prompt's text, by its name (`prompts/<name>.md`). */
-export const promptText = (prompt: string) =>
-  Bun.file(join(LIFE_CODE_DIR, "prompts", `${prompt}.md`)).text();
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({
@@ -554,7 +551,7 @@ export async function askOnce(opts: {
     opts.context === undefined
       ? ""
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
-  const system = `${await promptText(opts.prompt)}${context}`;
+  const system = `${promptText(opts.prompt)}${context}`;
   const made = { ...stamp(llm, opts.prompt, opts.run), effort: llm.effort };
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));

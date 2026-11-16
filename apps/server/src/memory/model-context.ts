@@ -1,3 +1,4 @@
+import { hasAddOn } from "../core/add-ons";
 import {
   INFERRED_USE_AT,
   type PersonOutsideDirectory,
@@ -37,8 +38,10 @@ export function refContext(
   close: ReadonlySet<string>,
   shown: ReadonlySet<string>
 ) {
-  // `close`: close to him personally (`personallyClose`), so what is between them weighs more.
-  const flag = (ref: string) => (close.has(ref) ? { close: true } : {});
+  // `close`: close to him personally (`personallyClose`), so what is between them weighs more; no one is flagged
+  // while the `relationships` add-on is off, the one place the flag is gated (the prompts' parts say it is not sent).
+  const kept = hasAddOn("relationships") ? close : new Set<string>();
+  const flag = (ref: string) => (kept.has(ref) ? { close: true } : {});
   const underway = new Set(
     truth.projects.filter(isUnderway).map((p) => `project:${p.id}`)
   );
@@ -74,6 +77,8 @@ export function refContext(
     })),
   };
   return {
+    /** Who is close to him personally as far as the calls may say: none while the `relationships` add-on is off. */
+    close: kept,
     context: {
       ...meContext(truth),
       people: directory.people.filter((p) => shown.has(p.ref)),

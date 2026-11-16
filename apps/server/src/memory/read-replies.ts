@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
-import { promptText, stamp } from "../models/llm";
+import { stamp } from "../models/llm";
+import { isPromptVersion, promptText } from "../models/prompt-parts";
 import { type ReadName, ReadReply } from "../records/read-reply";
 import { READ_REPLIES, readReplyPath } from "./memory-files";
 import { inBatches, type Step } from "./run";
@@ -92,7 +93,7 @@ export function readReplyIndex(where = READ_REPLIES) {
     ])
   ) as ReplyIndex;
   for (const line of parts.flat()) {
-    if (line.madeBy.prompt === READS[line.read].prompt) {
+    if (isPromptVersion(line.madeBy.prompt, READS[line.read].prompt)) {
       for (const [i, start] of line.starts.entries()) {
         const keys = line.messages.slice(start, line.starts[i + 1]);
         const first = keys[0] ?? "";
@@ -146,12 +147,10 @@ export async function makeReplies(
   where = READ_REPLIES
 ) {
   const wordings = Object.fromEntries(
-    await Promise.all(
-      [...new Set(asked.map((a) => a.read))].map(async (r) => [
-        r,
-        promptDigestOf(await promptText(READS[r].prompt)),
-      ])
-    )
+    [...new Set(asked.map((a) => a.read))].map((r) => [
+      r,
+      promptDigestOf(promptText(READS[r].prompt)),
+    ])
   );
   let stored = 0;
   const failed: Asked[] = [];
