@@ -1,5 +1,7 @@
+import { hasAddOn } from "../core/add-ons";
 import { newestWithin } from "../core/lists";
-import { MOVE_READS } from "../records/read-reply";
+import { settings } from "../core/settings";
+import { MOVE_READS, type MoveRead } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import {
@@ -22,7 +24,16 @@ import type { People } from "./who";
 
 // The exchange reads (docs/glossary.md): three reads of every finished exchange of a person's two-way one-to-one chats,
 // each reply stored by `memory/read-replies.ts`; the moves are worked out from it when read (`checkedMoves`), never
-// stored. Off until his `exchangeReads` setting, which gates the calls and never the reading of what is stored.
+// stored. Connection and conflict are the `relationshipReads` add-on, mentions is his `mentionsRead` setting: each
+// gates its calls and never the reading of what is stored.
+
+/** The reads the night asks: the mentions read on `mentionsRead`, connection and conflict on the `relationshipReads` add-on. */
+export const readsOn = () =>
+  MOVE_READS.filter((read) =>
+    read === "mentions"
+      ? settings().mentionsRead
+      : hasAddOn("relationshipReads")
+  );
 
 /** The most calls a night makes across the three reads: a first build takes several nights, the newest first. */
 const NIGHT_CALLS = 200;
@@ -62,7 +73,8 @@ export function readExchangeReadWork(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   people: People,
   now: Date,
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  reads: readonly MoveRead[] = readsOn()
 ) {
   if (failed.length > 0) {
     return null;
@@ -78,7 +90,7 @@ export function readExchangeReadWork(
       const finished = isTwoWay(chat)
         ? exchangesOf(chat).filter((x) => isFinished(x, now))
         : [];
-      for (const read of MOVE_READS) {
+      for (const read of reads) {
         const unread = finished.filter(
           (x) => !replyOf(x.map(eventKey), read, index)
         );
@@ -107,7 +119,7 @@ export function readExchangeReadWork(
 /** The night's exchange reads: what is due (`readExchangeReadWork`), asked and stored. A failure costs that call only. */
 export async function exchangeReads(pending: NonNullable<ExchangeReadWork>) {
   const step = await begin("exchange-reads", "main", {
-    prompts: MOVE_READS.map((r) => READS[r].prompt),
+    prompts: readsOn().map((r) => READS[r].prompt),
   });
   return step.end({
     calls: pending.work.length,

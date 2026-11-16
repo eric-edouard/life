@@ -4,8 +4,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
+import { setSettings, settings } from "../core/settings";
+import { MOVE_READS } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
-import { callOf, readExchangeReadWork } from "./exchange-reads";
+import { callOf, readExchangeReadWork, readsOn } from "./exchange-reads";
 import { exchangesOf } from "./exchanges";
 import {
   makeReplies,
@@ -68,7 +70,7 @@ const stepOf = (reply: unknown) => ({
   run: "r1",
 });
 const workOf = (events: SourceEvent[], now = LATER) =>
-  readExchangeReadWork({ events, failed: [] }, people, now, where);
+  readExchangeReadWork({ events, failed: [] }, people, now, where, MOVE_READS);
 const readAll = async (events: SourceEvent[], reply: unknown = GIVEN) => {
   const work = workOf(events);
   await makeReplies(work?.work ?? [], stepOf(reply) as never, where);
@@ -203,7 +205,8 @@ test("a night asks the newest calls first within its cap; a failed source gives 
     { events: many, failed: [] },
     people,
     new Date(START + 900 * HOUR),
-    where
+    where,
+    MOVE_READS
   );
   expect(work?.counts.calls).toBe(210);
   expect(work?.work).toHaveLength(200);
@@ -219,7 +222,8 @@ test("a night asks the newest calls first within its cap; a failed source gives 
       { events: many, failed: ["mail"] },
       people,
       LATER,
-      where
+      where,
+      MOVE_READS
     )
   ).toBeNull();
 });
@@ -279,4 +283,23 @@ test("keys as stored before the reshape: a call's keys and a stored line's messa
   expect(
     replyOf(["whatsapp|0"], "connection", readReplyIndex(where))
   ).toBeUndefined();
+});
+
+test("the night asks connection and conflict on the relationshipReads add-on, mentions on its setting", () => {
+  const was = settings();
+  const [mentionsRead, personal] = [was.mentionsRead, was.personal];
+  try {
+    expect(readsOn()).toEqual([]);
+    setSettings({ personal: { relationshipReads: {} } });
+    expect(readsOn()).toEqual(["conflict", "connection"]);
+    setSettings({ mentionsRead: true });
+    expect(readsOn()).toEqual(["conflict", "connection", "mentions"]);
+    setSettings({ personal: null });
+    expect(readsOn()).toEqual(["mentions"]);
+  } finally {
+    setSettings({
+      mentionsRead: mentionsRead ?? null,
+      personal: personal ?? null,
+    });
+  }
 });

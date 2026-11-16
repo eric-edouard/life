@@ -397,7 +397,7 @@ written or removed on a night a source can't be read.
 ## histories/<id>.json
 
 The past months between the owner and someone with a page (`pagedNow`), written by `histories.ts` from their
-one-to-one chats and mail threads (`directChats`), while his `histories` setting is on: `months` (oldest first; each
+one-to-one chats and mail threads (`directChats`), while the `histories` add-on is on: `months` (oldest first; each
 `month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
 no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call
 was shown, none when nothing was long enough to find; `inputs`, a hash of the prompt version and the lines shown;

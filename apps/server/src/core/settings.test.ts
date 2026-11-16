@@ -66,8 +66,8 @@ test("the renamed settings parse, and the old names are refused", () => {
   const renamed = {
     appointmentsCalendar: { account: "a@example.com", calendar: "Life" },
     deviceNames: {},
-    histories: { from: "2025-01" },
     pastCalendar: { calendar: "Past" },
+    personal: { histories: { from: "2025-01" }, personas: {} },
     reposFolder: "~/Work",
     sources: ["told-life"],
     todoList: { backend: "reminders" },
