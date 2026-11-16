@@ -3,6 +3,7 @@ import { DAY } from "../core/clock";
 import { newestWithin } from "../core/lists";
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
 import { redact } from "../core/redact";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { ReadReply } from "../records/read-reply";
 import { SUMMARY_READ } from "../records/read-reply";
 import {
@@ -98,7 +99,7 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
     .flat()
     .filter(
       (l): l is SummaryLine =>
-        l.read === SUMMARY_READ && l.madeBy.prompt === PROMPT
+        l.read === SUMMARY_READ && isPromptVersion(l.madeBy.prompt, PROMPT)
     );
   if (lines.length === 0) {
     return { current: [], stale: new Set<string>() };

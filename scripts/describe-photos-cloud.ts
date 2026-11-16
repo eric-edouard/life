@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { imageOf } from "../apps/server/src/host/describe-photos";
-import { promptText } from "../apps/server/src/models/llm";
+import { promptText } from "../apps/server/src/models/prompt-parts";
 import {
   DESCRIPTIONS,
   type Description,

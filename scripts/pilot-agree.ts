@@ -6,7 +6,7 @@
 import { parseArgs } from "node:util";
 import { readWithPeople } from "@life/server/src/memory/closeness";
 import { READS } from "@life/server/src/memory/read-replies";
-import { promptText } from "@life/server/src/models/llm";
+import { promptText } from "@life/server/src/models/prompt-parts";
 import type { MoveRead } from "@life/server/src/records/read-reply";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 import { readKept, readSet } from "./memory-pilot";

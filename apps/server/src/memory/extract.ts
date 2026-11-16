@@ -3,6 +3,7 @@ import { daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { packed } from "../core/lists";
 import { stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import {
   Extracted,
@@ -188,7 +189,7 @@ export function toExtract(
 ) {
   // The latest reading of each unit's content by this prompt.
   const done = latestBy(
-    ledger.filter((e) => e.prompt === prompt),
+    ledger.filter((e) => isPromptVersion(e.prompt, prompt)),
     (e) => `${e.unit}|${e.unitHash}`
   );
   // Settled: the latest line for this content is after his last re-read; read: and it is a reading, not `unkept`.
