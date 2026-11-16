@@ -19,7 +19,6 @@ import {
   openItems,
   rankedItems,
 } from "./open-items";
-import { endingWords } from "./read-matters";
 import { goalProjects } from "./read-truth";
 import { clip } from "./units";
 import type { People } from "./who";
@@ -28,6 +27,26 @@ import { dayNow, dayStart, localDate } from "./zones";
 
 // The open items the read path shows, read from the matters and the chats: what `read_day` lists as due and what a
 // person's page lists as open with them. `open-items.ts` times and ranks them.
+
+/** A quote or a note on one line, clipped to `QUOTE_MAX`. */
+export const oneLine = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
+
+/** How a step ended, in words, with its day: none while open. */
+export const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
+  if (!e) {
+    return "";
+  }
+  const on = localDate(e.at);
+  if (e.by === "link") {
+    return ` (probably ended ${on}: "${oneLine(e.quote)}")`;
+  }
+  if (e.by === "ticked") {
+    return ` (ticked ${on})`;
+  }
+  return e.replacedBy
+    ? ` (ended ${on}: replaced by ${e.replacedBy})`
+    : ` (ended ${on}: "${oneLine(e.why)}")`;
+};
 
 /** An open matter as `read_day` and a person's page list it: its newest open step, who it is with, where it stands. */
 function lineOf(v: MatterView, nameOf: (ref: string) => string) {
@@ -158,16 +177,10 @@ const doneLinesOf = (book: readonly MatterView[], date: string) =>
     ({ how, matter: m }) => `- ${m.id} ${m.name} [${m.status}]: ${how}`
   );
 
-/** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
-export async function dueContext(date: string, people: People) {
-  const { truth } = people;
-  // His present gates which days have come; `end` and the said days are recorded days (history).
-  const today = dayNow();
-  const end = Math.min(
-    clock().getTime(),
-    dayStart(daysBefore(date, -1)).getTime()
-  );
-  const levels = new Map(
+/** What the rank reads besides the items (`rankedItems`): his goals' projects in order, and each person's closeness, inner first. */
+export const rankContextOf = (people: People) => ({
+  goals: goalProjects(people.truth.me.goals),
+  levels: new Map(
     [...levelsWith(people)].map(([p, l]) => [
       p,
       Math.min(
@@ -175,13 +188,46 @@ export async function dueContext(date: string, people: People) {
         ClosenessLevel.options.indexOf(l.work)
       ),
     ])
+  ),
+});
+
+/**
+ * The running matters in the order the rank gives their open step (`matterItems`, `rankedItems`: his urgent flag and
+ * priority, kind, his goals, closeness, then age), those with no open step after them, newest first.
+ */
+export function rankedMattersOf(
+  book: MatterView[],
+  nameOf: (ref: string) => string,
+  today: string,
+  context: ReturnType<typeof rankContextOf>
+) {
+  const rank = new Map(
+    rankedItems(matterItems(book, nameOf, today), {
+      date: today,
+      ...context,
+    }).map((item, i) => [item.id, i])
+  );
+  const newest = (v: MatterView) => v.steps.at(-1)?.at ?? "";
+  return book.toSorted(
+    (a, b) =>
+      (rank.get(a.id) ?? book.length) - (rank.get(b.id) ?? book.length) ||
+      newest(b).localeCompare(newest(a))
+  );
+}
+
+/** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
+export async function dueContext(date: string, people: People) {
+  // His present gates which days have come; `end` and the said days are recorded days (history).
+  const today = dayNow();
+  const end = Math.min(
+    clock().getTime(),
+    dayStart(daysBefore(date, -1)).getTime()
   );
   const book = await readMatterBook(people, today);
   return {
+    ...rankContextOf(people),
     done: doneLinesOf(book, date),
-    goals: goalProjects(truth.me.goals),
     items: await readOpenItems(people, new Date(end), date, book),
-    levels,
     shown: await shownDays(date),
     today,
   };
