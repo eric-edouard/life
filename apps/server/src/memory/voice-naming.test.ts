@@ -282,6 +282,56 @@ test("a voice named later by his answer asks its part again, and the old guess n
   expect(readReplies(s.where).flat()).toHaveLength(1);
 });
 
+test("the hidden run shows a voice he answered as an unnamed V with no likeness, and asks only parts holding one", async () => {
+  const answered = {
+    basis: "owner",
+    likeness: [{ personId: "p1", score: 0.9 }],
+    personId: "p1",
+    status: "person",
+  };
+  const worksOf = async (o: Row) => {
+    const s = sceneOf({ name: "Dana", voices: (job) => [row(job, o)] });
+    const found = await readConversationSummaryWork(
+      NOW,
+      people,
+      {},
+      s.where,
+      s.open
+    );
+    return {
+      hidden: await readVoiceNamingWork(
+        found,
+        people,
+        s.where,
+        s.open,
+        undefined,
+        true
+      ),
+      shown: await readVoiceNamingWork(found, people, s.where, s.open),
+    };
+  };
+  const one = await worksOf(answered);
+  // Not hidden, his answer names the voice and nothing is asked; hidden, it is V1 with no name.
+  expect(one.shown.counts.parts).toBe(0);
+  const input0 = one.hidden.asked[0]?.call.input as NamingInput;
+  expect(input0.lines.join("\n")).toContain(" V1: ");
+  expect(input0.lines.join("\n")).not.toContain("Dana");
+  expect(input0.voices).toEqual([{ likeness: [], voice: "V1" }]);
+  // His answer on the hidden voice does not make its person a possible speaker: that would hand the model the truth.
+  expect(input0.people).toEqual([]);
+  // A voice lifelog named by sound and a mixed one hide nothing; one he answered not relevant is hidden too.
+  expect(
+    (await worksOf({ ...answered, basis: "recognized" })).hidden.counts.parts
+  ).toBe(0);
+  expect(
+    (await worksOf({ ...answered, mixed: true })).hidden.counts.parts
+  ).toBe(0);
+  expect(
+    (await worksOf({ ...answered, personId: null, status: "not_relevant" }))
+      .hidden.counts.parts
+  ).toBe(1);
+});
+
 test("an older Lifelog Host with no voices route stops the step with a plain message", async () => {
   const s = sceneOf({});
   await expect(workOf(s)).rejects.toThrow("needs the new Lifelog Host");

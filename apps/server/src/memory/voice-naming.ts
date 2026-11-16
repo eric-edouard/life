@@ -1,8 +1,7 @@
-import { z } from "zod";
 import { DAY, HOUR } from "../core/clock";
 import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
-import { VOICE_NAMING_READ } from "../records/read-reply";
+import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
 import { readVoices, type VoiceRow, voiceKey } from "../sources/lifelog-voices";
@@ -12,7 +11,7 @@ import {
   heardTurnsOf,
   readWithPeople,
 } from "./closeness";
-import { type ConversationSummaryWork, refOf } from "./conversation-summaries";
+import type { ConversationSummaryWork } from "./conversation-summaries";
 import { readDetailsOf } from "./details";
 import { withOf } from "./exchange-reads";
 import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
@@ -31,12 +30,8 @@ import {
   replyOf,
 } from "./read-replies";
 import { begin, chunks, type Step } from "./run";
-import {
-  partLine,
-  type SpokenPart,
-  voiceTokensOf,
-} from "./spoken-conversations";
-import { clip, unnamedTurnKey } from "./units";
+import { partLine, type SpokenPart } from "./spoken-conversations";
+import { clip, turnRefOf, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { observationsNow } from "./who";
 import { messageLine } from "./words";
@@ -70,12 +65,6 @@ export interface NamingInput {
   voices: { likeness: { person: string; score: number }[]; voice: string }[];
 }
 
-const Entry = z.object({
-  confidence: z.enum(["sure", "likely", "weak"]),
-  lines: z.array(z.int().min(0)).min(1),
-  person: z.string(),
-  voice: z.string(),
-});
 const LINE_WHO = /^\[\d+\] \S+ (\S+): /;
 const TOKEN = /^V\d+$/;
 
@@ -93,7 +82,7 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
   const offered = new Set(input.people.map((p) => p.ref));
   const seen = new Set<string>();
   const kept = voices.flatMap((v) => {
-    const e = Entry.safeParse(v).data;
+    const e = NamedVoice.safeParse(v).data;
     if (
       !e ||
       seen.has(e.voice) ||
@@ -110,7 +99,7 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
 }
 
 /** The recording a turn key is of. */
-const jobOf = (key: string) => parseTurnRef(refOf(key))?.jobId ?? "";
+const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
 
 /** What every part is read against, read once for a run. */
 interface Context {
@@ -335,13 +324,16 @@ function messagesAround(offered: string[], part: SpokenPart, c: Context) {
  * `voices` what lifelog says of the voices of its recordings. Who could be there (`possibleSpeakersOf`) decides which
  * names to trust: a voice lifelog named by sound as someone who could not be there (`basis: recognized`) is shown as a
  * `V` token like an unnamed one, and may be guessed again. A voice is its `V` by `voiceTokensOf` over the keys it is
- * stored by (`unnamedTurnKey` for those, the turn's own key for the rest).
+ * stored by (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run, never the
+ * night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them (their likeness stays: lifelog's route already judges it without the span's own exemplars), and whose answers
+ * name no one as possible; a part with none of them is null.
  */
 export function namingOf(
   part: SpokenPart,
   began: string,
   voices: VoiceRow[],
-  c: Context
+  c: Context,
+  hidden?: Set<string>
 ) {
   const jobAt = (n: number) => jobOf(part.keys[n] as string);
   const rows = new Map(
@@ -356,7 +348,10 @@ export function namingOf(
   const possible = possibleSpeakersOf(
     {
       answered: voices.flatMap((v) =>
-        v.basis === "owner" && v.status === "person" && v.personId
+        !hidden?.has(voiceKey(v.jobId, v.speakerLabel)) &&
+        v.basis === "owner" &&
+        v.status === "person" &&
+        v.personId
           ? (c.people.resolve(v.personId) ?? [])
           : []
       ),
@@ -373,7 +368,7 @@ export function namingOf(
     if (v.owner) {
       return false;
     }
-    if (!v.name) {
+    if (!v.name || hidden?.has(voiceKey(jobAt(n), v.label))) {
       return true;
     }
     const ref = v.from ? c.people.resolve(v.from) : null;
@@ -383,10 +378,14 @@ export function namingOf(
     );
   });
   const keys = part.keys.map((k, n) =>
-    unnamed[n] ? unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "") : k
+    unnamed[n] ? unnamedTurnKey(turnRefOf(k), part.voices[n]?.label ?? "") : k
   );
   const tokens = voiceTokensOf(keys.filter((_, n) => unnamed[n]));
-  if (tokens.size === 0) {
+  // The hidden run asks only the parts holding a voice it hid.
+  if (
+    tokens.size === 0 ||
+    (hidden && ![...tokens.keys()].some((v) => hidden.has(v)))
+  ) {
     return null;
   }
   const input: NamingInput = {
@@ -417,6 +416,18 @@ export function namingOf(
   return { input, keys };
 }
 
+/** The voices (`voiceKey`) he answered whole, a person or not relevant, and not mixed: what the score's hidden run hides. */
+const hiddenOf = (rows: VoiceRow[]) =>
+  new Set(
+    rows.flatMap((v) =>
+      v.basis === "owner" &&
+      !v.mixed &&
+      (v.status === "person" || v.status === "not_relevant")
+        ? [voiceKey(v.jobId, v.speakerLabel)]
+        : []
+    )
+  );
+
 /** What a run would do: the parts with a voice to name, and the calls due (those with no stored reply under their keys now). */
 export type VoiceNamingWork = Awaited<ReturnType<typeof readVoiceNamingWork>>;
 
@@ -439,7 +450,7 @@ function isStored(part: SpokenPart, index: ReturnType<typeof readReplyIndex>) {
   const keys = part.keys.map((k, n) =>
     part.voices[n]?.name || part.voices[n]?.owner
       ? k
-      : unnamedTurnKey(refOf(k), part.voices[n]?.label ?? "")
+      : unnamedTurnKey(turnRefOf(k), part.voices[n]?.label ?? "")
   );
   return Boolean(replyOf(keys, VOICE_NAMING_READ, index));
 }
@@ -450,10 +461,12 @@ function namingsOf(
   due: SpokenPart[],
   voices: VoiceRow[],
   c: Context,
-  index: ReturnType<typeof readReplyIndex>
+  index: ReturnType<typeof readReplyIndex>,
+  hiding: boolean
 ) {
+  const hidden = hiding ? hiddenOf(voices) : undefined;
   const namings = due.flatMap((part) => {
-    const n = namingOf(part, parts[0]?.at ?? part.at, voices, c);
+    const n = namingOf(part, parts[0]?.at ?? part.at, voices, c, hidden);
     return n ? [{ n, part }] : [];
   });
   const asked: Asked[] = namings
@@ -468,15 +481,17 @@ function namingsOf(
 
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
- * lifelog's voices per part, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
- * pending before the night's cap.
+ * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
+ * pending before the night's cap. With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
+ * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(
   found: ConversationSummaryWork,
   people: People,
   where = READ_REPLIES,
   open = openStore,
-  chats?: SourceEvent[]
+  chats?: SourceEvent[],
+  hiding = false
 ) {
   const asked: Asked[] = [];
   let named = 0;
@@ -503,7 +518,14 @@ export async function readVoiceNamingWork(
         group.map((t) => readConversationVoices(t.parts))
       );
       for (const [i, t] of group.entries()) {
-        const done = namingsOf(t.parts, t.due, voices[i] ?? [], c, index);
+        const done = namingsOf(
+          t.parts,
+          t.due,
+          voices[i] ?? [],
+          c,
+          index,
+          hiding
+        );
         asked.push(...done.asked);
         named += done.named;
       }

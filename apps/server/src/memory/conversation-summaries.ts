@@ -22,7 +22,7 @@ import {
   spokenConversationsOf,
   spokenPartsOf,
 } from "./spoken-conversations";
-import { clip, lifelogNames, turnKey } from "./units";
+import { clip, lifelogNames, turnKey, turnRefOf } from "./units";
 import type { People } from "./who";
 import { transcripts } from "./words";
 import { dayStart, localDate, time } from "./zones";
@@ -43,8 +43,6 @@ export const maxWordsOf = (chars: number) =>
 
 type SummaryLine = Extract<ReadReply, { read: typeof SUMMARY_READ }>;
 const { prompt: PROMPT } = READS.conversation_summary;
-/** The part of a turn's key that is its ref (a ref holds no space). */
-export const refOf = (key: string) => key.split(" ")[0] ?? "";
 
 const Subject = z.object({ label: z.string().min(1), line: z.int().min(0) });
 const Quote = z.object({ line: z.int().min(0), quote: z.string().min(1) });
@@ -74,7 +72,7 @@ export interface HeldSummary {
 function heldOf(line: SummaryLine): HeldSummary {
   const r = Reply.parse(line.reply);
   const keys = line.messages;
-  const ref = refOf(keys[0] as string);
+  const ref = turnRefOf(keys[0] as string);
   return {
     at: ref.slice(ref.indexOf("@") + 1),
     doubts: r.doubts.filter((d): d is string => typeof d === "string"),
@@ -139,7 +137,7 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
       )
     ) {
       for (const k of line.messages) {
-        stale.add(refOf(k));
+        stale.add(turnRefOf(k));
       }
     }
   }
@@ -303,7 +301,7 @@ export async function conversationSummaries(
     calls += work.length;
     stored += made.stored;
     for (const f of made.failed) {
-      failed.add(refOf(f.call.keys[0] as string));
+      failed.add(turnRefOf(f.call.keys[0] as string));
     }
     if (made.stored === 0) {
       break;
@@ -326,10 +324,10 @@ export async function conversationSummaryPart(
   if (!held) {
     return null;
   }
-  const opens = (n: number) => `fetch ${refOf(held.keys[n] as string)}`;
+  const opens = (n: number) => `fetch ${turnRefOf(held.keys[n] as string)}`;
   let quotes: string[];
   try {
-    const turns = held.keys.map((k) => parseTurnRef(refOf(k)));
+    const turns = held.keys.map((k) => parseTurnRef(turnRefOf(k)));
     const jobs = await transcripts(
       turns.flatMap((t) => (t ? [{ jobId: t.jobId }] : []))
     );

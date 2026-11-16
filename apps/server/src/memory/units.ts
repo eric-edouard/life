@@ -15,11 +15,13 @@ import {
   type LifelogConversation,
   type LifelogTurn,
   liveConversations,
+  parseTurnRef,
   readConversations,
   type Store,
   turnRef,
   withStore,
 } from "../sources/lifelog";
+import { voiceKey } from "../sources/lifelog-voices";
 import {
   deviceDayText,
   measurementDayText,
@@ -185,6 +187,30 @@ export const turnKey = (t: LifelogTurn) =>
  */
 export const unnamedTurnKey = (ref: string, label: string) =>
   `${ref} voice:${label}`;
+
+/** The turn ref a key starts with: of a `turnKey`, an `unnamedTurnKey` or a line of `messages`. */
+export const turnRefOf = (key: string) => key.split(" ")[0] ?? "";
+
+/** The voice (its recording and label, `voiceKey`) of an `unnamedTurnKey`. */
+export function voiceOfKey(key: string) {
+  const [ref = "", label = ""] = key.split(" voice:");
+  return voiceKey(parseTurnRef(ref)?.jobId ?? ref, label);
+}
+
+/**
+ * `V1`, `V2`… for the distinct voices among `keys`, by first appearance: the one numbering of the voices of a part. A
+ * key is `unnamedTurnKey`'s.
+ */
+export function voiceTokensOf(keys: string[]) {
+  const tokens = new Map<string, string>();
+  for (const key of keys) {
+    const voice = voiceOfKey(key);
+    if (!tokens.has(voice)) {
+      tokens.set(voice, `V${tokens.size + 1}`);
+    }
+  }
+  return tokens;
+}
 
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every

@@ -47,6 +47,13 @@ export const SummaryReply = z
     reply: z.looseObject({ summary: z.string() }),
   })
   .strict();
+/** One voice's guess in a voice naming reply: `voice` is a `V` token of the part's lines, `person` an offered ref, `me` or `unknown`, `lines` the ones that show it. */
+export const NamedVoice = z.object({
+  confidence: z.enum(["sure", "likely", "weak"]),
+  lines: z.array(z.int().min(0)).min(1),
+  person: z.string(),
+  voice: z.string(),
+});
 export const VoiceNamingReply = z
   .object({
     ...stored,

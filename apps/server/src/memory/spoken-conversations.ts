@@ -1,14 +1,9 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
-import {
-  authorOf,
-  type LifelogTurn,
-  parseTurnRef,
-  turnRef,
-} from "../sources/lifelog";
+import { authorOf, type LifelogTurn, turnRef } from "../sources/lifelog";
 import { voiceKey } from "../sources/lifelog-voices";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
-import { turnKey, unnamedTurnKey } from "./units";
+import { turnKey, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { isTalkingWithOwner, messageLine, turnLines } from "./words";
 import { localDate, time } from "./zones";
@@ -59,22 +54,6 @@ export interface SpokenPart {
   until: string;
   /** What each line is made of, in order: `lines` are made from these. */
   voices: SpokenVoice[];
-}
-
-/**
- * `V1`, `V2`… for the distinct voices among `keys`, by first appearance: the one numbering of the voices of a part. A
- * key is `unnamedTurnKey`'s; a voice is its recording and label (`voiceKey`).
- */
-export function voiceTokensOf(keys: string[]) {
-  const tokens = new Map<string, string>();
-  for (const key of keys) {
-    const [ref = "", label = ""] = key.split(" voice:");
-    const voice = voiceKey(parseTurnRef(ref)?.jobId ?? ref, label);
-    if (!tokens.has(voice)) {
-      tokens.set(voice, `V${tokens.size + 1}`);
-    }
-  }
-  return tokens;
 }
 
 /** A line of a part: `[n] HH:MM who: text`. */

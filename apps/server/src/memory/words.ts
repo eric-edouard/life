@@ -55,6 +55,7 @@ import {
   unitTitle,
 } from "./units";
 import { readNearest } from "./vectors";
+import { withGuessesShown } from "./voice-guesses";
 import { meant, type People, readPeople } from "./who";
 import { type DayRange, dayRange, localDate, localTime, time } from "./zones";
 
@@ -424,7 +425,11 @@ export async function fetchOf(
     );
     total = turns.length;
     const shown = turns.slice(fromTurn, fromTurn + limit);
-    lines = voiceLines(shown, await transcripts(shown), people.resolve);
+    // A voice guess is shown here, in the display alone: the lines extraction and the episodes read never carry it.
+    lines = withGuessesShown(
+      voiceLines(shown, await transcripts(shown), people.resolve),
+      people
+    );
     if (shown.length > 0 && lines.length === 0) {
       return asData([
         head,

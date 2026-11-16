@@ -117,6 +117,19 @@ test("only the payments backend imports money, and only money.ts runs the money 
   expect(running(MONEY)).toEqual(["apps/server/src/payments/money.ts"]);
 });
 
+// A voice guess stays a guess (docs/glossary.md, "voice guess"): what acts on his word is pinned to its writers, so a
+// file that reads or makes guesses (`voice-naming.ts`, `naming-context.ts`, `voice-guesses.ts`) can never be one of them:
+// only the connector forwards a correction to lifelog, and only the command and the connector record one.
+test("forward and recordCorrection have only their known importers", () => {
+  expect(importers(["forward"], "lifelog")).toEqual([
+    "apps/server/src/host/http/mcp.ts",
+  ]);
+  expect(importers(["recordCorrection"], "memory-files")).toEqual([
+    "apps/server/src/host/command.ts",
+    "apps/server/src/host/http/mcp.ts",
+  ]);
+});
+
 const lifelogTexts = repoFiles(LIFE_CODE_DIR, ["apps/lifelog"], [".ts"])
   .filter((f) => !f.endsWith(".test.ts"))
   .map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")] as const);
