@@ -49,10 +49,10 @@ export const shownEpisode =
   };
 
 /**
- * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), the matters that
- * ended that day (`doneLinesOf`), what he did (its
- * episodes in time order, each with where he was, what happened and its key facts), the key facts in no episode, its units
- * (conversations, chats, mail and the rest; those judged worth nothing only counted), then what Life changed for him.
+ * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what got done
+ * (`doneOf`), what he did (its episodes in time order, each with where he was, what happened and its key facts), the
+ * key facts in no episode, its units (conversations, chats, mail and the rest; those judged worth nothing only
+ * counted), then what Life changed for him.
  * `whereUnknown`: lifelog could not be read, so where he was is not shown.
  */
 export function dayLines({
