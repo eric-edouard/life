@@ -176,7 +176,20 @@ export function subjectOf(
   return ref ? { ref } : { nameAsWritten };
 }
 
-/** One raw observation: valid, from a unit we sent, its quote found in that unit's lines; or why not. */
+const textsOf = (s: Source) => s.lines.map((l) => l.text);
+
+/** The one unit of the call whose lines hold `quote`; none when no unit or several do. */
+function unitHoldingOf(quote: string, sources: Map<string, Source>) {
+  const holding = [...sources.values()].filter((s) =>
+    locate(quote, textsOf(s))
+  );
+  return holding.length === 1 ? holding[0] : undefined;
+}
+
+/**
+ * One raw observation: valid, its quote found in the unit it cites, or else in the one unit of the call that holds it
+ * (the model mixes up unit ids: an episode's id, a typo, a neighbour's; audit 2026-11-16); or why not.
+ */
 function cited(
   raw: unknown,
   sources: Map<string, Source>
@@ -193,25 +206,23 @@ function cited(
     return { reason: "invalid", value: JSON.stringify(raw) } satisfies Reject;
   }
   const o = r.data;
-  const source = sources.get(o.unit);
-  if (!source) {
-    return { reason: "unknown-unit", unit: o.unit } satisfies Reject;
+  const named = sources.get(o.unit);
+  const inNamed = named && locate(o.quote, textsOf(named), o.line);
+  const source = inNamed ? named : unitHoldingOf(o.quote, sources);
+  // The line hint belongs to the cited unit only.
+  const found = inNamed || (source && locate(o.quote, textsOf(source)));
+  const line = found && source?.lines[found.line];
+  if (!(source && found && line)) {
+    return named
+      ? {
+          quote: o.quote,
+          reason: "quote-not-found",
+          text: o.text,
+          unit: o.unit,
+        }
+      : { reason: "unknown-unit", unit: o.unit };
   }
-  const found = locate(
-    o.quote,
-    source.lines.map((l) => l.text),
-    o.line
-  );
-  const line = found && source.lines[found.line];
-  if (!(found && line)) {
-    return {
-      quote: o.quote,
-      reason: "quote-not-found",
-      text: o.text,
-      unit: o.unit,
-    } satisfies Reject;
-  }
-  return { found, line, o, source };
+  return { found, line, o: { ...o, unit: source.unit.id }, source };
 }
 
 /** The observation record of a cited, linked claim. */

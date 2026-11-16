@@ -117,9 +117,22 @@ export const step =
 
 type Handler = (values: Values, rest: string[]) => Promise<number>;
 
-/** A hand-run step's evidence: its last `--days` days, gathered once for it (a processing run gathers once for all its steps). */
-const gathered = async (v: Values) =>
-  gather(lastDays(clock(), Number(v.days ?? DAYS)), await readPeople());
+/**
+ * A hand-run step's evidence: `--from` to `--to` (one day when `--to` is left out), else its last `--days` days,
+ * gathered once for it (a processing run gathers once for all its steps).
+ */
+const gathered = async (v: Values) => {
+  const to = v.to ?? v.from;
+  if ((v.from || v.to) && !(v.from && isDay(v.from) && to && isDay(to))) {
+    throw new Error("--from is a day (YYYY-MM-DD), and --to one only with it");
+  }
+  return gather(
+    v.from && to
+      ? { from: v.from, to }
+      : lastDays(clock(), Number(v.days ?? DAYS)),
+    await readPeople()
+  );
+};
 
 const scan = step(() => mapRepos());
 
@@ -439,7 +452,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }
