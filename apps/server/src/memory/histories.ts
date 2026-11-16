@@ -22,7 +22,7 @@ import { localDate } from "./zones";
 // mail threads (`directChats`, the stream the exchange counts count), and the story of the years. The present month
 // is the situation's; a month is read again only when what it was shown changes (a late backup, a late mail). Stored
 // in memory/histories/ (model output is expensive); what is pending is derived each night from the stored `inputs`.
-// Off until his `history` setting names the month to start from.
+// Off until the `histories` add-on, whose `from` names the month to start from.
 
 const MONTH_PROMPT = "memory-history-month.v1";
 const STORY_PROMPT = "memory-history-story.v1";

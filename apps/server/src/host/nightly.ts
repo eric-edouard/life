@@ -1,5 +1,6 @@
 import { rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { addOnOf, hasAddOn } from "../core/add-ons";
 import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
@@ -28,6 +29,7 @@ import {
   type ExchangeReadWork,
   exchangeReads,
   readExchangeReadWork,
+  readsOn,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { histories, readHistoryWork } from "../memory/histories";
@@ -263,8 +265,7 @@ export async function nightly(days: number, force = false) {
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
  * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
- * his `history` setting is on) and of the exchange reads (`readExchangeReadWork`, only while his `exchangeReads`
- * setting is on) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
+ * the `histories` add-on is on) and of the exchange reads (`readExchangeReadWork`, only while one read is on: `readsOn`) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
  * at their newest day), so it is held until they run.
  */
 async function readYears(now: Date) {
@@ -272,8 +273,8 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   writeMentions(everyYear);
-  const { histories: history } = settings();
-  // Off until his `history` setting. A failure is logged and the night goes on, its months read another night.
+  const history = addOnOf("histories");
+  // Off until the `histories` add-on. A failure is logged and the night goes on, its months read another night.
   const pending = history
     ? await readHistoryWork(everyYear, people, {
         from: history.from,
@@ -283,9 +284,9 @@ async function readYears(now: Date) {
         return null;
       })
     : null;
-  // Off until his `exchangeReads` setting. A failure is logged and the night goes on, its exchanges read another night.
+  // Off until a read is. A failure is logged and the night goes on, its exchanges read another night.
   let reads: ExchangeReadWork = null;
-  if (settings().exchangeReads) {
+  if (readsOn().length > 0) {
     try {
       reads = readExchangeReadWork(everyYear, people, now);
     } catch (e) {
@@ -578,9 +579,11 @@ export async function runNight(
     if (isOn("appointmentsCalendar")) {
       await appointments();
     }
-    // After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
+    // Off until the `personas` add-on. After the situations, which read the persona already built: a week's heavy rebuild never holds them up.
     steps.at = "personas";
-    await personas(everyYear);
+    if (hasAddOn("personas")) {
+      await personas(everyYear);
+    }
     // The histories' months not read yet: a failure is logged and never stops the night.
     if (pending) {
       steps.at = "histories";

@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
+import { addOnOf } from "../core/add-ons";
 import { clock, daysBefore } from "../core/clock";
-import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
 import { checksNow, checksText } from "../memory/checks";
@@ -13,7 +13,11 @@ import {
 } from "../memory/conversation-summaries";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
-import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
+import {
+  exchangeReads,
+  readExchangeReadWork,
+  readsOn,
+} from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
@@ -61,6 +65,7 @@ import {
   type Window,
 } from "../memory/zones";
 import { FactCheckAnswer } from "../records/fact-check";
+import { MOVE_READS } from "../records/read-reply";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -254,13 +259,16 @@ const HANDLERS: Record<string, Handler> = {
   ),
   /**
    * `exchange-reads [--force]`: what the exchange reads would ask (calls and exchanges, before the night's cap), with no
-   * model; `--force` asks the night's share, as the night does once his `exchangeReads` setting is on.
+   * model, for every read; `--force` asks the night's share of the reads that are on (`readsOn`), as the night does.
    */
   "exchange-reads": step(async (v) => {
+    // The preview counts every read, on or not, so it can be seen before one is turned on.
     const pending = readExchangeReadWork(
       await readWithPeople(new Date(0)),
       await readPeople(),
-      clock()
+      clock(),
+      undefined,
+      v.force ? readsOn() : MOVE_READS
     );
     if (!pending) {
       return { failed: 1 };
@@ -275,12 +283,14 @@ const HANDLERS: Record<string, Handler> = {
   "historical-units": step((v) => collectHistorical(v)),
   /**
    * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
-   * with no model; `--force` reads it, as the night does once his `history` setting is on.
+   * with no model; `--force` reads it, as the night does once the `histories` add-on is on.
    */
   histories: step(async (v) => {
-    const from = v.from ?? settings().histories?.from;
+    const from = v.from ?? addOnOf("histories")?.from;
     if (!from) {
-      throw new Error("histories needs --from YYYY-MM, or his history setting");
+      throw new Error(
+        "histories needs --from YYYY-MM, or the `histories` add-on"
+      );
     }
     const pending = await readHistoryWork(
       await readWithPeople(new Date(0)),

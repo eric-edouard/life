@@ -96,20 +96,6 @@ export const Settings = z
     endings: z.literal(true).optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
-    /**
-     * The exchange reads (`memory/exchange-reads.ts`): each night asks the three reads of the finished exchanges of
-     * his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is stored is
-     * read all the same.
-     */
-    exchangeReads: z.literal(true).optional(),
-    /**
-     * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
-     * not read, for whoever has a page. Absent means off: no month is read.
-     */
-    histories: z
-      .object({ from: z.string().regex(/^\d{4}-\d{2}$/) })
-      .strict()
-      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
@@ -126,6 +112,12 @@ export const Settings = z
      * running things of his life. Absent means off: nothing is read. Read by `read_day`'s Due, a person's page, `read_matters` and `read_matter`.
      */
     matters: z.literal(true).optional(),
+    /**
+     * The mentions read (`memory/exchange-reads.ts`): each night asks the read of who is talked about for the finished
+     * exchanges of his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is
+     * stored is read all the same.
+     */
+    mentionsRead: z.literal(true).optional(),
     /** The calendar the episodes are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     pastCalendar: z
       .object({ account: z.string().optional(), calendar: z.string() })
@@ -137,6 +129,34 @@ export const Settings = z
      */
     payments: z
       .object({ backend: z.literal("money") })
+      .strict()
+      .optional(),
+    /**
+     * The personal add-ons (`core/add-ons.ts`): memory layers about his relationships and himself, each off while its
+     * key is absent. Each takes `{}` (its scope fields come later), except `histories`.
+     */
+    personal: z
+      .object({
+        /** The Views and Health sections of pages (`memory/page-format.ts`). */
+        aboutMe: z.object({}).strict().optional(),
+        /**
+         * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
+         * not read, for whoever has a page.
+         */
+        histories: z
+          .object({ from: z.string().regex(/^\d{4}-\d{2}$/) })
+          .strict()
+          .optional(),
+        /** What each person is like and what repeats between them and him (`memory/personas.ts`). */
+        personas: z.object({}).strict().optional(),
+        /**
+         * The connection and conflict reads (`memory/exchange-reads.ts`): each night asks them of the finished exchanges
+         * of his two-way one-to-one chats it has no stored reply for; what is stored is read all the same.
+         */
+        relationshipReads: z.object({}).strict().optional(),
+        /** The Between us section of the pages of people close to him (`memory/page-format.ts`). */
+        relationships: z.object({}).strict().optional(),
+      })
       .strict()
       .optional(),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
@@ -178,7 +198,7 @@ export function readSettings(path = SETTINGS): Settings {
 }
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
-function writeWhole(path: string, value: unknown) {
+export function writeSettings(path: string, value: unknown) {
   // Each process its own temp file: the app starts several at once, each may rename an old file.
   writeFileSync(
     `${path}.${process.pid}.tmp`,
@@ -207,7 +227,7 @@ export function setSettings(
       )
     )
   );
-  writeWhole(SETTINGS, next);
+  writeSettings(SETTINGS, next);
   read = next;
 }
 
