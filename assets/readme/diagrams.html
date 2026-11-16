@@ -121,7 +121,7 @@
     }
     #pipeline .outs {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 12px;
     }
     #pipeline .outs h3 {
@@ -294,13 +294,16 @@
             <li>
               <b>Messages</b><br>
               <span
-                >WhatsApp · iMessage · LINE · Instagram · LinkedIn ·
-                Telegram</span
+                >WhatsApp · iMessage · LINE · Instagram · Messenger · LinkedIn ·
+                Telegram, and calls</span
               >
             </li>
             <li><b>Mail</b><br><span>every account in Apple Mail</span></li>
             <li><b>Notes</b><br><span>Apple Notes, every version</span></li>
-            <li><b>Where you were</b><br><span>the phone's places</span></li>
+            <li>
+              <b>Photos · Health</b><br>
+              <span>where you were, your sleep and workouts</span>
+            </li>
             <li><b>Screen Time</b><br><span>where your hours went</span></li>
             <li>
               <b>Code · past AI chats</b><br>
@@ -323,16 +326,16 @@
               <span>promises, plans, news, each with its quote</span>
             </li>
             <li>
+              <b>Matters</b><br>
+              <span>what's open, what got done</span>
+            </li>
+            <li>
               <b>Pages</b><br>
-              <span>one per person who matters, one per area</span>
+              <span>each person who matters, how you each write</span>
             </li>
             <li>
               <b>Situations</b><br>
               <span>where things stand now, with each</span>
-            </li>
-            <li>
-              <b>Personas</b><br>
-              <span>what each is like, what repeats between you</span>
             </li>
             <li><b>Search</b><br><span>by words and by meaning</span></li>
           </ul>
@@ -413,6 +416,10 @@
           <p>People and areas of your life, every line cited.</p>
         </div>
         <div class="card" style="padding:16px">
+          <h3>Matters</h3>
+          <p>What's open, what you owe or wait on, how it ended.</p>
+        </div>
+        <div class="card" style="padding:16px">
           <h3>Situations</h3>
           <p>Where things stand now, from the last 30 days.</p>
         </div>
@@ -422,7 +429,7 @@
         </div>
         <div class="card" style="padding:16px">
           <h3>Search</h3>
-          <p>An index by words, vectors by meaning, on the Mac.</p>
+          <p>By words, and by meaning on the Mac.</p>
         </div>
       </div>
       <span class="label" style="display:block;margin-top:28px"
@@ -439,7 +446,7 @@
         <div><b>every 10 min</b><span>new texts get their vectors</span></div>
         <div>
           <b>after 5:00</b
-          ><span>the nightly: last 7 days, pages, situations, report</span>
+          ><span>the nightly: last 7 days, matters, pages, report</span>
         </div>
       </div>
     </figure>
@@ -536,12 +543,12 @@
             <p>Limitless Pendant or Omi, over Bluetooth</p>
           </div>
           <div class="box">
-            <h3>lifelog on iPhone</h3>
+            <h3>lifelog on the phone</h3>
             <p>
               Keeps every page before the recorder deletes it; uploads speech,
               places, time zone
             </p>
-            <span class="mono">Swift 6 · SwiftUI · Watch</span>
+            <span class="mono">Swift 6 · Watch · Android</span>
           </div>
         </div>
         <div class="zone">
@@ -549,8 +556,8 @@
           <div class="two">
             <div class="box">
               <h3>Life.app</h3>
-              <p>Watcher, archive, nightly, connector, pages</p>
-              <span class="mono">Bun · Hono · MCP · React</span>
+              <p>Watcher, archive, nightly, connector</p>
+              <span class="mono">Bun · Hono · MCP · SwiftUI</span>
             </div>
             <div class="box">
               <h3>Lifelog Host</h3>
@@ -576,7 +583,8 @@
             <div class="box">
               <h3>Bridges</h3>
               <p>
-                LINE, Instagram, LinkedIn, Telegram into a local Matrix server
+                LINE, Instagram, Messenger, LinkedIn, Telegram into a local
+                Matrix server
               </p>
               <span class="mono">Synapse · mautrix</span>
             </div>
@@ -594,7 +602,7 @@
           <span class="label">Outside the Mac</span>
           <div class="box">
             <h3>The model</h3>
-            <p>Your Claude or ChatGPT subscription, or allmodels.io</p>
+            <p>Your Claude or ChatGPT subscription, or OpenRouter</p>
           </div>
           <div class="box">
             <h3>Your assistant</h3>
@@ -604,11 +612,11 @@
           </div>
           <div class="box">
             <h3>Google</h3>
-            <p>The Past calendar or Google Tasks, if you pick them</p>
+            <p>The calendars or Google Tasks, if you pick them</p>
           </div>
           <div class="box">
             <h3>Scribe</h3>
-            <p>Only for languages the local models miss</p>
+            <p>The pendant's transcription, unless the Mac does it</p>
           </div>
           <div class="box">
             <h3>Backup · mail</h3>
@@ -640,7 +648,7 @@
             <span class="mono">obs_4b2bd9112c2a</span>
           </li>
         </ul>
-        <span class="label">Persona · how you write to her</span>
+        <span class="label">How you write to her</span>
         <ul class="lines" style="margin-top:8px">
           <li>
             Short, no greeting; the joke first, the plan after.

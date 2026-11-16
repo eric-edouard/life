@@ -187,6 +187,26 @@ someone else is capped at 0.6 confidence.
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's OAuth guards every path.
 
+## The stack
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/readme/stack-dark.png">
+  <img src="../assets/readme/stack-light.png" alt="Where Life runs. On the owner: the recorder and lifelog on the phone. On the Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and the memory. Outside the Mac: the model, the assistant over Tailscale, Google for the calendars or Tasks, ElevenLabs Scribe, the encrypted backup and Life's mail to the owner.">
+</picture>
+
+| Part | What it is |
+|---|---|
+| Reading | The owner's Claude or ChatGPT subscription (Life runs `claude` or `codex`, with no tools), or an OpenRouter or allmodels.io key, each in four tiers: fast, main, deep and judge. Outputs are cached by input and prompt, so a night re-reads only what changed. |
+| Search by meaning | [EmbeddingGemma 300M](https://huggingface.co/google/embeddinggemma-300m), run by llama.cpp in Lifelog Host, for voice and memory alike (`core/embedder.ts`). No text leaves the Mac to be embedded; without Lifelog Host, search is by words only. |
+| Transcription | lifelog's: ElevenLabs Scribe by default, paid by the hour of speech; or its speech service on the Mac (Nemotron 3 for who speaks when, VoxLingua107 for the language, Parakeet Ultra for the words), with Scribe only for Thai ([lifelog's processing](../apps/lifelog/docs/processing.md)). |
+| Voices | The MECT-B2 model, on the Mac, learning only from the names the owner gives. |
+| Photos | Qwen3.5-9B under llama.cpp, on the Mac, describes each photo when `describePhotos` is set (`models/describer.ts`). |
+| Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
+| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
+| Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
+| Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
+| Mail | Resend for the report, else a notification. The backup and the network are above. |
+
 ## The code
 
 The server's code (`apps/server/src`) is in layers, and dependencies point one way:

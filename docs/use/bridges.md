@@ -1,6 +1,6 @@
-# Messaging bridges: read LINE, Instagram, Messenger and LinkedIn
+# Messaging bridges: read LINE, Instagram, Messenger, LinkedIn and Telegram
 
-Life reads LINE, Instagram, Messenger and LinkedIn through a bridge into its archive: a small program linked to your account as
+Life reads LINE, Instagram, Messenger, LinkedIn and Telegram through a bridge into its archive: a small program linked to your account as
 one more device, like WhatsApp Web.
 
 The bridges and their local Matrix server (Synapse) run on your Mac as one background job, talk to nothing but
@@ -12,7 +12,7 @@ Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
 
 ```sh
 bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
-bun life bridge add <network>           # line, instagram, messenger or linkedin: builds it, then links it
+bun life bridge add <network>           # line, instagram, messenger, linkedin or telegram: builds it, then links it
 bun life bridge link <network> [flow]   # links it again (another way to log in: its flow id, listed when linking)
 bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays. With no bridge, a
                                         # network Beeper Desktop holds is copied from Beeper (turn its source back on)

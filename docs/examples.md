@@ -43,7 +43,7 @@ cites and the message it was quoted from.
 
 ## Has my week matched my goals?
 
-The README opens with this one: [ask it anything](../README.md#ask-it-anything). Life reads your goals from
+The README opens with this one: [what it does for you](../README.md#what-it-does-for-you). Life reads your goals from
 `truth/me.md`, the one file about you that only you write.
 
 ## More to ask
