@@ -421,6 +421,8 @@ export const readCorrections = (): Correction[] => [
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface ObservationStatusInputs {
   corrections: Correction[];
+  /** Cited only by lines of a section whose add-on is off (`frozenOnlyOf`); left out, none. */
+  frozenOnly?: ReadonlySet<string>;
   latest: Map<string, Extracted>;
   live: Set<string>;
   retired: Map<string, Retirement>;
@@ -527,7 +529,7 @@ export const hiding = (corrections: Correction[], id: string) => {
 /**
  * Where an observation stands: the one rule the index, the pages and the status reads go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he said it is outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts), `frozen` (only a section whose add-on is off cites it: hidden, never deleted), `retired` (a newer observation superseded it, or he said it is outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */
@@ -556,6 +558,9 @@ export function observationStatusOf(
       by: l?.run ?? null,
       state: "replaced" as const,
     };
+  }
+  if (s.frozenOnly?.has(o.id)) {
+    return { state: "frozen" as const };
   }
   const hiddenOn = hid.flatMap((c) => (c.page ? [c.page] : []));
   const r = s.retired.get(o.id);

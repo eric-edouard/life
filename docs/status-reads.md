@@ -105,7 +105,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its unit
   no longer exists, a conversation regrouped, or a code rule drops it now), `replaced` (its unit was read again; the
-  newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner said it is outdated (a fact-check answer or a correction); still
+  newer extraction counts), `frozen` (only a section whose add-on is off cites it), `retired` (superseded: `by`, `why`; `by` itself when the owner said it is outdated (a fact-check answer or a correction); still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
   hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`observationStatusOf`,
   `apps/server/src/memory/memory-files.ts`), so it says what they show. An observation is a model's reading of the source with its quote

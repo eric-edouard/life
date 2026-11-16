@@ -115,6 +115,8 @@ Model output is cached by unit hash and prompt version, so a night re-reads only
 
 **Prompt parts.** A paragraph of a prompt that judges a person, a relationship or his own life sits between `<!-- part:<add-on> -->` and `<!-- /part -->` (inline, no nesting; episodes, extract, pages, conversation summary, mentions; `models/prompt-parts.ts`). A call is shown the file with the parts of add-ons that are off cut out and the markers of the rest removed, so with every add-on on a prompt is its file's old bytes. An output is stamped `<prompt>-without-<off parts, sorted>` when a part was off, and `isPromptVersion` counts any variant as the same version, so switching an add-on re-runs nothing. The close flag of the context is sent only with `relationships` on (`refContext`), and a page's frozen sections (Between us, Views, Health, while their add-on is off) are neither offered to the model nor aged: their lines stay, hidden by the readers.
 
+**Off hides, never deletes.** A page reader drops the frozen sections (`shownBody`, from `layoutOf`), and an observation cited only by lines of a frozen section is `frozen` in `observationStatusOf` (`frozenOnlyOf`, read with the status inputs by `readStatusInputs`, only while an add-on is off): the index, search, `read_observation`, the fact checks and the night's email all go through that one status, so none shows it. Page files and memory are never rewritten; switching the add-on on shows it all again. An observation no page line cites yet is not hidden.
+
 ### Why one compressed layer
 
 Raw search scales; reading does not. A day of speech is on the order of 100k tokens, so the largest context holds about

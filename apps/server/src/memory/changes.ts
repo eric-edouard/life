@@ -33,7 +33,6 @@ import {
   readCorrections,
   readIndex,
   readInferred,
-  readObservationStatusInputs,
   readOrigins,
   readUnit,
   runAt,
@@ -42,6 +41,7 @@ import {
 import { type Key, PageMeta, parsePage, readLine } from "./page-format";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
+import { readStatusInputs } from "./status-inputs";
 import {
   aboutNow,
   authorFrom,
@@ -266,7 +266,7 @@ const indexed = () =>
 /** What decides where an observation stands and whether a correction shows yet: the small ledgers, the pages, the index. */
 async function readContext() {
   const [statusInputs, inferred, pages] = await Promise.all([
-    readObservationStatusInputs(readCorrections()),
+    readStatusInputs(readCorrections()),
     readInferred(),
     readPages(),
   ]);

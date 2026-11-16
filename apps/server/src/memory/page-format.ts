@@ -650,6 +650,44 @@ export function oftenLine(counts: Map<string, number>, top = 8) {
 /** A page file as a reader sees it: everything but its frontmatter. */
 export const bodyOf = (text: string) => text.replace(FRONT, "").trim();
 
+/** A page as readers show it: `bodyOf` without the sections its layout freezes (`layoutOf`); the file keeps them. */
+export function shownBody(text: string) {
+  const page = parsePage(text)?.meta.page;
+  const frozen = new Set(
+    page ? layoutOf(page).frozen.map((k) => SECTION[k].title) : []
+  );
+  let skip = false;
+  return bodyOf(text)
+    .split("\n")
+    .filter((line) => {
+      const heading = line.match(HEADING)?.[1];
+      skip = heading === undefined ? skip : frozen.has(heading);
+      return !skip;
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * The observations cited by lines of a frozen section and by no line of a live one, on any page: they show only
+ * through that section, so they are hidden with it (`observationStatusOf`). An observation no page line cites is not one.
+ */
+export function frozenOnlyOf(pages: Parsed[]) {
+  const live = new Set<string>();
+  const frozen = new Set<string>();
+  for (const { meta, raw } of pages) {
+    const held = layoutOf(meta.page).frozen;
+    for (const { key } of SECTIONS) {
+      for (const line of raw[key]) {
+        for (const id of readLine(key, line).cites) {
+          (held.includes(key) ? frozen : live).add(id);
+        }
+      }
+    }
+  }
+  return new Set([...frozen].filter((id) => !live.has(id)));
+}
+
 const SPACES = / +/g;
 /** A name as a slug, how page files are named: "Money & admin" -> "money-admin". */
 export const slugOf = (name: string) => normalize(name).replace(SPACES, "-");
