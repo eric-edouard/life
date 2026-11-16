@@ -19,7 +19,7 @@ export type Link = z.infer<typeof Link>;
 
 /**
  * One judged batch, a line of the file: for `subject` (a matter's id; a person in the first lines), the open observations shown (`open`) and the
- * later steps offered against them (`offered`), and the links kept. A pair in it is never judged again, link or not.
+ * later steps offered against them (`offered`), and the links kept. A pair in it is not judged again by the same prompt, link or not; a new prompt asks every still-open step again.
  */
 export const LinkBatch = z
   .object({

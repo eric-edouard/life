@@ -100,14 +100,17 @@ const call = {
   text: callStep?.text ?? "",
   type: "episode",
 };
+/** The links prompt the code uses now: a bump changes it here too. */
+const PROMPT_NOW = "memory-links.v4";
 const batch = (
   open: { id: string }[],
   offered: { id: string }[],
-  links: LinkBatch["links"] = []
+  links: LinkBatch["links"] = [],
+  prompt = PROMPT_NOW
 ): LinkBatch => ({
   at: "2026-10-05T22:00:00.000Z",
   links,
-  madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+  madeBy: { engine: "claude", model: "m", prompt, run: "r" },
   offered: offered.map((o) => o.id),
   open: open.map((o) => o.id),
   schemaVersion: 1,
@@ -370,4 +373,14 @@ test("a matter's later records: its people's unplaced notes of the week after, n
   expect(capped.map((o) => o.id)).toEqual(
     Array.from({ length: 20 }, (_, i) => `obs_n${String(i).padStart(2, "0")}`)
   );
+});
+
+test("a pair is judged once per prompt: a new prompt asks a still-open step again (case links-1-made-unneeded)", () => {
+  const judgedBefore = batch([promise], [sent], [], "memory-links.v3");
+  expect(
+    subjectWorkOf(matter, [promise], [sent], [judgedBefore])?.chunks
+  ).toEqual([[sent]]);
+  expect(
+    subjectWorkOf(matter, [promise], [sent], [batch([promise], [sent])])
+  ).toBeNull();
 });

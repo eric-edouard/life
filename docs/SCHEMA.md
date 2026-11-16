@@ -256,7 +256,7 @@ The links step's judged batches (`memory/links.ts`), one line each, append-only,
 of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later records judged (`laterRecordsOf`; since v3 also its people's notes no matter holds)
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
-`schemaVersion`. A pair in a line is never judged again, whatever the subject. A link deletes nothing: what it ends is worked out when read
+`schemaVersion`. A pair in a line is not judged again by the same prompt, whatever the subject (`madeBy.prompt`; a new prompt asks every still-open step again). A link deletes nothing: what it ends is worked out when read
 (`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). While his `endings` setting is off only `bun life memory links` reads it; on, the readers do (a link ends its step "probably" until his word).
 
 ## matters.jsonl

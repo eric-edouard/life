@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
 import type { Observation } from "../records/observation";
 import { endingsNow, readBatches } from "./endings";
@@ -27,10 +28,11 @@ import { dayNow } from "./zones";
 // v3 its people's records of the week after that no matter holds, so an ending never ties two matters); code keeps a
 // link only when both ends were shown, the later one is later (`isLater`), and the words given are found in the later
 // one's own quote. Each judged batch is one appended line of memory/links.jsonl: the result, and the
-// record of which pairs were already judged, so what is due is derived and nothing is paid twice. A link never
+// record of which pairs that prompt judged, so what is due is derived and no prompt pays for a pair twice (a new prompt
+// asks every still-open step again; one already ended is never open). A link never
 // deletes: what it ends is worked out when read (`endingsOf`). Off until his `links` setting.
 
-const PROMPT = "memory-links.v3";
+const PROMPT = "memory-links.v4";
 /** The most open steps, and later steps, one call is shown. */
 const OPEN_MAX = 40;
 const LATER_MAX = 40;
@@ -68,7 +70,7 @@ export interface SubjectWork {
 
 /**
  * One matter's work: the later steps that some open step has not been judged against yet (a pair is judged once a
- * batch holds the open step in `open` and the later one in `offered`), oldest first, in chunks of `LATER_MAX`, with
+ * batch of the current prompt holds the open step in `open` and the later one in `offered`), oldest first, in chunks of `LATER_MAX`, with
  * the open steps they are due for. Nothing when nothing is due.
  */
 export function subjectWorkOf(
@@ -78,9 +80,9 @@ export function subjectWorkOf(
   batches: LinkBatch[]
 ): SubjectWork | null {
   const judged = new Set(
-    batches.flatMap((b) =>
-      b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`))
-    )
+    batches
+      .filter((b) => isPromptVersion(b.madeBy.prompt, PROMPT))
+      .flatMap((b) => b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`)))
   );
   const isDue = (o: Shown, l: Shown) =>
     isLater(o, l) && !judged.has(`${o.id} ${l.id}`);
@@ -288,8 +290,9 @@ async function readOpenMatters(people: People) {
 }
 
 /**
- * What the links step has to judge: for each open matter, its open steps and its later steps (`readOpenMatters`)
- * not judged yet. `counts` is the whole of what is due, before the night's cap.
+ * What the links step has to judge: for each open matter, its open steps and its later records (`readOpenMatters`)
+ * not judged yet by the current prompt (a prompt bump asks every still-open step again; an ended one is never open).
+ * `counts` is the whole of what is due, before the night's cap.
  */
 export async function readLinkWork(people: People) {
   const batches = readBatches();
