@@ -33,6 +33,19 @@ export const PeopleFile = z
   .object({ people: z.array(Person), schemaVersion: z.literal(1) })
   .strict();
 
+/** The owner's id in truth/people.yaml. */
+export const ME = "me";
+/** The owner's own entry in truth/people.yaml. */
+export function ownerIn(people: Person[]): Person {
+  const me = people.find((p) => p.id === ME);
+  if (!me) {
+    throw new Error(`truth/people.yaml has no "${ME}"`);
+  }
+  return me;
+}
+/** A name's first word: what a person is called ("Jean" for "Jean Dupont"). */
+export const firstNameOf = (name: string) => name.trim().split(" ")[0] ?? "";
+
 export const Chat = z
   .object({
     // network chat id. Which projects a chat belongs to is in `Project.chats`.

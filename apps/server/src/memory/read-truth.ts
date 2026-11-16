@@ -8,20 +8,12 @@ import {
   AreasFile,
   type Chat,
   ChatsFile,
+  ME,
   PeopleFile,
   type Person,
   Project,
 } from "../records/truth";
 
-const ME = "me";
-/** The owner's own entry in truth/people.yaml. */
-export function ownerIn(people: Person[]): Person {
-  const me = people.find((p) => p.id === ME);
-  if (!me) {
-    throw new Error(`truth/people.yaml has no "${ME}"`);
-  }
-  return me;
-}
 /** The owner as an entity ref: the center of his memory. */
 export const OWNER = `person:${ME}`;
 /** The people other than the owner among an observation's entity refs. */

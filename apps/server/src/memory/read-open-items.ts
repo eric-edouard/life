@@ -119,9 +119,17 @@ export function openWithOf(
   {
     goals,
     items: all,
+    owner,
     room = Number.POSITIVE_INFINITY,
     today,
-  }: { goals: string[][]; items: Candidate[]; room?: number; today: string }
+  }: {
+    goals: string[][];
+    items: Candidate[];
+    /** His name (`readOwnerName`). */
+    owner: string;
+    room?: number;
+    today: string;
+  }
 ) {
   const items = rankedItems(
     all.filter((c) => c.person === ref || c.people?.includes(ref)),
@@ -135,9 +143,9 @@ export function openWithOf(
   return items.length > 0
     ? [
         "",
-        "Open with them (done when Life sees it done or he says so):",
-        ...section("He owes them:", his),
-        ...section("He waits on:", waits),
+        `Open with them (done when Life sees it done or ${owner} says so):`,
+        ...section(`${owner} owes them:`, his),
+        ...section(`${owner} waits on:`, waits),
         ...(more > 0
           ? [
               `${more} more open with them, ranked lower: \`read_matters\` with person ${ref.slice(ref.indexOf(":") + 1)}.`,

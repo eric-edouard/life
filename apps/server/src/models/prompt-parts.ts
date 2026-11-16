@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AddOn, hasAddOn } from "../core/add-ons";
-import { LIFE_CODE_DIR } from "../core/paths";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { settings } from "../core/settings";
+import { firstNameOf, ownerIn, PeopleFile } from "../records/truth";
 
 // Prompt parts (docs/architecture.md, "Prompt parts"): a paragraph of a prompt about a person, a relationship or his
 // own life sits between `<!-- part:<add-on> -->` and `<!-- /part -->` (inline, no nesting). The marker lines of a part
-// that is on are removed and nothing else: with every part on a prompt renders as its file read before parts existed,
-// so its cached outputs stay. A part that is off is cut out with its text.
+// that is on are removed and nothing else; a part that is off is cut out with its text. A prompt's name, not its text,
+// keys its cached outputs.
 
 const PART = /<!-- part:(\w+) -->([\s\S]*?)<!-- \/part -->/g;
 
@@ -38,11 +40,32 @@ const isOn = (part: string, mayKeep: boolean) =>
   part === MAY_KEEP ? mayKeep : hasAddOn(part as AddOn);
 
 /**
- * What a call is shown of `prompt` (its name): its file, parts of the add-ons that are off cut out, and the `mayKeep`
- * part cut out unless `mayKeep` (the call's context holds his text).
+ * What the owner is called in prompts and in what they write: the first word of his name in truth/people.yaml, read
+ * at each call so an edit of truth/ shows at the next.
+ * ponytail: the first word; a "called" field in truth/ when someone goes by another word.
+ */
+export const readOwnerName = (data = OWNER_DATA_DIR) =>
+  firstNameOf(
+    ownerIn(
+      PeopleFile.parse(
+        Bun.YAML.parse(readFileSync(join(data, "truth", "people.yaml"), "utf8"))
+      ).people
+    ).name
+  );
+
+/** Said first in every prompt: who `{{owner}}` is, and never a pronoun for him in what is written. */
+const OWNER_RULE = `{{owner}} is the person whose memory this is: \`me\` in lines, \`person:me\` in refs. In everything you write, name {{owner}}; never write he, him, his, she, her, they or "the owner" for {{owner}}, not even later in a sentence that already named {{owner}}: "{{owner}} told Ana that {{owner}} would call {{owner}}'s father".\n\n`;
+
+/**
+ * What a call is shown of `prompt` (its name): the owner rule then its file, parts of the add-ons that are off cut
+ * out, the `mayKeep` part cut out unless `mayKeep` (the call's context holds his text), `{{owner}}` his name and
+ * `{{language}}` the language his memory is written in. A prompt's name, not this text, keys its outputs: its wording
+ * changes nothing stored.
  */
 export const promptText = (prompt: string, mayKeep = false) =>
-  renderedOf(sourceOf(prompt), (p) => isOn(p, mayKeep));
+  renderedOf(`${OWNER_RULE}${sourceOf(prompt)}`, (p) => isOn(p, mayKeep))
+    .replaceAll("{{owner}}", readOwnerName())
+    .replaceAll("{{language}}", settings().memoryLanguage);
 
 /**
  * The name a call's output is stamped with: `prompt` while every add-on part it holds is on, else

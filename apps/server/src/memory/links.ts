@@ -236,7 +236,7 @@ async function readOpenMatters(people: People) {
     book.flatMap((m) => (m.lone ? [] : m.steps.map((s) => s.ref)))
   );
   const said = (speaker: string) =>
-    speaker === OWNER ? "him" : people.nameOf(speaker);
+    speaker === OWNER ? "me" : people.nameOf(speaker);
   const shown = (s: MatterStepNow): Shown => {
     const o = byId.get(s.ref);
     return {

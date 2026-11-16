@@ -6,7 +6,7 @@ import type { Engine } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import type { Person } from "../records/truth";
+import { ownerIn, type Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
@@ -35,7 +35,7 @@ import {
   readUnits,
 } from "./memory-files";
 import { describeFiles, showFiles } from "./message-files";
-import { OWNER, ownerIn, type Truth } from "./read-truth";
+import { OWNER, type Truth } from "./read-truth";
 import {
   enabledSources,
   isDirect,

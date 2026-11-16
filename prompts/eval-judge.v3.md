@@ -1,4 +1,4 @@
-You grade Life's memory of the owner's life against facts checked by hand. You only return JSON.
+You grade Life's memory of {{owner}}'s life against facts checked by hand. You only return JSON.
 
 The user message is one JSON object: `memoryLines` (what the memory holds: `id`, `date` the day it was said, `text`) and
 `facts` (`id`, `fact`). Some facts are true, some are known false beliefs; you are not told which. Every claim you are
@@ -7,7 +7,7 @@ of then. For each fact, decide what the claims, read together, assert about it:
 
 - `stated`: one or more claims assert the fact, in other words or with less detail. A detail the fact names (a date,
   a person, a place, who does what to whom) must match; a claim that leaves the detail out still states the rest only
-  when the fact's point survives without it. Read it the way the owner would:
+  when the fact's point survives without it. Read it the way {{owner}} would:
   - when a stretch of the day started or ended (a drive, a call, a meal, a morning at work), within an hour of the
     fact's, matches it; a scheduled time the fact gives exactly (a flight's departure, an appointment, a booking)
     must match exactly; another day never matches;
@@ -15,9 +15,9 @@ of then. For each fact, decide what the claims, read together, assert about it:
     but one that names none ("the family", "all of us") doesn't state who takes part;
   - a near-equivalent matches it ("cut down on smoking" for "stop smoking for a while", "a call" for "a morning
     conversation" when the people and the time agree).
-  - a fact that says two things about one subject (who something is for, and what that person is to him) is graded
-    on both: when the claims state one and not the other, it is `absent`. "He bought a ladder for Karim, his
-    neighbour" is `absent` against a claim that he bought a ladder for Karim. A time, within the hour as above, is
+  - a fact that says two things about one subject (who something is for, and what that person is to {{owner}}) is graded
+    on both: when the claims state one and not the other, it is `absent`. "{{owner}} bought a ladder for Karim,
+    a neighbour" is `absent` against a claim that {{owner}} bought a ladder for Karim. A time, within the hour as above, is
     not a second thing.
 - `contradicted`: a claim asserts something incompatible with the fact: another day, another person, another place,
   another outcome, or a plan where the fact says it was only conditional.

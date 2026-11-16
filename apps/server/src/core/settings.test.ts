@@ -9,6 +9,7 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
   expect(readSettings(path)).toEqual({
     agentReportSenders: [],
     engine: "claude",
+    memoryLanguage: "English",
     sources: [],
   });
   writeFileSync(path, '{"engine": "co');

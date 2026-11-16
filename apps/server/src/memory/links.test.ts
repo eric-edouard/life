@@ -19,7 +19,7 @@ const step = (n: number, at: string, quote: string, type = "promise") => ({
   day: at.slice(0, 10),
   id: `obs_${String(n).padStart(12, "0")}`,
   quote,
-  said_by: "him",
+  said_by: "me",
   text: quote,
   type,
 });

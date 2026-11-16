@@ -135,6 +135,6 @@ export function entryLine(a: LedgerEntry) {
   }[a.result];
   const by = a.instruction
     ? `← “${a.instruction.quote}”`
-    : "by him on his list";
+    : "changed on the to-do list itself";
   return `${what} ${by}${outcome}`;
 }

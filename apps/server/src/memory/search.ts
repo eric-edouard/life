@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { CANDIDATES } from "../core/embedder";
 import { fuse } from "../core/fusion";
 import { redact } from "../core/redact";
+import { readOwnerName } from "../models/prompt-parts";
 import { searchVoice, turnPlace, withStore } from "../sources/lifelog";
 import {
   currentSummaries,
@@ -299,7 +300,9 @@ export async function readSituationsOf(
   );
   const whole = mentioned.length > 0 || !isNow ? mentioned : [OWNER];
   const title = (ref: string) =>
-    ref === OWNER ? "His situation" : `Situation with ${nameOf(ref)}`;
+    ref === OWNER
+      ? `${readOwnerName()}'s situation`
+      : `Situation with ${nameOf(ref)}`;
   return [
     ...whole.flatMap((ref) =>
       situationBlock(title(ref), readSituationNow(ref, live))

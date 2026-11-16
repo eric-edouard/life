@@ -252,11 +252,11 @@ test("the counts of a pair: all years, then each year an exchange started in, ne
   };
   const block = exchangeCountsBlock(counted);
   expect(block[0]).toStartWith(
-    "Counted by code between them and him, through 2026-11-1"
+    "Counted by code between them and Test, through 2026-11-1"
   );
   expect(block[0]).toContain("whatsapp, mail");
   expect(block[0]).toContain("until 6 hours of quiet");
-  expect(block[1]).toStartWith("- all years: messages on 3 days; he sent 3");
+  expect(block[1]).toStartWith("- all years: messages on 3 days; Test sent 3");
   expect(block.slice(2).map((l) => l.slice(0, 7))).toEqual([
     "- 2026:",
     "- 2025:",

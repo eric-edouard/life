@@ -113,6 +113,11 @@ export const Settings = z
      */
     matters: z.literal(true).optional(),
     /**
+     * The language his memory is written in (asked at the first run beside his name): every prompt's `{{language}}`
+     * (`models/prompt-parts.ts`). Quotes stay as said; topic tags stay English. Absent: English, as before the key.
+     */
+    memoryLanguage: z.string().min(1).default("English"),
+    /**
      * The mentions read (`memory/exchange-reads.ts`): each night asks the read of who is talked about for the finished
      * exchanges of his two-way one-to-one chats it has no stored reply for. Absent means off: no call is made; what is
      * stored is read all the same.

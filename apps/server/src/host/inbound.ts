@@ -44,7 +44,7 @@ const his = (
   schemaVersion: 1,
   target: `${prefix}:${id}`,
   via: "todo_list",
-  why: kind === "import" ? "linked, no change" : "his change on his list",
+  why: kind === "import" ? "linked, no change" : "changed on the to-do list",
 });
 
 /** A linked item's id in its backend. */

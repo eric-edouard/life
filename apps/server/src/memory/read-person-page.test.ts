@@ -40,6 +40,7 @@ test("`now` with 200 open items still fits the part, and says how many more ther
       openWithOf("person:ana", {
         goals: [],
         items,
+        owner: "Test",
         room,
         today: "2026-11-14",
       }),
@@ -89,7 +90,7 @@ test("the last exchange: when, who opened it, how many each sent", () => {
       ],
     })
   ).toEqual([
-    "Last exchange: 2025-06-02, opened by them; he sent 4, they sent 2.",
+    "Last exchange: 2025-06-02, opened by them; Test sent 4, they sent 2.",
   ]);
   expect(lastExchangeLine({ rows: [] })).toEqual([]);
   expect(lastExchangeLine(null)).toEqual([]);

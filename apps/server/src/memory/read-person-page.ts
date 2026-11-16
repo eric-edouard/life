@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { clock } from "../core/clock";
 import { newestDays, within } from "../core/lists";
+import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
 import { speakers, withStore } from "../sources/lifelog";
@@ -235,8 +236,8 @@ export function personFor(
 }
 
 /** The owner's `now` while his directory is new: a statement of fact, offering the setup interview. */
-const NEW_DIRECTORY =
-  "His directory is new: it holds only him, with no goals and no other people yet. What he says about his goals and how he plans to reach them, the main people in his life, his projects and areas of focus, and what Life may keep goes in through `change_directory_entry`, his words as `said`.";
+const newDirectory = (owner: string) =>
+  `${owner}'s directory is new: it holds only ${owner}, with no goals and no other people yet. What ${owner} says about goals and how to reach them, the main people in ${owner}'s life, projects and areas of focus, and what Life may keep goes in through \`change_directory_entry\`, ${owner}'s words as \`said\`.`;
 
 /**
  * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates
@@ -334,7 +335,7 @@ export async function person(
             after: situationBlock("Situation", readSituationNow(ref, live)),
             before: [
               ...(ref === OWNER && isDirectoryNew(truth)
-                ? [NEW_DIRECTORY]
+                ? [newDirectory(readOwnerName())]
                 : []),
               ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
               ...detailsBlock(readDetailsOf(folks)(ref), dayNow()),
@@ -346,6 +347,7 @@ export async function person(
               openWithOf(ref, {
                 goals: goalProjects(truth.me.goals),
                 items,
+                owner: readOwnerName(),
                 room,
                 today: dayNow(),
               }),
@@ -535,7 +537,10 @@ export function partLines(o: PartInputs) {
         ...o.candidates,
         ...o.fixed,
         ...ending([
-          read({ part: "page" }, "who they are to him, as Life's page says"),
+          read(
+            { part: "page" },
+            `who they are to ${readOwnerName()}, as Life's page says`
+          ),
           ...o.offers.map((r) => read({ part: r.part }, r.about)),
           evidenceRead(o),
         ]),
@@ -555,9 +560,10 @@ export function lastExchangeLine(counted: { rows: ExchangeCounts[] } | null) {
   const last = counted?.rows.toSorted((a, b) =>
     b.start.localeCompare(a.start)
   )[0];
+  const owner = readOwnerName();
   return last
     ? [
-        `Last exchange: ${localDate(last.start)}, opened by ${last.heOpened ? "him" : "them"}; he sent ${last.sent}, they sent ${last.got}.`,
+        `Last exchange: ${localDate(last.start)}, opened by ${last.heOpened ? owner : "them"}; ${owner} sent ${last.sent}, they sent ${last.got}.`,
       ]
     : [];
 }

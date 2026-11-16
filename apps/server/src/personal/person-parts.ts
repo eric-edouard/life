@@ -18,6 +18,7 @@ import {
   readOf,
 } from "../memory/read-person-page";
 import { dayNow, localDate, monthsOf } from "../memory/zones";
+import { readOwnerName } from "../models/prompt-parts";
 import type { History } from "../records/history";
 import { readHistory } from "./histories";
 import { personaBlock, readPersona } from "./personas";
@@ -26,8 +27,8 @@ import { personaBlock, readPersona } from "./personas";
 // one `readPerson` the connector and the command call: memory's `person` handed the parts whose add-on is on.
 
 /** The first line of a month's or year's heading, as `year` and `month` parts show it. */
-const HISTORY_ABOUT =
-  "Past months between them and him (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls)";
+const historyAbout = () =>
+  `Past months between them and ${readOwnerName()} (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls)`;
 
 /** The years a person has anything in (a month read, a day of evidence, a unit held), newest first, each with its next read. */
 function yearReads(o: PartInputs, months: Dated[]) {
@@ -53,7 +54,7 @@ export function storyLines(
   const months = historyOf(history);
   const { story } = history;
   return [
-    ...(months.length > 0 ? [HISTORY_ABOUT] : []),
+    ...(months.length > 0 ? [historyAbout()] : []),
     ...(story
       ? [`Over the years (through ${story.through}): ${story.text}`, ""]
       : []),
@@ -90,7 +91,7 @@ export function yearLines(history: History, o: PartInputs) {
 }
 
 const quoteLine = (q: { at: string; text: string; writer: "owner" | "them" }) =>
-  `- "${q.text}" (${localDate(q.at)}, ${q.writer === "owner" ? "him" : "them"})`;
+  `- "${q.text}" (${localDate(q.at)}, ${q.writer === "owner" ? readOwnerName() : "them"})`;
 
 /** A month: the words found in it, and which days hold something. */
 export function monthLines(history: History, o: PartInputs) {
@@ -160,15 +161,16 @@ export function exchangeCountsBlock(
   }
   const answer = (minutes: number | null) =>
     minutes === null ? "none" : `${minutes} min`;
+  const owner = readOwnerName();
   const counts = (label: string, rows: ExchangeCounts[]) => {
     const c = pairCountsOf(rows);
-    return `- ${label}: messages on ${c.days} days; he sent ${c.sent} (${c.sentDeleted} deleted), they sent ${c.got} (${c.gotDeleted} deleted); exchanges opened: he ${c.heOpened}, they ${c.theyOpened}; median answer: he ${answer(c.heAnswersIn)}, they ${answer(c.theyAnswerIn)}`;
+    return `- ${label}: messages on ${c.days} days; ${owner} sent ${c.sent} (${c.sentDeleted} deleted), they sent ${c.got} (${c.gotDeleted} deleted); exchanges opened: ${owner} ${c.heOpened}, they ${c.theyOpened}; median answer: ${owner} ${answer(c.heAnswersIn)}, they ${answer(c.theyAnswerIn)}`;
   };
   const years = [
     ...Map.groupBy(counted.rows, (r) => localDate(r.start).slice(0, 4)),
   ].sort(([a], [b]) => b.localeCompare(a));
   return [
-    `Counted by code between them and him, through ${localDate(counted.built)} (their one-to-one chats and mail threads: ${counted.sources.join(", ")}; not groups nor recordings; a call counts as a message; an exchange lasts until ${EXCHANGE_ENDS_AFTER / HOUR} hours of quiet and is opened by whoever writes first):`,
+    `Counted by code between them and ${owner}, through ${localDate(counted.built)} (their one-to-one chats and mail threads: ${counted.sources.join(", ")}; not groups nor recordings; a call counts as a message; an exchange lasts until ${EXCHANGE_ENDS_AFTER / HOUR} hours of quiet and is opened by whoever writes first):`,
     counts("all years", counted.rows),
     ...years.map(([year, rows]) => counts(year, rows)),
     "",

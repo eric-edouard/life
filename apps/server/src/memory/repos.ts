@@ -8,6 +8,7 @@ import { redact } from "../core/redact";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { InferredRepo } from "../records/observation";
+import { firstNameOf, ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
@@ -21,7 +22,7 @@ import {
   verdictOf,
 } from "./memory-files";
 import { meContext } from "./model-context";
-import { loadTruth, ownerIn } from "./read-truth";
+import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf } from "./tags";
@@ -181,7 +182,7 @@ const THEMES = 3;
 /** "photo-app 15 (Jérôme 12)": a repo-day's commits, with other authors' first names. */
 function repoText(u: Unit) {
   const by = Object.entries(u.stats.others ?? {})
-    .map(([name, n]) => `${name.split(" ")[0]} ${n}`)
+    .map(([name, n]) => `${firstNameOf(name)} ${n}`)
     .join(", ");
   return `${u.key} ${u.stats.items}${by ? ` (${by})` : ""}`;
 }
@@ -286,7 +287,7 @@ export async function reposOf(filter?: string) {
     ...Map.groupBy(wanted, ([, r]) => r.project ?? `~${r.area ?? ""}`),
   ].sort(([a], [b]) => a.localeCompare(b));
   return asData([
-    `Repos by project (truth = his directory; inferred = what Life inferred), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
+    `Repos by project (truth = the directory; inferred = what Life inferred), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
     ...(groups.length === 0 ? ["(no repo matches)"] : []),
     ...groups.map(([project, list]) => {
       const area = list[0]?.[1].area ?? "no area";

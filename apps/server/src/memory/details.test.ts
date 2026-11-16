@@ -56,10 +56,10 @@ test("details: his directory, then Contacts; one birthday (his directory's first
   });
   expect(detailsBlock(lines, "2026-03-10")).toEqual([
     "Details:",
-    "- Birthday: 12 Mar (in 2 days) (his directory)",
+    "- Birthday: 12 Mar (in 2 days) (the directory)",
     "- Lives in: 12 rue Neuve, 44000 Nantes (Home) (Contacts)",
     "- Work: Designer, Acme (Contacts)",
-    "- Handles: +33611111111 (his directory)",
+    "- Handles: +33611111111 (the directory)",
     "- Handles: Ana@Example.com, Facebook: ana.t (Contacts)",
     "",
   ]);
