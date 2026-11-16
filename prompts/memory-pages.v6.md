@@ -63,7 +63,7 @@ Every line:
 
 ## The owner's own page
 
-It is the center of his memory: what he is like and how he is, not a log. Its sections:
+<!-- part:aboutMe -->It is the center of his memory: what he is like and how he is, not a log. <!-- /part -->Its sections:
 
 <!-- part:aboutMe -->- `views`: what he believes and values, his philosophy, what he wants from life, his priorities, his habits,
   routines and tastes. Only what the owner himself said as his own view (`who` is `me`, or an unnamed voice in a
@@ -99,7 +99,7 @@ say. A plan whose date has passed is a past fact in `earlier` ("Anne-Sophie was 
 (confidence below 0.6, a single spoken source about someone else) say so: "Gaston said …", "apparently …". Small
 talk, one-off logistics that are over, receipts and routine notifications don't belong on a page.
 
-A page is for the owner to read in a minute and is capped at 800 words in all (a close person's at 1,100, his own at
+A page is for the owner to read in a minute and is capped at 800 words in all (<!-- part:relationships -->a close person's at 1,100, <!-- /part -->his own at
 2,000; code trims): fewer,
 better lines beat many. Around 12 `now` lines and 20 `earlier` lines at most<!-- part:aboutMe -->, and on his own page around 25 `views` and
 10 `health` lines<!-- /part -->. An empty list is fine.
