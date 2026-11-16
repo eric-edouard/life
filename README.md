@@ -104,7 +104,7 @@ Life reads what's already on your Mac, read-only, and only the sources you turn 
 | Phone & FaceTime | Your calls: who, when, how long | Nothing |
 | Mail | Every account in Apple Mail: mail from people, bookings, bank and deliveries; no newsletters | Apple Mail |
 | Apple Notes | Every version of every note, checklists included | Nothing |
-| Photos | Where and when you took each photo, and what Apple sees in it | Nothing. A description of each photo, written on your Mac by a local model, is a setting with no screen yet |
+| Photos | Where and when you took each photo, and what Apple sees in it | Nothing. A description of each photo, written on your Mac by a local model, is a setting |
 | Screen Time | Which apps and websites took your time, on the Mac and the iPhone | Screen Time on |
 | Contacts | Names for phone numbers and addresses | Nothing |
 | LINE, Instagram, Messenger, LinkedIn, Telegram | Every chat, deleted messages kept, and LINE, Instagram and Messenger calls | Life's own bridges, set up in Terminal, or Beeper Desktop. [Set up bridges](docs/use/bridges.md) |
@@ -179,7 +179,7 @@ open dist/Life.app
 6. Ask your assistant to read your page and set Life up with you: your goals, the people close to you, your
    projects, and what Life must not keep.
 
-What has no screen yet: [settings](docs/use/settings.md).
+The rest: [settings](docs/use/settings.md).
 
 ## Privacy
 
