@@ -12,14 +12,16 @@ import {
   openStore,
   parseTurnRef,
   readTranscript,
-  readVoiceKinds,
   turnPlace,
   turnRef,
   turnsBetween,
-  type VoiceKind,
-  voiceKey,
   withStore,
 } from "../sources/lifelog";
+import {
+  readVoiceKinds,
+  type VoiceKind,
+  voiceKey,
+} from "../sources/lifelog-voices";
 import { readInferredRepos, readJudgments, readUnit } from "./memory-files";
 import { type Candidate, owed } from "./open-items";
 import { readPassageCandidates, readPassages } from "./passages";
@@ -263,6 +265,7 @@ export function voiceLines(
         ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
         text: `${t.name || t.owner ? "" : heardAs(kind)}${redact(turn.text)}`,
+        voice: turn.speakerId ?? "speaker",
       },
     ];
   });

@@ -156,6 +156,12 @@ export const Settings = z
           .strict(),
       ])
       .optional(),
+    /**
+     * The voice naming (`memory/voice-naming.ts`): each night guesses who the voices nobody named are, for the parts of
+     * long conversations recorded in person, at most 40 calls. A guess is only stored, shown nowhere, and acts on nothing.
+     * Needs a Lifelog Host with `GET /speakers/voices`. Absent means off: no call is made; what is stored is read all the same.
+     */
+    voiceNaming: z.literal(true).optional(),
   })
   .strict();
 export type Settings = z.infer<typeof Settings>;

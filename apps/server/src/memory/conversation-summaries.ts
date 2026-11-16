@@ -44,7 +44,7 @@ export const maxWordsOf = (chars: number) =>
 type SummaryLine = Extract<ReadReply, { read: typeof SUMMARY_READ }>;
 const { prompt: PROMPT } = READS.conversation_summary;
 /** The part of a turn's key that is its ref (a ref holds no space). */
-const refOf = (key: string) => key.split(" ")[0] ?? "";
+export const refOf = (key: string) => key.split(" ")[0] ?? "";
 
 const Subject = z.object({ label: z.string().min(1), line: z.int().min(0) });
 const Quote = z.object({ line: z.int().min(0), quote: z.string().min(1) });

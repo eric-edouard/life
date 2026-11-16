@@ -604,59 +604,6 @@ export async function readTranscript(jobId: string) {
   ).turns;
 }
 
-export const ConversationAnswer = z.object({
-  latestRun: z
-    .object({
-      result: z
-        .object({
-          speakerIdentities: z
-            .array(
-              z.object({
-                jobId: z.string(),
-                kind: z.enum(["live", "phone", "media", "announcement"]),
-                speakerLabel: z.string(),
-                withOwner: z.boolean(),
-              })
-            )
-            .optional(),
-        })
-        .nullable(),
-    })
-    .nullable(),
-});
-export interface VoiceKind {
-  kind: string;
-  withOwner: boolean;
-}
-
-/**
- * What lifelog's latest summary of a conversation heard of each voice it could not name, by `voiceKey`: how it was heard
- * (live in the room, over a phone, from a screen, an announcement) and whether it talked with him. None for a conversation
- * lifelog no longer has. Read-only.
- */
-export async function readVoiceKinds(conversationId: string) {
-  const answer = await call(
-    `/conversations/${encodeURIComponent(conversationId)}`
-  ).catch((e: { status?: number }) => {
-    if (e.status === 404) {
-      return { latestRun: null };
-    }
-    throw e;
-  });
-  return new Map<string, VoiceKind>(
-    (
-      ConversationAnswer.parse(answer).latestRun?.result?.speakerIdentities ??
-      []
-    ).map((s) => [
-      voiceKey(s.jobId, s.speakerLabel),
-      { kind: s.kind, withOwner: s.withOwner },
-    ])
-  );
-}
-/** A recording's voice: its job and the transcript's speaker label. */
-export const voiceKey = (jobId: string, label: string | null) =>
-  `${jobId} ${label}`;
-
 /**
  * Where one turn is now: its conversation (lifelog may have moved it since it was cited) and how many turns come
  * before it there, for `fetch --from-turn`; null once lifelog dropped it.
@@ -678,17 +625,6 @@ export function speakers(store: Store) {
       "select distinct person_id as id, person_name as name from turns where person_id is not null and person_name is not null"
     )
     .all();
-}
-
-/** Every turn someone other than the owner spoke in a live conversation since `since`, by lifelog's own speaker (never a model's): who and when. */
-export function speakerTurns(store: Store, since: Date) {
-  return store.db
-    .query<{ at: string; id: string; name: string | null }, [string]>(
-      `select t.person_id as id, t.person_name as name, t.start_at as at from turns t
-        join conversations c on c.id = t.conversation_id
-        where ${LIVE} and t.person_id is not null and t.is_owner = 0 and t.start_at >= ?`
-    )
-    .all(since.toISOString());
 }
 
 export const Hits = z.object({

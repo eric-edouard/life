@@ -10,14 +10,19 @@ export type MoveRead = (typeof MOVE_READS)[number];
 
 /** The read that summarises a conversation recorded in person (`memory/conversation-summaries.ts`). */
 export const SUMMARY_READ = "conversation_summary" as const;
+/** The read that names the voices of a conversation part recorded in person (`memory/voice-naming.ts`). */
+export const VOICE_NAMING_READ = "voice_naming" as const;
 /** Every read whose replies are stored. */
-export type ReadName = MoveRead | typeof SUMMARY_READ;
+export type ReadName =
+  | MoveRead
+  | typeof SUMMARY_READ
+  | typeof VOICE_NAMING_READ;
 
 /**
- * One call's reply, a line of the file: the reply as the model gave it (a moves read only needs its `exchanges` list,
- * the summary its `summary`, the rest is checked when read), the key of every message the call showed in order
- * (`messages`: `eventKey`, or `turnKey` for speech), where each item starts in them (`starts`: each exchange, or `[0]`
- * for a summary), the prompt's name in `madeBy.prompt` and the digest of its text (`promptDigest`). The person and the
+ * One call's reply, a line of the file: the reply as given, except a voice naming's, stored after `checkedVoices` (a moves read only needs its `exchanges` list,
+ * the summary its `summary`, the voice naming its `voices`, the rest is checked when read), the key of every message the call showed in order
+ * (`messages`: `eventKey`, or `turnKey` for speech, `unnamedTurnKey` for a voice no one named), where each item starts in them (`starts`: each exchange, or `[0]`
+ * for a summary or a voice naming), the prompt's name in `madeBy.prompt` and the digest of its text (`promptDigest`). The person and the
  * moves are never stored.
  */
 const stored = {
@@ -42,8 +47,16 @@ export const SummaryReply = z
     reply: z.looseObject({ summary: z.string() }),
   })
   .strict();
+export const VoiceNamingReply = z
+  .object({
+    ...stored,
+    read: z.literal(VOICE_NAMING_READ),
+    reply: z.looseObject({ voices: z.array(z.unknown()) }),
+  })
+  .strict();
 export const ReadReply = z.discriminatedUnion("read", [
   MoveReply,
   SummaryReply,
+  VoiceNamingReply,
 ]);
 export type ReadReply = z.infer<typeof ReadReply>;

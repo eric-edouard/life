@@ -17,6 +17,7 @@ import {
 } from "../memory/closeness";
 import { writeContactPeople } from "../memory/contact-people";
 import {
+  type ConversationSummaryWork,
   conversationSummaries,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
@@ -69,6 +70,7 @@ import {
 import { situations } from "../memory/situations";
 import { keptStores } from "../memory/sources";
 import { type Built, gather } from "../memory/units";
+import { readVoiceNamingWork, voiceNaming } from "../memory/voice-naming";
 import { observationsNow, readPeople } from "../memory/who";
 import {
   dayNow,
@@ -83,6 +85,7 @@ import {
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import { TOP_AT } from "../records/unit";
 import { checks } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
@@ -295,11 +298,37 @@ async function readYears(now: Date) {
   return { everyYear, lastYears: lastYearsOf(everyYear), pending, reads };
 }
 
-/** The night's conversation summaries: what is due (`readConversationSummaryWork`), written. */
-async function summariseConversations(now: Date) {
-  return conversationSummaries(
-    await readConversationSummaryWork(now, await readPeople())
-  );
+/**
+ * The night's reads of the long conversations recorded in person, each off until its setting: the summaries not written
+ * yet (`conversationSummaries`), then the voices no one named (`voiceNaming`), guessed for the parts the summaries
+ * examine. A failure (a Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
+ */
+export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
+  const { conversationSummaries: summarise, voiceNaming: name } = settings();
+  if (!(summarise || name)) {
+    return;
+  }
+  const people = await readPeople();
+  let found: ConversationSummaryWork | undefined;
+  try {
+    found = await readConversationSummaryWork(now, people);
+    if (summarise) {
+      await conversationSummaries(found);
+    }
+  } catch (e) {
+    log("run.error", {
+      error: (e as Error).message,
+      step: summarise ? "memory.conversation-summaries" : "memory.voice-naming",
+    });
+  }
+  if (found && name) {
+    // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
+    await readVoiceNamingWork(found, people, undefined, undefined, chats)
+      .then((work) => voiceNaming(work))
+      .catch((e: Error) =>
+        log("run.error", { error: e.message, step: "memory.voice-naming" })
+      );
+  }
 }
 
 /** The night's links: what is due (`readLinkWork`), judged. */
@@ -566,17 +595,9 @@ export async function runNight(
         log("run.error", { error: e.message, step: "memory.exchange-reads" })
       );
     }
-    // The long conversations recorded in person with no summary yet, off until his `conversationSummaries` setting: a
-    // failure is logged and never stops the night.
-    if (settings().conversationSummaries) {
-      steps.at = "conversation summaries";
-      await summariseConversations(now).catch((e: Error) =>
-        log("run.error", {
-          error: e.message,
-          step: "memory.conversation-summaries",
-        })
-      );
-    }
+    // The long conversations recorded in person: their summaries and their voice namings, each off until its setting.
+    steps.at = "conversation summaries";
+    await readSpokenConversations(now, everyYear.events);
     steps.at = "index";
     await reindex();
     // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open

@@ -180,6 +180,13 @@ export const turnKey = (t: LifelogTurn) =>
   `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
 
 /**
+ * An unnamed turn's key for the voice naming read: its ref and its voice's label in its recording, so a guess is of that
+ * voice and goes the moment a name is given to it, lifelog matches it or it is relabelled (`memory/voice-naming.ts`).
+ */
+export const unnamedTurnKey = (ref: string, label: string) =>
+  `${ref} voice:${label}`;
+
+/**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
  * unresolved (`unknown:`, read by `refOf`), and him when he spoke. Life holds no words: its text is filled when it is

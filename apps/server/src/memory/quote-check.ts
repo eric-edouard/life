@@ -25,6 +25,8 @@ export interface SourceLine {
   /** A readable name for an unknown speaker: the title of a 1:1 chat (its other member). */
   speakerName?: string;
   text: string;
+  /** A recorded turn's voice: its label in its recording (`voiceKey`), kept so a read can tell the voices apart. */
+  voice?: string;
 }
 
 export interface Source {

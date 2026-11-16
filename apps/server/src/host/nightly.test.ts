@@ -9,6 +9,7 @@ import {
 import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
+import { setSettings, settings } from "../core/settings";
 import { latestExtractions, OUT } from "../memory/memory-files";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
@@ -17,6 +18,7 @@ import {
   markedSince,
   nightly,
   readChecksFor,
+  readSpokenConversations,
   runNight,
   runProcessing,
 } from "./nightly";
@@ -232,5 +234,47 @@ test("checks that cannot be read are logged and the report has none: the night i
     expect(errors).toEqual([["boom", { step: "memory.nightly.checks" }]]);
   } finally {
     broke.mockRestore();
+  }
+});
+
+test("a voice naming that cannot read lifelog's voices is logged once under its step and the night goes on", async () => {
+  const [summaries, naming, who, logs] = await Promise.all([
+    import("../memory/conversation-summaries"),
+    import("../memory/voice-naming"),
+    import("../memory/who"),
+    import("../core/log"),
+  ]);
+  const spies = [
+    spyOn(who, "readPeople").mockResolvedValue({} as never),
+    spyOn(summaries, "readConversationSummaryWork").mockResolvedValue({
+      counts: { conversations: 0, parts: 0 },
+      parts: [],
+    } as never),
+    spyOn(naming, "readVoiceNamingWork").mockRejectedValue(
+      new Error("voice naming needs the new Lifelog Host")
+    ),
+  ];
+  const logged = spyOn(logs, "log").mockImplementation(
+    (() => undefined) as never
+  );
+  const before = settings().voiceNaming;
+  setSettings({ voiceNaming: true });
+  try {
+    await readSpokenConversations(new Date(), []);
+    expect(logged.mock.calls).toEqual([
+      [
+        "run.error",
+        {
+          error: "voice naming needs the new Lifelog Host",
+          step: "memory.voice-naming",
+        },
+      ],
+    ]);
+  } finally {
+    setSettings({ voiceNaming: before });
+    logged.mockRestore();
+    for (const spy of spies) {
+      spy.mockRestore();
+    }
   }
 });
