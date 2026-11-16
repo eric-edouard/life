@@ -151,7 +151,7 @@ final class LibraryListStore {
         let unsent = reach.isEmpty ? [] : await sync?.unsent(overlapping: reach) ?? []
         var rows = loaded.map { row($0, facts: facts[$0.id], unsent: unsent) }
         for range in ConversationState.notUploaded(unsent, between: loaded.map(\.range))
-        where range.lowerBound.date >= oldest && range.lowerBound.date < newest && range.millis >= 1_000 {
+        where !(range.lowerBound.date < oldest) && range.lowerBound.date < newest && range.millis >= 1_000 {
             rows.append(ConversationRow(local: range))
         }
         let quiet =
@@ -206,7 +206,7 @@ final class LibraryListStore {
         guard !jumped, let week = Calendar.current.dateInterval(of: .weekOfYear, for: .now),
             isComplete || (sections.last.map { $0.day < week.start } ?? false)
         else { return nil }
-        let rows = sections.filter { $0.day >= week.start }.flatMap(\.rows).filter { !$0.isLocal }
+        let rows = sections.filter { !($0.day < week.start) }.flatMap(\.rows).filter { !$0.isLocal }
         return Week(count: rows.count, duration: .seconds(rows.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }))
     }
 }
