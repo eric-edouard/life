@@ -71,12 +71,12 @@ const items = (kind: "observation" | "episode", days: number[], pad = 0) =>
   }));
 const base = {
   candidates: [],
-  counts: [],
+  exchange: null,
   fixed: [],
   heard: [],
   held: () => [],
   heldYears: [],
-  history: { months: [], schemaVersion: 1 as const, story: null },
+  offers: [],
   ref: "person:ana",
 };
 

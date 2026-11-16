@@ -2,28 +2,38 @@ import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { endingAtNewest } from "../core/lists";
+import {
+  directChats,
+  pagedNow,
+  type WithPeople,
+  YEARS,
+} from "../memory/closeness";
+import {
+  exchangeCountsOf,
+  type PairCounts,
+  pairCountsOf,
+} from "../memory/exchange-counts";
+import {
+  PERSONAS,
+  pagePath,
+  personaPath,
+  readUnits,
+} from "../memory/memory-files";
+import { meContext } from "../memory/model-context";
+import { foundQuotes } from "../memory/quote-check";
+import { OWNER } from "../memory/read-truth";
+import { begin, inBatches, inputsOf } from "../memory/run";
+import { isDirect, kindOf, safely, tables } from "../memory/sources";
+import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "../memory/units";
+import { type People, readPeople, unitNow } from "../memory/who";
+import { messageLine, spokenLines } from "../memory/words";
+import { localDate, time } from "../memory/zones";
 import { callCharsOf, stamp } from "../models/llm";
 import { type FoundQuote, QUOTE_CHARS } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { openStore } from "../sources/lifelog";
-import { directChats, pagedNow, type WithPeople, YEARS } from "./closeness";
-import {
-  exchangeCountsOf,
-  type PairCounts,
-  pairCountsOf,
-} from "./exchange-counts";
-import { PERSONAS, pagePath, personaPath, readUnits } from "./memory-files";
-import { meContext } from "./model-context";
-import { foundQuotes } from "./quote-check";
-import { OWNER } from "./read-truth";
-import { begin, inBatches, inputsOf } from "./run";
-import { isDirect, kindOf, safely, tables } from "./sources";
-import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "./units";
-import { type People, readPeople, unitNow } from "./who";
-import { messageLine, spokenLines } from "./words";
-import { localDate, time } from "./zones";
 
 // `bun life memory personas`: what each person with a page is like, wants and can give, what keeps happening between them
 // and the owner,
@@ -69,6 +79,14 @@ const quoted = (quotes: FoundQuote[]) =>
 /** A persona's readings of the person and what is between them, without the writing lines (those are for drafting). */
 export const readingsOf = (lines: PersonaLine[]) =>
   lines.flatMap((l) => (l.facet === "writes" ? [] : [l]));
+
+/** What the situation's call is shown of a person's persona: its readings, each with its backing. */
+export const personaReadingsOf = (ref: string, today: string) =>
+  readingsOf(readPersona(ref)?.lines ?? []).map((l) => ({
+    backing: backingOf(l.quotes, today),
+    facet: l.facet,
+    text: l.text,
+  }));
 
 /**
  * A persona as a reader shows it: its gist, then the readings under Persona, each with its backing; the writing lines

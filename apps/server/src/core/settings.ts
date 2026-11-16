@@ -140,14 +140,14 @@ export const Settings = z
         /** The Views and Health sections of pages (`memory/page-format.ts`). */
         aboutMe: z.object({}).strict().optional(),
         /**
-         * The histories (`memory/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
+         * The histories (`personal/histories.ts`): each night reads the closed months from `from` (YYYY-MM) on that it has
          * not read, for whoever has a page.
          */
         histories: z
           .object({ from: z.string().regex(/^\d{4}-\d{2}$/) })
           .strict()
           .optional(),
-        /** What each person is like and what repeats between them and him (`memory/personas.ts`). */
+        /** What each person is like and what repeats between them and him (`personal/personas.ts`). */
         personas: z.object({}).strict().optional(),
         /**
          * The connection and conflict reads (`memory/exchange-reads.ts`): each night asks them of the finished exchanges

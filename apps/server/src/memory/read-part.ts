@@ -6,7 +6,8 @@ import { isDay } from "./zones";
 // --part`), each ending with the exact refs of its deeper reads (`nextReads`). A ref is worked out, never stored.
 
 /**
- * The parts that exist: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
+ * The grammar of a part's ref: every part a ref can name. Which ones a read offers is its own (`person`: the parts an
+ * add-on supplies only while it is on). The parts: `now` (who and where things stand), `page`, `persona`, `story` (the years), `year` (its months'
  * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back) and
  * `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
  */
@@ -48,13 +49,16 @@ function spanErrorOf(part: string, span?: string) {
 }
 
 /** Why these are not a read part (a part that does not exist, a span or `before` that part cannot take), else null. */
-export function partErrorOf(o: {
-  before?: string;
-  part: string;
-  span?: string;
-}) {
-  if (!READ_PARTS.includes(o.part as ReadPart)) {
-    return `no part "${o.part}" (parts: ${READ_PARTS.join(", ")})`;
+export function partErrorOf(
+  o: {
+    before?: string;
+    part: string;
+    span?: string;
+  },
+  offered: readonly string[] = READ_PARTS
+) {
+  if (!offered.includes(o.part)) {
+    return `no part "${o.part}" (parts: ${offered.join(", ")})`;
   }
   const bad = spanErrorOf(o.part, o.span);
   if (bad) {
