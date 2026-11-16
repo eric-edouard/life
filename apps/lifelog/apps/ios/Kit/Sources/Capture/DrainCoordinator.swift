@@ -570,7 +570,7 @@ public actor DrainCoordinator {
         if flash.hasLiveSessionMarker(now: at) { await catchUp(generation) }
         guard let mode = flash.recordingMode else { return }
         let inDrain: Void? = updateDrain(generation, nil) { drain in
-            if drain.flashMode.map({ mode.at >= $0.at }) ?? true { drain.flashMode = mode }
+            if drain.flashMode.map({ !(mode.at < $0.at) }) ?? true { drain.flashMode = mode }
         }
         if inDrain == nil, abs(at.timeIntervalSince(mode.at)) <= SoundEvidence.liveWindow {
             await applyRecording(.flash(mode), generation)
