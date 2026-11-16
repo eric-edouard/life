@@ -49,6 +49,10 @@
         "patterns": ["apps/server/src/memory/**"]
       },
       {
+        "name": "personal",
+        "patterns": ["apps/server/src/personal/**"]
+      },
+      {
         "name": "host",
         "patterns": ["apps/server/src/host/**"]
       }
@@ -90,6 +94,18 @@
         ]
       },
       {
+        "from": "personal",
+        "allow": [
+          "core",
+          "models",
+          "sources",
+          "todo-list",
+          "payments",
+          "memory",
+          "records"
+        ]
+      },
+      {
         "from": "host",
         "allow": [
           "core",
@@ -98,6 +114,7 @@
           "todo-list",
           "payments",
           "memory",
+          "personal",
           "records"
         ]
       }

@@ -3,6 +3,11 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { newestWithin } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { setSettings, settings } from "../core/settings";
+import { historyPath } from "../memory/memory-files";
+import { inputsOf } from "../memory/run";
+import { readPeople } from "../memory/who";
+import { localDate } from "../memory/zones";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import {
@@ -15,11 +20,7 @@ import {
   storyInputOf,
   withMonth,
 } from "./histories";
-import { historyPath } from "./memory-files";
-import { historyOf, person } from "./read-person-page";
-import { inputsOf } from "./run";
-import { readPeople } from "./who";
-import { localDate } from "./zones";
+import { historyOf, readPerson } from "./person-parts";
 
 const msg = (
   at: string,
@@ -328,9 +329,16 @@ test("a history in a shape the code does not know is an error naming the file an
   expect(write).toThrow();
   expect(readFileSync(path, "utf8")).toBe(stored);
   // What an assistant reads says so in one line, with no absolute path, rather than throwing or reading as empty.
-  const said = JSON.stringify(
-    await person("test-unknown-shape", { part: "story" })
-  );
+  const was = settings().personal;
+  setSettings({ personal: { histories: { from: "2026-01" } } });
+  let said = "";
+  try {
+    said = JSON.stringify(
+      await readPerson("test-unknown-shape", { part: "story" })
+    );
+  } finally {
+    setSettings({ personal: was ?? null });
+  }
   expect(said).toContain("memory/histories/test-unknown-shape.json");
   expect(said).toContain("2026-09");
   expect(said).not.toContain(OWNER_DATA_DIR);

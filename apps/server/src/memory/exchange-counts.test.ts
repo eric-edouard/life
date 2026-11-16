@@ -9,7 +9,6 @@ import {
   writeExchangeCounts,
 } from "./exchange-counts";
 import { EXCHANGE_COUNTS } from "./memory-files";
-import { exchangeCountsBlock } from "./read-person-page";
 
 const msg = (
   day: string,
@@ -120,31 +119,4 @@ test("the file is rewritten whole; a failed source or an unreadable message leav
   } finally {
     rmSync(EXCHANGE_COUNTS, { force: true });
   }
-});
-
-test("the person read shows all years then each year, newest first; nothing when none was counted", () => {
-  const rows = exchangeCountsOf([
-    msg("2025-03-01", 0, true),
-    msg("2025-03-01", 30, false),
-    ...october,
-  ]);
-  const counted = {
-    built: "2026-11-11T22:30:00.000Z",
-    rows,
-    sources: ["whatsapp", "mail"],
-  };
-  const block = exchangeCountsBlock(counted);
-  expect(block[0]).toStartWith(
-    "Counted by code between them and him, through 2026-11-1"
-  );
-  expect(block[0]).toContain("whatsapp, mail");
-  expect(block[0]).toContain("until 6 hours of quiet");
-  expect(block.slice(1)).toEqual([
-    "- all years: messages on 3 days; he sent 4 (0 deleted), they sent 3 (1 deleted); exchanges opened: he 3, they 1; median answer: he 10 min, they 30 min",
-    "- 2026: messages on 2 days; he sent 3 (0 deleted), they sent 2 (1 deleted); exchanges opened: he 2, they 1; median answer: he 10 min, they 2 min",
-    "- 2025: messages on 1 days; he sent 1 (0 deleted), they sent 1 (0 deleted); exchanges opened: he 1, they 0; median answer: he none, they 30 min",
-    "",
-  ]);
-  expect(exchangeCountsBlock({ ...counted, rows: [] })).toEqual([]);
-  expect(exchangeCountsBlock(null)).toEqual([]);
 });

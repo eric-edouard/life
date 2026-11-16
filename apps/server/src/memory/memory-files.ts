@@ -66,7 +66,7 @@ export const pagePath = (ref: string) =>
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
-/** What each person with a page is like, wants and can give, and how they and he write (`memory/personas.ts`), one file per person. */
+/** What each person with a page is like, wants and can give, and how they and he write (`personal/personas.ts`), one file per person. */
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>
   join(PERSONAS, `${ref.slice("person:".length)}.json`);
@@ -74,7 +74,7 @@ export const personaPath = (ref: string) =>
 export const LINKS = join(MEMORY, "links.jsonl");
 /** The matters (`memory/matters.ts`): one line per call, append-only, the latest line naming a matter wins. */
 export const MATTERS = join(MEMORY, "matters.jsonl");
-/** Each person's past months with him, summarised once, and their story (`memory/histories.ts`), one file per person. */
+/** Each person's past months with him, summarised once, and their story (`personal/histories.ts`), one file per person. */
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
   join(HISTORIES, `${ref.slice("person:".length)}.json`);

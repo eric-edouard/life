@@ -22,7 +22,6 @@ import { placesOf } from "../../memory/places";
 import { area } from "../../memory/read-area-page";
 import { day } from "../../memory/read-day";
 import { oneMatter, openMatters } from "../../memory/read-matters";
-import { person } from "../../memory/read-person-page";
 import { runs } from "../../memory/run-log";
 import { search } from "../../memory/search";
 import { enabledSources } from "../../memory/sources";
@@ -30,6 +29,7 @@ import { recordToldLife } from "../../memory/told-life";
 import { clip } from "../../memory/units";
 import { chatsOf } from "../../memory/words";
 import { payments } from "../../payments/backend";
+import { readPerson } from "../../personal/person-parts";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
@@ -337,7 +337,7 @@ export function buildServer(readsOnly = false) {
         ),
       limit: z.int().min(1).max(500).optional(),
     }),
-    ({ id, fromTurn, limit }) => openById(id, fromTurn, limit)
+    ({ id, fromTurn, limit }) => openById(id, fromTurn, limit, readPerson)
   );
   tool(
     server,
@@ -356,7 +356,7 @@ export function buildServer(readsOnly = false) {
       ),
       name: z.string().optional().describe("Name, alias or id"),
     }),
-    ({ name, before }) => person(name, { before })
+    ({ name, before }) => readPerson(name, { before })
   );
   tool(
     server,
