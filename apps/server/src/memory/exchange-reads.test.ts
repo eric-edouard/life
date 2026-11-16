@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
+import { stamp } from "../models/llm";
 import { MOVE_READS } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import { callOf, readExchangeReadWork, readsOn } from "./exchange-reads";
@@ -67,6 +68,8 @@ const stepOf = (reply: unknown) => ({
   attempt: (work: () => Promise<unknown>) => work().catch(() => undefined),
   dir: join(dir, "run"),
   llm: { engine: "codex", model: "test" },
+  madeBy: (prompt: string) =>
+    stamp({ engine: "codex", model: "test" }, prompt, "r1"),
   run: "r1",
 });
 const workOf = (events: SourceEvent[], now = LATER) =>
