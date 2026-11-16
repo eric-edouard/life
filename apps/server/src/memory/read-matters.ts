@@ -28,7 +28,7 @@ const stepLine = (s: MatterStepNow) =>
   `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${oneLine(s.quote)}"`;
 
 /**
- * The running matters (open, not dormant), the newest step first, of one `person`, `project` or `area` when given: each with its matter
+ * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each with its matter
  * status, who it is owed to, who is waited on and what is next.
  */
 export async function openMatters(q: {
