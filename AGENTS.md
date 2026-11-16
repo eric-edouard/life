@@ -306,3 +306,7 @@ ruling of 29 Oct).
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.
+- **Prove a change cheaply.** A change to the system (code, a prompt, a step) that would re-process data is proved
+  first on the smallest sample that can show it works or fails (a few days, weeks or cases, on a copy), never the whole
+  archive. Aim for the strongest signal at the lowest cost: speed and money come first; stop a trial once its numbers
+  answer the question (his word of 16 Nov 2026).
