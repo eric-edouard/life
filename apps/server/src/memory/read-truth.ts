@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
@@ -73,10 +74,12 @@ export const TRUTH = join(OWNER_DATA_DIR, "truth");
 export const loadMe = async (data = OWNER_DATA_DIR) =>
   readMe(await Bun.file(join(data, "truth", "me.md")).text());
 
-/** What truth/me.md says Life may keep: none when the section or the file is absent. */
-export async function loadMayKeep(data = OWNER_DATA_DIR) {
-  const file = Bun.file(join(data, "truth", "me.md"));
-  return (await file.exists()) ? readMe(await file.text()).mayKeep : undefined;
+/** What truth/me.md says Life may keep, read now: none when the section or the file is absent. */
+export function readMayKeep(data = OWNER_DATA_DIR) {
+  const file = join(data, "truth", "me.md");
+  return existsSync(file)
+    ? readMe(readFileSync(file, "utf8")).mayKeep
+    : undefined;
 }
 
 export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {

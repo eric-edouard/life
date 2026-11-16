@@ -24,7 +24,7 @@ import {
   situationPath,
 } from "./memory-files";
 import { refContext } from "./model-context";
-import { OWNER } from "./read-truth";
+import { OWNER, readMayKeep } from "./read-truth";
 import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
 
@@ -49,9 +49,12 @@ const readSituation = (ref: string) => {
  * it was made by the prompt variant the add-ons choose now, so switching one hides what it wrote at once (the next night
  * rebuilds it, `situationInputOf`).
  */
+const situationNameNow = (mayKeep = readMayKeep()) =>
+  promptNameOf(SITUATION_PROMPT, mayKeep !== undefined);
+
 export const readSituationNow = (ref: string, live: ReadonlySet<string>) => {
   const situation = readSituation(ref);
-  return situation?.madeBy.prompt === promptNameOf(SITUATION_PROMPT)
+  return situation?.madeBy.prompt === situationNameNow()
     ? situation.lines.filter((l) => l.cites.every((id) => live.has(id)))
     : [];
 };
@@ -163,6 +166,7 @@ export async function situations(
   personaOf: (ref: string, today: string) => PersonaReading[]
 ) {
   const step = await begin("situation", "main", { prompt: SITUATION_PROMPT });
+  const mayKeep = readMayKeep();
   const { levels, people, targets } = await situationTargets(step.today);
   const refs = refContext(
     people,
@@ -183,7 +187,11 @@ export async function situations(
           text,
           persona
         );
-        const inputs = inputsOf(promptNameOf(SITUATION_PROMPT), digested);
+        // His words on what Life may keep are an input: adding or changing them rebuilds the situation.
+        const inputs = inputsOf(situationNameNow(mayKeep), {
+          ...digested,
+          ...(mayKeep === undefined ? {} : { mayKeep }),
+        });
         if (readSituation(t.ref)?.inputs === inputs) {
           return;
         }

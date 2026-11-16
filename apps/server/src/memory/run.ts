@@ -17,7 +17,7 @@ import {
 import type { Tier } from "../models/model-call";
 import { hasMayKeep } from "../models/prompt-parts";
 import { OUT, runId } from "./memory-files";
-import { loadMayKeep } from "./read-truth";
+import { readMayKeep } from "./read-truth";
 import { localDate } from "./zones";
 
 // What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls.
@@ -147,7 +147,7 @@ export async function begin(
   await mkdir(dir, { recursive: true });
   const stats = { calls: 0, failed: 0 };
   // What the owner says Life may keep (truth/me.md): every call of a prompt that has the sentence gets it in its context.
-  const mayKeep = await loadMayKeep();
+  const mayKeep = readMayKeep();
   const keeps = (prompt: string) => mayKeep !== undefined && hasMayKeep(prompt);
   return {
     async ask(opts: Omit<Parameters<typeof askOnce>[0], "llm" | "run">) {
