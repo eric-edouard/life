@@ -4,7 +4,12 @@ import { appendJsonl } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
 import { endingsNow, readBatches } from "./endings";
-import { ACTIONABLE, type MatterStepNow, matterBookOf } from "./matter-read";
+import {
+  ACTIONABLE,
+  isEnded,
+  type MatterStepNow,
+  matterBookOf,
+} from "./matter-read";
 import {
   mattersNow,
   readMatterBook,
@@ -156,7 +161,7 @@ export function splitSteps(
   byId: ReadonlyMap<string, { modality?: string | null }>
 ) {
   const isOpen = (s: MatterStepNow) =>
-    byId.has(s.ref) && ACTIONABLE.includes(s.kind) && !s.ended;
+    byId.has(s.ref) && ACTIONABLE.includes(s.kind) && !isEnded(s);
   return {
     later: steps.filter((s) => {
       const o = byId.get(s.ref);
@@ -171,8 +176,8 @@ export function splitSteps(
 }
 
 /**
- * The open matters (`readMatterBook`: only his word close one; a "maybe done" matter is still judged), each with its open steps
- * (promises, waits and to-dos of his: the observations no link ended) and its later steps (`splitSteps`), as a call
+ * The open matters (`readMatterBook`), each with its open steps
+ * (promises, waits and to-dos of his with no ending: a step a link already ended is not judged again) and its later steps (`splitSteps`), as a call
  * is shown them. A matter of one has no later step and no work.
  */
 async function readOpenMatters(people: People) {
@@ -297,7 +302,7 @@ export async function readEndings(people: People, id: string) {
   const records = await readMatterRecords(people);
   const { endings } = endingsNow((ref) => records.current.has(ref));
   const matter = matterBookOf(
-    mattersNow(readMatters()).matters,
+    mattersNow(readMatters()),
     records,
     dayNow()
   ).find((m) => m.id === id);

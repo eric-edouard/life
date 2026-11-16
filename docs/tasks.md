@@ -98,7 +98,7 @@ each minute as state only: one `via: "todo_list"` line each, with no `instructio
 
 ### Open things
 
-What is open is a matter (`matterOf`, `apps/server/src/memory/matter-read.ts`): open until its newest to-do, promise or wait has an ending (a to-do item ticked or removed, or an observation retired: replaced by a newer one or said outdated; links stay in shadow until the open rule reads them). It is worked out when read from the matters step's lines (`matters.jsonl`), the observations, the ledger's to-do items (`todoItemsOf`: what `changeTodoItem` wrote and
+What is open is a matter (`matterOf`, `apps/server/src/memory/matter-read.ts`): open while any of its to-dos, promises, waits or to-do items has no ending (a to-do item ticked or removed, an observation retired: replaced by a newer one or said outdated, or, with his `endings` setting, a link: probably ended until his word); a matter with none of them, a trip or an event, is open until 7 days past its last step and date. It is worked out when read from the matters step's lines (`matters.jsonl`), the observations, the ledger's to-do items (`todoItemsOf`: what `changeTodoItem` wrote and
 what sync read back) and the chats; an open observation or to-do item no matter holds is a matter of one, and a to-do item made from an observation joins it. `openItems` (`apps/server/src/memory/open-items.ts`) times them and code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to an agent's review at most twice (counted from the ids its `read_day` calls were logged
 with). `read_day`'s Due and `changeTodoItem`'s duplicate check read the ledger, never Reminders; a to-do item made by hand counts once sync read

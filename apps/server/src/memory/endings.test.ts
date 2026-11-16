@@ -4,7 +4,7 @@ import { appendJsonl } from "../core/files";
 import { FactCheck } from "../records/fact-check";
 import { LinkBatch } from "../records/link";
 import { checksNow } from "./checks";
-import { endingMarks, endingsNow, endingsRead } from "./endings";
+import { endingsNow, endingsRead } from "./endings";
 import { recordFactCheckAnswer } from "./fact-checks";
 import {
   answeredFactChecks,
@@ -57,9 +57,8 @@ async function ended(n: number) {
     endings: true,
   } as never);
   const records = spyOn(matters, "readMatterRecords").mockResolvedValue({
-    endings: new Set(),
     episodes: [],
-    maybe: new Map(
+    linkEndings: new Map(
       Array.from({ length: n }, (_, i) => [
         promise(i + 1),
         {
@@ -81,6 +80,7 @@ async function ended(n: number) {
       text: `Call the shop ${i + 1}`,
       unit: "unit_000000000001",
     })),
+    retired: new Set(),
     todoItems: [],
   } as never);
   return () => {
@@ -147,21 +147,21 @@ test("with endings off readers ignore links", async () => {
   const settings = await import("../core/settings");
   const off = spyOn(settings, "settings").mockReturnValue({} as never);
   try {
-    expect(endingsRead(everything).maybe.size).toBe(0);
+    expect(endingsRead(everything).linkEndings.size).toBe(0);
   } finally {
     off.mockRestore();
   }
   reset();
 });
 
-test("wrong removes those two ids' link for good and shows no further maybe on the step; right retires it", async () => {
+test("wrong removes those two ids' link for good and ends the step no more; right retires it", async () => {
   reset();
   linked(2);
   const undo = await ended(2);
   await recordFactCheckAnswer(promise(1), "false");
   await recordFactCheckAnswer(promise(2), "true");
   undo();
-  // A later batch ties the same ids again: still refused, and the step shows no maybe.
+  // A later batch ties the same ids again: still refused, and ends the step no more.
   linked(1);
   const { endings, refused } = endingsNow(everything);
   expect(endings.has(promise(1))).toBe(false);
@@ -171,7 +171,9 @@ test("wrong removes those two ids' link for good and shows no further maybe on t
     endings: true,
   } as never);
   try {
-    expect([...endingsRead(everything).maybe.keys()]).toEqual([promise(2)]);
+    expect([...endingsRead(everything).linkEndings.keys()]).toEqual([
+      promise(2),
+    ]);
   } finally {
     on.mockRestore();
   }
@@ -182,22 +184,5 @@ test("wrong removes those two ids' link for good and shows no further maybe on t
       "observations" in c ? c.observations : [],
     ])
   ).toEqual([["outdated", [promise(2)]]]);
-  reset();
-});
-
-test("the marks: a wrong ending is a live matter closed; his answers to ending checks are not the open side", async () => {
-  reset();
-  linked(2);
-  const undo = await ended(2);
-  await recordFactCheckAnswer(promise(1), "false");
-  await recordFactCheckAnswer(promise(2), "true");
-  undo();
-  expect(endingMarks()).toMatchObject({
-    closed: 2,
-    liveClosed: 1,
-    open: 0,
-    pass: false,
-    staleOpen: 0,
-  });
   reset();
 });

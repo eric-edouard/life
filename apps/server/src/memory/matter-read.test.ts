@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
-import { type MatterRecords, matterBookOf } from "./matter-read";
+import { isEnded, type MatterRecords, matterBookOf } from "./matter-read";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
 import { matterItems, openWithOf } from "./read-open-items";
 import { OWNER } from "./read-truth";
+import { isMailerHandle } from "./units";
 
 const pad = (n: number) => String(n).padStart(12, "0");
 const [GRAN, PARTNER, SHOP] = ["person:gran", "person:partner", "person:shop"];
@@ -104,19 +105,29 @@ const line = {
     { ref: `unit_${pad(5)}` },
   ],
 };
+const MAILERS = new Set([
+  "unknown:no-reply@bank.test",
+  "unknown:alerts@agents.test",
+]);
 const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   current: new Set(),
-  endings: new Set(),
   episodeOf: new Map(episodes.flatMap((m) => m.units.map((u) => [u, m]))),
+  isMailer: (r) => MAILERS.has(r),
   ledger: [],
-  maybe: new Map(),
+  linkEndings: new Map(),
   observations,
   refOf: (r) => r,
+  retired: new Set(),
   todoItems: [],
   ...over,
 });
+/** Stored matter lines as `mattersNow` gives them: `offered`, the records a matters call was shown. */
+const stored = (
+  matters: Parameters<typeof matterBookOf>[0]["matters"],
+  offered: string[] = []
+) => ({ matters, offered: new Set(offered) });
 const book = (over: Partial<MatterRecords> = {}, today = "2026-10-20") =>
-  matterBookOf([line], records(over), today);
+  matterBookOf(stored([line]), records(over), today);
 
 test("the errand: moving, next 'call the shop', owed to Gran, the partner only with", () => {
   const [errand, ...rest] = book();
@@ -145,11 +156,15 @@ test("the errand: moving, next 'call the shop', owed to Gran, the partner only w
   ]);
 });
 
-test("a matter's status: done when its newest open step is ended, stuck when a date passed, waiting, dormant", () => {
-  const promise = obs(5, "", {}).id;
-  expect(book({ endings: new Set([promise]) })[0]?.status).toBe("done");
-  // The older to-do ended does not close a matter whose newest to-do or promise is open.
-  expect(book({ endings: new Set([obs(1, "", {}).id]) })[0]?.open).toBe(true);
+test("a matter's status: done when every open step is ended, stuck when the next step's date passed, waiting, dormant", () => {
+  const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
+  expect(book({ retired: new Set([ask, promise]) })[0]?.status).toBe("done");
+  // One ended step does not close a matter while another is open, whichever is newer.
+  expect(book({ retired: new Set([ask]) })[0]?.open).toBe(true);
+  expect(book({ retired: new Set([promise]) })[0]).toMatchObject({
+    next: { text: "Get Gran's watch repaired" },
+    open: true,
+  });
   // Silence is never stuck: no step for a while is dormant, still open.
   expect(book({}, "2026-11-20")[0]?.status).toBe("dormant");
   expect(book({}, "2026-12-30")[0]).toMatchObject({
@@ -160,8 +175,16 @@ test("a matter's status: done when its newest open step is ended, stuck when a d
     o.type === "promise" ? { ...o, when: "2026-10-18" } : o
   );
   expect(book({ observations: due })[0]?.status).toBe("stuck");
-  // A passed date is stuck at any age.
+  // The next step's passed date is stuck at any age.
   expect(book({ observations: due }, "2026-12-30")[0]?.status).toBe("stuck");
+  // An older open step's date counts only within 30 days: past that it no longer makes the matter stuck.
+  const older = observations.map((o) =>
+    o.id === ask ? { ...o, when: "2026-10-05" } : o
+  );
+  expect(book({ observations: older }, "2026-10-20")[0]?.status).toBe("stuck");
+  expect(book({ observations: older }, "2026-11-20")[0]?.status).toBe(
+    "dormant"
+  );
   const waits = [
     ...observations,
     obs(6, "2026-10-17", {
@@ -192,10 +215,10 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     obs(24, "2026-10-18", { text: "Ended promise", type: "promise" }),
   ];
   const all = matterBookOf(
-    [],
+    stored([]),
     records({
-      endings: new Set([lone[3]?.id as string]),
       observations: lone,
+      retired: new Set([lone[3]?.id as string]),
       todoItems: [
         todo(1, { urgent: true }, lone[0]?.id),
         todo(2, {}),
@@ -278,7 +301,7 @@ test("an episode and an observation of one day order by instant, in his zone", (
     at(23, null, "Untimed"),
   ];
   const [view] = matterBookOf(
-    [
+    stored([
       {
         areas: [],
         id: "matter_bbbbbbbbbbbb",
@@ -289,7 +312,7 @@ test("an episode and an observation of one day order by instant, in his zone", (
           { ref: obs(5, "", {}).id },
         ],
       },
-    ],
+    ]),
     records({
       episodeOf: new Map(eps.flatMap((m) => m.units.map((u) => [u, m]))),
     }),
@@ -353,17 +376,12 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     loop(17, { date: "2026-10-17", when: null }),
   ];
   const all = matterBookOf(
-    [],
-    {
-      current: new Set(),
-      endings: new Set(["obs_000000000006"]),
+    stored([]),
+    records({
       episodeOf: new Map(),
-      ledger: [],
-      maybe: new Map(),
       observations: loops,
-      refOf: (r) => r,
-      todoItems: [],
-    },
+      retired: new Set(["obs_000000000006"]),
+    }),
     "2026-10-19"
   );
   const lines = openItems(
@@ -414,7 +432,7 @@ test("a unit no episode holds still gives its observations; a retired one is end
     unit,
   });
   const [view] = matterBookOf(
-    [
+    stored([
       {
         areas: [],
         id: "matter_cccccccccccc",
@@ -422,15 +440,15 @@ test("a unit no episode holds still gives its observations; a retired one is end
         projects: [],
         steps: [{ ref: unit }],
       },
-    ],
+    ]),
     records({
-      endings: new Set([retired.id]),
       episodeOf: new Map(),
       observations: [own, retired, small, ask],
+      retired: new Set([retired.id]),
     }),
     "2026-10-19"
   );
-  expect(view?.steps.map((s) => [s.text, s.ended])).toEqual([
+  expect(view?.steps.map((s) => [s.text, isEnded(s)])).toEqual([
     ["Pay the plumber", false],
     ["Old errand", true],
     ["Gran asks for a lift", false],
@@ -442,27 +460,35 @@ test("a unit no episode holds still gives its observations; a retired one is end
     text: "Mend the gate",
   });
   const [other] = matterBookOf(
-    [],
+    stored([]),
     records({ observations: [mine] }),
     "2026-10-19"
   );
   expect(other?.owedTo).toEqual([]);
 });
 
-test("a link's ending is maybe done until his word: the matter stays open; his right closes it", () => {
-  const promise = obs(5, "", {}).id;
-  const [maybe] = book({
-    maybe: new Map([[promise, { quote: "I called the shop" }]]),
+test("a link ends its step at once: the matter reads probably done, the step shows the words that ended it", () => {
+  const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
+  const linked = new Map([
+    [promise, { later: "ep_000000000005", quote: "I called the shop" }],
+  ]);
+  // Another step still open: the matter stays open, its next step the open one.
+  const [open] = book({ linkEndings: linked });
+  expect(open).toMatchObject({ next: { ref: ask }, open: true });
+  expect(open?.steps.find((s) => s.ref === promise)?.ending).toEqual({
+    by: "link",
+    quote: "I called the shop",
   });
-  expect(maybe).toMatchObject({ maybe: "I called the shop", open: true });
-  const [closed] = book({ endings: new Set([promise]) });
-  expect(closed).toMatchObject({ open: false, status: "done" });
-  expect(closed?.maybe).toBeUndefined();
+  const [probably] = book({ linkEndings: linked, retired: new Set([ask]) });
+  expect(probably).toMatchObject({ open: false, status: "probably_done" });
+  // His word (the step retired) makes it done.
+  const [done] = book({ retired: new Set([ask, promise]) });
+  expect(done?.status).toBe("done");
 });
 
 test("a placed observation brings the episode holding its unit, with no unit step for it", () => {
   const [view] = matterBookOf(
-    [{ ...line, steps: [{ ref: obs(5, "", {}).id }] }],
+    stored([{ ...line, steps: [{ ref: obs(5, "", {}).id }] }]),
     records(),
     "2026-10-20"
   );
@@ -478,9 +504,125 @@ test("a placed observation whose unit no episode holds attaches no episode", () 
     unit: `unit_${pad(99)}`,
   });
   const [view] = matterBookOf(
-    [{ ...line, steps: [{ ref: lost.id }] }],
+    stored([{ ...line, steps: [{ ref: lost.id }] }]),
     records({ observations: [lost] }),
     "2026-10-20"
   );
   expect(view?.steps.map((s) => s.text)).toEqual(["Call the shop again"]);
+});
+
+// matters-study-2026-11-16 (P1): a recording placed in a matter pulled in every kept fact of it, even those the matters
+// call was shown and left out ("call the nanny" inside "Send the builder a notice letter"). A fact the call saw and did
+// not place stays out; one no call has seen yet still comes with its unit.
+test("matters-study P1: a fact the matters call was shown and left out is not pulled back with its unit", () => {
+  const unit = `unit_${pad(40)}`;
+  const letter = obs(40, "2026-10-18", {
+    text: "Send the builder the letter",
+    unit,
+  });
+  const nanny = obs(41, "2026-10-18", { text: "Call the nanny", unit });
+  const fresh = obs(42, "2026-10-18", {
+    text: "Add the photos to the letter",
+    unit,
+  });
+  const [view] = matterBookOf(
+    stored(
+      [
+        {
+          areas: [],
+          id: "matter_dddddddddddd",
+          name: "Letter",
+          projects: [],
+          steps: [{ ref: unit }, { ref: letter.id }],
+        },
+      ],
+      [unit, letter.id, nanny.id]
+    ),
+    records({ episodeOf: new Map(), observations: [letter, nanny, fresh] }),
+    "2026-10-19"
+  );
+  expect(view?.steps.map((s) => s.text).toSorted()).toEqual([
+    "Add the photos to the letter",
+    "Send the builder the letter",
+  ]);
+});
+
+// matters-study-2026-11-16 (P2): a trip or an event holds no to-do, promise or wait, so nothing could ever end it
+// (the Koh Samet weekend read open two months after). Done once its last step and every date are a week past.
+test("matters-study P2: a matter with nothing to do is done once a week has passed its last step and date", () => {
+  const trip = {
+    areas: [],
+    id: "matter_eeeeeeeeeeee",
+    name: "Weekend at the beach",
+    projects: [],
+    steps: [{ ref: `unit_${pad(2)}` }],
+  };
+  const at = (today: string, over: Partial<Observation> = {}) =>
+    matterBookOf(
+      stored([trip]),
+      records({
+        observations: [
+          obs(2, "2026-10-03", { importance: 2, type: "choice", ...over }),
+        ],
+      }),
+      today
+    )[0];
+  expect(at("2026-10-08")).toMatchObject({ open: true, status: "moving" });
+  expect(at("2026-10-11")).toMatchObject({ open: false, status: "done" });
+  // A date ahead keeps it going until a week after that date.
+  expect(at("2026-10-20", { when: "2026-10-18" })?.open).toBe(true);
+  expect(at("2026-10-26", { when: "2026-10-18" })?.open).toBe(false);
+});
+
+// matters-study-2026-11-16 (P5): "owed to" named mail senders: 29 open matters were owed to his agents' report
+// address, 7 to a no-reply sender. A to-do a mailer sent is owed to the person it names, else to no one.
+test("matters-study P5: owed to never names a no-reply sender or his agents' reports", () => {
+  const bill = obs(50, "2026-10-18", {
+    speaker: "unknown:no-reply@bank.test",
+    subjects: [OWNER, GRAN, "unknown:no-reply@bank.test"],
+    text: "Pay Gran's bank fee",
+  });
+  const report = obs(51, "2026-10-18", {
+    speaker: "unknown:alerts@agents.test",
+    text: "Decide on the shop's quote",
+  });
+  const views = matterBookOf(
+    stored([]),
+    records({ observations: [bill, report] }),
+    "2026-10-19"
+  );
+  // His own top to-dos only are lone matters; build them as a stored matter to read their people.
+  const [view] = matterBookOf(
+    stored([
+      {
+        areas: [],
+        id: "matter_ffffffffffff",
+        name: "Bills",
+        projects: [],
+        steps: [{ ref: bill.id }, { ref: report.id }],
+      },
+    ]),
+    records({ episodeOf: new Map(), observations: [bill, report] }),
+    "2026-10-19"
+  );
+  expect(views).toEqual([]);
+  expect(view?.owedTo).toEqual([GRAN]);
+  expect(view?.waitingOn).toEqual([]);
+});
+
+test("matters-study P5: a mailer handle is a no-reply spelling or a failed-payment sender, never a person's address", () => {
+  for (const h of [
+    "no-reply@bank.test",
+    "no_reply@email.shop.test",
+    "do_not_reply@mailer.test",
+    "nepasrepondre@annuaire.test",
+    "noreplay@store.test",
+    "cloudplatform-noreply@cloud.test",
+    "failed-payments+acct_1@pay.test",
+  ]) {
+    expect([h, isMailerHandle(h)]).toEqual([h, true]);
+  }
+  for (const h of ["ann@mail.test", "support@pay.test", "renoir@art.test"]) {
+    expect([h, isMailerHandle(h)]).toEqual([h, false]);
+  }
 });
