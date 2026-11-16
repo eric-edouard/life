@@ -11,7 +11,7 @@ import { isDay } from "./zones";
  * summaries, paged back), `month` (its words and days), `evidence` (observations, episodes and chats, paged back) and
  * `conversation` (his alone: one conversation summary, its span the ref of the turn it starts at).
  */
-const READ_PARTS = [
+export const READ_PARTS = [
   "now",
   "page",
   "persona",
@@ -21,6 +21,13 @@ const READ_PARTS = [
   "evidence",
   "conversation",
 ] as const;
+/** The parts an add-on supplies (`personal/`): offered only while it is on. */
+export const ADD_ON_PARTS: readonly string[] = [
+  "persona",
+  "story",
+  "year",
+  "month",
+];
 export type ReadPart = (typeof READ_PARTS)[number];
 
 /** About how many characters a part holds; a day is never cut, so the last one may pass it. */

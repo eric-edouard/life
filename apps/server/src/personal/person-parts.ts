@@ -1,6 +1,10 @@
 import { hasAddOn } from "../core/add-ons";
 import { HOUR } from "../core/clock";
-import { type ExchangeCounts, pairCountsOf } from "../memory/exchange-counts";
+import {
+  type ExchangeCounts,
+  pairCountsOf,
+  readExchangeCounts,
+} from "../memory/exchange-counts";
 import { EXCHANGE_ENDS_AFTER } from "../memory/exchanges";
 import {
   type Dated,
@@ -41,7 +45,11 @@ function yearReads(o: PartInputs, months: Dated[]) {
   );
 }
 
-export function storyLines(history: History, o: PartInputs) {
+export function storyLines(
+  history: History,
+  exchange: Parameters<typeof exchangeCountsBlock>[0],
+  o: PartInputs
+) {
   const months = historyOf(history);
   const { story } = history;
   return [
@@ -49,7 +57,7 @@ export function storyLines(history: History, o: PartInputs) {
     ...(story
       ? [`Over the years (through ${story.through}): ${story.text}`, ""]
       : []),
-    ...exchangeCountsBlock(o.exchange),
+    ...exchangeCountsBlock(exchange),
     ...o.held({ sourcesOnly: true }),
     ...ending(yearReads(o, months)),
   ];
@@ -210,10 +218,18 @@ export function personalParts(): PersonalParts {
     ...(hasAddOn("histories")
       ? {
           month: historyPart(monthLines),
-          story: historyPart(
-            storyLines,
-            "the years between them: story, counts, what Life holds"
-          ),
+          story: {
+            about: "the years between them: story, counts, what Life holds",
+            build: (ref: string) => {
+              const history = readHistory(ref);
+              const counted = readExchangeCounts();
+              const rows = counted && {
+                ...counted,
+                rows: counted.people[ref] ?? [],
+              };
+              return (o: PartInputs) => storyLines(history, rows, o);
+            },
+          },
           year: historyPart(yearLines),
         }
       : {}),

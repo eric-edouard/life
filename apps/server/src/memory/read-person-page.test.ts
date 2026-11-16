@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Unit } from "../records/unit";
+import { baseOf, monthsOf } from "../test-data/person-read";
 import { buildIndex } from "./index-writer";
 import { openWithOf } from "./read-open-items";
 import { PART_CHARS } from "./read-part";
@@ -16,61 +17,12 @@ import {
 } from "./read-person-page";
 
 const years = [2023, 2024];
-const months = years.flatMap((y) =>
-  Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, "0")}`)
-);
-// Two or three days a month: observations, an episode and a recorded conversation, about 300 characters each.
-const timeline = months
-  .flatMap((m) =>
-    ["03", "12", "25"].flatMap((d) => [
-      {
-        day: `${m}-${d}`,
-        kind: "observation" as const,
-        line: `- obs ${m}-${d} ${"x".repeat(300)}`,
-      },
-      {
-        day: `${m}-${d}`,
-        kind: "episode" as const,
-        line: `- episode ${m}-${d} ${"y".repeat(300)}`,
-      },
-      ...(d === "12"
-        ? [
-            {
-              day: `${m}-${d}`,
-              kind: "conversation" as const,
-              line: `- conv ${m}-${d} 10:00: lunch`,
-            },
-          ]
-        : []),
-    ])
-  )
-  .toSorted((a, b) => b.day.localeCompare(a.day));
-const held = ({
-  sourcesOnly,
-  span,
-}: {
-  sourcesOnly?: boolean;
-  span?: string;
-} = {}) => [
-  ...(span ? [] : ["HELD sources"]),
-  ...(sourcesOnly
-    ? []
-    : months.filter((m) => m.startsWith(span ?? "")).map((m) => `HELD ${m}`)),
-];
+const months = monthsOf(years);
+const base = baseOf(years);
 const MORE_OPEN =
   /\d+ more open with them, ranked lower: `read_matters` with person ana/;
 const OBS_DAY = /^- obs (\S+) /;
 const OLDER = /^Older: the same call with `before` (\S+)\.$/;
-const base = {
-  candidates: [],
-  exchange: null,
-  heard: [],
-  held,
-  heldYears: years.map(String),
-  offers: [],
-  ref: "person:ana",
-  timeline,
-};
 test("`now` with 200 open items still fits the part, and says how many more there are", () => {
   const items = Array.from({ length: 200 }, (_, i) => ({
     at: `2026-10-${String((i % 28) + 1).padStart(2, "0")}T10:00:00.000Z`,

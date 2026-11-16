@@ -10,6 +10,7 @@ import {
 } from "../memory/read-person-page";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
+import { baseOf, monthsOf } from "../test-data/person-read";
 import {
   exchangeCountsBlock,
   monthLines,
@@ -21,9 +22,7 @@ import {
 
 const madeBy = { engine: "claude", model: "m", prompt: "p", run: "r" } as const;
 const years = [2021, 2022, 2023, 2024, 2025];
-const months = years.flatMap((y) =>
-  Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, "0")}`)
-);
+const months = monthsOf(years);
 const history: History = {
   months: months.map((month) => ({
     built: "2026-11-11T22:00:00.000Z",
@@ -52,32 +51,6 @@ const history: History = {
     through: "2025",
   },
 };
-// Two or three days a month: observations, an episode and a recorded conversation, about 300 characters each.
-const timeline = months
-  .flatMap((m) =>
-    ["03", "12", "25"].flatMap((d) => [
-      {
-        day: `${m}-${d}`,
-        kind: "observation" as const,
-        line: `- obs ${m}-${d} ${"x".repeat(300)}`,
-      },
-      {
-        day: `${m}-${d}`,
-        kind: "episode" as const,
-        line: `- episode ${m}-${d} ${"y".repeat(300)}`,
-      },
-      ...(d === "12"
-        ? [
-            {
-              day: `${m}-${d}`,
-              kind: "conversation" as const,
-              line: `- conv ${m}-${d} 10:00: lunch`,
-            },
-          ]
-        : []),
-    ])
-  )
-  .toSorted((a, b) => b.day.localeCompare(a.day));
 const PERSONAL_PART = /persona|story/;
 const msg = (day: string, minute: number, fromMe: boolean): SourceEvent => ({
   at: new Date(
@@ -101,31 +74,15 @@ const fixed: Record<string, string[]> = {
   page: ["PAGE who they are", "PAGE where things stand"],
   persona: ["PERSONA in short", "PERSONA how each writes"],
 };
-const held = ({
-  sourcesOnly,
-  span,
-}: {
-  sourcesOnly?: boolean;
-  span?: string;
-} = {}) => [
-  ...(span ? [] : ["HELD sources"]),
-  ...(sourcesOnly
-    ? []
-    : months.filter((m) => m.startsWith(span ?? "")).map((m) => `HELD ${m}`)),
-];
 const noHistory: History = { months: [], schemaVersion: 1, story: null };
+const shared = baseOf(years);
+const { held, timeline } = shared;
 const base = {
-  candidates: [],
-  exchange,
-  heard: [],
-  held,
-  heldYears: years.map(String),
+  ...shared,
   offers: [
     { about: "what they are like", part: "persona" as const },
     { about: "the years between them", part: "story" as const },
   ],
-  ref: "person:ana",
-  timeline,
 };
 type Part = PartInputs["part"];
 // What the person's history is, for the read: the whole one, or none read yet.
@@ -133,7 +90,7 @@ let shown = history;
 const rendered: Partial<Record<Part, (o: PartInputs) => string[]>> = {
   month: (o) => monthLines(shown, o),
   persona: (o) => personaPartLines(fixed.persona as string[], o),
-  story: (o) => storyLines(shown, o),
+  story: (o) => storyLines(shown, exchange, o),
   year: (o) => yearLines(shown, o),
 };
 const read = (

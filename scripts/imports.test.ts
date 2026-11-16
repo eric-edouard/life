@@ -11,7 +11,6 @@ const NAMED = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
 const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
-const PERSONAL_IMPORT = /from\s+"(?:\.\.?\/)+personal\//;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
@@ -143,16 +142,6 @@ const linesMatching = (pattern: RegExp, except: string[], lifelog = false) =>
           .split("\n")
           .flatMap((l, i) => (pattern.test(l) ? [`${f}:${i + 1}`] : []))
   );
-
-// AGENTS.md, "Dependencies point one way": `personal/` (the add-ons' code) sits above `memory/`; the core never imports it,
-// so a core run needs no add-on. Fallow's boundary zone says the same; this names the import.
-test("nothing in memory/ imports personal/", () => {
-  expect(
-    linesMatching(PERSONAL_IMPORT, [
-      ...[...texts.keys()].filter((f) => !f.includes("/memory/")),
-    ])
-  ).toEqual([]);
-});
 
 // 8 Nov 2026: three bare 3s decided "what must not be missed" apart. A threshold is named once, in records/unit.ts.
 test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCHABLE_AT, TOP_AT", () => {

@@ -24,9 +24,11 @@ import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
 import { openWithOf, readOpenItems } from "./read-open-items";
 import {
+  ADD_ON_PARTS,
   nextReads,
   PART_CHARS,
   partErrorOf,
+  READ_PARTS,
   type ReadPart,
   type ReadPartRef,
 } from "./read-part";
@@ -255,8 +257,7 @@ export async function person(
   const before = o.before?.slice(0, 10);
   const part = o.part ?? (before || o.span ? "evidence" : "now");
   const early = await answeredEarly(name, { before, part, span: o.span }, [
-    ...CORE_PARTS,
-    ...(Object.keys(personal) as ReadPart[]),
+    ...READ_PARTS.filter((p) => !ADD_ON_PARTS.includes(p) || p in personal),
   ]);
   if (early) {
     return asData(early);
@@ -291,8 +292,7 @@ export async function person(
     // A part whose stored shape this version does not know: said, never read as empty.
     return asData([`(${(e as Error).message})`]);
   }
-  const counted =
-    (now || personalLines) && partRef ? readExchangeCounts() : null;
+  const counted = now && partRef ? readExchangeCounts() : null;
   const rows = counted && { ...counted, rows: counted.people[ref] ?? [] };
   const items = now ? await readOpenItems(folks, clock()) : [];
   return withStore((store) =>
@@ -342,7 +342,6 @@ export async function person(
       return partLines({
         before,
         candidates: candidateLines(name, same, (who) => linkedCount(db, who)),
-        exchange: rows,
         fixed: partRef ? (blocks[part]?.() ?? []) : [],
         heard,
         held: (show) => heldLines(db, ref, timeline, show),
@@ -430,15 +429,10 @@ export const offersOf = (personal: PersonalParts) =>
     x?.about ? [{ about: x.about, part: part as ReadPart }] : []
   );
 
-/** The parts that need nothing from an add-on. */
-const CORE_PARTS = ["now", "page", "evidence", "conversation"];
-
 /** What `partLines` is made from: the lines each part holds, and the dated entries it pages. */
 export interface PartInputs {
   before?: string;
   candidates: string[];
-  /** What code counted between them and him, for the parts that show it. */
-  exchange: { built: string; rows: ExchangeCounts[]; sources: string[] } | null;
   /** The lines of `now` or `page`, whichever is asked for. */
   fixed: string[];
   heard: { name: string }[];
