@@ -89,6 +89,8 @@ struct SettingsView: View {
   @State private var wake = ""
   /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`).
   @State private var agentsSaved: [String: [String: Any]] = [:]
+  /// The personal add-ons as saved (`personal`): a switch writes the whole object back.
+  @State private var personal: [String: Any] = [:]
   /// The agent this form shows (the first saved), so renaming it keeps the rest of it.
   @State private var agentShown = ""
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
@@ -176,6 +178,15 @@ struct SettingsView: View {
               .caption()
           }
         }
+        Section("About you and the people close to you") {
+          ForEach(AddOn.all, id: \.key) { a in
+            Toggle(a.title, isOn: Binding(
+              get: { personal[a.key] != nil },
+              set: { on in Task { await setAddOn(a.key, on) } }
+            ))
+            Text(a.caption).caption()
+          }
+        }
         Section("Your agent") {
           TextField("Its name (\"hey …\" wakes it)", text: $agentName)
           TextField("Wake word, as heard", text: $wake)
@@ -229,6 +240,7 @@ struct SettingsView: View {
     let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
     agentsSaved = settings["agents"] as? [String: [String: Any]] ?? [:]
+    personal = settings["personal"] as? [String: Any] ?? [:]
     agentShown = agentsSaved.keys.sorted().first ?? ""
     agentName = agentShown
     wake = (agentsSaved[agentShown]?["wake"] as? [String])?.first ?? ""
@@ -249,10 +261,12 @@ struct SettingsView: View {
     await load()
   }
 
-  private func set(_ parts: [String: Any]) async {
-    guard let json = try? JSONSerialization.data(withJSONObject: parts) else { return }
+  @discardableResult
+  private func set(_ parts: [String: Any]) async -> Bool {
+    guard let json = try? JSONSerialization.data(withJSONObject: parts) else { return false }
     let r = await Helper.run(["settings", "set", String(decoding: json, as: UTF8.self)])
     status = r.code == 0 ? "Saved." : r.err
+    return r.code == 0
   }
 
   private func save() async {
@@ -283,6 +297,20 @@ struct SettingsView: View {
     // The to-do list with Reminders as its backend; null turns it off.
     let todoList: Any = on ? ["backend": "reminders"] as Any : NSNull()
     await set(["todoList": todoList])
+    await supervisor.restart()
+  }
+
+  /// One personal add-on, on or off: the whole `personal` object is written back (`histories` needs a first month).
+  private func setAddOn(_ key: String, _ on: Bool) async {
+    var next = personal
+    if !on {
+      next.removeValue(forKey: key)
+    } else if next[key] == nil {
+      let from = Calendar.current.date(byAdding: .year, value: -AddOn.historiesYearsBack, to: Date()) ?? Date()
+      next[key] = key == "histories" ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
+    }
+    guard await set(["personal": next.isEmpty ? NSNull() : next]) else { return }
+    personal = next
     await supervisor.restart()
   }
 
@@ -327,4 +355,17 @@ struct SettingsView: View {
       await supervisor.restart()
     }
   }
+}
+
+/// The personal add-ons the settings screen switches (`core/add-ons.ts`), in plain words.
+enum AddOn {
+  /// `histories` starts this many years back from now.
+  static let historiesYearsBack = 5
+  static let all: [(key: String, title: String, caption: String)] = [
+    ("aboutMe", "Pages about you", "Adds what Life notices about your views and health to your pages."),
+    ("relationships", "Between us", "Adds a section to the page of each person close to you."),
+    ("personas", "What people are like", "Each week, what each person is like and what repeats between you."),
+    ("relationshipReads", "How your talks went", "Each night, how each finished chat with someone went."),
+    ("histories", "Month by month", "Summarises each past month with each person, from five years back."),
+  ]
 }

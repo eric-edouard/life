@@ -62,9 +62,10 @@ bun life settings set '{"personal":{"personas":{},"relationships":{},"aboutMe":{
 
 Parts of Life about you and the people close to you, each off until its key is in `personal` (a part you set replaces
 the whole of `personal`, so name every add-on you want on). Each takes `{}`, except `histories`.
+Life.app has one switch for each, under "About you and the people close to you" (`histories` starts five years back).
 
-- `aboutMe`: the Views and Health sections of pages. Takes effect in a later release: nothing gates those sections yet.
-- `relationships`: the Between us section of the pages of people close to you. Takes effect in a later release, like `aboutMe`.
+- `aboutMe`: the Views and Health sections of pages.
+- `relationships`: the Between us section of the pages of people close to you.
 - `personas`: what each person is like and what repeats between them and you, read weekly.
 - `relationshipReads`: each night, how each finished exchange with someone went (connection and conflict).
 - `histories`: `{"from":"2026-09"}`. Each night Life summarises, once, every finished month from `from` on between you

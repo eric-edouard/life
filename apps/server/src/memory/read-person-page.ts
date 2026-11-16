@@ -36,7 +36,7 @@ import {
   type ReadPart,
   type ReadPartRef,
 } from "./read-part";
-import { goalProjects, OWNER } from "./read-truth";
+import { goalProjects, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow, situationBlock } from "./situations";
 import { conversationLabel, lifelogNames, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
@@ -234,6 +234,10 @@ export function personFor(
   return exact ? { ...meaning, known: exact.id, same: [] } : meaning;
 }
 
+/** The owner's `now` while his directory is new: a statement of fact, offering the setup interview. */
+const NEW_DIRECTORY =
+  "His directory is new: it holds only him, with no goals and no other people yet. What he says about his goals and how he plans to reach them, the main people in his life, his projects and areas of focus, and what Life may keep goes in through `change_directory_entry`, his words as `said`.";
+
 /**
  * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates
  * when two people go by the name, their details, closeness, the last exchange, what is open between them, their
@@ -329,6 +333,9 @@ export async function person(
           nowLines({
             after: situationBlock("Situation", readSituationNow(ref, live)),
             before: [
+              ...(ref === OWNER && isDirectoryNew(truth)
+                ? [NEW_DIRECTORY]
+                : []),
               ...episodeTitleLines(episodes, (r) => refOf(r) === ref),
               ...detailsBlock(readDetailsOf(folks)(ref), dayNow()),
               ...closenessLine(ref, folks),

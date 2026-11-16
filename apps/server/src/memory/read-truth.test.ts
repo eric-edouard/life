@@ -18,6 +18,7 @@ import { commitMemory, OUT } from "./memory-files";
 import {
   goalProjects,
   integrity,
+  isDirectoryNew,
   loadTruth,
   readMe,
   type Truth,
@@ -211,4 +212,16 @@ test("me.md's what Life may keep is the block under its heading; absent or empty
     readMe("# Me\n\nJean.\n\n## Goals\n1. Be free.").mayKeep
   ).toBeUndefined();
   expect(readMe("# Me\n\n## What Life may keep\n\n").mayKeep).toBeUndefined();
+});
+
+test("a directory is new while it holds only him and no goals", () => {
+  const me = person("me");
+  const plain = readMe("# Me\n\nA test.");
+  expect(isDirectoryNew({ me: plain, people: [me] })).toBe(true);
+  expect(
+    isDirectoryNew({ me: readMe("# Me\n\n## Goals\n1. Ship."), people: [me] })
+  ).toBe(false);
+  expect(isDirectoryNew({ me: plain, people: [me, person("ada")] })).toBe(
+    false
+  );
 });
