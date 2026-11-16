@@ -59,7 +59,7 @@ test("an invalid change is refused and truth/ is left as it was", async () => {
       action: "add",
       kind: "goal",
       said,
-      text: "Win. (`ghost`)",
+      text: "Be bold. (`ghost`)",
     })
   ).rejects.toThrow("unknown project ghost");
   expect(file("people.yaml")).toBe(before);
