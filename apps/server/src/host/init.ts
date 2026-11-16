@@ -17,8 +17,11 @@ export interface Owner {
   phone: string[];
 }
 
+/** One row of a truth/ list: a JSON flow mapping, which is YAML. */
+export const listRow = (x: unknown) => `  - ${JSON.stringify(x)}`;
+
 const yaml = (key: string, list: unknown[]) =>
-  `schemaVersion: 1\n${key}: ${list.length ? `\n${list.map((x) => `  - ${JSON.stringify(x)}`).join("\n")}` : "[]"}\n`;
+  `schemaVersion: 1\n${key}: ${list.length ? `\n${list.map(listRow).join("\n")}` : "[]"}\n`;
 
 /** Whether `dir` has nothing in it (or isn't there): the one folder Life writes a new whole into. */
 export const isEmpty = (dir: string) =>

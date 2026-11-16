@@ -171,14 +171,14 @@ each once read, with the observations citing it ("Told Life").
 
 ## The connector
 
-`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`) and acts
+`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and fact-check answers, appends his words (`tell_life`), changes his directory in `truth/` by his words (`change_directory_entry`) and acts
 only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the auto-add
 permission.
 
 - **Tools:** read-only: `read_agent_asks` (the paired agent's own asks, above); `read_new_events` (Events, below); `read_open_todo_items`, read from Reminders; the status reads
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; `read_fact_checks` (the open ending checks, from `checksNow`) and the memory reads. Writes: `correct_memory` (a memory correction, his answer to a fact check, lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `changeTodoItem`, with the owner's words
-  in `said`, or an `obs` for the auto-add permission) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
+  in `said`, or an `obs` for the auto-add permission) and `change_directory_entry` (`host/change-directory-entry.ts`: `said` his words, one `kind` (person, project, area, goal, may_keep) and `action` (add, edit); checked by `integrity` on a copy of `truth/` first, then written, committed in his data repo with his words and kept as told-life (`said` only); owner's token only; never deletes, reorders goals or edits a person's birthday, projects or chats) and `tell_life` (`{said, asked?}`: appends his verbatim words to `memory/told-life.jsonl`, `memory/told-life.ts`; offered only while the `told-life` source is on, refused for an agent's token). `change_todo_item` exists only while the to-do list is on.
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses it unattended.
 - **Events:** MCP's Events extension (`io.modelcontextprotocol/events`, a draft), by poll: `events/list` names
