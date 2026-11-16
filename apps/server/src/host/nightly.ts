@@ -32,7 +32,6 @@ import {
   readsOn,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import {
@@ -51,7 +50,6 @@ import { locked } from "../memory/memory-lock";
 import { writeMentions } from "../memory/mentions";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
-import { personas } from "../memory/personas";
 import { doneOf } from "../memory/read-open-items";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
@@ -91,6 +89,8 @@ import {
   type Window,
 } from "../memory/zones";
 import { hasQuota, isOnline, type Quota, quota } from "../models/llm";
+import { histories, readHistoryWork } from "../personal/histories";
+import { personaReadingsOf, personas } from "../personal/personas";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
@@ -599,7 +599,7 @@ export async function runNight(
     const paged = await steps.step("pages", () => pages({ rebuild: false }));
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     steps.at = "situations";
-    await situations();
+    await situations(personaReadingsOf);
     steps.at = "appointments";
     // Only while his calendar takes them: nothing else reads the file.
     if (isOn("appointmentsCalendar")) {

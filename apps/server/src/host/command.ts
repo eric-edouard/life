@@ -21,7 +21,6 @@ import {
 import { extract } from "../memory/extract";
 import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
-import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
 import {
@@ -37,11 +36,9 @@ import { readMentions } from "../memory/mentions";
 import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
-import { personas } from "../memory/personas";
 import { placesOf } from "../memory/places";
 import { area, topicsOf } from "../memory/read-area-page";
 import { day } from "../memory/read-day";
-import { person } from "../memory/read-person-page";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
@@ -64,6 +61,9 @@ import {
   lastDays,
   type Window,
 } from "../memory/zones";
+import { histories, readHistoryWork } from "../personal/histories";
+import { readPerson } from "../personal/person-parts";
+import { personaReadingsOf, personas } from "../personal/personas";
 import { FactCheckAnswer } from "../records/fact-check";
 import { MOVE_READS } from "../records/read-reply";
 import { nightly } from "./nightly";
@@ -278,7 +278,14 @@ const HANDLERS: Record<string, Handler> = {
   extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
     printed(
-      id ? openById(id, count(values["from-turn"]), count(values.limit)) : null
+      id
+        ? openById(
+            id,
+            count(values["from-turn"]),
+            count(values.limit),
+            readPerson
+          )
+        : null
     ),
   "historical-units": step((v) => collectHistorical(v)),
   /**
@@ -400,7 +407,8 @@ const HANDLERS: Record<string, Handler> = {
   observation: (_values, [id = ""]) => json(readObservation(id)),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   passages: step((v) => rebuildPassages(v)),
-  person: (values, rest) => printed(person(words(rest) || undefined, values)),
+  person: (values, rest) =>
+    printed(readPerson(words(rest) || undefined, values)),
   personas: step(async () => personas(await readWithPeople(new Date(0)))),
   places: (v) =>
     printed(
@@ -423,7 +431,7 @@ const HANDLERS: Record<string, Handler> = {
     ),
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
-  situations: step(() => situations()),
+  situations: step(() => situations(personaReadingsOf)),
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),

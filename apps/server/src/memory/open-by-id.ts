@@ -1,6 +1,6 @@
 import { SUBJECT_PREFIX } from "../records/fields";
 import { parseReadPartRef } from "./read-part";
-import { person } from "./read-person-page";
+import type { person } from "./read-person-page";
 import { asData, fetchOf } from "./words";
 
 /**
@@ -9,9 +9,9 @@ import { asData, fetchOf } from "./words";
  */
 export function openById(
   id: string,
-  from?: number,
-  limit?: number,
-  readPerson = person
+  from: number | undefined,
+  limit: number | undefined,
+  readPerson: typeof person
 ): Promise<string> {
   if (!SUBJECT_PREFIX.test(id)) {
     return fetchOf(id, from, limit);

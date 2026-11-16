@@ -384,7 +384,7 @@ is no longer close. A reader drops a line whose episode is no longer live. His c
 ## personas/<id>.json
 
 What someone with a page (`pagedNow`) is like, wants and can give, and what keeps happening between them and the owner, or the owner
-himself across everyone (`me`), written by `personas.ts` from 3 years of their 1:1 chats and mail threads
+himself across everyone (`me`), written by `personal/personas.ts` from 3 years of their 1:1 chats and mail threads
 (`directChats`), the group chat-days they wrote in and his recorded conversations where they spoke: `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
 differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
@@ -396,7 +396,7 @@ written or removed on a night a source can't be read.
 
 ## histories/<id>.json
 
-The past months between the owner and someone with a page (`pagedNow`), written by `histories.ts` from their
+The past months between the owner and someone with a page (`pagedNow`), written by `personal/histories.ts` from their
 one-to-one chats and mail threads (`directChats`), while the `histories` add-on is on: `months` (oldest first; each
 `month` `YYYY-MM`, the local month its exchanges start in; `parts`, one per call that read it, each a `summary` with
 no quotation marks and `quotes`, each `at`, `text` and `writer` `owner` or `them`, words found in a message the call

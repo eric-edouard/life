@@ -146,14 +146,15 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **A summary is redone only when new evidence for its subject arrived.** Its `inputs` digest covers its subject's evidence only, in a window ending at the subject's newest evidence (the story: capped at the last closed year); today's date, the page text and other summaries may be shown to the call but never enter the digest (situations, personas, story; pages and history months already hold). The personas' weekly throttle is a rate cap beside the rule, not part of it.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
-  when its meaning changes; ask before re-running the whole archive.
+  when its meaning changes; ask before re-running the whole archive. A prompt part switched by an add-on is not a new
+  version: its variant (`<prompt>-without-<parts>`) shares the base's cache (`isPromptVersion`, `models/prompt-parts.ts`).
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
   of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
   (`docs/operations.md`, "Model engines"). One model runs on the Mac instead of a provider: photo descriptions, Qwen3.5-9B
   under llama.cpp (`models/describer.ts`), his decision of 11 Nov 2026. The image never leaves the Mac; the description
   then reaches his provider inside the photo lines like the rest of the line.
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list, payments ←
-  memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
+  memory ← personal ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
 - **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
@@ -195,14 +196,14 @@ Before adding a helper, use the one that exists:
 | Where an observation stands (hidden, gone, replaced, retired) | `observationStatusOf` (`memory-files.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
-| What someone is like, what repeats between them and him, how each writes | their persona (`personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
+| What someone is like, what repeats between them and him, how each writes | their persona (`personal/personas.ts`, `readPersona`); psychology lives there only, pages stay facts |
 | Comparing a person's or a project's name when read | `nameKey` (`memory/units.ts`), never stored; stored text and ids: `normalize` |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`): his word, `truth/`, the people his Contacts name (`memory/contact-people.ts`, `people-contacts.jsonl`, appended by the night, never read from Contacts at read time; a card folds into someone in `truth/` by their whole name, a shared handle, or their first name and birthday), then Life's guesses; one person across every channel is `foldsOf`'s to say; a lifelog person id is `voicePersonOf`: the id, else the name lifelog gave it |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his directory, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held, what each publication read (`memory/publications.jsonl`) and, for the pendant, the recorded days (`memory/recorded-days.ts`, the night's copy of lifelog's `GET /recorded`: no read asks lifelog); over a range of days, a day being a range of one; by month, `notCapturedOf` |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` (`memory/endings.ts`) is the one place that decides what a link ends, `endingsRead` the one thing readers call; off until his `links` setting, read by nothing but `bun life memory links <matter id>` until his `endings` setting makes it end its step "probably" in the readers and asks him (an ending check among the checks, with no limit; right is his `outdated` word, wrong removes that link for good and reopens the step); its subject is the matter, never a person |
-| A person's past months with him, and their story | their history (`memory/histories.ts`, `readHistory`): a closed month read once from their one-to-one exchanges, again only when what it was shown changes; the present month is the situation's. Off until the `histories` add-on |
+| A person's past months with him, and their story | their history (`personal/histories.ts`, `readHistory`): a closed month read once from their one-to-one exchanges, again only when what it was shown changes; the present month is the situation's. Off until the `histories` add-on |
 | Whose a 1:1 chat or mail thread is | `directChats` (`closeness.ts`), over the night's one read of chats and mail (`readWithPeople`) |
 | Who a person ref is now (one folded into another) | `readPeople().canon` (`foldsOf`): his `same-person` over what each inferred id's name or handle reads as now (`readingOf`: his word, truth/, then the latest confident guess or the person it links to); readers take it from `readPeople`, never rebuild it |
 | The unresolved names that are people | `readUnresolvedPeople` (`memory/who.ts`): `unresolved.jsonl` less the name opening an agent's own report; never `readUnresolved` directly |
@@ -305,3 +306,7 @@ ruling of 29 Oct).
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.
+- **Prove a change cheaply.** A change to the system (code, a prompt, a step) that would re-process data is proved
+  first on the smallest sample that can show it works or fails (a few days, weeks or cases, on a copy), never the whole
+  archive. Aim for the strongest signal at the lowest cost: speed and money come first; stop a trial once its numbers
+  answer the question (his word of 16 Nov 2026).

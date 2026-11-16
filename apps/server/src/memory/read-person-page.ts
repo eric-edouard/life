@@ -1,22 +1,15 @@
 import type { Database } from "bun:sqlite";
-import { clock, HOUR } from "../core/clock";
+import { clock } from "../core/clock";
 import { newestDays, within } from "../core/lists";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
-import type { History } from "../records/history";
 import { speakers, withStore } from "../sources/lifelog";
 import { conversationsWith } from "../sources/lifelog-conversations";
 import { closenessLine } from "./closeness";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
-import {
-  type ExchangeCounts,
-  pairCountsOf,
-  readExchangeCounts,
-} from "./exchange-counts";
-import { EXCHANGE_ENDS_AFTER } from "./exchanges";
-import { readHistory } from "./histories";
+import { type ExchangeCounts, readExchangeCounts } from "./exchange-counts";
 import {
   CURRENT,
   episodeLine,
@@ -29,12 +22,13 @@ import {
 import { daysOf, episodesWhere, pagePath, writtenPeople } from "./memory-files";
 import { parsePage, slugOf } from "./page-format";
 import { episodeTitleLines } from "./person-episode-titles";
-import { personaBlock, readPersona } from "./personas";
 import { openWithOf, readOpenItems } from "./read-open-items";
 import {
+  ADD_ON_PARTS,
   nextReads,
   PART_CHARS,
   partErrorOf,
+  READ_PARTS,
   type ReadPart,
   type ReadPartRef,
 } from "./read-part";
@@ -43,7 +37,7 @@ import { readSituationNow, situationBlock } from "./situations";
 import { conversationLabel, lifelogNames, nameKey } from "./units";
 import { meant, namedLike, nearNames, readPeople } from "./who";
 import { asData } from "./words";
-import { dayNow, localDate, monthsOf } from "./zones";
+import { dayNow, localDate } from "./zones";
 
 // `bun life memory person [name]` and the connector's `read_person_page`: a person's page, what Life holds about them,
 // their observations, episodes and recorded conversations, paged back by day; with no name, the people.
@@ -97,7 +91,7 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
 }
 
 /** One thing of a person's timeline: its day, which list it shows in, and its line. */
-interface Dated {
+export interface Dated {
   day: string;
   kind: "conversation" | "episode" | "month" | "observation";
   line: string;
@@ -203,9 +197,10 @@ export function heldLines(
 /** What a read says without reading the person: why it is no part, or the part `conversation` (his alone: the summary starting at the turn `span`). Null for any other. */
 async function answeredEarly(
   name: string,
-  o: { before?: string; part: string; span?: string }
+  o: { before?: string; part: string; span?: string },
+  offered: readonly string[]
 ) {
-  const bad = partErrorOf(o);
+  const bad = partErrorOf(o, offered);
   if (bad || o.part !== "conversation") {
     return bad ? [`(${bad})`] : null;
   }
@@ -238,9 +233,8 @@ export function personFor(
 /**
  * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates
  * when two people go by the name, their details, closeness, the last exchange, what is open between them, their
- * Situation and what their time together was about; then `page` (who they are, the page Life wrote), `persona` (what
- * they are like, how each writes), `story` (their history's story, what code counted and what Life holds, by year),
- * `year` (its months' summaries, paged back by `before`), `month` (its words and days) and `evidence` (their
+ * Situation and what their time together was about; then `page` (who they are, the page Life wrote), the parts an add-on
+ * supplies (`personal`: `persona`, `story`, `year`, `month`, offered by the host while their add-on is on) and `evidence` (their
  * observations, episodes and recorded conversations, newest first by whole days, in a `span` and paged back by
  * `before`). Each part ends with its next reads, written by code. A name two people go by lists them, then reads the
  * first; a name on no page nor directory entry is looked for among lifelog's speakers, and someone only heard has no
@@ -249,7 +243,8 @@ export function personFor(
  */
 export async function person(
   name?: string,
-  o: { before?: string; byId?: boolean; part?: string; span?: string } = {}
+  o: { before?: string; byId?: boolean; part?: string; span?: string } = {},
+  personal: PersonalParts = {}
 ) {
   if (!name) {
     const list = await peoplePages();
@@ -261,7 +256,9 @@ export async function person(
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const part = o.part ?? (before || o.span ? "evidence" : "now");
-  const early = await answeredEarly(name, { before, part, span: o.span });
+  const early = await answeredEarly(name, { before, part, span: o.span }, [
+    ...READ_PARTS.filter((p) => !ADD_ON_PARTS.includes(p) || p in personal),
+  ]);
   if (early) {
     return asData(early);
   }
@@ -288,17 +285,14 @@ export async function person(
   );
   // What each part needs, read before the index opens (nothing awaits while it is).
   const now = part === "now" && !!partRef;
-  let history: History = { months: [], schemaVersion: 1, story: null };
-  if (["story", "year", "month"].includes(part)) {
-    try {
-      history = readHistory(ref);
-    } catch (e) {
-      // A history in a shape this version does not know: said, never read as empty.
-      return asData([`(${(e as Error).message})`]);
-    }
+  let personalLines: PartInputs["personal"];
+  try {
+    personalLines = personal[part as ReadPart]?.build(ref);
+  } catch (e) {
+    // A part whose stored shape this version does not know: said, never read as empty.
+    return asData([`(${(e as Error).message})`]);
   }
-  const counted =
-    (now || part === "story") && partRef ? readExchangeCounts() : null;
+  const counted = now && partRef ? readExchangeCounts() : null;
   const rows = counted && { ...counted, rows: counted.people[ref] ?? [] };
   const items = now ? await readOpenItems(folks, clock()) : [];
   return withStore((store) =>
@@ -344,12 +338,10 @@ export async function person(
               }),
           }),
         page: () => pageBlock(db, found?.text ?? null, "in the evidence"),
-        persona: () => personaBlock(readPersona(ref), dayNow()),
       };
       return partLines({
         before,
         candidates: candidateLines(name, same, (who) => linkedCount(db, who)),
-        counts: exchangeCountsBlock(rows),
         fixed: partRef ? (blocks[part]?.() ?? []) : [],
         heard,
         held: (show) => heldLines(db, ref, timeline, show),
@@ -359,8 +351,9 @@ export async function person(
           )
           .all(ref)
           .map((r) => r.y),
-        history,
+        offers: offersOf(personal),
         part: part as ReadPart,
+        personal: personalLines,
         ref: partRef,
         span: o.span,
         timeline,
@@ -419,43 +412,58 @@ function timelineOf(
   ].toSorted((a, b) => b.day.localeCompare(a.day));
 }
 
-/** The first line of a month's or year's heading, as `year` and `month` parts show it. */
-const HISTORY_ABOUT =
-  "Past months between them and him (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls)";
+/**
+ * A part an add-on supplies (`personal/`), offered by the host only while that add-on is on. `build` runs before the
+ * index opens (it may throw: said, never read as empty) and returns the part's lines; `about`, when there is one, is
+ * what `now` says of it in its next reads.
+ */
+export interface PersonalPart {
+  about?: string;
+  build: (ref: string) => (o: PartInputs) => string[];
+}
+export type PersonalParts = Partial<Record<ReadPart, PersonalPart>>;
+
+/** What `now` says of the parts an add-on supplies: those with something to say, in their order. */
+export const offersOf = (personal: PersonalParts) =>
+  Object.entries(personal).flatMap(([part, x]) =>
+    x?.about ? [{ about: x.about, part: part as ReadPart }] : []
+  );
 
 /** What `partLines` is made from: the lines each part holds, and the dated entries it pages. */
-interface PartInputs {
+export interface PartInputs {
   before?: string;
   candidates: string[];
-  counts: string[];
-  /** The lines of `now`, `page` or `persona`, whichever is asked for. */
+  /** The lines of `now` or `page`, whichever is asked for. */
   fixed: string[];
   heard: { name: string }[];
   held: (o?: { sourcesOnly?: boolean; span?: string }) => string[];
   /** The years a unit of theirs is held in. */
   heldYears: string[];
-  history: History;
+  /** What `now` offers of the parts an add-on supplies. */
+  offers: { about: string; part: ReadPart }[];
   part: ReadPart;
+  /** The lines of the part asked for, when an add-on supplies it. */
+  personal?: (o: PartInputs) => string[];
   ref?: string;
   span?: string;
   timeline: Dated[];
 }
 
 /** A next read of this person: `read-part.ts` writes it. */
-const readOf =
+export const readOf =
   (o: PartInputs) => (r: Omit<ReadPartRef, "subject">, what: string) => ({
     ref: { ...r, subject: o.ref as string },
     what,
   });
-type Read = ReturnType<ReturnType<typeof readOf>>;
-const ending = (reads: Read[]) => ["", ...nextReads(reads)];
+export type Read = ReturnType<ReturnType<typeof readOf>>;
+export const ending = (reads: Read[]) => ["", ...nextReads(reads)];
 const EVIDENCE =
   "their observations, episodes and recorded conversations, newest first";
-const evidenceRead = (o: PartInputs, span?: string): Read =>
+export const evidenceRead = (o: PartInputs, span?: string): Read =>
   readOf(o)({ part: "evidence", span }, EVIDENCE);
 
 /** The entries a part shows: newest first by whole days, as many as fit with its fixed lines (at least a day). */
-function paged(o: PartInputs, items: Dated[], fixed: string[]) {
+export function paged(o: PartInputs, items: Dated[], fixed: string[]) {
   const sorted = items.toSorted((a, b) => b.day.localeCompare(a.day));
   const left = o.before
     ? sorted.filter((t) => t.day < (o.before as string))
@@ -495,115 +503,14 @@ function evidenceLines(o: PartInputs) {
   };
 }
 
-/** The years a person has anything in (a month read, a day of evidence, a unit held), newest first, each with its next read. */
-function yearReads(o: PartInputs, months: Dated[]) {
-  const years = [
-    ...new Set([
-      ...[...months, ...o.timeline].map((t) => t.day.slice(0, 4)),
-      ...o.heldYears,
-    ]),
-  ].toSorted((a, b) => b.localeCompare(a));
-  return years.map((y) =>
-    readOf(o)(
-      { part: "year", span: y },
-      `${y}: its months' summaries, and what Life holds by month`
-    )
-  );
-}
-
-function storyLines(o: PartInputs, months: Dated[]) {
-  const { story } = o.history;
-  return [
-    ...(months.length > 0 ? [HISTORY_ABOUT] : []),
-    ...(story
-      ? [`Over the years (through ${story.through}): ${story.text}`, ""]
-      : []),
-    ...o.counts,
-    ...o.held({ sourcesOnly: true }),
-    ...ending(yearReads(o, months)),
-  ];
-}
-
-function yearLines(o: PartInputs, months: Dated[]) {
-  const read = readOf(o);
-  const span = o.span as string;
-  const held = o.held({ span });
-  const mine = months.filter((m) => m.day.startsWith(span));
-  const { next, taken } = paged(o, mine, o.before ? [] : held);
-  const heading = o.before ? `, before ${o.before}` : "";
-  return [
-    mine.length > 0
-      ? `Months of ${span}, newest first${heading}:`
-      : `(no month of ${span} was read yet)`,
-    ...taken.map((m) => m.line),
-    ...(o.before ? [] : ["", ...held]),
-    ...ending([
-      ...taken.map((m) =>
-        read({ part: "month", span: m.day.slice(0, 7) }, "its words and days")
-      ),
-      ...(next
-        ? [read({ before: next, part: "year", span }, "older months")]
-        : []),
-      evidenceRead(o, span),
-    ]),
-  ];
-}
-
-const quoteLine = (q: { at: string; text: string; writer: "owner" | "them" }) =>
-  `- "${q.text}" (${localDate(q.at)}, ${q.writer === "owner" ? "him" : "them"})`;
-
-/** A month: the words found in it, and which days hold something. */
-function monthLines(o: PartInputs) {
-  const span = o.span as string;
-  const row = o.history.months.find((m) => m.month === span);
-  const quotes = (row?.parts ?? []).flatMap((p) => p.quotes).map(quoteLine);
-  const days = [
-    ...Map.groupBy(
-      o.timeline.filter((t) => t.day.startsWith(span)),
-      (t) => t.day
-    ),
-  ]
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([d, list]) => {
-      const kinds = [...Map.groupBy(list, (t) => t.kind)].map(
-        ([k, l]) => `${l.length} ${k}${l.length === 1 ? "" : "s"}`
-      );
-      return `- ${d}: ${kinds.join(", ")}`;
-    });
-  let words = [`(no history of ${span} was read yet)`];
-  if (row) {
-    words = [
-      `Their words in ${span} (the month's summary is in ${span.slice(0, 4)}):`,
-      ...(quotes.length > 0 ? quotes : ["(none found)"]),
-    ];
-  }
-  return [
-    ...words,
-    "",
-    `Days with evidence in ${span}:`,
-    ...orNone(days),
-    ...ending([
-      evidenceRead(o, span),
-      readOf(o)(
-        { part: "year", span: span.slice(0, 4) },
-        `${span.slice(0, 4)}: its months' summaries`
-      ),
-    ]),
-  ];
-}
-
 /**
  * One part of a person's read, from what was gathered. `ref`: the person's ref, absent for someone only heard (their
  * `now` is the evidence, paged back with the older call: nothing can name a part). `fixed` holds the lines of
- * `now`, `page` or `persona`, `counts` those `story` is made of; `history` and `timeline` the dated entries of `year`,
- * `month` and `evidence`; `held`, what Life holds by month or year. A part's dated entries stop at about `PART_CHARS`
+ * `now` or `page`; `timeline` the dated entries of `evidence` (and of the parts an add-on supplies); `held`, what Life holds by month or year. A part's dated entries stop at about `PART_CHARS`
  * with its fixed lines, a day never cut (`before`, a day, exclusive, pages back); each part ends with its next reads.
  */
 export function partLines(o: PartInputs) {
   const read = readOf(o);
-  const months = historyOf(o.history);
-  const orEmpty = (lines: string[], what: string) =>
-    lines.length > 0 ? lines : [`(no ${what} yet)`];
   if (o.part === "evidence" || !o.ref) {
     const { body, older } = evidenceLines(o);
     const held = o.part === "evidence" ? [] : ["", ...o.held()];
@@ -616,47 +523,18 @@ export function partLines(o: PartInputs) {
         ...o.fixed,
         ...ending([
           read({ part: "page" }, "who they are to him, as Life's page says"),
-          read({ part: "persona" }, "what they are like and how each writes"),
-          read(
-            { part: "story" },
-            "the years between them: story, counts, what Life holds"
-          ),
+          ...o.offers.map((r) => read({ part: r.part }, r.about)),
           evidenceRead(o),
         ]),
       ];
     case "page":
-      return [...orEmpty(o.fixed, "page"), ...ending([evidenceRead(o)])];
-    case "persona":
       return [
-        ...orEmpty(o.fixed, "persona"),
-        ...ending([
-          read({ part: "story" }, "the years between them"),
-          evidenceRead(o),
-        ]),
+        ...(o.fixed.length > 0 ? o.fixed : ["(no page yet)"]),
+        ...ending([evidenceRead(o)]),
       ];
-    case "story":
-      return storyLines(o, months);
-    case "year":
-      return yearLines(o, months);
     default:
-      return monthLines(o);
+      return o.personal?.(o) ?? [];
   }
-}
-
-/**
- * A person's history (`histories.ts`) as dated entries: each month's summary, on the month's last day (the paging's
- * key), newest first. Its words are the month part's. Nothing when no month was read yet.
- */
-export function historyOf(history: History) {
-  return history.months.toReversed().map(
-    (m): Dated => ({
-      // The month's last day: `monthsOf` ends a month's window there.
-      day: monthsOf({ from: `${m.month}-01`, to: `${m.month}-31` })[0]
-        ?.to as string,
-      kind: "month",
-      line: `- ${m.month}: ${m.parts.map((p) => p.summary).join(" ")}`,
-    })
-  );
 }
 
 /** The last exchange between them and him, counted: when, who opened it and how many each sent. Nothing when none. */
@@ -671,38 +549,12 @@ export function lastExchangeLine(counted: { rows: ExchangeCounts[] } | null) {
     : [];
 }
 
-/**
- * What code counts between him and one person (`exchange-counts.ts`): all years, then each year an exchange started
- * in, newest first. Nothing when none was counted (no file yet, or no one-to-one exchange with them): never zeros.
- */
-export function exchangeCountsBlock(
-  counted: { built: string; rows: ExchangeCounts[]; sources: string[] } | null
-) {
-  if (!counted || counted.rows.length === 0) {
-    return [];
-  }
-  const answer = (minutes: number | null) =>
-    minutes === null ? "none" : `${minutes} min`;
-  const counts = (label: string, rows: ExchangeCounts[]) => {
-    const c = pairCountsOf(rows);
-    return `- ${label}: messages on ${c.days} days; he sent ${c.sent} (${c.sentDeleted} deleted), they sent ${c.got} (${c.gotDeleted} deleted); exchanges opened: he ${c.heOpened}, they ${c.theyOpened}; median answer: he ${answer(c.heAnswersIn)}, they ${answer(c.theyAnswerIn)}`;
-  };
-  const years = [
-    ...Map.groupBy(counted.rows, (r) => localDate(r.start).slice(0, 4)),
-  ].sort(([a], [b]) => b.localeCompare(a));
-  return [
-    `Counted by code between them and him, through ${localDate(counted.built)} (their one-to-one chats and mail threads: ${counted.sources.join(", ")}; not groups nor recordings; a call counts as a message; an exchange lasts until ${EXCHANGE_ENDS_AFTER / HOUR} hours of quiet and is opened by whoever writes first):`,
-    counts("all years", counted.rows),
-    ...years.map(([year, rows]) => counts(year, rows)),
-    "",
-  ];
-}
-
 /** `heard`: the lifelog speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
   `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 
-const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);
+export const orNone = (lines: string[]) =>
+  lines.length > 0 ? lines : ["(none)"];
 
 /** A name no one goes by: says so, with the names near it (lifelog's speakers too, but one already on the list is that person). */
 function noOne(

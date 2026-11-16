@@ -16,7 +16,6 @@ import {
   situationPath,
 } from "./memory-files";
 import { refContext } from "./model-context";
-import { backingOf, readingsOf, readPersona } from "./personas";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
@@ -104,7 +103,16 @@ export const situationInputOf = (
   nameOf: (ref: string) => string
 ) => ({ episodes: episodes.map((m) => episodeInput(m, nameOf)) });
 
-export async function situations() {
+/** What a person's persona says to the call, to tell what repeats from what is new: handed in by the host (`personal/`). */
+export interface PersonaReading {
+  backing: string;
+  facet: string;
+  text: string;
+}
+
+export async function situations(
+  personaOf: (ref: string, today: string) => PersonaReading[]
+) {
   const step = await begin("situation", "main", { prompt: SITUATION_PROMPT });
   const people = await readPeople();
   const levels = levelsWith(people);
@@ -135,11 +143,7 @@ export async function situations() {
             text: (await page.exists()) ? await page.text() : "",
           },
           // To tell what repeats from what is new.
-          persona: readingsOf(readPersona(t.ref)?.lines ?? []).map((l) => ({
-            backing: backingOf(l.quotes, step.today),
-            facet: l.facet,
-            text: l.text,
-          })),
+          persona: personaOf(t.ref, step.today),
         };
         const reply = await step.ask({
           context: refs.context,
