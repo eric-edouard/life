@@ -50,7 +50,7 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
   Limitless pages not uploaded yet stop uploading: pair an Omi only on a phone without a Limitless Pendant.
 - A widget's `configurationDisplayName` and `description` take a literal or a `String`: an interpolated literal is
   formatted text, and WidgetKit traps on it when the extension launches.
-- Never write `<=` or `>=` between two `Date`s in `Kit/`: write `!(a < b)`. macOS 27.2 beta lacks those two
-  operators, so a test suite that uses one dies at launch (`Symbol not found … Date.<=`, or signal 11) and the gate
-  goes red. That is this rule broken, never an OS bug to push past. Drop the rule once `print(Date() <= Date())`
-  runs as a Swift program on the Mac.
+- Never write `<=` or `>=` between two `Date`s in the phone's Swift: write `!(a < b)`. macOS 27.2 beta lacks those
+  two operators, so a test suite that uses one dies at launch (`Symbol not found … Date.<=`, or signal 11) and the
+  gate goes red. That is this rule broken, never an OS bug to push past. Drop the rule once
+  `print(Date() <= Date())` runs as a Swift program on the Mac.

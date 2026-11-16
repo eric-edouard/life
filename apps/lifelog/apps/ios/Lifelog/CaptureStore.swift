@@ -166,7 +166,7 @@ final class CaptureStore {
         func outcome() -> RequestOutcome {
             switch (status.recording, intent) {
             case (.paused, .pause), (.recording, .resume): .confirmed
-            case (.failed(let failure, let at), _) where at >= asked: .failed(failure)
+            case (.failed(let failure, let at), _) where !(at < asked): .failed(failure)
             default: .pending
             }
         }

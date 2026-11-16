@@ -204,7 +204,7 @@ extension HeroReading {
 
     /// A ~2 s hold the firmware acted on before this report, recent enough to be the reason for it.
     private static func longPress(_ status: CaptureStatus, before report: Date, now: Date) -> Date? {
-        guard let press = status.lastButton, press.value == .long, press.at <= report,
+        guard let press = status.lastButton, press.value == .long, !(press.at > report),
             now.timeIntervalSince(press.at) < longPressWindow
         else { return nil }
         return press.at
