@@ -13,7 +13,11 @@ import {
   todoItemsOf,
 } from "../todo-list/todo-items-from-ledger";
 import { endingsRead } from "./endings";
-import { matterBookOf } from "./matter-read";
+import {
+  type MatterStepNow,
+  type MatterView,
+  matterBookOf,
+} from "./matter-read";
 import {
   daysOf,
   episodesWhere,
@@ -25,7 +29,7 @@ import {
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
 import { begin } from "./run";
-import { isMailerHandle, UNKNOWN } from "./units";
+import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
 import { localDate, type Window } from "./zones";
 
@@ -37,13 +41,20 @@ import { localDate, type Window } from "./zones";
 // is one appended line of memory/matters.jsonl: the matters it placed records in, and every record it was asked about,
 // so what is due is derived and nothing is paid twice. What is open in a matter, its status and people are worked out when read (`matter-read.ts`). Off until his `matters` setting.
 
-const PROMPT = "memory-matters.v1";
+const PROMPT = "memory-matters.v2";
 /** What a reply calls a matter that starts in it. */
 const NEW_ID = /^new-\d+$/;
 /** The most characters of episodes one call is shown: a longer span takes several calls, in order. */
 const CALL_CHARS = 60_000;
-/** A running matter the model is shown has a step in this many days. */
+/** A matter the model is shown (open, done or full) has a step in this many days. */
 const SHOWN_DAYS = 45;
+/** A matter is full at this many steps or more than this many areas, as a reader sees it: it takes no more steps. */
+const STEPS_MAX = 40;
+const AREAS_MAX = 3;
+/** How many of a shown matter's open steps and newest steps the model sees, and how long each step's words. */
+const SHOWN_STEPS = 3;
+const SHOWN_LATEST = 2;
+const SHOWN_CHARS = 120;
 
 /** An observation as a call is shown it. */
 interface ShownObservation {
@@ -95,11 +106,13 @@ export const readMatters = () =>
   );
 
 /**
- * The matters as the lines say now, and every record ever offered. A matter is its latest name, areas and projects (the
- * latest line naming it) and the union of its steps over the lines, a later line's placement of a record winning
- * (the record leaves the matter it was in).
+ * The matters as the lines of the current prompt say now, and every record they were offered: a new prompt version is
+ * a new grouping (every record offered again, every matter a new id; the older lines stay as stored). A matter is its
+ * latest name, areas and projects (the latest line naming it) and the union of its steps over the lines, a later line's
+ * placement of a record winning (the record leaves the matter it was in).
  */
-export function mattersNow(batches: MatterBatch[]) {
+export function mattersNow(all: MatterBatch[]) {
+  const batches = all.filter((b) => b.madeBy.prompt === PROMPT);
   const byId = new Map<string, Matter & { steps: MatterStep[] }>();
   const placedIn = new Map<string, string>();
   const offered = new Set<string>();
@@ -347,7 +360,8 @@ const Reply = z.object({
 });
 
 /**
- * A reply's matters as kept: an id from `open` or `new-N` (a new matter's real id is `mint`'s, never the model's); each
+ * A reply's matters as kept, and how many it put in a matter that may take none (`refused`: a full one, or an id it was
+ * not shown): an id from `joinable` or `new-N` (a new matter's real id is `mint`'s, never the model's); each
  * step a record the call was shown, placed once, with its words found in that record's own text (stored as found
  * there, an episode as each of its units); an area or project that is not in his directory dropped. Anything else is dropped, never trusted. A matter left
  * with no step, or no name, is dropped.
@@ -355,18 +369,20 @@ const Reply = z.object({
 export function placedOf(
   reply: unknown,
   known: Known,
-  open: ReadonlyMap<string, string>,
+  joinable: ReadonlyMap<string, string>,
   directory: { areas: ReadonlySet<string>; projects: ReadonlySet<string> },
   mint: (id: string) => string
-): Matter[] {
+): { kept: Matter[]; refused: number } {
   const seen = new Set<string>();
   const byId = new Map<string, Matter>();
+  let refused = 0;
   for (const m of Reply.parse(reply).matters) {
     const id = NEW_ID.test(m.id) ? mint(m.id) : m.id;
-    if (!(open.has(id) || NEW_ID.test(m.id))) {
+    if (!(joinable.has(id) || NEW_ID.test(m.id))) {
+      refused += 1;
       continue;
     }
-    const name = (m.name.trim() || open.get(m.id) || "").slice(0, 120);
+    const name = (m.name.trim() || joinable.get(m.id) || "").slice(0, 120);
     const steps = m.steps.flatMap(({ quote, ref }) => {
       const item = known.get(ref);
       const [found] = foundQuotes(
@@ -395,8 +411,46 @@ export function placedOf(
       });
     }
   }
-  return [...byId.values()];
+  return { kept: [...byId.values()], refused };
 }
+
+/**
+ * The matters a call is shown on `to` (a day): every grouped one with a step in the last `SHOWN_DAYS`, open, done or
+ * full (its reader view at `STEPS_MAX` steps or more than `AREAS_MAX` areas: it takes no more), each with its open steps
+ * and newest steps in short words. Pure.
+ */
+export function mattersShownOf(book: readonly MatterView[], to: string) {
+  const since = daysBefore(to, SHOWN_DAYS);
+  const words = (list: MatterStepNow[]) =>
+    list.map((x) => ({ day: x.day, text: clip(x.text, SHOWN_CHARS) }));
+  return book.flatMap((v) =>
+    v.lone || (v.steps.at(-1)?.day ?? "") < since
+      ? []
+      : [
+          {
+            areas: v.areas,
+            id: v.id,
+            latest: words(v.steps.slice(-SHOWN_LATEST)),
+            name: v.name,
+            openSteps: words(v.openSteps.slice(-SHOWN_STEPS)),
+            projects: v.projects,
+            status: statusShownOf(v),
+          },
+        ]
+  );
+}
+
+/** How a call is shown a matter: `full` (it takes no more steps), else `open` or `done`. */
+const statusShownOf = (v: Pick<MatterView, "areas" | "open" | "steps">) => {
+  if (isFull(v)) {
+    return "full";
+  }
+  return v.open ? "open" : "done";
+};
+
+/** A matter that takes no more steps: as a reader sees it, `STEPS_MAX` steps or more, or more than `AREAS_MAX` areas. */
+const isFull = (v: Pick<MatterView, "areas" | "steps">) =>
+  v.steps.length >= STEPS_MAX || v.areas.length > AREAS_MAX;
 
 /**
  * Places a span's work (`readMatterWork`), one call after another (a call sees the matters the one before placed), each
@@ -419,38 +473,21 @@ export async function matters(
     projects: new Set(truth.projects.map((p) => p.id)),
   };
   let placed = 0;
+  let refused = 0;
   for (const [i, call] of callsOf(work).entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed
     await step.attempt(
       async () => {
-        // What is still open, as of the span's end (dormant included: the 45 days decide, not the 14 of `MOVING_DAYS`), with a step in the last `SHOWN_DAYS`.
-        const since = daysBefore(work.span.to, SHOWN_DAYS);
-        const open = matterBookOf(
-          mattersNow(readMatters()),
-          records,
+        const shown = mattersShownOf(
+          matterBookOf(mattersNow(readMatters()), records, work.span.to),
           work.span.to
-        ).flatMap((v) =>
-          v.lone || !v.open || (v.steps.at(-1)?.day ?? "") < since
-            ? []
-            : [
-                {
-                  areas: v.areas,
-                  id: v.id,
-                  latest: {
-                    day: v.steps.at(-1)?.day ?? "",
-                    text: v.steps.at(-1)?.quote ?? "",
-                  },
-                  name: v.name,
-                  projects: v.projects,
-                },
-              ]
         );
         const reply = await step.ask({
           context,
           dir: join(step.dir, `call-${i + 1}`),
           input: {
             episodes: call.episodes.map(({ units: _, ...e }) => e),
-            open,
+            shown,
             todoItems: call.todoItems.map(({ key, notes, title }) => ({
               key,
               notes,
@@ -462,10 +499,12 @@ export async function matters(
         const known = knownOf(call);
         const at = step.now.toISOString();
         const [first] = known.keys();
-        const kept = placedOf(
+        const { kept, refused: no } = placedOf(
           reply,
           known,
-          new Map(open.map((m) => [m.id, m.name])),
+          new Map(
+            shown.flatMap((m) => (m.status === "full" ? [] : [[m.id, m.name]]))
+          ),
           directory,
           (n) => `matter_${digest("sha256", `${at}\n${first}\n${n}`, 12)}`
         );
@@ -479,11 +518,12 @@ export async function matters(
           },
         ]);
         placed += kept.reduce((n, m) => n + m.steps.length, 0);
+        refused += no;
       },
       { call: i + 1 }
     );
   }
-  return step.end({ placed });
+  return step.end({ placed, refused });
 }
 
 /** The matters, one line each: name, areas, projects, how many records and the day of the newest (`bun life memory matters list`). */
