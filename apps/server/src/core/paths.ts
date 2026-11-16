@@ -2,7 +2,16 @@ import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-/** Life's own files (prompts, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
+/**
+ * Life's own files (prompts, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). The app's compiled helper
+ * has no checkout around it and runs only with the app's environment (its paths and Keychain secrets): run by hand, it
+ * stops here; by hand, use the checkout's `bun life`.
+ */
+if (!process.env.LIFE_CODE_DIR && import.meta.dir.startsWith("/$bunfs")) {
+  throw new Error(
+    "Life's helper runs from Life.app only; by hand, use `bun life` in a checkout"
+  );
+}
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");
 /** `bun test` sets NODE_ENV=test: tests never touch the real log or data, nor mail with his key (a test sets its own). */
