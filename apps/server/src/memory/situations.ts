@@ -28,7 +28,6 @@ import { refContext } from "./model-context";
 import { OWNER } from "./read-truth";
 import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
-import { dayNow } from "./zones";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person with a
 // page who has an episode in the last DAYS days, one call reads the page, their persona (what repeats, while the
@@ -160,29 +159,6 @@ async function situationTargets(today: string) {
 
 const pageText = (ref: string) =>
   existsSync(pagePath(ref)) ? readFileSync(pagePath(ref), "utf8") : "";
-
-/** What building now would cost, counted without a model call: `bun life memory situations --dry`. */
-export async function situationsDry(
-  personaOf: (ref: string, today: string) => PersonaReading[]
-) {
-  const today = dayNow();
-  const { people, targets } = await situationTargets(today);
-  let toBuild = 0;
-  let characters = 0;
-  for (const t of targets) {
-    const persona = hasAddOn("personas") ? personaOf(t.ref, today) : [];
-    const text = pageText(t.ref);
-    const digested = situationInputOf(t.episodes, people.nameOf, text, persona);
-    if (
-      readSituation(t.ref)?.inputs !==
-      inputsOf(promptNameOf(SITUATION_PROMPT), digested)
-    ) {
-      toBuild += 1;
-      characters += JSON.stringify(digested).length + text.length;
-    }
-  }
-  return { characters, situations: targets.length, toBuild };
-}
 
 export async function situations(
   personaOf: (ref: string, today: string) => PersonaReading[]

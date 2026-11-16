@@ -32,7 +32,7 @@ Answer in a few lines the questions he would ask about now. Older days count onl
 - **His own situation** (`person:me`), in this order: <!-- part:aboutMe -->how he is doing (mood, energy, what weighs on him, worries or
   annoys him, what he enjoys and looks forward to); <!-- /part -->what his days look like (where he is, work and rest<!-- part:aboutMe -->, sleep, sport,
   going out<!-- /part -->); <!-- part:aboutMe -->his love and sex life; <!-- /part -->the frictions (with whom, about what); what he is working on and how it goes;
-  money; <!-- part:aboutMe -->body and mind; <!-- /part -->how others see him or react to him; who he spends time with and who has gone quiet. Errands,
+  money; <!-- part:aboutMe -->body and mind; how others see him or react to him; <!-- /part -->who he spends time with and who has gone quiet. Errands,
   paperwork and admin get one line at most: they are on his to-do list.
 - **Anyone else with a page** (a friend, a client, a builder, a colleague): what is going on with them now that
   matters to him; what is open between them (owed, promised, waited on, planned, booked) and the latest exchanges

@@ -44,7 +44,7 @@ import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
 import { readBackfill, recordBackfill, weekFrom } from "../memory/schedule";
 import { search } from "../memory/search";
-import { situations, situationsDry } from "../memory/situations";
+import { situations } from "../memory/situations";
 import { tiesNow } from "../memory/ties";
 import { DAYS, gather } from "../memory/units";
 import {
@@ -79,7 +79,6 @@ const OPTIONS = {
   chat: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
-  dry: { type: "boolean" },
   force: { type: "boolean" },
   from: { type: "string" },
   "from-turn": { type: "string" },
@@ -424,10 +423,7 @@ const HANDLERS: Record<string, Handler> = {
     ),
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
-  situations: async (values, rest) =>
-    values.dry
-      ? json(situationsDry(personaReadingsOf))
-      : step(() => situations(personaReadingsOf))(values, rest),
+  situations: step(() => situations(personaReadingsOf)),
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
