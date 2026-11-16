@@ -1,7 +1,7 @@
 import { hasAddOn } from "../core/add-ons";
 import { newestWithin } from "../core/lists";
 import { settings } from "../core/settings";
-import { MOVE_READS } from "../records/read-reply";
+import { MOVE_READS, type MoveRead } from "../records/read-reply";
 import { chatGroups, eventKey, type SourceEvent } from "../records/source";
 import { directChats, type WithPeople } from "./closeness";
 import {
@@ -73,7 +73,8 @@ export function readExchangeReadWork(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   people: People,
   now: Date,
-  where = READ_REPLIES
+  where = READ_REPLIES,
+  reads: readonly MoveRead[] = readsOn()
 ) {
   if (failed.length > 0) {
     return null;
@@ -89,7 +90,7 @@ export function readExchangeReadWork(
       const finished = isTwoWay(chat)
         ? exchangesOf(chat).filter((x) => isFinished(x, now))
         : [];
-      for (const read of readsOn()) {
+      for (const read of reads) {
         const unread = finished.filter(
           (x) => !replyOf(x.map(eventKey), read, index)
         );

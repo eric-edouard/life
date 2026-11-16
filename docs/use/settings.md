@@ -54,16 +54,60 @@ Each night reads the last 7 days. Older months can be collected for search witho
 their end must be before those 7 days. Omit the dates to collect every available month. Collection reports unavailable
 sources and uncertain time zones. Historical model backfill is paused until its prompts are ready.
 
-## History
+## Personal add-ons
 
 ```sh
-bun life settings set '{"histories":{"from":"2026-09"}}'
+bun life settings set '{"personal":{"personas":{},"relationships":{},"aboutMe":{}}}'
 ```
 
-Off until you set it. Each night Life then summarises, once, every finished month from `from` on between you and each
-person with a page, from your one-to-one chats and mail; a month is read again only when its messages change. Your
-assistant sees it on each person's page. Before turning it on or moving `from` back, `bun life memory histories --from 2026-09` prints how many
-people, months and model calls that is, calling no model.
+Parts of Life about you and the people close to you, each off until its key is in `personal` (a part you set replaces
+the whole of `personal`, so name every add-on you want on). Each takes `{}`, except `histories`.
+
+- `aboutMe`: the Views and Health sections of pages.
+- `relationships`: the Between us section of the pages of people close to you.
+- `personas`: what each person is like and what repeats between them and you, read weekly.
+- `relationshipReads`: each night, how each finished exchange with someone went (connection and conflict).
+- `histories`: `{"from":"2026-09"}`. Each night Life summarises, once, every finished month from `from` on between you
+  and each person with a page, from your one-to-one chats and mail; a month is read again only when its messages
+  change. Your assistant sees it on each person's page. Before turning it on or moving `from` back,
+  `bun life memory histories --from 2026-09` prints how many people, months and model calls that is, calling no model.
+
+## Mentions
+
+```sh
+bun life settings set '{"mentionsRead":true}'
+```
+
+Off until you set it. Each night Life asks, for each finished exchange of your two-way one-to-one chats, who is talked
+about in it. `bun life memory exchange-reads` prints how many calls are pending with no model; `--force` asks them.
+
+## Matters and links
+
+```sh
+bun life settings set '{"matters":true,"links":true}'
+```
+
+Off until you set them, and still in shadow: nothing but `bun life memory matters` and `bun life memory links` reads
+what they find. `matters` places, each night, the day's episodes, facts and to-dos in the running things of your life;
+`links` reads how the open steps of each matter ended.
+
+## Conversation summaries
+
+```sh
+bun life settings set '{"conversationSummaries":true}'
+```
+
+Off until you set it. Each night Life writes a summary for the long conversations recorded in person that have none, at
+most 40 calls. What is stored is read all the same when it is off.
+
+## Voice naming
+
+```sh
+bun life settings set '{"voiceNaming":true}'
+```
+
+Off until you set it. Each night Life guesses who the voices nobody named are, for the parts of long conversations
+recorded in person, at most 40 calls. A guess is only stored; it needs a Lifelog Host that serves `/speakers/voices`.
 
 ## Endings
 

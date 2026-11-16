@@ -29,8 +29,6 @@ const PLAIN_BIDS = [
   "reassurance_asked",
 ] as const;
 const RESOURCE_BIDS = ["asks_for", "offers"] as const;
-/** The codes of a bid: a move that invites an answer, so its shape holds `answer` (kind and line). */
-export const BIDS = [...PLAIN_BIDS, "discloses", ...RESOURCE_BIDS] as const;
 const bid = {
   ...cited,
   answer: z
