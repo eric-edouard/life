@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import {
@@ -11,6 +11,7 @@ import {
 } from "jose";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
+import { OWNER_DATA_DIR } from "../../core/paths";
 import {
   setSettings,
   settings,
@@ -160,14 +161,14 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_directory`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
     name: string;
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
-    "change_directory",
+    "change_directory_entry",
     "change_todo_item",
     "correct_memory",
     "fetch",
@@ -200,7 +201,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
       )
       .sort()
   ).toEqual([
-    "change_directory(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
+    "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -239,7 +240,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
   });
   const writes = [
     "correct_memory",
-    "change_directory",
+    "change_directory_entry",
     "change_todo_item",
     "tell_life",
   ];
@@ -661,7 +662,7 @@ test("built to serve reads only (the question cases' agent), the connector regis
   expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
   for (const writes of [
     "correct_memory",
-    "change_directory",
+    "change_directory_entry",
     "change_todo_item",
     "tell_life",
   ]) {
@@ -772,18 +773,23 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   }
 });
 
-test("change_directory is his: an agent's token is refused, and `said` is required", async () => {
+test("change_directory_entry is his: an agent's token is refused, and `said` is required; truth/ stays as it was", async () => {
+  const areas = join(OWNER_DATA_DIR, "truth", "areas.yaml");
+  const before = readFileSync(areas, "utf8");
   const call = async (over: Record<string, unknown>, args: object) =>
     (
       await rpc(await token(over), "tools/call", {
         arguments: args,
-        name: "change_directory",
+        name: "change_directory_entry",
       })
-    ).json;
+    ).json.result;
   const change = { action: "add", kind: "area", name: "Health", said: "x" };
-  expect((await call({}, change)).result).toMatchObject({ isError: true });
+  const agent = await call({}, change);
+  expect(agent).toMatchObject({ isError: true });
+  expect(agent.content[0].text).toContain("paired as an agent");
   const { said: _, ...unsaid } = change;
-  expect((await call({ agent: undefined }, unsaid)).result).toMatchObject({
-    isError: true,
-  });
+  const missing = await call({ agent: undefined }, unsaid);
+  expect(missing).toMatchObject({ isError: true });
+  expect(missing.content[0].text).toContain("said");
+  expect(readFileSync(areas, "utf8")).toBe(before);
 });

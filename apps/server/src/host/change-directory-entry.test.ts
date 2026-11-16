@@ -9,7 +9,7 @@ import {
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { changeDirectory } from "./change-directory";
+import { changeDirectoryEntry } from "./change-directory-entry";
 
 // The run's own copy of the made-up data (OWNER_DATA_DIR): backed up, made a repo, put back.
 const TRUTH = join(OWNER_DATA_DIR, "truth");
@@ -37,7 +37,7 @@ const said = "Add it, please.";
 test("an invalid change is refused and truth/ is left as it was", async () => {
   const before = file("people.yaml");
   await expect(
-    changeDirectory({
+    changeDirectoryEntry({
       action: "add",
       area: "nowhere",
       kind: "project",
@@ -46,7 +46,7 @@ test("an invalid change is refused and truth/ is left as it was", async () => {
     })
   ).rejects.toThrow("unknown area nowhere");
   await expect(
-    changeDirectory({
+    changeDirectoryEntry({
       action: "add",
       handles: { email: ["owner@example.com"] },
       kind: "person",
@@ -55,7 +55,7 @@ test("an invalid change is refused and truth/ is left as it was", async () => {
     })
   ).rejects.toThrow("belongs to both");
   await expect(
-    changeDirectory({
+    changeDirectoryEntry({
       action: "add",
       kind: "goal",
       said,
@@ -68,8 +68,13 @@ test("an invalid change is refused and truth/ is left as it was", async () => {
 
 test("valid changes are written one entry at a time, commented lines kept, and committed with his words", async () => {
   writeFileSync(join(TRUTH, "people.yaml"), `${file("people.yaml")}# kept\n`);
-  await changeDirectory({ action: "add", kind: "area", name: "Work", said });
-  await changeDirectory({
+  await changeDirectoryEntry({
+    action: "add",
+    kind: "area",
+    name: "Work",
+    said,
+  });
+  await changeDirectoryEntry({
     action: "add",
     area: "work",
     kind: "project",
@@ -77,34 +82,34 @@ test("valid changes are written one entry at a time, commented lines kept, and c
     repos: ["shop"],
     said,
   });
-  await changeDirectory({
+  await changeDirectoryEntry({
     action: "add",
     kind: "person",
     name: "Léa Martin",
     relation: "sister",
     said,
   });
-  await changeDirectory({
+  await changeDirectoryEntry({
     action: "edit",
     handles: { email: ["lea@example.com"] },
     id: "lea-martin",
     kind: "person",
     said,
   });
-  await changeDirectory({
+  await changeDirectoryEntry({
     action: "add",
     kind: "goal",
     said,
     text: "Grow the shop. (`shop`)",
   });
-  await changeDirectory({
+  await changeDirectoryEntry({
     action: "edit",
     kind: "goal",
     number: 1,
     said,
     text: "Be very well.",
   });
-  await changeDirectory({
+  await changeDirectoryEntry({
     action: "edit",
     kind: "may_keep",
     said,
@@ -122,4 +127,52 @@ test("valid changes are written one entry at a time, commented lines kept, and c
   );
   expect(log()).toContain("Truth, by his words: edit person lea-martin");
   expect(log()).toContain(said);
+});
+
+test("refused: a goal over two lines, a heading in the text, a name with no id", async () => {
+  const before = file("me.md");
+  const text = (t: string, kind: "goal" | "may_keep") =>
+    changeDirectoryEntry({ action: "add", kind, said, text: t });
+  await expect(text("One.\n2. Two.", "goal")).rejects.toThrow("one line");
+  await expect(text("## Goals", "goal")).rejects.toThrow("start with `#`");
+  await expect(text("Fine.\n## Goals\nx", "may_keep")).rejects.toThrow(
+    "start with `#`"
+  );
+  await expect(
+    changeDirectoryEntry({ action: "add", kind: "area", name: "健康", said })
+  ).rejects.toThrow("give an `id`");
+  expect(file("me.md")).toBe(before);
+});
+
+test("calls at once each land, `$&` in his words stays as written, and a busy git still answers done", async () => {
+  await Promise.all(
+    ["alpha", "beta", "gamma"].map((name) =>
+      changeDirectoryEntry({ action: "add", kind: "area", name, said })
+    )
+  );
+  for (const id of ["alpha", "beta", "gamma"]) {
+    expect(file("areas.yaml")).toContain(`"id":"${id}"`);
+  }
+  await changeDirectoryEntry({
+    action: "add",
+    kind: "may_keep",
+    said,
+    text: "Never keep $& or $1.",
+  });
+  expect(file("me.md")).toContain("Never keep $& or $1.");
+  // The night holds git's index: the write stands, the answer is still done, never a failure.
+  writeFileSync(join(OWNER_DATA_DIR, ".git", "index.lock"), "");
+  try {
+    expect(
+      await changeDirectoryEntry({
+        action: "add",
+        kind: "area",
+        name: "Delta",
+        said,
+      })
+    ).toStartWith("Done");
+  } finally {
+    rmSync(join(OWNER_DATA_DIR, ".git", "index.lock"), { force: true });
+  }
+  expect(file("areas.yaml")).toContain('"id":"delta"');
 });
