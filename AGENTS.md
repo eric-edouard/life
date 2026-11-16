@@ -145,6 +145,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Historical zones come from evidence of the day**, model-free, as `Etc/GMT±N` (reversed sign): the offsets of photos that place him, else sent-mail Date offsets (`historical-zones.ts`, `docs/operations.md`). Stored zones change only by appended lines, over the whole derived era, and a day a record cites, an episode day or a deferred day holding units keeps its zone. Days with no evidence use the nearest known day (ties earlier), reported as gaps for later model review, and so do days whose mail splits; a quarter-hour photo or a travel day (its mail names both differing neighbours' zones) defers its day. No city guesses or new Zone fields.
 - **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **A summary is redone only when new evidence for its subject arrived.** Its `inputs` digest covers its subject's evidence only, in a window ending at the subject's newest evidence (the story: capped at the last closed year); today's date, the page text and other summaries may be shown to the call but never enter the digest (personas, story; pages and history months already hold). A situation is the exception: its digest also holds the page's digest and, while the personas add-on is on, the persona's text, so a new page or persona refreshes it. The personas' weekly throttle is a rate cap beside the rule, not part of it.
+- **A night reads only what is new** (his rule of 16 Nov 2026): each night step reads its window, what arrived since its own cursor or digest, and summaries of closed periods; never every year of a source, every stored line or every turn. Only an explicit backfill reads the whole history. A digest holds refs, never names, so a rename re-reads nothing.
+- **`callCharsOf` bounds one call; it is not a budget to fill.** A summary that would grow with the years is never fed the whole history up to it: it is built from closed periods' summaries (the story from its closed years, as above) or from its last version plus what is new.
+- **Readers are bounded too:** a connector call, the status snapshot and the watcher's tick read the index, a cursor or a window, never a whole folder of `memory/` or every lifelog turn.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive. A prompt part switched by an add-on is not a new
   version: its variant (`<prompt>-without-<parts>`) shares the base's cache (`isPromptVersion`, `models/prompt-parts.ts`).
@@ -307,6 +310,7 @@ ruling of 29 Oct).
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.
+- A PR adding a night step or a reader says what it reads per night at 10 years of data.
 - **Prove a change cheaply.** A change to the system (code, a prompt, a step) that would re-process data is proved
   first on the smallest sample that can show it works or fails (a few days, weeks or cases, on a copy), never the whole
   archive. Aim for the strongest signal at the lowest cost: speed and money come first; stop a trial once its numbers
