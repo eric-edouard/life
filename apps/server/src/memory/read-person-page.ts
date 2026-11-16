@@ -6,6 +6,10 @@ import { SubjectRef } from "../records/fields";
 import { speakers, withStore } from "../sources/lifelog";
 import { conversationsWith } from "../sources/lifelog-conversations";
 import { closenessLine } from "./closeness";
+import {
+  communicationStyleBlock,
+  readCommunicationStyle,
+} from "./communication-styles";
 import { conversationSummaryPart } from "./conversation-summaries";
 import { notCapturedOf, readCoverage } from "./coverage";
 import { detailsBlock, readDetailsOf } from "./details";
@@ -295,6 +299,7 @@ export async function person(
   const counted = now && partRef ? readExchangeCounts() : null;
   const rows = counted && { ...counted, rows: counted.people[ref] ?? [] };
   const items = now ? await readOpenItems(folks, clock()) : [];
+  const style = now ? communicationStyleBlock(readCommunicationStyle(ref)) : [];
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor directory entry: the lifelog speakers it is part of.
@@ -328,6 +333,7 @@ export async function person(
               ...detailsBlock(readDetailsOf(folks)(ref), dayNow()),
               ...closenessLine(ref, folks),
               ...lastExchangeLine(rows),
+              ...style,
             ],
             open: (room) =>
               openWithOf(ref, {

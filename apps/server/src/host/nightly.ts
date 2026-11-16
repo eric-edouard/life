@@ -16,6 +16,7 @@ import {
   pagedNow,
   readWithPeople,
 } from "../memory/closeness";
+import { communicationStyles } from "../memory/communication-styles";
 import { writeContactPeople } from "../memory/contact-people";
 import {
   type ConversationSummaryWork,
@@ -597,6 +598,12 @@ export async function runNight(
       evidence.built
     );
     const paged = await steps.step("pages", () => pages({ rebuild: false }));
+    // How each person with a page writes, rebuilt per person a week after their last build: a failure is logged and the
+    // night goes on.
+    steps.at = "communication styles";
+    await communicationStyles(everyYear).catch((e: Error) =>
+      log("run.error", { error: e.message, step: "memory.communication-style" })
+    );
     // Derived and rebuilt each night: a failed call is logged and retried, never stops the night.
     steps.at = "situations";
     await situations(personaReadingsOf);
