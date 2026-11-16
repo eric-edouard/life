@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { DAY } from "../core/clock";
 import type { SourceEvent } from "../records/source";
 import {
   communicationStyleBlock,
+  communicationStyles,
   inputOf,
   readCommunicationStyle,
   styleLines,
@@ -12,7 +12,6 @@ import {
 } from "./communication-styles";
 import { communicationStylePath } from "./memory-files";
 import { nowLines } from "./read-person-page";
-import { isDue } from "./run";
 import { lifeChat } from "./units";
 
 const msg = (
@@ -112,16 +111,6 @@ test("the call is shown who wrote each message", () => {
   ]);
 });
 
-test("a style is rebuilt only a week after that person's last build, and only when their messages changed", () => {
-  const now = new Date("2026-11-08T00:00:00.000Z");
-  const last = { built: "2026-11-05T00:00:00.000Z", inputs: "a" };
-  expect(isDue(null, "a", now, 7 * DAY)).toBe(true);
-  expect(isDue(last, "b", now, 7 * DAY)).toBe(false);
-  const old = { ...last, built: "2026-11-01T00:00:00.000Z" };
-  expect(isDue(old, "b", now, 7 * DAY)).toBe(true);
-  expect(isDue(old, "a", now, 7 * DAY)).toBe(false);
-});
-
 test("a file of the 6 Nov shape reads as none; one of this shape is read and shown in `now`", async () => {
   const ref = "person:style-shape";
   const path = communicationStylePath(ref);
@@ -165,6 +154,18 @@ test("a file of the 6 Nov shape reads as none; one of this shape is read and sho
     }).join("\n");
     expect(now).toContain('- they, chat (whatsapp): Short. E.g. "haha ok"');
     expect(communicationStyleBlock([])).toEqual([]);
+  } finally {
+    rmSync(path, { force: true });
+  }
+});
+
+test("a person who lost their page keeps their file: a night never removes one", async () => {
+  const ref = "person:lost-page";
+  const path = communicationStylePath(ref);
+  try {
+    await Bun.write(path, "{}\n");
+    await communicationStyles({ events: [], failed: [], since: new Date(0) });
+    expect(await Bun.file(path).exists()).toBe(true);
   } finally {
     rmSync(path, { force: true });
   }

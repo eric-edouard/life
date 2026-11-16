@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
-import { readJson, removeAllBut } from "../core/files";
+import { readJson } from "../core/files";
 import { newestWithin } from "../core/lists";
 import { AGENT_WORD } from "../core/names";
 import { stamp } from "../models/llm";
@@ -10,7 +10,7 @@ import {
 } from "../records/communication-style";
 import type { SourceEvent } from "../records/source";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { COMMUNICATION_STYLES, communicationStylePath } from "./memory-files";
+import { communicationStylePath } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotesAt } from "./quote-check";
 import { OWNER } from "./read-truth";
@@ -211,10 +211,6 @@ export async function communicationStyles({ events, failed }: WithPeople) {
       { page: t.ref }
     )
   );
-  // A style whose person lost their page, or who never wrote to him, goes.
-  const gone = await removeAllBut(
-    COMMUNICATION_STYLES,
-    new Set(targets.map((t) => communicationStylePath(t.ref)))
-  );
-  return step.end({ gone, styles: targets.length, written });
+  // A file is only overwritten when its person is due, never removed.
+  return step.end({ styles: targets.length, written });
 }

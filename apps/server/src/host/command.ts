@@ -4,7 +4,6 @@ import { clock, daysBefore } from "../core/clock";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
 import { checksNow, checksText } from "../memory/checks";
-
 import { closeness, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-styles";
 import { writeContactPeople } from "../memory/contact-people";

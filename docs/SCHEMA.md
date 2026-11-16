@@ -412,7 +412,7 @@ newest 120 1:1 chat messages and 30 mails, both ways (`directChats`; Life's own 
 `page` (`person:<id>`), `lines` (each `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, `source` when one app
 differs, `text`, `quotes`, each `at` and `text`, words found in a chat message that writer sent, never in mail), `inputs` (a hash of
 the prompt version and the messages shown, not the date), `built`, `madeBy`, `schemaVersion` 2. Rewritten whole when its inputs
-changed and it is a week old; removed when the person has no page or no 1:1 message. A file of the 6 Nov shape (`schemaVersion` 1,
+changed and it is a week old; never removed. A file of the 6 Nov shape (`schemaVersion` 1,
 his style only) reads as none and is replaced when its person is next due. Nothing is written or removed on a night a source can't be read.
 
 ## appointments.json
