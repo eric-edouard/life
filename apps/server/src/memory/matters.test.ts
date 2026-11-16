@@ -1,13 +1,16 @@
 import { expect, spyOn, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { MatterBatch } from "../records/matter";
+import type { MatterStepNow, MatterView } from "./matter-read";
 import {
   callsOf,
   type MatterWork,
   matterLines,
   matters,
   mattersNow,
+  mattersShownOf,
   pendingOf,
+  placedOf,
   readMatterRecords,
   readMatters,
   readMatterWork,
@@ -15,6 +18,9 @@ import {
   shownEpisodesOf,
 } from "./matters";
 import type { People } from "./who";
+
+/** The matters prompt the code reads: only its lines are the grouping. */
+const PROMPT_NOW = "memory-matters.v2";
 
 const people = {
   contacts: [],
@@ -124,12 +130,19 @@ test("an errand over three spans lands in one matter, the call's episode with no
       ],
     }),
     (input: {
-      open: { areas: string[]; id: string; projects: string[] }[];
+      shown: {
+        areas: string[];
+        id: string;
+        openSteps: { text: string }[];
+        projects: string[];
+        status: string;
+      }[];
     }) => {
-      minted = input.open[0]?.id ?? "";
-      // The matter is shown with its own areas and projects, for the reply to keep.
-      expect(input.open[0]?.areas).toEqual([]);
-      expect(input.open[0]?.projects).toEqual(["shop-fit-out"]);
+      minted = input.shown[0]?.id ?? "";
+      // The matter is shown with its own areas and projects, for the reply to keep, its status and its open steps.
+      expect(input.shown[0]?.areas).toEqual([]);
+      expect(input.shown[0]?.projects).toEqual(["shop-fit-out"]);
+      expect(input.shown[0]?.status).toBe("open");
       return {
         matters: [
           {
@@ -145,9 +158,9 @@ test("an errand over three spans lands in one matter, the call's episode with no
         ],
       };
     },
-    (input: { open: { id: string; latest: { day: string } }[] }) => {
+    (input: { shown: { id: string; latest: { day: string }[] }[] }) => {
       // The third span sees the matter and the day of its newest step.
-      expect(input.open.map((m) => [m.id, m.latest.day])).toEqual([
+      expect(input.shown.map((m) => [m.id, m.latest.at(-1)?.day])).toEqual([
         [minted, "2026-10-12"],
       ]);
       return {
@@ -164,13 +177,13 @@ test("an errand over three spans lands in one matter, the call's episode with no
       };
     },
     // A span ending 20 days after the matter's newest step still shows it (dormant, but inside `SHOWN_DAYS`).
-    (input: { open: { id: string }[] }) => {
-      shownOpen.push(input.open.map((m) => m.id));
+    (input: { shown: { id: string }[] }) => {
+      shownOpen.push(input.shown.map((m) => m.id));
       return { matters: [] };
     },
     // One ending 50 days after does not.
-    (input: { open: { id: string }[] }) => {
-      shownOpen.push(input.open.map((m) => m.id));
+    (input: { shown: { id: string }[] }) => {
+      shownOpen.push(input.shown.map((m) => m.id));
       return { matters: [] };
     },
   ];
@@ -304,7 +317,7 @@ test("a matter is its latest name and the union of its steps, a later placement 
     offered: string[] = []
   ): MatterBatch => ({
     at,
-    madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+    madeBy: { engine: "claude", model: "m", prompt: PROMPT_NOW, run: "r" },
     matters: [
       {
         areas: [],
@@ -393,4 +406,109 @@ test("the errand's small steps are shown: an observation rated 1, and a mail no 
     [`ep_${pad(1)}`, "Episode 1", [unitId(1)], [`obs_${pad(1)}`]],
     [unitId(9), "", [unitId(9)], [`obs_${pad(3)}`]],
   ]);
+});
+
+test("matters v2: only the lines of the current prompt are the grouping; an older one's matters and offers count for nothing", () => {
+  const batch = (prompt: string, id: string, ref: string): MatterBatch => ({
+    at: "2026-10-05T10:00:00.000Z",
+    madeBy: { engine: "claude", model: "m", prompt, run: "r" },
+    matters: [
+      {
+        areas: [],
+        id,
+        name: id,
+        projects: [],
+        steps: [{ day: "2026-10-01", quote: "q", ref }],
+      },
+    ],
+    offered: [ref],
+    schemaVersion: 1,
+  });
+  const now = mattersNow([
+    batch("memory-matters.v1", "matter_aaaaaaaaaaaa", "r1"),
+    batch(PROMPT_NOW, "matter_bbbbbbbbbbbb", "r2"),
+  ]);
+  expect(now.matters.map((m) => m.id)).toEqual(["matter_bbbbbbbbbbbb"]);
+  // What v1 was offered is due again for v2.
+  expect([...now.offered]).toEqual(["r2"]);
+});
+
+test("matters v2: a call is shown open, done and full matters of the last 45 days; a full one takes no step", () => {
+  const step = (day: string, text: string) =>
+    ({
+      at: `${day}T10:00:00Z`,
+      day,
+      kind: "to_do",
+      quote: text,
+      ref: text,
+      text,
+    }) as MatterStepNow;
+  const view = (id: string, over: Partial<MatterView>) =>
+    ({
+      areas: [],
+      id,
+      lone: false,
+      name: id,
+      open: true,
+      openSteps: [],
+      owedTo: [],
+      projects: [],
+      status: "moving",
+      steps: [step("2026-10-10", `${id} step`)],
+      told: [],
+      waitingOn: [],
+      with: [],
+      ...over,
+    }) as MatterView;
+  const big = Array.from({ length: 40 }, (_, i) => step("2026-10-10", `s${i}`));
+  const shown = mattersShownOf(
+    [
+      view("open", { openSteps: [step("2026-10-10", "Send the plans")] }),
+      view("done", { open: false, status: "done" }),
+      view("big", { steps: big }),
+      view("wide", { areas: ["a", "b", "c", "d"] }),
+      view("edge", { areas: ["a", "b", "c"], steps: big.slice(1) }),
+      view("old", { steps: [step("2026-08-01", "old")] }),
+      view("lone", { lone: true }),
+    ],
+    "2026-10-20"
+  );
+  expect(shown.map((m) => [m.id, m.status])).toEqual([
+    ["open", "open"],
+    ["done", "done"],
+    ["big", "full"],
+    ["wide", "full"],
+    ["edge", "open"],
+  ]);
+  expect(shown[0]?.openSteps).toEqual([
+    { day: "2026-10-10", text: "Send the plans" },
+  ]);
+  expect(shown[2]?.latest).toHaveLength(2);
+  // A reply into a matter it may not join (full, so left out of the joinable ones) is refused whole.
+  const known = new Map([
+    [
+      "obs_000000000001",
+      {
+        day: "2026-10-12",
+        refs: ["obs_000000000001"],
+        texts: ["Book the inspection"],
+      },
+    ],
+  ]);
+  const { kept, refusedSteps } = placedOf(
+    {
+      matters: [
+        {
+          id: "big",
+          name: "big",
+          steps: [{ quote: "Book the inspection", ref: "obs_000000000001" }],
+        },
+      ],
+    },
+    known,
+    new Map([["open", "open"]]),
+    { areas: new Set(), projects: new Set() },
+    () => "matter_cccccccccccc"
+  );
+  expect([kept, refusedSteps]).toEqual([[], 1]);
 });

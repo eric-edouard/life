@@ -107,7 +107,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   open step with the ending found. With his `endings` setting on, a found ending ends its step at once, shown as "probably ended: <quote>" (a matter it closes reads `probably_done`), and every one is an ending check he may answer in conversation, never asked in the email (his word of 16 Nov 2026: "is this done?" is load) (`checksNow`; nothing is drawn: the check is written, a fact check with `endedBy` set, its text the check's guess (earlier ones start "Done?"), only with his answer): right (or outdated) is the `outdated` correction on the step, wrong removes the link between those two ids for good and the step is open again, no further link ending it. With his `matters` setting on, after extraction the night places the day's episodes, observations and
   to-do items in matters (`matters.jsonl`; read by `read_day`'s Due, a person's page, `read_matters` and `read_matter`); `bun life memory matters` prints what is due (calls, episodes,
   to-do items) with no model, `--force` places the night's days, `--since YYYY-MM-DD` places one week at a time from
-  that day to today, in order (each week sees the matters of the weeks before; a failed source gives no work), and
+  that day to today, in order (each week sees the matters of the weeks before; a failed source gives no work). After a
+  matters prompt bump the readers see no matter until the re-group runs: run `--since` from the first day straight after
+  the install that carries it, before the night. And
   `bun life memory matters list` prints each matter with its areas, projects, steps and newest day.
 - **Today** is no tick's: the watcher builds today's units from every source every 5 minutes, with no model call
   (`buildTodayUnits`): search finds a message by its words within 5 minutes and by its meaning within 10 more (the

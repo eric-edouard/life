@@ -262,7 +262,9 @@ The matters step's calls (`memory/matters.ts`), one line each, append-only, whil
 `steps`, each a `ref` (a unit id, an observation id or a to-do item's ledger key, never an episode id: a day's episodes
 are rewritten), its `day` and a `quote`, words found in that record's own text), `offered` (every unit, observation and
 to-do item key the call was asked to place: one placed nowhere is so known as asked, and is not asked again), `at`,
-`madeBy`, `schemaVersion`. A matter is worked out when read (`mattersNow`): the latest line naming it gives its name,
+`madeBy`, `schemaVersion`. Only the lines of the code's matters prompt (`madeBy.prompt`) are read: a new prompt
+version is a new grouping, every record offered again and every matter a new id, the older lines kept as stored (a
+bump re-groups his whole history: ask first). A matter is worked out when read (`mattersNow`): the latest line naming it gives its name,
 areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
 its steps only, never a status. What is open, a matter's status, next step and people by role are worked out when read (`matterOf`); the readers are `read_matters`, `read_matter`, `read_day`'s Due, a person's page and `bun life memory matters list`.
 
