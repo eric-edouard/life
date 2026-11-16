@@ -5,6 +5,7 @@ import { ClosenessLevel } from "../records/observation";
 import { levelsWith } from "./closeness";
 import { QUOTE_MAX, section } from "./index-rows";
 import {
+  doneOnOf,
   type MatterStepNow,
   type MatterView,
   matterPeopleOf,
@@ -18,6 +19,7 @@ import {
   openItems,
   rankedItems,
 } from "./open-items";
+import { endingWords } from "./read-matters";
 import { goalProjects } from "./read-truth";
 import { clip } from "./units";
 import type { People } from "./who";
@@ -126,17 +128,35 @@ export function openWithOf(
     : [];
 }
 
-/** Every open matter on `today` (`readMatterBook`), with the replies he owes up to `end`. */
+/** Every open matter on `today` (`book`, `readMatterBook` when not given), with the replies he owes up to `end`. */
 export async function readOpenItems(
   people: People,
   end: Date,
-  date = dayNow()
+  date = dayNow(),
+  book?: MatterView[]
 ) {
   return [
-    ...matterItems(await readMatterBook(people, dayNow()), people.nameOf, date),
+    ...matterItems(
+      book ?? (await readMatterBook(people, dayNow())),
+      people.nameOf,
+      date
+    ),
     ...(await repliesOwed(end)),
   ];
 }
+
+/** The matters that ended on `date` (`doneOnOf`): each with its name and how its last step ended. */
+export const doneOf = (book: readonly MatterView[], date: string) =>
+  doneOnOf(book, date, localDate).map(({ last, matter }) => ({
+    how: `${last.text}${endingWords(last)}`,
+    matter,
+  }));
+
+/** `doneOf` as `read_day` lines, each with the matter's id and status. */
+const doneLinesOf = (book: readonly MatterView[], date: string) =>
+  doneOf(book, date).map(
+    ({ how, matter: m }) => `- ${m.id} ${m.name} [${m.status}]: ${how}`
+  );
 
 /** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
 export async function dueContext(date: string, people: People) {
@@ -156,9 +176,11 @@ export async function dueContext(date: string, people: People) {
       ),
     ])
   );
+  const book = await readMatterBook(people, today);
   return {
+    done: doneLinesOf(book, date),
     goals: goalProjects(truth.me.goals),
-    items: await readOpenItems(people, new Date(end), date),
+    items: await readOpenItems(people, new Date(end), date, book),
     levels,
     shown: await shownDays(date),
     today,

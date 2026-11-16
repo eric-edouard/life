@@ -3,7 +3,14 @@ import type { Episode } from "../records/episode";
 import { type LinkBatch, LinkBatch as LinkBatchSchema } from "../records/link";
 import type { Observation } from "../records/observation";
 import { endingsOf } from "./endings";
-import { keptLinks, nightOf, splitSteps, subjectWorkOf } from "./links";
+import {
+  isLater,
+  keptLinks,
+  laterRecordsOf,
+  nightOf,
+  splitSteps,
+  subjectWorkOf,
+} from "./links";
 import { type MatterStepNow, matterBookOf } from "./matter-read";
 
 const matter = { id: "matter_0000000000a1", name: "The contract with Ann" };
@@ -80,7 +87,7 @@ const callStep = matterBookOf(
       } as unknown as Observation,
     ],
     refOf: (r) => r,
-    retired: new Set(),
+    retired: new Map(),
     todoItems: [],
   },
   "2026-10-10"
@@ -234,7 +241,7 @@ test("a night takes the oldest due work first and caps each person, so a long ba
   expect(nightOf([many]).map((w) => w.chunks.length)).toEqual([1]);
 });
 
-test("the call's episode ends the promise, a link ties steps of one matter only, and a step that repeats the promise ends nothing", () => {
+test("the call's episode ends the promise, a record never shown is never linked, and a step that repeats the promise ends nothing", () => {
   const link = (earlier: string, later: string, quote: string) => ({
     earlier,
     later,
@@ -294,4 +301,73 @@ test("the call's episode ends the promise, a link ties steps of one matter only,
 
 test("a batch that offered an episode is a valid line", () => {
   expect(() => LinkBatchSchema.parse(batch([promise], [call]))).not.toThrow();
+});
+
+test("an episode ends a step from its day on; any other record only once said after it", () => {
+  const sameDayCall = { ...promise, id: "ep_0000000000c1", type: "episode" };
+  expect(isLater(promise, sameDayCall)).toBe(true);
+  expect(
+    isLater(promise, { ...promise, id: "obs_000000000009", type: "idea" })
+  ).toBe(false);
+  expect(isLater(promise, sent)).toBe(true);
+});
+
+test("a matter's later records: its people's unplaced notes of the week after, never one another matter holds", () => {
+  const open = [
+    {
+      at: "2026-09-02T10:00:00.000Z",
+      day: "2026-09-02",
+      kind: "waiting_on_someone",
+      quote: "q",
+      ref: "obs_router",
+      text: "t",
+    },
+  ] as MatterStepNow[];
+  const note = (id: string, date: string, more: Partial<Observation> = {}) =>
+    ({
+      at: `${date}T10:00:00.000Z`,
+      date,
+      id,
+      speaker: "person:sam",
+      subjects: [],
+      type: "event",
+      ...more,
+    }) as Observation;
+  const notes = [
+    note("obs_boxes", "2026-09-05", {
+      speaker: "unknown:shop",
+      subjects: ["person:sam-old"],
+    }),
+    note("obs_rent_nov", "2026-09-06"),
+    note("obs_late", "2026-09-10"),
+    note("obs_other", "2026-09-04", { speaker: "person:lea" }),
+    note("obs_again", "2026-09-04", { type: "promise" }),
+    note("obs_plan", "2026-09-04", { modality: "plan" }),
+  ];
+  const kept = laterRecordsOf(
+    open,
+    new Set(["person:sam"]),
+    notes,
+    (id) => id === "obs_rent_nov",
+    (ref) => (ref === "person:sam-old" ? "person:sam" : ref)
+  );
+  // Read through refOf; the November rent is another matter's; the 10th is past the week; another person, a promise again and a plan are no endings.
+  expect(kept.map((o) => o.id)).toEqual(["obs_boxes"]);
+  // Over the cap, the earliest are kept.
+  const many = Array.from({ length: 25 }, (_, i) => {
+    const n = String(i).padStart(2, "0");
+    return note(`obs_n${n}`, "2026-09-03", {
+      at: `2026-09-03T10:${n}:00.000Z`,
+    });
+  }).toReversed();
+  const capped = laterRecordsOf(
+    open,
+    new Set(["person:sam"]),
+    many,
+    () => false,
+    (r) => r
+  );
+  expect(capped.map((o) => o.id)).toEqual(
+    Array.from({ length: 20 }, (_, i) => `obs_n${String(i).padStart(2, "0")}`)
+  );
 });
