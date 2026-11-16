@@ -118,6 +118,19 @@ export function speakerTurns(store: Store, since: Date) {
     .all(since.toISOString());
 }
 
+/** The newest name lifelog gave each person id, from `speakerTurns`' rows. */
+export function voiceNamesOf(
+  rows: { at: string; id: string; name: string | null }[]
+) {
+  const newest = new Map<string, { at: string; name: string }>();
+  for (const { at, id, name } of rows) {
+    if (name && at >= (newest.get(id)?.at ?? "")) {
+      newest.set(id, { at, name });
+    }
+  }
+  return new Map([...newest].map(([id, { name }]) => [id, name]));
+}
+
 /** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
 export function isTurnNamed(store: Store, ref: string) {
   const t = parseTurnRef(ref);

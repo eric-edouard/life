@@ -30,6 +30,7 @@ const SEEN = "2026-10-19T10:00:00.000Z";
 const KNOWN: Record<string, string> = {
   "+15550000001": "person:dana",
   Dana: "person:dana",
+  dana: "person:dana",
   p1: "person:dana",
 };
 const people = {
@@ -61,6 +62,7 @@ type Row = Record<string, unknown>;
  */
 const sceneOf = (o: {
   before?: boolean;
+  id?: string;
   name?: string;
   others?: number;
   voices?: (job: string, before: string) => Row[];
@@ -75,7 +77,7 @@ const sceneOf = (o: {
       ...turnFixture(
         t,
         new Date(Date.parse(from) + t * MIN).toISOString(),
-        t % every === 1 && o.name ? "p1" : null,
+        t % every === 1 && o.name ? (o.id ?? "p1") : null,
         t % every === 1 ? (o.name ?? null) : null,
         c,
         t % every === 0
@@ -155,7 +157,7 @@ const workOf = async (s: Scene, chats?: SourceEvent[]) => {
     s.where,
     s.open
   );
-  return readVoiceNamingWork(found, people, s.where, s.open, chats);
+  return readVoiceNamingWork(found, people, s.where, s.open, { chats });
 };
 const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
   asked = [];
@@ -299,14 +301,9 @@ test("the hidden run shows a voice he answered as an unnamed V with no likeness,
       s.open
     );
     return {
-      hidden: await readVoiceNamingWork(
-        found,
-        people,
-        s.where,
-        s.open,
-        undefined,
-        true
-      ),
+      hidden: await readVoiceNamingWork(found, people, s.where, s.open, {
+        hiding: true,
+      }),
       shown: await readVoiceNamingWork(found, people, s.where, s.open),
     };
   };
@@ -370,4 +367,65 @@ test("a reply keeps an entry only when its person is offered, me or unknown, its
   expect(unnamedTurnKey("job-1:3", "speaker_1")).toBe(
     "job-1:3 voice:speaker_1"
   );
+});
+
+test("a voice he answered as a lifelog id the directory knows only by name still makes that person a possible speaker, keeps their likeness, and a recognized voice of theirs is checked against who could be there", async () => {
+  // "p9" is lifelog's id: the directory knows only "Dana", the name lifelog gave it on the turns.
+  const day = (answer: string | null) =>
+    run(
+      sceneOf({
+        before: true,
+        id: "p9",
+        name: "Dana",
+        voices: (job, before) => [
+          row(job, { basis: "recognized", personId: "p9", status: "person" }),
+          row(before, { basis: answer, personId: "p9", status: "person" }),
+        ],
+      }),
+      () => ({ voices: [] })
+    );
+  expect((await day("recognized")).work.counts.parts).toBe(1);
+  expect((await day("owner")).work.counts.parts).toBe(0);
+  const s = sceneOf({
+    before: true,
+    id: "p9",
+    name: "Dana",
+    others: 2,
+    voices: (job, before) => [
+      row(job, {
+        likeness: [{ personId: "p9", score: 0.8 }],
+        speakerLabel: "speaker_2",
+      }),
+      row(before, { basis: "owner", personId: "p9", status: "person" }),
+    ],
+  });
+  const { work } = await run(s, () => ({ voices: [] }));
+  const asked0 = work.asked[0]?.call.input as NamingInput;
+  expect(asked0.voices[0]?.likeness).toEqual([
+    { person: "person:dana", score: 0.8 },
+  ]);
+});
+
+test("again asks a part with a stored reply once more, and the newest line is the current one", async () => {
+  const s = sceneOf({ voices: (job) => [row(job)] });
+  await run(s, () => ({ voices: [] }));
+  const found = await readConversationSummaryWork(
+    NOW,
+    people,
+    {},
+    s.where,
+    s.open
+  );
+  expect((await workOf(s)).counts.calls).toBe(0);
+  const again = await readVoiceNamingWork(found, people, s.where, s.open, {
+    again: true,
+  });
+  expect(again.counts).toEqual({ calls: 1, parts: 1 });
+  await voiceNaming(
+    again,
+    40,
+    s.where,
+    stepOf(() => ({ voices: [] }))
+  );
+  expect(readReplies(s.where).flat()).toHaveLength(2);
 });

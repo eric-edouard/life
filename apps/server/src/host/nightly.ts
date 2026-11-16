@@ -323,7 +323,7 @@ export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
   }
   if (found && name) {
     // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
-    await readVoiceNamingWork(found, people, undefined, undefined, chats)
+    await readVoiceNamingWork(found, people, undefined, undefined, { chats })
       .then((work) => voiceNaming(work))
       .catch((e: Error) =>
         log("run.error", { error: e.message, step: "memory.voice-naming" })

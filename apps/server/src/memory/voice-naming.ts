@@ -4,7 +4,12 @@ import { redact } from "../core/redact";
 import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
-import { readVoices, type VoiceRow, voiceKey } from "../sources/lifelog-voices";
+import {
+  readVoices,
+  type VoiceRow,
+  voiceKey,
+  voiceNamesOf,
+} from "../sources/lifelog-voices";
 import {
   directChats,
   type HeardTurn,
@@ -33,7 +38,7 @@ import { begin, chunks, type Step } from "./run";
 import { partLine, type SpokenPart } from "./spoken-conversations";
 import { clip, turnRefOf, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
-import { observationsNow } from "./who";
+import { observationsNow, voicePersonOf } from "./who";
 import { messageLine } from "./words";
 import { localDate, time } from "./zones";
 
@@ -114,6 +119,8 @@ interface Context {
   /** Persons in an active fact whose evidence is not a recording, by day. */
   facts: Map<string, Set<string>>;
   heard: { at: string; ref: string }[];
+  /** The newest name lifelog gave each person id (`voiceNamesOf`), for the id the directory does not know. */
+  names: Map<string, string>;
   /** The people who spoke in person, by local day. */
   onDay: Map<string, Set<string>>;
   people: People;
@@ -215,15 +222,14 @@ async function readContext(
   const since = new Date(Date.parse(first) - HEARD_WITHIN);
   const events = chats ?? (await readWithPeople(since)).events;
   const direct = directChats(events, people.resolve);
-  const heard = (
-    await readHeardInPerson(
-      await withStore(
-        (store) => heardTurnsOf(store, people.resolve, since),
-        open
-      ),
-      direct
-    )
-  ).map((t) => ({ at: t.at, ref: t.ref }));
+  const turns = await withStore(
+    (store) => heardTurnsOf(store, people.resolve, since),
+    open
+  );
+  const heard = (await readHeardInPerson(turns, direct)).map((t) => ({
+    at: t.at,
+    ref: t.ref,
+  }));
   const callDays = new Map(
     [...direct].map(([ref, list]) => [
       ref,
@@ -244,6 +250,7 @@ async function readContext(
     direct,
     events,
     heard,
+    names: voiceNamesOf(turns),
     people,
   };
 }
@@ -352,7 +359,11 @@ export function namingOf(
         v.basis === "owner" &&
         v.status === "person" &&
         v.personId
-          ? (c.people.resolve(v.personId) ?? [])
+          ? (voicePersonOf(
+              c.people.resolve,
+              v.personId,
+              c.names.get(v.personId)
+            ) ?? [])
           : []
       ),
       facts: [...(c.facts.get(part.day) ?? [])],
@@ -371,7 +382,7 @@ export function namingOf(
     if (!v.name || hidden?.has(voiceKey(jobAt(n), v.label))) {
       return true;
     }
-    const ref = v.from ? c.people.resolve(v.from) : null;
+    const ref = voicePersonOf(c.people.resolve, v.from, v.name);
     return (
       rows.get(voiceKey(jobAt(n), v.label))?.basis === "recognized" &&
       !(ref && could.has(ref))
@@ -405,7 +416,11 @@ export function namingOf(
     })),
     voices: [...tokens].map(([voice, token]) => ({
       likeness: (rows.get(voice)?.likeness ?? []).flatMap((l) => {
-        const person = c.people.resolve(l.personId);
+        const person = voicePersonOf(
+          c.people.resolve,
+          l.personId,
+          c.names.get(l.personId)
+        );
         return person && could.has(person)
           ? [{ person, score: Math.round(l.score * 100) / 100 }]
           : [];
@@ -462,7 +477,7 @@ function namingsOf(
   voices: VoiceRow[],
   c: Context,
   index: ReturnType<typeof readReplyIndex>,
-  hiding: boolean
+  { again, hiding }: { again?: boolean; hiding?: boolean }
 ) {
   const hidden = hiding ? hiddenOf(voices) : undefined;
   const namings = due.flatMap((part) => {
@@ -470,7 +485,7 @@ function namingsOf(
     return n ? [{ n, part }] : [];
   });
   const asked: Asked[] = namings
-    .filter(({ n }) => !replyOf(n.keys, VOICE_NAMING_READ, index))
+    .filter(({ n }) => again || !replyOf(n.keys, VOICE_NAMING_READ, index))
     .map(({ n, part }) => ({
       at: part.at,
       call: { firstAt: part.at, input: n.input, keys: n.keys, starts: [0] },
@@ -482,7 +497,7 @@ function namingsOf(
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`): one read of
  * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
- * pending before the night's cap. With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
+ * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person or not relevant,
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
 export async function readVoiceNamingWork(
@@ -490,8 +505,15 @@ export async function readVoiceNamingWork(
   people: People,
   where = READ_REPLIES,
   open = openStore,
-  chats?: SourceEvent[],
-  hiding = false
+  {
+    again,
+    chats,
+    hiding,
+  }: {
+    again?: boolean;
+    chats?: SourceEvent[];
+    hiding?: boolean;
+  } = {}
 ) {
   const asked: Asked[] = [];
   let named = 0;
@@ -500,7 +522,8 @@ export async function readVoiceNamingWork(
   const talks = found.parts
     .map((parts) => ({
       due: parts.filter(
-        (part) => part.voices.some((v) => !v.owner) && !isStored(part, index)
+        (part) =>
+          part.voices.some((v) => !v.owner) && (again || !isStored(part, index))
       ),
       parts,
     }))
@@ -518,14 +541,10 @@ export async function readVoiceNamingWork(
         group.map((t) => readConversationVoices(t.parts))
       );
       for (const [i, t] of group.entries()) {
-        const done = namingsOf(
-          t.parts,
-          t.due,
-          voices[i] ?? [],
-          c,
-          index,
-          hiding
-        );
+        const done = namingsOf(t.parts, t.due, voices[i] ?? [], c, index, {
+          again,
+          hiding,
+        });
         asked.push(...done.asked);
         named += done.named;
       }

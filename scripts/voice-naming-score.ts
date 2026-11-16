@@ -20,7 +20,7 @@ import {
   readVoiceNamingWork,
   voiceNaming,
 } from "@life/server/src/memory/voice-naming";
-import { readPeople } from "@life/server/src/memory/who";
+import { readPeople, voicePersonOf } from "@life/server/src/memory/who";
 import { transcripts } from "@life/server/src/memory/words";
 import { llmFor } from "@life/server/src/models/llm";
 import type { ReadReply } from "@life/server/src/records/read-reply";
@@ -32,8 +32,10 @@ import {
 import {
   isTurnNamed,
   readVoices,
+  speakerTurns,
   type VoiceRow,
   voiceKey,
+  voiceNamesOf,
 } from "@life/server/src/sources/lifelog-voices";
 
 /** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, or null when he did not answer the whole voice. */
@@ -227,7 +229,23 @@ async function gather(lines: ReadReply[]) {
       }
     }
   }
-  const person = (id: string | null) => (id ? people.resolve(id) : null);
+  const { names, store } = await withStore(
+    (s) => ({
+      names: voiceNamesOf(speakerTurns(s, new Date(0))),
+      store: new Set(
+        per.flatMap(({ g, row }) =>
+          row?.basis !== "owner" &&
+          row?.basis !== "recognized" &&
+          g.keys.some((k) => isTurnNamed(s, turnRefOf(k)))
+            ? [g.voice]
+            : []
+        )
+      ),
+    }),
+    openStore
+  );
+  const person = (id: string | null) =>
+    voicePersonOf(people.resolve, id, id ? names.get(id) : null);
   const recognizedOf = (row?: VoiceRow) => {
     const ref = row?.basis === "recognized" ? person(row.personId) : null;
     return ref ? people.refOf(ref) : null;
@@ -252,19 +270,6 @@ async function gather(lines: ReadReply[]) {
     ),
   ];
   const words = await transcripts(jobs.map((jobId) => ({ jobId })));
-  const store = await withStore(
-    (s) =>
-      new Set(
-        per.flatMap(({ g, row }) =>
-          row?.basis !== "owner" &&
-          row?.basis !== "recognized" &&
-          g.keys.some((k) => isTurnNamed(s, turnRefOf(k)))
-            ? [g.voice]
-            : []
-        )
-      ),
-    openStore
-  );
   const guessed = per.map(({ g, row }) => {
     const answer = answerOf(row);
     if (!answer && row?.basis === "owner" && row.status === "person") {
@@ -325,8 +330,7 @@ if (import.meta.main) {
       people,
       where,
       openStore,
-      undefined,
-      true
+      { hiding: true }
     );
     const voices = work.asked.reduce(
       (n, a) => n + (a.call.input as { voices: unknown[] }).voices.length,
