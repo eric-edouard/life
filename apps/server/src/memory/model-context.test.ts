@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { setSettings, settings } from "../core/settings";
 import {
   type InferredPerson,
   peopleOutsideDirectoryOf,
@@ -77,4 +78,31 @@ test("the directory shows each person once: an inferred id folded into another i
     "person:ann",
     "person:inf_dee",
   ]);
+});
+
+test("no one is flagged close while the relationships add-on is off", () => {
+  const was = settings().personal;
+  const ref = () =>
+    refContext(
+      {
+        canon: (r) => r,
+        outsideDirectory: [],
+        truth: {
+          areas: [],
+          chats: [],
+          me: { text: "me" },
+          people: [Person.parse({ id: "bob", name: "Bob" })],
+          projects: [],
+        },
+      },
+      new Set(["person:bob"]),
+      new Set(["person:bob"])
+    ).context.people;
+  try {
+    expect(ref()).toEqual([expect.objectContaining({ close: true })]);
+    setSettings({ personal: { aboutMe: {} } });
+    expect(ref().map((p) => "close" in p)).toEqual([false]);
+  } finally {
+    setSettings({ personal: was ?? null });
+  }
 });
