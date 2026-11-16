@@ -350,7 +350,14 @@ const HANDLERS: Record<string, Handler> = {
     return step(async () => {
       const people = await readPeople();
       const records = await readMatterRecords(people);
-      const sum = { calls: 0, episodes: 0, failed: 0, placed: 0, todoItems: 0 };
+      const sum = {
+        calls: 0,
+        episodes: 0,
+        failed: 0,
+        placed: 0,
+        refusedSteps: 0,
+        todoItems: 0,
+      };
       for (const span of spans) {
         // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
         const work = await readMatterWork(span, people, [], records);
@@ -364,6 +371,7 @@ const HANDLERS: Record<string, Handler> = {
           sum.calls += run.calls;
           sum.failed += run.failed;
           sum.placed += run.placed;
+          sum.refusedSteps += run.refusedSteps;
         } else {
           sum.calls += callsOf(work).length;
         }
