@@ -270,15 +270,30 @@ test("a person's page lists the open matters they are in, what he owes first, th
     nameOf,
     "2026-10-20"
   );
-  const lines = openWithOf(GRAN, { goals: [], items, today: "2026-10-20" });
+  const lines = openWithOf(GRAN, {
+    goals: [],
+    items,
+    owner: "Test",
+    today: "2026-10-20",
+  });
   expect(lines[1]).toStartWith("Open with them");
   expect(lines.join("\n")).toContain("owed to Gran");
   // The partner is only with: she is in the matter, so it is listed for her too; a stranger has none.
   expect(
-    openWithOf(PARTNER, { goals: [], items, today: "2026-10-20" })
+    openWithOf(PARTNER, {
+      goals: [],
+      items,
+      owner: "Test",
+      today: "2026-10-20",
+    })
   ).not.toEqual([]);
   expect(
-    openWithOf("person:cy", { goals: [], items, today: "2026-10-20" })
+    openWithOf("person:cy", {
+      goals: [],
+      items,
+      owner: "Test",
+      today: "2026-10-20",
+    })
   ).toEqual([]);
 });
 
@@ -288,9 +303,13 @@ test("a person's open items: the pointer counts what the one cut left out, and i
     (i) => i.person === GRAN || i.people?.includes(GRAN)
   );
   const call = (room?: number) =>
-    openWithOf(GRAN, { goals: [], items, room, today: "2026-10-20" }).join(
-      "\n"
-    );
+    openWithOf(GRAN, {
+      goals: [],
+      items,
+      owner: "Test",
+      room,
+      today: "2026-10-20",
+    }).join("\n");
   expect(mine.length).toBeGreaterThan(0);
   expect(call()).not.toContain("more open with them");
   const none = call(1);

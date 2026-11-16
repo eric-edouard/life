@@ -7,8 +7,8 @@ import { firstNameOf, ownerIn, PeopleFile } from "../records/truth";
 
 // Prompt parts (docs/architecture.md, "Prompt parts"): a paragraph of a prompt about a person, a relationship or his
 // own life sits between `<!-- part:<add-on> -->` and `<!-- /part -->` (inline, no nesting). The marker lines of a part
-// that is on are removed and nothing else: with every part on a prompt renders as its file read before parts existed,
-// so its cached outputs stay. A part that is off is cut out with its text.
+// that is on are removed and nothing else; a part that is off is cut out with its text. A prompt's name, not its text,
+// keys its cached outputs.
 
 const PART = /<!-- part:(\w+) -->([\s\S]*?)<!-- \/part -->/g;
 

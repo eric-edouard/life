@@ -40,6 +40,7 @@ test("`now` with 200 open items still fits the part, and says how many more ther
       openWithOf("person:ana", {
         goals: [],
         items,
+        owner: "Test",
         room,
         today: "2026-11-14",
       }),

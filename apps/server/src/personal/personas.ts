@@ -99,10 +99,11 @@ export function personaBlock(
 ) {
   const lines = persona?.lines ?? [];
   const readings = readingsOf(lines);
+  const owner = readOwnerName();
   return [
     ...(readings.length > 0
       ? [
-          `Persona (what they are like, want and can give, and what keeps happening between them and ${readOwnerName()}, read every ${REBUILD_AFTER / DAY} days from 3 years of their messages, group chats and ${readOwnerName()}'s recordings with them; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
+          `Persona (what they are like, want and can give, and what keeps happening between them and ${owner}, read every ${REBUILD_AFTER / DAY} days from 3 years of their messages, group chats and ${owner}'s recordings with them; solid: seen on ${SOLID_DAYS} days or more, thin: fewer, old: not seen for a year):`,
           `- in short: ${persona?.gist}`,
           ...readings.map(
             (l) =>

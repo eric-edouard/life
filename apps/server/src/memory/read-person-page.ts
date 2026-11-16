@@ -347,6 +347,7 @@ export async function person(
               openWithOf(ref, {
                 goals: goalProjects(truth.me.goals),
                 items,
+                owner: readOwnerName(),
                 room,
                 today: dayNow(),
               }),
@@ -559,9 +560,10 @@ export function lastExchangeLine(counted: { rows: ExchangeCounts[] } | null) {
   const last = counted?.rows.toSorted((a, b) =>
     b.start.localeCompare(a.start)
   )[0];
+  const owner = readOwnerName();
   return last
     ? [
-        `Last exchange: ${localDate(last.start)}, opened by ${last.heOpened ? readOwnerName() : "them"}; ${readOwnerName()} sent ${last.sent}, they sent ${last.got}.`,
+        `Last exchange: ${localDate(last.start)}, opened by ${last.heOpened ? owner : "them"}; ${owner} sent ${last.sent}, they sent ${last.got}.`,
       ]
     : [];
 }
