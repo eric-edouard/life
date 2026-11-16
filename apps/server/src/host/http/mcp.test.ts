@@ -777,9 +777,8 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     const ofProject = await call("read_matters", { project: "Shop fit-out" });
     expect(ofProject).toContain("matter_aaaaaaaaaaaa");
     expect(ofProject).not.toContain("matter_bbbbbbbbbbbb");
-    const one = (
-      await call("read_matter", { id: "matter_aaaaaaaaaaaa" })
-    ).split("\n");
+    const read = (id: string) => call("read_matter", { id });
+    const one = (await read("matter_aaaaaaaaaaaa")).split("\n");
     expect(one.slice(0, 4)).toEqual([
       "matter_aaaaaaaaaaaa Mend Gran's watch [moving]",
       "owed to: gran",
@@ -789,7 +788,9 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(one).toContain(
       '- 2026-10-12 promise obs_000000000005: Call the shop ""Call the shop" said Gran"'
     );
-    expect(await call("read_matter", { id: "matter_zzzzzzzzzzzz" })).toBe(
+    // A step's id opens the matter holding it.
+    expect(await read("obs_000000000005")).toBe(one.join("\n"));
+    expect(await read("matter_zzzzzzzzzzzz")).toBe(
       "No matter matter_zzzzzzzzzzzz."
     );
   } finally {

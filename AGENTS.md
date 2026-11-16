@@ -161,7 +161,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
   away or reorder, never add it. What is open is derived (`matterOf`), never stored (`docs/tasks.md`).
-- **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
+- **Nightly emails include every row.** Never cap a list or write "+N more"; the one kind left out on purpose is the ending check, never asked in the email (his word of 16 Nov 2026: "is this done?" is load) (`docs/operations.md`, "The nightly
   report").
 - **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
   wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it

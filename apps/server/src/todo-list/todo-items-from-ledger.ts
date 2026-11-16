@@ -50,6 +50,8 @@ export type Field = (typeof COMPARED)[number];
 export interface LedgerTodoItem {
   /** When it was made, and the observation or words it came from (open items' age and merge). */
   at: string;
+  /** When it last turned closed (ticked, removed or lost); none while it is open. */
+  closedAt?: string;
   deepLinkId?: string;
   fields: Fields;
   key: string;
@@ -81,6 +83,8 @@ function apply(it: LedgerTodoItem, a: LedgerEntry) {
   if (!tried) {
     it.deepLinkId = (a.after.deepLinkId as string | undefined) ?? it.deepLinkId;
     it.removedAt = after.deleted ? a.at : it.removedAt;
+    const closed = !isOpenTodoItem(it);
+    it.closedAt = closed ? (it.closedAt ?? a.at) : undefined;
   }
   return tried;
 }
