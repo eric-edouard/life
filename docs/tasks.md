@@ -107,6 +107,8 @@ it, within a minute. `read_open_todo_items` alone reads Reminders, for the secti
 
 `read_matters` (the running matters, open and not dormant, of a person, project or area: id, name, matter status, owed to, waiting on, next) and `read_matter` (one matter, by its id or the id of one of its steps, so an agent anchored on a record finds its matter again after a re-group: its steps in time order with dates and quotes, its people by role, projects, areas and status) are the connector's reads of them; they read only.
 
+An agent that finished a step of a matter (a promise, a wait, a to-do) closes it itself: `correct_memory` with kind `outdated`, the observation id and a note of what was done. It shows that night as done (`read_day`'s Done, the email's Done); he is not asked (his decision of 16 Nov 2026: Life should cut his load, and "is this done?" is load). An agent follows a matter by one of its records, never by the matter's id alone: a re-group gives matters new ids, and `read_matter` opens the matter holding a record.
+
 A person's page (`read_person_page`) lists every open matter they are in, whatever its day (`openWithOf`, `read-open-items.ts`),
 and the replies he owes them, ranked the same way
 (`rankedItems`), what he owes first, then what he waits on (`isOwedToHim`).
