@@ -5,18 +5,18 @@ import { readJson } from "../core/files";
 import { newestWithin } from "../core/lists";
 import { log } from "../core/log";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { directChats, pagedNow, type WithPeople } from "../memory/closeness";
+import { batchesOf, batchLines, exchangesOf } from "../memory/exchanges";
+import { historyPath } from "../memory/memory-files";
+import { foundQuotes } from "../memory/quote-check";
+import { begin, inBatches, inputsOf, type Step } from "../memory/run";
+import { clip } from "../memory/units";
+import type { People } from "../memory/who";
+import { localDate } from "../memory/zones";
 import { callCharsOf, stamp } from "../models/llm";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
 import type { SourceEvent } from "../records/source";
-import { directChats, pagedNow, type WithPeople } from "./closeness";
-import { batchesOf, batchLines, exchangesOf } from "./exchanges";
-import { historyPath } from "./memory-files";
-import { foundQuotes } from "./quote-check";
-import { begin, inBatches, inputsOf, type Step } from "./run";
-import { clip } from "./units";
-import type { People } from "./who";
-import { localDate } from "./zones";
 
 // A history (docs/glossary.md): a person's past months with him, each summarised once from their one-to-one chats and
 // mail threads (`directChats`, the stream the exchange counts count), and the story of the years. The present month

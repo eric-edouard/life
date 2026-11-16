@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { exchangeCountsOf, pairCountsOf } from "../memory/exchange-counts";
+import { personaPath } from "../memory/memory-files";
+import type { Truth } from "../memory/read-truth";
+import { unit as unitFixture } from "../memory/record-fixtures";
+import { inputsOf } from "../memory/run";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { apply } from "../sources/lifelog";
@@ -10,8 +15,6 @@ import {
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
-import { exchangeCountsOf, pairCountsOf } from "./exchange-counts";
-import { personaPath } from "./memory-files";
 import {
   backingOf,
   betweenOf,
@@ -28,9 +31,6 @@ import {
   shownDaysOf,
   spokenOf,
 } from "./personas";
-import type { Truth } from "./read-truth";
-import { unit as unitFixture } from "./record-fixtures";
-import { inputsOf } from "./run";
 
 const whoOf = (e: SourceEvent) => (e.fromMe ? "him" : "Dad");
 

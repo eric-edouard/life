@@ -1,13 +1,16 @@
 import { expect, test } from "bun:test";
 import { openById } from "./open-by-id";
 import {
+  ADD_ON_PARTS,
   nextReads,
   PART_CHARS,
   parseReadPartRef,
+  partErrorOf,
+  READ_PARTS,
   type ReadPartRef,
   readPartRefOf,
 } from "./read-part";
-import { partLines, personFor, personRefOf } from "./read-person-page";
+import { partLines, person, personFor, personRefOf } from "./read-person-page";
 
 const refs: ReadPartRef[] = [
   { part: "now", subject: "person:ana" },
@@ -49,15 +52,21 @@ test("a read part ref round-trips, and a malformed one says why", () => {
 });
 
 test("fetch by id: a subject's id is a part read (a malformed one is an error, never nothing found), and a part takes no fromTurn nor limit", async () => {
-  expect(await openById("person:ana/oops")).toContain('no part "oops"');
-  expect(await openById("person:ana/evidence", 3)).toContain("no fromTurn");
-  expect(await openById("person:ana/evidence", undefined, 5)).toContain(
+  expect(
+    await openById("person:ana/oops", undefined, undefined, person)
+  ).toContain('no part "oops"');
+  expect(await openById("person:ana/evidence", 3, undefined, person)).toContain(
+    "no fromTurn"
+  );
+  expect(await openById("person:ana/evidence", undefined, 5, person)).toContain(
     "no limit"
   );
-  expect(await openById("area:home/now")).toContain(
-    "no read parts for area:home"
-  );
-  expect(await openById("person:ana/evidence")).not.toContain("nothing found");
+  expect(
+    await openById("area:home/now", undefined, undefined, person)
+  ).toContain("no read parts for area:home");
+  expect(
+    await openById("person:ana/evidence", undefined, undefined, person)
+  ).not.toContain("nothing found");
 });
 
 const OLDER = /^Older: the same call with `before` 2024-03-\d\d\.$/;
@@ -71,12 +80,12 @@ const items = (kind: "observation" | "episode", days: number[], pad = 0) =>
   }));
 const base = {
   candidates: [],
-  counts: [],
+  exchange: null,
   fixed: [],
   heard: [],
   held: () => [],
   heldYears: [],
-  history: { months: [], schemaVersion: 1 as const, story: null },
+  offers: [],
   ref: "person:ana",
 };
 
@@ -208,4 +217,12 @@ test("the conversation part is his alone and takes the ref of a turn, never a ye
   ]) {
     expect(parseReadPartRef(bad)).toHaveProperty("error");
   }
+});
+
+test("a part whose add-on is off is no part, and the parts are listed in the grammar's order", () => {
+  const offered = READ_PARTS.filter((p) => p !== "persona");
+  const error = partErrorOf({ part: "persona" }, offered);
+  expect(error).toStartWith('no part "persona"');
+  expect(error).toContain(`parts: ${offered.join(", ")}`);
+  expect(ADD_ON_PARTS.every((p) => READ_PARTS.includes(p as never))).toBe(true);
 });
