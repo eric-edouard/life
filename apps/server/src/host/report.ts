@@ -45,7 +45,7 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
-  /** What Life would like him to verify (`checksNow`), most load-bearing first: every one, none left out. */
+  /** What Life would like him to verify (`readChecksFor`: all but the ending checks), most load-bearing first: every one, none left out. */
   checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];

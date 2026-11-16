@@ -9,7 +9,7 @@ import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { checksNow } from "../memory/checks";
+import { checksNow, isEndingKind } from "../memory/checks";
 import {
   closeness,
   lastYearsOf,
@@ -124,10 +124,13 @@ async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
   };
 }
 
-/** The report's Checks. Never fails the night: a failure is logged and the report has none. */
+/**
+ * The report's Checks: every one but the ending checks ("is this done?" is load, his word of 16 Nov 2026: a found
+ * ending reads probably done where he looks). Never fails the night: a failure is logged and the report has none.
+ */
 export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   try {
-    return await checksNow();
+    return (await checksNow()).filter((c) => !isEndingKind(c));
   } catch (e) {
     rec.error((e as Error).message, { step: "memory.nightly.checks" });
     return [];
