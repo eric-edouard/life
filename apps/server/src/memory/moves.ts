@@ -217,7 +217,7 @@ function answeredOf(m: Listed, line: number, by: SourceEvent, span: Span) {
 
 /**
  * The moves of one exchange code accepts: a known code, on a line of the exchange that is not a call, its words found
- * there. Every one is kept: counting what a person did once or twice is the rates' (`memory/move-rates.ts`).
+ * there. Every one is kept.
  */
 function movesOf(raw: unknown[], span: Span, read: MoveRead) {
   const schema: z.ZodType<Listed> = MOVES[read];
@@ -326,22 +326,4 @@ export function checkedOf(
     }
   }
   return out;
-}
-
-/** What each read gave about an exchange, by its first message's key: the unit the rates count (`memory/move-rates.ts`). */
-export interface SeenExchange {
-  /** Its first message's instant. */
-  at: string;
-  conflict?: boolean;
-  /** Its first message's key (`eventKey`). */
-  key: string;
-  moves: Move[];
-  /** The reads that listed it, so a code is counted only over the exchanges its own read saw. */
-  reads: Set<MoveRead>;
-  /** Its first message's source: rates of an exchange opportunity are kept apart by it. */
-  source: string;
-  tension?: boolean;
-  tone: { me?: string | null; them?: string | null };
-  /** The sides that wrote in it; a call line is no one's writing. */
-  took: Set<Side>;
 }

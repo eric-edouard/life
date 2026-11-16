@@ -255,7 +255,7 @@ const HANDLERS: Record<string, Handler> = {
   ),
   /**
    * `exchange-reads [--force]`: what the exchange reads would ask (calls and exchanges, before the night's cap), with no
-   * model; `--force` asks the night's share, as the night does once his `exchangeReads` setting is on.
+   * model; `--force` asks the night's share, as the night does for the reads that are on (`readsOn`).
    */
   "exchange-reads": step(async (v) => {
     const pending = readExchangeReadWork(
@@ -276,12 +276,14 @@ const HANDLERS: Record<string, Handler> = {
   "historical-units": step((v) => collectHistorical(v)),
   /**
    * `histories [--from YYYY-MM] [--force]`: what the histories would read (people, months, calls and a token ceiling),
-   * with no model; `--force` reads it, as the night does once his `history` setting is on.
+   * with no model; `--force` reads it, as the night does once the `histories` add-on is on.
    */
   histories: step(async (v) => {
-    const from = v.from ?? settings().histories?.from;
+    const from = v.from ?? settings().personal?.histories?.from;
     if (!from) {
-      throw new Error("histories needs --from YYYY-MM, or his history setting");
+      throw new Error(
+        "histories needs --from YYYY-MM, or the `histories` add-on"
+      );
     }
     const pending = await readHistoryWork(
       await readWithPeople(new Date(0)),
