@@ -91,7 +91,7 @@ if (import.meta.main) {
     model: values.model ?? main.model,
   };
   console.log(`${name} on ${llmSpec(llm)}`);
-  const wording = await promptText(read.prompt);
+  const wording = promptText(read.prompt);
   const trial = trialDir(name, values.label ?? llm.engine, wording);
   const index = readReplyIndex(trial);
   const toAsk = readSet(values.set).filter(

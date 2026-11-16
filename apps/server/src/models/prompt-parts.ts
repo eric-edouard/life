@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AddOn, hasAddOn } from "../core/add-ons";
 import { LIFE_CODE_DIR } from "../core/paths";
@@ -11,13 +11,14 @@ import { LIFE_CODE_DIR } from "../core/paths";
 const PART = /<!-- part:(\w+) -->([\s\S]*?)<!-- \/part -->/g;
 
 const sources = new Map<string, string>();
-/** A prompt's file as written, by its name (`prompts/<name>.md`); "" when it has none. */
+/** A prompt's file as written, by its name (`prompts/<name>.md`); throws when there is none. */
 const sourceOf = (prompt: string) => {
-  const file = join(LIFE_CODE_DIR, "prompts", `${prompt}.md`);
-  if (!sources.has(prompt)) {
-    sources.set(prompt, existsSync(file) ? readFileSync(file, "utf8") : "");
+  let text = sources.get(prompt);
+  if (text === undefined) {
+    text = readFileSync(join(LIFE_CODE_DIR, "prompts", `${prompt}.md`), "utf8");
+    sources.set(prompt, text);
   }
-  return sources.get(prompt) as string;
+  return text;
 };
 
 /** The parts a text holds, sorted. */

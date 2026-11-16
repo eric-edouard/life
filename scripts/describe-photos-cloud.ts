@@ -58,7 +58,7 @@ export async function describeInCloud(
   try {
     const sent = (async () => {
       proc.stdin.write(
-        `${JSON.stringify({ prompt: (await promptText(PHOTO_DESCRIPTION_PROMPT)).trim() })}\n`
+        `${JSON.stringify({ prompt: promptText(PHOTO_DESCRIPTION_PROMPT).trim() })}\n`
       );
       for (const w of photos) {
         // biome-ignore lint/performance/noAwaitInLoops: one image in memory at a time

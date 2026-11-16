@@ -6,6 +6,7 @@ import { appendJsonl } from "../core/files";
 import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
 import { stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { InferredRepo } from "../records/observation";
 import type { Unit } from "../records/unit";
@@ -108,7 +109,7 @@ export async function mapRepos() {
   const known = new Set([
     ...repoMap(truth, []).keys(),
     ...inferredRepos
-      .filter((g) => g.madeBy.prompt === REPO_PROJECT_PROMPT)
+      .filter((g) => isPromptVersion(g.madeBy.prompt, REPO_PROJECT_PROMPT))
       .map((g) => g.repo),
   ]);
 

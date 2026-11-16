@@ -131,13 +131,13 @@ if (import.meta.main) {
       "connection",
       values.flag,
       events,
-      await promptText(READS.connection.prompt)
+      promptText(READS.connection.prompt)
     );
     const read = readsOf(
       "conflict",
       values.flag,
       events,
-      await promptText(READS.conflict.prompt)
+      promptText(READS.conflict.prompt)
     );
     const shared = [...read].flatMap(([id, c]) => {
       const f = flagged.get(id);
@@ -162,7 +162,7 @@ if (import.meta.main) {
         "usage: bun scripts/pilot-agree.ts <read> <engine> <engine> | --flag <engine>"
       );
     }
-    const wording = await promptText(READS[name as MoveRead].prompt);
+    const wording = promptText(READS[name as MoveRead].prompt);
     const a = readsOf(name as MoveRead, engineA, events, wording);
     const b = readsOf(name as MoveRead, engineB, events, wording);
     const shared = [...a].flatMap(([id, x]): [Read, Read][] => {
