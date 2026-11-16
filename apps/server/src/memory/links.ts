@@ -176,8 +176,8 @@ export function splitSteps(
 }
 
 /**
- * The open matters (`readMatterBook`: only his word close one; a "maybe done" matter is still judged), each with its open steps
- * (promises, waits and to-dos of his: the observations no link ended) and its later steps (`splitSteps`), as a call
+ * The open matters (`readMatterBook`), each with its open steps
+ * (promises, waits and to-dos of his with no ending: a step a link already ended is not judged again) and its later steps (`splitSteps`), as a call
  * is shown them. A matter of one has no later step and no work.
  */
 async function readOpenMatters(people: People) {
