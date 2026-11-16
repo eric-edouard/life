@@ -25,7 +25,7 @@ import {
 } from "./memory-files";
 import { refContext } from "./model-context";
 import { OWNER, readMayKeep } from "./read-truth";
-import { begin, inBatches, inputsOf } from "./run";
+import { begin, inBatches, inputsOf, replyLines } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person with a
@@ -77,15 +77,10 @@ export const situated = async () =>
     .toSorted();
 
 /** The reply's lines that cite only episodes the call was shown. */
-export function shownLines(reply: unknown, shown: ReadonlySet<string>) {
-  const list = (reply as { lines?: unknown } | null)?.lines;
-  return (Array.isArray(list) ? list : []).flatMap((raw) => {
-    const l = SituationLine.safeParse(raw);
-    return l.success && l.data.cites.every((id) => shown.has(id))
-      ? [l.data]
-      : [];
-  });
-}
+export const shownLines = (reply: unknown, shown: ReadonlySet<string>) =>
+  replyLines(reply, SituationLine).filter((l) =>
+    l.cites.every((id) => shown.has(id))
+  );
 
 /**
  * The episodes a subject's situation reads: those of weight (`KEEP_AT`) with them, in the `DAYS` days ending at the
