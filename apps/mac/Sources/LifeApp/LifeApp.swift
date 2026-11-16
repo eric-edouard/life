@@ -261,10 +261,12 @@ struct SettingsView: View {
     await load()
   }
 
-  private func set(_ parts: [String: Any]) async {
-    guard let json = try? JSONSerialization.data(withJSONObject: parts) else { return }
+  @discardableResult
+  private func set(_ parts: [String: Any]) async -> Bool {
+    guard let json = try? JSONSerialization.data(withJSONObject: parts) else { return false }
     let r = await Helper.run(["settings", "set", String(decoding: json, as: UTF8.self)])
     status = r.code == 0 ? "Saved." : r.err
+    return r.code == 0
   }
 
   private func save() async {
@@ -307,7 +309,7 @@ struct SettingsView: View {
       let from = Calendar.current.date(byAdding: .year, value: -AddOn.historiesYearsBack, to: Date()) ?? Date()
       next[key] = key == "histories" ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
     }
-    await set(["personal": next.isEmpty ? NSNull() : next])
+    guard await set(["personal": next.isEmpty ? NSNull() : next]) else { return }
     personal = next
     await supervisor.restart()
   }

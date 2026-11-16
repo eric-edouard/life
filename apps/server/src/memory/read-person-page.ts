@@ -236,7 +236,7 @@ export function personFor(
 
 /** The owner's `now` while his directory is new: a statement of fact, offering the setup interview. */
 const NEW_DIRECTORY =
-  "His directory is new: it holds only him, with no goals and no people yet. What he says about his goals and how he plans to reach them, the main people in his life, his projects and areas of focus, and what Life may keep goes in through `change_directory_entry`, his words as `said`.";
+  "His directory is new: it holds only him, with no goals and no other people yet. What he says about his goals and how he plans to reach them, the main people in his life, his projects and areas of focus, and what Life may keep goes in through `change_directory_entry`, his words as `said`.";
 
 /**
  * A person, read in parts (`read-part.ts`). `now`, the default: who they are to him and where things stand: candidates

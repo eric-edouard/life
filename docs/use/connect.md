@@ -55,4 +55,10 @@ bun life connect --public   # through Funnel
 bun life pair               # prints a pairing code
 ```
 
+## The setup interview
+
+Life starts knowing only what you tell it. After connecting, ask your assistant to read your page and set Life up with
+you: it asks about your goals, the people close to you, your projects and what Life must not keep, and writes your
+answers into your directory as you give them. It stops offering once you have a goal or another person.
+
 Next: [set up your agent](agent.md).
