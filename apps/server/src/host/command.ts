@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { addOnOf } from "../core/add-ons";
 import { clock, daysBefore } from "../core/clock";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
