@@ -75,7 +75,7 @@ export interface Signs {
   answered: string[];
   /** In an active fact dated that day whose evidence is not a recording. */
   facts: string[];
-  /** Spoke in person in one of his recordings, the voice named by his own answer and not heard over a phone (any time: `possibleSpeakersOf` keeps the 90 days before). */
+  /** Spoke in person in one of his recordings, the voice named by his own answer and not heard over a phone (any time: `isHeardAround` keeps the 90 days either side). */
   heard: { at: string; ref: string }[];
   /** On a call that overlaps the recording (`overlappingPhoneCallsOf`). */
   onCall: string[];
@@ -84,26 +84,44 @@ export interface Signs {
 }
 
 /**
+ * Whether a turn heard in person at `heardAt` counts for the conversation running from `begin` to `end`, whose part is at
+ * `at`: in another conversation (before it began or after it ended), within `HEARD_WITHIN` either side, at the UTC
+ * offset he had at the part: someone heard only while he was in another time zone, where they may live, does not count.
+ */
+export function isHeardAround(
+  heardAt: string,
+  at: string,
+  begin: string,
+  end: string
+) {
+  const [t, from, to] = [heardAt, begin, end].map((s) => Date.parse(s)) as [
+    number,
+    number,
+    number,
+  ];
+  return (
+    ((t < from && t >= from - HEARD_WITHIN) ||
+      (t > to && t <= to + HEARD_WITHIN)) &&
+    offsetAt(heardAt) === offsetAt(at)
+  );
+}
+
+/**
  * His third rule: who could be there, at most `POSSIBLE_SPEAKERS`, those on a call first. A person is in when any sign
- * holds: on an overlapping call; named by his answer in this conversation; heard in person before the conversation began
- * (`begin`), within `HEARD_WITHIN`, at the UTC offset he had at the part (`offsetAt(at)`): someone heard only while he
- * was in another time zone, where they may live, does not count; pictured in a photo of that day; in an active fact dated that day that no recording is evidence of.
+ * holds: on an overlapping call; named by his answer in this conversation; heard in person in another conversation
+ * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
+ * dated that day that no recording is evidence of.
  * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like.
  */
 export function possibleSpeakersOf(
   signs: Signs,
   at: string,
   begin: string,
+  end: string,
   cap = POSSIBLE_SPEAKERS
 ) {
-  const [before, offset] = [Date.parse(begin), offsetAt(at)];
   const heard = signs.heard
-    .filter(
-      (h) =>
-        Date.parse(h.at) < before &&
-        Date.parse(h.at) >= before - HEARD_WITHIN &&
-        offsetAt(h.at) === offset
-    )
+    .filter((h) => isHeardAround(h.at, at, begin, end))
     .toSorted((a, b) => b.at.localeCompare(a.at))
     .map((h) => h.ref);
   return [
@@ -124,7 +142,7 @@ export interface Brief {
   /** The local days he spoke with them on a call picked up, within `HEARD_WITHIN` before the conversation. */
   byCall: string[];
   details: DetailLine[];
-  /** The local days they spoke in person in his recordings, in the same time. */
+  /** The local days they spoke in person in his recordings, in another conversation within `HEARD_WITHIN` either side (`isHeardAround`). */
   inPerson: string[];
   language?: "en" | "fr" | "th";
   /** The names of the two people most often recorded the same days. */

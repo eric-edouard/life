@@ -63,6 +63,26 @@ test("the score counts right and wrong per 100 by voice and by guess, with me, n
   );
 });
 
+test('the score counts the voices he answered "Not anyone I know" that were guessed a person or him, apart from the wrong counts', () => {
+  const stranger = (voice: string, o: Partial<Guessed> = {}) =>
+    g(voice, { answer: "unknown", ...o });
+  const s = scoreOf([
+    stranger("a"),
+    stranger("b", { confidence: "likely" }),
+    stranger("c", { person: "me" }),
+    stranger("d", { confidence: "weak" }),
+    stranger("e", { person: "unknown" }),
+    g("f"),
+  ]);
+  expect(s.strangers).toEqual({ likely: 1, sure: 2, voices: 5 });
+  // They are not answered persons: nothing of them is wrong or counted there.
+  expect(s.voices).toBe(1);
+  expect(s.byVoice.sure).toEqual({ n: 1, per100: 0, wrong: 0 });
+  expect(reportOf(s).join("\n")).toContain(
+    'voices answered "Not anyone I know": 5, guessed as a person or me at sure: 2, at likely: 1'
+  );
+});
+
 test("the trial folder: a plain new one is accepted; one inside his data, by a link, after a link with .., or through a dangling link, is refused", () => {
   const base = mkdtempSync(join(tmpdir(), "score-link-"));
   const data = join(base, "data");

@@ -73,6 +73,23 @@ export const Voices = z.array(
 export type VoiceRow = z.infer<typeof Voices>[number];
 
 /**
+ * What his own answer on a voice row is (`basis: owner`), the one place that says: a person, not relevant, "Not anyone I
+ * know" (`unknown`), any other answer that names no one (`other`, media), or null when he did not answer it.
+ */
+export function ownAnswerOf(row?: VoiceRow) {
+  if (row?.basis !== "owner") {
+    return null;
+  }
+  if (row.status === "person" && row.personId) {
+    return { kind: "person", personId: row.personId } as const;
+  }
+  if (row.status === "not_relevant" || row.status === "unknown") {
+    return { kind: row.status } as const;
+  }
+  return { kind: "other" } as const;
+}
+
+/**
  * Every voice of the recordings with a turn starting in [from, to), in windows of the 24 hours lifelog answers at most.
  * An older Lifelog Host has no such route (404): that throws.
  */

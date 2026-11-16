@@ -166,6 +166,9 @@ const run = async (s: Scene, reply: (i: NamingInput) => unknown) => {
   return { done: done as { calls: number; stored: number }, work };
 };
 
+/** What code knows beside the model's input, when it knows nothing. */
+const NOTHING_KNOWN = { noOne: new Set<string>(), onCall: [] };
+
 test("an unnamed voice is a V in the lines; its reply is kept only as far as it checks, stored under the unnamed turn's key; nothing is asked twice", async () => {
   const t = sceneOf({
     voices: (job) => [row(job, { likeness: [{ personId: "p1", score: 0.8 }] })],
@@ -329,6 +332,81 @@ test("the hidden run shows a voice he answered as an unnamed V with no likeness,
   ).toBe(1);
 });
 
+const strangerRow = (job: string) =>
+  row(job, { basis: "owner", status: "unknown" });
+const storedVoices = (where: string) =>
+  readReplies(where).flatMap((f) => f.map((l) => l.reply.voices));
+
+test('a voice he answered "Not anyone I know" is stored unknown, whatever the model said or left out', async () => {
+  const named = sceneOf({ voices: (job) => [strangerRow(job)] });
+  const { done } = await run(named, () => ({
+    voices: [{ confidence: "sure", lines: [1], person: "me", voice: "V1" }],
+  }));
+  expect(done.stored).toBe(1);
+  const unknown = [
+    { confidence: "weak", lines: [1], person: "unknown", voice: "V1" },
+  ];
+  expect(storedVoices(named.where)).toEqual([unknown]);
+  const left = sceneOf({ voices: (job) => [strangerRow(job)] });
+  await run(left, () => ({ voices: [] }));
+  expect(storedVoices(left.where)).toEqual([unknown]);
+  // Its token and key stay: nothing is asked twice, and a guess under the same key is superseded by the newer line.
+  expect((await workOf(left)).counts.calls).toBe(0);
+});
+
+test('the hidden run hides a voice he answered "Not anyone I know" and does not check it as answered', async () => {
+  const s = sceneOf({ voices: (job) => [strangerRow(job)] });
+  const found = await readConversationSummaryWork(
+    NOW,
+    people,
+    {},
+    s.where,
+    s.open
+  );
+  const work = await readVoiceNamingWork(found, people, s.where, s.open, {
+    hiding: true,
+  });
+  expect(work.counts.parts).toBe(1);
+  await voiceNaming(
+    work,
+    40,
+    s.where,
+    stepOf(() => ({
+      voices: [{ confidence: "sure", lines: [1], person: "me", voice: "V1" }],
+    }))
+  );
+  expect(storedVoices(s.where)).toEqual([
+    [{ confidence: "sure", lines: [1], person: "me", voice: "V1" }],
+  ]);
+});
+
+test("a likely guess with no likeness and no call is stored weak; with likeness or on a call it stays likely; sure stays sure", () => {
+  const withInput: NamingInput = {
+    ...input,
+    voices: [
+      { likeness: [{ person: "person:dana", score: 0.8 }], voice: "V1" },
+      { likeness: [], voice: "V2" },
+    ],
+  };
+  const confidenceOf = (
+    voice: string,
+    confidence: string,
+    onCall: string[] = []
+  ) =>
+    checkedVoices(
+      {
+        voices: [entry({ confidence, lines: [voice === "V1" ? 1 : 2], voice })],
+      },
+      withInput,
+      { noOne: new Set(), onCall }
+    ).voices[0]?.confidence;
+  expect(confidenceOf("V2", "likely")).toBe("weak");
+  expect(confidenceOf("V1", "likely")).toBe("likely");
+  expect(confidenceOf("V2", "likely", ["person:dana"])).toBe("likely");
+  expect(confidenceOf("V2", "sure")).toBe("sure");
+  expect(confidenceOf("V2", "weak")).toBe("weak");
+});
+
 test("an older Lifelog Host with no voices route stops the step with a plain message", async () => {
   const s = sceneOf({});
   await expect(workOf(s)).rejects.toThrow("needs the new Lifelog Host");
@@ -352,7 +430,7 @@ const entry = (o: Record<string, unknown>) => ({
 
 test("a reply keeps an entry only when its person is offered, me or unknown, its lines are lines of that voice and its confidence is one of three", () => {
   const kept = (e: Record<string, unknown>) =>
-    checkedVoices({ voices: [entry(e)] }, input).voices.length;
+    checkedVoices({ voices: [entry(e)] }, input, NOTHING_KNOWN).voices.length;
   expect(kept({})).toBe(1);
   expect(kept({ person: "me" })).toBe(1);
   expect(kept({ person: "unknown" })).toBe(1);
@@ -361,9 +439,13 @@ test("a reply keeps an entry only when its person is offered, me or unknown, its
   expect(kept({ lines: [1, 9] })).toBe(0);
   expect(kept({ confidence: "certain" })).toBe(0);
   expect(kept({ lines: [1], voice: "Dana" })).toBe(0);
-  const twice = checkedVoices({ voices: [entry({}), entry({})] }, input);
+  const twice = checkedVoices(
+    { voices: [entry({}), entry({})] },
+    input,
+    NOTHING_KNOWN
+  );
   expect(twice.voices).toHaveLength(1);
-  expect(() => checkedVoices({}, input)).toThrow();
+  expect(() => checkedVoices({}, input, NOTHING_KNOWN)).toThrow();
   expect(unnamedTurnKey("job-1:3", "speaker_1")).toBe(
     "job-1:3 voice:speaker_1"
   );
@@ -404,6 +486,8 @@ test("a voice he answered as a lifelog id the directory knows only by name still
   expect(asked0.voices[0]?.likeness).toEqual([
     { person: "person:dana", score: 0.8 },
   ]);
+  // The brief counts the same turn that made her possible: heard in person on one day.
+  expect(asked0.people[0]?.brief).toContain("heard in person on 1 days");
 });
 
 test("again asks a part with a stored reply once more, and the newest line is the current one", async () => {
