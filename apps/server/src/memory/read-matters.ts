@@ -86,10 +86,17 @@ export async function openMatters(q: {
         .join("\n");
 }
 
-/** One matter, by id: where it stands, its people by role, projects and areas, and its steps in time order, each with its day and words. */
+/**
+ * One matter, by its id or the id of one of its steps (an observation or a to-do item key: an agent anchored on a record
+ * finds its matter again after a re-group): where it stands, its people by role, projects and areas, and its steps in
+ * time order, each with its day and words.
+ */
 export async function oneMatter(id: string) {
   const people = await readPeople();
-  const v = (await readMatterBook(people, dayNow())).find((m) => m.id === id);
+  const book = await readMatterBook(people, dayNow());
+  const v =
+    book.find((m) => m.id === id) ??
+    book.find((m) => m.steps.some((s) => s.ref === id));
   if (!v) {
     return `No matter ${id}.`;
   }
