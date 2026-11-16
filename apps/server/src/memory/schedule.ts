@@ -14,7 +14,7 @@ const FIRST_HOUR = 5;
 /** From this hour a daily job no longer waits for the night: past the night's three tries, a tick apart. */
 const AFTER_NIGHT_HOUR = FIRST_HOUR + 4;
 export const MAX_ATTEMPTS = 3;
-/** Whether `used` failed tries leave none: the night's and a backfill week's one rule. */
+/** Whether `used` failed tries leave none: every scheduled job's one rule. */
 export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
 /** A scheduled job's day: its tries and how the last went (`nightly`, `backup`, `bridges`). */
 export interface JobState {
@@ -53,7 +53,7 @@ export const afterNightDue = (
   decide(hour, day, job) === "run";
 
 /**
- * Above this share of his Codex plan, the runs that can wait do (backfill weeks, evals), so the night keeps
+ * Above this share of his Codex plan, the runs that can wait do (imports, evals), so the night keeps
  * the rest: a re-read night takes about 12 to 14% of a week (the 21 Oct review, gap 6).
  */
 const RESERVE = 75;
@@ -67,7 +67,7 @@ export const reserved = (
 
 /** The nightly email's line on the quota. */
 export const quotaLine = (q: Quota | undefined, now = clock().getTime()) =>
-  `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q, now) ? `: over ${RESERVE}%, the backfill and evals wait` : ""}`;
+  `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q, now) ? `: over ${RESERVE}%, imports and evals wait` : ""}`;
 
 /** An eval or a bench run starts only under the reserve (his decision 12, 21 Oct: evals right after a reset). */
 export async function spareQuota(engine?: Engine) {
@@ -115,94 +115,10 @@ export function nextNight(now: Date, day: string, state: JobState | undefined) {
   );
 }
 
-/**
- * The backfill's range (`bun life memory backfill`): the next local day to read, the last one, how many times its week
- * failed, and how many weeks `day` read.
- */
-export interface Backfill {
-  day?: string;
-  failures: number;
-  next: string;
-  to: string;
-  weeks?: number;
-}
-const BACKFILL = join(OUT, "backfill.json");
-export const readBackfill = () => readJson<Backfill>(BACKFILL);
-export function recordBackfill(b: Backfill) {
-  writeJson(BACKFILL, b);
-}
-
-/** Weeks a day reads at most: about an hour of deep calls each, so his subscriptions keep room for him. */
-const WEEKS_A_DAY = 4;
-
-/**
- * The week a backfill reads next on `day`: seven days from `next`, never past `to`; none before `day`'s own night
- * went through (`night`: a week never pushes the night back), once it is done, stopped after MAX_ATTEMPTS failures of
- * one week, or `day` read its WEEKS_A_DAY.
- */
-export function backfillWeek(
-  b: Backfill | undefined,
-  day: string,
-  night: JobState | undefined
-): Window | null {
-  if (
-    !b ||
-    night?.date !== day ||
-    night.status !== "ok" ||
-    b.next > b.to ||
-    isOutOfTries(b.failures) ||
-    (b.day === day && (b.weeks ?? 0) >= WEEKS_A_DAY)
-  ) {
-    return null;
-  }
-  return weekFrom(b.next, b.to);
-}
-
 /** The seven days from `from`, the last cut at `last`. */
 export function weekFrom(from: string, last: string): Window {
   const end = daysBefore(from, -6);
   return { from, to: end < last ? end : last };
-}
-
-/** The range after `week` was read on `day`: moved past it when it went through, one more failure when it did not. */
-export function afterWeek(
-  b: Backfill,
-  week: Window,
-  ok: boolean,
-  day: string
-): Backfill {
-  const weeks = (b.day === day ? (b.weeks ?? 0) : 0) + 1;
-  return ok
-    ? { day, failures: 0, next: daysBefore(week.to, -1), to: b.to, weeks }
-    : { ...b, day, failures: b.failures + 1, weeks };
-}
-
-/**
- * What a 30-minute tick runs: the night when it is due; else nothing over the quota's reserve (`reserved`); else a
- * backfill week when one is due (`backfillWeek`), unless the day's backup
- * still is (it runs after the tick's work, and goes first). The backup itself is `afterNightDue`'s, after any of these.
- */
-export function turnOf(
-  now: Date,
-  day: string,
-  s: {
-    backfill?: Backfill;
-    backup?: JobState;
-    night?: JobState;
-    quota?: Quota;
-  }
-): "night" | "backfill" | "none" {
-  const hour = now.getHours();
-  if (decide(hour, day, s.night) === "run") {
-    return "night";
-  }
-  if (reserved(s.quota, now.getTime())) {
-    return "none";
-  }
-  return !afterNightDue(hour, day, s.night, s.backup) &&
-    backfillWeek(s.backfill, day, s.night)
-    ? "backfill"
-    : "none";
 }
 
 /** A scheduled job's state (`nightly`, `backup`, `bridges`). */

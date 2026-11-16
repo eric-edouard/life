@@ -187,8 +187,8 @@ turn on the sources you want, and press **Open Full Disk Access** to allow Life 
 so it starts with the Mac.
 
 The cost is your model usage, nothing else: each night makes about one call per day it reads, then more for the facts
-and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life skips
-the backfill once your Codex quota is 75% used; the nightly always runs.
+and pages that changed. The status window shows the tokens used this week. On a ChatGPT subscription Life holds
+imports once your Codex quota is 75% used; the nightly always runs.
 
 ## Where your data goes
 
@@ -197,7 +197,7 @@ the Mac is listed in [SECURITY.md](SECURITY.md#what-leaves-the-mac).
 
 ## Status and limitations
 
-Its author uses Life every day. Backups, email and the backfill
+Its author uses Life every day. Backups, email and imports
 have no screen in the app yet, only [settings](docs/use/settings.md).
 
 The app is not signed with a Developer ID or notarized. An ad hoc build loses its Keychain items and its Full Disk

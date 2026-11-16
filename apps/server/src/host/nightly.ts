@@ -5,7 +5,6 @@ import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
 import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
-import type { Engine } from "../core/names";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
@@ -64,16 +63,11 @@ import {
 import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
 import {
   afterNightDue,
-  afterWeek,
-  backfillWeek,
+  decide,
   isOutOfTries,
   quotaLine,
-  readBackfill,
   readState,
-  recordBackfill,
   recordState,
-  spareQuota,
-  turnOf,
 } from "../memory/schedule";
 import { situations } from "../memory/situations";
 import { keptStores } from "../memory/sources";
@@ -194,8 +188,7 @@ export async function archiveLine(since: string) {
  * Repo map, episodes (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 05:00, once the day is ok, or after 3 failures (schedule.ts), and
- * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else a backfill week,
- * not over the Codex quota's reserve (`reserved`), read each tick. Today, before its night, is the watcher's
+ * a failure email goes once no try is left (`isOutOfTries`). Today, before its night, is the watcher's
  * (`buildTodayUnits`): its units, raw, no episodes or facts until the night (his decision, 11 Nov 2026). Then the daily backup, when it is due
  * (`afterNightDue`: the night is done, on this tick or before).
  */
@@ -221,21 +214,15 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const states = () => ({
-    // Historical model work waits for frozen prompts; collection uses `memory historical-units`.
-    backfill: undefined,
     backup: readState("backup"),
     bridges: readState("bridges"),
     night: readState(),
   });
-  const turn = force
-    ? "night"
-    : turnOf(now, day, { ...states(), quota: await quota() });
+  const isNight = force || decide(now.getHours(), day, readState()) === "run";
   let code = 0;
-  if (turn === "night") {
+  if (isNight) {
     code =
       (await locked(() => runNight(days, now, day, force))) ?? Number(force);
-  } else if (turn === "backfill") {
-    code = await backfilled(day);
   }
   // The appointments first, with their own catch: the Past calendar's whole sync after the night must not spend
   // Google's rate limit before them.
@@ -246,7 +233,7 @@ export async function nightly(days: number, force = false) {
   // The Past calendar follows the episodes each tick, those ending in the last 3 days, and the whole of it after the
   // night (past-calendar.ts); a failure only logs, the next tick tries again.
   await syncPast(
-    turn === "night" ? undefined : new Date(now.getTime() - 3 * DAY),
+    isNight ? undefined : new Date(now.getTime() - 3 * DAY),
     now
   ).then(
     (r) => r && console.log(JSON.stringify({ past: r })),
@@ -381,78 +368,7 @@ const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
 
 /**
- * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night to run:
- * a processing run under the lock, then the range moves on. The past is read oldest first, a week per tick, a few a day, only
- * after the day's night (`backfillWeek`), so it never keeps the nights or the backup from their turn,
- * nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
- */
-async function backfilled(day: string) {
-  const engine = settings().backfillEngine;
-  if (!engine) {
-    return 0;
-  }
-  await spareQuota(engine);
-  const code = await locked(async () => {
-    const b = readBackfill();
-    const week = backfillWeek(b, day, readState());
-    if (!(b && week)) {
-      return 0;
-    }
-    const failure = await runProcessing("memory.backfill", week, engine);
-    if (await isOfflineFailure(failure)) {
-      return 1;
-    }
-    const next = afterWeek(b, week, !failure, day);
-    recordBackfill(next);
-    // Its last try failed: the backfill stops, so he hears it, as of a night's last failure.
-    if (failure && isOutOfTries(next.failures)) {
-      await sendReport(
-        `backfill/${failure.run}`,
-        failureReport(
-          clock().toISOString(),
-          failure.ms,
-          `memory.backfill ${week.from} to ${week.to}, ${failure.failedAt}`,
-          failure.error
-        )
-      );
-    }
-    return failure ? 1 : 0;
-  });
-  return code ?? 0;
-}
-
-/**
- * One processing run without commit or email: the evidence of `window`, read once for episodes and facts, then
- * the index; recorded as `name`, every step's failure caught and logged, and returned (null when it went through). The
- * caller holds the lock.
- */
-export async function runProcessing(
-  name: string,
-  window: Window,
-  engine?: Engine
-) {
-  const rec = await metered(name, { ...window }, engine);
-  const steps = trackProcessingSteps(rec);
-  try {
-    steps.at = "gather";
-    const evidence = await gather(window, await readPeople(), { engine });
-    const found = await steps.step("episodes", () => episodes(evidence));
-    console.log(JSON.stringify(found));
-    const extracted = await steps.step("extract", () => extract(evidence));
-    console.log(JSON.stringify(extracted));
-    steps.at = "index";
-    await reindex();
-    await rec.end({ outcome: "ok" });
-    return null;
-  } catch (e) {
-    const failure = steps.failed(e);
-    await rec.end(failure);
-    return { ...failure, ms: rec.ms(), run: rec.run };
-  }
-}
-
-/**
- * Each unit holding his words to Life (its marks: voice, a message to himself, `tell_life`) that an extract run read since `since` (a backfill's or a hand run's too), with the observations citing its
+ * Each unit holding his words to Life (its marks: voice, a message to himself, `tell_life`) that an extract run read since `since` (a hand run's too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
@@ -569,7 +485,7 @@ export async function runNight(
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
   const rec = await metered("memory.nightly", { ...window, force });
-  // Lines first cited since the last good night (with no night state, the window) are new in this report, a backfill's or a hand run's too.
+  // Lines first cited since the last good night (with no night state, the window) are new in this report, a hand run's too.
   const last = readState();
   const since =
     last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();

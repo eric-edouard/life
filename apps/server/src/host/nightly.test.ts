@@ -20,7 +20,6 @@ import {
   readChecksFor,
   readSpokenConversations,
   runNight,
-  runProcessing,
 } from "./nightly";
 
 test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {
@@ -127,41 +126,7 @@ test("the night drops run and eval folders past 30 days and log days past a year
   }
 });
 
-test("a queued historical backfill is withheld from the scheduler until prompts are ready", async () => {
-  const locks = await import("../core/lock");
-  const models = await import("../models/llm");
-  const zones = await import("../memory/zones");
-  const schedule = await import("../memory/schedule");
-  const stopped = new Error("schedule inspected");
-  const live = spyOn(locks, "holder").mockReturnValue(null);
-  const online = spyOn(models, "isOnline").mockResolvedValue(true);
-  const quota = spyOn(models, "quota").mockResolvedValue(undefined);
-  const here = spyOn(zones, "readZoneHere").mockResolvedValue(undefined);
-  const queued = spyOn(schedule, "readBackfill").mockReturnValue({
-    failures: 0,
-    next: "2025-01-01",
-    to: "2025-12-31",
-  });
-  const turn = spyOn(schedule, "turnOf").mockImplementation(() => {
-    throw stopped;
-  });
-  try {
-    await expect(nightly(7)).rejects.toThrow(stopped);
-    const states = turn.mock.calls.at(0)?.[2];
-    expect(states).toBeDefined();
-    expect(states?.backfill).toBeUndefined();
-    expect(queued).not.toHaveBeenCalled();
-  } finally {
-    turn.mockRestore();
-    queued.mockRestore();
-    here.mockRestore();
-    quota.mockRestore();
-    online.mockRestore();
-    live.mockRestore();
-  }
-});
-
-test("the night places matters after extraction, with the evidence's failed sources; the backfill's processing run does not", async () => {
+test("the night places matters after extraction, with the evidence's failed sources", async () => {
   const stopped = new Error("stopped after matters");
   const mods = {
     contacts: await import("../memory/contact-people"),
@@ -201,13 +166,7 @@ test("the night places matters after extraction, with the evidence's failed sour
     {} as never
   );
   try {
-    // The backfill's run: no matters.
-    await runProcessing("memory.backfill", {
-      from: "2026-10-01",
-      to: "2026-10-07",
-    });
-    expect(work).not.toHaveBeenCalled();
-    // The night's run: matters, given the sources that failed, after extraction.
+    // Matters, given the sources that failed, after extraction.
     await runNight(7, new Date("2026-11-05T03:00:00Z"), "2026-11-05", true);
     expect(work).toHaveBeenCalledTimes(1);
     expect(work.mock.calls[0]?.[2]).toEqual(["mail"]);
