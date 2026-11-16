@@ -89,8 +89,8 @@ export const Settings = z
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /**
-     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): readers learn of links as "maybe done" and he is
-     * asked in conversation whether each is right (an ending check). Absent means off: nothing is asked, readers
+     * The endings (`memory/endings.ts`, `memory/fact-checks.ts`): a link ends its step at once, "probably" (a
+     * matter it closes reads probably done), and he is asked in conversation whether each is right (an ending check). Absent means off: nothing is asked, readers
      * ignore links. Needs `links`.
      */
     endings: z.literal(true).optional(),
@@ -102,14 +102,14 @@ export const Settings = z
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /**
      * The links (`memory/links.ts`): each night reads how the open steps of each matter ended. Absent
-     * means off: nothing is read. Nothing but `bun life memory links` reads the links yet.
+     * means off: nothing is read. The readers use them only with `endings`.
      */
     links: z.literal(true).optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
     /**
      * The matters (`memory/matters.ts`): each night places the episodes, facts and reminders not placed yet in the
-     * running things of his life. Absent means off: nothing is read. Nothing reads the matters yet.
+     * running things of his life. Absent means off: nothing is read. Read by `read_day`'s Due, a person's page, `read_matters` and `read_matter`.
      */
     matters: z.literal(true).optional(),
     /**

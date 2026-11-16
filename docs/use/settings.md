@@ -115,7 +115,7 @@ recorded in person, at most 40 calls. A guess is only stored; it needs a Lifelog
 bun life settings set '{"endings":true}'
 ```
 
-Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, the matter shows "maybe done" and stays open. Your assistant asks you about each ("Done? ..."): right, and the matter closes; wrong, and Life never ties those two records again. `bun life memory links` prints, from your answers, whether Life's endings can be trusted yet.
+Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, that step reads probably ended at once, and a matter with nothing else open reads probably done. Your assistant asks you about each ("Done? ..."): right, and it is done; wrong, and the step is open again and Life never ties those two records again.
 
 ## Your claude.ai and ChatGPT history
 

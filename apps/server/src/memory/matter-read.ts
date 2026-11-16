@@ -18,11 +18,13 @@ import { dayStart, localDate } from "./zones";
 
 // A matter as it reads now (docs/glossary.md: matter, matter status): everything about it is worked out here from the
 // stored line (its steps, `matters.ts`) and the records as they stand, never stored. One rule for "open": a matter is
-// open while its newest to-do, promise or wait has no ending. A lone open observation or to-do item that no matter
-// holds is a matter of one.
+// open while any of its to-dos, promises or waits has no ending; one with none of them (a trip, an event) is open until
+// it has been quiet `QUIET_DAYS` past its last step and date. A lone open observation or to-do item that no matter holds
+// is a matter of one.
 
 const STATUSES = [
   "done",
+  "probably_done",
   "waiting_on_someone",
   "moving",
   "stuck",
@@ -32,6 +34,10 @@ type MatterStatus = (typeof STATUSES)[number];
 
 /** A step in this many days or less: the matter is moving. */
 const MOVING_DAYS = 14;
+/** An open step's date passed this many days ago or less: the matter is stuck; an older one has no say. */
+const STUCK_DAYS = 30;
+/** A matter with nothing to do is done once its last step and every date are this many days past. */
+const QUIET_DAYS = 7;
 
 type StepObservation = Pick<
   Observation,
@@ -57,28 +63,31 @@ type Line = Pick<Matter, "areas" | "id" | "name" | "projects"> & {
 export interface MatterRecords {
   /** Every record id as it stands now: observations and episodes (what a link's two ends must be). */
   current: ReadonlySet<string>;
-  /** The observations that ended: retired, replaced by a newer one or said outdated. */
-  endings: ReadonlySet<string>;
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
+  /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
+  isMailer: (ref: string) => boolean;
   ledger: readonly LedgerEntry[];
-  /** The links' endings not yet his word (`endingsRead`), by the observation they end: shown "maybe done", ending nothing. */
-  maybe: ReadonlyMap<string, { quote: string }>;
+  /** The links' endings not yet his word (`endingsRead`), by the observation they end: it ends "probably". */
+  linkEndings: ReadonlyMap<string, { later: string; quote: string }>;
   observations: readonly StepObservation[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
+  /** The observations that ended for sure: retired, replaced by a newer one or said outdated. */
+  retired: ReadonlySet<string>;
   /** Every to-do item the ledger holds, open or not. */
   todoItems: readonly StepTodoItem[];
 }
 
+/** How a step ended: its observation retired (replaced, or his word), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
+type StepEnding = { by: "record" | "ticked" } | { by: "link"; quote: string };
+
 export interface MatterStepNow {
   at: string;
   day: string;
-  /** Whether it ended: an observation by a link, a to-do item by being ticked or removed. */
-  ended: boolean;
+  /** How it ended; none while it is open (or for an episode or a list entry, which never end). */
+  ending?: StepEnding;
   kind: "episode" | "ledger" | "todo_item" | Observation["type"];
-  /** The words of a later step a link found to end it, not yet his word. */
-  maybe?: string;
   priority?: string;
   quote: string;
   ref: string;
@@ -94,12 +103,12 @@ export interface MatterView {
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
-  /** The words that show its next step maybe done (a link, not yet his word); the matter stays open. */
-  maybe?: string;
   name: string;
   /** The newest open step: what is next. */
   next?: MatterStepNow;
   open: boolean;
+  /** Its to-dos, promises, waits and to-do items with no ending, oldest first. */
+  openSteps: MatterStepNow[];
   /** Whom he owes: who asked, or whom he promised. */
   owedTo: string[];
   projects: string[];
@@ -122,9 +131,14 @@ const isPerson = (r: string) =>
 const uniq = <T>(list: T[]) => [...new Set(list)];
 export const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
+/** Whether a step ended. */
+export const isEnded = (s: Pick<MatterStepNow, "ending">) =>
+  s.ending !== undefined;
+const isOpenStep = (s: MatterStepNow) =>
+  ACTIONABLE.includes(s.kind) && !isEnded(s);
 
-/** The lookups over the records, built once for every matter. `placed`: the observations some matter line names. */
-function indexOf(rec: MatterRecords, placed: ReadonlySet<string>) {
+/** The lookups over the records, built once for every matter. `offered`: every record a matters call was shown (`mattersNow`). */
+function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {
   return {
     byId: new Map(rec.observations.map((o) => [o.id, o])),
     byRef: Map.groupBy(
@@ -132,14 +146,14 @@ function indexOf(rec: MatterRecords, placed: ReadonlySet<string>) {
       (t) => t.ref as string
     ),
     byUnit: Map.groupBy(rec.observations, (o) => o.unit),
-    placed,
+    offered,
     rec,
     todo: new Map(rec.todoItems.map((t) => [t.key, t])),
   };
 }
 type Index = ReturnType<typeof indexOf>;
 
-/** The records a matter line names: the episodes holding its units (and those of its placed observations), the observations (any placed, and those at `KEEP_AT` or more of its units), the to-do items (placed, or made from one of those observations). */
+/** The records a matter line names: the episodes holding its units (and those of its placed observations), the observations (any placed, and those at `KEEP_AT` or more of its units that no matters call was shown: one it was shown and left out stays out), the to-do items (placed, or made from one of those observations). */
 function recordsOf(line: Line, ix: Index) {
   const episodes = new Map<string, Episode>();
   const observations = new Map<string, StepObservation>();
@@ -153,7 +167,7 @@ function recordsOf(line: Line, ix: Index) {
       episodes.set(episode.id, episode);
     }
     for (const o of ix.byUnit.get(ref) ?? []) {
-      if (o.importance >= KEEP_AT && !ix.placed.has(o.id)) {
+      if (o.importance >= KEEP_AT && !ix.offered.has(o.id)) {
         observations.set(o.id, o);
       }
     }
@@ -176,24 +190,44 @@ function recordsOf(line: Line, ix: Index) {
   };
 }
 
-/** Where a matter stands on `today`: done when ended; stuck when an open step's date has passed; waiting when the next step is a wait; moving with a step in `MOVING_DAYS`; else dormant. Silence alone is never stuck. */
+/** Where a matter stands on `today`: done when ended, probably done when a link ended one of its steps; stuck when the next step's date has passed, or another open step's within `STUCK_DAYS`; waiting when the next step is a wait; moving with a step in `MOVING_DAYS`; else dormant. Silence alone is never stuck. */
 function statusOf(
   open: boolean,
-  openSteps: MatterStepNow[],
+  steps: MatterStepNow[],
   next: MatterStepNow | undefined,
-  newest: MatterStepNow,
   today: string
 ): MatterStatus {
   if (!open) {
-    return "done";
+    return steps.some((s) => s.ending?.by === "link")
+      ? "probably_done"
+      : "done";
   }
-  if (openSteps.some((s) => s.when && s.when < today)) {
+  const passed = (s: MatterStepNow) => Boolean(s.when && s.when < today);
+  if (
+    (next && passed(next)) ||
+    steps.some(
+      (s) =>
+        isOpenStep(s) &&
+        passed(s) &&
+        daysFrom(s.when as string, today) <= STUCK_DAYS
+    )
+  ) {
     return "stuck";
   }
   if (next?.kind === "waiting_on_someone") {
     return "waiting_on_someone";
   }
+  const newest = steps.at(-1) as MatterStepNow;
   return daysFrom(newest.day, today) <= MOVING_DAYS ? "moving" : "dormant";
+}
+
+/** How a step ended, as the records say now: an observation retired or found ended by a link, a to-do item ticked. */
+function endingOf(ref: string, rec: MatterRecords): StepEnding | undefined {
+  if (rec.retired.has(ref)) {
+    return { by: "record" };
+  }
+  const link = rec.linkEndings.get(ref);
+  return link && { by: "link", quote: link.quote };
 }
 
 /** The steps of a matter's records, in time order. */
@@ -203,7 +237,7 @@ function stepsOf(
 ): MatterStepNow[] {
   const person = (o: StepObservation) =>
     [o.speaker, ...o.subjects.filter((s) => s !== o.speaker)].find(
-      (r) => r !== OWNER && isPerson(r)
+      (r) => r !== OWNER && isPerson(r) && !rec.isMailer(r)
     );
   const held = new Set(observations.map((o) => o.id));
   const made = new Set(items.map((t) => t.key));
@@ -215,7 +249,6 @@ function stepsOf(
           .toISOString()
           .replace(".000", ""),
         day: (m.start ?? m.day).slice(0, 10),
-        ended: false,
         kind: "episode",
         quote: m.what,
         ref: m.id,
@@ -226,9 +259,8 @@ function stepsOf(
       (o): MatterStepNow => ({
         at: o.at,
         day: o.date,
-        ended: rec.endings.has(o.id),
+        ending: endingOf(o.id, rec),
         kind: o.type,
-        maybe: rec.maybe.get(o.id)?.quote,
         quote: o.quote,
         ref: o.id,
         text: o.text,
@@ -241,7 +273,7 @@ function stepsOf(
       return {
         at,
         day: localDate(at),
-        ended: !isOpenTodoItem({ fields: f }),
+        ending: isOpenTodoItem({ fields: f }) ? undefined : { by: "ticked" },
         kind: "todo_item",
         priority: (f.priority as string | null) ?? undefined,
         quote: title,
@@ -264,7 +296,6 @@ function stepsOf(
         (a): MatterStepNow => ({
           at: a.at,
           day: localDate(a.at),
-          ended: false,
           kind: "ledger",
           quote: a.instruction?.quote ?? "",
           ref: a.id,
@@ -273,6 +304,14 @@ function stepsOf(
       ),
   ].toSorted((a, b) => a.day.localeCompare(b.day) || a.at.localeCompare(b.at));
 }
+
+/** Whether a matter with nothing to do is still going on `today`: a step or a date within `QUIET_DAYS`. */
+const isGoingOn = (steps: MatterStepNow[], today: string) =>
+  steps.some(
+    (s) =>
+      daysFrom(s.day, today) <= QUIET_DAYS ||
+      (s.when !== undefined && daysFrom(s.when, today) <= QUIET_DAYS)
+  );
 
 /**
  * One matter as it reads on `today` (a day): its steps in time order (`stepsOf`), whether it is open, its people by
@@ -291,11 +330,10 @@ export function matterOf(
   if (!newest) {
     return null;
   }
-  const actionable = steps.filter((s) => ACTIONABLE.includes(s.kind));
-  const last = actionable.at(-1);
-  const open = !last?.ended;
-  const next = open ? last : undefined;
-  const openSteps = open ? actionable.filter((s) => !s.ended) : [];
+  const openSteps = steps.filter(isOpenStep);
+  const hasAction = steps.some((s) => ACTIONABLE.includes(s.kind));
+  const open = hasAction ? openSteps.length > 0 : isGoingOn(steps, today);
+  const next = openSteps.at(-1);
   const roleOf = (
     kinds: MatterStepNow["kind"][],
     byOthers: (s: MatterStepNow) => boolean = () => true
@@ -313,7 +351,7 @@ export function matterOf(
         m.people
           .filter((p) => roles.includes(p.role))
           .map((p) => rec.refOf(p.ref))
-          .filter((r) => r !== OWNER)
+          .filter((r) => r !== OWNER && !rec.isMailer(r))
       )
     );
   return {
@@ -323,10 +361,10 @@ export function matterOf(
     ]),
     id: line.id,
     lone,
-    maybe: next?.maybe,
     name: line.name,
     next,
     open,
+    openSteps,
     owedTo: roleOf(
       ["promise", "to_do"],
       (s) => s.kind !== "to_do" || ix.byId.get(s.ref)?.speaker !== OWNER
@@ -339,7 +377,7 @@ export function matterOf(
           .map((s) => s.slice(8))
       ),
     ]),
-    status: statusOf(open, openSteps, next, newest, today),
+    status: statusOf(open, steps, next, today),
     steps,
     told: peopleOf("told"),
     waitingOn: roleOf(["waiting_on_someone"]),
@@ -364,18 +402,18 @@ const isOpenKind = (o: StepObservation) =>
     (o.type === "to_do" && o.speaker === OWNER));
 
 /**
- * Every matter as it reads on `today`, the newest step first: the stored ones (`lines`), then a matter of one for each
+ * Every matter as it reads on `today`, the newest step first: the stored ones (`mattersNow`'s), then a matter of one for each
  * open observation and open to-do item no matter holds (a to-do item made from an observation joins it). Pure.
  */
 export function matterBookOf(
-  lines: readonly Line[],
+  {
+    matters: lines,
+    offered,
+  }: { matters: readonly Line[]; offered: ReadonlySet<string> },
   rec: MatterRecords,
   today: string
 ) {
-  const ix = indexOf(
-    rec,
-    new Set(lines.flatMap((l) => l.steps.map((s) => s.ref)))
-  );
+  const ix = indexOf(rec, offered);
   const views = lines.flatMap((l) => matterOf(l, ix, today) ?? []);
   const held = new Set(views.flatMap((v) => v.steps.map((s) => s.ref)));
   const lone = (id: string, name: string) => {
@@ -397,7 +435,7 @@ export function matterBookOf(
     return view?.open ? [view] : [];
   };
   const loneObservations = rec.observations
-    .filter((o) => isOpenKind(o) && !held.has(o.id) && !rec.endings.has(o.id))
+    .filter((o) => isOpenKind(o) && !held.has(o.id) && !rec.retired.has(o.id))
     .flatMap((o) => lone(o.id, o.text));
   const loneItems = rec.todoItems
     .filter((t) => isOpenTodoItem(t) && !held.has(t.key))

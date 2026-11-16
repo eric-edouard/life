@@ -253,7 +253,7 @@ of the matter's open steps shown: promises, waits and his to-dos), `offered` (th
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
 `schemaVersion`. A pair in a line is never judged again, whatever the subject. A link deletes nothing: what it ends is worked out when read
-(`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). While his `endings` setting is off only `bun life memory links` reads it; on, the readers do (a link is "maybe done" until his word).
+(`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). While his `endings` setting is off only `bun life memory links` reads it; on, the readers do (a link ends its step "probably" until his word).
 
 ## matters.jsonl
 

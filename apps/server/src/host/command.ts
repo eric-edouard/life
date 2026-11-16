@@ -11,7 +11,6 @@ import {
   NIGHT_CALLS,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
-import { endingMarks } from "../memory/endings";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
@@ -301,7 +300,7 @@ const HANDLERS: Record<string, Handler> = {
   },
   /**
    * `links [<matter id>] [--force]`: what the links step would judge (matters, open steps, calls, a token ceiling), with
-   * no model, then the marks from his answers (`endingMarks`); with a matter, its open steps and the ending found for each; `--force` judges, as the night does
+   * no model; with a matter, its open steps and the ending found for each; `--force` judges, as the night does
    * once his `links` setting is on.
    */
   async links(values, rest) {
@@ -313,9 +312,7 @@ const HANDLERS: Record<string, Handler> = {
     }
     return step(async () => {
       const pending = await readLinkWork(people);
-      return values.force
-        ? links(pending)
-        : { ...pending.counts, failed: 0, marks: endingMarks() };
+      return values.force ? links(pending) : { ...pending.counts, failed: 0 };
     })(values, rest);
   },
   /**

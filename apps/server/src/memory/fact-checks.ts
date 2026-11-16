@@ -41,8 +41,10 @@ export async function recordFactCheckAnswer(
   note?: string
 ) {
   const at = clock().toISOString();
-  const { maybe, observations } = await readMatterRecords(await readPeople());
-  const link = maybe.get(ref);
+  const { linkEndings, observations } = await readMatterRecords(
+    await readPeople()
+  );
+  const link = linkEndings.get(ref);
   const o = link && observations.find((x) => x.id === ref);
   const lines = readFactChecks();
   const doubted = new Set(

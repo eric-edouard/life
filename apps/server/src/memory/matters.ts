@@ -25,6 +25,7 @@ import {
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
 import { begin } from "./run";
+import { isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
 import { localDate, type Window } from "./zones";
 
@@ -132,8 +133,9 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
- * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation is its
- * being retired (a newer one replaced it, or he said it is outdated); his right to an ending check is the same `outdated` word; a link not yet his word is `maybe` (`endingsRead`), and ends nothing.
+ * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation for sure
+ * is its being retired (a newer one replaced it, or he said it is outdated; his right to an ending check is the same
+ * `outdated` word); a link not yet his word ends it probably (`endingsRead`).
  */
 export async function readMatterRecords(people: People) {
   const [episodes, { observations, statusInputs }] = await Promise.all([
@@ -146,16 +148,18 @@ export async function readMatterRecords(people: People) {
     ...observations.map((o) => o.id),
     ...episodes.map((e) => e.id),
   ]);
-  const { maybe } = endingsRead((ref) => current.has(ref));
+  const { linkEndings } = endingsRead((ref) => current.has(ref));
   return {
     current,
-    endings: new Set(statusInputs.retired.keys()),
     episodeOf: readBy(episodes),
     episodes,
+    isMailer: (ref: string) =>
+      ref.startsWith(UNKNOWN) && isMailerHandle(ref.slice(UNKNOWN.length)),
     ledger,
-    maybe,
+    linkEndings,
     observations,
     refOf: people.refOf,
+    retired: new Set(statusInputs.retired.keys()),
     todoItems: [...todoItemsOf(ledger).values()],
   };
 }
@@ -163,7 +167,7 @@ export async function readMatterRecords(people: People) {
 /** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
 export const readMatterBook = async (people: People, today: string) =>
   matterBookOf(
-    mattersNow(readMatters()).matters,
+    mattersNow(readMatters()),
     await readMatterRecords(people),
     today
   );
@@ -422,7 +426,7 @@ export async function matters(
         // What is still open, as of the span's end (dormant included: the 45 days decide, not the 14 of `MOVING_DAYS`), with a step in the last `SHOWN_DAYS`.
         const since = daysBefore(work.span.to, SHOWN_DAYS);
         const open = matterBookOf(
-          mattersNow(readMatters()).matters,
+          mattersNow(readMatters()),
           records,
           work.span.to
         ).flatMap((v) =>
