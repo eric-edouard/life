@@ -148,7 +148,7 @@ public struct RecordingControl: Sendable {
     }
 
     private mutating func note(_ on: Bool, at: Date) {
-        if enabled.map({ at >= $0.at }) ?? true { enabled = Observed(on, at: at) }
+        if enabled.map({ !(at < $0.at) }) ?? true { enabled = Observed(on, at: at) }
     }
 
     /// The last report read through the firmware's mode. NOT_RECORDING with the mode unknown waits for the flash.
