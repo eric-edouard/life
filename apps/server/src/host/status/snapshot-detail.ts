@@ -51,7 +51,6 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
 
 /** The processing runs, whose history is their runs. */
 const RUN_CARDS: Record<string, string> = {
-  backfill: "memory.backfill",
   nightly: "memory.nightly",
 };
 
@@ -168,7 +167,7 @@ async function changeHistory(older: (at: string) => boolean, before?: string) {
 }
 
 /**
- * A history that is not its log lines: the nightly's or backfill's runs and the memory's changes, which page back (`pages`); the open
+ * A history that is not its log lines: the nightly's runs and the memory's changes, which page back (`pages`); the open
  * tasks and the Mac's sleeps of the day, whole.
  */
 async function ownHistory(
