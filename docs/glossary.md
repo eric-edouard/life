@@ -172,7 +172,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel: a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, id `apt_…`). Not a to-do, not an episode (what happened). | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `pastCalendar` setting). Life's output, never a source. | |
-| processing run | One scheduled batch of processing steps: `nightly`, `backfill` (`PROCESSING_RUNS`). | |
+| processing run | One scheduled batch of processing steps: `nightly` (`PROCESSING_RUNS`; `backfill` names past runs still in the log). | |
 | processing step | One part of a processing run (`episodes`, `extract`, `pages`), shown as a step on the status card (`processingSteps`, tracked by `trackProcessingSteps`). Not a matter step. | |
 | step run | One processing step's execution inside a processing run, in prose only; the run log records it as a logged run. | |
 | logged run | A processing run, a step run or an eval, as the run log records it (`recordRun`, `RunRecorder`). | |

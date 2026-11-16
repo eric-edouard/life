@@ -368,7 +368,7 @@ const isOfflineFailure = async (failure: unknown) =>
   Boolean(failure) && !(await isOnline());
 
 /**
- * Each unit holding his words to Life (its marks: voice, a message to himself, `tell_life`) that an extract run read since `since` (a backfill's or a hand run's too), with the observations citing its
+ * Each unit holding his words to Life (its marks: voice, a message to himself, `tell_life`) that an extract run read since `since` (a hand run's too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
@@ -485,7 +485,7 @@ export async function runNight(
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
   const rec = await metered("memory.nightly", { ...window, force });
-  // Lines first cited since the last good night (with no night state, the window) are new in this report, a backfill's or a hand run's too.
+  // Lines first cited since the last good night (with no night state, the window) are new in this report, a hand run's too.
   const last = readState();
   const since =
     last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();
