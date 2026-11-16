@@ -206,6 +206,7 @@ export function laterRecordsOf<T extends LaterObservation>(
     return [];
   }
   const to = daysBefore(last, -LATER_RECORDS_DAYS);
+  // ponytail: one window from the oldest open step, earliest first; a matter with open steps months apart may fill it near the oldest. Per-step windows if endings of newer steps go missing.
   return observations
     .filter(
       (o) =>
