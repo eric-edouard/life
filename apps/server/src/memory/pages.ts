@@ -6,7 +6,7 @@ import { appendJsonl } from "../core/files";
 import { within } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { callCharsOf, stamp } from "../models/llm";
+import { callCharsOf } from "../models/llm";
 import {
   Correction,
   type Observation,
@@ -440,7 +440,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     layout,
     today: r.today,
   });
-  const madeBy = stamp(r.step.llm, PAGES_PROMPT, r.step.run);
+  const madeBy = r.step.madeBy(PAGES_PROMPT);
   return {
     ...base,
     rejects: reply.rejects,

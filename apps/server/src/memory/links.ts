@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
 import type { Observation } from "../records/observation";
 import { endingsNow, readBatches } from "./endings";
@@ -352,7 +351,7 @@ export async function links(pending: LinkWork) {
             {
               at: step.now.toISOString(),
               links: kept,
-              madeBy: stamp(step.llm, PROMPT, step.run),
+              madeBy: step.madeBy(PROMPT),
               offered: later.map((o) => o.id),
               open: w.open.map((o) => o.id),
               schemaVersion: 1,

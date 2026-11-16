@@ -198,7 +198,7 @@ export function readSettings(path = SETTINGS): Settings {
 }
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
-export function writeSettings(path: string, value: unknown) {
+function writeSettings(path: string, value: unknown) {
   // Each process its own temp file: the app starts several at once, each may rename an old file.
   writeFileSync(
     `${path}.${process.pid}.tmp`,

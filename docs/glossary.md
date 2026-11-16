@@ -149,6 +149,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | prompt part | A paragraph of a prompt between `<!-- part:<add-on> -->` and `<!-- /part -->`, shown to the model only while that add-on is on (`promptText`, `models/prompt-parts.ts`). A call without it is stamped `<prompt>-without-<parts>`, a variant of the same version (`isPromptVersion`). Not a prompt version: switching an add-on re-runs nothing. | |
 | frozen section | A page section whose add-on is off (`layoutOf`'s `frozen`): kept in the file, carried through every page build untouched, shown nowhere. | |
 | frozen-only observation | An observation cited only by lines of frozen sections (`frozenOnlyOf`): readers hide it (`isCitedOnlyByFrozen`), the steps that compute still see it. | |
+| what Life may keep | His own words, in `truth/me.md` under `## What Life may keep`, on what Life may and may not keep. Given as `mayKeep` to every call of a prompt with its sentence (`memory/run.ts`); absent, no limit. It governs what the models write from now on, not the sources, units, archive or search index. Not an add-on, not a setting. | |
 | aboutMe | The add-on for the Views and Health sections of pages (`personal.aboutMe`). | |
 | relationships | The add-on for the Between us section of the pages of people close to him (`personal.relationships`). | |
 | personas | The add-on for the personas (`personal.personas`). | |

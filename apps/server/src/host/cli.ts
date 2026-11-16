@@ -45,7 +45,6 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
-import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -423,8 +422,6 @@ const crashed = (e: unknown) => {
 process.on("uncaughtException", crashed);
 process.on("unhandledRejection", crashed);
 try {
-  // The settings' old keys new, before the command reads any (host/migrate.ts).
-  migrateSettings();
   process.exit(await command());
 } catch (e) {
   crashed(e);

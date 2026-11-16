@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { DAY, daysBefore } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
-import { stamp } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Closeness, ClosenessLevel } from "../records/observation";
@@ -458,7 +457,7 @@ export async function closeness({ events, failed, since }: WithPeople) {
   const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),
-    madeBy: stamp(step.llm, MEMORY_CLOSENESS_PROMPT, step.run),
+    madeBy: step.madeBy(MEMORY_CLOSENESS_PROMPT),
   };
   let written = 0;
   let invalid = 0;

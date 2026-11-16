@@ -4,7 +4,6 @@ import { daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
-import { stamp } from "../models/llm";
 import type { Episode } from "../records/episode";
 import { type Matter, MatterBatch, type MatterStep } from "../records/matter";
 import { SEARCHABLE_AT } from "../records/unit";
@@ -530,7 +529,7 @@ export async function matters(
         appendJsonl(MATTERS, MatterBatch, [
           {
             at,
-            madeBy: stamp(step.llm, PROMPT, step.run),
+            madeBy: step.madeBy(PROMPT),
             matters: kept,
             offered: [...new Set([...known.values()].flatMap((k) => k.refs))],
             schemaVersion: 1,

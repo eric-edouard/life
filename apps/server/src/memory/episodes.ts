@@ -5,7 +5,7 @@ import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { packed } from "../core/lists";
-import { callCharsOf, stamp } from "../models/llm";
+import { callCharsOf } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
@@ -486,7 +486,7 @@ export async function episodes(evidence: Evidence) {
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
-  const madeBy = stamp(step.llm, EPISODES_PROMPT, step.run);
+  const madeBy = step.madeBy(EPISODES_PROMPT);
   let lines = await readEpisodes();
   const rereads = rereadAt(corrections, lines);
   let read = 0;

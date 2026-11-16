@@ -13,7 +13,7 @@ import { begin, inBatches, inputsOf, type Step } from "../memory/run";
 import { clip } from "../memory/units";
 import type { People } from "../memory/who";
 import { localDate } from "../memory/zones";
-import { callCharsOf, stamp } from "../models/llm";
+import { callCharsOf } from "../models/llm";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
 import type { SourceEvent } from "../records/source";
@@ -316,7 +316,7 @@ async function tellStory(
     story: {
       built: step.now.toISOString(),
       inputs,
-      madeBy: stamp(step.llm, STORY_PROMPT, step.run),
+      madeBy: step.madeBy(STORY_PROMPT),
       text: clip(text, 6000),
       through: input.through,
     },
@@ -354,7 +354,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
             withMonth(readHistory(t.ref), {
               built: step.now.toISOString(),
               inputs: m.inputs,
-              madeBy: stamp(step.llm, MONTH_PROMPT, step.run),
+              madeBy: step.madeBy(MONTH_PROMPT),
               month: m.month,
               parts,
             })

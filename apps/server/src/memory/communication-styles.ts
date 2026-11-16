@@ -3,7 +3,6 @@ import { DAY } from "../core/clock";
 import { readJson } from "../core/files";
 import { newestWithin } from "../core/lists";
 import { AGENT_WORD } from "../core/names";
-import { stamp } from "../models/llm";
 import {
   CommunicationStyle,
   CommunicationStyleLine,
@@ -201,7 +200,7 @@ export async function communicationStyles({ events, failed }: WithPeople) {
           built: step.now.toISOString(),
           inputs: t.inputs,
           lines,
-          madeBy: stamp(step.llm, COMMUNICATION_STYLE_PROMPT, step.run),
+          madeBy: step.madeBy(COMMUNICATION_STYLE_PROMPT),
           page: t.ref,
           schemaVersion: 2,
         };

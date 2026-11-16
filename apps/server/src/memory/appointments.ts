@@ -2,7 +2,6 @@ import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { readAppended, readJson } from "../core/files";
 import { digest } from "../core/hash";
-import { stamp } from "../models/llm";
 import {
   Appointment,
   AppointmentEvent,
@@ -261,7 +260,7 @@ export async function appointments() {
     appointments: found,
     built: step.now.toISOString(),
     inputs,
-    madeBy: stamp(step.llm, APPOINTMENTS_PROMPT, step.run),
+    madeBy: step.madeBy(APPOINTMENTS_PROMPT),
     schemaVersion: 1,
   };
   await Bun.write(APPOINTMENTS, `${JSON.stringify(file, null, 1)}\n`);
