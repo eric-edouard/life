@@ -19,6 +19,7 @@ import {
   readContactLines,
   readCorrections,
   readInferred,
+  readObservationStatusInputs,
   readObservations,
   readUnitsFor,
   readUnresolved,
@@ -26,7 +27,6 @@ import {
 } from "./memory-files";
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import { readReaderStatusInputs } from "./status-inputs";
 import type { Tie } from "./ties";
 import { dayUnitId, nameKey, PERSON, UNKNOWN } from "./units";
 
@@ -605,7 +605,7 @@ export async function observationsNow({
   const read = readObservations();
   const [all, statusInputs, unresolved] = await Promise.all([
     read,
-    readReaderStatusInputs(corrections, read),
+    readObservationStatusInputs(corrections, read),
     readUnresolvedPeople(),
   ]);
   const shown = shownOf(all, statusInputs);

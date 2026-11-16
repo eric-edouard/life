@@ -33,6 +33,7 @@ import {
 } from "./memory-files";
 import { readPassageTexts } from "./passages";
 import { TRUTH } from "./read-truth";
+import { forReaders } from "./status-inputs";
 import { observationsNow, type People, readPeople, unitNow } from "./who";
 import { localDate } from "./zones";
 
@@ -236,7 +237,9 @@ export async function reindex() {
   const at = clock();
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = indexedOf(await readUnits(), people, verdicts);
-  const { observations, statusInputs } = await observationsNow(people);
+  const { observations, statusInputs: computed } =
+    await observationsNow(people);
+  const statusInputs = await forReaders(computed);
   const n = buildIndex(
     observations,
     INDEX,

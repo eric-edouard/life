@@ -1,7 +1,12 @@
 import { join } from "node:path";
 import { filesIn } from "../core/files";
 import type { Correction, Observation } from "../records/observation";
-import { PAGE_KINDS, PAGES, readObservationStatusInputs } from "./memory-files";
+import {
+  type ObservationStatusInputs,
+  PAGE_KINDS,
+  PAGES,
+  readObservationStatusInputs,
+} from "./memory-files";
 import { frozenOnlyOf, layoutOf, type Parsed, parsePage } from "./page-format";
 import { OWNER } from "./read-truth";
 
@@ -24,20 +29,30 @@ export async function readParsedPages() {
 }
 
 /**
- * `readObservationStatusInputs` with the observations only a frozen section cites (`frozenOnlyOf`): what readers hide
- * (`isCitedOnlyByFrozen`). `pages`: the parsed pages when the caller holds them; with every add-on on, no page is read or scanned.
+ * `statusInputs` with the observations only a frozen section cites (`frozenOnlyOf`), for a reader to hide
+ * (`isCitedOnlyByFrozen`); the steps that compute never ask. `pages`: the parsed pages when the caller holds them; with
+ * every add-on on, no page is read or scanned.
  */
+export async function forReaders(
+  statusInputs: ObservationStatusInputs,
+  pages?: Parsed[]
+) {
+  return hasFrozen()
+    ? {
+        ...statusInputs,
+        frozenOnly: frozenOnlyOf(pages ?? (await readParsedPages())),
+      }
+    : statusInputs;
+}
+
+/** `readObservationStatusInputs`, for a reader (`forReaders`). */
 export async function readReaderStatusInputs(
   corrections: Correction[],
   read?: Promise<Observation[]>,
   pages?: Parsed[]
 ) {
-  const inputs = await readObservationStatusInputs(corrections, read);
-  if (!hasFrozen()) {
-    return inputs;
-  }
-  return {
-    ...inputs,
-    frozenOnly: frozenOnlyOf(pages ?? (await readParsedPages())),
-  };
+  return forReaders(
+    await readObservationStatusInputs(corrections, read),
+    pages
+  );
 }

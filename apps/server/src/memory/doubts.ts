@@ -12,6 +12,7 @@ import {
 } from "./memory-files";
 import { placed } from "./page-format";
 import { SURE_AT } from "./quote-check";
+import { forReaders } from "./status-inputs";
 import { observationsNow, type People, readPeople } from "./who";
 import { when } from "./zones";
 
@@ -98,7 +99,9 @@ export const factCheckKindOf = (o: {
  */
 export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const people = await readPeople();
-  const { observations, statusInputs } = await observationsNow(people);
+  const { observations, statusInputs: computed } =
+    await observationsNow(people);
+  const statusInputs = await forReaders(computed);
   const paged = await pagedNow(people);
   const { homes } = placed(observations, people.truth, paged);
   const home = new Map(
