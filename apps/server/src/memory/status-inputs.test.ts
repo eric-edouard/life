@@ -6,7 +6,7 @@ import type { Observation } from "../records/observation";
 import { readObservation } from "./changes";
 import { withSpans } from "./index-rows";
 import {
-  isFrozen,
+  isCitedOnlyByFrozen,
   OBSERVATIONS,
   observationStatusOf,
   pagePath,
@@ -98,7 +98,7 @@ test("relationships off: a Between us line and what only it cites show nowhere, 
     // The steps that compute still see it as active; only the readers hide it.
     expect(observationStatusOf(o(A), status).state).toBe("active");
     expect(shownOf([o(A), o(B)], status).map((x) => x.id)).toEqual([A, B]);
-    expect(isFrozen(o(A), status)).toBe(true);
+    expect(isCitedOnlyByFrozen(o(A), status)).toBe(true);
     expect([A, B].filter((id) => readerShows(o(id), status))).toEqual([B]);
 
     // Through the files: the reading the pages, search, the index, fact checks and the email's key observations share.

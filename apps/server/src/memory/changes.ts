@@ -24,8 +24,8 @@ import {
   hides,
   hiding,
   INFERRED,
+  isCitedOnlyByFrozen,
   isCurrent,
-  isFrozen,
   LEDGER,
   OBSERVATIONS,
   observationStatusOf,
@@ -454,7 +454,7 @@ function itemOf(
     };
   }
   const o = Observation.parse(raw);
-  if (isFrozen(o, ctx)) {
+  if (isCitedOnlyByFrozen(o, ctx)) {
     return null;
   }
   return {
@@ -569,7 +569,7 @@ export async function readObservation(id: string) {
   const ctx = await readContext();
   const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
-  if (isFrozen(o, ctx)) {
+  if (isCitedOnlyByFrozen(o, ctx)) {
     throw new Error(
       `observation ${id} is hidden while an add-on that wrote it is off`
     );

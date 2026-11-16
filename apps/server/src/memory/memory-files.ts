@@ -592,11 +592,13 @@ export const readerShows = (
   page?: string
 ) =>
   shows(observationStatusOf(o, statusInputs), page) &&
-  !isFrozen(o, statusInputs);
+  !isCitedOnlyByFrozen(o, statusInputs);
 
 /** Whether only a section whose add-on is off cites `o`: readers hide it, the steps that compute do not. */
-export const isFrozen = (o: Observation, s: ObservationStatusInputs) =>
-  Boolean(s.frozenOnly?.has(o.id));
+export const isCitedOnlyByFrozen = (
+  o: Observation,
+  s: ObservationStatusInputs
+) => Boolean(s.frozenOnly?.has(o.id));
 
 /** The observations that show in the index: neither hidden everywhere nor replaced. */
 export const shownOf = (

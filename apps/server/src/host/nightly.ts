@@ -43,7 +43,7 @@ import {
 } from "../memory/matters";
 import {
   commitMemory,
-  isFrozen,
+  isCitedOnlyByFrozen,
   newSince,
   OUT,
   readLedger,
@@ -491,7 +491,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   const { all, observations, statusInputs } = await observationsNow(people);
   const isNew = newSince(all, since);
   const fresh = observations.filter(
-    (o) => o.date >= from && isNew(o) && !isFrozen(o, statusInputs)
+    (o) => o.date >= from && isNew(o) && !isCitedOnlyByFrozen(o, statusInputs)
   );
   const ids = new Set(fresh.map((o) => o.id));
   const { homes } = placed(observations, people.truth, await pagedNow(people));
