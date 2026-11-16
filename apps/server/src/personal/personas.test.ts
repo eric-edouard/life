@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { DAY } from "../core/clock";
 import { exchangeCountsOf, pairCountsOf } from "../memory/exchange-counts";
 import { personaPath } from "../memory/memory-files";
 import type { Truth } from "../memory/read-truth";
 import { unit as unitFixture } from "../memory/record-fixtures";
-import { inputsOf } from "../memory/run";
+import { inputsOf, isDue } from "../memory/run";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { apply } from "../sources/lifelog";
@@ -19,7 +20,6 @@ import {
   backingOf,
   betweenOf,
   groupDaysOf,
-  isDue,
   personaBlock,
   personaLines,
   personaShownOf,
@@ -163,20 +163,7 @@ test("a line is solid on 3 days, thin on fewer, old when its newest quote is ove
   ).toBe("old");
 });
 
-test("a persona is rebuilt when there is none, or a week old with new messages", () => {
-  const now = new Date("2026-11-08T00:00:00.000Z");
-  const last = { built: "2026-11-05T00:00:00.000Z", inputs: "a" };
-  expect(isDue(null, "a", now)).toBe(true);
-  expect(isDue(last, "b", now)).toBe(false);
-  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "b", now)).toBe(
-    true
-  );
-  expect(isDue({ ...last, built: "2026-11-01T00:00:00.000Z" }, "a", now)).toBe(
-    false
-  );
-});
-
-test("a reader shows the readings with their backing, and the writing lines under How each writes", () => {
+test("a reader shows the readings with their backing, and no writing line", () => {
   const q = { at: "2026-11-01T12:00:00.000Z", text: "haha ok" };
   const block = personaBlock(
     {
@@ -201,9 +188,8 @@ test("a reader shows the readings with their backing, and the writing lines unde
   expect(block[2]).toBe(
     '- reacts (thin): Goes quiet when pressed. E.g. "haha ok" (2026-11-01)'
   );
-  expect(block[5]).toBe(
-    '- they write, chat (whatsapp): Short. E.g. "haha ok" (2026-11-01)'
-  );
+  expect(block).toHaveLength(4);
+  expect(block.join("\n")).not.toContain("Short.");
   expect(
     readingsOf([
       { facet: "pattern", quotes: [q], text: "Blames, then makes up." },
@@ -296,7 +282,12 @@ test("a persona in an older shape reads as none, so it is due at the next run (n
   try {
     expect(readPersona(ref)).toBeNull();
     expect(
-      isDue(readPersona(ref), "a", new Date("2026-11-09T00:00:00.000Z"))
+      isDue(
+        readPersona(ref),
+        "a",
+        new Date("2026-11-09T00:00:00.000Z"),
+        7 * DAY
+      )
     ).toBe(true);
   } finally {
     rmSync(personaPath(ref));

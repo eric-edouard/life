@@ -387,7 +387,7 @@ What someone with a page (`pagedNow`) is like, wants and can give, and what keep
 himself across everyone (`me`), written by `personal/personas.ts` from 3 years of their 1:1 chats and mail threads
 (`directChats`), the group chat-days they wrote in and his recorded conversations where they spoke: `page` (`person:<id>`), `lines` (each `facet`: `traits`, `wants`, `offers`, `balance`, `reacts`, `pattern`, `approach`, or
 `writes` with `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, and `source` when one app
-differs; `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
+differs (still written, no longer shown: the communication styles are); `text`; `quotes`, each `at` and `text`, words found in a chat message or a recorded turn the call was shown, a `writes`
 line's in that writer's own 1:1 chat messages, never in mail, whose text holds quoted history), `gist` (the same call's 2 or 3 sentences on what they are like, what keeps happening between them and him, and what works with them, shown first; his request of 9 Nov 2026), `inputs` (a hash of the prompt version and the
 days, recordings and counts shown, over the 3 years ending at their newest day, not the page or the date), `built`, `madeBy`, `schemaVersion`. Rewritten whole when its inputs changed
 and it is a week old; removed when the person has no page or nothing ever passed between them (no 1:1 or group
@@ -409,7 +409,13 @@ repo's history. A file is never removed. Nothing is read on a night a source can
 
 ## communication-styles/<id>.json
 
-Written until 8 Nov 2026 by `communication-styles.ts`, now part of the persona (its `writes` lines); kept, never read.
+How each person with a page (`pagedNow`) writes to the owner and he to them, written by `memory/communication-styles.ts` from their
+newest 120 1:1 chat messages and 30 mails, both ways (`directChats`; Life's own output and the agent's reports left out):
+`page` (`person:<id>`), `lines` (each `writer` `owner` or `them`, `kind` null across channels, `chat` or `mail`, `source` when one app
+differs, `text`, `quotes`, each `at` and `text`, words found in a chat message that writer sent, never in mail), `inputs` (a hash of
+the prompt version and the messages shown, not the date), `built`, `madeBy`, `schemaVersion` 2. Rewritten whole when its inputs
+changed and it is a week old; never removed. A file of the 6 Nov shape (`schemaVersion` 1,
+his style only) reads as none and is replaced when its person is next due. Nothing is written or removed on a night a source can't be read.
 
 ## appointments.json
 

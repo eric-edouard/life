@@ -20,16 +20,16 @@ import {
   readUnits,
 } from "../memory/memory-files";
 import { meContext } from "../memory/model-context";
-import { foundQuotes } from "../memory/quote-check";
+import { foundQuotesAt } from "../memory/quote-check";
 import { OWNER } from "../memory/read-truth";
-import { begin, inBatches, inputsOf } from "../memory/run";
+import { begin, inBatches, inputsOf, isDue, replyLines } from "../memory/run";
 import { isDirect, kindOf, safely, tables } from "../memory/sources";
 import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "../memory/units";
 import { type People, readPeople, unitNow } from "../memory/who";
 import { messageLine, spokenLines } from "../memory/words";
 import { localDate, time } from "../memory/zones";
 import { callCharsOf, stamp } from "../models/llm";
-import { type FoundQuote, QUOTE_CHARS } from "../records/fields";
+import type { FoundQuote } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
@@ -89,8 +89,8 @@ export const personaReadingsOf = (ref: string, today: string) =>
   }));
 
 /**
- * A persona as a reader shows it: its gist, then the readings under Persona, each with its backing; the writing lines
- * under How each writes (the connector's word for them). Nothing when there is none.
+ * A persona as a reader shows it: its gist, then the readings under Persona, each with its backing; its writing lines are
+ * not shown (the communication styles are, `memory/communication-styles.ts`). Nothing when there is none.
  */
 export function personaBlock(
   persona: Pick<Persona, "gist" | "lines"> | null,
@@ -98,7 +98,6 @@ export function personaBlock(
 ) {
   const lines = persona?.lines ?? [];
   const readings = readingsOf(lines);
-  const writes = lines.flatMap((l) => (l.facet === "writes" ? [l] : []));
   return [
     ...(readings.length > 0
       ? [
@@ -107,16 +106,6 @@ export function personaBlock(
           ...readings.map(
             (l) =>
               `- ${l.facet} (${backingOf(l.quotes, today)}): ${l.text}${quoted(l.quotes)}`
-          ),
-          "",
-        ]
-      : []),
-    ...(writes.length > 0
-      ? [
-          `How each writes (how he writes to them and they to him, read every ${REBUILD_AFTER / DAY} days; follow his when drafting for him):`,
-          ...writes.map(
-            (l) =>
-              `- ${l.writer === "owner" ? "he writes" : "they write"}${l.kind ? `, ${l.kind}` : ""}${l.source ? ` (${l.source})` : ""}: ${l.text}${quoted(l.quotes)}`
           ),
           "",
         ]
@@ -430,7 +419,6 @@ const ReplyLine = z.object({
  * is dropped; a line of no known shape goes.
  */
 export function personaLines(reply: unknown, days: ShownDay[]) {
-  const list = (reply as { lines?: unknown } | null)?.lines;
   const said = days.filter((d) => kindOf(d.source) !== "mail");
   const quotable = said.flatMap((d) => d.messages);
   const direct = said
@@ -439,23 +427,16 @@ export function personaLines(reply: unknown, days: ShownDay[]) {
   const sources = new Set(
     days.flatMap((d) => (d.kind === "direct" ? [d.source] : []))
   );
-  return (Array.isArray(list) ? list : []).flatMap((raw) => {
-    const r = ReplyLine.safeParse(raw);
-    if (!r.success) {
-      return [];
-    }
+  return replyLines(reply, ReplyLine).flatMap((r) => {
     const pool =
-      r.data.facet === "writes"
-        ? direct.filter((m) => m.fromMe === (r.data.writer === "owner"))
+      r.facet === "writes"
+        ? direct.filter((m) => m.fromMe === (r.writer === "owner"))
         : quotable;
-    const quotes = foundQuotes(r.data.quotes, pool).map((q) => ({
-      at: q.message.at,
-      text: clip(q.text, QUOTE_CHARS),
-    }));
-    const { facet, kind, source, text, writer } = r.data;
+    const quotes = foundQuotesAt(r.quotes, pool);
+    const { facet, kind, source, text, writer } = r;
     const l = PersonaLine.safeParse({
       facet,
-      quotes: quotes.slice(0, 4),
+      quotes,
       text,
       ...(facet === "writes" && { kind: kind ?? null, writer }),
       ...(facet === "writes" &&
@@ -465,16 +446,6 @@ export function personaLines(reply: unknown, days: ShownDay[]) {
     return l.success ? [l.data] : [];
   });
 }
-
-/** Whether a persona is due: none yet, or a week old with new messages behind it. */
-export const isDue = (
-  last: { built: string; inputs: string } | null,
-  inputs: string,
-  now: Date
-) =>
-  !last ||
-  (last.inputs !== inputs &&
-    now.getTime() - Date.parse(last.built) >= REBUILD_AFTER);
 
 const readPage = async (ref: string) =>
   clip(
@@ -558,7 +529,7 @@ export async function personas({ events, failed }: WithPeople) {
         // What was said decides whether it is due, not the page (rewritten most nights); a recording's words are read
         // only then.
         const inputs = inputsOf(PERSONA_PROMPT, shown);
-        if (!isDue(readPersona(t.ref), inputs, step.now)) {
+        if (!isDue(readPersona(t.ref), inputs, step.now, REBUILD_AFTER)) {
           return;
         }
         const spoken = await spokenOf(

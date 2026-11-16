@@ -207,7 +207,7 @@ export function personalParts(): PersonalParts {
     ...(hasAddOn("personas")
       ? {
           persona: {
-            about: "what they are like and how each writes",
+            about: "what they are like",
             build: (ref: string) => {
               const block = personaBlock(readPersona(ref), dayNow());
               return (o: PartInputs) => personaPartLines(block, o);

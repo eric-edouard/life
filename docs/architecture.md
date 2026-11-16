@@ -79,9 +79,10 @@ flowchart LR
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
   and git keeps every version. A reader shows a line only while its episodes are live and the situation was made by the variant the add-ons choose now (a toggle hides it at once), the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
+- **Communication styles** (`memory/communication-styles.ts`, `memory/communication-styles/`, core, no add-on; shown in the person read's `now`; his request of 16 Nov 2026: drafts in his voice for everyone with a page): one call per person with a page reads their newest 120 1:1 chat messages and 30 mails, both ways (the night's `readWithPeople`; Life's own output and the agent's reports left out, so drafts never learn from drafts), and writes how he writes to them and how they write to him, each point quoted from that writer's own chat messages and checked. Rebuilt whole per person at most weekly, when those messages changed; at most 200 calls a night, the newest first. Describes the writing, never the person.
 - **Personas** (`personal/personas.ts`): a gist first (his request of 9 Nov 2026), then what each person with a page is like, what they want and can give (and what goes each
-  way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
-  writes to them, or drafts for him; his own across everyone, with his own writing (his notes, his imported assistant
+  way between them and him), what keeps happening between them (both sides, his part named), for an agent who reads them before he meets, calls or
+  writes to them (how each writes is the communication style's, above); his own across everyone, with his own writing (his notes, his imported assistant
   chats; his request of 9 Nov 2026). One call per person reads what passed between them over
   3 years (his request of 8 Nov 2026: every raw source Life holds): their 1:1 messages both ways and the group
   chat-days they wrote in, his and their lines only (the night's read of chats and mail, `readWithPeople`, shared with

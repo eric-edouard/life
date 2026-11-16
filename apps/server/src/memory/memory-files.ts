@@ -66,10 +66,14 @@ export const pagePath = (ref: string) =>
 export const SITUATIONS = join(MEMORY, "situations");
 export const situationPath = (ref: string) =>
   join(SITUATIONS, `${ref.slice("person:".length)}.json`);
-/** What each person with a page is like, wants and can give, and how they and he write (`personal/personas.ts`), one file per person. */
+/** What each person with a page is like, wants and can give, and what keeps happening between them and him (`personal/personas.ts`), one file per person. */
 export const PERSONAS = join(MEMORY, "personas");
 export const personaPath = (ref: string) =>
   join(PERSONAS, `${ref.slice("person:".length)}.json`);
+/** How each person with a page writes to him and he to them (`memory/communication-styles.ts`), one file per person. */
+export const COMMUNICATION_STYLES = join(MEMORY, "communication-styles");
+export const communicationStylePath = (ref: string) =>
+  join(COMMUNICATION_STYLES, `${ref.slice("person:".length)}.json`);
 /** The links between observations (`memory/links.ts`): one line per judged batch, append-only. */
 export const LINKS = join(MEMORY, "links.jsonl");
 /** The matters (`memory/matters.ts`): one line per call, append-only, the latest line naming a matter wins. */
