@@ -5,6 +5,7 @@ import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
 import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
 import {
+  ownAnswerOf,
   readVoices,
   type VoiceRow,
   voiceKey,
@@ -23,6 +24,7 @@ import { observationStatusOf, READ_REPLIES, readUnitsOf } from "./memory-files";
 import {
   type Brief,
   HEARD_WITHIN,
+  isHeardAround,
   namingBriefOf,
   overlappingPhoneCallsOf,
   possibleSpeakersOf,
@@ -73,13 +75,28 @@ export interface NamingInput {
 const LINE_WHO = /^\[\d+\] \S+ (\S+): /;
 const TOKEN = /^V\d+$/;
 
+/** What code knows of a part and the model is not shown. */
+interface Known {
+  /** The `V` tokens of the voices his own answer says name no one: stored `unknown`, whatever the model said. */
+  noOne: Set<string>;
+  /** The people on a call that overlaps the part (refs). */
+  onCall: string[];
+}
+
 /**
  * The model's reply checked against what it was shown: an entry stays only when its voice is a `V` of the lines, its
  * person is one of the refs offered, `me` or `unknown`, every line it cites exists and is a line of that voice, and its
  * confidence is one of sure, likely, weak; a voice is answered once. Anything else is dropped, never kept as a name. A
- * reply with no list of voices is not a reply (it throws, so it is stored nowhere and asked again).
+ * person named `likely` who is neither in that voice's likeness nor on a call that overlaps the part (`known`) is
+ * stored `weak`. A voice his own answer says names no one is stored `unknown` at `weak` (nothing for a reader to show),
+ * whatever the model said and even when it left the voice out. A reply with no list of voices is not a reply (it
+ * throws, so it is stored nowhere and asked again).
  */
-export function checkedVoices(reply: unknown, input: NamingInput) {
+export function checkedVoices(
+  reply: unknown,
+  input: NamingInput,
+  known: Known = { noOne: new Set(), onCall: [] }
+) {
   const { voices } = (reply ?? {}) as { voices?: unknown };
   if (!Array.isArray(voices)) {
     throw new Error("the reply has no list of voices");
@@ -90,6 +107,7 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
     const e = NamedVoice.safeParse(v).data;
     if (
       !e ||
+      known.noOne.has(e.voice) ||
       seen.has(e.voice) ||
       !(e.person === "me" || e.person === "unknown" || offered.has(e.person)) ||
       !e.lines.every((n) => input.lines[n]?.match(LINE_WHO)?.[1] === e.voice) ||
@@ -98,9 +116,32 @@ export function checkedVoices(reply: unknown, input: NamingInput) {
       return [];
     }
     seen.add(e.voice);
-    return [e];
+    const sounds = input.voices
+      .find((x) => x.voice === e.voice)
+      ?.likeness.some((l) => l.person === e.person);
+    return [
+      e.confidence === "likely" &&
+      offered.has(e.person) &&
+      !sounds &&
+      !known.onCall.includes(e.person)
+        ? { ...e, confidence: "weak" as const }
+        : e,
+    ];
   });
-  return { voices: kept };
+  const answered = [...known.noOne].flatMap((voice) => {
+    const line = input.lines.findIndex((l) => l.match(LINE_WHO)?.[1] === voice);
+    return line < 0
+      ? []
+      : [
+          {
+            confidence: "weak" as const,
+            lines: [line],
+            person: "unknown",
+            voice,
+          },
+        ];
+  });
+  return { voices: [...kept, ...answered] };
 }
 
 /** The recording a turn key is of. */
@@ -110,8 +151,6 @@ const jobOf = (key: string) => parseTurnRef(turnRefOf(key))?.jobId ?? "";
 interface Context {
   /** The local days each person spoke on a call he picked up, by person ref, sorted. */
   callDays: Map<string, string[]>;
-  /** The local days each person spoke in person in his recordings, by person ref, sorted. */
-  days: Map<string, string[]>;
   detailsFor: ReturnType<typeof readDetailsOf>;
   /** The messages of each person's one-to-one chats and mail threads. */
   direct: Map<string, SourceEvent[]>;
@@ -131,22 +170,13 @@ interface Context {
 const addTo = <K, V>(m: Map<K, Set<V>>, k: K, v: V) =>
   m.set(k, (m.get(k) ?? new Set<V>()).add(v));
 
-/** The days each person spoke in person (sorted), and who spoke on each day. */
-function heardDaysOf(heard: { at: string; ref: string }[]) {
+/** Who spoke in person on each local day. */
+function heardOnDayOf(heard: { at: string; ref: string }[]) {
   const onDay = new Map<string, Set<string>>();
   for (const h of heard) {
     addTo(onDay, localDate(h.at), h.ref);
   }
-  const days = new Map<string, string[]>();
-  for (const [day, refs] of onDay) {
-    for (const ref of refs) {
-      days.set(ref, [...(days.get(ref) ?? []), day]);
-    }
-  }
-  for (const list of days.values()) {
-    list.sort();
-  }
-  return { days, onDay };
+  return onDay;
 }
 
 /** The people pictured in a photo of each of `dates`, and those in an active fact of that day that no recording is evidence of. */
@@ -193,8 +223,9 @@ async function readHeardInPerson(
       group.map((d) => readVoices(new Date(d), new Date(d + DAY)))
     );
     for (const r of rows.flat()) {
-      if (r.basis === "owner" && r.status === "person" && r.personId) {
-        answered.add(`${r.jobId} ${r.personId}`);
+      const own = ownAnswerOf(r);
+      if (own?.kind === "person") {
+        answered.add(`${r.jobId} ${own.personId}`);
       }
     }
   }
@@ -244,25 +275,42 @@ async function readContext(
   );
   return {
     callDays,
-    ...heardDaysOf(heard),
     ...(await readDayFacts([...new Set(parts.map((p) => p.day))], people)),
     detailsFor: readDetailsOf(people),
     direct,
     events,
     heard,
     names: voiceNamesOf(turns),
+    onDay: heardOnDayOf(heard),
     people,
   };
 }
 
-/** A person's brief for a part: how he has met them in the 90 days before, who is often there too, and what his directory holds. */
-function briefOf(ref: string, part: SpokenPart, c: Context) {
+/**
+ * A person's brief for a part of the conversation running from `began` to `ended`: how he has met them within 90 days of
+ * this day (in person: the turns that make them possible, `isHeardAround`; by call: the 90 days before), who is often
+ * there too, and what his directory holds.
+ */
+function briefOf(
+  ref: string,
+  part: SpokenPart,
+  [began, ended]: [string, string],
+  c: Context
+) {
   const from = localDate(
     new Date(Date.parse(part.at) - HEARD_WITHIN).toISOString()
   );
   const recent = (list: string[] = []) =>
     list.filter((d) => d >= from && d < part.day);
-  const inPerson = recent(c.days.get(ref));
+  const inPerson = [
+    ...new Set(
+      c.heard
+        .filter(
+          (h) => h.ref === ref && isHeardAround(h.at, part.at, began, ended)
+        )
+        .map((h) => localDate(h.at))
+    ),
+  ].sort();
   const withThem = new Map<string, number>();
   for (const day of inPerson) {
     for (const other of c.onDay.get(day) ?? []) {
@@ -337,7 +385,7 @@ function messagesAround(offered: string[], part: SpokenPart, c: Context) {
  */
 export function namingOf(
   part: SpokenPart,
-  began: string,
+  [began, ended]: [string, string],
   voices: VoiceRow[],
   c: Context,
   hidden?: Set<string>
@@ -354,25 +402,25 @@ export function namingOf(
   );
   const possible = possibleSpeakersOf(
     {
-      answered: voices.flatMap((v) =>
-        !hidden?.has(voiceKey(v.jobId, v.speakerLabel)) &&
-        v.basis === "owner" &&
-        v.status === "person" &&
-        v.personId
+      answered: voices.flatMap((v) => {
+        const own = ownAnswerOf(v);
+        return own?.kind === "person" &&
+          !hidden?.has(voiceKey(v.jobId, v.speakerLabel))
           ? (voicePersonOf(
               c.people.resolve,
-              v.personId,
-              c.names.get(v.personId)
+              own.personId,
+              c.names.get(own.personId)
             ) ?? [])
-          : []
-      ),
+          : [];
+      }),
       facts: [...(c.facts.get(part.day) ?? [])],
       heard: c.heard,
       onCall: calls.people,
       pictured: [...(c.pictured.get(part.day) ?? [])],
     },
     part.at,
-    began
+    began,
+    ended
   );
   const could = new Set(possible);
   const unnamed = part.voices.map((v, n) => {
@@ -410,7 +458,7 @@ export function namingOf(
     }),
     messages: messagesAround(possible, part, c),
     people: possible.map((ref) => ({
-      brief: briefOf(ref, part, c),
+      brief: briefOf(ref, part, [began, ended], c),
       name: c.people.nameOf(ref),
       ref,
     })),
@@ -428,19 +476,27 @@ export function namingOf(
       voice: token,
     })),
   };
-  return { input, keys };
+  // A voice he answered "Not anyone I know", not relevant or otherwise as no one is never guessed (the hidden run's own are).
+  const noOne = new Set(
+    part.voices.flatMap((v, n) => {
+      const key = voiceKey(jobAt(n), v.label);
+      const own = unnamed[n] && !hidden?.has(key) && ownAnswerOf(rows.get(key));
+      return own && own.kind !== "person" ? [tokens.get(key) ?? ""] : [];
+    })
+  );
+  return { input, keys, known: { noOne, onCall: calls.people } };
 }
 
-/** The voices (`voiceKey`) he answered whole, a person or not relevant, and not mixed: what the score's hidden run hides. */
+/** The voices (`voiceKey`) he answered whole, a person, not relevant or "Not anyone I know", and not mixed: what the score's hidden run hides. */
 const hiddenOf = (rows: VoiceRow[]) =>
   new Set(
-    rows.flatMap((v) =>
-      v.basis === "owner" &&
-      !v.mixed &&
-      (v.status === "person" || v.status === "not_relevant")
+    rows.flatMap((v) => {
+      const kind = ownAnswerOf(v)?.kind;
+      return !v.mixed &&
+        (kind === "person" || kind === "not_relevant" || kind === "unknown")
         ? [voiceKey(v.jobId, v.speakerLabel)]
-        : []
-    )
+        : [];
+    })
   );
 
 /** What a run would do: the parts with a voice to name, and the calls due (those with no stored reply under their keys now). */
@@ -481,14 +537,26 @@ function namingsOf(
 ) {
   const hidden = hiding ? hiddenOf(voices) : undefined;
   const namings = due.flatMap((part) => {
-    const n = namingOf(part, parts[0]?.at ?? part.at, voices, c, hidden);
+    const n = namingOf(
+      part,
+      [parts[0]?.at ?? part.at, parts.at(-1)?.until ?? part.until],
+      voices,
+      c,
+      hidden
+    );
     return n ? [{ n, part }] : [];
   });
   const asked: Asked[] = namings
     .filter(({ n }) => again || !replyOf(n.keys, VOICE_NAMING_READ, index))
     .map(({ n, part }) => ({
       at: part.at,
-      call: { firstAt: part.at, input: n.input, keys: n.keys, starts: [0] },
+      call: {
+        checked: (reply) => checkedVoices(reply, n.input, n.known),
+        firstAt: part.at,
+        input: n.input,
+        keys: n.keys,
+        starts: [0],
+      },
       read: VOICE_NAMING_READ,
     }));
   return { asked, named: namings.length };
@@ -569,13 +637,6 @@ export async function voiceNaming(
     at: (a) => a.at,
     size: () => 1,
   });
-  const made = await makeReplies(
-    asked,
-    {
-      ...run,
-      ask: async (o) => checkedVoices(await run.ask(o), o.input as NamingInput),
-    },
-    where
-  );
+  const made = await makeReplies(asked, run, where);
   return run.end({ calls: asked.length, stored: made.stored });
 }

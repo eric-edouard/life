@@ -25,6 +25,8 @@ export const promptDigestOf = (text: string) => digest("sha256", text, 16);
 
 /** One call: what the model is shown (`input`), the key of each message its lines are, the instant of the first, and where each item starts in them. */
 interface Call {
+  /** What a reply must pass before it is stored (the voice naming's `checkedVoices`); it may throw, so nothing is stored. */
+  checked?: (reply: unknown) => unknown;
   firstAt: string;
   input: object;
   keys: string[];
@@ -158,7 +160,8 @@ export async function makeReplies(
     const ok = await step.attempt(
       async () => {
         const { prompt } = READS[read];
-        const reply = await step.ask({ dir, input: call.input, prompt });
+        const answer = await step.ask({ dir, input: call.input, prompt });
+        const reply = call.checked ? call.checked(answer) : answer;
         const at = clock().toISOString();
         storeReply(
           {

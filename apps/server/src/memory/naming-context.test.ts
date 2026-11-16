@@ -118,7 +118,7 @@ const none = {
   pictured: [] as string[],
 };
 const possible = (signs: Partial<typeof none>) =>
-  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM);
+  possibleSpeakersOf({ ...none, ...signs }, FROM, FROM, TO);
 
 test("a person with none of the signs is not offered, even when lifelog named the voice by sound", () => {
   // Lifelog's name is not a sign: a person who lives elsewhere, with no call, no answer, no photo and no fact.
@@ -144,22 +144,26 @@ test("each sign alone makes a person possible; callers come first", () => {
   ]);
 });
 
-test("heard in person counts only before the conversation, within 90 days, at the same UTC offset", () => {
+test("heard in person counts in another conversation, within 90 days either side, at the same UTC offset", () => {
   const heard = (when: string, ref: string) => ({ at: when, ref });
   expect(
     possible({
       heard: [
         // Before, in the same zone (Lagos, UTC+1): in.
         heard("2026-10-20T10:00:00.000Z", "person:in"),
+        // After the conversation ended (its end is TO), the same zone: in.
+        heard("2026-11-05T10:00:00.000Z", "person:after"),
         // Where he was at UTC+7 then: out.
         heard("2026-09-10T10:00:00.000Z", "person:far"),
         // 92 days before, a summer in Lisbon (UTC+1): out by the window.
         heard("2026-07-30T10:00:00.000Z", "person:old"),
-        // After the conversation began: out.
-        heard("2026-10-30T10:00:01.000Z", "person:later"),
+        // Inside the conversation (from FROM to TO): out.
+        heard("2026-10-30T10:30:00.000Z", "person:during"),
+        // More than 90 days after: out.
+        heard("2027-02-05T10:00:00.000Z", "person:late"),
       ],
-    })
-  ).toEqual(["person:in"]);
+    }).toSorted()
+  ).toEqual(["person:after", "person:in"]);
 });
 
 test("at most 12 are offered, those on a call before the rest, the most recently heard first", () => {

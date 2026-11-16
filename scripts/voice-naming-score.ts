@@ -31,6 +31,7 @@ import {
 } from "@life/server/src/sources/lifelog";
 import {
   isTurnNamed,
+  ownAnswerOf,
   readVoices,
   speakerTurns,
   type VoiceRow,
@@ -38,7 +39,7 @@ import {
   voiceNamesOf,
 } from "@life/server/src/sources/lifelog-voices";
 
-/** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, or null when he did not answer the whole voice. */
+/** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, `unknown` ("Not anyone I know"), or null when he did not answer the whole voice. */
 export interface Guessed {
   answer: string | null;
   /** Why an answered voice is left out: lifelog says its sound mixes people, or he answered it turn by turn (no answer on the voice, each turn named). */
@@ -56,6 +57,8 @@ export interface Guessed {
 }
 
 const LEVELS = ["sure", "likely"] as const;
+/** The answers that name no one, scored apart. */
+const NO_ONE = new Set(["not_relevant", "unknown"]);
 /** A guess that names someone: not `unknown`, not `me`, and sure or likely. */
 const namesOther = (g: Guessed) =>
   g.person !== "unknown" &&
@@ -81,14 +84,14 @@ const newestPerVoice = (list: Guessed[]) => [
 /**
  * The score, counts only. Over answered voices (a person, whole voice, not mixed, not turn by turn): wrong per 100 at
  * sure and at likely, by voice (each counted once, by its newest guess) and by guess. `me` guesses, voices with no
- * likeness, guesses on voices answered `not_relevant`, the talking words named right, and the doubted names are apart.
+ * likeness, guesses on voices answered `not_relevant`, the strangers' ("Not anyone I know": how many were guessed a person or me), the talking words named right, and the doubted names are apart.
  */
 export function scoreOf(all: Guessed[]) {
   const [left, kept] = [
     all.filter((g) => g.apart),
     all.filter((g) => !g.apart),
   ];
-  const persons = kept.filter((g) => g.answer && g.answer !== "not_relevant");
+  const persons = kept.filter((g) => g.answer && !NO_ONE.has(g.answer));
   const wrong = (g: Guessed) => g.person !== g.answer;
   const byVoice = newestPerVoice(persons);
   const levels = (
@@ -105,6 +108,10 @@ export function scoreOf(all: Guessed[]) {
       ])
     );
   const doubted = newestPerVoice(kept.filter((g) => g.recognized));
+  const strangers = newestPerVoice(kept.filter((g) => g.answer === "unknown"));
+  const guessedAs = (c: (typeof LEVELS)[number]) =>
+    strangers.filter((g) => g.person !== "unknown" && g.confidence === c)
+      .length;
   return {
     byGuess: levels(persons),
     byVoice: levels(byVoice),
@@ -126,6 +133,11 @@ export function scoreOf(all: Guessed[]) {
       ).filter(namesOther).length,
       voices: newestPerVoice(kept.filter((g) => g.answer === "not_relevant"))
         .length,
+    },
+    strangers: {
+      likely: guessedAs("likely"),
+      sure: guessedAs("sure"),
+      voices: strangers.length,
     },
     voices: byVoice.length,
     words: {
@@ -151,6 +163,7 @@ export function reportOf(s: ReturnType<typeof scoreOf>) {
     `me guesses (sure or likely, all wrong on a person he answered): ${s.meGuesses}`,
     `talking words named right: ${s.words.right} of ${s.words.all}`,
     `voices answered not relevant: ${s.notRelevant.voices}, guessed as a person: ${s.notRelevant.guessed}`,
+    `voices answered "Not anyone I know": ${s.strangers.voices}, guessed as a person or me at sure: ${s.strangers.sure}, at likely: ${s.strangers.likely}`,
     `doubted names: ${s.doubted.asked}, named again as the same person: ${s.doubted.sameAsLifelog}`,
     `left out: ${s.leftOut.mixed} mixed, ${s.leftOut.turnByTurn} answered turn by turn`,
   ];
@@ -252,13 +265,13 @@ async function gather(lines: ReadReply[]) {
   };
   const unplaced = new Set<string>();
   const answerOf = (row?: VoiceRow) => {
-    if (row?.basis !== "owner") {
-      return null;
+    const own = ownAnswerOf(row);
+    if (own?.kind === "person") {
+      return person(own.personId);
     }
-    if (row.status === "not_relevant") {
-      return "not_relevant";
-    }
-    return person(row.personId);
+    return own?.kind === "not_relevant" || own?.kind === "unknown"
+      ? own.kind
+      : null;
   };
   const jobs = [
     ...new Set(
@@ -272,7 +285,7 @@ async function gather(lines: ReadReply[]) {
   const words = await transcripts(jobs.map((jobId) => ({ jobId })));
   const guessed = per.map(({ g, row }) => {
     const answer = answerOf(row);
-    if (!answer && row?.basis === "owner" && row.status === "person") {
+    if (!answer && ownAnswerOf(row)?.kind === "person") {
       unplaced.add(g.voice);
     }
     let apart: Guessed["apart"];
@@ -282,8 +295,7 @@ async function gather(lines: ReadReply[]) {
       apart = "turn";
     }
     return {
-      answer:
-        answer && answer !== "not_relevant" ? people.refOf(answer) : answer,
+      answer: answer && !NO_ONE.has(answer) ? people.refOf(answer) : answer,
       ...(apart ? { apart } : {}),
       at: g.at,
       confidence: g.confidence,
