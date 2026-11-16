@@ -146,7 +146,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **A passage has one owner:** its first message's unit, identified globally by source and first-message id. Complete grouping runs reconcile across day and month boundaries in a derived store outside the rebuildable index.
 - **A summary is redone only when new evidence for its subject arrived.** Its `inputs` digest covers its subject's evidence only, in a window ending at the subject's newest evidence (the story: capped at the last closed year); today's date, the page text and other summaries may be shown to the call but never enter the digest (situations, personas, story; pages and history months already hold). The personas' weekly throttle is a rate cap beside the rule, not part of it.
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
-  when its meaning changes; ask before re-running the whole archive.
+  when its meaning changes; ask before re-running the whole archive. A prompt part switched by an add-on is not a new
+  version: its variant (`<prompt>-without-<parts>`) shares the base's cache (`isPromptVersion`, `models/prompt-parts.ts`).
 - **Model calls go through the provider the owner chose**: his subscriptions, or with his keys allmodels.io (his decision
   of 28 Oct 2026) and OpenRouter, only on hosts it lists as keeping no data (his decision of 8 Nov 2026); never another provider. The bench uses the same providers, on a copy of the data; the question cases' agent runs on his Codex subscription, reading his own data through the connector
   (`docs/operations.md`, "Model engines"). One model runs on the Mac instead of a provider: photo descriptions, Qwen3.5-9B

@@ -100,7 +100,7 @@ const check = (over: Partial<ReplyLimits> = {}): ReplyLimits => {
   return {
     changed: new Set(),
     covered: new Set(s.now.concat(s.earlier).flatMap((l) => l.cites)),
-    current: liveLines(s),
+    current: liveLines(s, PLAIN),
     fresh: new Set([D]),
     known: KNOWN,
     layout: PLAIN,
@@ -662,4 +662,51 @@ test("a page keeps what it was offered: rendered and parsed back, nothing is new
     refiled: true,
   } as unknown as Observation & { refiled: boolean };
   expect(newOn([refiled], parsed?.meta ?? null)).toEqual([]);
+});
+
+test("with relationships off a close person's Between us is frozen: not offered, not aged, not moved, still on the page", () => {
+  const off = (a: string) => a !== "relationships";
+  const frozen = layoutOf("person:hans", true, off);
+  expect(frozen.frozen).toEqual(["between_us"]);
+  expect(frozen.live.map((l) => l.key)).toEqual(["now"]);
+  const s = of({
+    between_us: [
+      { cites: [A], text: "Hans and Jean agreed to keep money apart." },
+    ],
+  });
+  expect(liveLines(s, frozen).size).toBe(0);
+  const none = {
+    add: [],
+    done: [],
+    earlier: [],
+    rejects: [],
+    rewrite: new Map(),
+  };
+  const k = known([obs(A, "2020-01-01")]);
+  const after = assemble(s, none, k, {
+    fixed: 0,
+    layout: frozen,
+    today: TODAY,
+  });
+  expect(after.between_us).toEqual(s.between_us);
+  expect(after.earlier).toEqual([]);
+  const text = renderPage({
+    hold: "> Hans.",
+    layout: frozen,
+    meta: {
+      built: "2026-10-18T02:00:00.000Z",
+      madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+      name: "Hans",
+      page: "person:hans",
+      schemaVersion: 1,
+      seen: "r",
+    },
+    owner: [],
+    sections: after,
+    title: "Hans",
+  });
+  expect(text).toContain("keep money apart");
+  const owner = layoutOf("person:me", false, (a) => a !== "aboutMe");
+  expect(owner.frozen).toEqual(["views", "health"]);
+  expect(owner.live.map((l) => l.key)).toEqual(["now"]);
 });

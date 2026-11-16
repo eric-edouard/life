@@ -13,6 +13,10 @@
   "connector": {
     "origin": "https://life.example.test"
   },
+  "personal": {
+    "aboutMe": {},
+    "relationships": {}
+  },
   "lifeChat": "!life:matrix.local",
   "lifelog": {
     "url": "https://voice.example.test"

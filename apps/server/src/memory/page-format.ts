@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type AddOn, hasAddOn } from "../core/add-ons";
 import { daysBefore } from "../core/clock";
 import { digest } from "../core/hash";
 import { MadeBy } from "../records/fields";
@@ -36,23 +37,39 @@ const SECTIONS = PageSection.options.map((key) => ({ key, ...SECTION[key] }));
 const LIVE = SECTIONS.filter((s) => s.key !== "earlier");
 
 /**
- * What a page has: its live sections and words ("What I hold" included). The owner's page has Views and Health; the
- * page of someone close to him personally (`close`: their closeness level) has Between us and more words.
+ * What a page has: its live sections and words ("What I hold" included). The owner's page has Views and Health (the
+ * `aboutMe` add-on); the page of someone close to him personally (`close`: their closeness level) has Between us (the
+ * `relationships` add-on) and more words. A section whose add-on is off is `frozen`: not offered to the model, never
+ * aged or moved to Earlier, its stored lines kept as they are (readers hide them). `on`: which add-ons are on.
  */
-export const layoutOf = (ref: string, close = false) => {
+export const layoutOf = (
+  ref: string,
+  close = false,
+  on: (addOn: AddOn) => boolean = hasAddOn
+): {
+  frozen: Key[];
+  live: typeof LIVE;
+  words: number;
+} => {
+  const live = (...keys: Key[]) => LIVE.filter((s) => keys.includes(s.key));
   if (ref === OWNER) {
-    return { live: LIVE.filter((s) => s.key !== "between_us"), words: 2000 };
+    return on("aboutMe")
+      ? { frozen: [], live: live("views", "health", "now"), words: 2000 }
+      : { frozen: ["views", "health"], live: live("now"), words: 2000 };
+  }
+  if (!on("relationships")) {
+    return { frozen: ["between_us"], live: live("now"), words: 800 };
   }
   return close
-    ? {
-        live: LIVE.filter((s) => s.key === "between_us" || s.key === "now"),
-        words: 1100,
-      }
-    : { live: LIVE.filter((s) => s.key === "now"), words: 800 };
+    ? { frozen: [], live: live("between_us", "now"), words: 1100 }
+    : { frozen: [], live: live("now"), words: 800 };
 };
 export type Layout = ReturnType<typeof layoutOf>;
 const hasSection = (l: Layout, key: Key) =>
   key === "earlier" || l.live.some((s) => s.key === key);
+/** Whether a page file shows the section: it has it, or keeps it frozen. */
+const keeps = (l: Layout, key: Key) =>
+  hasSection(l, key) || l.frozen.includes(key);
 /** Earlier keeps this many lines at most, oldest dropped first. */
 const EARLIER_MAX = 30;
 /** Words kept free for Earlier when the live sections are long: their oldest lines move there beyond this. */
@@ -198,9 +215,7 @@ export function renderPage(opts: {
   const lines: PageMeta["lines"] = {};
   const body = [`# ${opts.title}`, "", `## ${HOLD}`, "", opts.hold.trim(), ""];
   const { layout } = opts;
-  for (const { key, title } of SECTIONS.filter((s) =>
-    hasSection(layout, s.key)
-  )) {
+  for (const { key, title } of SECTIONS.filter((s) => keeps(layout, s.key))) {
     const section = [
       ...opts.sections[key].map((l) => {
         const text = renderLine(key, l);
@@ -209,9 +224,7 @@ export function renderPage(opts: {
       }),
       // His line under a section this page doesn't have stays his, in Now.
       ...opts.owner
-        .filter(
-          (x) => (hasSection(layout, x.section) ? x.section : "now") === key
-        )
+        .filter((x) => (keeps(layout, x.section) ? x.section : "now") === key)
         .map((o) => o.text),
     ];
     body.push(
@@ -484,9 +497,9 @@ export function checkReply(reply: unknown, c: ReplyLimits) {
 type Merge = ReturnType<typeof checkReply>;
 
 /** Every kept live line by its hash, with its section: what `done` and `rewrite` may name. */
-export const liveLines = (s: Sections) =>
+export const liveLines = (s: Sections, { frozen }: Layout) =>
   new Map(
-    LIVE.flatMap(({ key }) =>
+    LIVE.filter((x) => !frozen.includes(x.key)).flatMap(({ key }) =>
       s[key].map(
         (line) => [lineHash(renderLine(key, line)), { key, line }] as const
       )
@@ -517,7 +530,7 @@ export function assemble(
     for (const l of settled[key]) {
       const h = lineHash(renderLine(key, l));
       // A section the page no longer has (he is no longer close) leaves its lines in Earlier.
-      if (m.done.includes(h) || !hasSection(opts.layout, key)) {
+      if (m.done.includes(h) || !keeps(opts.layout, key)) {
         out.earlier.push(dated(l, k));
       } else {
         out[key].push(m.rewrite.get(h) ?? l);
@@ -553,13 +566,13 @@ const sectionWords = (s: Sections) =>
 /**
  * Sorts the sections and enforces the caps. The live sections may take all the page's words but EARLIER_ROOM: beyond
  * that, the line with the oldest evidence in a section that ages moves to Earlier (one that never ages goes last).
- * Earlier is cut to EARLIER_MAX lines, then oldest-first until the whole page fits.
+ * Earlier is cut to EARLIER_MAX lines, then oldest-first until the whole page fits. A frozen section is carried over.
  */
 export function fit(
   s: Sections,
   k: Known,
   fixed: number,
-  { live, words }: Layout
+  { frozen, live, words }: Layout
 ): Sections {
   const out = perSection<PageLine>();
   for (const { key } of live) {
@@ -590,7 +603,12 @@ export function fit(
   ) {
     earlier.pop();
   }
-  return { ...out, earlier };
+  // A frozen section is kept as it is and costs the page no words: readers hide it.
+  return {
+    ...out,
+    ...Object.fromEntries(frozen.map((key) => [key, s[key]])),
+    earlier,
+  };
 }
 
 /**
