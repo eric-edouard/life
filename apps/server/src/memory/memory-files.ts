@@ -582,19 +582,7 @@ export const shows = (s: ObservationStatus, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
 
-/**
- * Whether a reader shows `o` (the index, search, a read of one, the fact checks, the email): `shows`, and not only a
- * section whose add-on is off cites it (`frozenOnlyOf`). The steps that compute never ask: they see it as it stands.
- */
-export const readerShows = (
-  o: Observation,
-  statusInputs: ObservationStatusInputs,
-  page?: string
-) =>
-  shows(observationStatusOf(o, statusInputs), page) &&
-  !isCitedOnlyByFrozen(o, statusInputs);
-
-/** Whether only a section whose add-on is off cites `o`: readers hide it, the steps that compute do not. */
+/** Whether only a section whose add-on is off cites `o` (`frozenOnlyOf`): each reader hides it through this, the steps that compute never ask. */
 export const isCitedOnlyByFrozen = (
   o: Observation,
   s: ObservationStatusInputs

@@ -48,7 +48,11 @@ import {
 } from "./page-format";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
-import { readParsedPages, readStatusInputs } from "./status-inputs";
+import {
+  hasFrozen,
+  readParsedPages,
+  readReaderStatusInputs,
+} from "./status-inputs";
 import {
   aboutNow,
   authorFrom,
@@ -196,7 +200,7 @@ function pageCommits() {
 }
 
 /** The page lines each commit added and removed, by `<sha>:<path>`: body lines, not the frontmatter. One git call. */
-function pageDiffs(shas: string[]) {
+export function pageDiffs(shas: string[]) {
   const out = new Map<string, { added: string[]; removed: string[] }>();
   if (shas.length === 0) {
     return out;
@@ -204,8 +208,8 @@ function pageDiffs(shas: string[]) {
   const text = git(OWNER_DATA_DIR, [
     "show",
     "--no-color",
-    // The whole file as context, so each changed line is known by its section.
-    "--unified=100000",
+    // Something frozen: the whole file as context, so each changed line is known by its section.
+    `--unified=${hasFrozen() ? 100_000 : 0}`,
     "--format=%x01%H",
     ...new Set(shas),
     "--",
@@ -219,7 +223,7 @@ function pageDiffs(shas: string[]) {
       const lines = file.split("\n");
       // The section of each line, from the headings in the context; a frozen section's lines are not shown.
       let section = "";
-      const shown = lines.map((l) => {
+      const hidden = lines.map((l) => {
         section = headingOf(l.slice(1)) ?? section;
         return frozen.has(section);
       });
@@ -227,7 +231,7 @@ function pageDiffs(shas: string[]) {
         lines
           .filter(
             (l, i) =>
-              !shown[i] && l.startsWith(sign) && !l.startsWith(sign.repeat(3))
+              !hidden[i] && l.startsWith(sign) && !l.startsWith(sign.repeat(3))
           )
           .map((l) => l.slice(1))
           .filter((l) => l.trim() !== "" && l !== "---" && !FRONT_KEY.test(l));
@@ -281,7 +285,7 @@ async function readContext() {
   // The page files are read once: the pages and what only a frozen section cites both come from them.
   const parsed = await readParsedPages();
   const [statusInputs, inferred] = await Promise.all([
-    readStatusInputs(readCorrections(), undefined, parsed),
+    readReaderStatusInputs(readCorrections(), undefined, parsed),
     readInferred(),
   ]);
   // The latest record for a name as written wins (who.ts): its line number.

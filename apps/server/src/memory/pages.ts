@@ -46,12 +46,12 @@ import {
   newOn,
   oftenLine,
   ownerEdits,
-  type PageLine,
   type PageMeta,
   type Parsed,
   parsePage,
   perSection,
   placed,
+  previousSections,
   type ReplyLimits,
   renderPage,
   type Sections,
@@ -312,14 +312,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     (l, i, all) => all.findIndex((x) => bare(x.text) === bare(l.text)) === i
   );
   const layout = layoutOf(t.ref, t.close);
-  // A rebuild starts the live sections over, never a frozen one: its add-on is off, its lines are kept.
-  const stored = prev ? generated(prev) : perSection<PageLine>();
-  const old = r.rebuild
-    ? {
-        ...perSection<PageLine>(),
-        ...Object.fromEntries(layout.frozen.map((key) => [key, stored[key]])),
-      }
-    : stored;
+  const old = previousSections(prev, r.rebuild, layout.frozen);
   const settled = settle(old, known, layout.frozen);
   const fresh = newOn(
     visible.filter((o) => !known.retired.has(o.id)),

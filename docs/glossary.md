@@ -147,6 +147,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | ending | How an open step closed, and when: its observation retired (a newer one replaced it, or a word that it is done, his or an agent's, with its note), its to-do item ticked or removed (`closedAt`), or a link (`endingsOf`, "probably" until his word); a step's `ending` (`matter-read.ts`), at the instant of its evidence, never of the run that found it. Never inferred from silence or age: an item past its time is lapsed, which no record says. | |
 | add-on | A personal memory layer, off while its key is absent from `personal` in the settings (`core/add-ons.ts`: `addOnOf`, `hasAddOn`). Not an output: an output writes outside Life, an add-on only adds to what Life keeps. | |
 | prompt part | A paragraph of a prompt between `<!-- part:<add-on> -->` and `<!-- /part -->`, shown to the model only while that add-on is on (`promptText`, `models/prompt-parts.ts`). A call without it is stamped `<prompt>-without-<parts>`, a variant of the same version (`isPromptVersion`). Not a prompt version: switching an add-on re-runs nothing. | |
+| frozen section | A page section whose add-on is off (`layoutOf`'s `frozen`): kept in the file, carried through every page build untouched, shown nowhere. | |
+| frozen-only observation | An observation cited only by lines of frozen sections (`frozenOnlyOf`): readers hide it (`isCitedOnlyByFrozen`), the steps that compute still see it. | |
 | aboutMe | The add-on for the Views and Health sections of pages (`personal.aboutMe`). | |
 | relationships | The add-on for the Between us section of the pages of people close to him (`personal.relationships`). | |
 | personas | The add-on for the personas (`personal.personas`). | |

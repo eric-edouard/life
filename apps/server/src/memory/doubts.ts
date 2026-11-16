@@ -107,7 +107,7 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const episodes = episodesNow(await readEpisodes(), people.corrections);
   const facts = observations.flatMap((o) => {
     const s = observationStatusOf(o, statusInputs);
-    // Never asked about what only a section whose add-on is off cites (`readerShows`).
+    // Never asked about what only a section whose add-on is off cites (`isCitedOnlyByFrozen`).
     if (s.state !== "active" || isCitedOnlyByFrozen(o, statusInputs)) {
       return [];
     }

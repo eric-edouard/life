@@ -406,6 +406,24 @@ export function settle(prev: Sections, k: Known, frozen: Key[] = []) {
   return { changed, sections: out };
 }
 
+/**
+ * The generated lines a page build starts from: the previous page's, or none on a rebuild, which starts the live
+ * sections over but never a `frozen` one (its add-on is off, its lines are kept).
+ */
+export function previousSections(
+  prev: Parsed | null,
+  rebuild: boolean,
+  frozen: Key[]
+) {
+  const stored = prev ? generated(prev) : perSection<PageLine>();
+  return rebuild
+    ? {
+        ...perSection<PageLine>(),
+        ...Object.fromEntries(frozen.map((key) => [key, stored[key]])),
+      }
+    : stored;
+}
+
 const Cited = z.object({
   cites: z.array(z.string()).default([]),
   text: z.string().min(1).max(400),
@@ -685,7 +703,7 @@ export function shownBody(text: string) {
 
 /**
  * The observations cited by lines of a frozen section and by no line of a live one, on any page: they show only
- * through that section, so they are hidden with it (`observationStatusOf`). An observation no page line cites is not one.
+ * through that section, so readers hide them with it (`isCitedOnlyByFrozen`, memory-files.ts). An observation no page line cites is not one.
  */
 export function frozenOnlyOf(pages: Parsed[]) {
   const live = new Set<string>();
