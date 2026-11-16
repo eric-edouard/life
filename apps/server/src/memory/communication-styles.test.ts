@@ -74,7 +74,7 @@ test("a quote stays only as that writer's own chat words; a source not shown or 
   const sample = styleSampleOf([
     msg(1, true, { text: "Ok ça marche, à demain !! 😘" }),
     msg(2, false, { text: "Bonjour, bien reçu." }),
-    msg(3, true, { source: "mail", text: "Bien à vous, Eric" }),
+    msg(3, true, { source: "mail", text: "Bien à vous, Zoe" }),
   ]);
   const reply = {
     lines: [
