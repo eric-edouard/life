@@ -427,6 +427,20 @@ export function dayPartOf(units: Built[], chars: number) {
   return packed(sorted, chars, (b) => b.text.length)[0] ?? [];
 }
 
+/**
+ * Days holding stored units of a source not read tonight, turned on but unreadable (`skipped`) or failing (`failed`):
+ * they wait for it, since read without them their episodes would lose theirs.
+ */
+export function heldDaysOf(
+  stored: Unit[],
+  { failed, skipped }: Pick<Evidence, "failed" | "skipped">
+) {
+  const waiting = [...skipped, ...failed];
+  return new Set(
+    stored.filter((u) => waiting.includes(u.source)).map((u) => u.date)
+  );
+}
+
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
 export async function episodes(evidence: Evidence) {
   const step = await begin(
@@ -477,11 +491,9 @@ export async function episodes(evidence: Evidence) {
   let invalid = 0;
   // Units the model gave no verdict for: their day is read again next time.
   let missing = 0;
-  // A day holding units of a source that can't be read now waits for it: read without them, its episodes would lose theirs.
-  const held = new Set(
-    readUnitsOf(skipped.length > 0 ? days : [])
-      .filter((u) => skipped.includes(u.source))
-      .map((u) => u.date)
+  const held = heldDaysOf(
+    readUnitsOf(skipped.length + failed.length > 0 ? days : []),
+    evidence
   );
   // Oldest day first: a day sees what the days before it planned.
   for (const day of days) {

@@ -10,6 +10,7 @@ import {
   EPISODES_PROMPT,
   earlierFor,
   fresh,
+  heldDaysOf,
   parseDay,
   unread,
 } from "./episodes";
@@ -513,4 +514,16 @@ test("a day too long for one call is read in parts: its new units in time order,
   expect(ids(dayPartOf([late, early, noon], 100))).toEqual([U2, U3]);
   // One unit over the call goes alone, whole: the provider refuses it, never Life.
   expect(ids(dayPartOf([late, early], 10))).toEqual([U2]);
+});
+
+test("a day holding units of a source that failed tonight waits for it, like one turned on but unreadable (16 Nov 2026: a failed source's episodes were rewritten without it)", () => {
+  const stored = [
+    unit({ date: "2026-10-08", source: "whatsapp" }),
+    unit({ date: "2026-10-09", source: "mail" }),
+    unit({ date: "2026-10-10", source: "lifelog" }),
+  ];
+  expect([
+    ...heldDaysOf(stored, { failed: ["whatsapp"], skipped: ["mail"] }),
+  ]).toEqual(["2026-10-08", "2026-10-09"]);
+  expect(heldDaysOf(stored, { failed: [], skipped: [] }).size).toBe(0);
 });
