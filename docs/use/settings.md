@@ -87,8 +87,8 @@ about in it. `bun life memory exchange-reads` prints how many calls are pending 
 bun life settings set '{"matters":true,"links":true}'
 ```
 
-Off until you set them, and still in shadow: nothing but `bun life memory matters` and `bun life memory links` reads
-what they find. `matters` places, each night, the day's episodes, facts and to-dos in the running things of your life;
+Off until you set them. What `matters` finds is read by `read_day`'s Due list, a person's page, `read_matters` and
+`read_matter`; what `links` finds reaches them only with `endings` on (see Endings). `matters` places, each night, the day's episodes, facts and to-dos in the running things of your life;
 `links` reads how the open steps of each matter ended.
 
 ## Conversation summaries
