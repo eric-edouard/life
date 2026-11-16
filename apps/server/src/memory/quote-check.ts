@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { digest } from "../core/hash";
-import type { MadeBy } from "../records/fields";
+import { type FoundQuote, type MadeBy, QUOTE_CHARS } from "../records/fields";
 import { Modality, type Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { MemoryType } from "../records/unit";
 import { othersIn } from "./read-truth";
 import { kindOf } from "./sources";
 import { areaOf } from "./tags";
-import { normalize, UNKNOWN } from "./units";
+import { clip, normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of extraction (docs/architecture.md, "The pipeline"): what the extractor may return, the quote check, entity
@@ -365,3 +365,12 @@ export function foundQuotes<M extends { text: string }>(
     return found && message ? [{ message, text: found.verbatim }] : [];
   });
 }
+
+/** At most four of the quotes a model gave, found in `pool` (`foundQuotes`), each with its message's time and clipped to `QUOTE_CHARS`. */
+export const foundQuotesAt = <M extends { at: string; text: string }>(
+  quotes: string[],
+  pool: M[]
+): FoundQuote[] =>
+  foundQuotes(quotes, pool)
+    .slice(0, 4)
+    .map((q) => ({ at: q.message.at, text: clip(q.text, QUOTE_CHARS) }));

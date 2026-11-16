@@ -7,6 +7,7 @@ import {
   begin,
   inBatches,
   inputsOf,
+  isDue,
   metered,
   recordRun,
   trackProcessingSteps,
@@ -180,4 +181,15 @@ test("batches run as many at once as their engine takes, the next starting as on
   );
   await expect(failing).rejects.toThrow("refused");
   expect(started.toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+});
+
+test("a file is rebuilt when there is none, or `after` old with new inputs", () => {
+  const now = new Date("2026-11-08T00:00:00.000Z");
+  const week = 7 * 24 * 3_600_000;
+  const last = { built: "2026-11-05T00:00:00.000Z", inputs: "a" };
+  expect(isDue(null, "a", now, week)).toBe(true);
+  expect(isDue(last, "b", now, week)).toBe(false);
+  const old = { ...last, built: "2026-11-01T00:00:00.000Z" };
+  expect(isDue(old, "b", now, week)).toBe(true);
+  expect(isDue(old, "a", now, week)).toBe(false);
 });

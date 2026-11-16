@@ -76,7 +76,7 @@ const counts = exchangeCountsBlock(exchange).filter(Boolean);
 const fixed: Record<string, string[]> = {
   now: ["TITLES", "DETAILS", "CLOSE", "LAST EXCHANGE", "OPEN", "SITUATION"],
   page: ["PAGE who they are", "PAGE where things stand"],
-  persona: ["PERSONA in short", "PERSONA how each writes"],
+  persona: ["PERSONA in short", "PERSONA what they want"],
 };
 const noHistory: History = { months: [], schemaVersion: 1, story: null };
 const shared = baseOf(years);
