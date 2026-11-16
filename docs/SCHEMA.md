@@ -375,11 +375,11 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 ## situations/<id>.json
 
-Where things stand now with the owner (`me`) or someone close to him (`personallyClose`), written by `situations.ts` each
+Where things stand now with the owner (`me`) or someone with a page who has an episode in the last 30 days, written by `situations.ts` each
 night when its inputs changed: `page` (`person:<id>`), `lines` (each `text` and `cites`, `ep_` ids of the episodes it
-rests on), `inputs` (a hash of the prompt version and the episodes shown: those of importance 2 or more with them in the 30 days ending at their newest, never the page, the persona or the date), `built`, `madeBy`,
+rests on), `inputs` (a hash of the prompt's variant name (`madeBy.prompt`) and what was shown: the episodes of importance 2 or more with them in the 30 days ending at their newest, a digest of the page and, while the `personas` add-on is on, the persona's readings; never the date), `built`, `madeBy`,
 `schemaVersion`. Rewritten whole, never from its own last version; removed when the person has no recent episode or
-is no longer close. A reader drops a line whose episode is no longer live. His correction is a line on the page.
+no page. A reader drops a line whose episode is no longer live, and the whole situation when `madeBy.prompt` is not the variant now. His correction is a line on the page.
 
 ## personas/<id>.json
 
