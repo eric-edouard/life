@@ -69,6 +69,7 @@ import { lifeStatus } from "./status/life";
 
 const OPTIONS = {
   about: { type: "string" },
+  again: { type: "boolean" },
   at: { type: "string" },
   before: { type: "string" },
   chat: { type: "string" },
@@ -412,16 +413,19 @@ const HANDLERS: Record<string, Handler> = {
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
   /**
-   * `voice-naming [--from day] [--force]`: how many parts of the conversations the summaries examine have voices to name
+   * `voice-naming [--from day] [--force] [--again]`: how many parts of the conversations the summaries examine have voices to name
    * and how many calls are due, with no model; `--force` makes them as the night does once his `voiceNaming` setting is
-   * on: the night's share, or with `--from` all of them. Needs a Lifelog Host with `GET /speakers/voices`.
+   * on: the night's share, or with `--from` all of them; `--again` asks parts again even when a reply is stored. Needs a Lifelog Host with `GET /speakers/voices`.
    */
   "voice-naming": step(async (v) => {
     const work = await readVoiceNamingWork(
       await readConversationSummaryWork(clock(), await readPeople(), {
         from: v.from,
       }),
-      await readPeople()
+      await readPeople(),
+      undefined,
+      undefined,
+      { again: v.again }
     );
     return v.force
       ? voiceNaming(
@@ -434,7 +438,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7] | extract [--days 7] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | backfill --from d --to d | closeness | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

@@ -19,6 +19,7 @@ import {
   namedLike,
   nearNames,
   readUnresolvedPeople,
+  voicePersonOf,
 } from "./who";
 
 const INFERRED_ID = /^inf_[a-z0-9-]+$/;
@@ -299,4 +300,13 @@ test("an agent's own name opening its report is no unresolved person; other name
       ["unit_000000000009", "Orbit"],
     ])
   );
+});
+
+test("a lifelog person id is who the id resolves to, else who the name lifelog gave it resolves to", () => {
+  const resolve = (s: string) =>
+    ({ Dana: "person:dana", p1: "person:ann" })[s] ?? null;
+  expect(voicePersonOf(resolve, "p1", "Dana")).toBe("person:ann");
+  expect(voicePersonOf(resolve, "p9", "Dana")).toBe("person:dana");
+  expect(voicePersonOf(resolve, "p9", null)).toBeNull();
+  expect(voicePersonOf(resolve, null, "Dana")).toBe("person:dana");
 });

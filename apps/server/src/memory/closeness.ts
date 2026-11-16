@@ -13,7 +13,7 @@ import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches } from "./run";
 import { kindOf, safely, tables } from "./sources";
 import { chatPerson, isLifeOutput } from "./units";
-import { meant, type People, readPeople } from "./who";
+import { meant, type People, readPeople, voicePersonOf } from "./who";
 import { dayNow, localDate } from "./zones";
 
 /** Who a ref is now and his corrections, read once by the caller (`readPeople`). */
@@ -133,7 +133,7 @@ export function heardTurnsOf(
   since: Date
 ) {
   return speakerTurns(store, since).flatMap((t) => {
-    const ref = resolve(t.id) ?? (t.name ? resolve(t.name) : null);
+    const ref = voicePersonOf(resolve, t.id, t.name);
     return ref && ref !== OWNER ? [{ ...t, ref }] : [];
   });
 }

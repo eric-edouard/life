@@ -363,9 +363,11 @@ export function aboutNow(
     const from = authorFrom(o, chatOf);
     // A voice keeps lifelog's id, which the directory may not know: then, for an unknown one, the name lifelog gave it.
     const now =
-      (from && resolve(from)) ||
-      (unknown && resolve(was.slice(UNKNOWN.length))) ||
-      was;
+      voicePersonOf(
+        resolve,
+        from,
+        unknown ? was.slice(UNKNOWN.length) : null
+      ) || was;
     return { now, unit: o.unit, unknown, was };
   });
   // A person an author was filed as is someone else in every fact of the unit, whoever wrote it, when every author
@@ -413,6 +415,13 @@ export function aboutNow(
     };
   });
 }
+
+/** Who a lifelog person id is: the id, else the name lifelog gave it (the directory knows the id of few people). The one rule. */
+export const voicePersonOf = (
+  resolve: (s: string) => string | null,
+  id: string | null | undefined,
+  name: string | null | undefined
+) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
 /**
  * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
