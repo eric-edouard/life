@@ -18,6 +18,8 @@ export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
     birthday: Birthday.optional(),
+    // What Life calls them in prompts and what it writes (the owner: "Jean Paul" for Jean Paul Dupont), when not their name's first word.
+    called: z.string().min(1).optional(),
     handles: Handles.default({ email: [], phone: [], whatsapp: [] }),
     id: slug,
     language: z.enum(["en", "fr", "th"]).optional(),

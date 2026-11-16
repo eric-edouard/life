@@ -27,6 +27,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
   (`truth/areas.yaml`).
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
   known.
+- **Called**: a person may carry `called`, what Life calls them in prompts and what it writes when it isn't their
+  name's first word (the owner's `called` names them in every prompt, never a pronoun).
 
 ## units/YYYY-MM-DD.jsonl (layer L1)
 

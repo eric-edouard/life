@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
@@ -9,6 +16,7 @@ import {
   partsIn,
   promptNameOf,
   promptText,
+  readOwnerName,
   renderedOf,
 } from "./prompt-parts";
 
@@ -170,4 +178,18 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
 test("the situation prompt has the mayKeep sentence only when it is given", () => {
   expect(promptText("memory-situation.v3")).not.toContain("must not keep");
   expect(promptText("memory-situation.v3", true)).toContain("must not keep");
+});
+
+test("the owner is called by their `called`, else their name's first word", () => {
+  const data = mkdtempSync(join(tmpdir(), "life-owner-"));
+  mkdirSync(join(data, "truth"));
+  const write = (extra: string) =>
+    writeFileSync(
+      join(data, "truth", "people.yaml"),
+      `schemaVersion: 1\npeople:\n  - id: me\n    name: Jean Paul Dupont\n${extra}`
+    );
+  write("");
+  expect(readOwnerName(data)).toBe("Jean");
+  write("    called: Jean Paul\n");
+  expect(readOwnerName(data)).toBe("Jean Paul");
 });
