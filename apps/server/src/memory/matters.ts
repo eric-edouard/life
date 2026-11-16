@@ -4,6 +4,7 @@ import { daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { type Matter, MatterBatch, type MatterStep } from "../records/matter";
 import { SEARCHABLE_AT } from "../records/unit";
@@ -112,7 +113,7 @@ export const readMatters = () =>
  * placement of a record winning (the record leaves the matter it was in).
  */
 export function mattersNow(all: MatterBatch[]) {
-  const batches = all.filter((b) => b.madeBy.prompt === PROMPT);
+  const batches = all.filter((b) => isPromptVersion(b.madeBy.prompt, PROMPT));
   const byId = new Map<string, Matter & { steps: MatterStep[] }>();
   const placedIn = new Map<string, string>();
   const offered = new Set<string>();

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
 import type { Observation } from "../records/observation";
 import { endingsNow, readBatches } from "./endings";
@@ -80,7 +81,7 @@ export function subjectWorkOf(
 ): SubjectWork | null {
   const judged = new Set(
     batches
-      .filter((b) => b.madeBy.prompt === PROMPT)
+      .filter((b) => isPromptVersion(b.madeBy.prompt, PROMPT))
       .flatMap((b) => b.open.flatMap((o) => b.offered.map((l) => `${o} ${l}`)))
   );
   const isDue = (o: Shown, l: Shown) =>
