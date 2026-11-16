@@ -45,6 +45,7 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -348,12 +349,9 @@ const commands: Record<string, () => number | Promise<number>> = {
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    // The core, on from the first run; the personal add-ons stay off until he switches them.
-    setSettings({
-      conversationSummaries: true,
-      mentionsRead: true,
-      ...(v.language ? { memoryLanguage: v.language } : {}),
-    });
+    if (v.language) {
+      setSettings({ memoryLanguage: v.language });
+    }
     console.log("Life: data ready");
     return 0;
   },
@@ -429,6 +427,8 @@ const crashed = (e: unknown) => {
 process.on("uncaughtException", crashed);
 process.on("unhandledRejection", crashed);
 try {
+  // The settings' core switches gone, before the command reads any (host/migrate.ts).
+  migrateSettings();
   process.exit(await command());
 } catch (e) {
   crashed(e);

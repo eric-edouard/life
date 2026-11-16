@@ -40,7 +40,7 @@ import { localDate, type Window } from "./zones";
 // episode is stored as its units: a day's episodes are rewritten, a unit keeps its id);
 // code keeps a placement only when its record was shown and its words are found in that record's own text. Each call
 // is one appended line of memory/matters.jsonl: the matters it placed records in, and every record it was asked about,
-// so what is due is derived and nothing is paid twice. What is open in a matter, its status and people are worked out when read (`matter-read.ts`). Off until his `matters` setting.
+// so what is due is derived and nothing is paid twice. What is open in a matter, its status and people are worked out when read (`matter-read.ts`).
 
 const PROMPT = "memory-matters.v2";
 /** What a reply calls a matter that starts in it. */

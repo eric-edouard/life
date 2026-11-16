@@ -253,17 +253,17 @@ writes it any more; it stays on disk.
 
 ## links.jsonl
 
-The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
+The links step's judged batches (`memory/links.ts`), one line each, append-only:
 `subject` (a matter's id, `matter_<12 hex>`, since v2; the first lines hold a `person:<id>` from v1, still read), `open` (the ids
 of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later records judged (`laterRecordsOf`; since v3 also its people's notes no matter holds)
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
 `schemaVersion`. A pair in a line is not judged again by the same prompt, whatever the subject (`madeBy.prompt`; a new prompt asks every still-open step again). A link deletes nothing: what it ends is worked out when read
-(`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). While his `endings` setting is off only `bun life memory links` reads it; on, the readers do (a link ends its step "probably" until his word).
+(`endingsOf`, `memory/endings.ts`: the first link whose two ends are both current and that he did not call wrong in a fact check). The readers read it (a link ends its step "probably" until his word).
 
 ## matters.jsonl
 
-The matters step's calls (`memory/matters.ts`), one line each, append-only, while his `matters` setting is on: `matters`
+The matters step's calls (`memory/matters.ts`), one line each, append-only: `matters`
 (each `id`, `matter_` and 12 hex, minted by code; `name`; `areas`, ids of his areas, possibly none; `projects`, ids of his projects;
 `steps`, each a `ref` (a unit id, an observation id or a to-do item's ledger key, never an episode id: a day's episodes
 are rewritten), its `day` and a `quote`, words found in that record's own text), `offered` (every unit, observation and
@@ -483,7 +483,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 The fact checks he answered, as he was shown them, append-only. Nothing is drawn ahead: a line is written by
 `recordFactCheckAnswer` (`memory/fact-checks.ts`) just before his answer, never at the night's run:
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` and an optional `endedBy` (`ref`: the observation's or episode's id). A line with `endedBy` is an ending check (an open step `checksNow` lists while his `endings` setting is on): `ref` is the open step, `endedBy` the step a link says ended it, `text` "Life thinks this is done: <the step>" as the check showed it (lines before this PR's day, 14 Nov 2026, read "Done? <the step>"), `source` the channel of the later step (null for an episode); the later step's words are not stored; his answer is about that link: true or outdated is the existing `outdated` correction on the step (his word it is done), false removes the link between those two ids for good (a step re-read under a new id can be tied again), partly and skip say nothing. The record is frozen (what the owner was shown), so it copies what it needs:
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` and an optional `endedBy` (`ref`: the observation's or episode's id). A line with `endedBy` is an ending check (an open step `checksNow` lists): `ref` is the open step, `endedBy` the step a link says ended it, `text` "Life thinks this is done: <the step>" as the check showed it (lines before this PR's day, 14 Nov 2026, read "Done? <the step>"), `source` the channel of the later step (null for an episode); the later step's words are not stored; his answer is about that link: true or outdated is the existing `outdated` correction on the step (his word it is done), false removes the link between those two ids for good (a step re-read under a new id can be tied again), partly and skip say nothing. The record is frozen (what the owner was shown), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`; or `episode`), `source` (its channel; null for an episode), `date` (the observation's day) and `units` (what it was read from). Lines drawn at the night until 14 Nov 2026 (the doubtful memory lines, at most 5 open, drawn by `drawFactChecks`) stay as they are; those never answered are not open.
 
 ## fact-check-answers.jsonl

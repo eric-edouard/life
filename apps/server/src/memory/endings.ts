@@ -1,5 +1,4 @@
 import { readAppended } from "../core/files";
-import { settings } from "../core/settings";
 import { isEndingCheck } from "../records/fact-check";
 import { type Link, LinkBatch } from "../records/link";
 import { LINKS, readFactCheckAnswers, readFactChecks } from "./memory-files";
@@ -50,7 +49,7 @@ export function endingsOf(
 
 /**
  * Every ending (`endingsOf`, wrong ones removed) given which records are current, and the open steps he called wrong
- * (`refused`: a link is not shown for them again). Independent of his `endings` setting. His right is not here: it is
+ * (`refused`: a link is not shown for them again). His right is not here: it is
  * an `outdated` correction, which retires the step (`readCorrections`).
  */
 export function endingsNow(isCurrent: (id: string) => boolean) {
@@ -68,12 +67,9 @@ export function endingsNow(isCurrent: (id: string) => boolean) {
 /**
  * What the readers learn of links (`read_matters`, `read_matter`, `read_day`, a person's page, the checks): each step a
  * link ends, not his word yet, which then reads probably ended. Once he called a step's ending wrong, no further one
- * ends it (a stopgap). Empty while his `endings` setting is off.
+ * ends it (a stopgap).
  */
 export function endingsRead(isCurrent: (id: string) => boolean) {
-  if (!settings().endings) {
-    return { linkEndings: new Map<string, Ending>() };
-  }
   const { endings, refused } = endingsNow(isCurrent);
   return {
     linkEndings: new Map([...endings].filter(([ref]) => !refused.has(ref))),

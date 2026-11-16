@@ -14,11 +14,7 @@ import {
 } from "../memory/conversation-summaries";
 import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
-import {
-  exchangeReads,
-  readExchangeReadWork,
-  readsOn,
-} from "../memory/exchange-reads";
+import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
@@ -60,7 +56,6 @@ import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { FactCheckAnswer } from "../records/fact-check";
-import { MOVE_READS } from "../records/read-reply";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -212,8 +207,8 @@ const HANDLERS: Record<string, Handler> = {
   "contact-people": step(() => Promise.resolve(writeContactPeople())),
   /**
    * `conversation-summaries [--from day] [--force]`: what the conversation summaries would write (conversations and
-   * parts with none, in the night's window, or from `--from`), with no model; `--force` writes them, as the night does
-   * once his `conversationSummaries` setting is on: the night's share, or with `--from` all of them.
+   * parts with none, in the night's window, or from `--from`), with no model; `--force` writes them, as the night does:
+   * the night's share, or with `--from` all of them.
    */
   "conversation-summaries": step(async (v) => {
     const found = await readConversationSummaryWork(
@@ -249,22 +244,27 @@ const HANDLERS: Record<string, Handler> = {
     )
   ),
   /**
-   * `exchange-reads [--force]`: what the exchange reads would ask (calls and exchanges, before the night's cap), with no
-   * model, for every read; `--force` asks the night's share of the reads that are on (`readsOn`), as the night does.
+   * `exchange-reads [--days n] [--force]`: what the exchange reads that are on would ask of the exchanges finished in the
+   * last `n` days (the night's window by default), counted with no model; `--force` asks them, as the night does.
    */
   "exchange-reads": step(async (v) => {
-    // The preview counts every read, on or not, so it can be seen before one is turned on.
+    const now = clock();
     const pending = readExchangeReadWork(
       await readWithPeople(new Date(0)),
       await readPeople(),
-      clock(),
-      undefined,
-      v.force ? readsOn() : MOVE_READS
+      now,
+      lastDays(now, Number(v.days ?? DAYS)).from
     );
     if (!pending) {
       return { failed: 1 };
     }
-    return v.force ? exchangeReads(pending) : { ...pending.counts, failed: 0 };
+    return v.force
+      ? exchangeReads(pending)
+      : {
+          calls: pending.length,
+          exchanges: pending.reduce((n, p) => n + p.call.starts.length, 0),
+          failed: 0,
+        };
   }),
   extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
@@ -306,8 +306,7 @@ const HANDLERS: Record<string, Handler> = {
   },
   /**
    * `links [<matter id>] [--force]`: what the links step would judge (matters, open steps, calls, a token ceiling), with
-   * no model; with a matter, its open steps and the ending found for each; `--force` judges, as the night does
-   * once his `links` setting is on.
+   * no model; with a matter, its open steps and the ending found for each; `--force` judges, as the night does.
    */
   async links(values, rest) {
     const people = await readPeople();
@@ -323,7 +322,7 @@ const HANDLERS: Record<string, Handler> = {
   },
   /**
    * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
-   * episodes, to-do items), with no model; `--force` places it, as the night does once his `matters` setting is on;
+   * episodes, to-do items), with no model; `--force` places it, as the night does;
    * `--since` places every week from that day to today, in order (each week sees the matters of the weeks before);
    * `list` prints each matter.
    */
@@ -452,7 +451,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }
