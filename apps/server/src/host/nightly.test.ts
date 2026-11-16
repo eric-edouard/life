@@ -237,6 +237,23 @@ test("checks that cannot be read are logged and the report has none: the night i
   }
 });
 
+// His word of 16 Nov 2026: "is this done?" is load. The email never asks an ending check; every other check stays.
+test("the report's checks leave out the ending checks, keep every other one", async () => {
+  const mods = await import("../memory/checks");
+  const of = (kind: "ending" | "person", ref: string) =>
+    ({ guess: ref, kind, ref }) as never;
+  const listed = spyOn(mods, "checksNow").mockResolvedValue([
+    of("ending", "obs_000000000001"),
+    of("person", "person:zed"),
+  ]);
+  try {
+    const list = await readChecksFor({ error: () => undefined } as never);
+    expect(list.map((c) => c.ref)).toEqual(["person:zed"]);
+  } finally {
+    listed.mockRestore();
+  }
+});
+
 test("a voice naming that cannot read lifelog's voices is logged once under its step and the night goes on", async () => {
   const [summaries, naming, who, logs] = await Promise.all([
     import("../memory/conversation-summaries"),

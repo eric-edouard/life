@@ -249,7 +249,7 @@ writes it any more; it stays on disk.
 
 The links step's judged batches (`memory/links.ts`), one line each, append-only, while his `links` setting is on:
 `subject` (a matter's id, `matter_<12 hex>`, since v2; the first lines hold a `person:<id>` from v1, still read), `open` (the ids
-of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later steps judged
+of the matter's open steps shown: promises, waits and his to-dos), `offered` (the ids of its later records judged (`laterRecordsOf`; since v3 also its people's notes no matter holds)
 against those), `links` (each `earlier`, `later` (an observation id, or an episode id), `relation` `ends`, and `quote`,
 words found in the later step's own quote), `at`, `madeBy`,
 `schemaVersion`. A pair in a line is never judged again, whatever the subject. A link deletes nothing: what it ends is worked out when read

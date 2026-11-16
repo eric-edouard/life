@@ -54,7 +54,10 @@ type StepObservation = Pick<
   | "unit"
   | "when"
 >;
-type StepTodoItem = Pick<LedgerTodoItem, "at" | "fields" | "key" | "ref">;
+type StepTodoItem = Pick<
+  LedgerTodoItem,
+  "at" | "closedAt" | "fields" | "key" | "ref"
+>;
 type Line = Pick<Matter, "areas" | "id" | "name" | "projects"> & {
   steps: Pick<Matter["steps"][number], "ref">[];
 };
@@ -68,19 +71,29 @@ export interface MatterRecords {
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
   isMailer: (ref: string) => boolean;
   ledger: readonly LedgerEntry[];
-  /** The links' endings not yet his word (`endingsRead`), by the observation they end: it ends "probably". */
-  linkEndings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** The links' endings not yet his word (`endingsRead`), by the observation they end: it ends "probably". `at`: the later record's instant. */
+  linkEndings: ReadonlyMap<
+    string,
+    { at: string; later: string; quote: string }
+  >;
   observations: readonly StepObservation[];
   /** Who a person ref is as of today (`People.refOf`). */
   refOf: (ref: string) => string;
-  /** The observations that ended for sure: retired, replaced by a newer one or said outdated. */
-  retired: ReadonlySet<string>;
+  /** The observations that ended for sure, by id: replaced by a newer one (`replacedBy`) or said outdated (`why`, his or an agent's note); `at`, the instant of that evidence. */
+  retired: ReadonlyMap<
+    string,
+    { at: string; replacedBy?: string; why: string }
+  >;
   /** Every to-do item the ledger holds, open or not. */
   todoItems: readonly StepTodoItem[];
 }
 
-/** How a step ended: its observation retired (replaced, or his word), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
-type StepEnding = { by: "record" | "ticked" } | { by: "link"; quote: string };
+/** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
+type StepEnding = { at: string } & (
+  | { by: "record"; replacedBy?: string; why: string }
+  | { by: "ticked" }
+  | { by: "link"; quote: string }
+);
 
 export interface MatterStepNow {
   at: string;
@@ -131,6 +144,11 @@ const isPerson = (r: string) =>
 const uniq = <T>(list: T[]) => [...new Set(list)];
 export const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY);
+/** An episode's instant, like an observation's: its local start in the zone of that day, else the day's start (before the day's timed steps). */
+export const episodeAt = (m: Pick<Episode, "day" | "start">) =>
+  dayStart(m.day, undefined, m.start?.slice(11, 16) || undefined)
+    .toISOString()
+    .replace(".000", "");
 /** Whether a step ended. */
 export const isEnded = (s: Pick<MatterStepNow, "ending">) =>
   s.ending !== undefined;
@@ -223,11 +241,12 @@ function statusOf(
 
 /** How a step ended, as the records say now: an observation retired or found ended by a link, a to-do item ticked. */
 function endingOf(ref: string, rec: MatterRecords): StepEnding | undefined {
-  if (rec.retired.has(ref)) {
-    return { by: "record" };
+  const retired = rec.retired.get(ref);
+  if (retired) {
+    return { by: "record", ...retired };
   }
   const link = rec.linkEndings.get(ref);
-  return link && { by: "link", quote: link.quote };
+  return link && { at: link.at, by: "link", quote: link.quote };
 }
 
 /** The steps of a matter's records, in time order. */
@@ -244,10 +263,7 @@ function stepsOf(
   return [
     ...episodes.map(
       (m): MatterStepNow => ({
-        // An instant, like the others: its local start in the zone of that day, else the day's start (before the day's timed steps).
-        at: dayStart(m.day, undefined, m.start?.slice(11, 16) || undefined)
-          .toISOString()
-          .replace(".000", ""),
+        at: episodeAt(m),
         day: (m.start ?? m.day).slice(0, 10),
         kind: "episode",
         quote: m.what,
@@ -268,12 +284,14 @@ function stepsOf(
         with: person(o),
       })
     ),
-    ...items.map(({ at, fields: f, key }): MatterStepNow => {
+    ...items.map(({ at, closedAt, fields: f, key }): MatterStepNow => {
       const title = String(f.title ?? "");
       return {
         at,
         day: localDate(at),
-        ending: isOpenTodoItem({ fields: f }) ? undefined : { by: "ticked" },
+        ending: isOpenTodoItem({ fields: f })
+          ? undefined
+          : { at: closedAt ?? at, by: "ticked" },
         kind: "todo_item",
         priority: (f.priority as string | null) ?? undefined,
         quote: title,
@@ -443,4 +461,29 @@ export function matterBookOf(
   return [...views, ...loneObservations, ...loneItems].toSorted((a, b) =>
     (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
   );
+}
+
+/**
+ * The matters that ended on `day` (a local day), by their steps: closed, and the newest ending among their to-dos,
+ * promises, waits and to-do items falls on it. A trip done by quiet has no ending and is not listed. Each with that last
+ * step, to say how it ended. Pure.
+ */
+export function doneOnOf(
+  book: readonly MatterView[],
+  day: string,
+  dayOf: (at: string) => string
+) {
+  return book.flatMap((v) => {
+    const last = v.open
+      ? undefined
+      : v.steps
+          .filter((s) => ACTIONABLE.includes(s.kind) && s.ending)
+          .toSorted((a, b) =>
+            (a.ending?.at ?? "").localeCompare(b.ending?.at ?? "")
+          )
+          .at(-1);
+    return last?.ending && dayOf(last.ending.at) === day
+      ? [{ last, matter: v }]
+      : [];
+  });
 }

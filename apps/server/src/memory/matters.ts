@@ -14,6 +14,7 @@ import {
 } from "../todo-list/todo-items-from-ledger";
 import { endingsRead } from "./endings";
 import {
+  episodeAt,
   type MatterStepNow,
   type MatterView,
   matterBookOf,
@@ -161,7 +162,25 @@ export async function readMatterRecords(people: People) {
     ...observations.map((o) => o.id),
     ...episodes.map((e) => e.id),
   ]);
-  const { linkEndings } = endingsRead((ref) => current.has(ref));
+  // Each ending at the instant of its evidence, never of the run that found it (a re-read or a re-judge stamps nothing).
+  const atOf = new Map<string, string>([
+    ...episodes.map((e): [string, string] => [e.id, episodeAt(e)]),
+    ...observations.map((o): [string, string] => [o.id, o.at]),
+  ]);
+  const linkEndings = new Map(
+    [...endingsRead((ref) => current.has(ref)).linkEndings].map(([ref, l]) => [
+      ref,
+      { ...l, at: atOf.get(l.later) ?? l.at },
+    ])
+  );
+  const retired = new Map(
+    [...statusInputs.retired].map(([id, r]) => [
+      id,
+      r.by === id
+        ? { at: r.at, why: r.why }
+        : { at: atOf.get(r.by) ?? r.at, replacedBy: r.by, why: r.why },
+    ])
+  );
   return {
     current,
     episodeOf: readBy(episodes),
@@ -172,7 +191,7 @@ export async function readMatterRecords(people: People) {
     linkEndings,
     observations,
     refOf: people.refOf,
-    retired: new Set(statusInputs.retired.keys()),
+    retired,
     todoItems: [...todoItemsOf(ledger).values()],
   };
 }

@@ -80,7 +80,7 @@ async function ended(n: number) {
       text: `Call the shop ${i + 1}`,
       unit: "unit_000000000001",
     })),
-    retired: new Set(),
+    retired: new Map(),
     todoItems: [],
   } as never);
   return () => {

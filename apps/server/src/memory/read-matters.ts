@@ -3,7 +3,7 @@ import { isRunning, type MatterStepNow, type MatterView } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { clip } from "./units";
 import { meant, readPeople } from "./who";
-import { dayNow } from "./zones";
+import { dayNow, localDate } from "./zones";
 
 // The connector's reads of matters (`read_matters`, `read_matter`): the matters as `matterOf` reads them now. Reads only.
 
@@ -22,12 +22,21 @@ const WHO = [
 
 const words = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
 
-/** How a step ended, in words: none while open. */
-const endingWords = (s: MatterStepNow) => {
-  if (s.ending?.by === "link") {
-    return ` (probably ended: "${words(s.ending.quote)}")`;
+/** How a step ended, in words, with its day: none while open. */
+export const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
+  if (!e) {
+    return "";
   }
-  return s.ending ? " (ended)" : "";
+  const on = localDate(e.at);
+  if (e.by === "link") {
+    return ` (probably ended ${on}: "${words(e.quote)}")`;
+  }
+  if (e.by === "ticked") {
+    return ` (ticked ${on})`;
+  }
+  return e.replacedBy
+    ? ` (ended ${on}: replaced by ${e.replacedBy})`
+    : ` (ended ${on}: "${words(e.why)}")`;
 };
 
 const stepLine = (s: MatterStepNow) =>
@@ -77,10 +86,17 @@ export async function openMatters(q: {
         .join("\n");
 }
 
-/** One matter, by id: where it stands, its people by role, projects and areas, and its steps in time order, each with its day and words. */
+/**
+ * One matter, by its id or the id of one of its steps (an observation or a to-do item key: an agent anchored on a record
+ * finds its matter again after a re-group): where it stands, its people by role, projects and areas, and its steps in
+ * time order, each with its day and words.
+ */
 export async function oneMatter(id: string) {
   const people = await readPeople();
-  const v = (await readMatterBook(people, dayNow())).find((m) => m.id === id);
+  const book = await readMatterBook(people, dayNow());
+  const v =
+    book.find((m) => m.id === id) ??
+    book.find((m) => m.steps.some((s) => s.ref === id));
   if (!v) {
     return `No matter ${id}.`;
   }
