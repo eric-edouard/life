@@ -1,7 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { llmFor } from "../models/llm";
 import {
   begin,
@@ -192,4 +193,43 @@ test("a file is rebuilt when there is none, or `after` old with new inputs", () 
   const old = { ...last, built: "2026-11-01T00:00:00.000Z" };
   expect(isDue(old, "b", now, week)).toBe(true);
   expect(isDue(old, "a", now, week)).toBe(false);
+});
+
+test("his words on what Life may keep reach a call's context only for a prompt with the sentence, and name its output", async () => {
+  const models = await import("../models/llm");
+  const asked = spyOn(models, "askOnce").mockResolvedValue({});
+  const me = join(OWNER_DATA_DIR, "truth", "me.md");
+  const was = readFileSync(me, "utf8");
+  try {
+    const plain = await begin("test-may-keep", "fast", {});
+    await plain.ask({ dir: plain.dir, input: {}, prompt: "memory-extract.v5" });
+    expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
+    expect(plain.madeBy("memory-extract.v5").prompt).not.toContain("mayKeep");
+
+    writeFileSync(
+      me,
+      `${was}\n## What Life may keep\nNothing about my health.\n`
+    );
+    const step = await begin("test-may-keep", "fast", {});
+    await step.ask({
+      context: { areas: [] },
+      dir: step.dir,
+      input: {},
+      prompt: "memory-extract.v5",
+    });
+    expect(asked.mock.calls.at(-1)?.[0].context).toEqual({
+      areas: [],
+      mayKeep: "Nothing about my health.",
+    });
+    expect(step.madeBy("memory-extract.v5").prompt).toContain("-with-mayKeep");
+    // A prompt without the sentence is called as it was.
+    await step.ask({ dir: step.dir, input: {}, prompt: "memory-closeness.v1" });
+    expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
+    expect(step.madeBy("memory-closeness.v1").prompt).toBe(
+      "memory-closeness.v1"
+    );
+  } finally {
+    writeFileSync(me, was);
+    asked.mockRestore();
+  }
 });

@@ -30,6 +30,8 @@ export const othersIn = (subjects: string[]) =>
 const ABOUT = /^# Me\n\n(.+(?:\n.+)*)/;
 /** truth/me.md's goals: the block under `## Goals`, his words in his priority order. */
 const GOALS = /(?:^|\n)## Goals\n([\s\S]*?)(?=\n## |$)/;
+/** truth/me.md's `## What Life may keep`: his own words on what Life may and may not keep. */
+const MAY_KEEP = /(?:^|\n)## What Life may keep\n([\s\S]*?)(?=\n## |$)/;
 /** The projects a goal serves: the ids in backticks it names. */
 const PROJECT_ID = /`([a-z0-9-]+)`/g;
 /** Where a numbered goal starts. */
@@ -39,8 +41,8 @@ const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 export interface Truth {
   areas: Area[];
   chats: Chat[];
-  /** truth/me.md, read once: all of it, its first paragraph and his goals. */
-  me: { about?: string; goals?: string; text: string };
+  /** truth/me.md, read once: all of it, its first paragraph, his goals and what Life may keep (none: no limit). */
+  me: { about?: string; goals?: string; mayKeep?: string; text: string };
   people: Person[];
   projects: (Project & { notes: string })[];
 }
@@ -48,6 +50,7 @@ export interface Truth {
 export const readMe = (text: string): Truth["me"] => ({
   about: text.match(ABOUT)?.[1]?.replaceAll("\n", " "),
   goals: text.match(GOALS)?.[1]?.trim(),
+  mayKeep: text.match(MAY_KEEP)?.[1]?.trim() || undefined,
   text,
 });
 
@@ -69,6 +72,12 @@ export const TRUTH = join(OWNER_DATA_DIR, "truth");
 /** truth/me.md, read fresh. */
 export const loadMe = async (data = OWNER_DATA_DIR) =>
   readMe(await Bun.file(join(data, "truth", "me.md")).text());
+
+/** What truth/me.md says Life may keep: none when the section or the file is absent. */
+export async function loadMayKeep(data = OWNER_DATA_DIR) {
+  const file = Bun.file(join(data, "truth", "me.md"));
+  return (await file.exists()) ? readMe(await file.text()).mayKeep : undefined;
+}
 
 export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
   const dir = join(data, "truth");

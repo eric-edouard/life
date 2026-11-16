@@ -62,6 +62,10 @@ scenes, text found in it, who is pictured, caption, zone, favourite, whether it 
 groups them by half hour and place (`photoDayText`, redacted); its hash is that text, so a photo added to a group or a
 new person named in Photos moves it.
 
+## truth/me.md: What Life may keep
+
+An optional section `## What Life may keep` in `truth/me.md`, parsed like `## Goals` (`readMe`, `memory/read-truth.ts`): free text in his own words on what Life may and may not keep ("nothing about my health"). Absent or empty, there is no limit. Only he writes it. A call of a prompt that holds the `mayKeep` part gets the text as `mayKeep` in its context and is stamped `<prompt>-with-mayKeep`.
+
 ## verdicts.jsonl
 
 The model's judgement of units, append-only, one line per unit and run, written by `bun life memory episodes` (one

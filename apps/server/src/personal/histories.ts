@@ -354,7 +354,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
             withMonth(readHistory(t.ref), {
               built: step.now.toISOString(),
               inputs: m.inputs,
-              madeBy: stamp(step.llm, MONTH_PROMPT, step.run),
+              madeBy: step.madeBy(MONTH_PROMPT),
               month: m.month,
               parts,
             })

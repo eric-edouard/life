@@ -200,3 +200,15 @@ test("his goals' projects, in his order", () => {
     )
   ).toEqual([["lynx", "life"], ["shop"]]);
 });
+
+test("me.md's what Life may keep is the block under its heading; absent or empty, there is no limit", () => {
+  const me = readMe(
+    "# Me\n\nJean.\n\n## What Life may keep\nNothing about my health.\nNo drugs.\n\n## Goals\n1. Be free."
+  );
+  expect(me.mayKeep).toBe("Nothing about my health.\nNo drugs.");
+  expect(me.goals).toBe("1. Be free.");
+  expect(
+    readMe("# Me\n\nJean.\n\n## Goals\n1. Be free.").mayKeep
+  ).toBeUndefined();
+  expect(readMe("# Me\n\n## What Life may keep\n\n").mayKeep).toBeUndefined();
+});

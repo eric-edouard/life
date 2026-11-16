@@ -28,7 +28,7 @@ import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "../memory/units";
 import { type People, readPeople, unitNow } from "../memory/who";
 import { messageLine, spokenLines } from "../memory/words";
 import { localDate, time } from "../memory/zones";
-import { callCharsOf, stamp } from "../models/llm";
+import { callCharsOf } from "../models/llm";
 import type { FoundQuote } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
@@ -575,7 +575,7 @@ export async function personas({ events, failed }: WithPeople) {
           gist: clip(gist.data, GIST_MAX),
           inputs,
           lines,
-          madeBy: stamp(step.llm, PERSONA_PROMPT, step.run),
+          madeBy: step.madeBy(PERSONA_PROMPT),
           page: t.ref,
           schemaVersion: 2,
         };
