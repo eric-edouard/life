@@ -2,18 +2,33 @@ import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { z } from "zod";
 import { readJson } from "../core/files";
-import { newestWithin } from "../core/lists";
+import { newestWithin, packed } from "../core/lists";
 import { log } from "../core/log";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { directChats, pagedNow, type WithPeople } from "../memory/closeness";
-import { batchesOf, batchLines, exchangesOf } from "../memory/exchanges";
+import {
+  directChats,
+  heardPersonOf,
+  pagedNow,
+  type WithPeople,
+} from "../memory/closeness";
+import {
+  currentSummaries,
+  type HeldSummary,
+} from "../memory/conversation-summaries";
+import {
+  batchLines,
+  charsOf,
+  EXCHANGE_BATCH_CHARS,
+  exchangesOf,
+} from "../memory/exchanges";
 import { historyPath } from "../memory/memory-files";
 import { foundQuotes } from "../memory/quote-check";
 import { begin, inBatches, inputsOf, type Step } from "../memory/run";
 import { clip } from "../memory/units";
 import type { People } from "../memory/who";
-import { localDate } from "../memory/zones";
+import { localDate, time } from "../memory/zones";
 import { callCharsOf } from "../models/llm";
+import { IN_PERSON } from "../models/prompt-parts";
 import { QUOTE_CHARS } from "../records/fields";
 import { History, type HistoryMonth, HistoryPart } from "../records/history";
 import type { SourceEvent } from "../records/source";
@@ -33,8 +48,9 @@ const REPLY_TOKENS = 600;
 
 const monthOf = (at: string) => localDate(at).slice(0, 7);
 
-/** One call of a month: what the model is shown, and the messages its quotes are looked for in. */
+/** One call of a month: what the model is shown, its call parts, and the messages its quotes are looked for in. */
 interface Call {
+  callParts: string[];
   input: {
     lines: string[];
     month: string;
@@ -44,6 +60,28 @@ interface Call {
   };
   quotable: SourceEvent[];
 }
+/** A conversation he had in person with the person, as its summary shows it (`currentSummaries`). */
+type InPerson = Pick<HeldSummary, "at" | "summary">;
+/** What a month reads, in time order: an exchange of their messages, or a conversation in person. */
+type MonthItem =
+  | { at: string; exchange: SourceEvent[] }
+  | { at: string; summary: string };
+
+/** A batch of a month's items as the lines a call is shown: the exchanges numbered as `batchLines` numbers them, each conversation in person under its own heading. */
+function itemLines(batch: MonthItem[], who: (e: SourceEvent) => string) {
+  let n = 0;
+  return batch.flatMap((item) => {
+    if ("summary" in item) {
+      return [
+        `## In person · ${localDate(item.at)} ${time(item.at)}`,
+        item.summary,
+      ];
+    }
+    const { lines } = batchLines([item.exchange], who, n);
+    n += item.exchange.length;
+    return lines;
+  });
+}
 /** A closed month between him and one person, as the calls that read it. */
 export interface MonthCalls {
   calls: Call[];
@@ -52,41 +90,52 @@ export interface MonthCalls {
 }
 
 /**
- * A person's one-to-one messages as the closed months to read, oldest first: each exchange in the local month it
- * starts in (`localDate`, the zone he was in), months before `from` and the month of `today` left out. A month with
- * nothing a model could quote (calls only) is no month: the exchange counts already show its calls.
+ * A person's one-to-one messages and conversations in person as the closed months to read, oldest first, each month's
+ * in time order: each exchange in the local month it starts in (`localDate`, the zone he was in), months before `from`
+ * and the month of `today` left out. A month with nothing a model could read (calls only) is no month: the exchange
+ * counts already show its calls. A month with no conversation in person is shown exactly as before they were read, so
+ * its stored reading stands.
  */
 export function monthCallsOf(
   stream: SourceEvent[],
   name: string,
-  o: { from: string; today: string }
+  o: { from: string; today: string },
+  inPerson: InPerson[] = []
 ): MonthCalls[] {
-  const byMonth = Map.groupBy(exchangesOf(stream), (x) =>
-    monthOf(x[0]?.at ?? "")
-  );
+  const items: MonthItem[] = [
+    ...exchangesOf(stream).map((x) => ({ at: x[0]?.at ?? "", exchange: x })),
+    ...inPerson.map((h) => ({ at: h.at, summary: h.summary })),
+  ].toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const byMonth = Map.groupBy(items, (x) => monthOf(x.at));
+  const who = (e: SourceEvent) => (e.fromMe ? "me" : name);
   return [...byMonth]
     .filter(([month]) => month >= o.from && month < o.today.slice(0, 7))
     .sort(([a], [b]) => a.localeCompare(b))
-    .flatMap(([month, exchanges]) => {
-      const said = exchanges.flat().filter((e) => !e.phoneCall);
-      if (said.length === 0) {
+    .flatMap(([month, all]) => {
+      const isRead = all.some(
+        (x) =>
+          "summary" in x || x.exchange.some((e: SourceEvent) => !e.phoneCall)
+      );
+      if (!isRead) {
         return [];
       }
-      // The month's own exchanges, packed into what one call reads.
-      const batches = batchesOf(exchanges);
-      const calls = batches.map((batch, i) => {
-        const shown = batchLines(batch, (e) => (e.fromMe ? "me" : name));
-        return {
-          input: {
-            lines: shown.lines,
-            month,
-            part: i + 1,
-            parts: batches.length,
-            with: name,
-          },
-          quotable: shown.messages.filter((e) => !e.phoneCall),
-        };
-      });
+      // The month's items, packed into what one call reads.
+      const batches = packed(all, EXCHANGE_BATCH_CHARS, (x) =>
+        "summary" in x ? x.summary.length : charsOf(x.exchange)
+      );
+      const calls = batches.map((batch, i) => ({
+        callParts: batch.some((x) => "summary" in x) ? [IN_PERSON] : [],
+        input: {
+          lines: itemLines(batch, who),
+          month,
+          part: i + 1,
+          parts: batches.length,
+          with: name,
+        },
+        quotable: batch.flatMap((x) =>
+          "exchange" in x ? x.exchange.filter((e) => !e.phoneCall) : []
+        ),
+      }));
       return [
         {
           calls,
@@ -141,12 +190,25 @@ export type HistoryWork = Awaited<ReturnType<typeof readHistoryWork>>;
 export async function readHistoryWork(
   { events, failed }: Pick<WithPeople, "events" | "failed">,
   people: People,
-  o: { from: string; today: string }
+  o: { from: string; today: string },
+  readSummaries: () => Promise<HeldSummary[]> = currentSummaries
 ) {
   if (failed.length > 0) {
     return null;
   }
   const direct = directChats(events, people.resolve);
+  // Each conversation in person under everyone heard in it (`heardPersonOf`).
+  const inPerson = new Map<string, InPerson[]>();
+  for (const h of await readSummaries()) {
+    const refs = new Set(
+      h.speakers.map((v) => heardPersonOf(people.resolve, v.id, v.name))
+    );
+    for (const ref of refs) {
+      if (ref) {
+        inPerson.set(ref, [...(inPerson.get(ref) ?? []), h]);
+      }
+    }
+  }
   const everyone = [...(await pagedNow(people))];
   // A history in an unknown shape is logged once and left out of the work: no month of that person is read, so none is
   // written over it, and no story call fails for it again.
@@ -162,7 +224,7 @@ export async function readHistoryWork(
   const pending = paged.flatMap((ref) => {
     const name = people.nameOf(ref);
     const built = new Map(readHistory(ref).months.map((m) => [m.month, m]));
-    return monthCallsOf(direct.get(ref) ?? [], name, o)
+    return monthCallsOf(direct.get(ref) ?? [], name, o, inPerson.get(ref))
       .filter((m) => built.get(m.month)?.inputs !== m.inputs)
       .map((m) => ({ m, name, ref }));
   });
@@ -343,6 +405,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
           for (const [i, call] of m.calls.entries()) {
             // biome-ignore lint/performance/noAwaitInLoops: a month's parts in order, a failed one ends the month
             const reply = await step.ask({
+              callParts: call.callParts,
               dir: join(dir, `${m.month}-${i + 1}`),
               input: call.input,
               prompt: MONTH_PROMPT,
@@ -354,7 +417,9 @@ export async function histories(pending: NonNullable<HistoryWork>) {
             withMonth(readHistory(t.ref), {
               built: step.now.toISOString(),
               inputs: m.inputs,
-              madeBy: step.madeBy(MONTH_PROMPT),
+              madeBy: step.madeBy(MONTH_PROMPT, [
+                ...new Set(m.calls.flatMap((c) => c.callParts)),
+              ]),
               month: m.month,
               parts,
             })

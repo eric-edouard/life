@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { stamp } from "../models/llm";
-import { promptText } from "../models/prompt-parts";
+import { MAY_KEEP, promptText } from "../models/prompt-parts";
 import { MOVE_READS } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import { callOf, readExchangeReadWork, readsOn } from "./exchange-reads";
@@ -315,7 +315,7 @@ test("a reply's stored digest is the digest of the wording shown: with his words
     return lines().find((l) => l.read === "connection")?.promptDigest;
   };
   const without = promptDigestOf(promptText("memory-connection.v3"));
-  const withIt = promptDigestOf(promptText("memory-connection.v3", true));
+  const withIt = promptDigestOf(promptText("memory-connection.v3", [MAY_KEEP]));
   expect(withIt).not.toBe(without);
   expect(await digestOf(false)).toBe(without);
   expect(await digestOf(true)).toBe(withIt);

@@ -68,17 +68,18 @@ export const batchesOf = (exchanges: SourceEvent[][]) =>
 
 /**
  * An exchange batch as lines a reply can cite, the messages they are, and where each exchange starts: `[n] HH:MM who:
- * text`, `n` counting from 0 over the whole batch as the extractor's lines do, under one heading per exchange giving
- * the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
+ * text`, `n` counting from `from` (0) over the whole batch as the extractor's lines do, under one heading per exchange
+ * giving the number of its first line (which names it) and its local day. A phone call is its call line (`textOf`).
  */
 export function batchLines(
   batch: SourceEvent[][],
-  who: (e: SourceEvent) => string
+  who: (e: SourceEvent) => string,
+  from = 0
 ) {
   const messages = batch.flat();
   const lines: string[] = [];
   const starts: number[] = [];
-  let start = 0;
+  let start = from;
   for (const exchange of batch) {
     const [first] = exchange;
     if (first) {

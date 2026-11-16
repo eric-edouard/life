@@ -12,7 +12,9 @@ import { LIFE_CODE_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
 import { stamp } from "./llm";
 import {
+  IN_PERSON,
   isPromptVersion,
+  MAY_KEEP,
   partsIn,
   promptNameOf,
   promptText,
@@ -123,7 +125,9 @@ test("a part that is off is cut out with its text and named in the prompt's name
 test("every part of the prompts is an add-on, and an off part leaves no marker behind", () => {
   for (const prompt of WITH_PARTS) {
     for (const part of partsIn(file(prompt))) {
-      expect(["aboutMe", "mayKeep", "relationships"]).toContain(part);
+      expect(["aboutMe", "inPerson", "mayKeep", "relationships"]).toContain(
+        part
+      );
     }
     expect(renderedOf(file(prompt), () => false)).not.toContain("<!--");
   }
@@ -144,14 +148,14 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
     setSettings({ personal: { aboutMe: {}, relationships: {} } });
     for (const prompt of WITH_PARTS) {
       const held = file(prompt).includes("part:mayKeep");
-      const text = promptText(prompt, true);
+      const text = promptText(prompt, [MAY_KEEP]);
       expect(text.includes("own words on what Life must not keep")).toBe(held);
-      expect(promptNameOf(prompt, true)).toBe(
+      expect(promptNameOf(prompt, [MAY_KEEP])).toBe(
         held ? `${prompt}-with-mayKeep` : prompt
       );
       expect(text).not.toContain("<!--");
     }
-    expect(promptNameOf("memory-extract.v6", true)).toBe(
+    expect(promptNameOf("memory-extract.v6", [MAY_KEEP])).toBe(
       "memory-extract.v6-with-mayKeep"
     );
     expect(
@@ -164,10 +168,10 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
       )
     ).toBe(true);
     setSettings({ personal: null });
-    expect(promptNameOf("memory-extract.v6", true)).toBe(
+    expect(promptNameOf("memory-extract.v6", [MAY_KEEP])).toBe(
       "memory-extract.v6-without-relationships-with-mayKeep"
     );
-    expect(promptNameOf("memory-closeness.v1", true)).toBe(
+    expect(promptNameOf("memory-closeness.v1", [MAY_KEEP])).toBe(
       "memory-closeness.v1"
     );
   } finally {
@@ -177,7 +181,23 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
 
 test("the situation prompt has the mayKeep sentence only when it is given", () => {
   expect(promptText("memory-situation.v3")).not.toContain("must not keep");
-  expect(promptText("memory-situation.v3", true)).toContain("must not keep");
+  expect(promptText("memory-situation.v3", [MAY_KEEP])).toContain(
+    "must not keep"
+  );
+});
+
+test("a month's in-person paragraph shows only on a call that has it on: off, the prompt is the file it was", () => {
+  const month = "memory-history-month.v1";
+  const sha = (text: string) =>
+    new Bun.CryptoHasher("sha256").update(text).digest("hex").slice(0, 16);
+  // The render before the part existed, pinned: a month with no conversation in person is shown the same prompt.
+  expect(sha(promptText(month))).toBe("1221ade54773bde2");
+  expect(promptText(month, [IN_PERSON])).toContain("## In person");
+  expect(promptNameOf(month)).toBe(month);
+  expect(promptNameOf(month, [MAY_KEEP, IN_PERSON])).toBe(
+    `${month}-with-inPerson-mayKeep`
+  );
+  expect(isPromptVersion(promptNameOf(month, [IN_PERSON]), month)).toBe(true);
 });
 
 test("the owner is called by their `called`, else their name's first word", () => {

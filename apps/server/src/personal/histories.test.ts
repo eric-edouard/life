@@ -4,10 +4,13 @@ import { dirname } from "node:path";
 import { newestWithin } from "../core/lists";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
+import type { HeldSummary } from "../memory/conversation-summaries";
 import { historyPath } from "../memory/memory-files";
+import { OWNER } from "../memory/read-truth";
 import { inputsOf } from "../memory/run";
 import { readPeople } from "../memory/who";
-import { localDate } from "../memory/zones";
+import { localDate, time } from "../memory/zones";
+import { IN_PERSON } from "../models/prompt-parts";
 import type { History } from "../records/history";
 import type { SourceEvent } from "../records/source";
 import {
@@ -88,6 +91,71 @@ test("a month of calls only is no month; what a month was shown decides its key"
   expect(monthCallsOf([call, said, late], "Ann", span)[0]?.inputs).not.toBe(
     month?.inputs
   );
+});
+
+test("a conversation in person sits among the exchanges by time and switches on its prompt part; a month with none is shown as before", () => {
+  const stream = [
+    msg("2026-09-03T12:00:00.000Z", false, "lunch on Friday?"),
+    msg("2026-09-03T12:05:00.000Z", true, "yes, at noon"),
+    msg("2026-09-20T09:00:00.000Z", true, "thanks for Friday"),
+  ];
+  const [plain] = monthCallsOf(stream, "Ann", span);
+  // Its key as it was before conversations in person were read: its stored reading stands, never read again.
+  expect(plain?.inputs).toBe("1d50feb189a5b51c");
+  expect(plain?.calls[0]?.callParts).toEqual([]);
+  const talk = {
+    at: "2026-09-05T11:00:00.000Z",
+    summary: "They talked about the move.",
+  };
+  const [month] = monthCallsOf(stream, "Ann", span, [talk]);
+  const [call] = month?.calls ?? [];
+  expect(call?.input.lines.slice(3, 6)).toEqual([
+    `## In person · 2026-09-05 ${time(talk.at)}`,
+    "They talked about the move.",
+    "## Exchange 2 · 2026-09-20",
+  ]);
+  expect(call?.input.lines.at(-1)).toStartWith("[2] ");
+  expect(call?.callParts).toEqual([IN_PERSON]);
+  // Quotes are looked for in the messages only, never in a summary.
+  expect(call?.quotable).toEqual(stream);
+  expect(month?.inputs).not.toBe(plain?.inputs);
+  // A month they only talked in person is a month.
+  expect(
+    monthCallsOf([], "Ann", span, [talk]).map((m) => [
+      m.month,
+      m.calls[0]?.quotable,
+    ])
+  ).toEqual([["2026-09", []]]);
+});
+
+test("a conversation in person goes to each person heard in it, never to him", async () => {
+  const people = await readPeople();
+  const resolve = (s: string) =>
+    ({ Ann: "person:test-ann", "p-me": OWNER })[s] ?? null;
+  const talk = {
+    at: "2026-09-05T11:00:00.000Z",
+    // A voice wrongly named after him is never his own history.
+    speakers: [
+      { id: null, name: "Ann" },
+      { id: "p-me", name: null },
+    ],
+    summary: "They talked about the move.",
+  } as HeldSummary;
+  const work = await readHistoryWork(
+    { events: [], failed: [] },
+    {
+      ...people,
+      resolve,
+      truth: { ...people.truth, people: [{ id: "test-ann" }, { id: "bo" }] },
+    } as never,
+    span,
+    () => Promise.resolve([talk])
+  );
+  const monthsOf = (ref: string) =>
+    work?.work.find((w) => w.ref === ref)?.months.map((m) => m.month);
+  expect(monthsOf("person:test-ann")).toEqual(["2026-09"]);
+  expect(monthsOf("person:bo")).toEqual([]);
+  expect(monthsOf(OWNER)).toEqual([]);
 });
 
 test("a part keeps only quotes found in a message shown, with time and writer; quotation marks in a summary fail the call", () => {

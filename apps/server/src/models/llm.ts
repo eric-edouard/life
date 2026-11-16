@@ -158,11 +158,11 @@ export const stamp = (
   llm: Llm,
   prompt: string,
   run: string,
-  mayKeep = false
+  on: readonly string[] = []
 ) => ({
   engine: llm.engine,
   model: llm.model,
-  prompt: promptNameOf(prompt, mayKeep),
+  prompt: promptNameOf(prompt, on),
   run,
 });
 
@@ -543,6 +543,8 @@ export async function askOnce(opts: {
   images?: string[];
   input: unknown;
   llm: Llm;
+  /** The call parts it has on (`models/prompt-parts.ts`): their paragraphs are shown and its name says so. */
+  callParts?: readonly string[];
   prompt: string;
   run: string;
   /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
@@ -556,14 +558,9 @@ export async function askOnce(opts: {
     opts.context === undefined
       ? ""
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
-  // His words on what Life may keep (`mayKeep`) in the context switch on the prompt's sentence about them.
-  const mayKeep =
-    typeof opts.context === "object" &&
-    opts.context !== null &&
-    "mayKeep" in opts.context;
-  const system = `${promptText(opts.prompt, mayKeep)}${context}`;
+  const system = `${promptText(opts.prompt, opts.callParts)}${context}`;
   const made = {
-    ...stamp(llm, opts.prompt, opts.run, mayKeep),
+    ...stamp(llm, opts.prompt, opts.run, opts.callParts),
     effort: llm.effort,
   };
   await mkdir(dir, { recursive: true });

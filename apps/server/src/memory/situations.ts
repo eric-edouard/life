@@ -5,7 +5,7 @@ import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
 import { digest } from "../core/hash";
 import { endingAtNewest } from "../core/lists";
-import { promptNameOf } from "../models/prompt-parts";
+import { MAY_KEEP, promptNameOf } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { Situation, SituationLine } from "../records/situation";
 import { KEEP_AT } from "../records/unit";
@@ -50,7 +50,7 @@ const readSituation = (ref: string) => {
  * rebuilds it, `situationInputOf`).
  */
 const situationNameNow = (mayKeep = readMayKeep()) =>
-  promptNameOf(SITUATION_PROMPT, mayKeep !== undefined);
+  promptNameOf(SITUATION_PROMPT, mayKeep === undefined ? [] : [MAY_KEEP]);
 
 export const readSituationNow = (ref: string, live: ReadonlySet<string>) => {
   const situation = readSituation(ref);

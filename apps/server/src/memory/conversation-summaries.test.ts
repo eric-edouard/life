@@ -189,6 +189,7 @@ test("a long conversation is asked once, stored as given and shown; asking again
   expect(asked[0]?.people).toEqual(["Dana"]);
   expect(readReplies(s.where).flat()).toHaveLength(1);
   const [held] = await currentSummaries(s.open, s.where);
+  expect(held?.speakers.map((v) => v.name)).toEqual(["Dana"]);
   expect(summaryLine(held as never)).toBe(
     `- 2026-10-10 ${time(held?.at ?? "")} The quote: They agreed the quote. (\`fetch person:me/conversation/${held?.ref}\`)`
   );

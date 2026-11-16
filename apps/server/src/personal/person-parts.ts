@@ -28,7 +28,7 @@ import { personaBlock, readPersona } from "./personas";
 
 /** The first line of a month's or year's heading, as `year` and `month` parts show it. */
 const historyAbout = () =>
-  `Past months between them and ${readOwnerName()} (Life's history: each closed month of their one-to-one chats and mail, summarised by a model, quotes checked; not groups, recordings or what was said on calls)`;
+  `Past months between them and ${readOwnerName()} (Life's history: each closed month of their one-to-one chats and mail and the summaries of the conversations recorded in person where their voice was named, summarised by a model, quotes checked; not groups or what was said on calls)`;
 
 /** The years a person has anything in (a month read, a day of evidence, a unit held), newest first, each with its next read. */
 function yearReads(o: PartInputs, months: Dated[]) {
