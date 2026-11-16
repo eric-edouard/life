@@ -100,8 +100,8 @@ happened.
 - `modality`: `fact` (stated as true by someone in a position to know), `plan` (settled for later), `reported` (someone
   says it about a third person), `conditional` (only if something else; a hypothesis, a joke, a quote of someone
   else's words, an AI's text read aloud).
-- `text`: the claim, in {{language}}, self-contained, one short sentence with one fact: name who (use the person's name,
-  `{{owner}}` for {{owner}}), what, and when as an absolute date when there is one ("{{owner}} will find a glazier to replace the
+- `text`: the claim, in {{language}}, self-contained, one short sentence with one fact: name who (use the person's name;
+  {{owner}} every time, never a pronoun), what, and when as an absolute date when there is one ("{{owner}} will find a glazier to replace the
   shop's broken pane (120 x 60 cm, 4 mm)."; "Anne-Sophie is in Nantes from 3 Mar."). No "he", "they", "tomorrow" or
   "this shop" without saying whose. Two facts make two observations. Never mention phone numbers, ids or whether
   someone is on the map.
