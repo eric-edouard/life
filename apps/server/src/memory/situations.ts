@@ -1,12 +1,21 @@
+import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
+import { hasAddOn } from "../core/add-ons";
 import { daysBefore } from "../core/clock";
 import { readJson, removeAllBut } from "../core/files";
+import { digest } from "../core/hash";
 import { endingAtNewest } from "../core/lists";
 import { stamp } from "../models/llm";
+import { promptNameOf } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { Situation, SituationLine } from "../records/situation";
 import { KEEP_AT } from "../records/unit";
-import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
+import {
+  contextPeopleBy,
+  levelsWith,
+  pagedNow,
+  personallyClose,
+} from "./closeness";
 import {
   daysOf,
   episodesNow,
@@ -20,13 +29,14 @@ import { OWNER } from "./read-truth";
 import { begin, inBatches, inputsOf } from "./run";
 import { readPeople } from "./who";
 
-// `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person close to
-// him, one call reads the page, their persona (what repeats) and the DAYS days of episodes with them that end at their
-// newest and writes where things stand now, each line citing its episodes. A situation is rebuilt whole, never from its
-// last version, and only when those episodes changed: today's date, the page and the persona are shown to the call but
-// never decide whether it runs (AGENTS.md, "Invariants"). Nothing is sent.
+// `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person with a
+// page who has an episode in the last DAYS days, one call reads the page, their persona (what repeats, while the
+// `personas` add-on is on) and the DAYS days of episodes with them that end at their newest and writes where things
+// stand now, each line citing its episodes. A situation is rebuilt whole, never from its last version, and only when
+// what it was shown changed (`situationInputOf`): its episodes, the page, the persona and the prompt's variant, never
+// today's date (AGENTS.md, "Invariants"). Nothing is sent.
 
-const SITUATION_PROMPT = "memory-situation.v2";
+const SITUATION_PROMPT = "memory-situation.v3";
 /** Days of episodes a situation reads, ending at the newest; older ones live on in the page's sections and Earlier. */
 const DAYS = 30;
 
@@ -35,11 +45,17 @@ const readSituation = (ref: string) => {
   return p.success ? p.data : null;
 };
 
-/** A situation's lines a reader may show: those whose every cited episode is still live (`episodesNow`). */
-export const readSituationNow = (ref: string, live: ReadonlySet<string>) =>
-  (readSituation(ref)?.lines ?? []).filter((l) =>
-    l.cites.every((id) => live.has(id))
-  );
+/**
+ * A situation's lines a reader may show: those whose every cited episode is still live (`episodesNow`), and only when
+ * it was made by the prompt variant the add-ons choose now, so switching one hides what it wrote at once (the next night
+ * rebuilds it, `situationInputOf`).
+ */
+export const readSituationNow = (ref: string, live: ReadonlySet<string>) => {
+  const situation = readSituation(ref);
+  return situation?.madeBy.prompt === promptNameOf(SITUATION_PROMPT)
+    ? situation.lines.filter((l) => l.cites.every((id) => live.has(id)))
+    : [];
+};
 
 /** Situation lines as a reader shows them, under `title`; nothing when there is none. */
 export const situationBlock = (title: string, lines: SituationLine[]) =>
@@ -51,7 +67,7 @@ export const situationBlock = (title: string, lines: SituationLine[]) =>
       ]
     : [];
 
-/** Who has a situation: him and the people close to him, by their ref, sorted (a folder listing has no order). */
+/** Who has a situation: him and the people with a page, by their ref, sorted (a folder listing has no order). */
 export const situated = async () =>
   (await readdir(SITUATIONS).catch(() => [] as string[]))
     .filter((f) => f.endsWith(".json"))
@@ -97,11 +113,20 @@ const episodeInput = (m: Episode, nameOf: (ref: string) => string) => ({
   what: m.what,
 });
 
-/** What a situation's digest holds: its episodes, nothing else (not the clock, not the page, not the persona). */
+/**
+ * What a situation's digest holds: its episodes, the page's digest and, while the `personas` add-on is on, the persona's
+ * readings (their text, not their backing, which moves with the clock); never the clock itself.
+ */
 export const situationInputOf = (
   episodes: Episode[],
-  nameOf: (ref: string) => string
-) => ({ episodes: episodes.map((m) => episodeInput(m, nameOf)) });
+  nameOf: (ref: string) => string,
+  page = "",
+  persona: PersonaReading[] = []
+) => ({
+  episodes: episodes.map((m) => episodeInput(m, nameOf)),
+  page: digest("sha256", page, 16),
+  persona: persona.map(({ facet, text }) => ({ facet, text })),
+});
 
 /** What a person's persona says to the call, to tell what repeats from what is new: handed in by the host (`personal/`). */
 export interface PersonaReading {
@@ -110,45 +135,69 @@ export interface PersonaReading {
   text: string;
 }
 
+/** Who gets a situation: him and everyone with a page (`paged`) who has a recent episode (`isRecent`), each with theirs. */
+export const targetsOf = (
+  paged: Iterable<string>,
+  all: Episode[],
+  refOf: (ref: string) => string,
+  today: string
+) =>
+  [...new Set([OWNER, ...paged])].flatMap((ref) => {
+    const episodes = situationEpisodesOf(
+      all,
+      (m) => ref === OWNER || m.people.some((p) => refOf(p.ref) === ref)
+    );
+    return isRecent(episodes, today) ? [{ episodes, ref }] : [];
+  });
+
+async function situationTargets(today: string) {
+  const people = await readPeople();
+  const all = episodesNow(await readEpisodes(), people.corrections);
+  const targets = targetsOf(await pagedNow(people), all, people.refOf, today);
+  return { levels: levelsWith(people), people, targets };
+}
+
+const pageText = (ref: string) =>
+  existsSync(pagePath(ref)) ? readFileSync(pagePath(ref), "utf8") : "";
+
 export async function situations(
   personaOf: (ref: string, today: string) => PersonaReading[]
 ) {
   const step = await begin("situation", "main", { prompt: SITUATION_PROMPT });
-  const people = await readPeople();
-  const levels = levelsWith(people);
-  const close = personallyClose(levels);
-  const refs = refContext(people, close, contextPeopleBy(levels));
-  const all = episodesNow(await readEpisodes(), people.corrections);
-  const targets = [OWNER, ...close].flatMap((ref) => {
-    const episodes = situationEpisodesOf(
-      all,
-      (m) => ref === OWNER || m.people.some((p) => people.refOf(p.ref) === ref)
-    );
-    return isRecent(episodes, step.today) ? [{ episodes, ref }] : [];
-  });
+  const { levels, people, targets } = await situationTargets(step.today);
+  const refs = refContext(
+    people,
+    personallyClose(levels),
+    contextPeopleBy(levels)
+  );
   let written = 0;
   await inBatches(targets, step, (t, dir) =>
     step.attempt(
       async () => {
-        const digested = situationInputOf(t.episodes, people.nameOf);
-        const inputs = inputsOf(SITUATION_PROMPT, digested);
+        const persona = hasAddOn("personas")
+          ? personaOf(t.ref, step.today)
+          : [];
+        const text = pageText(t.ref);
+        const digested = situationInputOf(
+          t.episodes,
+          people.nameOf,
+          text,
+          persona
+        );
+        const inputs = inputsOf(promptNameOf(SITUATION_PROMPT), digested);
         if (readSituation(t.ref)?.inputs === inputs) {
           return;
         }
-        const page = Bun.file(pagePath(t.ref));
-        const input = {
-          ...digested,
-          page: {
-            ref: t.ref,
-            text: (await page.exists()) ? await page.text() : "",
-          },
-          // To tell what repeats from what is new.
-          persona: personaOf(t.ref, step.today),
-        };
         const reply = await step.ask({
           context: refs.context,
           dir,
-          input: { ...input, today: step.today },
+          input: {
+            episodes: digested.episodes,
+            page: { ref: t.ref, text },
+            // To tell what repeats from what is new (its prompt part is cut while the add-on is off).
+            ...(hasAddOn("personas") ? { persona } : {}),
+            today: step.today,
+          },
           prompt: SITUATION_PROMPT,
         });
         const lines = shownLines(reply, new Set(t.episodes.map((m) => m.id)));
@@ -173,7 +222,7 @@ export async function situations(
       { page: t.ref }
     )
   );
-  // A situation whose person is no longer close or has no recent episode goes.
+  // A situation whose person has no page any more or no recent episode goes.
   const gone = await removeAllBut(
     SITUATIONS,
     new Set(targets.map((t) => situationPath(t.ref)))

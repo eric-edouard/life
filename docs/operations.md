@@ -412,7 +412,7 @@ policy (P).
 
 Everything is in the CLI (`bun life memory …`), and the connector's tools are the same reads:
 
-- `search <words> [--from d --to d]`: opens with the situations of the close people it names, else his own (when no
+- `search <words> [--from d --to d]`: opens with the situations of the people it names, else his own (when no
   day bounds it), then the other situations' lines citing an episode it shows; then episodes, observations (each says who spoke when not the
   owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
   (the best 20, each with a conversation id and a turn), chat passages (the best 10), note versions and messages to AI assistants, then mail (no newsletters nor Life's own,

@@ -69,11 +69,15 @@ flowchart LR
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **Situations** (`situations.ts`): where things stand now with him and each person close to him, read nightly by one
-  call from the page, the persona (to say when the newest days repeat a known pattern or break it) and the last 30
-  days' episodes, each line citing episodes. Rebuilt whole when its inputs change,
+- **Situations** (`situations.ts`): where things stand now with him and everyone with a page who has an episode in the last 30 days (`pagedNow`
+  and `isRecent`: a client or a builder as much as a friend), read nightly by one call from the page, the persona (to say
+  when the newest days repeat a known pattern or break it; only while the `personas` add-on is on) and the last 30
+  days' episodes, each line citing episodes. The prompt (`memory-situation.v3`) is practical for anyone; how they get
+  along, together or not, feelings and sex, and his own mood, love life and health are its parts for the `relationships`
+  and `aboutMe` add-ons (prompt parts). Rebuilt whole when its inputs change (episodes, page digest, persona text while
+  on, the prompt's variant name), so a new page or a toggled add-on refreshes it the next night,
   never from its own last version, so it stays a projection; older days fade into the page's sections and History,
-  and git keeps every version. A reader shows a line only while its episodes are live, the situation first; a search also shows,
+  and git keeps every version. A reader shows a line only while its episodes are live and the situation was made by the variant the add-ons choose now (a toggle hides it at once), the situation first; a search also shows,
   from the situations it doesn't show whole, the lines citing an episode it found.
 - **Personas** (`personal/personas.ts`): a gist first (his request of 9 Nov 2026), then what each person with a page is like, what they want and can give (and what goes each
   way between them and him), what keeps happening between them (both sides, his part named), and how each writes to the other, for an agent who reads them before he meets, calls or
