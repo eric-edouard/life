@@ -50,6 +50,7 @@ const monthOf = (at: string) => localDate(at).slice(0, 7);
 
 /** One call of a month: what the model is shown, its call parts, and the messages its quotes are looked for in. */
 interface Call {
+  callParts: string[];
   input: {
     lines: string[];
     month: string;
@@ -57,7 +58,6 @@ interface Call {
     parts: number;
     with: string;
   };
-  parts: string[];
   quotable: SourceEvent[];
 }
 /** A conversation he had in person with the person, as its summary shows it (`currentSummaries`). */
@@ -124,6 +124,7 @@ export function monthCallsOf(
         "summary" in x ? x.summary.length : charsOf(x.exchange)
       );
       const calls = batches.map((batch, i) => ({
+        callParts: batch.some((x) => "summary" in x) ? [IN_PERSON] : [],
         input: {
           lines: itemLines(batch, who),
           month,
@@ -131,7 +132,6 @@ export function monthCallsOf(
           parts: batches.length,
           with: name,
         },
-        parts: batch.some((x) => "summary" in x) ? [IN_PERSON] : [],
         quotable: batch.flatMap((x) =>
           "exchange" in x ? x.exchange.filter((e) => !e.phoneCall) : []
         ),
@@ -405,9 +405,9 @@ export async function histories(pending: NonNullable<HistoryWork>) {
           for (const [i, call] of m.calls.entries()) {
             // biome-ignore lint/performance/noAwaitInLoops: a month's parts in order, a failed one ends the month
             const reply = await step.ask({
+              callParts: call.callParts,
               dir: join(dir, `${m.month}-${i + 1}`),
               input: call.input,
-              parts: call.parts,
               prompt: MONTH_PROMPT,
             });
             parts.push(partOf(reply, call.quotable));
@@ -418,7 +418,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
               built: step.now.toISOString(),
               inputs: m.inputs,
               madeBy: step.madeBy(MONTH_PROMPT, [
-                ...new Set(m.calls.flatMap((c) => c.parts)),
+                ...new Set(m.calls.flatMap((c) => c.callParts)),
               ]),
               month: m.month,
               parts,

@@ -102,7 +102,7 @@ test("a conversation in person sits among the exchanges by time and switches on 
   const [plain] = monthCallsOf(stream, "Ann", span);
   // Its key as it was before conversations in person were read: its stored reading stands, never read again.
   expect(plain?.inputs).toBe("1d50feb189a5b51c");
-  expect(plain?.calls[0]?.parts).toEqual([]);
+  expect(plain?.calls[0]?.callParts).toEqual([]);
   const talk = {
     at: "2026-09-05T11:00:00.000Z",
     summary: "They talked about the move.",
@@ -115,7 +115,7 @@ test("a conversation in person sits among the exchanges by time and switches on 
     "## Exchange 2 · 2026-09-20",
   ]);
   expect(call?.input.lines.at(-1)).toStartWith("[2] ");
-  expect(call?.parts).toEqual([IN_PERSON]);
+  expect(call?.callParts).toEqual([IN_PERSON]);
   // Quotes are looked for in the messages only, never in a summary.
   expect(call?.quotable).toEqual(stream);
   expect(month?.inputs).not.toBe(plain?.inputs);

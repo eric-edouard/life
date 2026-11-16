@@ -544,7 +544,7 @@ export async function askOnce(opts: {
   input: unknown;
   llm: Llm;
   /** The call parts it has on (`models/prompt-parts.ts`): their paragraphs are shown and its name says so. */
-  parts?: readonly string[];
+  callParts?: readonly string[];
   prompt: string;
   run: string;
   /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
@@ -558,9 +558,9 @@ export async function askOnce(opts: {
     opts.context === undefined
       ? ""
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
-  const system = `${promptText(opts.prompt, opts.parts)}${context}`;
+  const system = `${promptText(opts.prompt, opts.callParts)}${context}`;
   const made = {
-    ...stamp(llm, opts.prompt, opts.run, opts.parts),
+    ...stamp(llm, opts.prompt, opts.run, opts.callParts),
     effort: llm.effort,
   };
   await mkdir(dir, { recursive: true });

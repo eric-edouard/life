@@ -151,17 +151,11 @@ export async function begin(
   const keeps = (prompt: string) => mayKeep !== undefined && hasMayKeep(prompt);
   return {
     async ask(opts: Omit<Parameters<typeof askOnce>[0], "llm" | "run">) {
-      const json = await askOnce(
-        keeps(opts.prompt)
-          ? {
-              ...opts,
-              context: { ...(opts.context as object | undefined), mayKeep },
-              llm,
-              parts: [...(opts.parts ?? []), MAY_KEEP],
-              run,
-            }
-          : { ...opts, llm, run }
-      );
+      const given = keeps(opts.prompt) && {
+        callParts: [...(opts.callParts ?? []), MAY_KEEP],
+        context: { ...(opts.context as object | undefined), mayKeep },
+      };
+      const json = await askOnce({ ...opts, ...given, llm, run });
       stats.calls += 1;
       return json;
     },
@@ -183,9 +177,14 @@ export async function begin(
     /** Whether a call of `prompt` is given his words on what Life may keep (and shown its sentence). */
     keeps,
     llm,
-    /** A call's `madeBy` for `prompt` with its call `parts`: its name also says whether his words on what Life may keep were given. */
-    madeBy: (prompt: string, parts: readonly string[] = []) =>
-      stamp(llm, prompt, run, keeps(prompt) ? [...parts, MAY_KEEP] : parts),
+    /** A call's `madeBy` for `prompt` with its `callParts`: its name also says whether his words on what Life may keep were given. */
+    madeBy: (prompt: string, callParts: readonly string[] = []) =>
+      stamp(
+        llm,
+        prompt,
+        run,
+        keeps(prompt) ? [...callParts, MAY_KEEP] : callParts
+      ),
     now,
     run,
     stats,
