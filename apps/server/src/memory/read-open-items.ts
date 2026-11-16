@@ -18,7 +18,6 @@ import {
   openItems,
   rankedItems,
 } from "./open-items";
-import { maybeOf } from "./read-matters";
 import { goalProjects } from "./read-truth";
 import { clip } from "./units";
 import type { People } from "./who";
@@ -33,7 +32,7 @@ function lineOf(v: MatterView, nameOf: (ref: string) => string) {
   const next = v.next as MatterStepNow;
   const who = (label: string, refs: string[]) =>
     refs.length > 0 ? `; ${label} ${refs.map(nameOf).join(", ")}` : "";
-  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}${maybeOf(v)}) "${clip(next.quote.replace(/\s+/g, " "), QUOTE_MAX)}" (${next.ref})`;
+  return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${clip(next.quote.replace(/\s+/g, " "), QUOTE_MAX)}" (${next.ref})`;
 }
 
 /**
@@ -52,7 +51,7 @@ export const matterItems = (
     if (!(v.open && next)) {
       return [];
     }
-    const open = v.steps.filter((s) => !s.ended);
+    const open = v.openSteps;
     const since = daysBefore(date, OVERDUE_DAYS);
     const dates = open.flatMap((s) => (s.when ? [s.when] : [])).toSorted();
     // A date too old to list stays its date (never said again as undated).

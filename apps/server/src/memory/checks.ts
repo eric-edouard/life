@@ -67,7 +67,7 @@ export interface CheckInputs {
   answered: ReadonlySet<string>;
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
   doubted: ReadonlySet<string>;
-  /** Each open step a link says ended, not yet his word (`endingsRead`). */
+  /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
@@ -338,11 +338,7 @@ export async function checksNow(): Promise<Check[]> {
     readUnresolvedPeople(),
     pagedNow(people),
   ]);
-  const matters = matterBookOf(
-    mattersNow(readMatters()).matters,
-    records,
-    dayNow()
-  );
+  const matters = matterBookOf(mattersNow(readMatters()), records, dayNow());
   const units = readUnitsFor(
     people.inferred.flatMap((p) => p.evidence.map((e) => e.unit))
   );
@@ -355,11 +351,11 @@ export async function checksNow(): Promise<Check[]> {
         .filter((s) => !isEndingCheck(s))
         .map((s) => s.ref)
     ),
-    endings: records.maybe,
+    endings: records.linkEndings,
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(
       records.observations
-        .filter((o) => o.importance >= KEEP_AT && !records.endings.has(o.id))
+        .filter((o) => o.importance >= KEEP_AT && !records.retired.has(o.id))
         .map((o) => o.id)
     ),
     lines: records.observations,

@@ -35,18 +35,20 @@ const unrelated = step(
 );
 // The day's call, an episode as `matterOf` makes it a step of the matter (same shape as any other).
 const callStep = matterBookOf(
-  [
-    {
-      areas: [],
-      id: matter.id,
-      name: matter.name,
-      projects: [],
-      steps: [{ ref: "unit_000000000009" }, { ref: promise.id }],
-    },
-  ],
+  {
+    matters: [
+      {
+        areas: [],
+        id: matter.id,
+        name: matter.name,
+        projects: [],
+        steps: [{ ref: "unit_000000000009" }, { ref: promise.id }],
+      },
+    ],
+    offered: new Set(),
+  },
   {
     current: new Set(),
-    endings: new Set(),
     episodeOf: new Map([
       [
         "unit_000000000009",
@@ -60,8 +62,9 @@ const callStep = matterBookOf(
         } as unknown as Episode,
       ],
     ]),
+    isMailer: () => false,
     ledger: [],
-    maybe: new Map(),
+    linkEndings: new Map(),
     observations: [
       {
         at: promise.at,
@@ -77,6 +80,7 @@ const callStep = matterBookOf(
       } as unknown as Observation,
     ],
     refOf: (r) => r,
+    retired: new Set(),
     todoItems: [],
   },
   "2026-10-10"

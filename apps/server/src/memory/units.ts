@@ -140,6 +140,14 @@ const agentReports = () => [
   ...settings().agentReportSenders,
 ];
 
+/** A no-reply address: mail no one answers. */
+const NO_REPLY =
+  /(^|[-_.+])(no[-_.]?repl(y|ay)|do[-_.]?not[-_.]?reply|ne[-_.]?pas[-_.]?repondre|mailer-daemon|notifications?|failed-payments)([-_.+]|$)/i;
+
+/** Whether a mail handle is a sender no one answers or owes: a no-reply address, or his agents' reports. */
+export const isMailerHandle = (handle: string) =>
+  agentReports().includes(handle) || NO_REPLY.test(handle.split("@")[0] ?? "");
+
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
 export const MARKED = "[He asked Life to keep what he says here.]";
 
