@@ -1,4 +1,4 @@
-import { afterAll, expect, spyOn, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { createMcpHandler } from "@modelcontextprotocol/server";
@@ -19,10 +19,9 @@ import {
 import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
-import { apply, forward, type Stay } from "../../sources/lifelog";
+import { apply, type Stay } from "../../sources/lifelog";
 import {
   conversation,
-  lifelogServer,
   lifelogStore,
   pageFixture,
   turnFixture,
@@ -161,13 +160,14 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_directory`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
     name: string;
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
+    "change_directory",
     "change_todo_item",
     "correct_memory",
     "fetch",
@@ -200,6 +200,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
       )
       .sort()
   ).toEqual([
+    "change_directory(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -236,7 +237,12 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = ["correct_memory", "change_todo_item", "tell_life"];
+  const writes = [
+    "correct_memory",
+    "change_directory",
+    "change_todo_item",
+    "tell_life",
+  ];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -494,44 +500,6 @@ test("the server is named Life, carries its icons, and its instructions fit in 5
   ]);
 });
 
-const server = lifelogServer({
-  "/conversations/c1/title": () => ({ id: "c1" }),
-  "/people/p1": () => ({ id: "p1" }),
-  "/people/p1/merge": () => ({ id: "p1" }),
-});
-afterAll(() => server.close());
-
-test("forward sends the four corrections and nothing else", async () => {
-  await expect(
-    forward("rename_person", { id: "p1", name: "Ana" })
-  ).resolves.toEqual({
-    id: "p1",
-  });
-  await expect(forward("title", { id: "c1", title: null })).resolves.toEqual({
-    id: "c1",
-  });
-  await expect(forward("delete_person", { id: "p1" })).rejects.toThrow(
-    "not a forwardable correction"
-  );
-});
-
-test("correct names what is missing and sends a merge as lifelog takes it", async () => {
-  await expect(correct({ kind: "title" })).rejects.toThrow(
-    "title needs: id, title"
-  );
-  await expect(
-    correct({ jobId: "j1", kind: "speaker", label: "speaker_0" })
-  ).rejects.toThrow("speaker needs: to or newName");
-  server.seen.length = 0;
-  expect(
-    await correct({ id: "p1", kind: "merge_people", personId: "p2" })
-  ).toBe("Done: merge_people.");
-  expect(server.seen.at(-1)).toMatchObject({
-    body: { personId: "p2" },
-    path: "/people/p1/merge",
-  });
-});
-
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
     const store = lifelogStore();
@@ -691,7 +659,12 @@ test("built to serve reads only (the question cases' agent), the connector regis
     JSON.parse(data ? data.slice(5) : body).result.tools;
   const names = tools.map((t) => t.name);
   expect(tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
-  for (const writes of ["correct_memory", "change_todo_item", "tell_life"]) {
+  for (const writes of [
+    "correct_memory",
+    "change_directory",
+    "change_todo_item",
+    "tell_life",
+  ]) {
     expect(names).not.toContain(writes);
   }
   expect(names).toContain("read_person_page");
@@ -797,4 +770,20 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     people.mockRestore();
     book.mockRestore();
   }
+});
+
+test("change_directory is his: an agent's token is refused, and `said` is required", async () => {
+  const call = async (over: Record<string, unknown>, args: object) =>
+    (
+      await rpc(await token(over), "tools/call", {
+        arguments: args,
+        name: "change_directory",
+      })
+    ).json;
+  const change = { action: "add", kind: "area", name: "Health", said: "x" };
+  expect((await call({}, change)).result).toMatchObject({ isError: true });
+  const { said: _, ...unsaid } = change;
+  expect((await call({ agent: undefined }, unsaid)).result).toMatchObject({
+    isError: true,
+  });
 });

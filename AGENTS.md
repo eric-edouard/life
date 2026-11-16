@@ -66,7 +66,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
   names, places, project names, `.env` values and git history are on you. The domain in Life's own infrastructure
   labels (sender, LaunchAgent labels) is kept on purpose.
-- **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
+- **Only the owner writes `truth/`**: himself, or by his own words through the connector's `change_directory`, which checks the result with `bun life validate`'s code first. Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/quote-check.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `changeTodoItem`, `setAutoAdd`, `ask` and the sync
@@ -123,7 +123,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments").
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, and acts only through `change_todo_item`.** Never add a
+- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, and acts only through `change_todo_item` and `change_directory` (his directory in `truth/`, by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Life serves no page.** Only `/mcp`, its OAuth, and the app's status reads behind the local key. Never take the local key on the public port (`docs/architecture.md`, "Pages").

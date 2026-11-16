@@ -73,6 +73,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The connector's `tell_life` appends his verbatim words to the memory. Only the owner's token may call it (an agent's is
   refused), but a page or message a chat client reads could steer it into calling it. The worst case is a wrong fact in
   the memory, undone by a correction.
+- The connector's `change_directory` writes his `truth/` (people, projects, areas, goals, what Life may keep) from his words as `said`. Owner's token only; it adds or replaces one entry, never deletes, and refuses, changing nothing, a result that fails the checks of `bun life validate`. A steered call could add a wrong entry: it is committed in his data repo with his words, so it can be undone.
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).
