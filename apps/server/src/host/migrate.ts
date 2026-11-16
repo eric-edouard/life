@@ -24,7 +24,7 @@ const isAppState = (state: string) =>
   real(state) === real(join(MACHINE_DIR, "state"));
 
 /** The settings without the core switches; a file holding none comes back as it is. Never through the strict parser: the old keys would throw. */
-export function settingsOf(old: Row): Row {
+function settingsOf(old: Row): Row {
   if (!CORE.some((key) => key in old)) {
     return old;
   }
