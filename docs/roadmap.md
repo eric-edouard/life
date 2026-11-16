@@ -1,72 +1,65 @@
 # Roadmap
 
-What Life is building next, in order, and what is parked. Each item gets its own plan in `docs/plans/` when it starts.
+Explanation: what Life builds next, in order, and what is parked. No dates. Each item gets its own plan in
+`docs/plans/` when it starts.
 
-## Done
+Life's core works for its one user: capture from every source, the days and facts, each person's page and where things
+stand, the matters with what got done and how each ended, how each person writes, a summary of each long
+conversation, who was talked about, the nightly report and the connector for Claude and ChatGPT. The personal parts
+are add-ons, off until switched on. What comes next makes it a product for people other than its author.
 
-- The modules rework (October 2026): one contract each for inputs, outputs, model providers and secrets, a platform
-  module, and one actions backend (Apple Reminders or Google Tasks). See the
-  [platforms and modules plan](plans/2026-10-22-platforms.md).
-- Nice to have, lifelog: wake phrases on the phone. Speech the app already labels is transcribed on the device in
-  English (`SpeechTranscriber`); phrases the owner lists ("Hey Claude", "Hey ChatGPT", any number) each run their action
-  with the words after them: a Shortcut, Claude or ChatGPT. A request ends at a pause, checked by Foundation Models
-  ("complete or still waiting?") where Apple Intelligence is on. Found on 23 Oct: iOS runs no Shortcut from the
-  background, so there it is a notification and one tap, as a button press is (it goes through `ButtonActions`); the
-  phone can't tell voices apart; Foundation Models is rate-limited in the background; Mac dictation must stay out;
-  it overlaps Life's own "hey <agent>". First step when picked up: an hour of Pendant audio on the phone, for battery
-  and delay.
-- The move to Better-T-Stack: the repo re-scaffolded with its CLI, every route on Hono, and one connector change
-  ([platforms and modules plan](plans/2026-10-22-platforms.md)).
-- Life's own brand on every screen and email ([brand](brand.md)).
-- lifelog's Android capture app: a minimal native Kotlin app that drains an Omi and uploads to the server.
-- The architecture: dependencies point one way between layers, enforced by the check; `app/` and `worker/` became
-  `apps/mac` and `apps/edge` ([architecture plan](plans/2026-10-22-architecture.md), [the code](architecture.md#the-code)).
-- The agent roadmap (October 2026): context handed to the agent with each ask, the model quota guard, one registry
-  of source descriptors, the closure fix, the daily message and an end-to-end agent benchmark.
-- Life's public address reaches the Mac over Tailscale Funnel, so it works behind a VPN.
-- lifelog: sign-in codes go only to known callbacks, and the local server tests no longer hang.
-- The web app and the legacy portrait (`/me`) were removed on 8 Nov 2026: Life serves no pages, only the connector, its issuer and the brand.
+## Before the live app
 
-## Now
+In this order: each one makes the next one simpler.
 
-- The naming pass: one name per concept ([glossary](glossary.md)), then the renames it plans, in three PRs: code-only
-  names, stored names with their backfill (AGENTS.md, "A rename backfills"), the connector's tools in one batch.
-- A one-time import of the owner's claude.ai and ChatGPT history: the reader is merged, and a scheduled task imports
-  the exports once they land.
+1. The README and this roadmap, written for someone who has never used Life.
+2. Small leftovers: the one-time settings migration removed now that it has run; Life.app built and tested by
+   `bun run check`, which skips `apps/mac` today; the report's mail key and sender name made the install's own.
+3. One registry of the night's steps: each step's name, its switch, whether it may stop the night, and its run, so a
+   step that fails no longer stops the whole night.
+4. Scaling to ten years of data: a night reads a bounded span; the exchange counts are kept per month; a portrait is
+   built from its last version plus what is new; search and `read_day` are served from the index; verdicts are split
+   by month; digests hold refs, not names, so a rename re-reads nothing; the status check reads a file.
+5. Typed reads and a local app API: matters, a day and a person as data rather than prose for a model, on a local
+   API the live app reads. One of the two things called "status reads" gets a new name.
+6. Later: `memory/` split into zones (the readers apart from the model steps), and AGENTS.md cut to the rules that
+   protect data.
 
-## Next
+## Packaging and onboarding
 
-- A server version ([server plan](plans/2026-10-22-server.md)). Life runs on a server as well as on a Mac; people choose a Mac-only install or a full server. The web app was removed on 8 Nov 2026 (no pages); the server version will build what it needs.
-- A rework of the memory layer: how sources become units, episodes, observations and pages
-  ([architecture](architecture.md)).
-- Two release channels from one codebase: the Mac app and the server.
-- A release pipeline: publishing a release ships the update to every install, the Mac app through its updater
-  ([releasing](releasing.md)) and the server alike.
-- Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
-  assistant.
-- An investigation of on-device transcription: what speech models running on the phone or the Mac can do (accuracy,
-  speakers, languages, battery), compared with lifelog's cloud transcription.
-- A comparison of cloud transcription providers for Thai, beyond ElevenLabs Scribe: Microsoft MAI-Transcribe 1.5,
-  Google Chirp 3, Soniox and AssemblyAI Universal, run on the same recordings for accuracy, speakers, mixed Thai and
-  English, price and latency.
-- No reworded twins of rated facts on a re-read (a re-read already keeps a fact the owner rated true): one extraction rule
-  under one prompt bump, checked on the 12–20 Oct facts. The rule and the re-read of 6 Sep to 13 Oct it unblocks wait
-  for the model quota reset on 28 Oct.
-- lifelog: name the other voices that land inside the owner's voice cluster, measured against the 22 Oct baseline.
-- Proper logging: research a structured logging library and a local store that stays fast to query as years of logs
-  pile up, then move every caller onto it and delete `core/log.ts`'s ad hoc path and the stray console calls.
-- An investigation of how people are reconciled: how the index and the memory decide who is who (`memory/who.ts`,
-  `people.ts`, `closeness.ts`, voice speakers). Much of it leans on voice; it should lean on each source's own
-  identifiers (chat handles, phones, emails, mail headers). Findings and a fix, measured on real cases.
+Everything happens in the Mac app at first run, the setup interview included: a screen in the app, never an assistant.
+The gaps, biggest first:
+
+- A signed, notarized, downloadable Life.app.
+- Lifelog Host inside Life.app, so the pendant needs one app on the Mac.
+- lifelog's iPhone app on TestFlight.
+- A model engine signed in without Terminal (OpenRouter first).
+- Bridges linked from the app (a QR code, a code, a browser sign-in), with prebuilt binaries.
+- Tailscale guided step by step, or another way to reach Life.
+- One read of every part's state for the flow, and a Sources screen.
+- Screens for what has none yet: the email report, backups, the calendars, Google Tasks, pairing an agent.
+
+## Sending
+
+Life sends nothing today. Sending starts with drafts: Life writes the message, and it is sent only on the owner's tap,
+approved in the live Mac or iOS app. Every network goes through Life's own bridges, never Beeper, reactions included.
+An approved message is the owner's words, kept out of how the owner writes. First comes a build spec: one send path,
+a store of drafts, the approval screen, a guard against injected content, and the AGENTS.md rules it changes. It
+waits on the owner's yes.
 
 ## Parked
 
+Each picks up from where it stopped.
+
+- Portraits rebuilt from their last version plus what is new (also part of scaling, above).
+- Years and what repeats with a person, read from the months; the owner as the one observed (months, hours and money
+  against the goals); forecasts, logged privately and scored later. Each starts with a set of question cases.
+- Making memory easier to find: a short first page for each subject, and Life answering a question with its own reads.
+- Naming voices from context: it runs, hidden, and is shown once its likely guesses are wrong less than once in 100.
+- Relationship readings: stored, their switch hidden until something shows them.
+- The backfill of older months through the models, after the scaling work.
+- Labels in prompts that still say "him" (issue 558), each at its step's next prompt version.
+- A server version ([server plan](plans/2026-10-22-server.md)), structured logging, and people reconciled by each
+  source's own identifiers (handles, phones, emails) rather than voice.
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the
   [platforms and modules plan](plans/2026-10-22-platforms.md).
-- Search by meaning: tried and measured on 21 Oct, it did not improve answers and made each search about 23% bigger.
-  The code is on the branch `claude/stage1b-embeddings-parked`; revisit only if the benchmark shows misses keyword
-  search can't catch.
-- A decision model for identity, tried locally and too heavy; a hosted model is the way back in.
-- lifelog's app freeze: a watchdog now crashes the app on a freeze so the crash report names the cause. It becomes
-  work only if the freeze returns.
-- A send gateway: dropped, since the agent keeps its own send routes and Life already reads sent messages.
