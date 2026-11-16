@@ -282,8 +282,8 @@ first.
 
 - It goes out in HTML, in plain text and as a complete HTML attachment, because mail clients clip long bodies.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
-  night (`newSince`: a re-read announces nothing again), and has Actions, Code (yesterday's commits by
-  project) and "Last backup" sections.
+  night (`newSince`: a re-read announces nothing again), and has Done (the matters that ended on its day, and how:
+  `doneOf`, also in `read_day`), Actions, Code (yesterday's commits by project) and "Last backup" sections.
 
 ## Measuring
 

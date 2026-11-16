@@ -35,7 +35,12 @@ import { extract } from "../memory/extract";
 import { histories, readHistoryWork } from "../memory/histories";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
-import { matters, readMatterRecords, readMatterWork } from "../memory/matters";
+import {
+  matters,
+  readMatterBook,
+  readMatterRecords,
+  readMatterWork,
+} from "../memory/matters";
 import {
   commitMemory,
   newSince,
@@ -47,6 +52,7 @@ import { writeMentions } from "../memory/mentions";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
 import { personas } from "../memory/personas";
+import { doneOf } from "../memory/read-open-items";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { codeOn, mapRepos } from "../memory/repos";
 import {
@@ -122,6 +128,23 @@ async function acted(now: Date, rec: Pick<RunRecorder, "error">) {
     ),
     problems,
   };
+}
+
+/** The report's Done: the matters that ended on `day`, and how. Never fails the night: a failure is logged and the report has none. */
+export async function readDoneFor(
+  rec: Pick<RunRecorder, "error">,
+  day: string
+) {
+  try {
+    const book = await readMatterBook(await readPeople(), dayNow());
+    return doneOf(book, day).map(({ how, matter }) => ({
+      name: matter.name,
+      relation: how,
+    }));
+  } catch (e) {
+    rec.error((e as Error).message, { step: "memory.nightly.done" });
+    return [];
+  }
 }
 
 /**
@@ -631,6 +654,7 @@ export async function runNight(
       ),
       checks: await readChecksFor(rec),
       code: commits,
+      done: await readDoneFor(rec, day),
       episodes: found,
       extracted,
       files: evidence.files,

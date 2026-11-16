@@ -96,6 +96,7 @@ const night = (facts: number) =>
     birthdays: [],
     checks: [],
     code: [],
+    done: [],
     episodes: {
       agreement: { agreement: 0.75, labeled: 40 },
       episodes: 6,
@@ -433,3 +434,17 @@ test.skipIf(WINDOWS)(
     expect(args.slice(0, -2).join(" ")).not.toContain("night");
   }
 );
+
+// His ask of 16 Nov 2026: what got done shows, whoever closed it (him, an agent, a tick, a link found by Life).
+test("the Done section lists the matters that ended on the night's day, and how; left out when none", () => {
+  const n = night(1);
+  expect(successReport("2026-10-15", 1000, n).text).not.toContain("Done (");
+  n.done = [
+    {
+      name: "Mend Gran's watch",
+      relation: 'Post the watch back (ended 2026-10-15: "posted by the agent")',
+    },
+  ];
+  const { text } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain("Done (1)\n- Mend Gran's watch: Post the watch back");
+});
