@@ -3,14 +3,11 @@ import { utimesSync, writeFileSync } from "node:fs";
 import { LOCK, locked } from "./memory-lock";
 import {
   afterNightDue,
-  afterWeek,
-  backfillWeek,
   decide,
-  isOutOfTries,
   type JobState,
   nextNight,
   quotaLine,
-  turnOf,
+  reserved,
 } from "./schedule";
 import { localTime } from "./zones";
 
@@ -78,96 +75,20 @@ test("a lock left by a dead pid, or from before the boot (its pid reused), is ta
   expect(await locked(async () => "ran")).toBe("ran");
 });
 
-test("a backfill reads a week at a time up to its last day, four a day; three failures of a week stop it", () => {
-  const today = "2026-10-21";
-  const b = { failures: 0, next: "2025-07-01", to: "2025-07-10" };
-  const night = st("ok", 1, today);
-  // Not before the day's own night went through: yesterday's ok night (00:00-05:00) or a failed one is no turn.
-  expect(backfillWeek(b, today, st("ok", 1, "2026-10-20"))).toBeNull();
-  expect(backfillWeek(b, today, st("failed", 1, today))).toBeNull();
-  const week = backfillWeek(b, today, night);
-  expect(week).toEqual({ from: "2025-07-01", to: "2025-07-07" });
-  // Read: the range moves on and the day counts it.
-  const after = afterWeek(b, week as never, true, today);
-  expect(after).toEqual({
-    day: today,
-    failures: 0,
-    next: "2025-07-08",
-    to: "2025-07-10",
-    weeks: 1,
-  });
-  expect(backfillWeek(after, today, night)).toEqual({
-    from: "2025-07-08",
-    to: "2025-07-10",
-  });
-  // Failed: the same week again, one failure more; three stop it.
-  expect(afterWeek(b, week as never, false, today)).toMatchObject({
-    failures: 1,
-    next: "2025-07-01",
-  });
-  expect(backfillWeek({ ...b, failures: 3 }, today, night)).toBeNull();
-  // The week read after two failures is the last try (its failure emails him: `backfilled`).
-  expect(backfillWeek({ ...b, failures: 2 }, today, night)).not.toBeNull();
-  expect(isOutOfTries(2 + 1)).toBe(true);
-  expect(isOutOfTries(1 + 1)).toBe(false);
-  // Four weeks a day, then the next day.
-  const full = { ...after, weeks: 4 };
-  expect(backfillWeek(full, today, night)).toBeNull();
-  expect(
-    backfillWeek(full, "2026-10-22", st("ok", 1, "2026-10-22"))
-  ).not.toBeNull();
-  expect(afterWeek(full, week as never, true, "2026-10-22").weeks).toBe(1);
-  expect(backfillWeek({ ...b, next: "2025-07-11" }, today, night)).toBeNull();
-  expect(backfillWeek(undefined, today, night)).toBeNull();
-});
-
-test("a tick runs the night when due, else a backfill week unless the backup is still due", () => {
-  const today = "2026-10-21";
-  const at = (h: number) => new Date(2026, 9, 21, h, 30);
-  const ok = st("ok", 1, today);
-  const backfill = { failures: 0, next: "2025-07-01", to: "2025-08-01" };
-  const backedUp = st("ok", 1, today);
-  expect(turnOf(at(4), today, {})).toBe("none");
-  expect(turnOf(at(5), today, {})).toBe("night");
-  expect(
-    turnOf(at(4), today, { backfill, night: st("ok", 1, "2026-10-20") })
-  ).toBe("none");
-  expect(turnOf(at(14), today, { backfill, backup: backedUp, night: ok })).toBe(
-    "backfill"
-  );
-  // The day's backup not done yet: it goes first, no week this tick.
-  expect(turnOf(at(14), today, { backfill, night: ok })).toBe("none");
-  expect(turnOf(at(14), today, { backup: backedUp, night: ok })).toBe("none");
-});
-
-test("over 75% of his Codex quota a tick runs only the night, until the quota resets", () => {
-  const today = "2026-10-21";
+test("over 75% of his Codex quota what can wait waits, until the quota resets", () => {
   const at = (h: number, d = 21) => new Date(2026, 9, d, h, 30);
-  const ok = st("ok", 1, today);
-  const backup = st("ok", 1, today);
-  const backfill = { failures: 0, next: "2025-07-01", to: "2025-08-01" };
   const quota = (used: number) => ({
     resetsAt: at(7, 27).toISOString(),
     used,
   });
-  expect(turnOf(at(14), today, { night: ok, quota: quota(80) })).toBe("none");
-  const week = { backfill, backup, night: ok };
-  expect(turnOf(at(14), today, { ...week, quota: quota(75) })).toBe("backfill");
-  expect(turnOf(at(14), today, { ...week, quota: quota(80) })).toBe("none");
-  expect(turnOf(at(14), today, week)).toBe("backfill"); // unread: nothing waits
-  expect(turnOf(at(5), today, { quota: quota(99) })).toBe("night");
+  expect(reserved(quota(80), at(14).getTime())).toBe(true);
+  expect(reserved(quota(75), at(14).getTime())).toBe(false);
+  expect(reserved(undefined)).toBe(false); // unread: nothing waits
   // A reading from before its reset holds nothing.
-  expect(
-    turnOf(at(14, 28), "2026-10-28", {
-      backfill,
-      backup: st("ok", 1, "2026-10-28"),
-      night: st("ok", 1, "2026-10-28"),
-      quota: quota(99),
-    })
-  ).toBe("backfill");
+  expect(reserved(quota(99), at(14, 28).getTime())).toBe(false);
   // At the tick's own time, never the test's: the reset is a fixed date that the real clock passes.
   expect(quotaLine(quota(80), at(14).getTime())).toBe(
-    `Codex quota: 80% used, resets ${localTime(at(7, 27).toISOString())}: over 75%, the backfill and evals wait`
+    `Codex quota: 80% used, resets ${localTime(at(7, 27).toISOString())}: over 75%, imports and evals wait`
   );
   expect(quotaLine({ resetsAt: null, used: 12 })).toBe("Codex quota: 12% used");
   expect(quotaLine(undefined)).toBe("Codex quota: not read");

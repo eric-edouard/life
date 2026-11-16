@@ -1,6 +1,6 @@
 # The voice bench: which model names the owner's known voices
 
-Run on 10 Nov 2026 with `apps/voice-bench` (how to run it: its `AGENTS.md`). Numbers only: the recordings, the
+Run on 10 Nov 2026 with `apps/voice-bench`, deleted once the bench closed (git history holds it). Numbers only: the recordings, the
 names and the full report stay in the owner's private notes.
 
 ## The question

@@ -147,7 +147,7 @@ const latestOf = (m: { steps: MatterStep[] }) =>
 
 /**
  * The records every span of a run and every matter's steps are read from, as they stand today: all episodes, all
- * observations, the ledger (`matterBookOf`). Read once, a backfill's weeks share it. What ended an observation for sure
+ * observations, the ledger (`matterBookOf`). Read once. What ended an observation for sure
  * is its being retired (a newer one replaced it, or he said it is outdated; his right to an ending check is the same
  * `outdated` word); a link not yet his word ends it probably (`endingsRead`).
  */

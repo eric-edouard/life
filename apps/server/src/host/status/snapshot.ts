@@ -704,9 +704,7 @@ interface Processing {
   since?: string;
   state: string;
 }
-type ProcessingRun =
-  | Reads["status"]["nightly"]
-  | Omit<Reads["status"]["backfill"], "state">;
+type ProcessingRun = Reads["status"]["nightly"];
 
 /** A nightly report's email (`reportKey`), by its key. */
 const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
@@ -927,10 +925,9 @@ function calendarCard(
 }
 
 function pipelineCards(r: Reads): Card[] {
-  const { nightly, backfill } = r.status;
+  const { nightly } = r.status;
   return [
     processingRunCard(r, "nightly", "Nightly", nightly, nightly.next),
-    processingRunCard(r, "backfill", "Backfill", backfill),
     backupCard(r),
     engineCard(r),
     calendarCard(r, "past", "episode"),

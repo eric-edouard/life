@@ -13,7 +13,7 @@ import { lastDays, localDate, localTime } from "./zones";
 
 // --- runs ----------------------------------------------------------------------------------------------------------
 
-/** The processing runs: one launchd start that runs several steps. */
+/** The processing runs: one launchd start that runs several steps (`memory.backfill`: past runs still in the log). */
 export const PROCESSING_RUNS = new Set(["memory.nightly", "memory.backfill"]);
 /** The steps a processing run runs, in their order (the night alone maps repos and judges closeness). */
 export const STEPS = [
