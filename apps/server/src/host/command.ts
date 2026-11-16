@@ -348,7 +348,7 @@ const HANDLERS: Record<string, Handler> = {
         episodes: 0,
         failed: 0,
         placed: 0,
-        refused: 0,
+        refusedSteps: 0,
         todoItems: 0,
       };
       for (const span of spans) {
@@ -364,7 +364,7 @@ const HANDLERS: Record<string, Handler> = {
           sum.calls += run.calls;
           sum.failed += run.failed;
           sum.placed += run.placed;
-          sum.refused += run.refused;
+          sum.refusedSteps += run.refusedSteps;
         } else {
           sum.calls += callsOf(work).length;
         }

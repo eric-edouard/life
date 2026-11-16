@@ -379,7 +379,7 @@ const Reply = z.object({
 });
 
 /**
- * A reply's matters as kept, and how many it put in a matter that may take none (`refused`: a full one, or an id it was
+ * A reply's matters as kept, and how many steps it put in a matter that may take none (`refusedSteps`: a full one, or an id it was
  * not shown): an id from `joinable` or `new-N` (a new matter's real id is `mint`'s, never the model's); each
  * step a record the call was shown, placed once, with its words found in that record's own text (stored as found
  * there, an episode as each of its units); an area or project that is not in his directory dropped. Anything else is dropped, never trusted. A matter left
@@ -391,14 +391,14 @@ export function placedOf(
   joinable: ReadonlyMap<string, string>,
   directory: { areas: ReadonlySet<string>; projects: ReadonlySet<string> },
   mint: (id: string) => string
-): { kept: Matter[]; refused: number } {
+): { kept: Matter[]; refusedSteps: number } {
   const seen = new Set<string>();
   const byId = new Map<string, Matter>();
-  let refused = 0;
+  let refusedSteps = 0;
   for (const m of Reply.parse(reply).matters) {
     const id = NEW_ID.test(m.id) ? mint(m.id) : m.id;
     if (!(joinable.has(id) || NEW_ID.test(m.id))) {
-      refused += 1;
+      refusedSteps += m.steps.length;
       continue;
     }
     const name = (m.name.trim() || joinable.get(m.id) || "").slice(0, 120);
@@ -430,7 +430,7 @@ export function placedOf(
       });
     }
   }
-  return { kept: [...byId.values()], refused };
+  return { kept: [...byId.values()], refusedSteps };
 }
 
 /**
@@ -492,7 +492,7 @@ export async function matters(
     projects: new Set(truth.projects.map((p) => p.id)),
   };
   let placed = 0;
-  let refused = 0;
+  let refusedSteps = 0;
   for (const [i, call] of callsOf(work).entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: a call sees the matters the one before placed
     await step.attempt(
@@ -518,7 +518,7 @@ export async function matters(
         const known = knownOf(call);
         const at = step.now.toISOString();
         const [first] = known.keys();
-        const { kept, refused: no } = placedOf(
+        const { kept, refusedSteps: no } = placedOf(
           reply,
           known,
           new Map(
@@ -537,12 +537,12 @@ export async function matters(
           },
         ]);
         placed += kept.reduce((n, m) => n + m.steps.length, 0);
-        refused += no;
+        refusedSteps += no;
       },
       { call: i + 1 }
     );
   }
-  return step.end({ placed, refused });
+  return step.end({ placed, refusedSteps });
 }
 
 /** The matters, one line each: name, areas, projects, how many records and the day of the newest (`bun life memory matters list`). */

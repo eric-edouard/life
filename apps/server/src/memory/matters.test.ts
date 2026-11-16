@@ -467,6 +467,7 @@ test("matters v2: a call is shown open, done and full matters of the last 45 day
       view("done", { open: false, status: "done" }),
       view("big", { steps: big }),
       view("wide", { areas: ["a", "b", "c", "d"] }),
+      view("edge", { areas: ["a", "b", "c"], steps: big.slice(1) }),
       view("old", { steps: [step("2026-08-01", "old")] }),
       view("lone", { lone: true }),
     ],
@@ -477,6 +478,7 @@ test("matters v2: a call is shown open, done and full matters of the last 45 day
     ["done", "done"],
     ["big", "full"],
     ["wide", "full"],
+    ["edge", "open"],
   ]);
   expect(shown[0]?.openSteps).toEqual([
     { day: "2026-10-10", text: "Send the plans" },
@@ -493,7 +495,7 @@ test("matters v2: a call is shown open, done and full matters of the last 45 day
       },
     ],
   ]);
-  const { kept, refused } = placedOf(
+  const { kept, refusedSteps } = placedOf(
     {
       matters: [
         {
@@ -508,5 +510,5 @@ test("matters v2: a call is shown open, done and full matters of the last 45 day
     { areas: new Set(), projects: new Set() },
     () => "matter_cccccccccccc"
   );
-  expect([kept, refused]).toEqual([[], 1]);
+  expect([kept, refusedSteps]).toEqual([[], 1]);
 });
