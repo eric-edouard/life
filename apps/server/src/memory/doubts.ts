@@ -5,6 +5,7 @@ import type { Observation } from "../records/observation";
 import { pagedNow } from "./closeness";
 import {
   episodesNow,
+  isFrozen,
   observationStatusOf,
   readEpisodes,
   shows,
@@ -106,7 +107,8 @@ export async function memoryLinesNow(): Promise<MemoryLine[]> {
   const episodes = episodesNow(await readEpisodes(), people.corrections);
   const facts = observations.flatMap((o) => {
     const s = observationStatusOf(o, statusInputs);
-    if (s.state !== "active") {
+    // Never asked about what only a section whose add-on is off cites (`readerShows`).
+    if (s.state !== "active" || isFrozen(o, statusInputs)) {
       return [];
     }
     const page = home.get(o.id);

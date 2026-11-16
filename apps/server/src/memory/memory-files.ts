@@ -529,7 +529,7 @@ export const hiding = (corrections: Correction[], id: string) => {
 /**
  * Where an observation stands: the one rule the index, the pages and the status reads go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts), `frozen` (only a section whose add-on is off cites it: hidden, never deleted), `retired` (a newer observation superseded it, or he said it is outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he said it is outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */
@@ -559,9 +559,6 @@ export function observationStatusOf(
       state: "replaced" as const,
     };
   }
-  if (s.frozenOnly?.has(o.id)) {
-    return { state: "frozen" as const };
-  }
   const hiddenOn = hid.flatMap((c) => (c.page ? [c.page] : []));
   const r = s.retired.get(o.id);
   if (r) {
@@ -584,6 +581,22 @@ type ObservationStatus = ReturnType<typeof observationStatusOf>;
 export const shows = (s: ObservationStatus, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
+
+/**
+ * Whether a reader shows `o` (the index, search, a read of one, the fact checks, the email): `shows`, and not only a
+ * section whose add-on is off cites it (`frozenOnlyOf`). The steps that compute never ask: they see it as it stands.
+ */
+export const readerShows = (
+  o: Observation,
+  statusInputs: ObservationStatusInputs,
+  page?: string
+) =>
+  shows(observationStatusOf(o, statusInputs), page) &&
+  !isFrozen(o, statusInputs);
+
+/** Whether only a section whose add-on is off cites `o`: readers hide it, the steps that compute do not. */
+export const isFrozen = (o: Observation, s: ObservationStatusInputs) =>
+  Boolean(s.frozenOnly?.has(o.id));
 
 /** The observations that show in the index: neither hidden everywhere nor replaced. */
 export const shownOf = (

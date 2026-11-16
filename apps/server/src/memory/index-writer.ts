@@ -22,6 +22,7 @@ import {
   daysOf,
   episodesWhere,
   INDEX,
+  isFrozen,
   MEMORY,
   type ObservationStatusInputs,
   observationStatusOf,
@@ -175,6 +176,10 @@ export function buildIndex(
       textRow.run(summary.ref, localDate(summary.at), words);
     }
     for (const o of unique.values()) {
+      // What only a section whose add-on is off cites stays out of the index, which every reader goes by.
+      if (isFrozen(o, statusInputs)) {
+        continue;
+      }
       const retired = retirement(o, statusInputs);
       row.run(
         o.id,

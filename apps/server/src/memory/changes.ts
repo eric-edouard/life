@@ -25,11 +25,10 @@ import {
   hiding,
   INFERRED,
   isCurrent,
+  isFrozen,
   LEDGER,
   OBSERVATIONS,
   observationStatusOf,
-  PAGE_KINDS,
-  PAGES,
   readCorrections,
   readIndex,
   readInferred,
@@ -38,10 +37,18 @@ import {
   runAt,
   SUPERSESSIONS,
 } from "./memory-files";
-import { type Key, PageMeta, parsePage, readLine } from "./page-format";
+import {
+  frozenTitles,
+  headingOf,
+  type Key,
+  layoutOf,
+  PageMeta,
+  type Parsed,
+  readLine,
+} from "./page-format";
 import { OWNER } from "./read-truth";
 import { kindOf } from "./sources";
-import { readStatusInputs } from "./status-inputs";
+import { readParsedPages, readStatusInputs } from "./status-inputs";
 import {
   aboutNow,
   authorFrom,
@@ -197,7 +204,8 @@ function pageDiffs(shas: string[]) {
   const text = git(OWNER_DATA_DIR, [
     "show",
     "--no-color",
-    "--unified=0",
+    // The whole file as context, so each changed line is known by its section.
+    "--unified=100000",
     "--format=%x01%H",
     ...new Set(shas),
     "--",
@@ -206,10 +214,21 @@ function pageDiffs(shas: string[]) {
   for (const block of text.split("\x01").slice(1)) {
     const [sha = "", ...rest] = block.split("\n");
     for (const file of rest.join("\n").split(DIFF_FILE).slice(1)) {
+      const path = file.match(A_PATH)?.[1] ?? "";
+      const frozen = frozenTitles(pageRef(path));
       const lines = file.split("\n");
+      // The section of each line, from the headings in the context; a frozen section's lines are not shown.
+      let section = "";
+      const shown = lines.map((l) => {
+        section = headingOf(l.slice(1)) ?? section;
+        return frozen.has(section);
+      });
       const body = (sign: string) =>
         lines
-          .filter((l) => l.startsWith(sign) && !l.startsWith(sign.repeat(3)))
+          .filter(
+            (l, i) =>
+              !shown[i] && l.startsWith(sign) && !l.startsWith(sign.repeat(3))
+          )
           .map((l) => l.slice(1))
           .filter((l) => l.trim() !== "" && l !== "---" && !FRONT_KEY.test(l));
       out.set(`${sha}:${file.match(A_PATH)?.[1]}`, {
@@ -221,27 +240,21 @@ function pageDiffs(shas: string[]) {
   return out;
 }
 
-/** The pages on disk (what the owner sees now), by ref, and the page lines citing each observation. */
-async function readPages() {
+/**
+ * The pages on disk, by ref, and the page lines citing each observation: not those of a frozen section, which readers
+ * hide (`layoutOf`).
+ */
+function indexPages(parsedPages: Parsed[]) {
   const cites = new Map<string, { line: string; page: string }[]>();
   const pages = new Map<string, Record<Key, string[]>>();
-  const paths = (
-    await Promise.all(
-      PAGE_KINDS.map(async (dir) =>
-        (await filesIn(join(PAGES, dir), ".md")).map((n) => join(PAGES, dir, n))
-      )
-    )
-  ).flat();
-  for (const text of await Promise.all(paths.map((p) => Bun.file(p).text()))) {
-    const parsed = parsePage(text);
-    if (parsed) {
-      const { page } = parsed.meta;
-      pages.set(page, parsed.raw);
-      for (const [key, lines] of Object.entries(parsed.raw)) {
-        for (const line of lines) {
-          for (const id of readLine(key as Key, line).cites) {
-            cites.set(id, [...(cites.get(id) ?? []), { line, page }]);
-          }
+  for (const parsed of parsedPages) {
+    const { page } = parsed.meta;
+    const { frozen } = layoutOf(page);
+    pages.set(page, parsed.raw);
+    for (const [key, lines] of Object.entries(parsed.raw)) {
+      for (const line of frozen.includes(key as Key) ? [] : lines) {
+        for (const id of readLine(key as Key, line).cites) {
+          cites.set(id, [...(cites.get(id) ?? []), { line, page }]);
         }
       }
     }
@@ -265,10 +278,11 @@ const indexed = () =>
 
 /** What decides where an observation stands and whether a correction shows yet: the small ledgers, the pages, the index. */
 async function readContext() {
-  const [statusInputs, inferred, pages] = await Promise.all([
-    readStatusInputs(readCorrections()),
+  // The page files are read once: the pages and what only a frozen section cites both come from them.
+  const parsed = await readParsedPages();
+  const [statusInputs, inferred] = await Promise.all([
+    readStatusInputs(readCorrections(), undefined, parsed),
     readInferred(),
-    readPages(),
   ]);
   // The latest record for a name as written wins (who.ts): its line number.
   const inferredLatest = new Map<string, number>();
@@ -281,7 +295,7 @@ async function readContext() {
     ...statusInputs,
     index: indexed(),
     inferredLatest,
-    pages,
+    pages: indexPages(parsed),
   };
 }
 type Context = Awaited<ReturnType<typeof readContext>>;
@@ -440,6 +454,9 @@ function itemOf(
     };
   }
   const o = Observation.parse(raw);
+  if (isFrozen(o, ctx)) {
+    return null;
+  }
   return {
     about: refs([...o.subjects, o.speaker, o.area && `area:${o.area}`]),
     happenedAt: o.at,
@@ -552,6 +569,11 @@ export async function readObservation(id: string) {
   const ctx = await readContext();
   const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
+  if (isFrozen(o, ctx)) {
+    throw new Error(
+      `observation ${id} is hidden while an add-on that wrote it is off`
+    );
+  }
   const people = await readPeople();
   const unit = await readUnit(o.unit);
   const chats = chatHandles(unit ? [unit] : []);
