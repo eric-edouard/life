@@ -3,6 +3,7 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { isoDateTime } from "../records/fields";
 import type { ReadReply } from "../records/read-reply";
@@ -49,8 +50,8 @@ export function mentionsOf(
   lines: ReadReply[],
   events: Map<string, SourceEvent>
 ): Mention[] {
-  const current = lines.filter(
-    (l) => l.madeBy.prompt === READS.mentions.prompt
+  const current = lines.filter((l) =>
+    isPromptVersion(l.madeBy.prompt, READS.mentions.prompt)
   );
   return [...checkedOf(current, "mentions", events).values()]
     .flatMap((x) =>

@@ -5,7 +5,7 @@ import { log } from "../core/log";
 import { toJpeg } from "../memory/message-files";
 import { dayStart, zoneAt } from "../memory/zones";
 import { DESCRIBER_MODEL, startDescriber } from "../models/describer";
-import { promptText } from "../models/llm";
+import { promptText } from "../models/prompt-parts";
 import {
   DESCRIPTIONS,
   type Description,
@@ -63,7 +63,7 @@ export async function describePhotos(
       }
     }
     if (images.size > 0) {
-      const prompt = (await promptText(PHOTO_DESCRIPTION_PROMPT)).trim();
+      const prompt = promptText(PHOTO_DESCRIPTION_PROMPT).trim();
       const describer = await start();
       try {
         for (const [uuid, image] of images) {

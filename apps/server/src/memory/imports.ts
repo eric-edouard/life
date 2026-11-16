@@ -14,6 +14,7 @@ import { digest } from "../core/hash";
 import { hold, release } from "../core/lock";
 import { settings } from "../core/settings";
 import { stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
 import {
@@ -193,7 +194,9 @@ function planOf(
       return merged.filter((c) => {
         const judged = judgments.get(`${source}:${c.id}`);
         const line =
-          judged?.madeBy.prompt === IMPORT_KEEP_PROMPT ? judged : undefined;
+          judged && isPromptVersion(judged.madeBy.prompt, IMPORT_KEEP_PROMPT)
+            ? judged
+            : undefined;
         const v = after.get(c.id) as {
           first: Conversation;
           latest: Conversation;

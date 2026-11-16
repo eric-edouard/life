@@ -23,6 +23,7 @@ import {
 import { readPeople, voicePersonOf } from "@life/server/src/memory/who";
 import { transcripts } from "@life/server/src/memory/words";
 import { llmFor } from "@life/server/src/models/llm";
+import { isPromptVersion } from "@life/server/src/models/prompt-parts";
 import type { ReadReply } from "@life/server/src/records/read-reply";
 import {
   openStore,
@@ -369,7 +370,7 @@ if (import.meta.main) {
     .filter(
       (l) =>
         l.read === "voice_naming" &&
-        l.madeBy.prompt === READS.voice_naming.prompt
+        isPromptVersion(l.madeBy.prompt, READS.voice_naming.prompt)
     );
   const { guessed, unplaced } = await gather(lines);
   console.log(

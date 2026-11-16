@@ -6,6 +6,7 @@ import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { packed } from "../core/lists";
 import { callCharsOf, stamp } from "../models/llm";
+import { isPromptVersion } from "../models/prompt-parts";
 import { Episode, LocalTime } from "../records/episode";
 import type { MadeBy } from "../records/fields";
 import { type Correction, InferredPerson } from "../records/observation";
@@ -96,7 +97,8 @@ export function chatAreas(truth: Truth) {
 
 /** Whether an episode line is state for this prompt: made by it, or hidden by him (his correction holds whatever made it). */
 const isState = (m: Episode, corrections: Correction[]) =>
-  m.madeBy.prompt === EPISODES_PROMPT || hiding(corrections, m.id).length > 0;
+  isPromptVersion(m.madeBy.prompt, EPISODES_PROMPT) ||
+  hiding(corrections, m.id).length > 0;
 
 /**
  * What a reading of `day` is shown as `earlier`: its own episodes as they stand, those of the days before that may
@@ -385,7 +387,8 @@ export function agreement(
 const judged = (u: Unit, verdicts: Verdicts, rereads: Map<string, string>) => {
   const v = verdictOf(verdicts, u);
   return (
-    v?.madeBy.prompt === EPISODES_PROMPT &&
+    v !== undefined &&
+    isPromptVersion(v.madeBy.prompt, EPISODES_PROMPT) &&
     !isRereadSince(rereads, u.id, runAt(v.madeBy.run))
   );
 };

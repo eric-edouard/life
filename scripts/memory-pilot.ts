@@ -27,8 +27,8 @@ import {
   CHARS_PER_TOKEN,
   llmFor,
   llmSpec,
-  promptText,
 } from "@life/server/src/models/llm";
+import { promptText } from "@life/server/src/models/prompt-parts";
 import type { MoveRead } from "@life/server/src/records/read-reply";
 import { eventKey, type SourceEvent } from "@life/server/src/records/source";
 
@@ -91,7 +91,7 @@ if (import.meta.main) {
     model: values.model ?? main.model,
   };
   console.log(`${name} on ${llmSpec(llm)}`);
-  const wording = await promptText(read.prompt);
+  const wording = promptText(read.prompt);
   const trial = trialDir(name, values.label ?? llm.engine, wording);
   const index = readReplyIndex(trial);
   const toAsk = readSet(values.set).filter(
