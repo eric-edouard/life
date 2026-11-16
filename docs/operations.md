@@ -94,8 +94,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
   exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
-  recorded-days`; a few seconds); closeness and the
-  personas take its last three years. With the `histories` add-on on, the same read gives the histories their
+  recorded-days`; a few seconds); closeness takes its last three years, the
+  communication styles (`bun life memory communication-styles`; at most 200 calls a night, a person at most weekly) and the personas the rest. With the `histories` add-on on, the same read gives the histories their
   months not read yet (closed months from its `from`, newest first, 200 calls a night at most; a failure
   costs its month only). With the `relationshipReads` add-on or his `mentionsRead` setting on, it also gives the exchange reads they ask (connection and conflict, mentions) their finished
   exchanges without a stored reply (200 calls a night across the reads that are on, newest first, after the histories; a
@@ -412,7 +412,7 @@ policy (P).
 
 Everything is in the CLI (`bun life memory …`), and the connector's tools are the same reads:
 
-- `search <words> [--from d --to d]`: opens with the situations of the close people it names, else his own (when no
+- `search <words> [--from d --to d]`: opens with the situations of the people it names, else his own (when no
   day bounds it), then the other situations' lines citing an episode it shows; then episodes, observations (each says who spoke when not the
   owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
   (the best 20, each with a conversation id and a turn), chat passages (the best 10), note versions and messages to AI assistants, then mail (no newsletters nor Life's own,

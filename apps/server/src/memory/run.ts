@@ -179,6 +179,16 @@ export async function begin(
 export const inputsOf = (prompt: string, input: unknown) =>
   digest("sha256", `${prompt}\n${JSON.stringify(input)}`, 16);
 
+/** Whether a rebuilt-whole file is due: none yet, or `after` ms old with new inputs behind it (a rate cap beside the rule). */
+export const isDue = (
+  last: { built: string; inputs: string } | null,
+  inputs: string,
+  now: Date,
+  after: number
+) =>
+  !last ||
+  (last.inputs !== inputs && now.getTime() - Date.parse(last.built) >= after);
+
 /** A run in progress, as the step functions receive it. */
 export type Step = Awaited<ReturnType<typeof begin>>;
 
@@ -203,6 +213,15 @@ export function checkedEntries<T>(
     }
   }
   return { entries: [...entries.values()], invalid };
+}
+
+/** The entries of a reply's `lines` that `schema` accepts, in order; a reply of no known shape has none. */
+export function replyLines<T>(reply: unknown, schema: z.ZodType<T>) {
+  const list = (reply as { lines?: unknown } | null)?.lines;
+  return (Array.isArray(list) ? list : []).flatMap((raw) => {
+    const r = schema.safeParse(raw);
+    return r.success ? [r.data] : [];
+  });
 }
 
 /** `list` in pieces of at most `n`. */

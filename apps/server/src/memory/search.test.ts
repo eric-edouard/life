@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { writeJson } from "../core/files";
+import { promptNameOf } from "../models/prompt-parts";
 import type { Observation } from "../records/observation";
 import type { ReadReply } from "../records/read-reply";
 import { SUMMARY_READ } from "../records/read-reply";
@@ -126,7 +127,12 @@ test("a search opens with his situation when it names no one, then others' lines
       built: "2026-11-05T00:00:00.000Z",
       inputs: "0123456789abcdef",
       lines,
-      madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
+      madeBy: {
+        engine: "claude",
+        model: "m",
+        prompt: promptNameOf("memory-situation.v3"),
+        run: "r",
+      },
       page,
       schemaVersion: 1,
     });
