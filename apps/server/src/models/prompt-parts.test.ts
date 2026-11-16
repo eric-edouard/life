@@ -146,3 +146,8 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
     setSettings({ personal: was ?? null });
   }
 });
+
+test("the situation prompt has the mayKeep sentence only when it is given", () => {
+  expect(promptText("memory-situation.v3")).not.toContain("must not keep");
+  expect(promptText("memory-situation.v3", true)).toContain("must not keep");
+});
