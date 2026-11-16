@@ -274,36 +274,6 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   expect(html.match(/tell Life in a chat or the app/g)).toHaveLength(1);
 });
 
-// His word of 16 Nov 2026: "is this done?" is load. A found ending reads probably done where he looks; the email
-// never asks it. Its other checks stay, every one.
-test("the email never asks an ending check: a night with only ending checks has no Checks section", () => {
-  const n = night(1);
-  const ending: Check = {
-    ...check("Life thinks this is done: Send Ann the plans", {
-      matters: 1,
-      observations: 1,
-      pages: 0,
-    }),
-    answers: ["outdated", "false"],
-    group: "ending",
-    kind: "ending",
-    ref: "obs_000000000001",
-  };
-  n.checks = [ending];
-  expect(successReport("2026-10-15", 1000, n).text).not.toContain("Checks (");
-  n.checks = [
-    ending,
-    check("Life thinks this is Zed, a plumber (80% sure)", {
-      matters: 0,
-      observations: 1,
-      pages: 0,
-    }),
-  ];
-  const { text } = successReport("2026-10-15", 1000, n);
-  expect(text).toContain("Checks (1)");
-  expect(text).not.toContain("this is done");
-});
-
 test("the Code section lists yesterday's rows and this night's new repos", () => {
   const n = night(1);
   expect(successReport("2026-10-15", 1000, n).html).not.toContain(

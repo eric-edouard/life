@@ -7,7 +7,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import { type Check, isEndingKind } from "../memory/checks";
+import type { Check } from "../memory/checks";
 import {
   type Digest,
   LIFE_MAIL,
@@ -45,7 +45,7 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
-  /** What Life would like him to verify (`checksNow`), most load-bearing first: every one, none left out (the email shows all but the ending checks: `askedOf`). */
+  /** What Life would like him to verify (`readChecksFor`: all but the ending checks), most load-bearing first: every one, none left out. */
   checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
@@ -79,8 +79,6 @@ const percent = (x: number | null) =>
   x === null ? "-" : `${Math.round(x * 100)}%`;
 
 /** What a check settles, in words: "settles 3 facts and 2 open matters"; a part that is zero is left out. */
-/** The checks the email asks him: all but the ending ones ("is this done?" is load; his word of 16 Nov 2026: a found ending reads probably done, and he says when it is not). */
-const askedOf = (list: Check[]) => list.filter((c) => !isEndingKind(c));
 const ridesText = (r: Check["ridesOn"]) =>
   `settles ${[
     r.observations > 0 && count(r.observations, "observation"),
@@ -161,7 +159,7 @@ export function successReport(day: string, ms: number, n: Night) {
       models,
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
-        ...(askedOf(n.checks).length > 0
+        ...(n.checks.length > 0
           ? [
               "Checks: Life keeps using its guesses; to settle one, tell Life in a chat or the app.",
             ]
@@ -195,7 +193,7 @@ export function successReport(day: string, ms: number, n: Night) {
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
         {
           kind: "pairs",
-          list: askedOf(n.checks).map((c) => ({
+          list: n.checks.map((c) => ({
             name: c.guess,
             relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
           })),
