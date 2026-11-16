@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
@@ -11,6 +18,7 @@ import {
   partsIn,
   promptNameOf,
   promptText,
+  readOwnerName,
   renderedOf,
 } from "./prompt-parts";
 
@@ -21,7 +29,7 @@ const WITH_PARTS = [
   "memory-connection.v3",
   "memory-conversation-summary.v1",
   "memory-episodes.v8",
-  "memory-extract.v5",
+  "memory-extract.v6",
   "memory-history-month.v1",
   "memory-mentions.v1",
   "memory-pages.v6",
@@ -76,9 +84,9 @@ test("no prompt names the owner by a pronoun or as the owner: {{owner}} is his n
 test("{{language}} is the language his memory is written in", () => {
   const was = settings().memoryLanguage;
   try {
-    expect(promptText("memory-extract.v5")).toContain("in English");
+    expect(promptText("memory-extract.v6")).toContain("in English");
     setSettings({ memoryLanguage: "French" });
-    expect(promptText("memory-extract.v5")).toContain("in French");
+    expect(promptText("memory-extract.v6")).toContain("in French");
   } finally {
     setSettings({ memoryLanguage: was });
   }
@@ -98,13 +106,13 @@ test("a part that is off is cut out with its text and named in the prompt's name
       "memory-pages.v6-without-relationships"
     );
     setSettings({ personal: null });
-    expect(promptNameOf("memory-extract.v5")).toBe(
-      "memory-extract.v5-without-relationships"
+    expect(promptNameOf("memory-extract.v6")).toBe(
+      "memory-extract.v6-without-relationships"
     );
     expect(promptNameOf("memory-pages.v6")).toBe(
       "memory-pages.v6-without-aboutMe-relationships"
     );
-    expect(promptText("memory-extract.v5")).not.toContain(
+    expect(promptText("memory-extract.v6")).not.toContain(
       "Between Test and someone close"
     );
     // A prompt with no part keeps its name.
@@ -147,21 +155,21 @@ test("his words on what Life may keep switch on one sentence per prompt, and a n
       );
       expect(text).not.toContain("<!--");
     }
-    expect(promptNameOf("memory-extract.v5", [MAY_KEEP])).toBe(
-      "memory-extract.v5-with-mayKeep"
+    expect(promptNameOf("memory-extract.v6", [MAY_KEEP])).toBe(
+      "memory-extract.v6-with-mayKeep"
     );
     expect(
-      isPromptVersion("memory-extract.v5-with-mayKeep", "memory-extract.v5")
+      isPromptVersion("memory-extract.v6-with-mayKeep", "memory-extract.v6")
     ).toBe(true);
     expect(
       isPromptVersion(
-        "memory-extract.v5-without-relationships-with-mayKeep",
-        "memory-extract.v5"
+        "memory-extract.v6-without-relationships-with-mayKeep",
+        "memory-extract.v6"
       )
     ).toBe(true);
     setSettings({ personal: null });
-    expect(promptNameOf("memory-extract.v5", [MAY_KEEP])).toBe(
-      "memory-extract.v5-without-relationships-with-mayKeep"
+    expect(promptNameOf("memory-extract.v6", [MAY_KEEP])).toBe(
+      "memory-extract.v6-without-relationships-with-mayKeep"
     );
     expect(promptNameOf("memory-closeness.v1", [MAY_KEEP])).toBe(
       "memory-closeness.v1"
@@ -190,4 +198,18 @@ test("a month's in-person paragraph shows only on a call that has it on: off, th
     `${month}-with-inPerson-mayKeep`
   );
   expect(isPromptVersion(promptNameOf(month, [IN_PERSON]), month)).toBe(true);
+});
+
+test("the owner is called by their `called`, else their name's first word", () => {
+  const data = mkdtempSync(join(tmpdir(), "life-owner-"));
+  mkdirSync(join(data, "truth"));
+  const write = (extra: string) =>
+    writeFileSync(
+      join(data, "truth", "people.yaml"),
+      `schemaVersion: 1\npeople:\n  - id: me\n    name: Jean Paul Dupont\n${extra}`
+    );
+  write("");
+  expect(readOwnerName(data)).toBe("Jean");
+  write("    called: Jean Paul\n");
+  expect(readOwnerName(data)).toBe("Jean Paul");
 });

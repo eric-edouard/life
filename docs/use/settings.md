@@ -62,7 +62,8 @@ bun life settings set '{"personal":{"personas":{},"relationships":{},"aboutMe":{
 
 Parts of Life about you and the people close to you, each off until its key is in `personal` (a part you set replaces
 the whole of `personal`, so name every add-on you want on). Each takes `{}`, except `histories`.
-Life.app has one switch for each, under "About you and the people close to you" (`histories` starts five years back).
+Life.app has one switch for each but `relationshipReads` (hidden until Life shows its reads), under "About you and the
+people close to you" (`histories` starts five years back).
 
 - `aboutMe`: the Views and Health sections of pages.
 - `relationships`: the Between us section of the pages of people close to you.
@@ -82,34 +83,6 @@ bun life settings set '{"memoryLanguage":"French"}'
 The language Life writes your memory in (titles, facts, pages, summaries); Life.app asks it on its first run, beside
 your name. Absent: English. Quotes stay in the language they were said in. Already written memory is not rewritten.
 
-## Mentions
-
-```sh
-bun life settings set '{"mentionsRead":true}'
-```
-
-Off until you set it. Each night Life asks, for each finished exchange of your two-way one-to-one chats, who is talked
-about in it. `bun life memory exchange-reads` prints how many calls are pending with no model; `--force` asks them.
-
-## Matters and links
-
-```sh
-bun life settings set '{"matters":true,"links":true}'
-```
-
-Off until you set them. What `matters` finds is read by `read_day`'s Due list, a person's page, `read_matters` and
-`read_matter`; what `links` finds reaches them only with `endings` on (see Endings). `matters` places, each night, the day's episodes, facts and to-dos in the running things of your life;
-`links` reads how the open steps of each matter ended.
-
-## Conversation summaries
-
-```sh
-bun life settings set '{"conversationSummaries":true}'
-```
-
-Off until you set it. Each night Life writes a summary for the long conversations recorded in person that have none, at
-most 40 calls. What is stored is read all the same when it is off.
-
 ## Voice naming
 
 ```sh
@@ -118,14 +91,6 @@ bun life settings set '{"voiceNaming":true}'
 
 Off until you set it. Each night Life guesses who the voices nobody named are, for the parts of long conversations
 recorded in person, at most 40 calls. A guess is only stored; it needs a Lifelog Host that serves `/speakers/voices`.
-
-## Endings
-
-```sh
-bun life settings set '{"endings":true}'
-```
-
-Off until you set it (it needs `links`). When Life finds that a promise, a wait or a to-do of yours seems done, that step reads probably ended at once, and a matter with nothing else open reads probably done. Your assistant asks you about each ("Done? ..."): right, and it is done; wrong, and the step is open again and Life never ties those two records again.
 
 ## Your claude.ai and ChatGPT history
 

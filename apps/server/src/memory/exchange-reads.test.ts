@@ -79,11 +79,25 @@ const keepsStep = (keeps: boolean) => ({
   ...stepOf(GIVEN),
   keeps: () => keeps,
 });
+/** Before every message: the window holds them all. */
+const FROM = "2026-09-01";
 const workOf = (events: SourceEvent[], now = LATER) =>
-  readExchangeReadWork({ events, failed: [] }, people, now, where, MOVE_READS);
+  readExchangeReadWork(
+    { events, failed: [] },
+    people,
+    now,
+    FROM,
+    where,
+    MOVE_READS
+  );
+/** Calls and the exchanges they read. */
+const countsOf = (work: ReturnType<typeof workOf>) => ({
+  calls: work?.length,
+  exchanges: work?.reduce((sum, w) => sum + w.call.starts.length, 0),
+});
 const readAll = async (events: SourceEvent[], reply: unknown = GIVEN) => {
   const work = workOf(events);
-  await makeReplies(work?.work ?? [], stepOf(reply) as never, where);
+  await makeReplies(work ?? [], stepOf(reply) as never, where);
   return work;
 };
 const lines = () => readReplies(where).flat();
@@ -94,7 +108,7 @@ test("every finished exchange is asked once per read, stored as given; a growing
   fresh();
   const before = asked;
   const work = await readAll(talk);
-  expect(work?.counts).toEqual({ calls: 3, exchanges: 6 });
+  expect(countsOf(work)).toEqual({ calls: 3, exchanges: 6 });
   expect(asked - before).toBe(3);
   expect(
     lines()
@@ -107,15 +121,14 @@ test("every finished exchange is asked once per read, stored as given; a growing
   ]);
   expect(lines()[0]?.reply).toEqual(GIVEN);
   // A new exchange, not finished yet, is not asked; nothing old is asked again.
-  expect(workOf([...talk, msg(59 * HOUR, false)])?.work).toEqual([]);
+  expect(workOf([...talk, msg(59 * HOUR, false)])).toEqual([]);
   // Finished at six hours, not before.
   const last = START + 59 * HOUR;
   expect(
     workOf([...talk, msg(59 * HOUR, false)], new Date(last + 6 * HOUR - 60_000))
-      ?.work
   ).toEqual([]);
   expect(
-    workOf([...talk, msg(59 * HOUR, false)], new Date(last + 6 * HOUR))?.work
+    workOf([...talk, msg(59 * HOUR, false)], new Date(last + 6 * HOUR))
   ).toHaveLength(3);
 });
 
@@ -124,11 +137,11 @@ test("an exchange that gained a message is asked once, and the newer line wins",
   await readAll(talk);
   const filled = [...talk, msg(30 * HOUR + 2000, false, "late")];
   const [first, second] = exchangesOf(filled);
-  expect(workOf(filled)?.counts).toEqual({ calls: 3, exchanges: 3 });
+  expect(countsOf(workOf(filled))).toEqual({ calls: 3, exchanges: 3 });
   await readAll(filled, { exchanges: [], newer: true });
   expect(heldBy(first)?.line.reply).toEqual(GIVEN);
   expect(heldBy(second)?.line.reply).toEqual({ exchanges: [], newer: true });
-  expect(workOf(filled)?.work).toEqual([]);
+  expect(workOf(filled)).toEqual([]);
   // The old line was not rewritten: the file only grew.
   expect(lines()).toHaveLength(6);
 });
@@ -152,9 +165,7 @@ test("a new prompt version asks again and rewrites nothing; the same version wit
     where
   );
   expect(heldBy(first)).toBeUndefined();
-  expect(
-    workOf(talk)?.work.filter((w) => w.read === "connection")
-  ).toHaveLength(1);
+  expect(workOf(talk)?.filter((w) => w.read === "connection")).toHaveLength(1);
   storeReply(
     line(READS.connection.prompt, "b".repeat(16)),
     talk[0]?.at ?? "",
@@ -163,7 +174,7 @@ test("a new prompt version asks again and rewrites nothing; the same version wit
   expect(heldBy(first)?.line.promptDigest).toBe("b".repeat(16));
   expect(
     workOf(talk)
-      ?.work.map((w) => w.read)
+      ?.map((w) => w.read)
       .sort()
   ).toEqual(["conflict", "mentions"]);
   expect(lines()).toHaveLength(2);
@@ -175,7 +186,7 @@ test("an exchange the model skipped stays read; a failed call or a non-reply sto
   await readAll(talk, skipping);
   const [, second] = exchangesOf(talk);
   expect(heldBy(second)?.index).toBe(1);
-  expect(workOf(talk)?.work).toEqual([]);
+  expect(workOf(talk)).toEqual([]);
 
   fresh();
   for (const reply of [{ nope: true }, null, "text"]) {
@@ -186,9 +197,9 @@ test("an exchange the model skipped stays read; a failed call or a non-reply sto
     ...stepOf(null),
     ask: () => Promise.reject(new Error("down")),
   };
-  await makeReplies(workOf(talk)?.work ?? [], failing as never, where);
+  await makeReplies(workOf(talk) ?? [], failing as never, where);
   // A reply its call's own check refuses is stored nowhere and comes back as failed.
-  const refused = (workOf(talk)?.work ?? []).map((a) => ({
+  const refused = (workOf(talk) ?? []).map((a) => ({
     ...a,
     call: {
       ...a.call,
@@ -200,38 +211,28 @@ test("an exchange the model skipped stays read; a failed call or a non-reply sto
   const made = await makeReplies(refused, stepOf(GIVEN) as never, where);
   expect(made.failed).toHaveLength(refused.length);
   expect(lines()).toHaveLength(0);
-  expect(workOf(talk)?.work).toHaveLength(3);
+  expect(workOf(talk)).toHaveLength(3);
 });
 
-test("a night asks the newest calls first within its cap; a failed source gives nothing", () => {
+test("a night asks only the exchanges finished in its window; a failed source gives nothing", () => {
   fresh();
-  // 70 exchanges, each too big to share a call: 210 calls over the three reads, 200 a night.
-  const big = "x".repeat(16_000);
-  const many = Array.from({ length: 70 }, (_, i) => [
-    msg(i * 12 * HOUR, false, big),
-    msg(i * 12 * HOUR + 1000, true, big),
-  ]).flat();
+  // The second exchange ended on 2 Oct (UTC), the first on 1 Oct: a window from 2 Oct asks only the second.
+  const from = "2026-10-02";
   const work = readExchangeReadWork(
-    { events: many, failed: [] },
+    { events: talk, failed: [] },
     people,
-    new Date(START + 900 * HOUR),
+    LATER,
+    from,
     where,
-    MOVE_READS
+    ["mentions"]
   );
-  expect(work?.counts.calls).toBe(210);
-  expect(work?.work).toHaveLength(200);
-  const oldest = new Date(START).toISOString();
-  expect(work?.work.some((w) => w.at === oldest)).toBe(false);
-  expect(
-    work?.work.some(
-      (w) => w.at === new Date(START + 69 * 12 * HOUR).toISOString()
-    )
-  ).toBe(true);
+  expect(work?.map((w) => w.call.keys)).toEqual([talk.slice(2).map(eventKey)]);
   expect(
     readExchangeReadWork(
-      { events: many, failed: ["mail"] },
+      { events: talk, failed: ["mail"] },
       people,
       LATER,
+      from,
       where,
       MOVE_READS
     )
@@ -295,33 +296,22 @@ test("keys as stored before the reshape: a call's keys and a stored line's messa
   ).toBeUndefined();
 });
 
-test("the night asks connection and conflict on the relationshipReads add-on, mentions on its setting", () => {
-  const was = settings();
-  const [mentionsRead, personal] = [was.mentionsRead, was.personal];
+test("the night asks mentions always, connection and conflict on the relationshipReads add-on", () => {
+  const { personal } = settings();
   try {
-    expect(readsOn()).toEqual([]);
-    setSettings({ personal: { relationshipReads: {} } });
-    expect(readsOn()).toEqual(["conflict", "connection"]);
-    setSettings({ mentionsRead: true });
-    expect(readsOn()).toEqual(["conflict", "connection", "mentions"]);
     setSettings({ personal: null });
     expect(readsOn()).toEqual(["mentions"]);
+    setSettings({ personal: { relationshipReads: {} } });
+    expect(readsOn()).toEqual(MOVE_READS);
   } finally {
-    setSettings({
-      mentionsRead: mentionsRead ?? null,
-      personal: personal ?? null,
-    });
+    setSettings({ personal: personal ?? null });
   }
 });
 
 test("a reply's stored digest is the digest of the wording shown: with his words on what Life may keep, the sentence is in it", async () => {
   const digestOf = async (keeps: boolean) => {
     fresh();
-    await makeReplies(
-      workOf(talk)?.work ?? [],
-      keepsStep(keeps) as never,
-      where
-    );
+    await makeReplies(workOf(talk) ?? [], keepsStep(keeps) as never, where);
     return lines().find((l) => l.read === "connection")?.promptDigest;
   };
   const without = promptDigestOf(promptText("memory-connection.v3"));

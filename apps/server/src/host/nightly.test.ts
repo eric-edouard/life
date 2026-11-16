@@ -145,7 +145,6 @@ test("the night places matters after extraction, with the evidence's failed sour
   const spies = [
     spyOn(mods.settings, "settings").mockReturnValue({
       engine: "claude",
-      matters: true,
     } as never),
     spyOn(mods.who, "readPeople").mockResolvedValue({} as never),
     spyOn(mods.units, "gather").mockResolvedValue({
@@ -226,6 +225,9 @@ test("a voice naming that cannot read lifelog's voices is logged once under its 
       counts: { conversations: 0, parts: 0 },
       parts: [],
     } as never),
+    spyOn(summaries, "conversationSummaries").mockResolvedValue(
+      undefined as never
+    ),
     spyOn(naming, "readVoiceNamingWork").mockRejectedValue(
       new Error("voice naming needs the new Lifelog Host")
     ),

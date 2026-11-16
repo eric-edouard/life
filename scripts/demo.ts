@@ -309,7 +309,7 @@ const DEMO: Demo[] = [
   },
 ];
 
-const extract = { ...madeBy, prompt: "memory-extract.v5" };
+const extract = { ...madeBy, prompt: "memory-extract.v6" };
 for (const d of DEMO) {
   const day = d.at.slice(0, 10);
   const at = new Date(`${d.at.replace(" ", "T")}:00+01:00`).toISOString();

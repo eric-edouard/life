@@ -44,18 +44,17 @@ const isOn = (part: string, on: readonly string[]) =>
   CALL_PARTS.includes(part) ? on.includes(part) : hasAddOn(part as AddOn);
 
 /**
- * What the owner is called in prompts and in what they write: the first word of his name in truth/people.yaml, read
- * at each call so an edit of truth/ shows at the next.
- * ponytail: the first word; a "called" field in truth/ when someone goes by another word.
+ * What the owner is called in prompts and in what they write: their `called` in truth/people.yaml, else their name's
+ * first word; read at each call so an edit of truth/ shows at the next.
  */
-export const readOwnerName = (data = OWNER_DATA_DIR) =>
-  firstNameOf(
-    ownerIn(
-      PeopleFile.parse(
-        Bun.YAML.parse(readFileSync(join(data, "truth", "people.yaml"), "utf8"))
-      ).people
-    ).name
+export const readOwnerName = (data = OWNER_DATA_DIR) => {
+  const owner = ownerIn(
+    PeopleFile.parse(
+      Bun.YAML.parse(readFileSync(join(data, "truth", "people.yaml"), "utf8"))
+    ).people
   );
+  return owner.called ?? firstNameOf(owner.name);
+};
 
 /** Said first in every prompt: who `{{owner}}` is, and never a pronoun for him in what is written. */
 const OWNER_RULE = `{{owner}} is the person whose memory this is: \`me\` in lines, \`person:me\` in refs. In everything you write, name {{owner}}; never write he, him, his, she, her, they or "the owner" for {{owner}}, not even later in a sentence that already named {{owner}}: "{{owner}} told Ana that {{owner}} would call {{owner}}'s father".\n\n`;

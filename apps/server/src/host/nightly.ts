@@ -29,7 +29,6 @@ import {
   type ExchangeReadWork,
   exchangeReads,
   readExchangeReadWork,
-  readsOn,
 } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
 import { reindex } from "../memory/index-writer";
@@ -281,10 +280,10 @@ export async function nightly(days: number, force = false) {
 /**
  * His chats and mail of every year, read once. The exchange counts are written from all of it at once (derived; a
  * failure is logged and the last file stands), and the pending work of the histories (`readHistoryWork`, only while
- * the `histories` add-on is on) and of the exchange reads (`readExchangeReadWork`, only while one read is on: `readsOn`) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
+ * the `histories` add-on is on) and of the exchange reads (`readExchangeReadWork`, the exchanges finished since `from`) is taken from it. Closeness gets its last years; the personas get every year (each person's window ends
  * at their newest day), so it is held until they run.
  */
-async function readYears(now: Date) {
+async function readYears(now: Date, from: string) {
   const everyYear = await readWithPeople(new Date(0));
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
@@ -300,45 +299,37 @@ async function readYears(now: Date) {
         return null;
       })
     : null;
-  // Off until a read is. A failure is logged and the night goes on, its exchanges read another night.
+  // A failure is logged and the night goes on, its exchanges read another night of their window.
   let reads: ExchangeReadWork = null;
-  if (readsOn().length > 0) {
-    try {
-      reads = readExchangeReadWork(everyYear, people, now);
-    } catch (e) {
-      log("run.error", {
-        error: (e as Error).message,
-        step: "memory.exchange-reads",
-      });
-    }
+  try {
+    reads = readExchangeReadWork(everyYear, people, now, from);
+  } catch (e) {
+    log("run.error", {
+      error: (e as Error).message,
+      step: "memory.exchange-reads",
+    });
   }
   return { everyYear, lastYears: lastYearsOf(everyYear), pending, reads };
 }
 
 /**
- * The night's reads of the long conversations recorded in person, each off until its setting: the summaries not written
- * yet (`conversationSummaries`), then the voices no one named (`voiceNaming`), guessed for the parts the summaries
- * examine. A failure (a Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
+ * The night's reads of the long conversations recorded in person: the summaries not written yet, then, while his
+ * `voiceNaming` setting is on, the voices no one named, guessed for the parts the summaries examine. A failure (a
+ * Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
  */
 export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
-  const { conversationSummaries: summarise, voiceNaming: name } = settings();
-  if (!(summarise || name)) {
-    return;
-  }
   const people = await readPeople();
   let found: ConversationSummaryWork | undefined;
   try {
     found = await readConversationSummaryWork(now, people);
-    if (summarise) {
-      await conversationSummaries(found);
-    }
+    await conversationSummaries(found);
   } catch (e) {
     log("run.error", {
       error: (e as Error).message,
-      step: summarise ? "memory.conversation-summaries" : "memory.voice-naming",
+      step: "memory.conversation-summaries",
     });
   }
-  if (found && name) {
+  if (found && settings().voiceNaming) {
     // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
     await readVoiceNamingWork(found, people, undefined, undefined, { chats })
       .then((work) => voiceNaming(work))
@@ -504,18 +495,18 @@ export async function runNight(
     const evidence = await gather(window, await readPeople());
     const found = await steps.step("episodes", () => episodes(evidence));
     const extracted = await steps.step("extract", () => extract(evidence));
-    // The running things of his life, in shadow and off until his `matters` setting. A failure is logged and never
-    // stops the night.
-    if (settings().matters) {
-      steps.at = "matters";
-      await placeMatters(window, evidence.failed).catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.matters" })
-      );
-    }
+    // The running things of his life. A failure is logged and never stops the night.
+    steps.at = "matters";
+    await placeMatters(window, evidence.failed).catch((e: Error) =>
+      log("run.error", { error: e.message, step: "memory.matters" })
+    );
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
     await writeRecordedDays();
-    const { everyYear, lastYears, pending, reads } = await readYears(now);
+    const { everyYear, lastYears, pending, reads } = await readYears(
+      now,
+      window.from
+    );
     await steps.step("closeness", () => closeness(lastYears));
     const { keyObservations, marked, observed, retired } = await whatIsNew(
       since,
@@ -556,19 +547,17 @@ export async function runNight(
         log("run.error", { error: e.message, step: "memory.exchange-reads" })
       );
     }
-    // The long conversations recorded in person: their summaries and their voice namings, each off until its setting.
+    // The long conversations recorded in person: their summaries, and their voice namings while `voiceNaming` is on.
     steps.at = "conversation summaries";
     await readSpokenConversations(now, everyYear.events);
     steps.at = "index";
     await reindex();
-    // How the open things ended, in shadow and off until his `links` setting: after the index, which says what is open
-    // tonight. A failure is logged and never stops the night.
-    if (settings().links) {
-      steps.at = "links";
-      await judgeLinks().catch((e: Error) =>
-        log("run.error", { error: e.message, step: "memory.links" })
-      );
-    }
+    // How the open things ended: after the index, which says what is open tonight. A failure is logged and never stops
+    // the night.
+    steps.at = "links";
+    await judgeLinks().catch((e: Error) =>
+      log("run.error", { error: e.message, step: "memory.links" })
+    );
     steps.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);

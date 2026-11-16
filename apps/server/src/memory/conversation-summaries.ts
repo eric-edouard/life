@@ -31,8 +31,7 @@ import { dayStart, localDate, time } from "./zones";
 
 // The conversation summaries (docs/glossary.md): one per long conversation recorded in person, written by a model
 // from every line, stored by `memory/read-replies.ts` as one more read. What is pending and what shows is derived from
-// the stored lines and lifelog's turns (their keys, `turnKey`); the night asks, behind his `conversationSummaries`
-// setting, which gates the calls and never the reading of what is stored.
+// the stored lines and lifelog's turns (their keys, `turnKey`); the night asks.
 
 /** The most calls a night makes, all its passes together: a first build takes several nights, the newest first. */
 export const NIGHT_CALLS = 40;
