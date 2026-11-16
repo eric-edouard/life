@@ -1848,6 +1848,69 @@
         },
         "required": ["aliases", "id", "isOwner", "name"]
       },
+      "SpeakerVoices": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "type": ["string", "null"],
+              "enum": ["owner", "recognized", null]
+            },
+            "jobId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "likeness": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "score": {
+                    "type": "number"
+                  }
+                },
+                "required": ["personId", "score"]
+              }
+            },
+            "mixed": {
+              "type": "boolean"
+            },
+            "personId": {
+              "type": ["string", "null"],
+              "format": "uuid"
+            },
+            "speakerLabel": {
+              "type": "string"
+            },
+            "status": {
+              "type": ["string", "null"],
+              "enum": [
+                "person",
+                "unknown",
+                "candidate",
+                "media",
+                "not_relevant",
+                "stranger",
+                null
+              ]
+            }
+          },
+          "required": [
+            "basis",
+            "jobId",
+            "likeness",
+            "mixed",
+            "personId",
+            "speakerLabel",
+            "status"
+          ]
+        }
+      },
       "SpeakerAssignment": {
         "type": "object",
         "properties": {
@@ -1974,7 +2037,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["corrections", "places", "search", "status"]
+              "enum": ["corrections", "places", "search", "status", "voices"]
             }
           },
           "contract": {
@@ -4814,6 +4877,43 @@
                     }
                   },
                   "required": ["building"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/speakers/voices": {
+      "get": {
+        "description": "Read-only. Every speaker label of the jobs with a turn starting in `from`..`to` (at most 24 hours): `basis` says whether the owner answered it (`owner`), lifelog named it by sound (`recognized`) or nobody did (null); `status` and `personId` are as stored (`not_relevant` is his answer \"not relevant\"; null status: no row); `mixed` when the label holds several voices; `likeness` the top two people at least 0.5 like its voice, judged without the exemplars of the span's own conversations. Empty without a voice vector.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Speaker labels in the span",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeakerVoices"
                 }
               }
             }

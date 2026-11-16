@@ -246,7 +246,13 @@ const Feed = z
   .openapi("Feed");
 
 // The contract's optional parts (docs/voice-source.md); lifelog offers them all.
-const CAPABILITIES = ["corrections", "places", "search", "status"] as const;
+const CAPABILITIES = [
+  "corrections",
+  "places",
+  "search",
+  "status",
+  "voices",
+] as const;
 
 export function syncRoutes({ db, mac }: Pick<Services, "db" | "mac">) {
   const app = router();

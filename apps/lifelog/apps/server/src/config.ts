@@ -58,6 +58,9 @@ export const RECOGNITION = {
   // 0.6 kept one person's 15 voices together and nobody else on Oct 10–11.
   candidateThreshold: 0.6,
   closedSetTurn: 0.4, // several people, none but the owner's picks
+  // Likeness to a person at which `GET /speakers/voices` offers them (sounds-like.ts `readSpeakerVoices`).
+  // Looser than `matchThreshold` on purpose: a reader weighs it, nothing is named by it.
+  likenessThreshold: 0.5,
   // Lead over the runner-up person; anything closer is ambiguous, so unknown.
   margin: 0.1,
   // Likeness to a person (speakers.ts `likeness`) needed for a match. Nov 3 replay on his answers:
