@@ -1,6 +1,5 @@
 import { parseArgs } from "node:util";
 import { clock, daysBefore } from "../core/clock";
-import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
 import { checksNow, checksText } from "../memory/checks";
@@ -279,7 +278,7 @@ const HANDLERS: Record<string, Handler> = {
    * with no model; `--force` reads it, as the night does once the `histories` add-on is on.
    */
   histories: step(async (v) => {
-    const from = v.from ?? settings().personal?.histories?.from;
+    const from = v.from ?? addOnOf("histories")?.from;
     if (!from) {
       throw new Error(
         "histories needs --from YYYY-MM, or the `histories` add-on"

@@ -60,6 +60,9 @@ test("a file already in the new shape, and a fresh install, are left as they are
   const one = install(added, true);
   migrateSettings(one.state, one.data);
   expect(one.read()).toEqual(added);
+  const removed = install({ sources: [] }, true);
+  migrateSettings(removed.state, removed.data);
+  expect(removed.read()).toEqual({ sources: [] });
   const fresh = install({ sources: [] }, false);
   migrateSettings(fresh.state, fresh.data);
   expect(fresh.read()).toEqual({ sources: [] });

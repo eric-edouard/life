@@ -1,6 +1,6 @@
 import { rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { hasAddOn } from "../core/add-ons";
+import { addOnOf, hasAddOn } from "../core/add-ons";
 import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { filesIn } from "../core/files";
 import { holder, isOtherLife } from "../core/lock";
@@ -273,7 +273,7 @@ async function readYears(now: Date) {
   const people = await readPeople();
   writeExchangeCounts(everyYear, people.resolve);
   writeMentions(everyYear);
-  const history = settings().personal?.histories;
+  const history = addOnOf("histories");
   // Off until the `histories` add-on. A failure is logged and the night goes on, its months read another night.
   const pending = history
     ? await readHistoryWork(everyYear, people, {

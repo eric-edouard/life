@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
-import { settings } from "../core/settings";
+import { setSettings, settings } from "../core/settings";
 import { MOVE_READS } from "../records/read-reply";
 import { eventKey, type SourceEvent } from "../records/source";
 import { callOf, readExchangeReadWork, readsOn } from "./exchange-reads";
@@ -286,17 +286,20 @@ test("keys as stored before the reshape: a call's keys and a stored line's messa
 });
 
 test("the night asks connection and conflict on the relationshipReads add-on, mentions on its setting", () => {
-  const now = settings() as { mentionsRead?: true; personal?: object };
-  const was = { mentionsRead: now.mentionsRead, personal: now.personal };
+  const was = settings();
+  const [mentionsRead, personal] = [was.mentionsRead, was.personal];
   try {
     expect(readsOn()).toEqual([]);
-    now.personal = { relationshipReads: {} };
+    setSettings({ personal: { relationshipReads: {} } });
     expect(readsOn()).toEqual(["conflict", "connection"]);
-    now.mentionsRead = true;
+    setSettings({ mentionsRead: true });
     expect(readsOn()).toEqual(["conflict", "connection", "mentions"]);
-    now.personal = undefined;
+    setSettings({ personal: null });
     expect(readsOn()).toEqual(["mentions"]);
   } finally {
-    Object.assign(now, was);
+    setSettings({
+      mentionsRead: mentionsRead ?? null,
+      personal: personal ?? null,
+    });
   }
 });

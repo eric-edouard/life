@@ -22,10 +22,13 @@ const isAppState = (state: string) =>
 /**
  * The settings of an install in the old shape, in the new: `histories` under `personal`, `exchangeReads` as
  * `personal.relationshipReads` and `mentionsRead`. Personas, Between us and his views and health ran with no switch
- * before, so an install with personas stored and no `personal` yet keeps them on. Never through the strict parser: the
+ * before, so an install in the old shape (an old key present) with personas stored and no `personal` keeps them on; a file with no old key is never touched. Never through the strict parser: the
  * old keys would throw. A file already in the new shape comes back as it is.
  */
 export function settingsOf(old: Row, hasPersonas: boolean): Row {
+  if (!("histories" in old || "exchangeReads" in old)) {
+    return old;
+  }
   const { exchangeReads, histories, ...rest } = old;
   const personal = rest.personal as Row | undefined;
   if (histories && personal?.histories) {
@@ -41,13 +44,12 @@ export function settingsOf(old: Row, hasPersonas: boolean): Row {
     !personal && hasPersonas
       ? { aboutMe: {}, personas: {}, relationships: {} }
       : {};
-  if (Object.keys(moved).length + Object.keys(backfilled).length === 0) {
-    return old;
-  }
   return {
     ...rest,
     ...(exchangeReads === true ? { mentionsRead: true } : {}),
-    personal: { ...backfilled, ...personal, ...moved },
+    ...(Object.keys({ ...backfilled, ...personal, ...moved }).length > 0
+      ? { personal: { ...backfilled, ...personal, ...moved } }
+      : {}),
   };
 }
 
