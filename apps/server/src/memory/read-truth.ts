@@ -48,6 +48,10 @@ export interface Truth {
   projects: (Project & { notes: string })[];
 }
 
+/** His directory is new: it holds only him and no goals (the setup interview, `docs/use/settings.md`). */
+export const isDirectoryNew = (truth: Pick<Truth, "me" | "people">) =>
+  truth.people.length === 1 && !truth.me.goals;
+
 export const readMe = (text: string): Truth["me"] => ({
   about: text.match(ABOUT)?.[1]?.replaceAll("\n", " "),
   goals: text.match(GOALS)?.[1]?.trim(),

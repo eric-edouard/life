@@ -347,6 +347,8 @@ const commands: Record<string, () => number | Promise<number>> = {
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
+    // The core, on from the first run; the personal add-ons stay off until he switches them.
+    setSettings({ conversationSummaries: true, mentionsRead: true });
     console.log("Life: data ready");
     return 0;
   },

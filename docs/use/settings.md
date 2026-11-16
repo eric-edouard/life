@@ -60,11 +60,11 @@ sources and uncertain time zones. Historical model backfill is paused until its 
 bun life settings set '{"personal":{"personas":{},"relationships":{},"aboutMe":{}}}'
 ```
 
-Parts of Life about you and the people close to you, each off until its key is in `personal` (a part you set replaces
+Life.app has one switch for each of these, under "About you and the people close to you" (`histories` starts five years back). Parts of Life about you and the people close to you, each off until its key is in `personal` (a part you set replaces
 the whole of `personal`, so name every add-on you want on). Each takes `{}`, except `histories`.
 
-- `aboutMe`: the Views and Health sections of pages. Takes effect in a later release: nothing gates those sections yet.
-- `relationships`: the Between us section of the pages of people close to you. Takes effect in a later release, like `aboutMe`.
+- `aboutMe`: the Views and Health sections of pages.
+- `relationships`: the Between us section of the pages of people close to you.
 - `personas`: what each person is like and what repeats between them and you, read weekly.
 - `relationshipReads`: each night, how each finished exchange with someone went (connection and conflict).
 - `histories`: `{"from":"2026-09"}`. Each night Life summarises, once, every finished month from `from` on between you
@@ -138,3 +138,9 @@ Life collects the older messages it touched and updates search without reading t
 one Life did not keep, can be read back whole by its id.
 
 Next: [back up and restore](backup.md).
+
+## The setup interview
+
+Life starts knowing only what you tell it. After connecting, ask your assistant to read your page and set Life up with
+you: it asks about your goals, the people close to you, your projects and what Life must not keep, and writes your
+answers into your directory as you give them. It stops offering once you have a goal or another person.

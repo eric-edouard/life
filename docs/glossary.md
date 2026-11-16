@@ -217,6 +217,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`): a recorded line's at that instant (`zoneAt`), the present's the latest noticed (`zoneNow`); where he is now is the phone's latest zone, else the Mac's (`readZoneHere`). | |
 | settled day | A day whose stored zone derived lines never change, so its units keep their dates and ids: a day a record cites by a unit id, one on or after the first episode, a deferred day that holds units, and one neighbour each side (`settledDays`, `historical-zones.ts`). | |
 | travel day | A derived-era day whose own sent mail shows the zone changing between its known neighbours (it names both the zone of the known day before and of the one after, and they differ), a clock change included (2023-10-30, Europe's DST switch). Deferred, with no units, until a source can tell which part of the day was where (`historicalZonesOf`). | |
+| the setup interview | The talk, in his assistant, that fills a new directory: goals, main people, projects and focuses, what Life may keep. Offered by the owner's `now` while `isDirectoryNew`; written through `change_directory_entry`; nothing about it is stored. | |
 | derived era | The days before his first zone record that has no `source` (`derivedEraEnd`, `historical-zones.ts`): the only days photo offsets and sent-mail Date headers may set, defer or gap. | |
 | boundary zone | One layer of the code in fallow's checks (`.fallowrc.json`). | |
 
