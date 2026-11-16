@@ -2,7 +2,11 @@ import { expect, test } from "bun:test";
 import { setSettings, settings } from "../core/settings";
 import { exchangeCountsOf } from "../memory/exchange-counts";
 import { openById } from "../memory/open-by-id";
-import { PART_CHARS, parseReadPartRef } from "../memory/read-part";
+import {
+  ADD_ON_PARTS,
+  PART_CHARS,
+  parseReadPartRef,
+} from "../memory/read-part";
 import {
   offersOf,
   type PartInputs,
@@ -284,6 +288,9 @@ test("a part is offered only while its add-on is on: none, and `now` names no pe
       "year",
     ]);
     setSettings({ personal: { histories: { from: "2024-01" }, personas: {} } });
+    expect(Object.keys(personalParts()).sort()).toEqual(
+      [...ADD_ON_PARTS].sort()
+    );
     const offers = offersOf(personalParts());
     expect(offers.map((o) => o.part)).toEqual(["persona", "story"]);
   } finally {
