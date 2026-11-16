@@ -202,9 +202,9 @@ test("his words on what Life may keep reach a call's context only for a prompt w
   const was = readFileSync(me, "utf8");
   try {
     const plain = await begin("test-may-keep", "fast", {});
-    await plain.ask({ dir: plain.dir, input: {}, prompt: "memory-extract.v5" });
+    await plain.ask({ dir: plain.dir, input: {}, prompt: "memory-extract.v6" });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
-    expect(plain.madeBy("memory-extract.v5").prompt).not.toContain("mayKeep");
+    expect(plain.madeBy("memory-extract.v6").prompt).not.toContain("mayKeep");
 
     writeFileSync(
       me,
@@ -215,13 +215,13 @@ test("his words on what Life may keep reach a call's context only for a prompt w
       context: { areas: [] },
       dir: step.dir,
       input: {},
-      prompt: "memory-extract.v5",
+      prompt: "memory-extract.v6",
     });
     expect(asked.mock.calls.at(-1)?.[0].context).toEqual({
       areas: [],
       mayKeep: "Nothing about my health.",
     });
-    expect(step.madeBy("memory-extract.v5").prompt).toContain("-with-mayKeep");
+    expect(step.madeBy("memory-extract.v6").prompt).toContain("-with-mayKeep");
     // A prompt without the sentence is called as it was.
     await step.ask({ dir: step.dir, input: {}, prompt: "memory-closeness.v1" });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
