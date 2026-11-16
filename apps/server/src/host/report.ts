@@ -49,6 +49,8 @@ export interface Night {
   checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
+  /** The matters that ended on the night's day (`doneOf`), and how: what got done, whoever closed it. */
+  done: { name: string; relation: string }[];
   /** The days whose episodes were read again, and how many episodes they hold. */
   episodes: Result<typeof episodes>;
   extracted: Result<typeof extract>;
@@ -191,6 +193,7 @@ export function successReport(day: string, ms: number, n: Night) {
       preheader: `${count(n.keyObservations.length, "new key observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
+        { kind: "pairs", list: n.done, title: "Done" },
         {
           kind: "pairs",
           list: n.checks.map((c) => ({

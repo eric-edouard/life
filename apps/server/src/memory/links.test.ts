@@ -80,7 +80,7 @@ const callStep = matterBookOf(
       } as unknown as Observation,
     ],
     refOf: (r) => r,
-    retired: new Set(),
+    retired: new Map(),
     todoItems: [],
   },
   "2026-10-10"

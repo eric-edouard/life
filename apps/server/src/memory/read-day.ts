@@ -49,7 +49,8 @@ export const shownEpisode =
   };
 
 /**
- * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what he did (its
+ * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), the matters that
+ * ended that day (`doneLinesOf`), what he did (its
  * episodes in time order, each with where he was, what happened and its key facts), the key facts in no episode, its units
  * (conversations, chats, mail and the rest; those judged worth nothing only counted), then what Life changed for him.
  * `whereUnknown`: lifelog could not be read, so where he was is not shown.
@@ -58,6 +59,7 @@ export function dayLines({
   actions = [],
   born = [],
   covered = [],
+  done = [],
   due = [],
   facts = [],
   episodes = [],
@@ -69,6 +71,7 @@ export function dayLines({
   actions?: readonly LedgerEntry[];
   born?: string[];
   covered?: SourceDay[];
+  done?: string[];
   due?: string[];
   facts?: string[];
   episodes?: DayEpisode[];
@@ -91,6 +94,9 @@ export function dayLines({
           ...due,
           "",
         ]
+      : []),
+    ...(done.length > 0
+      ? ["Done (matters that ended this day, and how):", ...done, ""]
       : []),
     ...(episodes.length > 0
       ? [
@@ -203,6 +209,7 @@ export async function day(date: string) {
       actions,
       born,
       covered: readCoverage(db, date, date).days.get(date),
+      done: context.done,
       due: dueOf(date, context),
       episodes: episodes.map((episode) => {
         const s = span(episode);

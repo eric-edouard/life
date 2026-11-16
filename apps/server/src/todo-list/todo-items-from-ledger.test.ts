@@ -56,3 +56,19 @@ test("the fold keeps section, recurrence and every subtask written; 'clear' stop
     })
   ).toEqual({ title: "x" });
 });
+
+// What got done shows the day an item was ticked: the last time it turned closed, never its making.
+test("an item's closedAt is the last time it turned closed; reopening clears it", () => {
+  const add = action({ after: { title: "Post the watch" } });
+  const edit = (n: number, at: string, after: Record<string, unknown>) =>
+    action({ after, at, id: `entry_0123456789b${n}`, kind: "edit" });
+  const ticked = edit(1, "2026-10-16T09:00:00.000Z", { completed: true });
+  const renamed = edit(2, "2026-10-16T10:00:00.000Z", { title: "Post it" });
+  const reopened = edit(3, "2026-10-17T09:00:00.000Z", { completed: false });
+  const again = edit(4, "2026-10-18T09:00:00.000Z", { completed: true });
+  const item = (list: LedgerEntry[]) => todoItemsOf(list).get("reminder:12");
+  expect(item([add])?.closedAt).toBeUndefined();
+  expect(item([add, ticked, renamed])?.closedAt).toBe(ticked.at);
+  expect(item([add, ticked, reopened])?.closedAt).toBeUndefined();
+  expect(item([add, ticked, reopened, again])?.closedAt).toBe(again.at);
+});

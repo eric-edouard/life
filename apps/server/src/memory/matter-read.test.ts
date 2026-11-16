@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Episode } from "../records/episode";
 import type { Observation } from "../records/observation";
-import { isEnded, type MatterRecords, matterBookOf } from "./matter-read";
+import {
+  doneOnOf,
+  isEnded,
+  type MatterRecords,
+  matterBookOf,
+} from "./matter-read";
 import { openItems } from "./open-items";
 import { dayLines } from "./read-day";
 import { matterItems, openWithOf } from "./read-open-items";
@@ -117,10 +122,15 @@ const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   linkEndings: new Map(),
   observations,
   refOf: (r) => r,
-  retired: new Set(),
+  retired: new Map(),
   todoItems: [],
   ...over,
 });
+/** Observations said outdated on 19 Oct: retired for sure. */
+const gone = (...ids: string[]) =>
+  new Map(
+    ids.map((id) => [id, { at: "2026-10-19T09:00:00Z", why: "outdated" }])
+  );
 /** Stored matter lines as `mattersNow` gives them: `offered`, the records a matters call was shown. */
 const stored = (
   matters: Parameters<typeof matterBookOf>[0]["matters"],
@@ -158,10 +168,10 @@ test("the errand: moving, next 'call the shop', owed to Gran, the partner only w
 
 test("a matter's status: done when every open step is ended, stuck when the next step's date passed, waiting, dormant", () => {
   const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
-  expect(book({ retired: new Set([ask, promise]) })[0]?.status).toBe("done");
+  expect(book({ retired: gone(ask, promise) })[0]?.status).toBe("done");
   // One ended step does not close a matter while another is open, whichever is newer.
-  expect(book({ retired: new Set([ask]) })[0]?.open).toBe(true);
-  expect(book({ retired: new Set([promise]) })[0]).toMatchObject({
+  expect(book({ retired: gone(ask) })[0]?.open).toBe(true);
+  expect(book({ retired: gone(promise) })[0]).toMatchObject({
     next: { text: "Get Gran's watch repaired" },
     open: true,
   });
@@ -218,7 +228,7 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     stored([]),
     records({
       observations: lone,
-      retired: new Set([lone[3]?.id as string]),
+      retired: gone(lone[3]?.id as string),
       todoItems: [
         todo(1, { urgent: true }, lone[0]?.id),
         todo(2, {}),
@@ -380,7 +390,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     records({
       episodeOf: new Map(),
       observations: loops,
-      retired: new Set(["obs_000000000006"]),
+      retired: gone("obs_000000000006"),
     }),
     "2026-10-19"
   );
@@ -444,7 +454,7 @@ test("a unit no episode holds still gives its observations; a retired one is end
     records({
       episodeOf: new Map(),
       observations: [own, retired, small, ask],
-      retired: new Set([retired.id]),
+      retired: gone(retired.id),
     }),
     "2026-10-19"
   );
@@ -470,19 +480,27 @@ test("a unit no episode holds still gives its observations; a retired one is end
 test("a link ends its step at once: the matter reads probably done, the step shows the words that ended it", () => {
   const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
   const linked = new Map([
-    [promise, { later: "ep_000000000005", quote: "I called the shop" }],
+    [
+      promise,
+      {
+        at: "2026-10-16T09:00:00Z",
+        later: "ep_000000000005",
+        quote: "I called the shop",
+      },
+    ],
   ]);
   // Another step still open: the matter stays open, its next step the open one.
   const [open] = book({ linkEndings: linked });
   expect(open).toMatchObject({ next: { ref: ask }, open: true });
   expect(open?.steps.find((s) => s.ref === promise)?.ending).toEqual({
+    at: "2026-10-16T09:00:00Z",
     by: "link",
     quote: "I called the shop",
   });
-  const [probably] = book({ linkEndings: linked, retired: new Set([ask]) });
+  const [probably] = book({ linkEndings: linked, retired: gone(ask) });
   expect(probably).toMatchObject({ open: false, status: "probably_done" });
   // His word (the step retired) makes it done.
-  const [done] = book({ retired: new Set([ask, promise]) });
+  const [done] = book({ retired: gone(ask, promise) });
   expect(done?.status).toBe("done");
 });
 
@@ -625,4 +643,53 @@ test("matters-study P5: a mailer handle is a no-reply spelling or a failed-payme
   for (const h of ["ann@mail.test", "support@pay.test", "renoir@art.test"]) {
     expect([h, isMailerHandle(h)]).toEqual([h, false]);
   }
+});
+
+// What got done (his ask of 16 Nov 2026: an agent or a link closes things; he still sees what was done, when it was
+// done, never when a run found it).
+test("what got done on a day: closed matters by the instant their last step ended, with how", () => {
+  const [ask, promise] = [obs(1, "", {}).id, obs(5, "", {}).id];
+  const ended = matterBookOf(
+    stored([line]),
+    records({
+      retired: new Map([
+        [ask, { at: "2026-10-17T08:00:00Z", why: "outdated" }],
+        [
+          promise,
+          {
+            at: "2026-10-18T15:00:00Z",
+            why: "the agent posted the watch back",
+          },
+        ],
+      ]),
+    }),
+    "2026-10-20"
+  );
+  const day = (at: string) => at.slice(0, 10);
+  expect(doneOnOf(ended, "2026-10-17", day)).toEqual([]);
+  const [done] = doneOnOf(ended, "2026-10-18", day);
+  expect(done?.matter.name).toBe("Mend Gran's watch");
+  expect(done?.last.ending).toEqual({
+    at: "2026-10-18T15:00:00Z",
+    by: "record",
+    why: "the agent posted the watch back",
+  });
+  // A matter still open is never listed, whatever its steps' endings.
+  const open = matterBookOf(
+    stored([line]),
+    records({ retired: gone(promise) }),
+    "2026-10-20"
+  );
+  expect(doneOnOf(open, "2026-10-19", day)).toEqual([]);
+});
+
+test("read_day lists what got done that day after what is due", () => {
+  const lines = dayLines({
+    done: [
+      "- matter_aaaaaaaaaaaa Mend Gran's watch [done]: Call the shop (ticked 2026-10-18)",
+    ],
+    due: ["- a due line"],
+  });
+  expect(lines.indexOf("Done (matters that ended this day, and how):")).toBe(3);
+  expect(lines[4]).toContain("(ticked 2026-10-18)");
 });
