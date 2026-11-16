@@ -1,40 +1,43 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { stamp } from "../models/llm";
 import { Link, LinkBatch } from "../records/link";
+import type { Observation } from "../records/observation";
 import { endingsNow, readBatches } from "./endings";
 import {
   ACTIONABLE,
+  episodeAt,
   isEnded,
   type MatterStepNow,
   matterBookOf,
+  matterPeopleOf,
 } from "./matter-read";
-import {
-  mattersNow,
-  readMatterBook,
-  readMatterRecords,
-  readMatters,
-} from "./matters";
+import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
 import { begin, chunks, inBatches } from "./run";
-import { observationsNow, type People } from "./who";
+import type { People } from "./who";
 import { dayNow } from "./zones";
 
-// Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later step of a matter (an
-// observation, or an episode) shows that an open step of it (a promise, a wait, a to-do of his) happened or was
-// dropped. One model call per matter is shown its open steps and its later steps; code keeps a link only when both
-// ends were shown, the later one is later, and the words given are found in the later one's own quote. Since v2 a link
-// never ties two matters: a call sees one. Each judged batch is one appended line of memory/links.jsonl: the result, and the
+// Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later record (an observation,
+// or an episode) shows that an open step of a matter (a promise, a wait, a to-do of his) happened or was dropped. One
+// model call per matter is shown its open steps and its later records (`laterRecordsOf`: its own later steps, and since
+// v3 its people's records of the week after that no matter holds, so an ending never ties two matters); code keeps a
+// link only when both ends were shown, the later one is later (`isLater`), and the words given are found in the later
+// one's own quote. Each judged batch is one appended line of memory/links.jsonl: the result, and the
 // record of which pairs were already judged, so what is due is derived and nothing is paid twice. A link never
 // deletes: what it ends is worked out when read (`endingsOf`). Off until his `links` setting.
 
-const PROMPT = "memory-links.v2";
+const PROMPT = "memory-links.v3";
 /** The most open steps, and later steps, one call is shown. */
 const OPEN_MAX = 40;
 const LATER_MAX = 40;
+/** The most of its people's records a matter is shown beyond its own steps, and the days after its newest open step they may be from. */
+const LATER_RECORDS_MAX = 20;
+const LATER_RECORDS_DAYS = 7;
 /** The most calls a night makes, and the most of them one matter takes: a long backlog neither starves nor is starved. */
 const NIGHT_CALLS = 100;
 const SUBJECT_CALLS = 10;
@@ -81,7 +84,7 @@ export function subjectWorkOf(
     )
   );
   const isDue = (o: Shown, l: Shown) =>
-    l.at > o.at && !judged.has(`${o.id} ${l.id}`);
+    isLater(o, l) && !judged.has(`${o.id} ${l.id}`);
   const due = later
     .filter((l) => open.some((o) => isDue(o, l)))
     .toSorted((a, b) => a.at.localeCompare(b.at));
@@ -119,6 +122,10 @@ export function nightOf(work: SubjectWork[]) {
     });
 }
 
+/** Whether `l` can end `o`: said after it; an episode from the same day on (a call that settles it the same day counts, the words decide). */
+export const isLater = (o: Shown, l: Shown) =>
+  l.type === "episode" ? l.day >= o.day : l.at > o.at;
+
 const Reply = z.object({
   links: z
     .array(
@@ -138,7 +145,7 @@ export function keptLinks(reply: unknown, call: Call): Link[] {
   return Reply.parse(reply).links.flatMap((l) => {
     const [a, b] = [open.get(l.earlier), later.get(l.later)];
     const [found] = b ? foundQuotes([l.quote], [{ text: b.quote }]) : [];
-    return a && b && b.at > a.at && found
+    return a && b && isLater(a, b) && found
       ? [
           Link.parse({
             earlier: a.id,
@@ -175,14 +182,59 @@ export function splitSteps(
   };
 }
 
+type LaterObservation = Pick<
+  Observation,
+  "at" | "date" | "id" | "modality" | "speaker" | "subjects" | "type"
+>;
+
 /**
- * The open matters (`readMatterBook`), each with its open steps
- * (promises, waits and to-dos of his with no ending: a step a link already ended is not judged again) and its later steps (`splitSteps`), as a call
- * is shown them. A matter of one has no later step and no work.
+ * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
+ * them now) from its oldest open step's day to `LATER_RECORDS_DAYS` after its newest, that no matter holds, never a
+ * plan, a condition or a promise, wait or to-do; the earliest `LATER_RECORDS_MAX`. One held elsewhere is that matter's
+ * (September's rent is not ended by November's).
+ */
+export function laterRecordsOf<T extends LaterObservation>(
+  open: readonly MatterStepNow[],
+  people: ReadonlySet<string>,
+  observations: readonly T[],
+  isHeld: (id: string) => boolean,
+  refOf: (ref: string) => string
+) {
+  const days = open.map((s) => s.day).toSorted();
+  const [from, last] = [days[0], days.at(-1)];
+  if (!(from && last)) {
+    return [];
+  }
+  const to = daysBefore(last, -LATER_RECORDS_DAYS);
+  return observations
+    .filter(
+      (o) =>
+        o.date >= from &&
+        o.date <= to &&
+        !isHeld(o.id) &&
+        !ACTIONABLE.includes(o.type) &&
+        o.modality !== "plan" &&
+        o.modality !== "conditional" &&
+        [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
+    )
+    .toSorted((a, b) => a.at.localeCompare(b.at))
+    .slice(0, LATER_RECORDS_MAX);
+}
+
+/**
+ * The open matters, each with its open steps (promises, waits and to-dos of his with no ending: a step a link already
+ * ended is not judged again) and its later records (`splitSteps`, then `laterRecordsOf`), as a call is shown them. A
+ * matter of one has no work. The records are read once, the book built from them.
  */
 async function readOpenMatters(people: People) {
-  const { observations } = await observationsNow(people);
-  const byId = new Map(observations.map((o) => [o.id, o]));
+  const records = await readMatterRecords(people);
+  const book = matterBookOf(mattersNow(readMatters()), records, dayNow());
+  const byId = new Map(records.observations.map((o) => [o.id, o]));
+  const held = new Set(
+    book.flatMap((m) => (m.lone ? [] : m.steps.map((s) => s.ref)))
+  );
+  const said = (speaker: string) =>
+    speaker === OWNER ? "him" : people.nameOf(speaker);
   const shown = (s: MatterStepNow): Shown => {
     const o = byId.get(s.ref);
     return {
@@ -190,22 +242,43 @@ async function readOpenMatters(people: People) {
       day: s.day,
       id: s.ref,
       quote: s.quote,
-      said_by: o && (o.speaker === OWNER ? "him" : people.nameOf(o.speaker)),
+      said_by: o && said(o.speaker),
       text: s.text,
       type: s.kind,
     };
   };
-  const book = await readMatterBook(people, dayNow());
   return book.flatMap((m) => {
     if (!m.open || m.lone) {
       return [];
     }
     const { later, open } = splitSteps(m.steps, byId);
+    const matterPeople = new Set(
+      [...matterPeopleOf(m), ...open.flatMap((s) => s.with ?? [])].map(
+        records.refOf
+      )
+    );
+    const others = laterRecordsOf(
+      open,
+      matterPeople,
+      records.observations,
+      (id) => held.has(id),
+      records.refOf
+    ).map(
+      (o): Shown => ({
+        at: o.at,
+        day: o.date,
+        id: o.id,
+        quote: o.quote,
+        said_by: said(o.speaker),
+        text: o.text,
+        type: o.type,
+      })
+    );
     return open.length > 0
       ? [
           {
             id: m.id,
-            later: later.map(shown),
+            later: [...later.map(shown), ...others],
             name: m.name,
             open: open.map(shown),
           },
@@ -306,13 +379,19 @@ export async function readEndings(people: People, id: string) {
     records,
     dayNow()
   ).find((m) => m.id === id);
-  const byRef = new Map(matter?.steps.map((s) => [s.ref, s]));
+  // The later record may be any current one, in this matter or none.
+  const dayOf = new Map([
+    ...records.observations.map((o): [string, string] => [o.id, o.date]),
+    ...records.episodes.map((e): [string, string] => [
+      e.id,
+      episodeAt(e).slice(0, 10),
+    ]),
+  ]);
   const isObservation = new Set(records.observations.map((o) => o.id));
   return (matter?.steps ?? [])
     .filter((s) => isObservation.has(s.ref) && ACTIONABLE.includes(s.kind))
     .map((s) => {
       const end = endings.get(s.ref);
-      const by = end && byRef.get(end.later);
-      return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${by ? `ended ${by.day}: "${end.quote}" (${by.ref})` : "no ending found"}`;
+      return `- ${s.ref} ${s.day} ${s.kind}: ${s.text}\n    ${end ? `ended ${dayOf.get(end.later)}: "${end.quote}" (${end.later})` : "no ending found"}`;
     });
 }
