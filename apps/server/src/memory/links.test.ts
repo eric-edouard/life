@@ -315,7 +315,7 @@ test("an episode ends a step from its day on; any other record only once said af
   expect(isLater(promise, sent)).toBe(true);
 });
 
-test("a matter's later records: its people's unplaced notes of the week after, never one another matter holds", () => {
+test("a matter's later records: its people's unplaced notes since its oldest open step, however late, never one another matter holds (case links-2-late-answer)", () => {
   const open = [
     {
       at: "2026-09-02T10:00:00.000Z",
@@ -342,7 +342,8 @@ test("a matter's later records: its people's unplaced notes of the week after, n
       subjects: ["person:sam-old"],
     }),
     note("obs_rent_nov", "2026-09-06"),
-    note("obs_late", "2026-09-10"),
+    note("obs_late", "2026-11-13"),
+    note("obs_before", "2026-09-01"),
     note("obs_other", "2026-09-04", { speaker: "person:lea" }),
     note("obs_again", "2026-09-04", { type: "promise" }),
     note("obs_plan", "2026-09-04", { modality: "plan" }),
@@ -354,25 +355,9 @@ test("a matter's later records: its people's unplaced notes of the week after, n
     (id) => id === "obs_rent_nov",
     (ref) => (ref === "person:sam-old" ? "person:sam" : ref)
   );
-  // Read through refOf; the November rent is another matter's; the 10th is past the week; another person, a promise again and a plan are no endings.
-  expect(kept.map((o) => o.id)).toEqual(["obs_boxes"]);
-  // Over the cap, the earliest are kept.
-  const many = Array.from({ length: 25 }, (_, i) => {
-    const n = String(i).padStart(2, "0");
-    return note(`obs_n${n}`, "2026-09-03", {
-      at: `2026-09-03T10:${n}:00.000Z`,
-    });
-  }).toReversed();
-  const capped = laterRecordsOf(
-    open,
-    new Set(["person:sam"]),
-    many,
-    () => false,
-    (r) => r
-  );
-  expect(capped.map((o) => o.id)).toEqual(
-    Array.from({ length: 20 }, (_, i) => `obs_n${String(i).padStart(2, "0")}`)
-  );
+  // Read through refOf; the November rent is another matter's; an answer two months on still counts (a wait is
+  // answered when it is); before the step, another person, a promise again and a plan are no endings.
+  expect(kept.map((o) => o.id)).toEqual(["obs_boxes", "obs_late"]);
 });
 
 test("a pair is judged once per prompt: a new prompt asks a still-open step again (case links-1-made-unneeded)", () => {
