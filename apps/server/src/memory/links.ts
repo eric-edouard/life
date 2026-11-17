@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { isPromptVersion } from "../models/prompt-parts";
 import { Link, LinkBatch } from "../records/link";
@@ -25,7 +24,7 @@ import { dayNow } from "./zones";
 // Links (docs/glossary.md): two records tied. The one relation read so far is "ends": a later record (an observation,
 // or an episode) shows that an open step of a matter (a promise, a wait, a to-do of his) happened or was dropped. One
 // model call per matter is shown its open steps and its later records (`laterRecordsOf`: its own later steps, and since
-// v3 its people's records of the week after that no matter holds, so an ending never ties two matters); code keeps a
+// v3 its people's records since its oldest open step that no matter holds, so an ending never ties two matters); code keeps a
 // link only when both ends were shown, the later one is later (`isLater`), and the words given are found in the later
 // one's own quote. Each judged batch is one appended line of memory/links.jsonl: the result, and the
 // record of which pairs that prompt judged, so what is due is derived and no prompt pays for a pair twice (a new prompt
@@ -36,9 +35,6 @@ const PROMPT = "memory-links.v4";
 /** The most open steps, and later steps, one call is shown. */
 const OPEN_MAX = 40;
 const LATER_MAX = 40;
-/** The most of its people's records a matter is shown beyond its own steps, and the days after its newest open step they may be from. */
-const LATER_RECORDS_MAX = 20;
-const LATER_RECORDS_DAYS = 7;
 /** The most calls a night makes, and the most of them one matter takes: a long backlog neither starves nor is starved. */
 const NIGHT_CALLS = 100;
 const SUBJECT_CALLS = 10;
@@ -190,9 +186,9 @@ type LaterObservation = Pick<
 
 /**
  * A matter's later records beyond its own steps: its people's observations (speaker or a subject, as `refOf` reads
- * them now) from its oldest open step's day to `LATER_RECORDS_DAYS` after its newest, that no matter holds, never a
- * plan, a condition or a promise, wait or to-do; the earliest `LATER_RECORDS_MAX`. One held elsewhere is that matter's
- * (September's rent is not ended by November's).
+ * them now) from its oldest open step's day on, however late (a wait is answered when it is), that no matter holds,
+ * never a plan, a condition or a promise, wait or to-do. One held elsewhere is that matter's (September's rent is not
+ * ended by November's). No cap: each pair is asked once per prompt (`subjectWorkOf`), so a night asks only what is new.
  */
 export function laterRecordsOf<T extends LaterObservation>(
   open: readonly MatterStepNow[],
@@ -201,26 +197,19 @@ export function laterRecordsOf<T extends LaterObservation>(
   isHeld: (id: string) => boolean,
   refOf: (ref: string) => string
 ) {
-  const days = open.map((s) => s.day).toSorted();
-  const [from, last] = [days[0], days.at(-1)];
-  if (!(from && last)) {
+  const [from] = open.map((s) => s.day).toSorted();
+  if (!from) {
     return [];
   }
-  const to = daysBefore(last, -LATER_RECORDS_DAYS);
-  // ponytail: one window from the oldest open step, earliest first; a matter with open steps months apart may fill it near the oldest. Per-step windows if endings of newer steps go missing.
-  return observations
-    .filter(
-      (o) =>
-        o.date >= from &&
-        o.date <= to &&
-        !isHeld(o.id) &&
-        !ACTIONABLE.includes(o.type) &&
-        o.modality !== "plan" &&
-        o.modality !== "conditional" &&
-        [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
-    )
-    .toSorted((a, b) => a.at.localeCompare(b.at))
-    .slice(0, LATER_RECORDS_MAX);
+  return observations.filter(
+    (o) =>
+      o.date >= from &&
+      !isHeld(o.id) &&
+      !ACTIONABLE.includes(o.type) &&
+      o.modality !== "plan" &&
+      o.modality !== "conditional" &&
+      [o.speaker, ...o.subjects].some((r) => people.has(refOf(r)))
+  );
 }
 
 /**
