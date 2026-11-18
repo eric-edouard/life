@@ -52,10 +52,19 @@ export const defaultWaitOf = (a: AgentRow, now: number): AgentWait => ({
   until: iso(now + DEFAULT_WAIT),
 });
 
-/** How many desk turns failed in a row, last first. */
+/** How many desk turns failed in a row, last first: a failed turn and the retries after it (a new cause starts a new run). */
 export const failuresOf = (turns: TurnRow[]) => {
-  const i = turns.findIndex((t) => t.outcome !== "failed");
-  return i === -1 ? turns.length : i;
+  let n = 0;
+  for (const t of turns) {
+    if (t.outcome !== "failed") {
+      break;
+    }
+    n += 1;
+    if (t.cause !== "retry") {
+      break;
+    }
+  }
+  return n;
 };
 
 /**

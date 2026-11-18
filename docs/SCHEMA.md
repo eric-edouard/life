@@ -597,6 +597,6 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 desk helper (`apps/server/src/desk/desk-store.ts` holds its schema): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder, current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
-`wait_until`), its notes and open decision), `session` (every session it had, with its link; append-only), `event` (its
+`wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link; append-only), `event` (its
 queued events, one row per agent and event id, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens) and `cursor` (where the message read stopped). Never deleted by hand.

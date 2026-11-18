@@ -28,7 +28,6 @@ create table if not exists agent (
   wait_reason text,
   wait_is_default integer not null default 0,
   notes text not null default '',
-  open_decision text,
   created_at text not null,
   ended_at text,
   outcome text,
@@ -97,7 +96,6 @@ export interface AgentRow {
   id: string;
   link: string | null;
   notes: string;
-  open_decision: string | null;
   runtime: string;
   session: string | null;
   status: AgentStatus;
@@ -130,7 +128,15 @@ export interface EventRow {
 }
 
 /** The most agents the desk keeps active: every read of them is bounded by it. */
-export const MAX_ACTIVE = 50;
+const MAX_ACTIVE = 50;
+
+/** Whether the desk keeps its most agents active: no other is registered then. */
+export const isFull = (db: Database) =>
+  (db
+    .query<{ n: number }, []>(
+      "select count(*) as n from agent where status = 'active'"
+    )
+    .get()?.n ?? 0) >= MAX_ACTIVE;
 
 export const activeAgents = (db: Database) =>
   db

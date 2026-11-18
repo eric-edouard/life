@@ -6,19 +6,22 @@ import type { Runtime } from "./contract";
 export function fakeRuntime() {
   const sessions = new Map<string, { running: boolean; tokens: number }>();
   const fake = {
+    /** Runs inside `send` before it answers: a turn that ends (or calls the door) before its runtime's CLI returns. */
+    duringSend: undefined as (() => Promise<void>) | undefined,
     /** While set, `start` and `send` throw, as a CLI that fails. */
     isFailing: false as boolean,
     runtime: {
       contextTokens: (ref) =>
         Promise.resolve(sessions.get(ref)?.tokens ?? null),
-      send(ref, message) {
+      async send(ref, message) {
         const s = sessions.get(ref);
         if (fake.isFailing || !s) {
-          return Promise.reject(new Error(`cannot run ${ref}`));
+          throw new Error(`cannot run ${ref}`);
         }
         s.running = true;
         fake.said.push({ message, ref });
-        return Promise.resolve({ ref });
+        await fake.duringSend?.();
+        return { ref };
       },
       start(agent, brief) {
         if (fake.isFailing) {

@@ -1,6 +1,6 @@
 import { clock } from "../core/clock";
 import { log } from "../core/log";
-import { matcherOf, readMessageEvents } from "../host/events";
+import { MESSAGE_RECEIVED, matcherOf, readMessageEvents } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { readPeople } from "../memory/who";
 import type { TurnEnd, TurnOutcome } from "../records/registered-agent";
@@ -33,8 +33,6 @@ import {
 // starts the turns that are due; a runtime reports each turn's end here. Everything is read from the store each time,
 // so a sleep or a restart loses nothing.
 
-/** The cursor of `message.received`, over every source. */
-const MESSAGES = "message.received";
 const REMINDER =
   "Before you stop, call `set_wait` (what you wait for, until when) or `finish`.";
 
@@ -42,13 +40,13 @@ const now = () => clock().toISOString();
 
 /**
  * Reads the new messages once and queues each for every active agent waiting for it, in the transaction that saves
- * the cursor: delivered at least once, never twice (an event id is kept once per agent). With no agent waiting for
- * messages, nothing is read, and the next read starts at that time.
+ * the cursor (its name, `message.received`): delivered at least once, never twice (an event id is kept once per
+ * agent). With no agent active, nothing is read, and the next read starts at that time.
  */
 export async function pollMessages({ db, sources }: Desk) {
-  const agents = activeAgents(db).filter((a) => filtersOf(a).length > 0);
+  const agents = activeAgents(db);
   if (agents.length === 0) {
-    saveCursor(db, MESSAGES, null);
+    saveCursor(db, MESSAGE_RECEIVED, null);
     return;
   }
   const people = await readPeople();
@@ -59,7 +57,7 @@ export async function pollMessages({ db, sources }: Desk) {
     })
   );
   const read = readMessageEvents(
-    readCursor(db, MESSAGES),
+    readCursor(db, MESSAGE_RECEIVED),
     MAX_PAGE,
     people,
     (m, e) => {
@@ -75,11 +73,11 @@ export async function pollMessages({ db, sources }: Desk) {
       for (const id of ids) {
         db.run(
           "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
-          [id, m.id, MESSAGES, JSON.stringify(m), now()]
+          [id, m.id, MESSAGE_RECEIVED, JSON.stringify(m), now()]
         );
       }
     }
-    saveCursor(db, MESSAGES, read.cursor);
+    saveCursor(db, MESSAGE_RECEIVED, read.cursor);
   })();
 }
 
@@ -91,31 +89,48 @@ const wakeMessageOf = (cause: string, events: EventRow[]) =>
   ].join("\n");
 
 /**
- * Starts a turn for `a`: into its session while that holds under 30,000 tokens, else a fresh session from its packet
- * (the old one's link kept). Each queued event is handed to it. A session running a turn of his is left alone: the
- * wake comes after it. A runtime that fails makes a failed turn, tried again later.
+ * Starts a turn for `a`, or leaves a session running a turn of his alone (false: the wake comes after it). The turn is
+ * written and its queued events handed before the runtime is called, so the turn's end, however soon, finds it. It
+ * runs into its session while that holds under 30,000 tokens, else in a fresh session from its packet (the old one's
+ * link kept). A runtime that fails ends it failed, tried again later.
  */
 async function wake(desk: Desk, a: AgentRow, cause: string) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
+  // null: the runtime can't say; the send then tells.
+  const state =
+    a.session && runtime
+      ? await runtime.state(a.session).catch(() => null)
+      : "gone";
+  if (state === "running") {
+    return false;
+  }
   const events = queuedEvents(db, a.id);
-  let ref: string | null = null;
-  let isFailed = false;
+  const turn = db.transaction(() => {
+    for (const e of events) {
+      db.run(
+        "update event set handed = handed + 1 where agent_id = ? and event_id = ?",
+        [a.id, e.event_id]
+      );
+    }
+    return db.run(
+      "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
+      [a.id, a.session, cause, now()]
+    ).lastInsertRowid;
+  })();
   try {
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
     }
-    const state = a.session ? await runtime.state(a.session) : "gone";
-    if (state === "running") {
-      return;
-    }
-    const tokens = a.session ? await runtime.contextTokens(a.session) : null;
+    const tokens =
+      a.session && state === "idle"
+        ? await runtime.contextTokens(a.session)
+        : null;
     if (!a.session || state === "gone" || (tokens ?? 0) >= FRESH_AT) {
       const s = await runtime.start(
         { folder: a.folder, id: a.id, title: a.brief.slice(0, 60) },
         readPacket(desk, a.id)
       );
-      ({ ref } = s);
       db.transaction(() => {
         db.run(
           "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
@@ -130,12 +145,17 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
           s.link,
           a.id,
         ]);
+        db.run("update turn set session = ? where id = ?", [s.ref, turn]);
       })();
     } else {
       // ponytail: a new ref (a runtime's copy of a running session) only moves the agent's current session; its
       // `session` row and link come with the first runtime that makes copies (step 3).
-      ({ ref } = await runtime.send(a.session, wakeMessageOf(cause, events)));
+      const { ref } = await runtime.send(
+        a.session,
+        wakeMessageOf(cause, events)
+      );
       db.run("update agent set session = ? where id = ?", [ref, a.id]);
+      db.run("update turn set session = ? where id = ?", [ref, turn]);
     }
   } catch (error) {
     log("desk.runtime", {
@@ -144,26 +164,15 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
       ok: false,
       what: "wake",
     });
-    isFailed = true;
-  }
-  db.transaction(() => {
-    db.run(
-      "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
-      [a.id, ref ?? a.session, cause, now()]
-    );
-    for (const e of events) {
-      db.run(
-        "update event set handed = handed + 1 where agent_id = ? and event_id = ?",
-        [a.id, e.event_id]
-      );
-    }
-  })();
-  if (isFailed) {
     await turnEnded(desk, a.id, { failed: true });
   }
+  return true;
 }
 
-/** Starts the turns due now: his answers first, then the oldest deadline, at most 3 a tick. */
+/**
+ * Starts the turns due now: his answers first, then the oldest deadline, until 3 have started this tick (an agent
+ * whose session runs a turn of his takes no place).
+ */
 export async function wakeDue(desk: Desk) {
   const t = clock().getTime();
   const due = activeAgents(desk.db)
@@ -175,9 +184,15 @@ export async function wakeDue(desk: Desk) {
       (x, y) =>
         Number(y.cause === "answer") - Number(x.cause === "answer") ||
         x.at - y.at
-    )
-    .slice(0, STARTS_PER_TICK);
-  await Promise.all(due.map((d) => wake(desk, d.a, d.cause)));
+    );
+  let started = 0;
+  for (const d of due) {
+    if (started === STARTS_PER_TICK) {
+      break;
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
+    started += (await wake(desk, d.a, d.cause)) ? 1 : 0;
+  }
 }
 
 /** One tick of the clock: the messages (when their poll is due), then the turns due. */
@@ -256,9 +271,10 @@ export async function turnEnded(desk: Desk, id: string, end: TurnEnd = {}) {
     return;
   }
   if (!t.reminded_at && a.session && desk.runtimes[a.runtime]) {
+    // Marked before it is sent, so a turn ending at once is never reminded twice.
+    db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
     try {
       await desk.runtimes[a.runtime]?.send(a.session, REMINDER);
-      db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
       return;
     } catch (error) {
       log("desk.runtime", {

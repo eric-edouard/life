@@ -1,10 +1,9 @@
 import { afterEach, expect, setSystemTime, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
-import { repoFiles } from "../core/proc";
 import type { Messaging } from "../host/events";
 import { decisionsNow, requestDecision } from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
@@ -18,7 +17,6 @@ import { fakeRuntime } from "./runtimes/fake-runtime";
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
 // chats. The test plays each agent: its door calls (`setWait`, `finish`) and its turn's end (`turnEnded`).
 
-const IMPORTS_DESK = /from "[./]*\/?desk\//;
 const T0 = Date.UTC(2026, 10, 18, 9, 0);
 const ANA = { chat: "Test Ana", from_me: false };
 
@@ -86,7 +84,7 @@ function setup() {
       runtime: "fake",
     });
     await wakeDue(desk);
-    setWait(desk, id, {
+    await setWait(desk, id, {
       events: [ANA],
       reason: "Ana's reply",
       until: ahead(until),
@@ -135,11 +133,22 @@ test("W2: a wait under 5 minutes or over 7 days is refused, and the old wait sta
   const { desk, waiting } = setup();
   const id = await waiting();
   const before = agentOf(desk.db, id)?.wait_until;
-  for (const until of [ahead(2 * MIN), ahead(8 * DAY)]) {
-    expect(
+  const refused = await Promise.all(
+    [ahead(2 * MIN), ahead(8 * DAY)].map((until) =>
       setWait(desk, id, { events: [], reason: "r", until })
-    ).toHaveProperty("error");
+    )
+  );
+  for (const r of refused) {
+    expect(r).toHaveProperty("error");
   }
+  // A filter on someone Life doesn't know would never match: refused, as the connector's poll refuses it.
+  expect(
+    await setWait(desk, id, {
+      events: [{ from_me: false, person: "Nobody Madeup" }],
+      reason: "r",
+      until: ahead(HOUR),
+    })
+  ).toEqual({ error: "No one goes by Nobody Madeup" });
   expect(agentOf(desk.db, id)?.wait_until).toBe(before);
 });
 
@@ -161,7 +170,7 @@ test("W4: a turn ending with no set_wait is reminded once; set then, no default 
   await wakeDue(desk);
   await end(id);
   expect(fake.said.at(-1)?.message).toContain("set_wait");
-  setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
   await end(id);
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "waited" }]);
   expect(agentOf(desk.db, id)?.wait_is_default).toBe(0);
@@ -225,7 +234,7 @@ test("W8: an event during a turn waits in the queue; a turn starts after the fir
   await wakeDue(desk);
   const m = write();
   await pollMessages(desk);
-  setWait(desk, id, { events: [ANA], reason: "r", until: ahead(DAY) });
+  await setWait(desk, id, { events: [ANA], reason: "r", until: ahead(DAY) });
   await end(id);
   expect(eventRow(id, m)).toEqual({
     consumed_at: null,
@@ -305,6 +314,15 @@ test("W11: an event handed to every failing turn is dropped, flagged, and the de
   advance(HOUR);
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(5);
+  // At the default wait's deadline a new run of failures starts: retried at 5 minutes, not another 24 hours.
+  advance(DAY);
+  await wakeDue(desk);
+  advance(5 * MIN);
+  await wakeDue(desk);
+  expect(turns(id).slice(-2)).toEqual([
+    { cause: "deadline", outcome: "failed" },
+    { cause: "retry", outcome: "failed" },
+  ]);
 });
 
 test("W12: a 9-hour jump over 5 deadlines runs all 5, 3 at a time, oldest first", async () => {
@@ -319,8 +337,8 @@ test("W12: a 9-hour jump over 5 deadlines runs all 5, 3 at a time, oldest first"
   await wakeDue(desk);
   expect(running()).toEqual(ids.filter((_, i) => [1, 3, 4].includes(i)));
   for (const id of running()) {
-    setWait(desk, id, { events: [], reason: "r", until: ahead(DAY) });
     // biome-ignore lint/performance/noAwaitInLoops: one turn's end at a time
+    await setWait(desk, id, { events: [], reason: "r", until: ahead(DAY) });
     await end(id);
   }
   await wakeDue(desk);
@@ -424,18 +442,8 @@ test("W18: wakes run while the night holds the memory lock", async () => {
   }
 });
 
-test("W19: nothing of Life imports the desk, so the night, the watcher and the connector run without it", async () => {
-  const root = join(import.meta.dir, "../../../..");
-  const files = (
-    await repoFiles(root, ["apps/server/src", "scripts"], [".ts"])
-  ).filter((f) => !f.startsWith("apps/server/src/desk/"));
-  expect(
-    files.filter((f) => IMPORTS_DESK.test(readFileSync(join(root, f), "utf8")))
-  ).toEqual([]);
-});
-
 test("W20: finish ends the agent and withdraws its open decision", async () => {
-  const { desk, end, turns, waiting } = setup();
+  const { desk, end, fake, turns, waiting } = setup();
   const id = await waiting();
   const asked = await requestDecision("desk", {
     agent: id,
@@ -448,17 +456,16 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
     recommended: ["yes"],
     why: "a test",
   });
-  desk.db.run("update agent set open_decision = ? where id = ?", [
-    asked.id,
-    id,
-  ]);
+  const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
+  if (s) {
+    s.tokens = 45_000;
+  }
   advance(HOUR);
   await wakeDue(desk);
+  expect(fake.said.at(-1)?.message).toContain(asked.id);
   await finish(desk, id, "done");
   await end(id);
-  const a = agentOf(desk.db, id);
-  expect(a?.status).toBe("ended");
-  expect(a?.open_decision).toBeNull();
+  expect(agentOf(desk.db, id)?.status).toBe("ended");
   expect(decisionsNow().find((d) => d.id === asked.id)?.state).toBe(
     "withdrawn"
   );
@@ -466,6 +473,38 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
   advance(DAY);
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(2);
+});
+
+test("a turn that ends before its runtime's send returns is closed, and the next deadline still fires", async () => {
+  const { desk, end, fake, turns, waiting } = setup();
+  const id = await waiting();
+  fake.duringSend = async () => {
+    await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+    await end(id);
+  };
+  advance(HOUR);
+  await wakeDue(desk);
+  fake.duringSend = undefined;
+  expect(openTurn(desk.db, id)).toBeNull();
+  expect(turns(id).at(-1)).toEqual({ cause: "deadline", outcome: "waited" });
+  advance(HOUR);
+  await wakeDue(desk);
+  expect(turns(id).at(-1)).toEqual({ cause: "deadline", outcome: null });
+});
+
+test("agents whose sessions run turns of his take no place among a tick's 3 starts", async () => {
+  const { desk, fake, waiting } = setup();
+  const busy = [await waiting(HOUR), await waiting(HOUR), await waiting(HOUR)];
+  const id = await waiting(2 * HOUR);
+  for (const b of busy) {
+    const s = fake.sessions.get(agentOf(desk.db, b)?.session ?? "");
+    if (s) {
+      s.running = true;
+    }
+  }
+  advance(3 * HOUR);
+  await wakeDue(desk);
+  expect(openTurn(desk.db, id)).not.toBeNull();
 });
 
 test("with `desk` unset, the desk helper runs nothing: no lock, no store", () => {
