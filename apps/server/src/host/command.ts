@@ -169,11 +169,15 @@ const HANDLERS: Record<string, Handler> = {
   "answer-check": (values, [ref = "", option = "", ...note]) =>
     ref && option
       ? json(
-          answerCheck(ref, {
-            note: words(note) || undefined,
-            options: [option],
-            person: values.person,
-          })
+          answerCheck(
+            ref,
+            {
+              note: words(note) || undefined,
+              options: [option],
+              person: values.person,
+            },
+            "cli"
+          )
         )
       : usage(),
   appointments: step(() => appointments()),

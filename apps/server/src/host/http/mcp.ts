@@ -437,7 +437,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told; a step closes or reopens; who someone is is recorded) and returns the lines written.",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
     z.object({
       note: z.string().min(1).max(4000).optional(),
       options: z.array(z.string()).default([]),

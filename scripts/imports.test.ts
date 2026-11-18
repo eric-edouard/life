@@ -110,6 +110,19 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
 });
 
+// Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.
+test("only his answer to a decision sends: answerDecision alone calls sendDraft, which alone calls sendText, the one Matrix send", () => {
+  expect(importers(["sendDraft"], "draft-send")).toEqual([
+    "apps/server/src/memory/decisions.ts",
+  ]);
+  expect(importers(["sendText"], "matrix")).toEqual([
+    "apps/server/src/memory/draft-send.ts",
+  ]);
+  expect(running(/\/send\/m\.room\.message|m\.room\.message\//)).toEqual([
+    "apps/server/src/sources/matrix.ts",
+  ]);
+});
+
 // Life reads his payments only through money's `tx` contract, behind `payments()`.
 test("only the payments backend imports money, and only money.ts runs the money CLI", () => {
   expect(importers(["money"], "money")).toEqual([

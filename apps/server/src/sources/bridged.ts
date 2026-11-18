@@ -19,7 +19,14 @@ import {
   readArchived,
 } from "./archived";
 import { type Descriptor, sourceFile } from "./contract";
-import { BRIDGES, configOf, isBridgeAdded, OWNER, userOn } from "./matrix";
+import {
+  BRIDGES,
+  configOf,
+  isBridgeAdded,
+  isOwnRoom,
+  OWNER,
+  userOn,
+} from "./matrix";
 
 // A network bridged on his local homeserver (LINE, Instagram, Messenger: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
@@ -769,6 +776,8 @@ export const bridgedSource = (network: Network): Descriptor => {
         "select at, coalesce(chatName, '?') || ': ' || text as words from messages order by at desc limit 1"
       ),
     read: (since, before) => readBridged(network, since, undefined, before),
+    // A chat the bridge copied is its room; one Beeper or an export copied is not the bridge's.
+    roomOf: (chat) => (isOwnRoom(chat) ? chat : undefined),
     silentAfter: 72 * HOUR,
     store: {
       // Beeper's store gets new messages only while Beeper runs; the bridges' one job keeps a bridge running.

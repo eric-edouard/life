@@ -68,6 +68,11 @@ export type Descriptor = {
   macOnly?: true;
   /** What he calls it. */
   label: string;
+  /**
+   * Its bridge's room on Life's homeserver for one of its chats, none for a chat the bridge holds no room for: a source
+   * with it sends a card's draft through the bridge of its name (`memory/draft-send.ts`).
+   */
+  roomOf?: (chat: string) => string | undefined;
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;

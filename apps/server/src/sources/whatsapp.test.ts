@@ -4,8 +4,15 @@ import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DAY, HOUR } from "../core/clock";
 import { incomingArchived } from "./archived";
+import { BRIDGES } from "./matrix";
 import { proto, whatsappFixture } from "./store-fixtures";
-import { copyWhatsapp, phoneCallOf, readWhatsapp, WHATSAPP } from "./whatsapp";
+import {
+  copyWhatsapp,
+  phoneCallOf,
+  readWhatsapp,
+  WHATSAPP,
+  whatsappRoomOf,
+} from "./whatsapp";
 
 test("the archive reads deleted and edited messages by their last text, with senders resolved to phones", () => {
   const { add, dir, now, source, wa } = whatsappFixture();
@@ -267,4 +274,25 @@ test("a full copy keeps a deletion its own store holds beside the message", () =
   } finally {
     wa.close();
   }
+});
+
+test("a chat's room in the WhatsApp bridge: by its id, a phone's through the bridge's own map, none for a chat the bridge never saw", () => {
+  const bridges = join(BRIDGES, "..", `wa-${crypto.randomUUID()}`);
+  expect(whatsappRoomOf("155@s.whatsapp.net", bridges)).toBeUndefined();
+  mkdirSync(join(bridges, "whatsapp"), { recursive: true });
+  const db = new Database(join(bridges, "whatsapp", "whatsapp.db"));
+  db.run("create table portal (id text not null, mxid text)");
+  db.run(
+    "create table whatsmeow_lid_map (lid text primary key, pn text unique not null)"
+  );
+  db.run(
+    "insert into portal values ('900@lid', '!kit:life.local'), ('120@g.us', '!group:life.local'), ('901@lid', null)"
+  );
+  db.run("insert into whatsmeow_lid_map values ('900', '155'), ('901', '156')");
+  db.close();
+  expect(whatsappRoomOf("155@s.whatsapp.net", bridges)).toBe("!kit:life.local");
+  expect(whatsappRoomOf("900@lid", bridges)).toBe("!kit:life.local");
+  expect(whatsappRoomOf("120@g.us", bridges)).toBe("!group:life.local");
+  expect(whatsappRoomOf("156@s.whatsapp.net", bridges)).toBeUndefined();
+  expect(whatsappRoomOf("157@s.whatsapp.net", bridges)).toBeUndefined();
 });

@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -6,9 +7,11 @@ import {
   blockOf,
   cookieValues,
   hasStates,
+  isOwnRoom,
   linkBridge,
   pastedValues,
   readBlock,
+  sendText,
 } from "./matrix";
 
 test("a bridge that isn't set up or running is a reason it is blocked, never a throw", async () => {
@@ -153,4 +156,119 @@ test("a bridge just started has logins with no state yet: not settled until each
   expect(hasStates([{ state: { state_event: "" } }])).toBe(false);
   expect(hasStates([{ state: { state_event: "BAD_CREDENTIALS" } }])).toBe(true);
   expect(hasStates([])).toBe(true); // not linked is settled: blockOf says so
+});
+
+/** A made-up homeserver: answers a join (or refuses it) and a send, and keeps each request. */
+function fakeHomeserver(join = 200) {
+  const seen: {
+    auth: string | null;
+    body: string;
+    method: string;
+    path: string;
+  }[] = [];
+  const server = Bun.serve({
+    fetch: async (req) => {
+      const path = new URL(req.url).pathname;
+      seen.push({
+        auth: req.headers.get("authorization"),
+        body: await req.text(),
+        method: req.method,
+        path,
+      });
+      if (path.includes("/join/")) {
+        return Response.json(
+          join === 200 ? { room_id: "!r" } : { errcode: "M_FORBIDDEN" },
+          { status: join }
+        );
+      }
+      return Response.json({ event_id: "$ev1" });
+    },
+    port: 0,
+  });
+  return { seen, server };
+}
+
+/** A made-up bridge's database: the events it says it sent. */
+function bridgeWith(events: string[]) {
+  const bridges = join(BRIDGES, "..", `send-${crypto.randomUUID()}`);
+  mkdirSync(join(bridges, "fake"), { recursive: true });
+  const db = new Database(join(bridges, "fake", "fake.db"));
+  db.run("create table message (mxid text not null)");
+  for (const e of events) {
+    db.run("insert into message (mxid) values (?)", [e]);
+  }
+  db.close();
+  return bridges;
+}
+
+test("a send joins the room, then puts exactly the text once under its transaction, and returns the event the bridge confirmed", async () => {
+  const { seen, server } = fakeHomeserver();
+  const at = {
+    bridges: bridgeWith(["$ev1"]),
+    confirmMs: 1000,
+    homeserver: server.url.origin,
+    token: "made-up",
+  };
+  try {
+    expect(
+      await sendText(
+        "fake",
+        "!r:life.local",
+        "See you at 8",
+        "dec_000000000001",
+        at
+      )
+    ).toBe("$ev1");
+  } finally {
+    server.stop();
+  }
+  expect(seen.map((r) => [r.method, r.path])).toEqual([
+    ["POST", "/_matrix/client/v3/join/!r%3Alife.local"],
+    [
+      "PUT",
+      "/_matrix/client/v3/rooms/!r%3Alife.local/send/m.room.message/dec_000000000001",
+    ],
+  ]);
+  expect(JSON.parse(seen[1]?.body ?? "")).toEqual({
+    body: "See you at 8",
+    msgtype: "m.text",
+  });
+  expect(seen[1]?.auth).toBe("Bearer made-up");
+});
+
+test("a send says whether anything left: a room it can't join sends nothing, an event the bridge never confirms may have gone", async () => {
+  const refused = fakeHomeserver(403);
+  const silent = fakeHomeserver();
+  const at = { bridges: bridgeWith([]), confirmMs: 500, token: "made-up" };
+  try {
+    await expect(
+      sendText("fake", "!r:life.local", "hi", "dec_000000000002", {
+        ...at,
+        homeserver: refused.server.url.origin,
+      })
+    ).rejects.toThrow("not sent: fake room not joined: 403");
+    expect(refused.seen).toHaveLength(1);
+    await expect(
+      sendText("fake", "!r:life.local", "hi", "dec_000000000003", {
+        ...at,
+        homeserver: silent.server.url.origin,
+      })
+    ).rejects.toThrow("may have gone: the homeserver took it ($ev1)");
+    await expect(
+      sendText("fake", "!r:life.local", "hi", "dec_000000000004", {
+        ...at,
+        homeserver: silent.server.url.origin,
+        token: undefined,
+      })
+    ).rejects.toThrow("not sent");
+  } finally {
+    refused.server.stop();
+    silent.server.stop();
+  }
+});
+
+test("only a room on Life's own homeserver is a bridge's room", () => {
+  expect(isOwnRoom("!abc:life.local")).toBe(true);
+  expect(isOwnRoom("!abc:beeper.local")).toBe(false);
+  expect(isOwnRoom("340282366841710300949128")).toBe(false);
 });

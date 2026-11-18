@@ -1,9 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
+import { SECRETS } from "../core/secret";
+import { openReadOnly } from "../core/sqlite";
 
 // The bridges' local Matrix homeserver (docs/use/bridges.md): each bridge's config and its provisioning API, which
-// says whether it is linked and connected. Reading the bridges' messages is `sources/bridged.ts`.
+// says whether it is linked and connected, and the one send into a bridged chat (`sendText`). Reading the bridges'
+// messages is `sources/bridged.ts`.
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
 export const BRIDGES = join(MACHINE_DIR, "bridges");
@@ -28,6 +31,16 @@ export const configOf = (bridge: string) =>
   };
 /** The homeserver's address on this Mac. */
 export const HOMESERVER_URL = "http://127.0.0.1:8008";
+
+/** His account on the homeserver as `bun life bridge` saved it (`SECRETS.matrix`); empty before it is set up. */
+export const readOwnerAccount = (): { password?: string; token?: string } =>
+  existsSync(SECRETS.matrix)
+    ? JSON.parse(readFileSync(SECRETS.matrix, "utf8"))
+    : {};
+
+/** Whether a chat key is a room on Life's own homeserver (a Beeper room's key ends with Beeper's server). */
+export const isOwnRoom = (chat: string) =>
+  chat.startsWith("!") && chat.endsWith(`:${SERVER}`);
 
 /** Whether a network's bridge is added: its folder holds its config (`bun life bridge add`). */
 export const isBridgeAdded = (network: string) =>
@@ -319,4 +332,68 @@ export async function unlinkBridge(bridge: string) {
       method: "POST",
     });
   }
+}
+
+const HTTP_STATUS = /^\d{3} /;
+
+/**
+ * Sends `text` as him into `room` through `bridge`, once per `txn` (the homeserver keeps a resend of the same
+ * transaction to its first event); returns the event, once the bridge has written it as sent to the network (its
+ * `message` row for the event, within `confirmMs`). Ends within about 40 s (two calls of 10 s at most, then 20 s). Throws words that say whether anything may have
+ * gone. Only `memory/draft-send.ts` calls it (`scripts/imports.test.ts`).
+ */
+export async function sendText(
+  bridge: string,
+  room: string,
+  text: string,
+  txn: string,
+  at = {
+    bridges: BRIDGES,
+    confirmMs: 20_000,
+    homeserver: HOMESERVER_URL,
+    ...readOwnerAccount(),
+  }
+) {
+  if (!at.token) {
+    throw new Error("not sent: the homeserver holds no account of his");
+  }
+  const path = `${at.homeserver}/_matrix/client/v3`;
+  const id = encodeURIComponent(room);
+  // He is only invited to most rooms the bridges made: joining is the same call whether or not he is in.
+  await call(`${path}/join/${id}`, at.token, {
+    body: "{}",
+    method: "POST",
+  }).catch((e: Error) => {
+    throw new Error(`not sent: ${bridge} room not joined: ${e.message}`);
+  });
+  const sent = await call(
+    `${path}/rooms/${id}/send/m.room.message/${encodeURIComponent(txn)}`,
+    at.token,
+    { body: JSON.stringify({ body: text, msgtype: "m.text" }), method: "PUT" }
+  ).catch((e: Error) => {
+    throw new Error(
+      HTTP_STATUS.test(e.message)
+        ? `not sent: the homeserver refused it: ${e.message}`
+        : `may have gone: the homeserver didn't answer (${e.message}): read the chat`
+    );
+  });
+  const event = String(sent.event_id);
+  const db = openReadOnly(join(at.bridges, bridge, `${bridge}.db`));
+  try {
+    const row = db.query<{ n: number }, [string]>(
+      "select 1 as n from message where mxid = ?"
+    );
+    for (let waited = 0; waited < at.confirmMs; waited += 500) {
+      if (row.get(event)) {
+        return event;
+      }
+      // biome-ignore lint/performance/noAwaitInLoops: polling the bridge's own record
+      await Bun.sleep(500);
+    }
+  } finally {
+    db.close();
+  }
+  throw new Error(
+    `may have gone: the homeserver took it (${event}) but the ${bridge} bridge didn't confirm it: read the chat`
+  );
 }

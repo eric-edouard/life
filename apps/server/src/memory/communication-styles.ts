@@ -9,6 +9,7 @@ import {
 } from "../records/communication-style";
 import type { SourceEvent } from "../records/source";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
+import { type Decision, decisionsNow } from "./decisions";
 import { communicationStylePath } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotesAt } from "./quote-check";
@@ -64,15 +65,35 @@ interface Shown {
   text: string;
 }
 
+/** A message as a sent draft is keyed: its source, its chat and its text. */
+const draftKeyOf = (source: string, chat: string, text: string) =>
+  `${source}|${chat}|${text.trim()}`;
+
+/** The drafts Life sent for him from a card (`answerDecision`), keyed as his messages coming back from the chat are. */
+export const sentDraftsOf = (list: Decision[]) =>
+  new Set(
+    list.flatMap((d) =>
+      d.send && d.draft?.chat && d.draft.channel
+        ? [draftKeyOf(d.draft.channel, d.draft.chat, d.draft.text)]
+        : []
+    )
+  );
+
 /**
- * Their 1:1 messages a style reads: both ways, the newest `SAMPLE` of each kind, oldest first. Life's own output and the
- * agent's reports are never writing (drafts must not learn from drafts), nor is a call.
+ * Their 1:1 messages a style reads: both ways, the newest `SAMPLE` of each kind, oldest first. Life's own output, the
+ * drafts Life sent for him (`sent`, his words everywhere else) and the agent's reports are never writing (drafts must
+ * not learn from drafts), nor is a call.
  */
-export function styleSampleOf(direct: SourceEvent[]) {
+export function styleSampleOf(direct: SourceEvent[], sent = new Set<string>()) {
   const writing = direct.filter(
     (e) =>
-      !(e.phoneCall || e.bulk || isLifeOutput(e) || e.source === AGENT_WORD) &&
-      e.text.trim() !== ""
+      !(
+        e.phoneCall ||
+        e.bulk ||
+        isLifeOutput(e) ||
+        e.source === AGENT_WORD ||
+        (e.fromMe && sent.has(draftKeyOf(e.source, e.chat, e.text)))
+      ) && e.text.trim() !== ""
   );
   const newest = (kind: "chat" | "mail"): Shown[] =>
     writing
@@ -145,10 +166,14 @@ export function styleLines(
 /** Each paged person's sample, those with any 1:1 chat or mail only. */
 export const communicationStyleTargetsOf = (
   paged: Set<string>,
-  direct: Map<string, SourceEvent[]>
+  direct: Map<string, SourceEvent[]>,
+  sent = new Set<string>()
 ) =>
   [...paged].flatMap((ref) => {
-    const sample = styleSampleOf(ref === OWNER ? [] : (direct.get(ref) ?? []));
+    const sample = styleSampleOf(
+      ref === OWNER ? [] : (direct.get(ref) ?? []),
+      sent
+    );
     return sample.chat.length + sample.mail.length > 0 ? [{ ref, sample }] : [];
   });
 
@@ -164,7 +189,8 @@ export async function communicationStyles({ events, failed }: WithPeople) {
   const direct = directChats(events, people.resolve);
   const targets = communicationStyleTargetsOf(
     await pagedNow(people),
-    direct
+    direct,
+    sentDraftsOf(decisionsNow())
   ).map((t) => {
     const input = inputOf(people.nameOf(t.ref), t.sample);
     return { ...t, input, inputs: inputsOf(COMMUNICATION_STYLE_PROMPT, input) };

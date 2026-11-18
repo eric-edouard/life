@@ -91,8 +91,12 @@ const WRITERS: {
   },
 };
 
-/** Records his answer to the open check `ref` through its kind's writer; returns the lines written. Throws when no open check has that ref or the option is not one of its own. */
-export async function answerCheck(ref: string, a: CheckAnswer) {
+/** Records his answer to the open check `ref` through its kind's writer (a decision's draft is sent only `via` his app); returns the lines written. Throws when no open check has that ref or the option is not one of its own. */
+export async function answerCheck(
+  ref: string,
+  a: CheckAnswer,
+  via: "cli" | "connector" = "connector"
+) {
   const check = (await checksNow()).find((c) => c.ref === ref);
   if (!check) {
     throw new Error(
@@ -100,7 +104,10 @@ export async function answerCheck(ref: string, a: CheckAnswer) {
     );
   }
   if (check.group === "decision") {
-    return { done: [answerDecision(ref, a.options, a.note)], ref };
+    return {
+      done: await answerDecision(ref, a.options, a.note, { via }),
+      ref,
+    };
   }
   const writers: Partial<Record<string, Writer>> =
     WRITERS[check.group as Exclude<CheckGroup, "decision">];
