@@ -137,7 +137,7 @@ export async function openMatters(
 /**
  * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
  * agent anchored on records finds its matter again after a re-group): its `MatterRow`, its steps in time order (each
- * with its day, words, quote and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host).
+ * with its day, words, quote, who it was with by name and `ending`: none while open), then `agentsOf`'s agents on it now and before (from host).
  * Undefined when no matter holds them.
  */
 export async function oneMatter<A>(
@@ -150,7 +150,9 @@ export async function oneMatter<A>(
     v && {
       ...rowOf(v, people.nameOf, openDecisions()),
       agents: agentsOf(refsOf(v)),
-      steps: v.steps,
+      steps: v.steps.map((s) =>
+        s.with ? { ...s, with: people.nameOf(s.with) } : s
+      ),
     }
   );
 }

@@ -31,7 +31,10 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   });
   const steps = [
     step("episode", "Gran's watch", "2026-10-02", "ep_000000000001"),
-    step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
+    {
+      ...step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
+      with: "person:partner",
+    },
   ];
   const errand = view({
     goal: {
@@ -116,14 +119,15 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(
       (await openMatters({ project: "Shop fit-out" })).matters.map((m) => m.id)
     ).toEqual(["matter_aaaaaaaaaaaa"]);
-    expect(openMatters({ project: "Nowhere" })).rejects.toThrow(
+    await expect(openMatters({ project: "Nowhere" })).rejects.toThrow(
       "No project goes by that name."
     );
     const one = await oneMatter(["matter_aaaaaaaaaaaa"]);
+    // A step's company by name, as the row's people.
     expect(JSON.parse(JSON.stringify(one))).toEqual({
       ...row,
       agents: [],
-      steps,
+      steps: [steps[0], { ...steps[1], with: "partner" }],
     });
     // A step's id opens the matter holding it; anchors find it by the first that still names a step.
     expect(await oneMatter(["obs_000000000005"])).toEqual(one);
