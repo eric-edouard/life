@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/lifelog";
+import * as lifelog from "../sources/lifelog-push";
 import { ask, asksFor } from "./asks";
 
 const said = (quote: string, agent: string) =>
@@ -104,7 +104,7 @@ test("a new voice ask pushes 'heard' to his phone once; a repeat and a session a
     heard();
     said("call the bank", "Orbit");
     expect(push.mock.calls).toEqual([
-      ["Orbit heard you", "Your ask reached it."],
+      [{ body: "Your ask reached it.", title: "Orbit heard you" }],
     ]);
   } finally {
     push.mockRestore();

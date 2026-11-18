@@ -1,14 +1,11 @@
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { count } from "../core/lists";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { settings } from "../core/settings";
-import { checksNow } from "../memory/checks";
-import { decisionsNow, pushDueOf } from "../memory/decisions";
 import {
   readSearchedTexts,
   readStaleness,
@@ -29,14 +26,9 @@ import { isOnline } from "../models/llm";
 import { LedgerEntry } from "../records/ledger-entry";
 import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
-import {
-  lastSeen,
-  notifyPhone,
-  openStore,
-  poll,
-  type Store,
-} from "../sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
+import { pushNewCardsIfChanged } from "./card-push";
 import { describePhotos } from "./describe-photos";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
@@ -467,28 +459,7 @@ function minute() {
   mailStuckLock().catch((e: Error) =>
     log("run.error", { error: e.message, step: "watch.lock" })
   );
-  pushDecisions().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "watch.decisions" })
-  );
-}
-
-// ponytail: the last minute pushed is kept in memory, so a push instant falling in a watcher restart (seconds) is
-// missed; the report and the inbox still list the decision. Keep it on disk if missed pushes show up.
-let pushedTo = clock();
-/** The push "N decisions waiting" (a count, never his words or theirs): as an open decision's deadline comes within 24 hours, at most once each, while the list (`checksNow`) still holds it. */
-export async function pushDecisions(now = clock()) {
-  const since = pushedTo;
-  pushedTo = now;
-  const due = new Set(
-    pushDueOf(decisionsNow(now), since, now).map((d) => d.id)
-  );
-  if (due.size === 0) {
-    return;
-  }
-  const listed = (await checksNow()).filter((c) => c.kind === "decision");
-  if (listed.some((c) => due.has(c.ref))) {
-    await notifyPhone("Life", `${count(listed.length, "decision")} waiting`);
-  }
+  pushNewCardsIfChanged();
 }
 
 const STUCK_MS = 3 * HOUR;

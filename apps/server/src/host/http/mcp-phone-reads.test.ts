@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Check } from "../../memory/checks";
+import type { InboxCheck } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
 
 // The phone's reads, as real answers: what each read tool says on made-up data is `apps/lifelog/fixtures/wire/life/<tool>.json`,
@@ -27,7 +27,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
   const book = await import("../../memory/matters");
   const items = await import("../../memory/read-open-items");
   const agents = await import("../registered-agents");
-  const check = (over: Partial<Check>): Check => ({
+  const check = (over: Partial<InboxCheck>): InboxCheck => ({
     about: [],
     asker: "life",
     at: null,
@@ -50,6 +50,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     subject: null,
     title: "A name Life cannot place",
     ...over,
+    pushId: checks.pushIdOf(over.ref ?? "name:sam", "0".repeat(64)),
   });
   const agent = {
     amber: [],
@@ -150,7 +151,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
         ref: "voice:v1",
       }),
       check({ group: "name", ref: "name:sam" }),
-    ] as never),
+    ]),
     spyOn(who, "readPeople").mockResolvedValue({
       nameOf: (r: string) => r.replace("person:", ""),
       truth: {

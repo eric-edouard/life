@@ -206,13 +206,16 @@ export const NamingQueueItem = z.object({
 });
 export type NamingQueueItem = z.infer<typeof NamingQueueItem>;
 
+/** The queue as lifelog gives it; none when lifelog is not set up; throws when it fails (the watcher keeps its last list). */
+export const fetchNamingQueue = async () =>
+  lifelogMissing()
+    ? []
+    : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+
 /** The voices lifelog asks him to name (`GET /naming-queue`); none when lifelog is not set up or fails (logged), so the inbox never fails with it. */
 export async function readNamingQueue() {
-  if (lifelogMissing()) {
-    return [];
-  }
   try {
-    return z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+    return await fetchNamingQueue();
   } catch (e) {
     log("run.error", { error: (e as Error).message, step: "naming-queue" });
     return [];
