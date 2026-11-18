@@ -276,10 +276,15 @@ export async function inBatches<T>(
       }
     }
   };
-  await Promise.all(
+  // Every started batch ends before the step does, so no call outlives a refused one (or its lock).
+  const ended = await Promise.allSettled(
     Array.from(
       { length: Math.min(callsAtOnceOf(step.llm), batches.length) },
       work
     )
   );
+  const refused = ended.find((e) => e.status === "rejected");
+  if (refused) {
+    throw refused.reason;
+  }
 }
