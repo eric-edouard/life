@@ -95,7 +95,7 @@ export function withKeys(config: unknown, values: Record<string, unknown>) {
 
 /** Its `appKeys` still the example's: the example is the one the bridge itself writes (`-e`), so Life holds no placeholder. */
 async function pendingAppKeys(n: Network) {
-  if (!(n.appKeys && isAdded(n))) {
+  if (!n.appKeys) {
     return [];
   }
   const tmp = mkdtempSync(join(tmpdir(), "bridge-example-"));
@@ -104,7 +104,11 @@ async function pendingAppKeys(n: Network) {
     await execOk([join(BRIDGES, n.name, "bridge"), "-c", example, "-e"], {
       cwd: tmp,
     });
-    return pendingKeysOf(n.appKeys, readYaml(configPath(n)), readYaml(example));
+    return pendingKeysOf(
+      n.appKeys.paths,
+      readYaml(configPath(n)),
+      readYaml(example)
+    );
   } finally {
     rmSync(tmp, { force: true, recursive: true });
   }
@@ -372,6 +376,10 @@ async function add(n: Network) {
     console.log(`${n.label} is linked already.`);
   } else if (process.stdin.isTTY) {
     await link(n);
+  } else if (keys) {
+    console.log(
+      `${n.label} needs your own keys first: bun life bridge link ${n.name}`
+    );
   } else {
     console.log(`Link it in a terminal: bun life bridge link ${n.name}`);
   }
@@ -455,13 +463,11 @@ async function signIn(step: CookieStep) {
 async function link(n: Network, flow?: string) {
   const pending = await pendingAppKeys(n);
   if (pending.length > 0) {
-    console.log(
-      `${n.label} needs your own keys. Get them at https://my.telegram.org → API development tools (log in with your phone number).`
-    );
+    console.log(`${n.label} needs your own keys. ${n.appKeys?.hint}`);
     const values = Object.fromEntries(
       pending.map(({ isNumber, path }) => {
         const key = path.split(".").pop() as string;
-        const text = ask(key, key.endsWith("hash")).trim();
+        const text = ask(key, n.appKeys?.secret.includes(path) ?? false).trim();
         if (!text || (isNumber && Number.isNaN(Number(text)))) {
           throw new Error(`${key}: nothing usable typed`);
         }

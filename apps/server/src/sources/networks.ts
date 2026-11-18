@@ -67,7 +67,11 @@ export const NETWORKS = [
   },
   {
     // Its bridge exits until its config holds his own keys from my.telegram.org (`bun life bridge link`).
-    appKeys: ["network.api_id", "network.api_hash"],
+    appKeys: {
+      hint: "Get them at https://my.telegram.org → API development tools (log in with your phone number).",
+      paths: ["network.api_id", "network.api_hash"],
+      secret: ["network.api_hash"],
+    },
     cmd: "cmd/mautrix-telegram",
     label: "Telegram",
     name: "telegram",
@@ -90,7 +94,11 @@ export const NETWORKS = [
 ] as const;
 // The literal entries keep their names typed; a network with no calls has no `callOf`.
 export type Network = (typeof NETWORKS)[number] & {
-  appKeys?: readonly string[];
+  appKeys?: {
+    hint: string;
+    paths: readonly string[];
+    secret: readonly string[];
+  };
   callOf?: (text: string) => CallNotice | undefined;
   readByItsApp?: true;
 };
