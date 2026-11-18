@@ -33,6 +33,8 @@ export const SPENDING = [
   "memory.history",
   "memory.conversation-summaries",
   "memory.voice-naming",
+  "memory.matters",
+  "memory.matter-directions",
   "memory.links",
   "memory.import",
   "memory.pilot",

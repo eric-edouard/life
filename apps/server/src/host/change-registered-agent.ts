@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
+import { matterOfSteps } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { areaFor } from "../memory/read-area-page";
 import { loadTruth, type Truth } from "../memory/read-truth";
@@ -57,10 +58,9 @@ const POLL_MS = 500;
 
 /** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps) and its projects. */
 async function matterNamed(step: string) {
-  const book = await readMatterBook(await readPeople(), dayNow());
-  const v =
-    book.find((m) => m.id === step) ??
-    book.find((m) => m.steps.some((s) => s.ref === step));
+  const v = matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
+    step,
+  ]);
   if (!v) {
     throw new Error(`Not done: no matter ${step}.`);
   }

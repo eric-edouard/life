@@ -21,6 +21,7 @@ import {
   isEndingCheck,
 } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
+import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import {
   ContactPerson,
   Correction,
@@ -78,6 +79,8 @@ export const communicationStylePath = (ref: string) =>
 export const LINKS = join(MEMORY, "links.jsonl");
 /** The matters (`memory/matters.ts`): one line per call, append-only, the latest line naming a matter wins. */
 export const MATTERS = join(MEMORY, "matters.jsonl");
+/** Life's drafts of the matters' goals and next steps (`memory/matter-directions.ts`): one line per call, append-only. */
+export const MATTER_DIRECTIONS = join(MEMORY, "matter-directions.jsonl");
 /** Each person's past months with him, summarised once, and their story (`personal/histories.ts`), one file per person. */
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
@@ -673,6 +676,33 @@ export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
+
+/** The matters' directions as pinned to their steps (`directionsOf`): Life's drafts, then his word (`matter-direction`), each with when it was written. */
+export const readDirectionPins = (): DirectionPin[] => [
+  ...readAppended(
+    MATTER_DIRECTIONS,
+    MatterDirectionBatch,
+    (last?: DirectionPin[]) => [...(last ?? [])],
+    (all, b) => {
+      for (const d of b.directions) {
+        all.push({ at: b.at, by: "life", ...d });
+      }
+    }
+  ),
+  ...rowsOf(CORRECTIONS, Correction).flatMap((c) =>
+    c.kind === "matter-direction"
+      ? [
+          {
+            at: c.at,
+            by: "owner" as const,
+            steps: c.steps,
+            ...(c.goal ? { goal: c.goal } : {}),
+            ...(c.nextStep ? { nextStep: c.nextStep } : {}),
+          },
+        ]
+      : []
+  ),
+];
 
 /** The lines of the people his Contacts name, as appended (`contactsNow` folds them). */
 export const readContactLines = () => rowsOf(CONTACT_PEOPLE, ContactPerson);

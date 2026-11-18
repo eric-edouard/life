@@ -56,6 +56,7 @@ const callStep = matterBookOf(
   },
   {
     current: new Set(),
+    directions: [],
     episodeOf: new Map([
       [
         "unit_000000000009",
