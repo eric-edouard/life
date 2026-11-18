@@ -11,6 +11,10 @@ struct Taken: Equatable {
     let runtimeName: RuntimeName?
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
+    /// A new matter whose goal he changed is still waiting for Start or Dismiss.
+    var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
+    var isSend: Bool { check.draft != nil }
+    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
             to: check.draft?.to, channel: check.draft?.channel,
@@ -26,9 +30,6 @@ struct AnswerResultView: View {
     let state: ActionState<ActionProof>
     /// The question of the card that comes next, when one is waiting.
     let next: String?
-    let retry: () -> Void
-    let keepForLater: () -> Void
-    let nextCard: () -> Void
 
     var body: some View {
         ScrollView {
@@ -46,15 +47,8 @@ struct AnswerResultView: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            buttons.padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
-        }
     }
 
-    /// A new matter whose goal he changed is still waiting for Start or Dismiss.
-    private var staysOpen: Bool { taken.check.group == .newMatter && taken.request.options == ["edit-goal"] }
-    private var isStart: Bool { taken.check.group == .newMatter && taken.request.options == ["start"] }
-    private var isSend: Bool { taken.check.draft != nil }
     private var lines: [CheckLine] { ActionCopy.lines(state, taken.context) }
 
     private var header: some View {
@@ -85,7 +79,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
         header
-        Text(isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
+        Text(taken.isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
         Text(summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines.filter { $0.id != "left_inbox" }).padding(.top, 8)
         if let changed = counts(proof) {
@@ -145,31 +139,41 @@ struct AnswerResultView: View {
     }
 
     private func failedWord(_ failure: ActionFailure) -> String {
-        if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
-        if isStart { return "Not started." }
-        return isSend ? "Not sent." : "Not saved."
+        if failure.mayHaveHappened { return taken.isSend ? "May have gone." : "Check first." }
+        if taken.isStart { return "Not started." }
+        return taken.isSend ? "Not sent." : "Not saved."
     }
 
     private func failedLine(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
-        if isStart { return "Your goal is saved. The card stays here." }
-        return isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
+        if taken.isStart { return "Your goal is saved. The card stays here." }
+        return taken.isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
     }
+}
 
-    // MARK: Buttons
+/// What he can do with a card's result: the way on, or to try again. Apart from the result so a wide screen can put it at the
+/// bottom of the screen when the regions are stacked.
+struct ResultButtons: View {
+    let taken: Taken
+    let state: ActionState<ActionProof>
+    /// The question of the card that comes next, when one is waiting.
+    let next: String?
+    let retry: () -> Void
+    let keepForLater: () -> Void
+    let nextCard: () -> Void
 
-    @ViewBuilder private var buttons: some View {
+    var body: some View {
         VStack(spacing: 8) {
             switch state {
             case .succeeded:
-                Button(staysOpen ? "Back to the card" : next == nil ? "Done" : "Next card", action: nextCard)
+                Button(taken.staysOpen ? "Back to the card" : next == nil ? "Done" : "Next card", action: nextCard)
                     .buttonStyle(.pill(.filled))
             case .failed(let failure, _):
                 if failure.retry == .allowed && !failure.mayHaveHappened {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))
                     Button("Keep it for later", action: keepForLater).buttonStyle(.pill(.quiet))
                     Text(
-                        isSend
+                        taken.isSend
                             ? "Trying again sends the same text once. It is never sent twice."
                             : "Trying again repeats the same answer once."
                     )
@@ -180,9 +184,9 @@ struct AnswerResultView: View {
             case .idle, .running:
                 Button {
                 } label: {
-                    Text(isSend ? "Sending…" : "Saving…")
+                    Text(taken.isSend ? "Sending…" : "Saving…")
                 }.buttonStyle(.pill(.quiet)).disabled(true)
-                if isSend {
+                if taken.isSend {
                     LimitNote(limit: state.limit) {
                         "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
                             + ($0.map { ", \($0)." } ?? ".")

@@ -10,7 +10,7 @@
     /// `-fixtureLife <scenario>` turns it on: `ok`, `loading`, `empty`, `stale`, `unreachable`, `failed`, `notPaired`.
     /// `-fixtureAnswer sent|sending|notSent` decides what a tap on a draft does; `-fixtureStart started|starting|failed`
     /// what "Start" does. `-fixtureCard <ref>`, `-fixtureTab matters`, `-fixtureMatter <id>`, and `-fixtureSheet pendant|settings`
-    /// open the screen to show.
+    /// open the screen to show. `-fixturePose wide|upright` draws the iPhone Duo open (`DuoPose`).
     enum LifeFixture {
         nonisolated static let scenario = value(of: "-fixtureLife")
         nonisolated static var isRequested: Bool { scenario != nil }
@@ -20,6 +20,7 @@
         nonisolated static let tab = value(of: "-fixtureTab")
         nonisolated static let matter = value(of: "-fixtureMatter")
         nonisolated static let sheet = value(of: "-fixtureSheet")
+        nonisolated static let pose = value(of: "-fixturePose")
 
         nonisolated private static func value(of flag: String) -> String? {
             let arguments = ProcessInfo.processInfo.arguments
