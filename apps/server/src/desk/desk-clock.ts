@@ -184,11 +184,27 @@ function watchedIn(db: Desk["db"]) {
   return turns;
 }
 
+/** Marks turn `turn` under way, once. */
+const markBegun = (db: Desk["db"], turn: number) =>
+  db.run("update turn set begun_at = ? where id = ? and begun_at is null", [
+    now(),
+    turn,
+  ]);
+
 /** Ends turn `turn` of `id` when `run` does: failed when it did. */
 function watch(desk: Desk, id: string, turn: number, run: Run) {
   watchedIn(desk.db).add(turn);
+  // A run that ends before it begins is `ended`'s to say; `begun` settles soon after `ended` at the latest, and is waited
+  // for, so a turn that began and then failed is retried, never ended as not started.
+  const begun = run.begun.then(
+    () => markBegun(desk.db, turn),
+    () => undefined
+  );
   run.ended
-    .then(({ ok }) => turnEnded(desk, id, !ok))
+    .then(async ({ ok }) => {
+      await begun;
+      return turnEnded(desk, id, !ok);
+    })
     .catch((error: unknown) =>
       log("desk.runtime", {
         agent: id,
@@ -280,7 +296,7 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, true);
+    await turnEnded(desk, a.id, true, (error as Error).message);
   }
   return true;
 }
@@ -361,6 +377,21 @@ function close(
   return true;
 }
 
+/**
+ * An agent whose first turn failed before it began is ended (`not started: …`), not retried: nothing is left running,
+ * its matter is free for a new start. Its only turn is `t`, which never began.
+ */
+function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
+  if (lastTurns(db, t.agent_id, 2).length !== 1 || t.begun_at) {
+    return false;
+  }
+  db.run(
+    "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ? and status = 'active'",
+    [now(), `not started: ${why}`, t.agent_id]
+  );
+  return true;
+}
+
 /** After a failed turn: once the retries are spent, the default wait stands. */
 function afterFailure({ db }: Desk, a: AgentRow) {
   if (a.status === "active" && failuresOf(lastTurns(db, a.id)) >= MAX_HANDED) {
@@ -372,7 +403,12 @@ function afterFailure({ db }: Desk, a: AgentRow) {
  * The run of `id`'s open desk turn ended (`failed` when it did). A turn ends by `set_wait` or `finish`; with neither,
  * the desk reminds it once, then sets the default wait. The turn's tokens are read from its runtime.
  */
-export async function turnEnded(desk: Desk, id: string, failed = false) {
+export async function turnEnded(
+  desk: Desk,
+  id: string,
+  failed = false,
+  why = "its first turn ended before it began"
+) {
   const { db } = desk;
   const t = openTurn(db, id);
   const a = agentOf(db, id);
@@ -386,7 +422,7 @@ export async function turnEnded(desk: Desk, id: string, failed = false) {
       : null;
   if (failed) {
     db.transaction(() => {
-      if (close(desk, t, "failed", usage)) {
+      if (close(desk, t, "failed", usage) && !endNotStarted(desk, t, why)) {
         afterFailure(desk, a);
       }
     })();
@@ -433,13 +469,18 @@ export async function endLostTurns(desk: Desk) {
     activeAgents(desk.db).map(async (a) => {
       const t = openTurn(desk.db, a.id);
       const runtime = desk.runtimes[a.runtime];
-      if (
-        t &&
-        !watching.has(t.id) &&
-        (!(t.session && runtime) ||
-          (await runtime.state(t.session).catch(() => "running")) !== "running")
-      ) {
+      if (!t || watching.has(t.id)) {
+        return;
+      }
+      const state =
+        t.session && runtime
+          ? await runtime.state(t.session).catch(() => "running")
+          : "gone";
+      if (state !== "running") {
         await turnEnded(desk, a.id, !t.outcome);
+      } else if (!t.begun_at) {
+        // Running after a restart that lost its watch: it is under way.
+        markBegun(desk.db, t.id);
       }
     })
   );

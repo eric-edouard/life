@@ -23,6 +23,7 @@ import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
+import { ticking } from "./test-ticker";
 
 // Oversight (the desk spec, step 4): his word about his agents applied by the desk, and what host reads of them, from
 // a made-up store at the desk's own path. Made-up agents, matters and folders.
@@ -271,6 +272,7 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       word: "not running",
     });
   } finally {
+    await stopTicking?.();
     book.mockRestore();
   }
 });
@@ -293,17 +295,35 @@ test("the desk off breaks no read: each says so, and his word is refused", async
   ).rejects.toThrow("Not done:");
 });
 
+/** What a matter read holds besides its id, name, status and steps: nobody, nothing open. */
+const NO_ONE = {
+  areas: [],
+  lone: false,
+  open: true,
+  openSteps: [],
+  owedTo: [],
+  projects: [],
+  told: [],
+  waitingOn: [],
+  with: [],
+};
+
+/** Stops the desk ticking (his word may be recorded after a slow first read, so a test keeps it ticking). */
+let stopTicking: (() => Promise<void>) | undefined;
+
 test("change_registered_agent records his word and answers with what the desk did", async () => {
   setSettings({ desk: { runtimes: {} } });
   const matters = await import("../memory/matters");
   const book = spyOn(matters, "readMatterBook").mockResolvedValue([
     {
+      ...NO_ONE,
       id: "matter_00000000a002",
       name: "Test repair",
       status: "moving",
       steps: [{ ref: "obs_00000000a201" }, { ref: "obs_00000000a202" }],
     },
     {
+      ...NO_ONE,
       id: "matter_00000000a003",
       name: "Test shop sign",
       projects: ["test-shop"],
@@ -333,7 +353,7 @@ test("change_registered_agent records his word and answers with what the desk di
         said: "Test",
       })
     ).rejects.toThrow("no project no-such");
-    setTimeout(() => applyAgentChanges(desk), 300);
+    stopTicking = ticking(desk);
     const done = await changeRegisteredAgent({
       action: "start",
       folder,
@@ -341,8 +361,8 @@ test("change_registered_agent records his word and answers with what the desk di
       said: "Test: work on the repair",
       step: "obs_00000000a202",
     });
-    expect(done).toStartWith("Done: start agt_");
-    const id = done.split(" ").at(-1) ?? "";
+    expect(done).toMatchObject({ action: "start", state: "started" });
+    const id = (done as { agent: string }).agent;
     // Anchored on the step he named first, then the rest of its matter.
     expect(
       desk.db
@@ -352,7 +372,6 @@ test("change_registered_agent records his word and answers with what the desk di
         .all(id)
         .map((s) => s.step)
     ).toEqual(["obs_00000000a202", "obs_00000000a201"]);
-    setTimeout(() => applyAgentChanges(desk), 300);
     await expect(
       changeRegisteredAgent({
         action: "resume",
@@ -361,7 +380,6 @@ test("change_registered_agent records his word and answers with what the desk di
       })
     ).rejects.toThrow(`${id} is active`);
     // No folder named: its matter's project's repo, when it is on the Mac; his words are its brief.
-    setTimeout(() => applyAgentChanges(desk), 300);
     const sign = (
       await changeRegisteredAgent({
         action: "start",
@@ -369,15 +387,12 @@ test("change_registered_agent records his word and answers with what the desk di
         said: "The shop sign is up by Friday",
         step: "matter_00000000a003",
       })
-    )
-      .split(" ")
-      .at(-1);
+    ).agent;
     expect(agentOf(desk.db, sign ?? "")).toMatchObject({
       brief: "The shop sign is up by Friday",
       folder,
     });
     // A project with no folder named: its repo too.
-    setTimeout(() => applyAgentChanges(desk), 300);
     const shop = (
       await changeRegisteredAgent({
         action: "start",
@@ -385,16 +400,15 @@ test("change_registered_agent records his word and answers with what the desk di
         runtime: "claude",
         said: "Keep the shop's site up to date",
       })
-    )
-      .split(" ")
-      .at(-1);
+    ).agent;
     expect(agentOf(desk.db, shop ?? "")?.folder).toBe(folder);
   } finally {
+    await stopTicking?.();
     book.mockRestore();
     truth.mockRestore();
     repos.mockRestore();
   }
-});
+}, 30_000);
 
 test("its store unreadable, the reads say so and the report still has its section", async () => {
   desk.db.close();

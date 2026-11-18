@@ -38,6 +38,8 @@ export interface AgentRow {
 /** An agent turn's row; `ended_at` null while it runs. */
 export interface TurnRow {
   agent_id: string;
+  /** When its runtime reported it under way; null before, and for turns older than the column. */
+  begun_at: string | null;
   cause: string;
   ended_at: string | null;
   heard_at: string | null;
@@ -134,10 +136,32 @@ export const holderOf = (db: Database, steps: string[]) =>
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>
   db
-    .query<{ agent_id: string | null; error: string | null }, [string]>(
-      "select agent_id, error from agent_change where ask = ?"
-    )
+    .query<
+      { agent_id: string | null; applied_at: string; error: string | null },
+      [string]
+    >("select agent_id, applied_at, error from agent_change where ask = ?")
     .get(ask);
+
+/**
+ * What the desk did with a start (`change_registered_agent`), as facts: the ask's `agent_change` row and, for its agent,
+ * its newest session, its first turn and its status, each null until written.
+ */
+export function startOf(db: Database, ask: string) {
+  const change = agentChangeOf(db, ask);
+  const id = change?.agent_id;
+  const one = <T>(sql: string) =>
+    (id ? db.query<T, [string]>(sql).get(id) : null) ?? null;
+  return {
+    agent: id ? agentOf(db, id) : null,
+    change,
+    session: one<{ link: string; ref: string; started_at: string }>(
+      "select ref, link, started_at from session where agent_id = ? order by rowid desc limit 1"
+    ),
+    turn: one<{ begun_at: string | null }>(
+      "select begun_at from turn where agent_id = ? order by id limit 1"
+    ),
+  };
+}
 
 /** His changes the desk refused since `since` (`change_registered_agent`), newest first: one past the connector's wait shows here. */
 export const refusedSince = (db: Database, since: string) =>

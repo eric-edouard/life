@@ -7,25 +7,52 @@ export function fakeRuntime() {
   const sessions = new Map<string, { grownBy: number; running: boolean }>();
   /** Each session's last run, ended by `exit`. */
   const runs = new Map<string, (ok: boolean) => void>();
+  /** Each session's pending `begun`, settled by `begin` or, failing, by `exit`. */
+  const begins = new Map<
+    string,
+    { fail: (e: Error) => void; ok: () => void }
+  >();
+  /** Set by `holdBegun`: a run is under way only when the test says. */
+  let isHeld = false;
   const run = (ref: string) => ({
+    begun: isHeld
+      ? new Promise<void>((ok, fail) => begins.set(ref, { fail, ok }))
+      : Promise.resolve(),
     ended: new Promise<{ ok: boolean }>((resolve) =>
       runs.set(ref, (ok) => resolve({ ok }))
     ),
   });
   const fake = {
+    /** Settles the session's last run as under way (after `holdBegun`). */
+    begin(ref: string) {
+      begins.get(ref)?.ok();
+    },
+    /** Why the runtime can't run, as `Runtime.block`; none: it can. */
+    blocked: undefined as string | undefined,
     /** Runs inside `send` before it answers: a turn that calls the door before its runtime's CLI returns. */
     duringSend: undefined as (() => Promise<void>) | undefined,
     /** Ends the session's last run, as its process exiting. */
-    exit(ref: string, ok = true) {
+    exit(ref: string, ok = true, isBegunLate = false) {
       const s = sessions.get(ref);
       if (s) {
         s.running = false;
       }
       runs.get(ref)?.(ok);
+      // A run whose `begun` settles just after `ended`, as a transcript poll does.
+      if (isBegunLate) {
+        begins.get(ref)?.ok();
+      } else {
+        begins.get(ref)?.fail(new Error("it ended before it began"));
+      }
+    },
+    /** From now on a run is under way only on `begin(ref)` (else it fails on `exit`), not as it is launched. */
+    holdBegun() {
+      isHeld = true;
     },
     /** While set, `start` and `send` throw, as a CLI that fails. */
     isFailing: false as boolean,
     runtime: {
+      block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
       async send(_agent, ref, message) {
         const s = sessions.get(ref);
         if (fake.isFailing || !s || s.running) {
