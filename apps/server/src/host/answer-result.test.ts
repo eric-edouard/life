@@ -248,6 +248,38 @@ test("two calls at once on one check: one answer, both get its result", async ()
   expect(sends).toHaveBeenCalledTimes(1);
 });
 
+// 19 Nov 2026 (review A, B2): two keyless calls with different answers: the second was handed the first's result as its own.
+test("two calls at once with different answers: the second is refused, keyed or not; only the first is written", async () => {
+  sends.mockImplementation(
+    () => new Promise((r) => setTimeout(() => r("$e"), 50))
+  );
+  const { id } = await card();
+  const first = call(id, ["send"]).result;
+  await expect(call(id, ["wait"]).result).rejects.toThrow("another answer to");
+  await expect(call(id, ["wait"], "same").result).rejects.toThrow(
+    "another answer to"
+  );
+  expect((await first).changed).toMatchObject({ options: ["send"] });
+  sends.mockReset();
+});
+
+// PR 600's verdict: two "it is this person" answers at once naming different people: the second got the first's result.
+test("two calls at once naming different people, or a new person by another name: the second is refused", async () => {
+  guesses = [asCheck({ about: ["Sam"], group: "name", ref: "name:sam" })];
+  const first = call("name:sam", ["this-is"], undefined, {
+    person: "person:gran",
+  }).result;
+  await expect(
+    call("name:sam", ["this-is"], undefined, { person: "person:partner" })
+      .result
+  ).rejects.toThrow("another answer to");
+  await expect(
+    call("name:sam", ["this-is"], undefined, { name: "Sam Lee" }).result
+  ).rejects.toThrow("another answer to");
+  expect(await first).toMatchObject({ changed: { person: "person:gran" } });
+  expect(readCorrections()).toMatchObject([{ person: "person:gran" }]);
+});
+
 test("a decision without a send: its plan has no send steps", async () => {
   const { id } = await card();
   const { result, steps } = call(id, ["wait"]);
