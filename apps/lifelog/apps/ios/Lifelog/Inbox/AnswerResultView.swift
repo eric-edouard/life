@@ -42,11 +42,12 @@ struct AnswerResultView: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 16)
+            .readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            buttons.padding(.horizontal, 20).padding(.bottom, 8).background(Palette.bg)
+            buttons.padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
     }
 

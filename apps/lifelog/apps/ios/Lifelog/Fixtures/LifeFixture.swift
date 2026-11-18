@@ -264,7 +264,7 @@
                         ],
                     ]),
                 check(
-                    "end_done", group: "ending", title: "Idris Benali owed Alex the supplier price",
+                    "end_done", group: "ending", title: "Idris Benali owed Sam the supplier price",
                     question: "Is this done?",
                     options: [option("done", "Yes, done"), option("open", "No, still open")], matter: kitchen,
                     context: "He wrote the price on Tuesday; nothing in the matter has changed since.",
@@ -276,17 +276,17 @@
                     ]),
                 check(
                     "name_cam", group: "guessed person", title: "A name Life can’t place: “Cam”, on WhatsApp",
-                    question: "Is this Camille Roux?",
-                    options: [option("yes", "Yes, Camille Roux"), option("no", "No"), option("same", "Same as…")],
+                    question: "Is this Camille Vance?",
+                    options: [option("yes", "Yes, Camille Vance"), option("no", "No"), option("same", "Same as…")],
                     extra: ["evidence": ["from": "WhatsApp, Mon 9 Nov", "quote": "Cam: on se voit samedi au marché ?"]]),
                 check(
-                    "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Alex",
+                    "voice_v1", group: "voice", title: "A voice from Saturday, 4 minutes with Sam",
                     question: "Who is this?",
                     options: [
-                        option("person:jun", "Jun Watanabe"), option("person:camille", "Camille Roux"),
+                        option("person:jun", "Jun Watanabe"), option("person:camille", "Camille Vance"),
                         option("nobody", "Nobody I know"),
                     ],
-                    context: "Alex called the voice “Jun” twice in the same minute.",
+                    context: "Sam called the voice “Jun” twice in the same minute.",
                     extra: [
                         "clips": [
                             [
@@ -323,13 +323,13 @@
                 "matter_lease", "Lease renewal, rue des Carmes", status: "moving",
                 goal: "The signed lease is back with Hélène Aubert before 30 November.",
                 next: ("wait_decision", "Send Hélène the signed lease."), areas: ["Home", "Money"],
-                people: ["owedTo": ["Hélène Aubert"], "with": ["Camille Roux"]],
+                people: ["owedTo": ["Hélène Aubert"], "with": ["Camille Vance"]],
                 agent: "agt_lease", opened: 9),
             row(
                 "matter_table", "Table for Mum’s 60th", status: "moving",
                 goal: "A table for eight at Chez Odile on Friday 27th.",
                 next: ("do", "Book Chez Odile for Friday 27th."), areas: ["Family"],
-                people: ["with": ["Camille Roux", "Idris Benali"]], opened: 3),
+                people: ["with": ["Camille Vance", "Idris Benali"]], opened: 3),
             row(
                 "matter_nora", "Quote for Nora Keller", status: "moving", goal: "Quote sent and accepted.",
                 next: ("wait_owner", "Call Nora about the start date."), areas: ["Work"],
@@ -427,7 +427,7 @@
                         with: "Idris Benali, WhatsApp"),
                     step(
                         3, "ep_t3", 14, 12, "observation", "She proposes", "On fait ça chez Odile ? Vendredi 27 ?",
-                        with: "Camille Roux, WhatsApp"),
+                        with: "Camille Vance, WhatsApp"),
                     step(
                         4, "obs_t4", 15, 9, "promise", "Your promise", "Je m’occupe du resto pour les 60 ans de maman.",
                         with: "heard by the pendant"),

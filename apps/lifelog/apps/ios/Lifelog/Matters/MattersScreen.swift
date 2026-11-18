@@ -85,6 +85,7 @@ struct MattersScreen: View {
                 }
             }
             .padding(.bottom, 24)
+            .readingWidth()
         }
         .scrollDismissesKeyboard(.interactively)
     }

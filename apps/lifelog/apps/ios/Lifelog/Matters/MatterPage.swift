@@ -38,7 +38,7 @@ struct MatterPage: View {
                 People(people: row.people)
                 Steps(steps: matter.steps)
             }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24)
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24).readingWidth()
         }
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 8) {
@@ -46,7 +46,7 @@ struct MatterPage: View {
                 if agent == nil { Button("Start an agent") { showsStart = true }.buttonStyle(.pill(.filled)) }
                 DoneButton(matter: matter)
             }
-            .padding(.horizontal, 20).padding(.bottom, 8).background(Palette.bg)
+            .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
         .sheet(isPresented: $showsStart, onDismiss: { life.forget(.start(matter: id)) }) {
             StartAgentSheet(matter: matter)

@@ -34,11 +34,12 @@ struct CheckCard: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 16)
+            .readingWidth()
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            actions.padding(.horizontal, 20).padding(.bottom, 8).background(Palette.bg)
+            actions.padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
     }
 

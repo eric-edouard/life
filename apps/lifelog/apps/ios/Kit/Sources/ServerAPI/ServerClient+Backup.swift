@@ -37,6 +37,11 @@ extension ServerClient {
         try await sendRaw(try request("backup/source-db/\(source)", method: "PUT"), file: file, sha256: sha256)
     }
 
+    /// A job's audio as the server keeps it (Ogg Opus), for a voice card's clip to play.
+    public func jobAudio(_ job: UUID) async throws -> Data {
+        try await send(try request("transcripts/\(lower(job))/audio"))
+    }
+
     /// The prepared Ogg Opus of a completed job, rendered again; refused (409) unless it hashes to the job's.
     public func putJobAudio(job: UUID, file: URL) async throws {
         try await sendRaw(try request("jobs/\(lower(job))/audio", method: "PUT"), file: file, sha256: nil)
