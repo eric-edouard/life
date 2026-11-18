@@ -249,18 +249,22 @@ detail, madeBy, at}`); read by nothing since (docs/architecture.md, "Details"). 
 ## decisions.jsonl
 
 The decisions: a question an agent puts to him (`memory/decisions.ts`), append-only, one synchronous line each,
-outside the lock, schemaVersion 2, by `kind`:
-- `asked` (`requestDecision`): `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`), `agent` (`agt_…`,
-  a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`, optional), `question`
-  (200 chars), `options` (2 to 4 `{id, label}`), `recommended` (option ids), `why`, `context` (4,000 chars), `links`,
-  `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id or null).
+outside the lock, schemaVersion 3, by `kind`:
+- `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`),
+  `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
+  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional: `to`, `channel`,
+  `text`, the exact message he approves), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
+  recommended one first; `outgoing: true` when it sends, pays, books, deletes or changes something), `context`
+  (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an
+  outgoing one, or null). A `draft` needs an outgoing option.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`). The first answer stands.
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.
-The file also holds the old decisions page's lines (schemaVersion 1, before 2 Nov 2026: Life's old fact checks, what he
-answered on that page, his loops' decisions); they stay and are skipped for good.
+The file also holds earlier versions' lines, kept and skipped for good: the old decisions page's (schemaVersion 1,
+before 2 Nov 2026: Life's old fact checks, what he answered on that page, his loops' decisions) and the cards before
+titles (schemaVersion 2, with `recommended` and `why`; none in his data on 18 Nov 2026).
 
 ## links.jsonl
 

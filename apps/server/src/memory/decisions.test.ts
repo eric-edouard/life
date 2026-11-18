@@ -24,8 +24,7 @@ const ask = (over = {}) => ({
     { id: "wait", label: "Wait for a second quote" },
   ],
   question: "Book Kit to fix the boiler?",
-  recommended: ["yes"],
-  why: "Cheapest of the three he asked around.",
+  title: "Fix the boiler",
   ...over,
 });
 const stateOf = (id: string, at = NOW) =>
@@ -74,6 +73,37 @@ test("only its asker withdraws a decision, while it is open", async () => {
   );
 });
 
+test("a request is one card: one-line title and question, a draft only with its sending option outgoing, never outgoing on silence", async () => {
+  const refused = (over: object, why: string) =>
+    expect(requestDecision("planner", ask(over), NOW)).rejects.toThrow(why);
+  await refused({ title: "x".repeat(81) }, "title");
+  await refused({ title: "Fix\nthe boiler" }, "one line");
+  await refused({ question: "x".repeat(121) }, "question");
+  await refused({ draft: { text: "Can you come Friday?" } }, "to");
+  await refused({ draft: { to: "Kit" } }, "text");
+  const send = { id: "send", label: "Send it", outgoing: true as const };
+  const draft = {
+    channel: "whatsapp",
+    text: "Can you come Friday?",
+    to: "Kit",
+  };
+  await refused({ draft }, "outgoing");
+  await refused(
+    {
+      draft,
+      onSilence: "send",
+      options: [send, { id: "wait", label: "Wait" }],
+    },
+    "never takes an `outgoing` option"
+  );
+  await requestDecision(
+    "planner",
+    ask({ draft, options: [send, { id: "wait", label: "Wait" }] }),
+    NOW
+  );
+  expect(decisionsNow(NOW)[0]?.draft).toEqual(draft);
+});
+
 test("a request is checked: deadline 1 hour to 14 days ahead, options its ids, a step only of an open matter", async () => {
   const refused = (over: object) =>
     expect(requestDecision("planner", ask(over), NOW)).rejects.toThrow(
@@ -81,7 +111,6 @@ test("a request is checked: deadline 1 hour to 14 days ahead, options its ids, a
     );
   await refused({ deadline: later(30 * 60_000).toISOString() });
   await refused({ deadline: later(15 * DAY).toISOString() });
-  await refused({ recommended: ["maybe"] });
   await refused({ onSilence: "maybe" });
   await refused({ options: [{ id: "yes", label: "Yes" }] });
   await refused({ subject: "obs_000000000001" });
@@ -99,11 +128,11 @@ test("a deadline with an offset is stored in UTC, so deadlines sort as strings",
   expect(decisionsNow(NOW)[0]?.deadline).toBe("2026-11-19T09:00:00.000Z");
 });
 
-test("the old decisions page's lines in the file are skipped", async () => {
+test("earlier versions' lines in the file are skipped: the old decisions page's, the cards before titles", async () => {
   mkdirSync(dirname(DECISIONS), { recursive: true });
   appendFileSync(
     DECISIONS,
-    `${JSON.stringify({ at: NOW.toISOString(), data: {}, decision: "daily-1", schemaVersion: 1, step: "asked" })}\n`
+    `${JSON.stringify({ at: NOW.toISOString(), data: {}, decision: "daily-1", schemaVersion: 1, step: "asked" })}\n${JSON.stringify({ ...ask(), asker: "planner", at: NOW.toISOString(), id: "dec_00000000000a", kind: "asked", recommended: ["yes"], schemaVersion: 2, why: "Cheapest." })}\n`
   );
   const { id } = await requestDecision("planner", ask(), NOW);
   expect(decisionsNow(NOW).map((d) => d.id)).toEqual([id]);

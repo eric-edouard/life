@@ -229,7 +229,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
     "read_registered_agents()",
-    "request_decision(context,deadline,links,onSilence,options,question,recommended,subject,why,withdraw)",
+    "request_decision(context,deadline,draft,links,onSilence,options,question,subject,title,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);
@@ -638,8 +638,7 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
       { id: "no", label: "Not now" },
     ],
     question: "Send Kit the signed quote?",
-    recommended: ["yes"],
-    why: "He asked for it by Friday.",
+    title: "He asked for it by Friday.",
   };
   expect(
     await call("request_decision", decision, { agent: undefined })
@@ -654,7 +653,6 @@ test("an agent asks a decision; only he answers it, through answer_check; the ag
     asker: "Orbit",
     group: "decision",
     question: decision.question,
-    recommended: ["yes"],
     ref: id,
   });
   expect(

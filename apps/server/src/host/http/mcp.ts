@@ -11,7 +11,7 @@ import { connector, settings } from "../../core/settings";
 import { answerCheck } from "../../memory/answer-check";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { readInbox } from "../../memory/checks";
-import { DecisionRequest, requestDecision } from "../../memory/decisions";
+import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
@@ -393,7 +393,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each has its `ref`, `question`, `asker`, `evidence` (the words it rests on), `options` (each saying what choosing it does), `recommended` and `why`, `deadline` and `onSilence`, `subject`, `context`, `links`. Put them to him one at a time; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (an exact message to approve, shown in full), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
@@ -422,16 +422,13 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "request_decision",
-    "As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (`read_inbox`, the nightly report, a push as its deadline nears). `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids) and `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject` (a matter step's id: it leaves the list when the matter ends; or `project:<id>`, `area:<id>`). Or `withdraw` (a decision id you asked) with `why`. Returns its id and a `cursor`: poll `read_new_events` from it for `decision.answered` (his answer) and `decision.lapsed` (no answer by the deadline: take `onSilence`).",
+    `As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (\`read_inbox\`, the nightly report, a push as its deadline nears). ${CARD} Or \`withdraw\` (a decision id you asked) with \`why\`. Returns its id and a \`cursor\`: poll \`read_new_events\` from it for \`decision.answered\` (his answer) and \`decision.lapsed\` (no answer by the deadline: take \`onSilence\`).`,
     DecisionRequest,
     async ({ withdraw, why, ...ask }, agent) => {
       const asker = agentOnly(agent);
       const cursor = decisionCursorOf(clock());
       return {
-        ...(await requestDecision(
-          asker,
-          withdraw ? { why, withdraw } : { ...ask, why }
-        )),
+        ...(await requestDecision(asker, withdraw ? { why, withdraw } : ask)),
         cursor,
       };
     },
@@ -440,7 +437,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in words), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told; a step closes or reopens; who someone is is recorded) and returns the lines written.",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told; a step closes or reopens; who someone is is recorded) and returns the lines written.",
     z.object({
       note: z.string().min(1).max(4000).optional(),
       options: z.array(z.string()).default([]),

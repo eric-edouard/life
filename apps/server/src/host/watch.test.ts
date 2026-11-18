@@ -237,8 +237,7 @@ test("a decision due within 24 hours pushes its count once, never its words", as
           { id: "no", label: "Wait" },
         ],
         question: "Pay Kit's invoice?",
-        recommended: ["yes"],
-        why: "It is due.",
+        title: "It is due.",
       },
       now
     );

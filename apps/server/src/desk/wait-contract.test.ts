@@ -399,8 +399,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
       { id: "no", label: "No" },
     ],
     question: "Test: book the made-up table?",
-    recommended: ["yes"],
-    why: "a test",
+    title: "a test",
   });
   advance(1000);
   answerDecision(dec, ["yes"]);
@@ -422,8 +421,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
       { id: "no", label: "No" },
     ],
     question: "Test: order the made-up flour?",
-    recommended: ["no"],
-    why: "a test",
+    title: "a test",
   });
   advance(2 * HOUR + 1000);
   pollAnswers(desk);
@@ -534,8 +532,7 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
       { id: "no", label: "No" },
     ],
     question: "Test: send the made-up reply to Ana?",
-    recommended: ["yes"],
-    why: "a test",
+    title: "a test",
   });
   const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
   if (s) {
