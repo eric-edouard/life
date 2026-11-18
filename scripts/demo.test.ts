@@ -29,6 +29,34 @@ test("every fact and episode the README and the examples cite is in the demo scr
   expect(cited.filter((id) => !written.includes(`"id":"${id}"`))).toEqual([]);
 });
 
+test("the demo's inbox offers its new matter, the one `bun run e2e:demo` starts an agent on", () => {
+  const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
+  expect(
+    Bun.spawnSync(["bun", join(import.meta.dir, "demo.ts"), out]).exitCode
+  ).toBe(0);
+  const checks = Bun.spawnSync(
+    [
+      "bun",
+      join(import.meta.dir, "../apps/server/src/desk/life-entry.ts"),
+      "memory",
+      "checks",
+    ],
+    {
+      env: {
+        ...process.env,
+        LIFE_MACHINE_DIR: join(out, "machine"),
+        LIFE_OWNER_DATA_DIR: join(out, "data"),
+        LIFE_STATE_DIR: join(out, "state"),
+        NODE_ENV: "",
+      },
+    }
+  );
+  expect(checks.stdout.toString()).toContain("[new matter] matter_");
+  expect(checks.stdout.toString()).toContain(
+    "Goal: Get the kitchen tap at the flat fixed. Work on it?"
+  );
+});
+
 test("the demo refuses a folder inside his own data", () => {
   const run = Bun.spawnSync([
     "bun",

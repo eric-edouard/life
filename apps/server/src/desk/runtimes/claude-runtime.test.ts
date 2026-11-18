@@ -15,8 +15,8 @@ test("the claude runtime puts the door's key in the environment, never the comma
     title: "Test",
   };
   const argv = [
-    ...argsOf(a, "hello", { start: "u-1" }),
-    ...argsOf(a, "again", { resume: "u-1" }),
+    ...argsOf(a, "hello", { start: "u-1" }, false),
+    ...argsOf(a, "again", { resume: "u-1" }, false),
   ];
   expect(argv.join(" ")).not.toContain(door.key);
   // biome-ignore lint/suspicious/noTemplateCurlyInString: what Claude expands from the environment
@@ -38,6 +38,11 @@ test("the claude runtime puts the door's key in the environment, never the comma
     "high",
   ]);
   expect(argsOf(a, "x", { resume: "u-1" })).not.toContain("--model");
+  // His own Life's agent has his MCP servers beside its door; a copy's (a demo) has its door alone.
+  expect(argv).not.toContain("--strict-mcp-config");
+  expect(argsOf(a, "x", { resume: "u-1" }, true)).toContain(
+    "--strict-mcp-config"
+  );
 });
 
 test("a transcript's usage: growth since its first call, and its last turn's calls counted once each", () => {

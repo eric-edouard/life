@@ -29,10 +29,13 @@ export const APP_DATA = WINDOWS
 /**
  * Life's folder on this computer, shared by every install on it (the checkout's and the app's): the archive, Codex's
  * home, the backup's staging and the services' locks. Local AppData on Windows: it is never synced to another PC.
+ * `LIFE_MACHINE_DIR` gives a second Life on this Mac (a demo) its own, so it takes none of the app's locks.
  */
-export const MACHINE_DIR = WINDOWS
-  ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
-  : join(APP_DATA, "Life");
+export const MACHINE_DIR =
+  process.env.LIFE_MACHINE_DIR ??
+  (WINDOWS
+    ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
+    : join(APP_DATA, "Life"));
 
 /** The pinned codex's native binary for this system, under Life's files (`node_modules`, or the app's helper). */
 export const CODEX = (() => {

@@ -24,9 +24,12 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
-/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp). */
-export const PUBLIC_PORT = 46_200;
+/**
+ * Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp). `LIFE_PORT` moves it and the
+ * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`); the app keeps 46200.
+ */
+export const PUBLIC_PORT = Number(process.env.LIFE_PORT ?? 46_200);
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
-export const LOCAL_PORT = 46_201;
+export const LOCAL_PORT = PUBLIC_PORT + 1;
 /** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */
-export const DOOR_PORT = 46_202;
+export const DOOR_PORT = PUBLIC_PORT + 2;
