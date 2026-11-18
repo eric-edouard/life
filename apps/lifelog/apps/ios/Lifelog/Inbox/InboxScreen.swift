@@ -13,7 +13,7 @@ struct InboxScreen: View {
     @State private var current: String?
     @State private var notice: String?
     /// What he typed or opened on each card: here, not in the card, so folding or unfolding the phone keeps it.
-    @State private var drafts: [String: CardDraft] = [:]
+    @State private var inputs: [String: CardInput] = [:]
 
     var body: some View {
         Group {
@@ -32,7 +32,7 @@ struct InboxScreen: View {
                 ReadScreen(
                     shown: life.inbox.shown(isEmpty: { $0.checks.isEmpty }), retry: { await life.refreshInbox() },
                     loading: { CardPlaceholder() }, empty: { InboxZero(agents: working) },
-                    content: { inbox in card(in: inbox) })
+                    content: { _ in card })
             }
         }
         .background(Palette.bg)
@@ -44,6 +44,7 @@ struct InboxScreen: View {
                     case .name(let name): submit(check, AnswerRequest(ref: check.ref, options: [], name: name))
                     }
                 }
+                .presentationPlacement(.trailing)
             }
         }
         .onChange(of: life.openedCard, initial: true) { _, opening in
@@ -61,22 +62,23 @@ struct InboxScreen: View {
         }
     }
 
-    @ViewBuilder private func card(in inbox: Inbox) -> some View {
-        if let check = shownCheck(in: ordered(inbox)) {
-            cardView(check, count: ordered(inbox).count)
+    @ViewBuilder private var card: some View {
+        if let check = shownCheck {
+            cardView(check)
         } else {
             InboxZero(agents: working)
         }
     }
 
     /// The card on show: the one he opened, else the most urgent.
-    private func shownCheck(in checks: [Check]) -> Check? { checks.first { $0.ref == current } ?? checks.first }
-    private var shownCheck: Check? { shownCheck(in: ordered(life.inbox.value)) }
-
-    private func cardView(_ check: Check, count: Int) -> some View {
+    private var shownCheck: Check? {
         let checks = ordered(life.inbox.value)
-        let position = (checks.firstIndex { $0.ref == check.ref } ?? 0) + 1
-        let draft = Binding(get: { drafts[check.ref] ?? CardDraft() }, set: { drafts[check.ref] = $0 })
+        return checks.first { $0.ref == current } ?? checks.first
+    }
+
+    private func cardView(_ check: Check) -> some View {
+        let (position, total) = place(of: check)
+        let input = Binding(get: { inputs[check.ref] ?? CardInput() }, set: { inputs[check.ref] = $0 })
         return CardArrangement(check: check) {
             VStack(spacing: 0) {
                 if let notice {
@@ -86,22 +88,22 @@ struct InboxScreen: View {
                     .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
                 }
                 CheckCard(
-                    check: check, position: position, total: count, runtimeName: runtimeName(of: check),
-                    openMatter: { router.open(matter: $0) }, draft: draft
+                    check: check, position: position, total: total, runtimeName: runtimeName(of: check),
+                    openMatter: { router.open(matter: $0) }, input: input
                 )
                 .id(check.ref)
             }
         } bar: {
             CheckActions(
-                check: check, runtimeName: runtimeName(of: check), draft: draft,
+                check: check, runtimeName: runtimeName(of: check), input: input,
                 answer: { submit(check, $0) })
         }
     }
 
     private var sameAsBinding: Binding<Bool> {
         Binding(
-            get: { shownCheck.map { drafts[$0.ref]?.showsSameAs == true } ?? false },
-            set: { if let ref = shownCheck?.ref { drafts[ref, default: CardDraft()].showsSameAs = $0 } })
+            get: { shownCheck.map { inputs[$0.ref]?.showsSameAs == true } ?? false },
+            set: { if let ref = shownCheck?.ref { inputs[ref, default: CardInput()].showsSameAs = $0 } })
     }
 
     /// Most urgent first, as Life sends them; what he kept for later goes after.
@@ -117,12 +119,17 @@ struct InboxScreen: View {
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
 
-    private func submit(_ check: Check, _ request: AnswerRequest) {
+    /// Where a card stands in the inbox, as "2 of 5".
+    private func place(of check: Check) -> (position: Int, total: Int) {
         let checks = ordered(life.inbox.value)
+        return ((checks.firstIndex { $0.ref == check.ref } ?? 0) + 1, checks.count)
+    }
+
+    private func submit(_ check: Check, _ request: AnswerRequest) {
+        let (position, total) = place(of: check)
         notice = nil
         taken = Taken(
-            check: check, request: request, position: (checks.firstIndex { $0.ref == check.ref } ?? 0) + 1,
-            total: checks.count, runtimeName: runtimeName(of: check))
+            check: check, request: request, position: position, total: total, runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 

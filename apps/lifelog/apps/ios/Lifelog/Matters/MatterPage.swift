@@ -8,7 +8,6 @@ struct MatterPage: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    @State private var showsStart = false
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
@@ -44,13 +43,12 @@ struct MatterPage: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 8) {
             VStack(spacing: 8) {
-                if agent == nil { Button("Start an agent") { showsStart = true }.buttonStyle(.pill(.filled)) }
+                if agent == nil {
+                    Button("Start an agent") { router.startSheetMatter = id }.buttonStyle(.pill(.filled))
+                }
                 DoneButton(matter: matter)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
-        }
-        .sheet(isPresented: $showsStart, onDismiss: { life.forget(.start(matter: id)) }) {
-            StartAgentSheet(matter: matter).presentationPlacement(.leading)
         }
     }
 

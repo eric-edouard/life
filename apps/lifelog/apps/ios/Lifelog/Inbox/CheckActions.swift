@@ -2,7 +2,7 @@ import LifeConnector
 import SwiftUI
 
 /// What he has typed or opened on a card.
-struct CardDraft: Equatable {
+struct CardInput: Equatable {
     var isWritingOwnWords = false
     var words = ""
     var showsWhy = false
@@ -14,31 +14,31 @@ struct CardDraft: Equatable {
 struct CheckActions: View {
     let check: Check
     let runtimeName: RuntimeName?
-    @Binding var draft: CardDraft
+    @Binding var input: CardInput
     let answer: (AnswerRequest) -> Void
 
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 8) {
-            if draft.isWritingOwnWords {
+            if input.isWritingOwnWords {
                 Button {
                     answer(
                         AnswerRequest(
                             ref: check.ref, options: check.group == .newMatter ? ["edit-goal"] : [],
-                            note: draft.words.trimmingCharacters(in: .whitespacesAndNewlines)))
+                            note: input.words.trimmingCharacters(in: .whitespacesAndNewlines)))
                 } label: {
                     Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
                 }
                 .buttonStyle(.pill(.filled))
-                .disabled(draft.words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button("Back to the options") { draft.isWritingOwnWords = false }.buttonStyle(.pill(.quiet, height: 48))
+                .disabled(input.words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet, height: 48))
             } else {
                 options
                 HStack {
                     if check.group != .newMatter {
                         Button {
-                            draft.isWritingOwnWords = true
+                            input.isWritingOwnWords = true
                         } label: {
                             Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
                                 Palette.fg
@@ -82,7 +82,7 @@ struct CheckActions: View {
                         Button(shown(option)) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
                     if asksWho {
-                        Button("Same as…") { draft.showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48))
+                        Button("Same as…") { input.showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48))
                     }
                 }
             }
@@ -96,8 +96,8 @@ struct CheckActions: View {
 
     private func tap(_ option: Check.Option) {
         if check.group == .newMatter, option.id == "edit-goal" {
-            draft.words = check.offeredGoal
-            draft.isWritingOwnWords = true
+            input.words = check.offeredGoal
+            input.isWritingOwnWords = true
             return
         }
         answer(AnswerRequest(ref: check.ref, options: [option.id]))

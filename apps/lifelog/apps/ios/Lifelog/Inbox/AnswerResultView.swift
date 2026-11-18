@@ -49,8 +49,6 @@ struct AnswerResultView: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
 
-    private var isSend: Bool { taken.isSend }
-    private var isStart: Bool { taken.isStart }
     private var lines: [CheckLine] { ActionCopy.lines(state, taken.context) }
 
     private var header: some View {
@@ -81,7 +79,7 @@ struct AnswerResultView: View {
 
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
         header
-        Text(isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
+        Text(taken.isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
         Text(summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines.filter { $0.id != "left_inbox" }).padding(.top, 8)
         if let changed = counts(proof) {
@@ -141,15 +139,15 @@ struct AnswerResultView: View {
     }
 
     private func failedWord(_ failure: ActionFailure) -> String {
-        if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
-        if isStart { return "Not started." }
-        return isSend ? "Not sent." : "Not saved."
+        if failure.mayHaveHappened { return taken.isSend ? "May have gone." : "Check first." }
+        if taken.isStart { return "Not started." }
+        return taken.isSend ? "Not sent." : "Not saved."
     }
 
     private func failedLine(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
-        if isStart { return "Your goal is saved. The card stays here." }
-        return isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
+        if taken.isStart { return "Your goal is saved. The card stays here." }
+        return taken.isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
     }
 }
 

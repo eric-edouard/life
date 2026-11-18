@@ -11,10 +11,10 @@ struct CheckCard: View {
     let runtimeName: RuntimeName?
     let openMatter: (String) -> Void
     /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
-    @Binding var draft: CardDraft
+    @Binding var input: CardInput
 
-    /// A wide screen shows the card's context beside or below it, so its "Why" row goes.
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// The card's context shows in a region of its own, so its "Why" row goes: `CardArrangement` decides.
+    @Environment(\.isContextBeside) private var isContextBeside
 
     var body: some View {
         ScrollView {
@@ -28,7 +28,7 @@ struct CheckCard: View {
                 Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 4)
-                if draft.isWritingOwnWords { ownWords } else { content }
+                if input.isWritingOwnWords { ownWords } else { content }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -103,8 +103,8 @@ struct CheckCard: View {
         if let line = ridesOnLine {
             Text(line).font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         }
-        if sizeClass != .regular, let context = check.context, !context.isEmpty {
-            DisclosureGroup(isExpanded: $draft.showsWhy) {
+        if !isContextBeside, let context = check.context, !context.isEmpty {
+            DisclosureGroup(isExpanded: $input.showsWhy) {
                 Text(context).font(.body15).foregroundStyle(Palette.muted).frame(
                     maxWidth: .infinity, alignment: .leading
                 )
@@ -144,7 +144,7 @@ struct CheckCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Caps(check.group == .newMatter ? "Your goal" : "Your answer")
             TextField(
-                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $draft.words, axis: .vertical
+                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $input.words, axis: .vertical
             )
             .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
             .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))

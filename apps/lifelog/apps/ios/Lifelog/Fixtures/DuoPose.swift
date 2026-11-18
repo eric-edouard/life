@@ -10,11 +10,7 @@
         let content: Content
 
         static var requested: CGSize? {
-            let arguments = ProcessInfo.processInfo.arguments
-            guard let at = arguments.firstIndex(of: "-fixturePose"), arguments.indices.contains(at + 1) else {
-                return nil
-            }
-            return arguments[at + 1] == "upright" ? CGSize(width: 669, height: 951) : CGSize(width: 951, height: 669)
+            LifeFixture.pose.map { $0 == "upright" ? CGSize(width: 669, height: 951) : CGSize(width: 951, height: 669) }
         }
 
         var body: some View {

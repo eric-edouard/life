@@ -3,27 +3,37 @@ import SwiftUI
 
 /// A card region and the context it rests on: one region on a compact width, two peer regions on a regular one (the iPhone
 /// Duo open), which the system puts on the fold, side by side when wide and stacked when upright. The answers sit at the
-/// bottom of the card's region, or of the screen when the regions are stacked, where a thumb reaches. It branches on the
-/// size class alone, and holds nothing a fold could lose: what he typed and the card shown live in the screen above.
+/// bottom of the card's region, or of the screen when the regions are stacked, where a thumb reaches. It alone decides
+/// whether the context shows beside the card (`isContextBeside`), by the size class alone. From iOS 27.1 it is one
+/// arrangement at every width, so a fold keeps the card's scroll, focus and a playing clip; what he typed and the card
+/// shown live in the screen above.
 struct CardArrangement<Region: View, Bar: View>: View {
     let check: Check
     @ViewBuilder let region: Region
     @ViewBuilder let bar: Bar
 
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var axis: Axis?
 
     var body: some View {
-        if sizeClass == .regular, #available(iOS 27.1, *) {
-            ArrangementView {
-                region.safeAreaInset(edge: .bottom, spacing: 0) { if axis != .vertical { row.background(Palette.bg) } }
-                    .modifier(ReportAxis(axis: $axis))
-            } secondary: {
-                ContextRegion(check: check)
+        if #available(iOS 27.1, *) {
+            let isBeside = sizeClass == .regular
+            GeometryReader { arrangement in
+                ArrangementView {
+                    region.modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: false))
+                        .environment(\.isContextBeside, isBeside)
+                } secondary: {
+                    if isBeside {
+                        ContextRegion(check: check)
+                            .modifier(AnswersRow(row: row, bounds: arrangement.size, isLower: true))
+                    } else {
+                        // An empty region still takes half the screen: a zero-sized one leaves the card alone.
+                        Color.clear.splitArrangementLayoutSize(maxWidth: 0, maxHeight: 0)
+                    }
+                }
+                .arrangementViewStyle(.split)
             }
-            .arrangementViewStyle(.split)
-            .safeAreaBar(edge: .bottom) { if axis == .vertical { row } }
         } else {
+            // iOS 27.0 has no arrangement: the card alone at every width, its context behind the card's "Why" row.
             region.safeAreaInset(edge: .bottom, spacing: 0) { row.background(Palette.bg) }
         }
     }
@@ -31,14 +41,28 @@ struct CardArrangement<Region: View, Bar: View>: View {
     private var row: some View { bar.padding(.horizontal, 20).padding(.bottom, 8).readingWidth() }
 }
 
-/// Tells the screen which way the split runs: only the region's own environment knows.
-@available(iOS 27.1, *)
-private struct ReportAxis: ViewModifier {
-    @Binding var axis: Axis?
-    @Environment(\.splitArrangementAxis) private var splitAxis
+extension EnvironmentValues {
+    /// The card's context shows in a region of its own beside or below the card, so the card leaves out its "Why" row.
+    @Entry var isContextBeside = false
+}
+
+/// The answers at the bottom of a region: the card's, unless the regions are stacked, then the lower one's, the bottom of
+/// the screen. Read from where the split put the region, at each layout: `splitArrangementAxis` reads nil in both
+/// regions, wide and upright (iOS 27.1 simulator), so it cannot say.
+private struct AnswersRow<Row: View>: ViewModifier {
+    let row: Row
+    /// The whole arrangement's size.
+    let bounds: CGSize
+    let isLower: Bool
 
     func body(content: Content) -> some View {
-        content.onChange(of: splitAxis, initial: true) { axis = splitAxis }
+        GeometryReader { region in
+            // Stacked: the region spans the arrangement's width, not its height.
+            let isStacked = region.size.width > bounds.width - 1 && region.size.height < bounds.height - 1
+            content.safeAreaInset(edge: .bottom, spacing: 0) {
+                if isStacked == isLower { row.background(Palette.bg) }
+            }
+        }
     }
 }
 
