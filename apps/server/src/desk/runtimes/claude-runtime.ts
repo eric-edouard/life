@@ -10,7 +10,10 @@ import type { Agent, Run, Runtime, Usage } from "./contract";
 // 18 Nov 2026). The session id is the desk's, chosen before the start, so the ref is known at once; a turn ends when
 // its process does. The door reaches the session by `--mcp-config`, its key only through the environment. Its model and
 // effort when the agent has them (`--model`, `--effort`); no permission flag: a session runs as he has Claude Code set up. Nothing is kept here: running is a process holding the
-// id, idle a transcript on disk.
+// id while its transcript's last turn is open, idle a transcript on disk. A process alone is not a turn: the Claude app keeps an
+// opened session's process warm, idle, up to 30 minutes (18 Nov 2026), and an answer must wake the agent at once.
+// ponytail: that warm process keeps its own copy of the conversation; his message typed into it after a desk turn,
+// before the app reloads it, branches the conversation (the desk's turn stays in the transcript).
 
 const PROJECTS = join(HOME, ".claude", "projects");
 
@@ -54,7 +57,7 @@ const run = (a: Agent, argv: string[]): Run => ({
 const transcriptOf = (ref: string) =>
   new Bun.Glob(`*/${ref}.jsonl`).scanSync(PROJECTS).next().value;
 
-/** Whether some process runs session `ref` now: the desk's turn, or his in the app. */
+/** Whether some process holds session `ref`: the desk's turn, his in the app, or the app's idle warm process. */
 async function isHeld(ref: string) {
   const { code, stderr } = await exec(["pgrep", "-f", ref]);
   // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
@@ -66,7 +69,7 @@ async function isHeld(ref: string) {
 
 /**
  * Opens session `ref` in the Claude app, so its link works: once no process runs it (the CLI refuses while one does),
- * under a pseudo-terminal (it refuses without one). It lists the session in the app; no process of the app runs it.
+ * under a pseudo-terminal (it refuses without one). It lists the session in the app, which keeps a process warm for it.
  */
 async function handOff(a: Agent, ref: string) {
   const r = await exec(
@@ -88,6 +91,7 @@ interface Entry {
   message?: {
     content?: unknown;
     id?: string;
+    stop_reason?: string | null;
     usage?: {
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
@@ -105,16 +109,46 @@ const isPrompt = (e: Entry) =>
     (Array.isArray(e.message?.content) &&
       e.message.content.some((c: { type?: string }) => c.type === "text")));
 
+/** A transcript's entries of the main conversation (a subagent's are sidechain). */
+const entriesOf = (lines: string) =>
+  lines
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l) as Entry)
+    .filter((e) => !e.isSidechain);
+
+/** His interrupt, which ends a turn with no answer. */
+const isInterrupt = (e: Entry) =>
+  e.type === "user" &&
+  JSON.stringify(e.message?.content ?? "").includes(
+    "[Request interrupted by user"
+  );
+
+/**
+ * Whether a transcript's last turn is still open: its last message is not a finished answer (an assistant message that
+ * stopped for a reason other than a tool call) nor his interrupt. A message with no stop reason yet, or a line still
+ * being written, counts as open.
+ */
+export function isTurnOpen(lines: string) {
+  let last: Entry | undefined;
+  try {
+    last = entriesOf(lines).findLast(
+      (e) => e.type === "user" || e.type === "assistant"
+    );
+  } catch {
+    return true;
+  }
+  const stop = last?.message?.stop_reason;
+  const isAnswer = last?.type === "assistant" && !!stop && stop !== "tool_use";
+  return !!last && !(isAnswer || isInterrupt(last));
+}
+
 /**
  * A transcript's usage: its growth (the last call's context less the first's) and its last turn's tokens, summed over
  * its calls (a call is written once per content block, under one message id).
  */
 export function usageOf(lines: string): Usage | null {
-  const entries = lines
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => JSON.parse(l) as Entry)
-    .filter((e) => !e.isSidechain);
+  const entries = entriesOf(lines);
   const turnStart = entries.findLastIndex(isPrompt);
   const calls = new Map<string, { last: boolean; u: Usage }>();
   for (const [i, e] of entries.entries()) {
@@ -152,8 +186,8 @@ export function usageOf(lines: string): Usage | null {
 
 export const claudeRuntime: Runtime = {
   async send(a, ref, message) {
-    // His turn in the app holds the session: a run beside it would branch the conversation.
-    if (await isHeld(ref)) {
+    // A turn running beside his would branch the conversation.
+    if ((await claudeRuntime.state(ref)) === "running") {
       throw new Error(`session ${ref} is running`);
     }
     return run(a, argsOf(a, message, { resume: ref }));
@@ -175,10 +209,15 @@ export const claudeRuntime: Runtime = {
     });
   },
   async state(ref) {
-    if (await isHeld(ref)) {
+    const path = transcriptOf(ref);
+    if (
+      (await isHeld(ref)) &&
+      // No transcript yet: the process alone says.
+      (!path || isTurnOpen(readFileSync(join(PROJECTS, path), "utf8")))
+    ) {
       return "running";
     }
-    return transcriptOf(ref) ? "idle" : "gone";
+    return path ? "idle" : "gone";
   },
   usage(ref) {
     const path = transcriptOf(ref);

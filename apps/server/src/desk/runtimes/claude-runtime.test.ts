@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { doorOf } from "../desk-door";
-import { argsOf, usageOf } from "./claude-runtime";
+import { argsOf, isTurnOpen, usageOf } from "./claude-runtime";
 
 // The claude runtime's pure parts: the command it runs, and a transcript's usage. Made-up transcripts.
 
@@ -72,4 +72,51 @@ test("a transcript's usage: growth since its first call, and its last turn's cal
     tokensOut: 10,
   });
   expect(usageOf("")).toBeNull();
+});
+
+test("a session held by an idle process is not running: only an open last turn is", () => {
+  const said = (stop: string | null) => ({
+    message: { content: [{ type: "text" }], stop_reason: stop },
+    type: "assistant",
+  });
+  const prompt = { message: { content: "Woken" }, type: "user" };
+  const transcript = (...entries: object[]) =>
+    entries.map((e) => JSON.stringify(e)).join("\n");
+  // The Claude app's warm process after a finished turn: the desk may wake the agent.
+  expect(isTurnOpen(transcript(prompt, said("end_turn")))).toBe(false);
+  expect(isTurnOpen(transcript(prompt, said("stop_sequence")))).toBe(false);
+  expect(
+    isTurnOpen(
+      transcript(prompt, said("end_turn"), {
+        isSidechain: true,
+        ...said("tool_use"),
+      })
+    )
+  ).toBe(false);
+  expect(
+    isTurnOpen(
+      transcript(prompt, said("tool_use"), {
+        message: {
+          content: [{ text: "[Request interrupted by user]", type: "text" }],
+        },
+        type: "user",
+      })
+    )
+  ).toBe(false);
+  // His turn, still running: a prompt, a tool call, a tool's result, a message with no stop reason yet.
+  expect(isTurnOpen(transcript(said("end_turn"), prompt))).toBe(true);
+  expect(isTurnOpen(transcript(prompt, said("tool_use")))).toBe(true);
+  expect(
+    isTurnOpen(
+      transcript(prompt, said("tool_use"), {
+        message: { content: [{ type: "tool_result" }] },
+        type: "user",
+      })
+    )
+  ).toBe(true);
+  expect(isTurnOpen(transcript(prompt, said(null)))).toBe(true);
+  expect(
+    isTurnOpen(`${transcript(prompt, said("end_turn"))}\n{"type":"us`)
+  ).toBe(true);
+  expect(isTurnOpen("")).toBe(false);
 });
