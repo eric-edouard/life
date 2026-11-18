@@ -38,5 +38,6 @@
     "canRetry": true,
     "reason": "not sent: someone wrote in Kit Moreau since this card was asked",
     "state": "not_sent"
-  }
+  },
+  "start": null
 }

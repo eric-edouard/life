@@ -1,0 +1,60 @@
+{
+  "asker": {
+    "name": "life",
+    "told": "recorded"
+  },
+  "changed": {
+    "answer": "start",
+    "matter": {
+      "id": "matter_000000000007",
+      "name": "Boiler service"
+    }
+  },
+  "done": [
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "schemaVersion": 1,
+      "goal": "The boiler is serviced",
+      "kind": "matter-direction",
+      "steps": ["obs_000000000071", "unit_000000000072"]
+    },
+    {
+      "ask": "entry_000000000001"
+    }
+  ],
+  "inbox": {
+    "deadlinesToday": 0,
+    "left": true,
+    "total": 0
+  },
+  "kind": "new matter",
+  "ref": "matter_000000000007",
+  "send": null,
+  "start": {
+    "action": "start",
+    "agent": "agt_000000000002",
+    "ask": "entry_000000000001",
+    "failed": null,
+    "model": null,
+    "nothingRunning": false,
+    "runtime": "claude",
+    "stages": [
+      {
+        "agent": "agt_000000000002",
+        "at": "2026-11-18T10:00:00.000Z",
+        "stage": "runtime_answers"
+      },
+      {
+        "at": "2026-11-18T10:00:00.000Z",
+        "link": "fake://agt_000000000002-1",
+        "session": "agt_000000000002-1",
+        "stage": "session_open"
+      },
+      {
+        "at": "2026-11-18T10:00:00.000Z",
+        "stage": "turn_begun"
+      }
+    ],
+    "state": "started"
+  }
+}

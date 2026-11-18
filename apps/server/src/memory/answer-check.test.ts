@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
-import { answerCheck } from "./answer-check";
-import type { CheckGroup, InboxCheck } from "./checks";
+import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
+import type { Check, CheckGroup, InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
@@ -16,29 +16,32 @@ const guess = check("person:inf_kit", "guessed person", [
 const name = check("name:kit", "name", ["Kit", "kit"]);
 const card = check("person:con_kit", "card");
 const ending = check("obs_000000000001", "ending");
-let listed: ReturnType<typeof spyOn>;
+/** The goals a new matter's Start asked the desk to start on. */
+let started: string[] = [];
+const answerCheck = (c: Check, a: CheckAnswer) =>
+  answerWith(c, a, "session", {
+    startAgent: (_c, goal) => {
+      started.push(goal);
+      return Promise.resolve({ ask: "entry_000000000001" });
+    },
+  });
 
-beforeEach(async () => {
+beforeEach(() => {
   rmSync(CORRECTIONS, { force: true });
-  listed = spyOn(await import("./checks"), "checksNow").mockResolvedValue([
-    guess,
-    name,
-    card,
-    ending,
-  ]);
+  started = [];
 });
-afterEach(() => listed.mockRestore());
+afterEach(() => rmSync(CORRECTIONS, { force: true }));
 
 const said = () =>
   readCorrections().map(({ at: _at, schemaVersion: _v, ...c }) => c);
 
 test("a guessed person: yes confirms it by one name, no refuses each of its names, someone else folds it into them", async () => {
-  await answerCheck(guess.ref, { note: "my plumber", options: ["this-is"] });
-  await answerCheck(guess.ref, { options: ["not-this-person"] });
+  await answerCheck(guess, { note: "my plumber", options: ["this-is"] });
+  await answerCheck(guess, { options: ["not-this-person"] });
   await expect(
-    answerCheck(guess.ref, { options: ["same-person"] })
+    answerCheck(guess, { options: ["same-person"] })
   ).rejects.toThrow("`person`");
-  await answerCheck(guess.ref, {
+  await answerCheck(guess, {
     options: ["same-person"],
     person: "person:kit",
   });
@@ -60,8 +63,8 @@ test("a guessed person: yes confirms it by one name, no refuses each of its name
 });
 
 test("a name reads as the person he names, each way it was written; a card becomes theirs", async () => {
-  await answerCheck(name.ref, { options: ["this-is"], person: "person:kit" });
-  await answerCheck(card.ref, {
+  await answerCheck(name, { options: ["this-is"], person: "person:kit" });
+  await answerCheck(card, {
     options: ["same-person"],
     person: "person:kit",
   });
@@ -78,25 +81,24 @@ test("an ending goes to its fact-check answer", async () => {
     "recordFactCheckAnswer"
   ).mockResolvedValue({} as never);
   try {
-    await answerCheck(ending.ref, { note: "paid", options: ["outdated"] });
+    await answerCheck(ending, { note: "paid", options: ["outdated"] });
     expect(record).toHaveBeenCalledWith(ending.ref, "outdated", "paid");
   } finally {
     record.mockRestore();
   }
 });
 
-test("one option of the check's own; an unknown ref, option or a second option is refused, writing nothing", async () => {
+test("one option of the check's own; an unknown option or a second option is refused, writing nothing", async () => {
   await Promise.all(
     (
       [
-        ["obs_000000000009", ["outdated"]],
-        [ending.ref, ["this-is"]],
-        [ending.ref, ["constructor"]],
-        [ending.ref, []],
-        [guess.ref, ["this-is", "not-this-person"]],
+        [ending, ["this-is"]],
+        [ending, ["constructor"]],
+        [ending, []],
+        [guess, ["this-is", "not-this-person"]],
       ] as const
-    ).map(([ref, options]) =>
-      expect(answerCheck(ref, { options: [...options] })).rejects.toThrow(
+    ).map(([c, options]) =>
+      expect(answerCheck(c, { options: [...options] })).rejects.toThrow(
         "Not done"
       )
     )
@@ -115,8 +117,7 @@ test("a decision goes to answerDecision", async () => {
     question: "Book Kit?",
     title: "Cheapest.",
   });
-  listed.mockResolvedValue([check(id, "decision")]);
-  await answerCheck(id, { options: ["yes"] });
+  await answerCheck(check(id, "decision"), { options: ["yes"] });
   expect(decisionsNow().find((d) => d.id === id)?.answer?.options).toEqual([
     "yes",
   ]);
@@ -140,7 +141,6 @@ const item: NamingQueueItem = {
 
 test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
   const voice = check("voice:v1", "voice");
-  listed.mockResolvedValue([voice]);
   const queue = spyOn(
     await import("../sources/lifelog-voices"),
     "readNamingQueue"
@@ -155,18 +155,18 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
   ).mockResolvedValue({ personId: "p" });
   const voices = [{ jobId: "job-1", speakerLabel: "A" }];
   try {
-    await answerCheck(voice.ref, {
+    await answerCheck(voice, {
       options: ["this-is"],
       person: "person:dana",
     });
-    await answerCheck(voice.ref, {
+    await answerCheck(voice, {
       options: ["this-is"],
       person: "person:kofi",
     });
-    await answerCheck(voice.ref, { name: "Zed", options: ["this-is"] });
-    await answerCheck(voice.ref, { options: ["not-anyone-i-know"] });
-    await answerCheck(voice.ref, { options: ["media"] });
-    await answerCheck(voice.ref, { options: ["not-relevant"] });
+    await answerCheck(voice, { name: "Zed", options: ["this-is"] });
+    await answerCheck(voice, { options: ["not-anyone-i-know"] });
+    await answerCheck(voice, { options: ["media"] });
+    await answerCheck(voice, { options: ["not-relevant"] });
     expect(send.mock.calls).toEqual([
       [voices, { kind: "assign", personId: DANA_ID }],
       [voices, { kind: "confirm", name: "Kofi" }],
@@ -175,17 +175,64 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
       [voices, { kind: "media" }],
       [voices, { kind: "not_relevant" }],
     ]);
-    await expect(
-      answerCheck(voice.ref, { options: ["this-is"] })
-    ).rejects.toThrow("give person or name");
+    await expect(answerCheck(voice, { options: ["this-is"] })).rejects.toThrow(
+      "give person or name"
+    );
     queue.mockResolvedValue([]);
-    await expect(
-      answerCheck(voice.ref, { options: ["media"] })
-    ).rejects.toThrow("Not done: no open check voice:v1");
+    await expect(answerCheck(voice, { options: ["media"] })).rejects.toThrow(
+      "Not done: no open check voice:v1"
+    );
     expect(said()).toEqual([]);
   } finally {
     send.mockRestore();
     people.mockRestore();
     queue.mockRestore();
+  }
+});
+
+test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start makes the goal he saw his then asks the desk with it", async () => {
+  const steps = ["obs_000000000071", "unit_000000000072"];
+  const matter = check("matter_000000000007", "new matter");
+  const view = (by: "life" | "owner", text: string) => ({
+    goal: { at: "2026-11-17T02:00:00Z", by, text },
+    id: matter.ref,
+    steps: steps.map((ref) => ({ ref })),
+  });
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue(
+    {} as never
+  );
+  const book = spyOn(
+    await import("./matters"),
+    "readMatterBook"
+  ).mockResolvedValue([view("life", "The boiler is serviced")] as never);
+  try {
+    await expect(
+      answerCheck(matter, { options: ["edit-goal"] })
+    ).rejects.toThrow("`note`");
+    await answerCheck(matter, {
+      note: "Serviced and the leak fixed",
+      options: ["edit-goal"],
+    });
+    await answerCheck(matter, { options: ["dismiss"] });
+    expect(started).toEqual([]);
+    // Only his app's tap starts an agent: a session's answer (the CLI) cannot.
+    await expect(
+      answerWith(matter, { options: ["start"] }, "session")
+    ).rejects.toThrow("his tap");
+    const { done } = await answerCheck(matter, { options: ["start"] });
+    expect(started).toEqual(["The boiler is serviced"]);
+    expect(done.at(-1)).toEqual({ ask: "entry_000000000001" });
+    // His own goal is already his word: Start writes nothing more.
+    book.mockResolvedValue([view("owner", "Serviced by Friday")] as never);
+    await answerCheck(matter, { options: ["start"] });
+    expect(started.at(-1)).toBe("Serviced by Friday");
+    expect(said()).toEqual([
+      { goal: "Serviced and the leak fixed", kind: "matter-direction", steps },
+      { kind: "new-matter-dismissed", steps },
+      { goal: "The boiler is serviced", kind: "matter-direction", steps },
+    ]);
+  } finally {
+    book.mockRestore();
+    people.mockRestore();
   }
 });
