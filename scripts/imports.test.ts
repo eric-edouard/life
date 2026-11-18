@@ -126,9 +126,9 @@ test("forward and recordCorrection have only their known importers", () => {
     "apps/server/src/host/http/mcp.ts",
   ]);
   expect(importers(["recordCorrection"], "memory-files")).toEqual([
-    "apps/server/src/memory/answer-check.ts",
     "apps/server/src/host/command.ts",
     "apps/server/src/host/http/mcp.ts",
+    "apps/server/src/memory/answer-check.ts",
   ]);
 });
 
