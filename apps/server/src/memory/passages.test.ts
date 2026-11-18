@@ -16,7 +16,7 @@ import {
   readPassageTexts,
   writePassages,
 } from "./passages";
-import { dayUnitId } from "./units";
+import { dayUnitId } from "./unit-ids";
 import { dayStart } from "./zones";
 
 const pathOf = () =>

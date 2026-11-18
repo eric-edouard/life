@@ -36,7 +36,7 @@ import {
   readReplyIndex,
   replyOf,
 } from "./read-replies";
-import { begin, chunks, type Step } from "./run";
+import { begin, chunks, readsOf, type Step } from "./run";
 import { partLine, type SpokenPart } from "./spoken-conversations";
 import { clip, turnRefOf, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
@@ -555,6 +555,7 @@ function namingsOf(
         firstAt: part.at,
         input: n.input,
         keys: n.keys,
+        reads: readsOf(part.units.map((unit) => ({ source: "lifelog", unit }))),
         starts: [0],
       },
       read: VOICE_NAMING_READ,

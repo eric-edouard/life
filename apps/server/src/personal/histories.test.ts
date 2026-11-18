@@ -105,6 +105,7 @@ test("a conversation in person sits among the exchanges by time and switches on 
   expect(plain?.calls[0]?.callParts).toEqual([]);
   const talk = {
     at: "2026-09-05T11:00:00.000Z",
+    ref: "turn@2026-09-05T11:00:00.000Z",
     summary: "They talked about the move.",
   };
   const [month] = monthCallsOf(stream, "Ann", span, [talk]);

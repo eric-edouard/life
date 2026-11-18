@@ -15,7 +15,7 @@ action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSyst
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
 - **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLife <scenario>` (Life without a Mac: `Fixtures/LifeFixture.swift`, with its
-  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet`, `-fixtureAnswer`, `-fixtureStart`), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
+  `-fixtureCard`, `-fixtureTab`, `-fixtureMatter`, `-fixtureSheet`, `-fixtureAnswer`, `-fixtureStart`, and `-fixturePose wide|upright`, the iPhone Duo open drawn on any simulator), `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
@@ -29,6 +29,9 @@ action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSyst
 
 ## Worth knowing
 
+- **iPhone Duo: layout branches on `horizontalSizeClass` only**, never device, screen size or orientation: compact is one
+  pane, regular two (`CardArrangement` in the Inbox, the `NavigationSplitView` in Matters). State a fold must keep lives
+  above the branch (`AppRouter`, the screen).
 - Every bundle id, the app group and the background task derive from `LIFELOG_BUNDLE_ID` in `project.yml` (beside
   `DEVELOPMENT_TEAM`); code reads them from the bundle's Info.plist (`AppGroup`, `SyncStore.backgroundTaskID`). The Keychain
   service is `<bundle id>.server` (`DeviceToken`), which for the owner's build is the name it always had, so his

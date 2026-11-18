@@ -7,7 +7,7 @@ import { directionsOf, isDirectionDue, type MatterView } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MATTER_DIRECTIONS, readDirectionPins } from "./memory-files";
 import { meContext } from "./model-context";
-import { begin, checkedEntries, inBatches } from "./run";
+import { begin, checkedEntries, inBatches, readsOf } from "./run";
 import { clip } from "./units";
 import type { People } from "./who";
 import { dayNow } from "./zones";
@@ -109,6 +109,14 @@ export async function matterDirections(
         dir: join(dir, "call"),
         input: { matters: call.map((m) => m.shown) },
         prompt: PROMPT,
+        reads: readsOf(
+          call.flatMap((m) =>
+            [...m.v.steps.slice(-SHOWN_STEPS), ...m.v.openSteps].map((s) => ({
+              source: "memory",
+              unit: s.ref,
+            }))
+          )
+        ),
       });
       const list = (reply as { directions?: unknown } | null)?.directions;
       const directions = checkedEntries(

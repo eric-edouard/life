@@ -177,7 +177,7 @@ struct Placeholder: View {
 extension View {
     /// A screen's content at a readable width, centred, whatever width it is given (a folded phone, an unfolded Duo, a split's
     /// column): it fills a narrow container and stops growing in a wide one.
-    func readingWidth(_ width: CGFloat = 640) -> some View {
+    func readingWidth(_ width: CGFloat = 540) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 }

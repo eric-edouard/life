@@ -2,7 +2,7 @@ import { z } from "zod";
 import { clock, daysBefore } from "../core/clock";
 import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
 import type { Quota } from "../models/llm";
-import { add, NONE, type Tokens } from "../models/model-call";
+import { add, NONE, type ReadCounts, type Tokens } from "../models/model-call";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./memory-files";
 import { lockedSince } from "./memory-lock";
@@ -24,22 +24,6 @@ export const STEPS = [
   "memory.closeness",
   "memory.pages",
 ];
-/** Every run that can call a model: the processing runs, their steps (also run by hand), the night's readings of people, an import, the eval. */
-export const SPENDING = [
-  ...PROCESSING_RUNS,
-  ...STEPS,
-  "memory.situation",
-  "memory.persona",
-  "memory.history",
-  "memory.conversation-summaries",
-  "memory.voice-naming",
-  "memory.matters",
-  "memory.matter-directions",
-  "memory.links",
-  "memory.import",
-  "memory.pilot",
-  "eval",
-];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...PROCESSING_RUNS,
@@ -58,10 +42,39 @@ const omit = (e: LogEvent | undefined) => {
   return rest;
 };
 
-/** What a run spent: its tokens, and for a metered run on an engine with a quota the quota read around it (`useOf`). */
-export interface Use {
-  quota: { after: Quota | null; before: Quota | null } | null;
+/** What model calls spent and read, summed (`modelCallsOf`): how many, tokens, dollars, the calls with no cost (unpriced), units read by source. */
+export interface Calls {
+  calls: number;
+  costUsd: number;
+  reads: ReadCounts;
   tokens: Tokens;
+  unpriced: number;
+}
+const NO_CALLS: Calls = {
+  calls: 0,
+  costUsd: 0,
+  reads: {},
+  tokens: NONE,
+  unpriced: 0,
+};
+const addReads = (a: ReadCounts, b: ReadCounts): ReadCounts => {
+  const sum = { ...a };
+  for (const [k, n] of Object.entries(b) as [keyof ReadCounts, number][]) {
+    sum[k] = (sum[k] ?? 0) + n;
+  }
+  return sum;
+};
+const addCalls = (a: Calls, b: Calls): Calls => ({
+  calls: a.calls + b.calls,
+  costUsd: a.costUsd + b.costUsd,
+  reads: addReads(a.reads, b.reads),
+  tokens: add(a.tokens, b.tokens),
+  unpriced: a.unpriced + b.unpriced,
+});
+
+/** What a run spent: its calls' sum, and for a metered run on an engine with a quota the quota read around it (`useOf`). */
+export interface Use extends Calls {
+  quota: { after: Quota | null; before: Quota | null } | null;
 }
 
 export interface Run {
@@ -99,12 +112,16 @@ const tokensText = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
 
 /**
- * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached)"; under 1% when the whole percent didn't move;
- * its tokens alone when it read no quota (a step, or an engine without one).
+ * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached), $0.12, 3 unpriced"; under 1% when the whole
+ * percent didn't move; its tokens alone when it read no quota (a step, or an engine without one).
  */
 export function useText(u: Use | null) {
   const t = u?.tokens ?? NONE;
-  const tokens = `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`;
+  const tokens = [
+    `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`,
+    ...(u?.costUsd ? [`$${u.costUsd.toFixed(2)}`] : []),
+    ...(u?.unpriced ? [`${u.unpriced} unpriced`] : []),
+  ].join(", ");
   if (!u?.quota) {
     return tokens;
   }
@@ -142,15 +159,15 @@ export function spendLines(
 }
 
 /**
- * A run's use, derived from the log: the tokens of its model calls (`model.run` lines with its run id) and its steps',
- * and for a metered run (`metered`, run.ts) the quota it logged as it started and ended (null while it runs).
+ * A run's use, derived from the log: its model calls (`model.run` lines with its run id) and its steps', and for a
+ * metered run (`metered`, run.ts) the quota it logged as it started and ended (null while it runs).
  */
 function useOf(
   r: Run,
-  tokensBy: Map<string, Tokens>,
+  callsBy: Map<string, Calls>,
   byId: Map<string, Run>
 ): Use | null {
-  const own = (x: Run) => tokensBy.get(x.id.slice(x.step.length + 1));
+  const own = (x: Run) => callsBy.get(x.id.slice(x.step.length + 1));
   const parts = [
     r,
     ...(r.children ?? []).flatMap((c) => byId.get(c) ?? []),
@@ -165,7 +182,7 @@ function useOf(
   if (!(parts.length || quota)) {
     return null;
   }
-  return { quota, tokens: parts.reduce(add, NONE) };
+  return { ...parts.reduce(addCalls, NO_CALLS), quota };
 }
 
 /** A processing run's sub-step (memory.nightly.actions) belongs to its processing run. */
@@ -265,12 +282,11 @@ function nest(list: Run[], orphans: LogEvent[]) {
   return list;
 }
 
-/** The runs the events record, for the given steps; `lockSince` tells a run in progress from an interrupted one. */
-export function assembleRuns(
-  events: LogEvent[],
-  steps: Set<string>,
-  lockSince: Date | null
-) {
+/**
+ * Every run the events record, each step nested in the processing run it ran in, whatever a reader then shows: a step
+ * left out here would drop its spend from its night. `lockSince` tells a run in progress from an interrupted one.
+ */
+export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
   const byId = new Map<string, Run>();
   const orphans: LogEvent[] = [];
   for (const e of [...events].sort((a, b) => a.at.localeCompare(b.at))) {
@@ -278,9 +294,6 @@ export function assembleRuns(
       continue;
     }
     const step = stepOf(e.step);
-    if (!steps.has(step)) {
-      continue;
-    }
     if (!e.run) {
       if (e.kind === "run.error") {
         orphans.push(e);
@@ -297,29 +310,45 @@ export function assembleRuns(
     r.outcome = outcomeOf(r, lockSince);
   }
   nest(list, orphans);
-  const tokensBy = tokensOf(events);
+  const callsBy = modelCallsOf(events);
   for (const r of list) {
     if (r.startedAt) {
-      r.use = useOf(r, tokensBy, byId);
+      r.use = useOf(r, callsBy, byId);
     }
   }
   return list;
 }
 
-/** The tokens of the model calls, by run id. */
-function tokensOf(events: LogEvent[]) {
-  const by = new Map<string, Tokens>();
+/**
+ * The model calls (`model.run` lines) summed by run id, or by `groupOf` (the source-use table's run and day): the one
+ * fold of what calls spent and read. A call with no `costUsd` is unpriced.
+ */
+export function modelCallsOf(
+  events: LogEvent[],
+  groupOf = (e: LogEvent) => e.run
+) {
+  const by = new Map<string, Calls>();
   for (const e of events) {
-    const t = e.tokens as Tokens | undefined;
-    if (e.kind === "model.run" && e.run && t) {
-      by.set(e.run, add(by.get(e.run) ?? NONE, t));
+    const key = e.kind === "model.run" && e.run && groupOf(e);
+    if (key) {
+      const cost = e.costUsd as number | undefined;
+      by.set(
+        key,
+        addCalls(by.get(key) ?? NO_CALLS, {
+          calls: 1,
+          costUsd: cost ?? 0,
+          reads: (e.reads as ReadCounts | undefined) ?? {},
+          tokens: (e.tokens as Tokens | undefined) ?? NONE,
+          unpriced: cost === undefined ? 1 : 0,
+        })
+      );
     }
   }
   return by;
 }
 
 /** One day's events a run is made of: its run lines and the model calls it made. */
-const runEvents = (name: string, dir = LOG_DIR) => [
+export const runEvents = (name: string, dir = LOG_DIR) => [
   ...logEvents<LogEvent>(name, "run.", dir),
   ...logEvents<LogEvent>(name, "model.run", dir),
 ];
@@ -332,11 +361,16 @@ const newestFirst = (a: Run, b: Run) =>
 /** The runs of the last `days` days of derived/log, newest first (`read_life_status`). */
 export async function latestRuns(days: number, lock: Date | null) {
   const events = (await logDays()).slice(0, days).flatMap((n) => runEvents(n));
-  return assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
+  const shown = new Set(PIPELINE);
+  return assembleRuns(events, lock)
+    .filter((r) => shown.has(r.step))
+    .sort(newestFirst);
 }
 
 export interface RunsQuery {
   cursor?: string;
+  /** Every step, whatever `steps` says (the email, the snapshot). */
+  everyStep?: true;
   limit?: number;
   /** Steps to list (memory.episodes, memory.intent…); default: the processing runs and the pipeline's steps. */
   steps?: string[];
@@ -350,6 +384,7 @@ export interface RunsQuery {
 export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
   const limit = q.limit ?? PAGE;
   const steps = new Set(q.steps?.length ? q.steps : PIPELINE);
+  const isShown = (r: Run) => q.everyStep || steps.has(r.step);
   const after = decode(q.cursor, z.tuple([z.string(), z.string()]), null);
   const days = await logDays(dir);
   const lock = lockedSince();
@@ -375,11 +410,8 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
       continue;
     }
     next *= 2;
-    // Assembled with the whole pipeline, so a processing run lists its steps whatever `steps` shows.
-    const ready = assembleRuns(events, new Set([...PIPELINE, ...steps]), lock)
-      .filter(
-        (r) => steps.has(r.step) && (last || keyOf(r) >= `${day}T`) && older(r)
-      )
+    const ready = assembleRuns(events, lock)
+      .filter((r) => isShown(r) && (last || keyOf(r) >= `${day}T`) && older(r))
       .sort(newestFirst);
     if (ready.length > limit || last) {
       page = ready.slice(0, limit);

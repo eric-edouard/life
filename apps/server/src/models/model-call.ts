@@ -1,6 +1,6 @@
 // What every model runner shares: the call it gets, the answer it gives, the tokens it spent, the JSON in its reply.
 import { MIN } from "../core/clock";
-import type { Engine } from "../core/names";
+import type { Engine, SourceName } from "../core/names";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 export const MODEL_TIMEOUT_MS = 60 * MIN;
@@ -53,6 +53,15 @@ export const add = (a: Tokens, b: Tokens): Tokens => ({
   input: a.input + b.input,
   output: a.output + b.output,
 });
+
+/**
+ * What a call was shown, by source: the number of distinct units whose content it read (`memory`: Life's own lines
+ * only). Counts only, never ids or text; made only by `readsOf` (memory/run.ts), required by `askOnce`.
+ */
+export type CallReads = ReadCounts & { readonly [MADE_BY_READS_OF]: true };
+/** Units read, counted by source: a call's (`CallReads`) or a sum of them. */
+export type ReadCounts = Partial<Record<SourceName | "memory", number>>;
+declare const MADE_BY_READS_OF: unique symbol;
 
 /** An image as claude's stream-json input takes it (an API call builds its data URL from it). */
 export const imageBlock = async (path: string) => ({

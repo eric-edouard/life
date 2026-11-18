@@ -17,7 +17,7 @@ import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import { LINKS } from "./memory-files";
 import { foundQuotes } from "./quote-check";
 import { OWNER } from "./read-truth";
-import { begin, chunks, inBatches } from "./run";
+import { begin, chunks, inBatches, readsOf } from "./run";
 import type { People } from "./who";
 import { dayNow } from "./zones";
 
@@ -336,6 +336,12 @@ export async function links(pending: LinkWork) {
                 open: open.map(shown),
               },
               prompt: PROMPT,
+              reads: readsOf(
+                [...later, ...open].map((s) => ({
+                  source: "memory",
+                  unit: s.id,
+                }))
+              ),
             });
             kept.push(...keptLinks(reply, { later, open }));
           }

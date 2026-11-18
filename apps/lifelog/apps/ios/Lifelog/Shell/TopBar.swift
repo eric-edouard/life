@@ -9,6 +9,7 @@ import SwiftUI
 private struct ShellBar: ViewModifier {
     let label: String
     let hasSettings: Bool
+    let hasPendant: Bool
 
     @Environment(AppRouter.self) private var router
 
@@ -28,14 +29,14 @@ private struct ShellBar: ViewModifier {
                         .accessibilityIdentifier("top.settings")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) { PendantPill { router.sheet = .pendant } }
+                if hasPendant { ToolbarItem(placement: .topBarTrailing) { PendantPill { router.sheet = .pendant } } }
             }
     }
 }
 
 extension View {
-    func shellBar(_ label: String, hasSettings: Bool = true) -> some View {
-        modifier(ShellBar(label: label, hasSettings: hasSettings))
+    func shellBar(_ label: String, hasSettings: Bool = true, hasPendant: Bool = true) -> some View {
+        modifier(ShellBar(label: label, hasSettings: hasSettings, hasPendant: hasPendant))
     }
 }
 

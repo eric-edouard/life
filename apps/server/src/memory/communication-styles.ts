@@ -14,8 +14,9 @@ import { communicationStylePath } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotesAt } from "./quote-check";
 import { OWNER } from "./read-truth";
-import { begin, inBatches, inputsOf, isDue, replyLines } from "./run";
+import { begin, inBatches, inputsOf, isDue, readsOf, replyLines } from "./run";
 import { kindOf } from "./sources";
+import { dayUnitId } from "./unit-ids";
 import { clip, isLifeOutput, textOf } from "./units";
 import { readPeople } from "./who";
 import { localTime } from "./zones";
@@ -63,6 +64,8 @@ interface Shown {
   fromMe: boolean;
   source: SourceEvent["source"];
   text: string;
+  /** Its chat-day (`dayUnitId`): what the call read, as its `reads` count. */
+  unit: string;
 }
 
 /** A message as a sent draft is keyed: its source, its chat and its text. */
@@ -105,6 +108,7 @@ export function styleSampleOf(direct: SourceEvent[], sent = new Set<string>()) {
         fromMe: e.fromMe,
         source: e.source,
         text: clip(textOf(e), MESSAGE_CHARS[kind]),
+        unit: dayUnitId(e),
       }));
   return { chat: newest("chat"), mail: newest("mail") };
 }
@@ -216,6 +220,12 @@ export async function communicationStyles({ events, failed }: WithPeople) {
           dir,
           input: t.input,
           prompt: COMMUNICATION_STYLE_PROMPT,
+          reads: readsOf(
+            [...t.sample.chat, ...t.sample.mail].map((m) => ({
+              source: m.source,
+              unit: m.unit,
+            }))
+          ),
         });
         const lines = styleLines(reply, t.sample);
         // A reply with no line is a failed call: the last style stays, the next run retries.

@@ -8,7 +8,7 @@ struct MatterPage: View {
 
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
-    @State private var showsStart = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         let state = life.matter[id] ?? ReadState()
@@ -19,8 +19,9 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        .toolbarVisibility(.hidden, for: .tabBar)
-        .shellBar("Matter", hasSettings: false)
+        .toolbarVisibility(sizeClass == .regular ? .automatic : .hidden, for: .tabBar)
+        // Beside the list the Pendant is already in the list's bar.
+        .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
         .task { await life.refreshMatter(id) }
     }
 
@@ -42,13 +43,12 @@ struct MatterPage: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 8) {
             VStack(spacing: 8) {
-                if agent == nil { Button("Start an agent") { showsStart = true }.buttonStyle(.pill(.filled)) }
+                if agent == nil {
+                    Button("Start an agent") { router.startSheetMatter = id }.buttonStyle(.pill(.filled))
+                }
                 DoneButton(matter: matter)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
-        }
-        .sheet(isPresented: $showsStart, onDismiss: { life.forget(.start(matter: id)) }) {
-            StartAgentSheet(matter: matter)
         }
     }
 
@@ -298,11 +298,7 @@ private struct Steps: View {
                     Text(String(format: "%02d", steps.count - offset)).font(.monoSmall).foregroundStyle(Palette.muted)
                         .frame(width: 22, alignment: .leading).padding(.top, 3)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(
-                            [step.at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), step.with]
-                                .compactMap(\.self).joined(separator: " · ")
-                        )
-                        .font(.body15).foregroundStyle(Palette.muted)
+                        Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
                         Text(step.kind.replacing("_", with: " ")).label().foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.faint)
                         Text(step.text).font(.leadBold).foregroundStyle(
@@ -352,5 +348,13 @@ private struct PagePlaceholder: View {
         }
         .padding(20)
         .accessibilityLabel("Loading the matter")
+    }
+}
+
+extension MatterStep {
+    /// A step's day and who or what it came from, as the matter page and the card's context both show it.
+    var whenAndWith: String {
+        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
+            .joined(separator: " · ")
     }
 }

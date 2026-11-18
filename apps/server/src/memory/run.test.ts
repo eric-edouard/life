@@ -4,16 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { llmFor } from "../models/llm";
+import type { ReadCounts } from "../models/model-call";
+import type { SourceEvent } from "../records/source";
 import {
   begin,
   inBatches,
   inputsOf,
   isDue,
   metered,
+  readsOf,
   recordRun,
   trackProcessingSteps,
 } from "./run";
 import { runs } from "./run-log";
+import { dayUnitId } from "./unit-ids";
 
 /** The run as the status reads' `read_processing_runs` reads it back from the (test) log. */
 const read = async (step: string, run: string) =>
@@ -214,7 +218,12 @@ test("his words on what Life may keep reach a call's context only for a prompt w
   const was = readFileSync(me, "utf8");
   try {
     const plain = await begin("test-may-keep", "fast", {});
-    await plain.ask({ dir: plain.dir, input: {}, prompt: "memory-extract.v6" });
+    await plain.ask({
+      dir: plain.dir,
+      input: {},
+      prompt: "memory-extract.v6",
+      reads: readsOf([{ source: "memory", unit: "x" }]),
+    });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
     expect(plain.madeBy("memory-extract.v6").prompt).not.toContain("mayKeep");
 
@@ -228,6 +237,7 @@ test("his words on what Life may keep reach a call's context only for a prompt w
       dir: step.dir,
       input: {},
       prompt: "memory-extract.v6",
+      reads: readsOf([{ source: "memory", unit: "x" }]),
     });
     expect(asked.mock.calls.at(-1)?.[0].context).toEqual({
       areas: [],
@@ -235,7 +245,12 @@ test("his words on what Life may keep reach a call's context only for a prompt w
     });
     expect(step.madeBy("memory-extract.v6").prompt).toContain("-with-mayKeep");
     // A prompt without the sentence is called as it was.
-    await step.ask({ dir: step.dir, input: {}, prompt: "memory-closeness.v1" });
+    await step.ask({
+      dir: step.dir,
+      input: {},
+      prompt: "memory-closeness.v1",
+      reads: readsOf([{ source: "memory", unit: "x" }]),
+    });
     expect(asked.mock.calls.at(-1)?.[0].context).toBeUndefined();
     expect(step.madeBy("memory-closeness.v1").prompt).toBe(
       "memory-closeness.v1"
@@ -244,4 +259,22 @@ test("his words on what Life may keep reach a call's context only for a prompt w
     writeFileSync(me, was);
     asked.mockRestore();
   }
+});
+
+test("a call's reads count distinct units per source: a chat-day's messages are one unit, two days are two", () => {
+  const message = (at: string) =>
+    ({ at, chat: "chat-1", source: "whatsapp" }) as SourceEvent;
+  const day = ["12:00", "12:05", "12:10"].map((t) =>
+    message(`2026-11-10T${t}:00.000Z`)
+  );
+  const unitOf = (e: SourceEvent) => ({ source: e.source, unit: dayUnitId(e) });
+  // Its counts as plain numbers: only readsOf makes a CallReads.
+  const counted = (r: ReadCounts) => ({ ...r });
+  expect(counted(readsOf(day.map(unitOf)))).toEqual({ whatsapp: 1 });
+  expect(
+    counted(readsOf([...day, message("2026-11-11T12:00:00.000Z")].map(unitOf)))
+  ).toEqual({ whatsapp: 2 });
+  expect(
+    counted(readsOf([...day.map(unitOf), { source: "memory", unit: "fact-1" }]))
+  ).toEqual({ memory: 1, whatsapp: 1 });
 });
