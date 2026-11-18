@@ -409,7 +409,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project, with `folder` (and `runtime`, `model`, `effort`, else the desk's defaults; his words are its brief); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words, verbatim, are its brief and goal); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent) => {
       if (agent) {

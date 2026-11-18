@@ -595,7 +595,7 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 `LIFE_STATE_DIR/desk/desk.sqlite` (WAL; backed up whole with Life's state) is the desk's one state, written only by the
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
-brief, runtime, folder, `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
+brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link; append-only), `event` (its
