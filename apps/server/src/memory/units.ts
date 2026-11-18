@@ -572,7 +572,15 @@ export const lifeChat = () => settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
-  messages: Pick<Message, "bulk" | "fromMe" | "sender">[];
+  messages: Pick<
+    Message,
+    | "bulk"
+    | "fromMe"
+    | "hasOwnerWrittenInThread"
+    | "known"
+    | "sender"
+    | "transaction"
+  >[];
   unit: Pick<Unit, "source" | "title">;
 }
 /** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
@@ -595,6 +603,9 @@ const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
 /** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
+/** No line from him or from anyone he knows, in a thread he never wrote in. */
+export const isFromStrangers = (t: Pick<Thread, "messages">) =>
+  !t.messages.some((m) => m.known || m.fromMe || m.hasOwnerWrittenInThread);
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
 export const searchableMail = (events: SourceEvent[]) =>
@@ -647,10 +658,7 @@ const RULES: [
   [
     "not-a-person",
     (b) =>
-      isMail(b) &&
-      !b.messages.some(
-        (m) => m.known || m.transaction || m.hasOwnerWrittenInThread
-      ),
+      isMail(b) && !b.messages.some((m) => m.transaction) && isFromStrangers(b),
   ],
 ];
 

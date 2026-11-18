@@ -2,7 +2,13 @@ import { MIN } from "../core/clock";
 import type { Unit } from "../records/unit";
 import { closedConversations } from "./extract";
 import { isDirect, kindOf } from "./sources";
-import { type Built, type Evidence, isAgentReport, nameKey } from "./units";
+import {
+  type Built,
+  type Evidence,
+  isAgentReport,
+  isFromStrangers,
+  nameKey,
+} from "./units";
 
 // The arrival gate (docs/glossary.md): which of today's units hold an arrival (new lines no step has read) worth a day
 // pass now. Model-free and pure: it decides *when* a unit is read, never *whether*; a unit it holds back waits for the
@@ -13,7 +19,7 @@ export const ARRIVAL_QUIET = 2 * MIN;
 /** …unless its first unread line has waited this long. */
 export const ARRIVAL_AT_MOST = 10 * MIN;
 /** A recorded conversation of fewer turns is small talk, too short to hold an ask. */
-export const SHORT_TURNS = 6;
+const SHORT_TURNS = 6;
 
 /** What a caller already holds: how far each unit was read, where a draft was just sent, and who he is. */
 export interface ArrivalReads {
@@ -30,7 +36,9 @@ export interface ArrivalReads {
   ownerNames: string[];
 }
 
-export type Arrival = { due: true; unit: Unit } | { unit: Unit; wait: string };
+export type GateAnswer =
+  | { due: true; unit: Unit }
+  | { unit: Unit; wait: string };
 
 interface Seen {
   b: Built;
@@ -39,12 +47,11 @@ interface Seen {
   read: ArrivalReads;
 }
 
-/** No line from him or from anyone he knows, in a thread he never wrote in. */
-const isFromStrangers = (b: Built) =>
-  !b.messages.some((m) => m.known || m.fromMe || m.hasOwnerWrittenInThread);
-
+/** Whether `text` holds a name as a whole word run (never inside a longer word); an empty name matches nothing. */
 const isNamed = (text: string, names: string[]) =>
-  names.some((n) => ` ${nameKey(text)} `.includes(` ${nameKey(n)} `));
+  names.some(
+    (n) => nameKey(n) && ` ${nameKey(text)} `.includes(` ${nameKey(n)} `)
+  );
 
 /** Arrivals come from voice, chats, mail and agents; notes, imports and activity are the night's (his word, 19 Nov 2026). */
 const ARRIVING = new Set(["agent", "chat", "mail", "voice"]);
@@ -89,13 +96,6 @@ const RULES: [string, (s: Seen) => boolean][] = [
       );
     },
   ],
-  [
-    "receipt",
-    ({ b }) =>
-      kindOf(b.unit.source) === "mail" &&
-      b.messages.some((m) => m.transaction) &&
-      isFromStrangers(b),
-  ],
   ["stranger", ({ b }) => b.messages.length > 0 && isFromStrangers(b)],
   [
     "not-near-an-ask",
@@ -114,9 +114,9 @@ export function arrivalsDue(
   { built, conversations }: Pick<Evidence, "built" | "conversations">,
   read: ArrivalReads,
   now: Date
-): Arrival[] {
+): GateAnswer[] {
   const closed = closedConversations(conversations);
-  return built.map((b): Arrival => {
+  return built.map((b): GateAnswer => {
     const wait = waitOf(b, {
       closed,
       done: read.lines.get(b.unit.id) ?? 0,

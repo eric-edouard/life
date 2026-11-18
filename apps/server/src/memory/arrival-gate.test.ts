@@ -107,9 +107,12 @@ test("a group he wrote nothing in waits, unless a new line names him", () => {
     "group-not-his",
   ]);
   expect(gate([group("Ozren, can you bring the rope?")])).toEqual(["due"]);
+  expect(gate([group("Ozrenka, can you bring the rope?")])).toEqual([
+    "group-not-his",
+  ]);
 });
 
-test("a receipt from no one he knows and a stranger's message wait; a newsletter is the code rules' drop", () => {
+test("a receipt or a message from no one he knows waits; a newsletter is the code rules' drop", () => {
   const mail = (over: Partial<SourceEvent>) =>
     msg({
       chat: "thread-1",
@@ -119,7 +122,7 @@ test("a receipt from no one he knows and a stranger's message wait; a newsletter
       source: "mail",
       ...over,
     });
-  expect(gate([mail({ transaction: true })])).toEqual(["receipt"]);
+  expect(gate([mail({ transaction: true })])).toEqual(["stranger"]);
   expect(gate([mail({ bulk: true })])).toEqual(["dropped"]);
   expect(
     gate([msg({ chat: "33600000002@s.whatsapp.net", sender: "33600000002" })])

@@ -6,18 +6,18 @@
 import { parseArgs } from "node:util";
 import { DAY, daysBefore, MIN } from "@life/server/src/core/clock";
 import {
+  closestOf,
   EMBEDDER_URL,
   embedAll,
   embedderAt,
-  similarityOf,
 } from "@life/server/src/core/embedder";
 import { CONVERSATION_ENDS_AFTER } from "@life/server/src/core/quiet";
 import {
   ARRIVAL_AT_MOST,
   ARRIVAL_QUIET,
-  type Arrival,
   type ArrivalReads,
   arrivalsDue,
+  type GateAnswer,
   isArriving,
 } from "@life/server/src/memory/arrival-gate";
 import { ACTIONABLE, matterBookOf } from "@life/server/src/memory/matter-read";
@@ -209,7 +209,7 @@ const textTokensOf = (u: Built["unit"]) =>
 function tick(
   run: Run,
   linesOf: Build["linesOf"],
-  arrivals: Arrival[],
+  arrivals: GateAnswer[],
   { day, t }: { day: string; t: number }
 ) {
   const unreadOf = (id: string) =>
@@ -503,9 +503,6 @@ async function queryVectors(texts: string[]) {
   return vectors;
 }
 
-const closest = (vectors: number[][], v: number[]) =>
-  Math.max(-1, ...vectors.map((x) => similarityOf(x, v)));
-
 /**
  * Layer 2's scores, by the Mac's embedder (nothing leaves the Mac): for each chat and mail line, how close it is to the
  * ask examples, and to the open matters' steps of the 45 days before its day that had not ended by then (never a later
@@ -538,8 +535,8 @@ async function readNearness(
     });
     const v = vectors[i] ?? [];
     scores.set(e.id, {
-      asks: closest(examples, v),
-      matters: closest(open, v),
+      asks: closestOf(examples, v),
+      matters: closestOf(open, v),
     });
   }
   return scores;
@@ -629,7 +626,7 @@ async function readReplayInput(from: string, to: string, store?: string) {
 const THRESHOLDS = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6];
 const CADENCES = [10, 20, 30];
 
-/** Every option measured: the gate alone and with layer 2 at each threshold (asks and matters, or asks only), at each cadence. */
+/** Every option measured: the gate alone and with layer 2 at each threshold (examples and matters, or matters only), at each cadence. */
 function optionsOf(near: Map<string, { asks: number; matters: number }>) {
   const above = (
     at: number,
@@ -645,8 +642,8 @@ function optionsOf(near: Map<string, { asks: number; matters: number }>) {
       },
       {
         every: minutes * MIN,
-        name: `near asks ${at}, every ${minutes}`,
-        nearAnAsk: above(at, (x) => x.asks),
+        name: `near matters ${at}, every ${minutes}`,
+        nearAnAsk: above(at, (x) => x.matters),
       },
     ]),
   ]);
@@ -697,8 +694,10 @@ if (import.meta.main) {
       to: { type: "string" },
     },
   });
-  const from = values.from ?? "2026-11-05";
-  const to = values.to ?? "2026-11-18";
+  const { from, to } = values;
+  if (!(from && to)) {
+    throw new Error("--from and --to are required");
+  }
   const { days, failed, input, nightDays, steps, truth } =
     await readReplayInput(from, to, values.store);
   const near = await readNearness(input.events, steps);
