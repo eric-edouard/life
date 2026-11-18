@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck } from "./answer-check";
 import type { Check, CheckGroup } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
@@ -120,4 +121,71 @@ test("a decision goes to answerDecision", async () => {
     "yes",
   ]);
   rmSync(DECISIONS, { force: true });
+});
+
+const DANA_ID = "00000000-0000-4000-8000-000000000001";
+const item: NamingQueueItem = {
+  clips: [],
+  conversations: 1,
+  evidence: [],
+  id: "v1",
+  kind: "new_person",
+  likely: [DANA_ID],
+  name: null,
+  namedPersonId: null,
+  personId: null,
+  voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+  words: 9,
+};
+
+test("a voice's answer goes to lifelog for every turn of it: a known person is assigned, an unknown one confirmed by name, nothing is written", async () => {
+  const voice = check("voice:v1", "voice");
+  listed.mockResolvedValue([voice]);
+  const queue = spyOn(
+    await import("../sources/lifelog-voices"),
+    "readNamingQueue"
+  ).mockResolvedValue([item]);
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: (r: string) => (r === "person:dana" ? "Dana" : "Kofi"),
+    resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
+  } as never);
+  const send = spyOn(
+    await import("../sources/lifelog-voices"),
+    "answerNamingQueue"
+  ).mockResolvedValue({ personId: "p" });
+  const voices = [{ jobId: "job-1", speakerLabel: "A" }];
+  try {
+    await answerCheck(voice.ref, {
+      options: ["this-is"],
+      person: "person:dana",
+    });
+    await answerCheck(voice.ref, {
+      options: ["this-is"],
+      person: "person:kofi",
+    });
+    await answerCheck(voice.ref, { name: "Zed", options: ["this-is"] });
+    await answerCheck(voice.ref, { options: ["not-anyone-i-know"] });
+    await answerCheck(voice.ref, { options: ["media"] });
+    await answerCheck(voice.ref, { options: ["not-relevant"] });
+    expect(send.mock.calls).toEqual([
+      [voices, { kind: "assign", personId: DANA_ID }],
+      [voices, { kind: "confirm", name: "Kofi" }],
+      [voices, { kind: "confirm", name: "Zed" }],
+      [voices, { kind: "ignore" }],
+      [voices, { kind: "media" }],
+      [voices, { kind: "not_relevant" }],
+    ]);
+    await expect(
+      answerCheck(voice.ref, { options: ["this-is"] })
+    ).rejects.toThrow("give person or name");
+    queue.mockResolvedValue([]);
+    await expect(
+      answerCheck(voice.ref, { options: ["media"] })
+    ).rejects.toThrow("Not done: no open check voice:v1");
+    expect(said()).toEqual([]);
+  } finally {
+    send.mockRestore();
+    people.mockRestore();
+    queue.mockRestore();
+  }
 });

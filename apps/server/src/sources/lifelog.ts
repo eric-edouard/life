@@ -12,7 +12,7 @@ import { openReadOnly } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except `forward` (the owner's explicit corrections) and `notifyPhone` (a "heard you" push). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -781,10 +781,11 @@ function speakerTarget(a: Fix) {
   throw new Error("speaker needs: to or newName");
 }
 
-/** The corrections Life forwards to lifelog, the owner's explicit ones (its one other write is `notifyPhone`). Each names the fields it needs and the request it makes. */
+type Write = [method: string, path: string, body: unknown];
+/** The corrections Life forwards to lifelog, the owner's explicit ones (its other writes are `notifyPhone` and `answerNamingQueue`, `lifelog-voices.ts`). Each names the fields it needs and the request it makes. */
 const FORWARDS: Record<
   string,
-  { needs: (keyof Fix)[]; request: (a: Fix) => [string, string, unknown] }
+  { needs: (keyof Fix)[]; request: (a: Fix) => Write }
 > = {
   merge_people: {
     needs: ["id", "personId"],
@@ -831,7 +832,11 @@ export async function forward(kind: string, a: Fix) {
   if (missing.length > 0) {
     throw new Error(`${kind} needs: ${missing.join(", ")}`);
   }
-  const [method, path, body] = f.request(a);
+  return await writeLifelog(...f.request(a));
+}
+
+/** One write to lifelog, logged before and after. */
+export async function writeLifelog(...[method, path, body]: Write) {
   log("lifelog.write", { body, method, path, phase: "before" });
   const after = await call(path, 60, body, method);
   log("lifelog.write", { after, method, path, phase: "after" });
@@ -843,12 +848,7 @@ export async function notifyPhone(title: string, body: string) {
   if (lifelogMissing()) {
     return;
   }
-  const path = "/notifications";
-  log("lifelog.write", { body: { title }, path, phase: "before" });
-  try {
-    await call(path, 30, { body, title });
-    log("lifelog.write", { path, phase: "after" });
-  } catch (e) {
-    log("lifelog.write", { error: String(e), path, phase: "failed" });
-  }
+  await writeLifelog("POST", "/notifications", { body, title }).catch((e) =>
+    log("lifelog.write", { error: String(e), phase: "failed" })
+  );
 }

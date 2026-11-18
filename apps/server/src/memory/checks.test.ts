@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Correction } from "../records/observation";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { type Check, type CheckInputs, checksOf, checksText } from "./checks";
 import { guessTestOf } from "./who";
 
@@ -39,6 +40,7 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
     matters: [],
     paged: new Set(),
     unresolved: [],
+    voices: [],
     where: new Map(),
     ...over,
     people: {
@@ -54,13 +56,15 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
         relation: "the plumber",
       })),
       isGuess,
+      nameOf: (r: string) => (r === "person:dana" ? "Dana" : r),
       names: new Map(),
       refOf: (r: string) => r,
-      resolve: () => null,
+      resolve: (s: string) => (s === DANA_ID ? "person:dana" : null),
     },
   };
 }
 
+const DANA_ID = "00000000-0000-4000-8000-000000000001";
 const ID = "inf_kit";
 const REF = `person:${ID}`;
 
@@ -297,4 +301,60 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     "dec_00000000000a",
     REF,
   ]);
+});
+
+const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
+  ({
+    clips: [
+      {
+        at: "2026-10-01T10:00:00.000Z",
+        audio: { end: 4, jobId: "job-1", start: 1 },
+        text: "See you Friday",
+        until: null,
+      },
+    ],
+    conversations: 3,
+    evidence: [
+      {
+        at: "2026-10-01T10:00:00.000Z",
+        conversationId: "c1",
+        text: "See you Friday",
+      },
+    ],
+    id,
+    kind: "new_person",
+    likely: [DANA_ID, "00000000-0000-4000-8000-000000000002"],
+    name: null,
+    namedPersonId: null,
+    personId: null,
+    voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
+    words: 40,
+    ...over,
+  }) satisfies NamingQueueItem;
+
+test("every voice in lifelog's queue is a card of the one inbox, with its clips and the people it may be", () => {
+  const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
+  items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
+  items[1] = voice("v1", { name: "Kofi" });
+  // One he called several people is not asked in v1: one answer would give all its turns to one person.
+  const cards = checksOf(
+    inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
+  ).filter((c) => c.group === "voice");
+  expect(cards).toHaveLength(60);
+  const byRef = (r: string) => cards.find((c) => c.ref === r);
+  expect(byRef("voice:v0")?.question).toBe("Is this voice Dana?");
+  expect(byRef("voice:v1")?.question).toBe(
+    'Who is this voice? It was called "Kofi".'
+  );
+  expect(byRef("voice:v1")?.about).toEqual(["Kofi"]);
+  expect(byRef("voice:v2")?.question).toBe("Who is this voice?");
+  expect(byRef("voice:v2")?.likelyPeople).toEqual([
+    { name: "Dana", person: "person:dana" },
+  ]);
+  expect(byRef("voice:v2")?.clips[0]?.audio).toEqual({
+    end: 4,
+    jobId: "job-1",
+    start: 1,
+  });
+  expect(byRef("voice:v2")?.evidence?.quote).toBe("See you Friday");
 });

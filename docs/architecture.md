@@ -22,8 +22,9 @@ Life works beside lifelog, a companion project that captures voice. Each has one
   demand.
 - Life builds its voice units from lifelog's conversations and their turns, by code; lifelog's summaries are never
   read. The chapter units already stored stay as they are: facts, his ratings and corrections cite them.
-- Life writes to lifelog in two ways only: `forward`, the owner's explicit corrections (speaker, title, rename, merge),
-  and `notifyPhone`, a "heard you" push for each voice ask (no words of his).
+- Life writes to lifelog through one logged helper, `writeLifelog`, in three ways only: `forward`, the owner's explicit
+  corrections (speaker, title, rename, merge); his answer to a voice card (`answerNamingQueue`, lifelog's
+  `/naming-queue/answer`); and `notifyPhone`, a push with no words of his.
 - Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
   not leave the Mac, nor their text go to a third party for embeddings. Life embeds its own texts with the embedder
   Lifelog Host runs, on loopback (`memory/vectors.ts`): the one call to lifelog's side outside its REST contract.

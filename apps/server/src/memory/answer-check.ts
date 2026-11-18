@@ -1,5 +1,11 @@
 import { PersonRef } from "../records/fields";
 import {
+  answerNamingQueue,
+  type NamingQueueItem,
+  namingQueueGuessesOf,
+  readNamingQueue,
+} from "../sources/lifelog-voices";
+import {
   type Check,
   type CheckGroup,
   checksNow,
@@ -8,12 +14,15 @@ import {
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import { recordCorrection } from "./memory-files";
+import { readPeople, voicePersonOf } from "./who";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
 // check's ref, the person, card or name), so nothing new is stored.
 
 export interface CheckAnswer {
+  /** A voice's new person: their name. */
+  name?: string;
   /** His words, verbatim. */
   note?: string;
   /** The option ids he picked: one for a guess of Life's; a decision takes several, or none with `note`. */
@@ -39,6 +48,43 @@ const correct = (said: object[], a: CheckAnswer) =>
       recordCorrection({ ...s, ...(a.note ? { note: a.note } : {}) })
     )
   );
+
+/** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
+async function answerVoice(
+  c: Check,
+  answerOf: (
+    item: NamingQueueItem
+  ) => Promise<Parameters<typeof answerNamingQueue>[1]>
+) {
+  const item = (await readNamingQueue()).find((i) => `voice:${i.id}` === c.ref);
+  if (!item) {
+    throw new Error(`Not done: no open check ${c.ref}`);
+  }
+  return [
+    await answerNamingQueue(
+      item.voices.map(({ jobId, speakerLabel }) => ({ jobId, speakerLabel })),
+      await answerOf(item)
+    ),
+  ];
+}
+
+/** Who a voice's answer names: a new person by `name`, else the lifelog person that is Life's `person`, else that person by their name. */
+async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
+  if (a.name) {
+    return { kind: "confirm", name: a.name } as const;
+  }
+  if (!a.person) {
+    throw new Error(`Not done: give person or name for ${c.ref}.`);
+  }
+  const ref = personIn(a);
+  const people = await readPeople();
+  const id = namingQueueGuessesOf(item).find(
+    (x) => x && voicePersonOf(people.resolve, x, null) === ref
+  );
+  return id
+    ? ({ kind: "assign", personId: id } as const)
+    : ({ kind: "confirm", name: people.nameOf(ref) } as const);
+}
 
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
 const WRITERS: {
@@ -88,6 +134,14 @@ const WRITERS: {
         a
       );
     },
+  },
+  voice: {
+    media: (c) => answerVoice(c, async () => ({ kind: "media" })),
+    "not-anyone-i-know": (c) =>
+      answerVoice(c, async () => ({ kind: "ignore" })),
+    "not-relevant": (c) =>
+      answerVoice(c, async () => ({ kind: "not_relevant" })),
+    "this-is": (c, a) => answerVoice(c, (item) => thisIs(item, c, a)),
   },
 };
 
