@@ -1,10 +1,18 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { digest } from "../core/hash";
 import type { SourceEvent } from "../records/source";
-import type { Descriptor } from "../sources/contract";
+import type { Descriptor, SendPath } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
-import { readDraftChat } from "./draft-send";
+import { resolveDraft, sendDraft } from "./draft-send";
 
 const KIT_JID = /^\d+@s\.whatsapp\.net$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
@@ -23,7 +31,9 @@ const line = (chat: string, chatName: string): SourceEvent => ({
 const source = (
   name: string,
   events: SourceEvent[],
-  opens = false
+  opens = false,
+  refusal: SendPath["refusal"] = async () => undefined,
+  send: SendPath["send"] = async () => "$ev"
 ): Descriptor => ({
   kind: "chat",
   label: name,
@@ -36,7 +46,8 @@ const source = (
     opens: opens
       ? async (chat) => (KIT_JID.test(chat) ? "Test Kit" : undefined)
       : undefined,
-    send: async () => "$ev",
+    refusal,
+    send,
   },
   silentAfter: 0,
 });
@@ -59,6 +70,8 @@ afterAll(() => {
   rmSync(join(BRIDGES, "sendnet"), { force: true, recursive: true });
 });
 
+const hi = "Can you come Friday?";
+
 test("a draft names one chat its bridge holds: a chat key, or a person with one such 1:1 chat; its name is what his card shows", async () => {
   const sendnet = source("sendnet", [
     line("!ana:life.local", "Test Ana"),
@@ -66,10 +79,12 @@ test("a draft names one chat its bridge holds: a chat key, or a person with one 
     line("!crew:life.local", "Boat crew"),
   ]);
   const read = (to: string) =>
-    readDraftChat({ channel: "sendnet", to }, NOW, [sendnet]);
-  expect(await read("!crew:life.local")).toMatchObject({
+    resolveDraft({ channel: "sendnet", text: hi, to }, NOW, [sendnet]);
+  expect(await read("!crew:life.local")).toEqual({
+    channel: "sendnet",
     chat: "!crew:life.local",
-    name: "Boat crew",
+    text: hi,
+    to: "Boat crew",
   });
   expect(await read("Test Ana")).toMatchObject({ chat: "!ana:life.local" });
   await expect(read("ana-export-id")).rejects.toThrow("no chat");
@@ -81,34 +96,203 @@ test("a draft is refused when asked: two chats for one person, a source that doe
     line("!ana:life.local", "Test Ana"),
     line("!ana2:life.local", "Test Ana"),
   ]);
-  await expect(
-    readDraftChat({ channel: "sendnet", to: "Test Ana" }, NOW, [two])
-  ).rejects.toThrow("Test Ana has 2 chats on sendnet");
+  const ask = (channel: string, sources: Descriptor[]) =>
+    resolveDraft({ channel, text: hi, to: "Test Ana" }, NOW, sources);
+  await expect(ask("sendnet", [two])).rejects.toThrow(
+    "Test Ana has 2 chats on sendnet"
+  );
   const mail = { ...two, kind: "mail", name: "mail", send: undefined };
+  await expect(ask("mail", [mail as Descriptor, two])).rejects.toThrow(
+    "one of sendnet"
+  );
+  await expect(ask("elsewhere", [source("elsewhere", [])])).rejects.toThrow(
+    "elsewhere's bridge isn't on this Mac"
+  );
   await expect(
-    readDraftChat({ channel: "mail", to: "Test Ana" }, NOW, [
-      mail as Descriptor,
-      two,
-    ])
-  ).rejects.toThrow("one of sendnet");
-  await expect(
-    readDraftChat({ channel: "elsewhere", to: "Test Ana" }, NOW, [
-      source("elsewhere", []),
-    ])
-  ).rejects.toThrow("elsewhere's bridge isn't on this Mac");
+    resolveDraft({ channel: "sendnet", to: "Test Ana" }, NOW, [two])
+  ).rejects.toThrow("needs `text`");
 });
 
 test("a chat that doesn't exist yet opens by its id when the source can open it; a group it never saw, or a name, doesn't", async () => {
   const wa = source("whatsapp", [line("!ana:life.local", "Test Ana")], true);
   const read = (to: string) =>
-    readDraftChat({ channel: "whatsapp", to }, NOW, [wa]);
+    resolveDraft({ channel: "whatsapp", text: hi, to }, NOW, [wa]);
   expect(await read("66123456@s.whatsapp.net")).toEqual({
+    channel: "whatsapp",
     chat: "66123456@s.whatsapp.net",
-    name: "Test Kit (66123456@s.whatsapp.net)",
-    source: "whatsapp",
+    text: hi,
+    to: "Test Kit (66123456@s.whatsapp.net)",
   });
   await expect(read("120@g.us")).rejects.toThrow(
     "a group it never saw can't be opened"
   );
   await expect(read("Nobody Known")).rejects.toThrow("no chat");
+  // A chat Life has no messages of can't be replied in or mention anyone.
+  await expect(
+    resolveDraft(
+      {
+        channel: "whatsapp",
+        onMessage: "x",
+        text: hi,
+        to: "66123456@s.whatsapp.net",
+      },
+      NOW,
+      [wa]
+    )
+  ).rejects.toThrow("isn't a message of");
+});
+
+const ana = (over: Partial<SourceEvent> = {}) => ({
+  ...line("!ana:life.local", "Test Ana"),
+  id: "sendnet:!ana:life.local/$e1",
+  sender: "ana-handle",
+  text: "x".repeat(400),
+  ...over,
+});
+
+test("the message replied or reacted to is stamped as its sender and first 300 characters; one the chat doesn't hold is refused", async () => {
+  const net = source("sendnet", [
+    ana(),
+    ana({ fromMe: true, id: "m2", sender: "me" }),
+  ]);
+  const base = { channel: "sendnet", to: "Test Ana" };
+  const reply = await resolveDraft(
+    { ...base, onMessage: ana().id, text: hi },
+    NOW,
+    [net]
+  );
+  expect(reply.quoted).toEqual({ sender: "ana-handle", text: "x".repeat(300) });
+  expect(
+    (
+      await resolveDraft({ ...base, onMessage: "m2", reaction: "👍" }, NOW, [
+        net,
+      ])
+    ).quoted?.sender
+  ).toBe("me");
+  await expect(
+    resolveDraft({ ...base, onMessage: "sendnet:!other/$e9", text: hi }, NOW, [
+      net,
+    ])
+  ).rejects.toThrow("isn't a message of Test Ana");
+});
+
+test("a mention names a sender who wrote in the chat, never him", async () => {
+  const net = source("sendnet", [
+    ana(),
+    ana({ fromMe: true, id: "m2", sender: "me" }),
+  ]);
+  const base = { channel: "sendnet", text: "Hi @Ana", to: "Test Ana" };
+  const ok = await resolveDraft(
+    { ...base, mentions: [{ name: "Ana", sender: "ana-handle" }] },
+    NOW,
+    [net]
+  );
+  expect(ok.mentions).toEqual([{ name: "Ana", sender: "ana-handle" }]);
+  await Promise.all(
+    ["someone-else", "me"].map((sender) =>
+      expect(
+        resolveDraft({ ...base, mentions: [{ name: "Ana", sender }] }, NOW, [
+          net,
+        ])
+      ).rejects.toThrow("never wrote in Test Ana")
+    )
+  );
+});
+
+/** A made-up file on disk. */
+const fileWith = (bytes: string, name = "menu.txt") => {
+  const dir = join(tmpdir(), `draft-${crypto.randomUUID()}`);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, name);
+  writeFileSync(path, bytes);
+  return { dir, path };
+};
+
+test("a file is stamped by its real path, name, size, type and digest; one that isn't a file, or that the chat refuses, is refused", async () => {
+  const seen: Parameters<SendPath["refusal"]>[0][] = [];
+  const net = source("sendnet", [ana()], false, (d) => {
+    seen.push(d);
+    return Promise.resolve(
+      d.file?.mime === "image/png"
+        ? "this chat takes no image/png files"
+        : undefined
+    );
+  });
+  const { dir, path } = fileWith("lunch menu");
+  const link = join(dir, "link.txt");
+  symlinkSync(path, link);
+  const ask = (file: string) =>
+    resolveDraft({ channel: "sendnet", file, to: "Test Ana" }, NOW, [net]);
+  const stored = await ask(link);
+  expect(stored.file).toEqual({
+    mime: "text/plain",
+    name: "link.txt",
+    path: realpathSync(path),
+    sha256: digest("sha256", Buffer.from("lunch menu"), 64),
+    size: 10,
+  });
+  expect(new TextDecoder().decode(seen[0]?.file?.bytes)).toBe("lunch menu");
+  await expect(ask(dir)).rejects.toThrow("isn't a file Life can send");
+  await expect(ask(join(dir, "none.txt"))).rejects.toThrow("no file at");
+  const png = fileWith("not really", "photo.png");
+  await expect(ask(png.path)).rejects.toThrow(
+    "can't send this: this chat takes no image/png files"
+  );
+  rmSync(dir, { force: true, recursive: true });
+  rmSync(png.dir, { force: true, recursive: true });
+});
+
+test("the send reads the file again, and sends only the bytes he saw: a file changed since, or gone, sends nothing", async () => {
+  const sent: Parameters<SendPath["send"]>[] = [];
+  const net = source(
+    "sendnet",
+    [ana()],
+    false,
+    async () => undefined,
+    (...a) => {
+      sent.push(a);
+      return Promise.resolve("$sent");
+    }
+  );
+  const { dir, path } = fileWith("lunch menu");
+  const stored = await resolveDraft(
+    { channel: "sendnet", file: path, text: hi, to: "Test Ana" },
+    NOW,
+    [net]
+  );
+  expect(await sendDraft(stored, "dec_000000000001", [net])).toBe("$sent");
+  expect(sent[0]?.[0]).toMatchObject({
+    chat: "!ana:life.local",
+    file: { mime: "text/plain", name: "menu.txt" },
+    text: hi,
+  });
+  expect(sent[0]?.[1]).toBe("dec_000000000001");
+  writeFileSync(path, "dinner menu");
+  await expect(sendDraft(stored, "dec_000000000002", [net])).rejects.toThrow(
+    "not sent: the file changed since the card was asked"
+  );
+  rmSync(path);
+  await expect(sendDraft(stored, "dec_000000000003", [net])).rejects.toThrow(
+    "not sent: the file is gone"
+  );
+  expect(sent).toHaveLength(1);
+  rmSync(dir, { force: true, recursive: true });
+});
+
+test("the chat's refusal is asked again at the send; a stored draft without a chat sends nothing", async () => {
+  let refuse: string | undefined;
+  const net = source("sendnet", [ana()], false, async () => refuse);
+  const stored = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "Test Ana" },
+    NOW,
+    [net]
+  );
+  refuse = "this chat takes no replies";
+  await expect(sendDraft(stored, "dec_000000000004", [net])).rejects.toThrow(
+    "not sent: this chat takes no replies"
+  );
+  const { chat: _, ...asked } = stored;
+  await expect(sendDraft(asked, "dec_000000000005", [net])).rejects.toThrow(
+    "no chat to send into"
+  );
 });

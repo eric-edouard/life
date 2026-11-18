@@ -73,7 +73,7 @@ const draftKeyOf = (source: string, chat: string, text: string) =>
 export const sentDraftsOf = (list: Decision[]) =>
   new Set(
     list.flatMap((d) =>
-      d.send && d.draft?.chat && d.draft.channel
+      d.send && d.draft?.chat && d.draft.channel && d.draft.text
         ? [draftKeyOf(d.draft.channel, d.draft.chat, d.draft.text)]
         : []
     )

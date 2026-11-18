@@ -9,11 +9,10 @@ import {
   copierOf,
   copyBeeper,
   copyBridged,
-  localpartOf,
   openBridged,
   readBridged,
 } from "./bridged";
-import { BRIDGES, SYNAPSE } from "./matrix";
+import { BRIDGES, localpartOf, SYNAPSE } from "./matrix";
 import { NETWORKS, type Network } from "./networks";
 
 const BOT = "@linebot:life.local";

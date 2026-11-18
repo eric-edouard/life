@@ -8,6 +8,7 @@ import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
 import type { Check } from "../memory/checks";
+import { draftWords } from "../memory/draft";
 import {
   type Digest,
   LIFE_MAIL,
@@ -99,7 +100,7 @@ function waitingRow(c: Check) {
     name: c.title,
     relation: [
       c.question,
-      ...(c.draft ? [`Draft to ${c.draft.to}: "${c.draft.text}"`] : []),
+      ...(c.draft ? draftWords(c.draft) : []),
       ...(first && c.options.length > 1 ? [`Recommended: ${first.label}`] : []),
       ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
       `asked by ${c.asker}`,

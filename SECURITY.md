@@ -70,7 +70,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   subscription (his word, 10 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn): a card's
-  draft, its exact text, once, on his answer to its outgoing option (his decision of 18 Nov 2026; AGENTS.md). Asking a
+  draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
+  his answer to its outgoing option (his decision of 18 Nov 2026; AGENTS.md). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.

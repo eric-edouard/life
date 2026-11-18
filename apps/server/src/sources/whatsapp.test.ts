@@ -1,6 +1,12 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { DAY, HOUR } from "../core/clock";
 import { incomingArchived } from "./archived";
@@ -11,7 +17,10 @@ import {
   phoneCallOf,
   readWhatsapp,
   WHATSAPP,
+  whatsappEventOf,
+  whatsappGhostOf,
   whatsappHandleOf,
+  whatsappIdOf,
   whatsappRoomOf,
 } from "./whatsapp";
 
@@ -303,4 +312,66 @@ test("a person's chat id is the handle the bridge opens a chat by; a group's or 
   expect(whatsappHandleOf("900@lid")).toBe("900@lid");
   expect(whatsappHandleOf("120@g.us")).toBeUndefined();
   expect(whatsappHandleOf("Test Kit")).toBeUndefined();
+});
+
+test("a message id of Life's is the bridge's one message of that chat ending in its stanza: a duplicate, a pk id, another chat's or an unknown stanza is none", () => {
+  const bridges = join(BRIDGES, "..", `wa-${crypto.randomUUID()}`);
+  mkdirSync(join(bridges, "whatsapp"), { recursive: true });
+  const db = new Database(join(bridges, "whatsapp", "whatsapp.db"));
+  db.run("create table portal (id text not null, mxid text)");
+  db.run(
+    "create table whatsmeow_lid_map (lid text primary key, pn text unique not null)"
+  );
+  db.run(
+    "create table message (id text not null, room_id text not null, mxid text not null)"
+  );
+  db.run(
+    "insert into portal values ('900@lid', '!kit:life.local'), ('901@lid', '!ana:life.local')"
+  );
+  db.run("insert into whatsmeow_lid_map values ('900', '155')");
+  db.run(`insert into message values
+    ('900@lid:900@lid:AAA1', '900@lid', '$one'),
+    ('900@lid:1234@s.whatsapp.net:BBB2', '900@lid', '$two'),
+    ('900@lid:900@lid:DUP3', '900@lid', '$dup1'),
+    ('900@lid:1234@s.whatsapp.net:DUP3', '900@lid', '$dup2'),
+    ('901@lid:901@lid:AAA1', '901@lid', '$other')`);
+  db.close();
+  const kit = "155@s.whatsapp.net";
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/AAA1`, bridges)).toBe("$one");
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/BBB2`, bridges)).toBe("$two");
+  // A suffix is a whole stanza: `A1` is not `AAA1`.
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/A1`, bridges)).toBeUndefined();
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/DUP3`, bridges)).toBeUndefined();
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/pk:7`, bridges)).toBeUndefined();
+  expect(whatsappEventOf(kit, `whatsapp:${kit}/ZZZ`, bridges)).toBeUndefined();
+  expect(
+    whatsappEventOf(kit, "whatsapp:156@s.whatsapp.net/AAA1", bridges)
+  ).toBeUndefined();
+  expect(whatsappEventOf("901@lid", "whatsapp:901@lid/AAA1", bridges)).toBe(
+    "$other"
+  );
+  expect(
+    whatsappEventOf(kit, `whatsapp:${kit}/AAA1`, join(bridges, "nowhere"))
+  ).toBeUndefined();
+  // What the bridge sent comes back as the id the Mac app will give it.
+  expect(whatsappIdOf(kit, "$two", bridges)).toBe(`whatsapp:${kit}/BBB2`);
+  expect(whatsappIdOf(kit, "$unknown", bridges)).toBe("$unknown");
+});
+
+test("a sender is the bridge's ghost by its WhatsApp user id: a phone's digits, a lid's `lid-<n>`", () => {
+  mkdirSync(join(BRIDGES, "whatsapp"), { recursive: true });
+  writeFileSync(
+    join(BRIDGES, "whatsapp", "config.yaml"),
+    "appservice:\n  username_template: whatsapp_{{.}}\n"
+  );
+  try {
+    expect(whatsappGhostOf("+66600000001")).toBe(
+      "@whatsapp_66600000001:life.local"
+    );
+    expect(whatsappGhostOf("777@lid")).toBe("@whatsapp_lid-777:life.local");
+    expect(whatsappGhostOf("120@g.us")).toBeUndefined();
+    expect(whatsappGhostOf("Test Ana")).toBeUndefined();
+  } finally {
+    rmSync(join(BRIDGES, "whatsapp"), { force: true, recursive: true });
+  }
 });
