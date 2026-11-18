@@ -28,11 +28,16 @@ public enum Provider: String, UnknownTolerant, Sendable {
     }
 
     /// What the Start sheet lists; none chosen leaves the desk's own default for the runtime.
+    /// Refresh here: Codex's from `codex debug models` (the visible list), Claude Code's are the aliases `claude --model` takes.
     public var models: [Model] {
         switch self {
         case .claude:
             [Model(id: "opus", name: "Opus"), Model(id: "sonnet", name: "Sonnet"), Model(id: "haiku", name: "Haiku")]
-        case .codex: [Model(id: "gpt-5.5", name: "GPT-5.5"), Model(id: "gpt-5.5-mini", name: "GPT-5.5 mini")]
+        case .codex:
+            [
+                Model(id: "gpt-6.2-astra", name: "GPT-6.2 Astra"), Model(id: "gpt-6.2-sol", name: "GPT-6.2 Sol"),
+                Model(id: "gpt-6-luna", name: "GPT-6 Luna"),
+            ]
         case .unknown: []
         }
     }
