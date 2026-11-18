@@ -230,12 +230,12 @@ const SEND_GRACE = MIN;
 
 /** The send's outcome as stored, or, past its path's limit and `SEND_GRACE` with none, one that never ended. */
 function sendOf(d: Omit<Decision, "state">, now: Date): Send | undefined {
-  const end =
-    d.answer && d.draft && isSendDue(d)
-      ? Date.parse(d.answer.at) + sendLimitMs(d.draft) + SEND_GRACE
-      : undefined;
-  if (d.send || end === undefined || now.getTime() < end) {
+  if (d.send || !(d.answer && d.draft && isSendDue(d))) {
     return d.send;
+  }
+  const end = Date.parse(d.answer.at) + sendLimitMs(d.draft) + SEND_GRACE;
+  if (now.getTime() < end) {
+    return;
   }
   return {
     at: new Date(end).toISOString(),
