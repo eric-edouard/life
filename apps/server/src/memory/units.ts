@@ -572,15 +572,10 @@ export const lifeChat = () => settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
-  messages: Pick<
-    Message,
-    | "bulk"
-    | "fromMe"
-    | "hasOwnerWrittenInThread"
-    | "known"
-    | "sender"
-    | "transaction"
-  >[];
+  messages: (Pick<Message, "bulk" | "fromMe" | "sender"> &
+    Partial<
+      Pick<Message, "hasOwnerWrittenInThread" | "known" | "transaction">
+    >)[];
   unit: Pick<Unit, "source" | "title">;
 }
 /** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
