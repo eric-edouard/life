@@ -1,44 +1,89 @@
-import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
 import { DESK_RUNS } from "../../core/paths";
-import { cliEnv, HOME } from "../../core/platform";
+import { cliEnv, HOME, isOwnLife } from "../../core/platform";
 import { firstLine, startDetached } from "../../core/proc";
-import { toml } from "../../models/llm";
+import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF, toml } from "../../models/llm";
 import {
   type Agent,
   begunWhen,
-  blockOf,
   isHeld,
   type Run,
   type Runtime,
+  readCliBlock,
+  readProgram,
+  stopMatching,
   type Usage,
 } from "./contract";
 
 // The `codex` runtime: Codex's CLI, one `codex exec resume` process per turn (the desk spec, 5.3; its runtime proofs,
 // 18 Nov 2026). The session is made first through `codex app-server` (`thread/start`): unlike a thread `exec` makes, it
-// is listed in the Codex app. Its turn's events go to a file of their own, `begun` is `turn.started` in it and the
+// is listed in the Codex app. Its turn's events go to a file of their own, `begun` is the model's first item in it and the
 // turn's end is the process's exit. His real `~/.codex`, never Life's own Codex home (model calls, no tools). The door
 // reaches the session by `-c`, its key only through the environment; its tools are approved for the desk server alone
 // (`exec` auto-denies an MCP tool otherwise). Nothing is kept here: running is a process holding the id, idle a
 // rollout on disk.
+// A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup, since his MCP servers and files reach his
+// own Life: its door alone (`SECOND_LIFE`), as the claude runtime's, and never in his Codex app.
 // ponytail: his own turn in the Codex app holds no process with the id; it counts as running while the rollout's last
 // turn is open and was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the
 // desk may send beside it. And the app holding the thread open while idle keeps its own copy: his next message there may
 // continue from it, missing the desk's turn (as the claude runtime's warm process does).
 
-const SESSIONS = join(HOME, ".codex", "sessions");
+/**
+ * A second Life's agent: Life's own Codex home (a login of its own, as Life's model engine; none of his AGENTS.md,
+ * config, MCP servers or sessions), none of his rules, no instruction file of its folder, no skill, web search or extra,
+ * no shell and a read-only sandbox (its door's tools reached as the question cases' agent reaches Life's).
+ */
+const SECOND_LIFE = {
+  args: [
+    ...["--ignore-user-config", "--ignore-rules"],
+    ...[...CODEX_OFF, ...CODEX_AGENT_OFF].flatMap((f) => ["--disable", f]),
+    ...[
+      'sandbox_mode="read-only"',
+      "project_doc_max_bytes=0",
+      'web_search="disabled"',
+      "skills.bundled.enabled=false",
+      "skills.include_instructions=false",
+    ].flatMap((c) => ["-c", c]),
+  ],
+  env: { CODEX_HOME },
+};
+
+/** The Codex home its sessions run in: his own `~/.codex`, or a second Life's Life's own. */
+export const readCodexHome = () =>
+  isOwnLife() ? join(HOME, ".codex") : CODEX_HOME;
+
+/** Where its sessions' rollouts are. */
+const sessionsDir = () => join(readCodexHome(), "sessions");
+
+/** What a codex process is given besides `cliEnv`. */
+const envOf = (): Record<string, string> =>
+  isOwnLife() ? {} : SECOND_LIFE.env;
 
 /** The command that runs one turn of session `ref`: its key is never in it. */
-export const codexArgsOf = (a: Agent, ref: string, message: string) => [
+export const codexArgsOf = (
+  a: Agent,
+  ref: string,
+  message: string,
+  isOwn = isOwnLife()
+) => [
   "codex",
   "exec",
   "resume",
   ref,
   "--json",
   "--skip-git-repo-check",
+  ...(isOwn ? [] : SECOND_LIFE.args),
   ...(a.model ? ["-m", a.model] : []),
   ...(a.effort ? ["-c", `model_reasoning_effort=${toml(a.effort)}`] : []),
   "-c",
@@ -80,15 +125,44 @@ interface Event {
 export const hasEvent = (lines: string[], type: string) =>
   eventsOf(lines).some((e) => e.type === type);
 
-/** Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. */
+/** Whether the model has answered in a run's events: its first item (a message, a tool call), not `turn.started`, which comes before any model call. */
+export const hasModelItem = (lines: string[]) =>
+  eventsOf(lines).some((e) => e.type?.startsWith("item."));
+
+/** The files of session `ref`'s runs, oldest first (one name each: `<ref>-<ms>.jsonl`). */
+const readRunFiles = (ref: string) => {
+  try {
+    return [...new Bun.Glob(`${ref}-*.jsonl`).scanSync(DESK_RUNS)]
+      .toSorted()
+      .map((f) => join(DESK_RUNS, f));
+  } catch {
+    return []; // no runs folder yet
+  }
+};
+
+/**
+ * Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. `begun`
+ * watches the events file and is settled before the file goes, so a turn that began and ended at once still began.
+ */
 function run(a: Agent, ref: string, message: string): Run {
   mkdirSync(DESK_RUNS, { recursive: true });
   const path = join(DESK_RUNS, `${ref}-${clock().getTime()}.jsonl`);
-  const ended = startDetached(codexArgsOf(a, ref, message), {
+  // Made before the process, so `begunWhen` can watch it from the start.
+  writeFileSync(path, "");
+  const [program = "", ...args] = codexArgsOf(a, ref, message);
+  const exited = startDetached([readProgram(program), ...args], {
     cwd: a.folder,
-    env: { LIFE_DESK_KEY: a.door.key },
+    env: { ...envOf(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
-  }).then((code) => {
+  });
+  const begun = begunWhen(
+    exited,
+    () => hasModelItem(linesOf(path)),
+    () => path
+  );
+  const ended = (async () => {
+    const code = await exited;
+    await begun.catch(() => undefined);
     const lines = linesOf(path);
     const isOk = code === 0 && hasEvent(lines, "turn.completed");
     // Its events hold what the agent read: never kept; a failure logs the last of them.
@@ -102,17 +176,14 @@ function run(a: Agent, ref: string, message: string): Run {
     }
     rmSync(path, { force: true });
     return { ok: isOk };
-  });
-  return {
-    begun: begunWhen(ended, () => hasEvent(linesOf(path), "turn.started")),
-    ended,
-  };
+  })();
+  return { begun, ended };
 }
 
 /** A new thread in `folder`, through a short-lived `codex app-server` (killed once it answers): its id. */
 async function newThread(folder: string) {
   const line = await firstLine(
-    ["codex", "app-server"],
+    [readProgram("codex"), "app-server"],
     [
       {
         id: 1,
@@ -125,7 +196,7 @@ async function newThread(folder: string) {
       .map((m) => `${JSON.stringify(m)}\n`)
       .join(""),
     (l) => JSON.parse(l).id === 2,
-    { env: cliEnv(), timeout: 30_000 }
+    { env: { ...cliEnv(), ...envOf() }, timeout: 30_000 }
   );
   const answer = line ? JSON.parse(line) : undefined;
   const id: unknown = answer?.result?.thread?.id;
@@ -141,7 +212,7 @@ async function newThread(folder: string) {
 const rolloutOf = (ref: string) => {
   try {
     return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl{,.zst}`)
-      .scanSync(SESSIONS)
+      .scanSync(sessionsDir())
       .next().value;
   } catch {
     // no sessions folder yet
@@ -150,7 +221,7 @@ const rolloutOf = (ref: string) => {
 
 /** A rollout's complete lines. */
 function rolloutLines(path: string) {
-  const file = join(SESSIONS, path);
+  const file = join(sessionsDir(), path);
   if (!path.endsWith(".zst")) {
     return linesOf(file);
   }
@@ -176,8 +247,8 @@ export const isRolloutTurnOpen = (lines: string[]) =>
 function isOpenNow(path: string) {
   try {
     return (
-      clock().getTime() - statSync(join(SESSIONS, path)).mtimeMs < OPEN_FOR &&
-      isRolloutTurnOpen(rolloutLines(path))
+      clock().getTime() - statSync(join(sessionsDir(), path)).mtimeMs <
+        OPEN_FOR && isRolloutTurnOpen(rolloutLines(path))
     );
   } catch {
     return false;
@@ -233,7 +304,11 @@ export function rolloutUsageOf(lines: string[]): Usage | null {
 }
 
 export const codexRuntime: Runtime = {
-  block: () => blockOf("codex"),
+  block: () => readCliBlock("codex"),
+  hasBegun(ref) {
+    const last = readRunFiles(ref).at(-1);
+    return Promise.resolve(last ? hasModelItem(linesOf(last)) : false);
+  },
   async send(a, ref, message) {
     if ((await codexRuntime.state(ref)) === "running") {
       throw new Error(`session ${ref} is running`);
@@ -257,6 +332,13 @@ export const codexRuntime: Runtime = {
       return "gone";
     }
     return isOpenNow(path) ? "running" : "idle";
+  },
+  async stop(ref) {
+    // The desk's own runs only: his Codex app holds no process with the id.
+    await stopMatching(`exec resume ${ref}`);
+    for (const f of readRunFiles(ref)) {
+      rmSync(f, { force: true });
+    }
   },
   usage(ref) {
     const path = rolloutOf(ref);

@@ -7,10 +7,12 @@ import { exec, startDetached } from "../../core/proc";
 import {
   type Agent,
   begunWhen,
-  blockOf,
   isHeld,
   type Run,
   type Runtime,
+  readCliBlock,
+  readProgram,
+  stopMatching,
   type Usage,
 } from "./contract";
 
@@ -72,41 +74,70 @@ export const argsOf = (
   message,
 ];
 
+/** The session's transcript's path, if Claude wrote one. */
+const transcriptOf = (ref: string) => {
+  const path = new Bun.Glob(`*/${ref}.jsonl`).scanSync(PROJECTS).next().value;
+  return path ? join(PROJECTS, path) : undefined;
+};
+
 /** The session's transcript, if Claude wrote one. */
-const transcriptOf = (ref: string) =>
-  new Bun.Glob(`*/${ref}.jsonl`).scanSync(PROJECTS).next().value;
+const readTranscript = (ref: string) => {
+  const path = transcriptOf(ref);
+  try {
+    return path ? readFileSync(path, "utf8") : undefined;
+  } catch {
+    // gone between the glob and the read
+  }
+};
 
-/**
- * Whether a turn has begun, from its transcript's lines (none: Claude wrote none yet): its prompt is in and its last turn
- * open. A first turn whose run is over (`isOver`) with a transcript began and was done before anyone looked.
- */
-export const hasBegun = (
-  lines: string | undefined,
-  isFirst: boolean,
-  isOver: boolean
-) => lines !== undefined && ((isFirst && isOver) || isTurnOpen(lines));
-
-/** Settles when the turn's prompt is in the transcript (its last turn open), or a first turn's is over with one. */
-const begunIn = (ref: string, isFirst: boolean, ended: Promise<unknown>) =>
-  begunWhen(ended, (isOver) => {
-    const path = transcriptOf(ref);
-    return hasBegun(
-      path ? readFileSync(join(PROJECTS, path), "utf8") : undefined,
-      isFirst,
-      isOver
-    );
+/** A transcript's entries of the main conversation that can be read now: a line still being written is skipped. */
+const readableEntries = (lines: string) =>
+  lines.split("\n").flatMap((l) => {
+    try {
+      const e = JSON.parse(l) as Entry;
+      return e.isSidechain ? [] : [e];
+    } catch {
+      return [];
+    }
   });
 
-/** Runs one turn in `a.folder`: its process's exit is the turn's end. */
-function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
-  const ended = startDetached(argv, {
+/** How many prompts a transcript holds (none: Claude wrote none yet). */
+const promptsIn = (lines: string | undefined) =>
+  lines ? readableEntries(lines).filter(isPrompt).length : 0;
+
+/**
+ * Whether the model has answered a run's prompt: an assistant entry after the prompt that follows the `before` prompts the
+ * transcript held when the run was launched (none: Claude wrote none yet).
+ */
+export function hasAnswered(lines: string | undefined, before: number) {
+  let prompts = 0;
+  for (const e of lines ? readableEntries(lines) : []) {
+    if (isPrompt(e)) {
+      prompts += 1;
+    } else if (prompts > before && e.type === "assistant") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Runs one turn in `a.folder`: its process's exit is the turn's end; it began once the model answered its prompt. */
+function run(a: Agent, argv: string[], ref: string): Run {
+  const before = promptsIn(readTranscript(ref));
+  const [program = "", ...args] = argv;
+  const ended = startDetached([readProgram(program), ...args], {
     cwd: a.folder,
     env: {
       LIFE_DESK_KEY: a.door.key,
       ...(isOwnLife() ? {} : SECOND_LIFE.env),
     },
   }).then((code) => ({ ok: code === 0 }));
-  return { begun: begunIn(ref, isFirst, ended), ended };
+  const begun = begunWhen(
+    ended,
+    () => hasAnswered(readTranscript(ref), before),
+    () => transcriptOf(ref)
+  );
+  return { begun, ended };
 }
 
 /**
@@ -115,7 +146,15 @@ function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
  */
 async function handOff(a: Agent, ref: string) {
   const r = await exec(
-    ["script", "-q", "/dev/null", "claude", "--desktop", "--resume", ref],
+    [
+      "script",
+      "-q",
+      "/dev/null",
+      readProgram("claude"),
+      "--desktop",
+      "--resume",
+      ref,
+    ],
     { cwd: a.folder, timeout: 30_000 }
   );
   if (r.code !== 0) {
@@ -227,7 +266,11 @@ export function usageOf(lines: string): Usage | null {
 }
 
 export const claudeRuntime: Runtime = {
-  block: () => blockOf("claude"),
+  block: () => readCliBlock("claude"),
+  hasBegun(ref) {
+    const lines = readTranscript(ref);
+    return Promise.resolve(hasAnswered(lines, promptsIn(lines) - 1));
+  },
   async send(a, ref, message) {
     // A turn running beside his would branch the conversation.
     if ((await claudeRuntime.state(ref)) === "running") {
@@ -237,12 +280,7 @@ export const claudeRuntime: Runtime = {
   },
   start(a, brief) {
     const ref = randomUUID();
-    const { begun, ended } = run(
-      a,
-      argsOf(a, brief, { start: ref }),
-      ref,
-      true
-    );
+    const { begun, ended } = run(a, argsOf(a, brief, { start: ref }), ref);
     return Promise.resolve({
       begun,
       // The first turn's end waits for the hand-off, so no next turn runs beside it.
@@ -258,20 +296,22 @@ export const claudeRuntime: Runtime = {
     });
   },
   async state(ref) {
-    const path = transcriptOf(ref);
+    const lines = readTranscript(ref);
     if (
       (await isHeld(ref)) &&
       // No transcript yet: the process alone says.
-      (!path || isTurnOpen(readFileSync(join(PROJECTS, path), "utf8")))
+      (lines === undefined || isTurnOpen(lines))
     ) {
       return "running";
     }
-    return path ? "idle" : "gone";
+    return lines === undefined ? "gone" : "idle";
+  },
+  async stop(ref) {
+    // The desk's own `claude -p` runs only, never the Claude app's warm process.
+    await stopMatching(` -p .*${ref}`);
   },
   usage(ref) {
-    const path = transcriptOf(ref);
-    return Promise.resolve(
-      path ? usageOf(readFileSync(join(PROJECTS, path), "utf8")) : null
-    );
+    const lines = readTranscript(ref);
+    return Promise.resolve(lines === undefined ? null : usageOf(lines));
   },
 };

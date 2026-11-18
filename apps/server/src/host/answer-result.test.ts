@@ -440,7 +440,7 @@ test("each kind says what changed: an ending, a person (two parallel calls write
   }
 });
 
-test("a new matter: Start saves the goal he saw, asks the desk with it, reports its stages in one plan and returns the desk's result; Edit goal keeps the card", async () => {
+test("a new matter: Start asks the desk with the goal he saw, reports its stages in one plan and returns the desk's result; Edit goal keeps the card", async () => {
   const steps = ["obs_000000000071", "unit_000000000072"];
   const newMatter = asCheck({
     group: "new matter",
@@ -473,8 +473,9 @@ test("a new matter: Start saves the goal he saw, asks the desk with it, reports 
   ).mockImplementation((_change, c) => {
     c?.report({
       limitSeconds: 20,
-      plan: ["runtime_answers", "session_open", "turn_begun"],
+      plan: ["goal_saved", "runtime_answers", "session_open", "turn_begun"],
     });
+    c?.report({ at: "2026-11-18T10:00:00.000Z", step: "goal_saved" });
     for (const { stage, ...detail } of started.stages) {
       c?.report({ step: stage, ...detail });
     }
@@ -492,7 +493,15 @@ test("a new matter: Start saves the goal he saw, asks the desk with it, reports 
       inbox: { left: false },
       start: null,
     });
-    const { result, steps: reported } = call(newMatter.ref, ["start"], "tap-s");
+    // The goal he saw is his edit, though the matter still reads Life's draft.
+    const { result, steps: reported } = call(
+      newMatter.ref,
+      ["start"],
+      "tap-s",
+      {
+        note: "Serviced and the leak fixed",
+      }
+    );
     const r = await result;
     expectWire("answer_check_new_matter_started", r, true);
     expect(reported.map((s) => s.plan ?? s.step)).toEqual([
@@ -514,7 +523,7 @@ test("a new matter: Start saves the goal he saw, asks the desk with it, reports 
     expect(reported[0]).toMatchObject({ limitSeconds: 30 });
     expect(desk.mock.calls[0]?.[0]).toEqual({
       action: "start",
-      said: "The boiler is serviced",
+      said: "Serviced and the leak fixed",
       step: newMatter.ref,
     });
     expect(r).toMatchObject({
@@ -526,10 +535,13 @@ test("a new matter: Start saves the goal he saw, asks the desk with it, reports 
       readCorrections().map(({ at: _a, schemaVersion: _v, ...c }) => c)
     ).toEqual([
       { goal: "Serviced and the leak fixed", kind: "matter-direction", steps },
-      { goal: "The boiler is serviced", kind: "matter-direction", steps },
     ]);
     // The same tap again after a dropped stream: its result, no second ask of the desk.
-    expect(await call(newMatter.ref, ["start"], "tap-s").result).toBe(r);
+    expect(
+      await call(newMatter.ref, ["start"], "tap-s", {
+        note: "Serviced and the leak fixed",
+      }).result
+    ).toBe(r);
     expect(desk).toHaveBeenCalledTimes(1);
   } finally {
     desk.mockRestore();

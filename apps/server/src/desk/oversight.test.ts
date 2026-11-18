@@ -18,6 +18,7 @@ import {
   readRegisteredAgents,
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
+import { CORRECTIONS } from "../memory/memory-files";
 import type { AgentChange } from "../records/registered-agent";
 import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -43,6 +44,8 @@ const desk: Desk = {
 
 afterAll(() => {
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  // A start on a matter saves its goal.
+  rmSync(CORRECTIONS, { force: true });
   setSettings({ desk: null });
 });
 
@@ -402,6 +405,14 @@ test("change_registered_agent records his word and answers with what the desk di
       })
     ).agent;
     expect(agentOf(desk.db, shop ?? "")?.folder).toBe(folder);
+    // The same start again (a retried call): the same agent, not a second one on the project.
+    const again = await changeRegisteredAgent({
+      action: "start",
+      project: "test-shop",
+      runtime: "claude",
+      said: "Keep the shop's site up to date",
+    });
+    expect(again.agent).toBe(shop);
   } finally {
     await stopTicking?.();
     book.mockRestore();

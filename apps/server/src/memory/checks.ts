@@ -245,7 +245,7 @@ function ctxOf(c: CheckInputs): Ctx {
 }
 
 /** How many days from its first step a new matter is offered: Life's "Work on it?" lapses after them, and nothing starts. */
-const NEW_MATTER_DAYS = 7;
+export const NEW_MATTER_DAYS = 7;
 /** A goal's own full stop, dropped before the question adds its own. */
 const FINAL_STOP = /\.$/;
 

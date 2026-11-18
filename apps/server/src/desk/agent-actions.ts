@@ -139,7 +139,7 @@ export async function setWait(desk: Desk, id: string, input: unknown) {
 export async function finish(desk: Desk, id: string, outcome: string) {
   desk.db.transaction(() => {
     desk.db.run(
-      "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ?",
+      "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ? and status = 'active'",
       [clock().toISOString(), outcome, id]
     );
     heard(desk, id, "finished");

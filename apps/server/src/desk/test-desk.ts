@@ -1,0 +1,125 @@
+import { setSystemTime } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { clock, HOUR, iso } from "../core/clock";
+import { agentOf } from "../host/desk-read";
+import type { Messaging } from "../host/events";
+import type { SourceEvent } from "../records/source";
+import { register, setWait } from "./agent-actions";
+import { turnEnded, wakeDue } from "./desk-clock";
+import { type Desk, openDesk } from "./desk-store";
+import { fakeRuntime } from "./runtimes/fake-runtime";
+
+// The wait contract's test desk: a fake runtime, the clock faked, a made-up chat (`wait-contract.test.ts`).
+
+export const T0 = Date.UTC(2026, 10, 18, 9, 0);
+export const ANA = { chat: "Test Ana", from_me: false };
+
+export const advance = (ms: number) =>
+  setSystemTime(new Date(clock().getTime() + ms));
+export const ahead = (ms: number) => iso(clock().getTime() + ms);
+
+/** A chat store whose messages are `list`, row by row, as `incoming` and `read` see it. */
+const chatSource = (list: SourceEvent[]) =>
+  ({
+    incoming: (from: number) => ({
+      end: list.length + 1,
+      rows: list
+        .map((e, i) => ({ at: e.at, id: e.id, row: i + 1 }))
+        .filter((r) => r.row >= from),
+    }),
+    kind: "chat",
+    label: "WhatsApp",
+    name: "whatsapp",
+    read: (since: Date) => list.filter((e) => e.at >= since.toISOString()),
+    silentAfter: 0,
+  }) as Messaging;
+
+export function setup() {
+  setSystemTime(new Date(T0));
+  const dir = mkdtempSync(join(tmpdir(), "life-desk-"));
+  const fake = fakeRuntime();
+  const messages: SourceEvent[] = [];
+  const path = join(dir, "desk.sqlite");
+  const desk: Desk = {
+    db: openDesk(path),
+    runtimes: { fake: fake.runtime },
+    sources: [chatSource(messages)],
+  };
+  /** A message in a made-up chat, now. */
+  const write = (chat = "Test Ana") => {
+    const id = `whatsapp:m${messages.length + 1}`;
+    messages.push({
+      at: clock().toISOString(),
+      chat,
+      fromMe: false,
+      id,
+      sender: chat,
+      source: "whatsapp",
+      text: "hello",
+    });
+    return id;
+  };
+  /** The agent's turn ends, as its runtime reports it. */
+  const end = async (id: string, failed = false) => {
+    const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
+    if (s) {
+      s.running = false;
+    }
+    await turnEnded(desk, id, failed);
+  };
+  /** A registered agent after its first turn: waiting for Ana's messages until `until`. */
+  const waiting = async (until = HOUR) => {
+    const id = register(desk, {
+      brief: "Test brief: follow up with Ana",
+      folder: dir,
+      runtime: "fake",
+    });
+    await wakeDue(desk);
+    await setWait(desk, id, {
+      events: [ANA],
+      reason: "Ana's reply",
+      until: ahead(until),
+    });
+    await end(id);
+    return id;
+  };
+  const turns = (id: string) =>
+    desk.db
+      .query<{ cause: string; outcome: string | null }, [string]>(
+        "select cause, outcome from turn where agent_id = ? order by id"
+      )
+      .all(id);
+  const queue = (id: string, eventId: string, name = "message.received") =>
+    desk.db.run(
+      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, '{}', ?)",
+      [id, eventId, name, clock().toISOString()]
+    );
+  const eventRow = (id: string, eventId: string) =>
+    desk.db
+      .query<
+        {
+          consumed_at: string | null;
+          dropped_at: string | null;
+          handed: number;
+        },
+        [string, string]
+      >(
+        "select handed, consumed_at, dropped_at from event where agent_id = ? and event_id = ?"
+      )
+      .get(id, eventId);
+  return { desk, dir, end, eventRow, fake, path, queue, turns, waiting, write };
+}
+
+/** A new agent on a made-up matter, its first turn launched. */
+export async function started(desk: Desk, step: string) {
+  const id = register(desk, {
+    brief: "Test brief: watch the repair",
+    folder: tmpdir(),
+    runtime: "fake",
+    steps: [step],
+  });
+  await wakeDue(desk);
+  return id;
+}
