@@ -3,8 +3,9 @@ import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
-import type { Check, CheckGroup, InboxCheck } from "./checks";
+import type { Check, InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
+import type { CheckGroup } from "./life-checks";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
@@ -14,7 +15,7 @@ const guess = check("person:inf_kit", "guessed person", [
   "+33600000001",
 ]);
 const name = check("name:kit", "name", ["Kit", "kit"]);
-const card = check("person:con_kit", "card");
+const card = check("person:con_kit", "contacts card");
 const ending = check("obs_000000000001", "ending");
 /** The goals a new matter's Start asked the desk to start on. */
 let started: string[] = [];

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, mock, test } from "bun:test";
 import {
   mkdirSync,
   realpathSync,
@@ -425,4 +425,25 @@ test("a send that can never go says so: the file gone, the chat's refusal, a cha
   );
   expect(later.message).toBe("not sent: the bridge is down");
   expect(later.canRetry).toBeUndefined();
+});
+
+// 19 Nov 2026 (review A, B4): the archive read throwing (busy) was stored as a raw error, read as "may have gone".
+test("a failure before the hand-off is not sent, whatever it says: the archive's read throwing sends nothing", async () => {
+  const send = mock(async () => "$ev");
+  const net = source("sendnet", [ana()], false, undefined, send);
+  const stored = await resolveDraft(
+    { channel: "sendnet", text: hi, to: "Test Ana" },
+    NOW,
+    [net]
+  );
+  Object.assign(net, {
+    read: () => {
+      throw new Error("database is locked");
+    },
+  });
+  const failed = (await sendDraft(stored, "t", { since: NOW }, [net]).catch(
+    (e: unknown) => e
+  )) as Error;
+  expect(failed.message).toBe("not sent: database is locked");
+  expect(send).not.toHaveBeenCalled();
 });

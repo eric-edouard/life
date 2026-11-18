@@ -138,14 +138,15 @@ test("only the payments backend imports money, and only money.ts runs the money 
 
 // A voice guess stays a guess (docs/glossary.md, "voice guess"): what acts on his word is pinned to its writers, so a
 // file that reads or makes guesses (`voice-naming.ts`, `naming-context.ts`, `voice-guesses.ts`) can never be one of them:
-// only the connector forwards a correction to lifelog, and only the command, the connector and his answer to a check
-// (`answer-check.ts`) record one.
+// only the connector forwards a correction to lifelog, and only the command, the connector (with his word on a whole
+// matter, `correct-matter.ts`) and his answer to a check (`answer-check.ts`) record one.
 test("forward and recordCorrection have only their known importers", () => {
   expect(importers(["forward"], "lifelog")).toEqual([
     "apps/server/src/host/http/mcp.ts",
   ]);
   expect(importers(["recordCorrection"], "memory-files")).toEqual([
     "apps/server/src/host/command.ts",
+    "apps/server/src/host/correct-matter.ts",
     "apps/server/src/host/http/mcp.ts",
     "apps/server/src/memory/answer-check.ts",
   ]);

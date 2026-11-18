@@ -127,7 +127,8 @@ export function gmailSend({
   return {
     block: () => Promise.resolve(undefined),
     holds: () => [],
-    limitMs: sendMs,
+    // Two lookups of up to gog's minute each (the refusal asked again, then the send's own), then the send.
+    limitMs: (d) => 2 * MIN + sendMs(d),
     refusal: async (d) => {
       if (d.reaction || d.mentions) {
         return "mail sends text and one file";

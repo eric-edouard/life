@@ -21,11 +21,15 @@ let queue: () => unknown = () => [item];
 const server = lifelogServer({ "/naming-queue": () => queue() });
 afterAll(() => server.close());
 
-test("the naming queue is read, and a lifelog that fails it leaves the inbox without voices, never failing", async () => {
+test("the naming queue is read; while lifelog fails it the last list stands, never failing", async () => {
   expect((await readNamingQueue()).map((i) => i.id)).toEqual([
     "job-1:speaker_1",
   ]);
   queue = () => [{ id: 1 }];
+  expect((await readNamingQueue()).map((i) => i.id)).toEqual([
+    "job-1:speaker_1",
+  ]);
+  queue = () => [];
   expect(await readNamingQueue()).toEqual([]);
 });
 

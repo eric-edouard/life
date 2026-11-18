@@ -8,8 +8,6 @@ import { DECISIONS, requestDecision } from "../memory/decisions";
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lifelog from "../sources/lifelog-push";
-// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as voices from "../sources/lifelog-voices";
 import { PUSHED, pushNewCards, pushNewCardsIfChanged } from "./card-push";
 
 const card = (n: number, asker = "planner") =>
@@ -119,36 +117,20 @@ const ask = () =>
     title: "It is due.",
   });
 let held: ReturnType<typeof spyOn<typeof memoryLock, "isLocked">>;
-let queue: ReturnType<typeof spyOn<typeof voices, "fetchNamingQueue">>;
 beforeEach(() => {
   held = spyOn(memoryLock, "isLocked").mockReturnValue(false);
-  queue = spyOn(voices, "fetchNamingQueue").mockResolvedValue([]);
 });
 afterEach(() => {
   held.mockRestore();
-  queue.mockRestore();
 });
-/** The watcher's state is the process's: a lock seen held makes its next look a full one. */
+/** The watcher's state is the process's: a look while a run holds the lock notes the decisions it saw. */
 const forget = async () => {
   held.mockReturnValue(true);
   await pushNewCardsIfChanged();
   held.mockReturnValue(false);
 };
 
-test("the watcher looks again only when the decisions, corrections, answers or queued voices changed", async () => {
-  await forget();
-  await pushNewCardsIfChanged();
-  await pushNewCardsIfChanged();
-  expect(look).toHaveBeenCalledTimes(1);
-  queue.mockResolvedValue([{ id: "voice_1" }] as never);
-  await pushNewCardsIfChanged();
-  expect(look).toHaveBeenCalledTimes(2);
-  await ask();
-  await pushNewCardsIfChanged();
-  expect(look).toHaveBeenCalledTimes(3);
-});
-
-test("the watcher looks again after a run held the memory lock", async () => {
+test("the watcher's minute reads the inbox (`checksNow` decides whether to read it again), never while a run holds the lock", async () => {
   await forget();
   await pushNewCardsIfChanged();
   held.mockReturnValue(true);
