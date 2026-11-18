@@ -115,7 +115,7 @@ function apply(
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
-        // ponytail: a turn under way ends on its own; `Runtime.stop` comes with the handover (step 5).
+        // ponytail: a turn under way ends on its own, with no reminder after; stopping its run (`Runtime.stop`) waits for the handover (step 5).
         db.run("update agent set status = 'stopped' where id = ?", [id]);
       }
       break;
