@@ -88,7 +88,7 @@ struct PendantScreen: View {
                 ToolbarItem(placement: .topBarLeading) {
                     // Text, not a Label: the bar would draw a Label as its icon alone.
                     Text("\(Image(systemName: "laptopcomputer")) Mac dictating")
-                        .font(.subheadline)
+                        .font(.body15)
                         .fixedSize()
                         // The words alone: VoiceOver would read the symbol's name first.
                         .accessibilityLabel("Mac dictating")

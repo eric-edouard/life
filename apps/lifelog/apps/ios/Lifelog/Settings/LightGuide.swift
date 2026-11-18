@@ -13,7 +13,7 @@ struct LightGuide: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(LightPattern.allCases.filter { !$0.isProblem }) { LightRow(pattern: $0, time: time) }
                 Text("When something's wrong")
-                    .font(.footnote)
+                    .font(.small)
                     .foregroundStyle(Palette.faint)
                     .padding(.top, 14)
                     .padding(.bottom, 4)
@@ -131,8 +131,8 @@ private struct LightRow: View {
             .frame(width: 10, height: 10)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
-                Text(pattern.label).font(.subheadline).foregroundStyle(Palette.fg)
-                Text(pattern.pattern).font(.footnote).foregroundStyle(Palette.faint)
+                Text(pattern.label).font(.body15).foregroundStyle(Palette.fg)
+                Text(pattern.pattern).font(.small).foregroundStyle(Palette.faint)
             }
             Spacer(minLength: 0)
         }
@@ -170,8 +170,8 @@ struct LightStrip: View {
             }
             .sensoryFeedback(.selection, trigger: selected)
             VStack(alignment: .leading, spacing: 2) {
-                Text(selected.label).font(.subheadline).foregroundStyle(Palette.fg)
-                Text(selected.pattern).font(.footnote).foregroundStyle(Palette.faint)
+                Text(selected.label).font(.body15).foregroundStyle(Palette.fg)
+                Text(selected.pattern).font(.small).foregroundStyle(Palette.faint)
             }
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityHidden(true)
@@ -243,7 +243,7 @@ struct LightBrightnessRow: View {
                 .accessibilityIdentifier("pendant.settings.lightBrightness")
             }
             Text(caption)
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -303,7 +303,7 @@ struct LightGuideView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Tap a light to read it. They blink as the Pendant does.")
-                        .font(.footnote)
+                        .font(.small)
                         .foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     LightStrip()

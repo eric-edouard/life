@@ -16,8 +16,8 @@ struct ConnectionSheet: View {
                     Section {
                         Label {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(state.title).font(.headline)
-                                Text(state.detail).font(.subheadline).foregroundStyle(Palette.muted)
+                                Text(state.title).font(.leadBold)
+                                Text(state.detail).font(.body15).foregroundStyle(Palette.muted)
                             }
                         } icon: {
                             Image(systemName: state.systemImage)
@@ -37,7 +37,7 @@ struct ConnectionSheet: View {
                             // It tries again on its own; the owner sees why it hasn't gone yet.
                             VStack(alignment: .leading, spacing: 4) {
                                 waits("Upload failing", systemImage: "exclamationmark.icloud", "")
-                                Text(error).font(.footnote).foregroundStyle(Palette.muted)
+                                Text(error).font(.small).foregroundStyle(Palette.muted)
                             }
                         }
                         if summary.editsWaiting > 0 {
@@ -112,8 +112,8 @@ private struct RefusedEdit: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(Self.name(edit.intent)).font(.subheadline.weight(.semibold))
-                Text(edit.refused ?? "").font(.subheadline).foregroundStyle(Palette.muted)
+                Text(Self.name(edit.intent)).font(.buttonLabel)
+                Text(edit.refused ?? "").font(.body15).foregroundStyle(Palette.muted)
             }
             Spacer(minLength: 8)
             Button("OK", action: dismiss)

@@ -8,7 +8,7 @@ struct InboxScreen: View {
     @Environment(AppRouter.self) private var router
 
     @State private var taken: Taken?
-    /// Cards he kept for later: shown after the others, until the inbox changes under them.
+    /// Cards he kept for later: shown after the others, until the app closes.
     @State private var deferred: [String] = []
     @State private var current: String?
     @State private var notice: String?
@@ -61,7 +61,7 @@ struct InboxScreen: View {
                     .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
             }
             CheckCard(
-                check: check, position: index + 1, total: count, provider: provider(of: check),
+                check: check, position: index + 1, total: count, runtimeName: runtimeName(of: check),
                 answer: { request in submit(check, request, position: index + 1, total: count) },
                 openMatter: { router.open(matter: $0) }
             )
@@ -75,16 +75,17 @@ struct InboxScreen: View {
         return checks.filter { !deferred.contains($0.ref) } + checks.filter { deferred.contains($0.ref) }
     }
 
-    private func provider(of check: Check) -> Provider? {
+    private func runtimeName(of check: Check) -> RuntimeName? {
         guard let matter = check.matter?.id else { return nil }
-        return life.agents.value?.agents.first { $0.matter?.id == matter && $0.status != .ended }?.provider
+        return life.agents.value?.agents.first { $0.matter?.id == matter && $0.status != .ended }?.runtimeName
     }
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
 
     private func submit(_ check: Check, _ request: AnswerRequest, position: Int, total: Int) {
         notice = nil
-        taken = Taken(check: check, request: request, position: position, total: total, provider: provider(of: check))
+        taken = Taken(
+            check: check, request: request, position: position, total: total, runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 

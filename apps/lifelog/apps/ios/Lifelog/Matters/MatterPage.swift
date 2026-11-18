@@ -64,7 +64,7 @@ struct MatterPage: View {
                     ([days.map { "open \($0) day\($0 == 1 ? "" : "s")" }].compactMap(\.self)
                         + [(row.areas ?? []).joined(separator: ", ")].filter { !$0.isEmpty }).joined(separator: " · ")
                 )
-                .font(.manrope(15, weight: 450)).foregroundStyle(Palette.muted)
+                .font(.body15).foregroundStyle(Palette.muted)
             }
             Text(row.name).font(.matterTitle).foregroundStyle(Palette.fg).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
@@ -122,21 +122,18 @@ private struct EditableLine: View {
                 }
             }
             if isEditing {
-                TextField(label, text: $draft, axis: .vertical).focused($focused).font(.manrope(18, weight: 500))
+                TextField(label, text: $draft, axis: .vertical).focused($focused).font(.lead)
                     .foregroundStyle(Palette.fg).lineLimit(1...6)
                 HStack(spacing: 8) {
                     Button("Cancel") { isEditing = false }.buttonStyle(.pill(.quiet, height: 44))
                     Button(state.isRunning ? "Saving…" : "Save") {
-                        Task {
-                            await save(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                            if case .failed = state {} else { isEditing = false }
-                        }
+                        Task { await save(draft.trimmingCharacters(in: .whitespacesAndNewlines)) }
                     }
                     .buttonStyle(.pill(.filled, height: 44)).disabled(
                         state.isRunning || draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
-                Text(text.isEmpty ? "Not set" : text).font(.manrope(18, weight: 500))
+                Text(text.isEmpty ? "Not set" : text).font(.lead)
                     .foregroundStyle(text.isEmpty ? Palette.faint : Palette.fg).fixedSize(
                         horizontal: false, vertical: true)
             }
@@ -146,6 +143,7 @@ private struct EditableLine: View {
         }
         .padding(.horizontal, 20).padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: state) { if case .succeeded = $1 { isEditing = false } }
     }
 }
 
@@ -158,9 +156,9 @@ private struct CardLink: View {
         Button(action: answer) {
             HStack(spacing: 12) {
                 Caps("1 card", color: Palette.flag)
-                Text(check.question).font(.manrope(17, weight: 500)).foregroundStyle(Palette.fg).lineLimit(2)
+                Text(check.question).font(.lead).foregroundStyle(Palette.fg).lineLimit(2)
                 Spacer(minLength: 4)
-                Text("Answer \(Image(systemName: "chevron.right"))").font(.manrope(16, weight: 600)).foregroundStyle(
+                Text("Answer \(Image(systemName: "chevron.right"))").font(.rowName).foregroundStyle(
                     Palette.fg)
             }
             .padding(.horizontal, 18).padding(.vertical, 16)
@@ -176,7 +174,7 @@ private struct CardLink: View {
 private struct NoAgent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("No agent on this matter").font(.manrope(18, weight: 600)).foregroundStyle(Palette.fg)
+            Text("No agent on this matter").font(.leadBold).foregroundStyle(Palette.fg)
             Text("Start one and its first step is a plan you approve. Nothing is sent without your tap.")
                 .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         }
@@ -198,15 +196,15 @@ private struct AgentBlock: View {
         let isStopped = agent.status == .stopped
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Label(agent.provider.name, systemImage: "sparkle").font(.manrope(17, weight: 600)).foregroundStyle(
+                Label(agent.runtimeName.name, systemImage: "sparkle").font(.leadBold).foregroundStyle(
                     Palette.ai)
                 if let model = agent.model {
-                    Text(model).font(.manrope(16, weight: 450)).foregroundStyle(Palette.muted)
+                    Text(model).font(.lead).foregroundStyle(Palette.muted)
                 }
                 Spacer()
                 if agent.wait?.reason == "his answer" { Caps("Waits on you", color: Palette.flag) }
             }
-            Text(status).font(.manrope(18, weight: 600)).foregroundStyle(Palette.fg).fixedSize(
+            Text(status).font(.leadBold).foregroundStyle(Palette.fg).fixedSize(
                 horizontal: false, vertical: true)
             if let turn = agent.lastTurn, let outcome = turn.outcome {
                 Text("Last turn, \((turn.endedAt ?? turn.startedAt).formatted(.dateTime.hour().minute())): \(outcome)")
@@ -217,7 +215,7 @@ private struct AgentBlock: View {
                     Button {
                         openURL(link)
                     } label: {
-                        Text("Open in \(agent.provider.name) \(Image(systemName: "arrow.up.right"))").lineLimit(1)
+                        Text("Open in \(agent.runtimeName.name) \(Image(systemName: "arrow.up.right"))").lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
                     .buttonStyle(.pill(.quiet, height: 48))
@@ -269,10 +267,10 @@ private struct People: View {
                             name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined()
                                 .uppercased()
                         )
-                        .font(.manrope(11, weight: 650)).foregroundStyle(Palette.muted)
+                        .font(.badge).foregroundStyle(Palette.muted)
                         .frame(width: 30, height: 30).background(Color.fillTint, in: .circle)
-                        Text(role).font(.manrope(15, weight: 450)).foregroundStyle(Palette.muted)
-                        Text(name).font(.manrope(16, weight: 600)).foregroundStyle(Palette.fg)
+                        Text(role).font(.body15).foregroundStyle(Palette.muted)
+                        Text(name).font(.rowName).foregroundStyle(Palette.fg)
                     }
                     .padding(.leading, 6).padding(.trailing, 14).frame(minHeight: 44).background(
                         Palette.card, in: .capsule
@@ -292,7 +290,7 @@ private struct Steps: View {
             HStack {
                 Caps("Steps")
                 Spacer()
-                Text("\(steps.count), newest first").font(.manrope(15, weight: 450)).foregroundStyle(Palette.muted)
+                Text("\(steps.count), newest first").font(.body15).foregroundStyle(Palette.muted)
             }
             .padding(.top, 10)
             ForEach(Array(steps.reversed().enumerated()), id: \.element.id) { offset, step in
@@ -304,10 +302,10 @@ private struct Steps: View {
                             [step.at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), step.with]
                                 .compactMap(\.self).joined(separator: " · ")
                         )
-                        .font(.manrope(14, weight: 450)).foregroundStyle(Palette.muted)
+                        .font(.body15).foregroundStyle(Palette.muted)
                         Text(step.kind.replacing("_", with: " ")).label().foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.faint)
-                        Text(step.text).font(.manrope(17, weight: 600)).foregroundStyle(
+                        Text(step.text).font(.leadBold).foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.muted)
                         if !step.quote.isEmpty { Text(step.quote).font(.body15).foregroundStyle(Palette.muted) }
                     }

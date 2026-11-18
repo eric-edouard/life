@@ -194,7 +194,7 @@ struct RecordingButton: View {
             } icon: {
                 icon.accessibilityHidden(true)
             }
-            .font(.headline)
+            .font(.leadBold)
             .foregroundStyle(
                 records ? Palette.on : isBusy || !isEnabled ? Palette.muted : Palette.fg
             )

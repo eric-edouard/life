@@ -23,7 +23,7 @@ struct SameAsSheet: View {
                     }
                 }
                 Caps("Someone else, by name")
-                TextField("Their name", text: $name).font(.manrope(19, weight: 500)).foregroundStyle(Palette.fg)
+                TextField("Their name", text: $name).font(.quote).foregroundStyle(Palette.fg)
                     .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
                 Button("Use this name") { pick(.name(typed)) }.buttonStyle(.pill(.filled)).disabled(typed.isEmpty)
             }

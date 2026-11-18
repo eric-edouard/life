@@ -65,7 +65,7 @@ struct FilterChip: View {
                         true)
                 }
             }
-            .font(.manrope(13.5, weight: 600, relativeTo: .footnote))
+            .font(.chip)
             .foregroundStyle(isOn ? Palette.on : Palette.fg)
             .padding(.horizontal, 15)
             .frame(minHeight: 40)
@@ -95,7 +95,7 @@ struct CheckLines: View {
                 HStack(alignment: .firstTextBaseline, spacing: 11) {
                     mark(line.mark).frame(width: 18, alignment: .center)
                     Text(line.text)
-                        .font(.manrope(15, weight: line.mark == .waiting ? 400 : 500))
+                        .font(.body15)
                         .foregroundStyle(color(line.mark))
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)

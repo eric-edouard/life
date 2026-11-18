@@ -82,16 +82,18 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(called.subtracting(paths).isEmpty, "\(called.subtracting(paths).sorted())")
 }
 
-/// The providers the Start sheet offers are the runtimes the desk drives, by the desk's own names (`desk-helper.ts`),
-/// and a runtime the app does not know reads as `unknown`, never a failure.
-@Test func providersAreTheDesksRuntimes() throws {
+/// The runtimes the Start sheet offers are the ones the server names (`RuntimeName`, `core/names.ts`), each lists at least
+/// one model to launch with, and a runtime the app does not know reads as `unknown`, never a failure.
+@Test func runtimeNamesAreTheServers() throws {
     let source = try String(
         contentsOf: apps.deletingLastPathComponent().deletingLastPathComponent().appending(
-            path: "server/src/desk/desk-helper.ts"), encoding: .utf8)
-    let desk = Set(source.matches(of: /\n  ([a-z]+): [a-z]+Runtime,/).map { String($0.output.1) })
-    #expect(desk == Set(Provider.allCases.map(\.rawValue)).subtracting(["unknown"]))
-    #expect(Provider(rawValue: "dsh") == nil)
-    #expect(try JSONDecoder().decode(Provider.self, from: Data(#""dsh""#.utf8)) == .unknown)
+            path: "server/src/core/names.ts"), encoding: .utf8)
+    let named = try #require(source.firstMatch(of: /RuntimeName = z\.enum\(\[([^\]]*)\]\)/)).output.1
+    let server = Set(named.matches(of: /"([a-z]+)"/).map { String($0.output.1) })
+    #expect(server == Set(RuntimeName.offered.map(\.rawValue)))
+    #expect(RuntimeName.offered.allSatisfy { !$0.models.isEmpty })
+    #expect(RuntimeName(rawValue: "dsh") == nil)
+    #expect(try JSONDecoder().decode(RuntimeName.self, from: Data(#""dsh""#.utf8)) == .unknown)
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

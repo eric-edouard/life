@@ -1,7 +1,7 @@
 import Foundation
 import ServerAPI
 
-/// The server's cut of a voice (`GET /jobs/{id}/audio`), one file per job in Caches until iOS clears them: what a voice
+/// The server's cut of a voice (`GET transcripts/{id}/audio`), one file per job in Caches until iOS clears them: what a voice
 /// card plays.
 enum ClipAudio {
     nonisolated static let folder = URL.cachesDirectory.appending(path: "clips", directoryHint: .isDirectory)

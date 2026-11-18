@@ -8,14 +8,14 @@ struct Taken: Equatable {
     let request: AnswerRequest
     let position: Int
     let total: Int
-    let provider: Provider?
+    let runtimeName: RuntimeName?
 
     var key: LifeStore.ActionKey { .answer(ref: check.ref) }
     var context: ActionCopy.Context {
         .init(
             to: check.draft?.to, channel: check.draft?.channel,
             asker: check.asker.caseInsensitiveCompare("life") == .orderedSame
-                ? "Life" : (provider?.name ?? check.asker), provider: provider?.name)
+                ? "Life" : (runtimeName?.name ?? check.asker), runtimeName: runtimeName?.name)
     }
 }
 
@@ -65,7 +65,7 @@ struct AnswerResultView: View {
     }
 
     private func chip(_ text: String, _ symbol: String, tint: Color) -> some View {
-        Label(text, systemImage: symbol).font(.manrope(14, weight: 600, relativeTo: .footnote)).foregroundStyle(tint)
+        Label(text, systemImage: symbol).font(.chip).foregroundStyle(tint)
             .lineLimit(1).padding(.horizontal, 14).frame(minHeight: 40).background(Color.fillTint, in: .capsule)
     }
 
@@ -83,7 +83,7 @@ struct AnswerResultView: View {
     @ViewBuilder private func done(_ proof: ActionProof) -> some View {
         header
         Text(isSend ? "Sent." : doneWord).font(.statusWord).foregroundStyle(Palette.fg).lit().padding(.top, 12)
-        Text(summary(proof)).font(.manrope(17, weight: 500)).foregroundStyle(Palette.muted)
+        Text(summary(proof)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines.filter { $0.id != "left_inbox" }).padding(.top, 8)
         if let changed = counts(proof) {
             Text(changed).font(.body15).foregroundStyle(Palette.muted)
@@ -97,7 +97,7 @@ struct AnswerResultView: View {
     @ViewBuilder private func failed(_ failure: ActionFailure) -> some View {
         header
         Text(failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
-        Text(failedLine(failure)).font(.manrope(17, weight: 500)).foregroundStyle(Palette.muted)
+        Text(failedLine(failure)).font(.lead).foregroundStyle(Palette.muted)
         CheckLines(lines: lines).padding(.top, 8)
     }
 

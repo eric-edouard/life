@@ -82,7 +82,7 @@ private struct LensHeader: View {
                         .symbolEffect(
                             .variableColor.iterative, isActive: line.isHearing && !reduceMotion && !isScrolling)
                 }
-                .font(.subheadline)
+                .font(.body15)
                 .foregroundStyle(Palette.fg)
                 .contentTransition(.opacity)
                 .id(line.systemImage)
@@ -93,7 +93,7 @@ private struct LensHeader: View {
                 Text(
                     "Mic on since \(since.moment) · \(Text(.currentDate, format: .offset(to: since, allowedFields: [.hour, .minute], sign: .never)))"
                 )
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
@@ -101,7 +101,7 @@ private struct LensHeader: View {
                 Text(
                     "≈ \(Text(left, format: .units(allowed: [.hours, .minutes], width: .abbreviated))) of audio still on the Pendant"
                 )
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
@@ -151,7 +151,7 @@ private struct LensFact<Figure: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.footnote)
+                .font(.small)
                 .foregroundStyle(Palette.muted)
             figure
         }

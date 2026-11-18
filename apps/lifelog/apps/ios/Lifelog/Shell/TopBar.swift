@@ -44,7 +44,6 @@ struct PendantPill: View {
     let open: () -> Void
 
     @Environment(CaptureStore.self) private var capture
-    @Environment(SyncStore.self) private var sync
 
     private struct Face {
         var symbol: String
@@ -57,12 +56,12 @@ struct PendantPill: View {
         let face = face
         Button(action: open) {
             HStack(spacing: 8) {
-                Text("Pendant").font(.manrope(16, weight: 500))
+                Text("Pendant").font(.lead)
                 if let text = face.text { Text(text).font(.monoTime).foregroundStyle(Palette.flag) }
                 Image(systemName: face.symbol).font(.system(size: 17, weight: .medium))
                     .overlay(alignment: .topTrailing) {
                         if let badge = face.badge {
-                            Text("\(badge)").font(.manrope(11, weight: 700)).foregroundStyle(Palette.on)
+                            Text("\(badge)").font(.badge).foregroundStyle(Palette.on)
                                 .frame(minWidth: 16, minHeight: 16).background(Palette.flag, in: .capsule).offset(
                                     x: 9, y: -9)
                         }

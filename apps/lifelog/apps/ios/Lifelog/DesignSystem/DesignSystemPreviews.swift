@@ -64,13 +64,13 @@ import SwiftUI
                     SectionHeader(title: "Today", detail: "Wed 7 Oct", trailing: "5 conversations")
                     HStack(spacing: Tag.between) {
                         Tag(systemImage: "person", value: Text("Julien, Nok"))
-                        Tag(systemImage: "photo", value: Text("5").font(.monoDetail))
+                        Tag(systemImage: "photo", value: Text("5"))
                     }
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
                     HStack {
                         DurationText(.seconds(40))
-                        DurationText(.seconds(7080), font: .monoTime)
+                        DurationText(.seconds(7080), step: .monoTime)
                     }
                     .foregroundStyle(Palette.faint)
                     VStack(alignment: .leading, spacing: 8) {

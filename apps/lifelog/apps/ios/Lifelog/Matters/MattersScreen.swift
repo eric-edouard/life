@@ -46,7 +46,7 @@ struct MattersScreen: View {
                 HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass").foregroundStyle(Palette.muted).accessibilityHidden(true)
                     TextField("Search \(list.matters.count) matters", text: $query)
-                        .font(.manrope(17, weight: 450)).foregroundStyle(Palette.fg).submitLabel(.search)
+                        .font(.lead).foregroundStyle(Palette.fg).submitLabel(.search)
                 }
                 .padding(.horizontal, 18).frame(minHeight: 52).background(Palette.card, in: .capsule)
                 .padding(.horizontal, 20).padding(.top, 4)
@@ -126,10 +126,10 @@ private struct MatterRowView: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(row.name).font(.manrope(19, weight: 600)).foregroundStyle(Palette.fg)
+                    Text(row.name).font(.quote).foregroundStyle(Palette.fg)
                     Spacer(minLength: 8)
                     if cards > 0 {
-                        Text("\(cards) card\(cards == 1 ? "" : "s")").font(.manrope(13.5, weight: 650)).foregroundStyle(
+                        Text("\(cards) card\(cards == 1 ? "" : "s")").font(.chip).foregroundStyle(
                             Palette.on
                         )
                         .padding(.horizontal, 12).frame(minHeight: 28).background(Palette.flag, in: .capsule)
@@ -137,7 +137,7 @@ private struct MatterRowView: View {
                 }
                 if let next = row.nextStep {
                     Text("Next: \(Text(next.text.prefixLowercased).foregroundStyle(Palette.muted))").font(
-                        .manrope(16, weight: 500)
+                        .lead
                     )
                     .foregroundStyle(Palette.fg)
                 }
@@ -146,16 +146,16 @@ private struct MatterRowView: View {
                         Text(wait.text).label().foregroundStyle(wait.needsYou ? Palette.flag : Palette.fg)
                     }
                     if let area = row.areas?.first {
-                        Text(area).font(.manrope(15, weight: 450)).foregroundStyle(Palette.muted)
+                        Text(area).font(.body15).foregroundStyle(Palette.muted)
                     }
                     if let agent {
                         Label(
-                            agent.provider.name
+                            agent.runtimeName.name
                                 + (agent.wait.map { ", until " + $0.until.formatted(.dateTime.weekday(.abbreviated)) }
                                     ?? ""),
                             systemImage: "sparkle"
                         )
-                        .font(.manrope(15, weight: 450)).foregroundStyle(Palette.ai).lineLimit(1)
+                        .font(.body15).foregroundStyle(Palette.ai).lineLimit(1)
                     }
                 }
             }
@@ -204,7 +204,7 @@ private struct FiltersSheet: View {
                 HStack {
                     Text("Filters").font(.sheetTitle).foregroundStyle(Palette.fg)
                     Spacer()
-                    Button("Clear") { filter = MatterFilter() }.font(.manrope(16, weight: 600)).foregroundStyle(
+                    Button("Clear") { filter = MatterFilter() }.font(.rowName).foregroundStyle(
                         Palette.fg
                     )
                     .frame(minHeight: 44).disabled(filter.isEmpty)
@@ -240,7 +240,7 @@ private struct FiltersSheet: View {
     private func line(_ name: String, _ count: Int, isOn: Bool, tap: @escaping () -> Void) -> some View {
         Button(action: tap) {
             HStack {
-                Text(name).font(.manrope(17, weight: isOn ? 650 : 500)).foregroundStyle(Palette.fg)
+                Text(name).font(.lead).foregroundStyle(Palette.fg)
                 Spacer()
                 Text("\(count)").font(.monoTime).foregroundStyle(Palette.muted)
                 Image(systemName: "checkmark").opacity(isOn ? 1 : 0).foregroundStyle(Palette.fg).accessibilityHidden(

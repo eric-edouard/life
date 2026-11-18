@@ -8,7 +8,7 @@ struct CheckCard: View {
     let position: Int
     let total: Int
     /// The runtime of the agent that asked, when the card's matter has one.
-    let provider: Provider?
+    let runtimeName: RuntimeName?
     let answer: (AnswerRequest) -> Void
     let openMatter: (String) -> Void
 
@@ -74,8 +74,8 @@ struct CheckCard: View {
 
     private var chips: some View {
         HStack(spacing: 8) {
-            Label(asker, systemImage: provider == nil ? "sparkle" : "sparkle")
-                .labelStyle(.titleAndIcon).font(.manrope(14, weight: 600, relativeTo: .footnote))
+            Label(asker, systemImage: "sparkle")
+                .labelStyle(.titleAndIcon).font(.chip)
                 .foregroundStyle(Palette.ai).padding(.horizontal, 14).frame(minHeight: 40)
                 .background(Color.fillTint, in: .capsule).lineLimit(1)
             if let matter = check.matter {
@@ -90,7 +90,7 @@ struct CheckCard: View {
                         )
                         .accessibilityHidden(true)
                     }
-                    .font(.manrope(14, weight: 600, relativeTo: .footnote)).foregroundStyle(Palette.fg)
+                    .font(.chip).foregroundStyle(Palette.fg)
                     .padding(.horizontal, 14).frame(minHeight: 40).background(Color.fillTint, in: .capsule)
                 }
                 .buttonStyle(.plain)
@@ -101,7 +101,7 @@ struct CheckCard: View {
 
     /// Who is asking: the agent's runtime, or Life (a voice says it came from the pendant).
     private var asker: String {
-        if let provider { return provider.name }
+        if let runtimeName { return runtimeName.name }
         return check.group == .voice
             ? "Life, from the pendant"
             : check.asker.caseInsensitiveCompare("life") == .orderedSame ? "Life" : check.asker
@@ -123,7 +123,7 @@ struct CheckCard: View {
                 )
                 .padding(.top, 6).fixedSize(horizontal: false, vertical: true)
             } label: {
-                Text(whyLabel).font(.manrope(16, weight: 500)).foregroundStyle(Palette.muted)
+                Text(whyLabel).font(.lead).foregroundStyle(Palette.muted)
             }
             .tint(Palette.muted)
             .padding(.vertical, 12)
@@ -157,7 +157,7 @@ struct CheckCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Caps("Your answer")
             TextField("Say it in your own words", text: $words, axis: .vertical)
-                .font(.manrope(19, weight: 450)).foregroundStyle(Palette.fg).lineLimit(3...8)
+                .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
                 .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
             Text("Your words go to the agent as they are.").font(.small).foregroundStyle(Palette.faint)
         }
@@ -184,7 +184,7 @@ struct CheckCard: View {
                     Button {
                         isWritingOwnWords = true
                     } label: {
-                        Label("Something else", systemImage: "mic").font(.manrope(16, weight: 600)).foregroundStyle(
+                        Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
                             Palette.fg
                         )
                         .frame(minHeight: 44)
@@ -194,8 +194,8 @@ struct CheckCard: View {
                         Button {
                             openURL(link)
                         } label: {
-                            Text("Open in \(provider?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
-                                .font(.manrope(15, weight: 500)).foregroundStyle(Palette.muted).frame(minHeight: 44)
+                            Text("Open in \(runtimeName?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
+                                .font(.body15).foregroundStyle(Palette.muted).frame(minHeight: 44)
                         }
                     }
                 }
@@ -220,10 +220,7 @@ struct CheckCard: View {
             .buttonStyle(.pill(.filled, height: 54))
             let rest = Array(check.options.dropFirst())
             if !rest.isEmpty || asksWho {
-                let layout =
-                    rest.count + (asksWho ? 1 : 0) > 2
-                    ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
-                layout {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
                     ForEach(rest, id: \.id) { option in
                         Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
@@ -266,27 +263,27 @@ struct DraftBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("To \(draft.to), on \(ActionCopy.channel(draft.channel))", systemImage: "bubble.left")
-                .font(.manrope(15, weight: 500)).foregroundStyle(Palette.muted)
+                .font(.body15).foregroundStyle(Palette.muted)
             if let subject = draft.subject {
-                Text(subject).font(.manrope(15, weight: 650)).foregroundStyle(Palette.fg)
+                Text(subject).font(.buttonLabel).foregroundStyle(Palette.fg)
             }
             if let quoted = draft.quoted {
                 VStack(alignment: .leading, spacing: 2) {
                     Label("Answering \(quoted.sender)’s message", systemImage: "arrowshape.turn.up.left")
-                        .font(.manrope(15, weight: 650)).foregroundStyle(Palette.fg)
+                        .font(.buttonLabel).foregroundStyle(Palette.fg)
                     Text(quoted.text).font(.body15).foregroundStyle(Palette.muted).lineLimit(3)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.fillTint, in: .rect(cornerRadius: 14))
             }
             if let text = draft.text {
-                Text(text).font(.manrope(19, weight: 450)).foregroundStyle(Palette.fg).fixedSize(
+                Text(text).font(.quote).foregroundStyle(Palette.fg).fixedSize(
                     horizontal: false, vertical: true)
             }
             if let reaction = draft.reaction { Text(reaction).font(.system(size: 34)) }
             if let file = draft.file {
                 Label("\(file.name) · \(file.size.formatted(.byteCount(style: .file)))", systemImage: "doc")
-                    .font(.manrope(15, weight: 500)).foregroundStyle(Palette.fg)
+                    .font(.body15).foregroundStyle(Palette.fg)
             }
         }
         .padding(16)
@@ -302,7 +299,7 @@ private struct EvidenceBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("“\(evidence.quote)”").font(.manrope(19, weight: 450)).foregroundStyle(Palette.fg)
+            Text("“\(evidence.quote)”").font(.quote).foregroundStyle(Palette.fg)
                 .fixedSize(horizontal: false, vertical: true)
             Text(evidence.from).font(.small).foregroundStyle(Palette.muted)
         }
@@ -319,6 +316,9 @@ private struct ClipBlock: View {
 
     @Environment(PlaybackStore.self) private var playback
     @State private var index = 0
+    /// Fetching the audio, or why it could not be had.
+    @State private var isFetching = false
+    @State private var failed = false
 
     var body: some View {
         let clip = clips[min(index, clips.count - 1)]
@@ -327,22 +327,32 @@ private struct ClipBlock: View {
                 Button {
                     toggle(clip)
                 } label: {
-                    Image(systemName: playback.isPlaying ? "stop.fill" : "play.fill").font(.system(size: 17))
-                        .foregroundStyle(Palette.on).frame(width: 48, height: 48).background(Palette.fg, in: .circle)
+                    Group {
+                        if isFetching {
+                            ProgressView().tint(Palette.on)
+                        } else {
+                            Image(systemName: playback.isPlaying ? "stop.fill" : "play.fill").font(.system(size: 17))
+                        }
+                    }
+                    .foregroundStyle(Palette.on).frame(width: 48, height: 48).background(Palette.fg, in: .circle)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(playback.isPlaying ? "Stop" : "Play the clip")
+                .buttonStyle(.plain).disabled(isFetching)
+                .accessibilityLabel(isFetching ? "Loading the clip" : playback.isPlaying ? "Stop" : "Play the clip")
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("“\(clip.text)”").font(.manrope(19, weight: 450)).foregroundStyle(Palette.fg)
+                    Text("“\(clip.text)”").font(.quote).foregroundStyle(Palette.fg)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(caption(clip)).font(.monoTime).foregroundStyle(Palette.muted)
+                    if failed {
+                        Text("Couldn't load the clip. Tap play to try again.").font(.small).foregroundStyle(
+                            Palette.flag)
+                    }
                 }
             }
             if clips.count > 1 {
                 Button("Another clip") {
                     playback.stop(); index = (index + 1) % clips.count
                 }
-                .font(.manrope(15, weight: 600)).foregroundStyle(Palette.fg).frame(minHeight: 44)
+                .font(.buttonLabel).foregroundStyle(Palette.fg).frame(minHeight: 44)
             }
         }
         .padding(16)
@@ -359,9 +369,13 @@ private struct ClipBlock: View {
 
     private func toggle(_ clip: Check.Clip) {
         if playback.isPlaying { return playback.stop() }
-        guard let audio = clip.audio, let job = UUID(uuidString: audio.jobId) else { return }
+        failed = false
+        guard let audio = clip.audio, let job = UUID(uuidString: audio.jobId) else { return failed = true }
+        isFetching = true
         Task {
-            guard let file = await ClipAudio.file(job) else { return }
+            let file = await ClipAudio.file(job)
+            isFetching = false
+            guard let file else { return failed = true }
             playback.play(file, from: audio.start, for: audio.end - audio.start)
         }
     }

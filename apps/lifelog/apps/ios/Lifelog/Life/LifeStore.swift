@@ -11,7 +11,18 @@ import UserNotifications
 @MainActor @Observable
 final class LifeStore {
     /// What the pairing is doing, as it runs (`LifeOAuth.Step`), then reading the inbox.
-    enum PairingStep: String { case registering, approving, exchanging, readingInbox = "reading_inbox" }
+    enum PairingStep: String {
+        case registering, approving, exchanging, readingInbox = "reading_inbox"
+
+        var words: String {
+            switch self {
+            case .registering: "Registering with Life…"
+            case .approving: "Waiting for Life to approve the code…"
+            case .exchanging: "Getting access…"
+            case .readingInbox: "Reading your inbox…"
+            }
+        }
+    }
 
     private(set) var inbox = ReadState<Inbox>()
     private(set) var matters = ReadState<MatterList>()
@@ -65,6 +76,10 @@ final class LifeStore {
     }
 
     var isPaired: Bool { tokens.load() != nil }
+    /// The Life this phone is paired with.
+    var pairedOrigin: URL? { tokens.load()?.endpoint.origin }
+    /// What pairing is doing or why it failed, for the screens that show it.
+    var pairingNote: String? { pairingFailure ?? pairingStep?.words }
 
     func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
 
@@ -179,16 +194,13 @@ final class LifeStore {
     func resumeAgent(_ agent: String) async {
         await change(agent, AgentRequest(action: .resume, agent: agent, said: "Resume it."))
     }
-    func changeModel(of agent: String, to model: String, effort: String? = nil) async {
-        await change(
-            agent,
-            AgentRequest(
-                action: .changeModel, agent: agent, model: model, effort: effort, said: "Use \(model) for this agent."))
-    }
-
     private func change(_ agent: String, _ request: AgentRequest) async {
         await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
-        await refreshAgents()
+        // The matter page draws the agent from its own read, so that read is refreshed too.
+        let pages = matter.filter { $0.value.value?.agents.contains { $0.id == agent } == true }.keys
+        async let agents: Void = refreshAgents()
+        for id in pages { await refreshMatter(id) }
+        await agents
     }
 
     /// His goal for a matter (`matter-direction`, pinned to every step `read_matter` lists).

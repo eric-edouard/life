@@ -74,6 +74,7 @@ struct RootView: View {
         } message: { offer in
             Text(pairingMessage(offer))
         }
+        .font(.body15)
         .tint(Palette.fg)
     }
 

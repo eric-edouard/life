@@ -11,6 +11,7 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
     @ViewBuilder let content: (Value) -> Content
 
     @Environment(AppRouter.self) private var router
+    @Environment(LifeStore.self) private var life
 
     private static func reason(_ why: ReadState<Value>.Why) -> String {
         switch why {
@@ -39,7 +40,8 @@ struct ReadScreen<Value: Sendable, Content: View, Loading: View, Empty: View>: V
         case .notPaired:
             Notice(
                 title: "Not paired with Life.",
-                detail: "Scan the pairing code Life shows on your Mac with the Camera, or paste its link in Settings.",
+                detail: life.pairingNote
+                    ?? "Scan the pairing code Life shows on your Mac with the Camera, or paste its link in Settings.",
                 action: ("Open Settings", { router.sheet = .settings }))
         }
     }

@@ -10,8 +10,8 @@ struct StartAgentSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var goal = ""
-    @State private var provider: Provider?
-    @State private var model: Provider.Model?
+    @State private var runtimeName: RuntimeName?
+    @State private var model: RuntimeName.Model?
 
     private var state: ActionState<ActionProof> { life.state(of: .start(matter: matter.row.id)) }
 
@@ -43,29 +43,29 @@ struct StartAgentSheet: View {
         }
     }
 
-    private var context: ActionCopy.Context { .init(provider: provider?.name ?? "The agent") }
+    private var context: ActionCopy.Context { .init(runtimeName: runtimeName?.name ?? "The agent") }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Caps("The goal, in your words")
-            TextField("Goal", text: $goal, axis: .vertical).font(.manrope(19, weight: 500)).foregroundStyle(Palette.fg)
+            TextField("Goal", text: $goal, axis: .vertical).font(.quote).foregroundStyle(Palette.fg)
                 .lineLimit(2...6).padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
             Caps("Who works on it")
             HStack(spacing: 8) {
-                ForEach(Provider.offered, id: \.self) { option in
+                ForEach(RuntimeName.offered, id: \.self) { option in
                     Button {
-                        provider = provider == option ? nil : option
+                        runtimeName = runtimeName == option ? nil : option
                         model = nil
                     } label: {
-                        Label(option.name, systemImage: "sparkle").font(.manrope(16, weight: 600))
-                            .foregroundStyle(provider == option ? Palette.on : Palette.fg)
+                        Label(option.name, systemImage: "sparkle").font(.rowName)
+                            .foregroundStyle(runtimeName == option ? Palette.on : Palette.fg)
                             .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(provider == option ? Palette.fg : Color.fillTint, in: .capsule)
+                            .background(runtimeName == option ? Palette.fg : Color.fillTint, in: .capsule)
                     }
-                    .buttonStyle(.plain).accessibilityAddTraits(provider == option ? .isSelected : [])
+                    .buttonStyle(.plain).accessibilityAddTraits(runtimeName == option ? .isSelected : [])
                 }
             }
-            if let models = provider?.models, !models.isEmpty {
+            if let models = runtimeName?.models, !models.isEmpty {
                 Caps("Model")
                 HStack(spacing: 8) {
                     ForEach(models, id: \.id) { option in
@@ -86,7 +86,7 @@ struct StartAgentSheet: View {
     }
 
     private var goalLine: some View {
-        Text(goal).font(.manrope(19, weight: 650)).foregroundStyle(Palette.fg).fixedSize(
+        Text(goal).font(.cardQuestion).foregroundStyle(Palette.fg).fixedSize(
             horizontal: false, vertical: true)
     }
 
@@ -126,7 +126,7 @@ struct StartAgentSheet: View {
                 Button {
                     openURL(link)
                 } label: {
-                    Text("Open in \(provider?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
+                    Text("Open in \(runtimeName?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
                 }
                 .buttonStyle(.pill(.quiet))
             }
@@ -149,9 +149,9 @@ struct StartAgentSheet: View {
             .font(.body15).foregroundStyle(Palette.muted)
             if failure.retry == .allowed && !failure.mayHaveHappened {
                 Button("Try again") { start() }.buttonStyle(.pill(.filled))
-                if let other = Provider.offered.first(where: { $0 != provider }), provider != nil {
+                if let other = RuntimeName.offered.first(where: { $0 != runtimeName }), runtimeName != nil {
                     Button("Use \(other.name)") {
-                        provider = other; model = nil; start()
+                        runtimeName = other; model = nil; start()
                     }.buttonStyle(.pill(.quiet))
                 }
             } else {
@@ -161,7 +161,7 @@ struct StartAgentSheet: View {
     }
 
     private func start() {
-        let runtime = provider?.rawValue
+        let runtime = runtimeName?.rawValue
         let model = model
         Task {
             await life.startAgent(
