@@ -7,9 +7,11 @@ import {
   communicationStyleTargetsOf,
   inputOf,
   readCommunicationStyle,
+  sentDraftsOf,
   styleLines,
   styleSampleOf,
 } from "./communication-styles";
+import type { Decision } from "./decisions";
 import { communicationStylePath } from "./memory-files";
 import { nowLines } from "./read-person-page";
 import { lifeChat } from "./units";
@@ -55,6 +57,29 @@ test("Life's output, the agent's reports, calls and bulk mail are never writing 
   ]);
   expect(chat.map((m) => m.text)).toEqual(["kept"]);
   expect(mail).toEqual([]);
+});
+
+test("a draft Life sent for him is his message but never a sample: the same words in another chat are kept", () => {
+  const sent = sentDraftsOf([
+    {
+      draft: {
+        channel: "whatsapp",
+        chat: "+1",
+        text: "See you at 8 ",
+        to: "Ana",
+      },
+      send: { eventId: "$e" },
+    } as unknown as Decision,
+  ]);
+  const { chat } = styleSampleOf(
+    [
+      msg(1, true, { text: "See you at 8" }),
+      msg(2, true, { chat: "+2", text: "See you at 8" }),
+      msg(3, false, { text: "See you at 8" }),
+    ],
+    sent
+  );
+  expect(chat.map((m) => m.fromMe)).toEqual([true, false]);
 });
 
 test("only paged people with a 1:1 chat or mail are read", () => {

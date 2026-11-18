@@ -62,6 +62,7 @@ import {
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
+  whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
 import { readFiles } from "./memory-files";
@@ -126,6 +127,7 @@ const LISTED: Descriptor[] = [
     name: "whatsapp",
     newest: newestWhatsapp,
     read: (since, before) => readWhatsapp(since, undefined, undefined, before),
+    roomOf: whatsappRoomOf,
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",

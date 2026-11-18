@@ -17,6 +17,7 @@ import {
 } from "./archived";
 import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
+import { BRIDGES } from "./matrix";
 
 // The Mac app's own store, opened read-only by its copy into the archive.
 export const WHATSAPP = join(
@@ -93,6 +94,31 @@ export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
  */
 export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
+
+const PHONE_JID = /@s\.whatsapp\.net$/;
+/**
+ * A chat's room in the WhatsApp bridge (his send path, kept linked on 16 Nov 2026): its portal by the chat's id, a
+ * `<phone>@s.whatsapp.net` one through the bridge's own map of phones to WhatsApp's `@lid` ids. None when the bridge
+ * isn't on this Mac or never saw the chat.
+ */
+export function whatsappRoomOf(chat: string, bridges = BRIDGES) {
+  const file = join(bridges, "whatsapp", "whatsapp.db");
+  if (!existsSync(file)) {
+    return;
+  }
+  const db = openReadOnly(file);
+  try {
+    const rooms = db
+      .query<{ room: string }, [string, string]>(
+        `select mxid as room from portal where mxid is not null
+          and id = coalesce((select lid || '@lid' from whatsmeow_lid_map where pn = ?), ?) limit 2`
+      )
+      .all(chat.replace(PHONE_JID, ""), chat);
+    return rooms.length === 1 ? rooms[0]?.room : undefined;
+  } finally {
+    db.close();
+  }
+}
 
 /** Messages since `since` as events, oldest first. The sender is `+<phone>` when known, else the WhatsApp id. */
 export function readWhatsapp(

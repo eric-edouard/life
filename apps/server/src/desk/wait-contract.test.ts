@@ -402,7 +402,7 @@ test("his answer, read from his decisions, is queued for the agent that asked it
     title: "a test",
   });
   advance(1000);
-  answerDecision(dec, ["yes"]);
+  await answerDecision(dec, ["yes"]);
   advance(1000);
   pollAnswers(desk);
   pollAnswers(desk);

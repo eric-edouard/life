@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`apps/server/src/memory/quote-check.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `changeTodoItem`, `setAutoAdd`, `ask` and the sync
-  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `matter-directions.jsonl` only by the matter directions step (`memory/matter-directions.ts`; pinned to its matter's steps, his `matter-direction` correction wins); `links.jsonl` only by the links step (`memory/links.ts`), read by the readers through `endingsRead` (`memory/endings.ts`: a link ends its step "probably" until his word); `matters.jsonl` only by the matters step (`memory/matters.ts`; only the current matters prompt's lines are read, so a prompt bump re-groups everything and changes every matter id: ask first), a line holding steps never a status (open, matter status and people by role are worked out when read, `matterOf`); `read-replies/` only by the exchange reads, the conversation summaries and the voice namings (`memory/read-replies.ts`'s `storeReply`, through `makeReplies`), a line never rewritten; `decisions.jsonl` only by `requestDecision` and `answerDecision` (`memory/decisions.ts`), a line never rewritten (earlier versions' lines stay in it, skipped: the old decisions page's schemaVersion 1, the cards before titles' 2). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
+  pass (`inbound`); `publications.jsonl` (what each publication of units read) only by `publishUnits`; `matter-directions.jsonl` only by the matter directions step (`memory/matter-directions.ts`; pinned to its matter's steps, his `matter-direction` correction wins); `links.jsonl` only by the links step (`memory/links.ts`), read by the readers through `endingsRead` (`memory/endings.ts`: a link ends its step "probably" until his word); `matters.jsonl` only by the matters step (`memory/matters.ts`; only the current matters prompt's lines are read, so a prompt bump re-groups everything and changes every matter id: ask first), a line holding steps never a status (open, matter status and people by role are worked out when read, `matterOf`); `read-replies/` only by the exchange reads, the conversation summaries and the voice namings (`memory/read-replies.ts`'s `storeReply`, through `makeReplies`), a line never rewritten; `decisions.jsonl` only by `requestDecision` and `answerDecision` (`memory/decisions.ts`; a draft's send outcome too), a line never rewritten (earlier versions' lines stay in it, skipped: the old decisions page's schemaVersion 1, the cards before titles' 2). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/`, `episodes/<day>.jsonl`, `situations/`, `personas/`, `communication-styles/` (a file is never removed), `histories/` (a month or a story replaced only by its re-read, its last version left to the data repo's git history; a file is never removed) and `appointments.json` (rebuilt whole) and a rename's or a new field's backfill (next).
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of
   their turns (the persona reads their words), but thousands of facts, his fact-check answers and corrections cite them, and a re-read
@@ -86,7 +86,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   A new recipe for new units only, every stored id kept, is not a rename. A day's episode file is code's to rewrite on
   every reading, so a migration may drop episode lines there (no cursor counts them).
   An optional field that the old lines truly lack, on an append-only file whose latest line per key rules, needs no migration:
-  the writer's next line fills it.
+  the writer's next line fills it. Nor does one on a line never rewritten, where lacking it is true (a card asked
+  before Life could send has no resolved chat, and sends nothing).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, and his answer to a check with the check as it was shown (its text and source; the later step's words are not stored), written just before it: `recordFactCheckAnswer`), `told-life.jsonl` (what he told Life, one synchronous append: `recordToldLife`), `decisions.jsonl`'s lines (one synchronous append), `appointment-events.jsonl` (the calendar sync's lines, each tick) and `ledger.jsonl`'s writers above. One Life per Mac: the archive, the watcher and the desk each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`); the desk never takes the memory lock.
@@ -107,7 +108,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   18 Nov 2026: a wake by meaning on a matter's agent (the wide net, `desk/matter-net.ts`: anything new close to its matter, by the Mac's embedder; the wake still hands only the facts); what
   the agent then reads is the agent's to judge, outside Life's boundary (`SECURITY.md`, "Agents"). A mark (his words to Life, to keep) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
-- **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
+- **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). A card's
+  draft Life sent on his answer is his own message, read back from its chat like any other; only the communication
+  styles skip it (`sentDraftsOf`: drafts never learn from drafts). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
@@ -131,10 +134,16 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   asks of it that name a change (`after.agentChange`) in code and keeps its own list. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
   2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
   `(Life)`, free, until an agent confirms one with him; one he deletes is never written again). They are its reading,
-  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments").
-- **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
+  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
+  other act is a card's draft, sent on his answer (below).
+- **Life sends only the exact draft text of a card, on his answer to its outgoing option, into the one chat named,
+  through its own bridges** (his decision of 18 Nov 2026): Life resolves the chat when the card is asked (refused
+  unless exactly one); it sends once, on his pick of that option alone through `answer_check` (his app's token: never a
+  paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts` checks), never on
+  silence, never with his words added, never retried. Agents hold no send tool. Its only other mail and notifications
+  are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
+- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer; his pick of a draft's outgoing option sends that draft), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
@@ -225,6 +234,7 @@ Before adding a helper, use the one that exists:
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`): his word, `truth/`, the people his Contacts name (`memory/contact-people.ts`, `people-contacts.jsonl`, appended by the night, never read from Contacts at read time; a card folds into someone in `truth/` by their whole name, a shared handle, or their first name and birthday), then Life's guesses; one person across every channel is `foldsOf`'s to say; a lifelog person id is `voicePersonOf`: the id, else the name lifelog gave it |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his directory, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | A question an agent puts to him, and where it stands | the decisions (`memory/decisions.ts`): `requestDecision`, `answerDecision`, `decisionsNow` (open, answered, lapsed, withdrawn, worked out when read); he sees the open ones as checks (`checksNow`, kind `decision`), never a second list |
+| Sending a card's draft (which chat it names, the send) | `memory/draft-send.ts`: `readDraftChat` when asked, `sendDraft` on his answer, through a source's `roomOf` and `sendText` (`sources/matrix.ts`), the one Matrix send |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held, what each publication read (`memory/publications.jsonl`) and, for the pendant, the recorded days (`memory/recorded-days.ts`, the night's copy of lifelog's `GET /recorded`: no read asks lifelog); over a range of days, a day being a range of one; by month, `notCapturedOf` |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` (`memory/endings.ts`) is the one place that decides what a link ends, `endingsRead` the one thing readers call; a link ends its step "probably" in the readers and asks him (an ending check among the checks, with no limit; right is his `outdated` word, wrong removes that link for good and reopens the step); its subject is the matter, never a person |
@@ -319,7 +329,7 @@ or invariant you make into this file or the doc it belongs to.
 removing a regression case; anything that spends the owner's model quota heavily (a backfill).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send into a chat, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
+data repo; add a send into a chat beside a card's draft, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
 the debt verdict passes on the PR's current head (once it passes, any agent merges, without asking him: his
 ruling of 29 Oct).
 

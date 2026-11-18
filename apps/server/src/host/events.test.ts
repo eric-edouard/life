@@ -1,9 +1,14 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { HOUR } from "../core/clock";
-import { DECISIONS, requestDecision } from "../memory/decisions";
+import {
+  answerDecision,
+  DECISIONS,
+  requestDecision,
+} from "../memory/decisions";
 import type { SourceEvent } from "../records/source";
 import {
+  DECISION_ANSWERED,
   DECISION_LAPSED,
   MESSAGE_RECEIVED,
   type Messaging,
@@ -267,6 +272,54 @@ test("a decision that lapsed wakes its own asker once, with what it said it take
     expect((await poll("planner", lapsed.cursor)).events).toEqual([]);
     expect((await poll("atlas", first.cursor)).events).toEqual([]);
     await expect(poll(undefined, first.cursor)).rejects.toThrow("paired agent");
+  } finally {
+    setSystemTime();
+    rmSync(DECISIONS, { force: true });
+  }
+});
+
+test("his answer that sends a card's draft wakes its asker with the send's outcome", async () => {
+  rmSync(DECISIONS, { force: true });
+  const start = new Date("2026-11-18T09:00:00.000Z");
+  setSystemTime(start);
+  try {
+    const { id } = await requestDecision(
+      "planner",
+      {
+        deadline: new Date(start.getTime() + 2 * HOUR).toISOString(),
+        draft: { channel: "whatsapp", text: "Friday works", to: "Kit" },
+        onSilence: null,
+        options: [
+          { id: "send", label: "Send it", outgoing: true },
+          { id: "no", label: "Don't" },
+        ],
+        question: "Send Kit this?",
+        title: "Confirm Friday",
+      },
+      start,
+      () =>
+        Promise.resolve({
+          chat: "155@s.whatsapp.net",
+          name: "Kit",
+          source: "whatsapp" as const,
+        })
+    );
+    const first = await pollEvents(
+      { arguments: {}, cursor: null, name: DECISION_ANSWERED },
+      "planner"
+    );
+    await answerDecision(id, ["send"], undefined, {
+      deliver: () => Promise.resolve("$event1"),
+      via: "connector",
+    });
+    setSystemTime(new Date(start.getTime() + 1000));
+    const answered = await pollEvents(
+      { arguments: {}, cursor: first.cursor, name: DECISION_ANSWERED },
+      "planner"
+    );
+    expect(answered.events).toMatchObject([
+      { data: { id, send: { eventId: "$event1" } } },
+    ]);
   } finally {
     setSystemTime();
     rmSync(DECISIONS, { force: true });

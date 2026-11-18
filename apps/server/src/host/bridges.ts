@@ -8,7 +8,7 @@ import {
 import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
-import { SECRETS, writeSecret } from "../core/secret";
+import { writeSecret } from "../core/secret";
 import { keepRunning } from "../core/service";
 import { setSettings, settings } from "../core/settings";
 import { NETWORKS, type Network } from "../sources/bridged";
@@ -26,6 +26,7 @@ import {
   pastedValues,
   readBlock,
   readLogins,
+  readOwnerAccount,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
@@ -158,11 +159,7 @@ async function addHomeserver() {
     });
   }
   // The password is kept before his account is made, so a try that stops halfway logs in next time.
-  const saved = (
-    existsSync(SECRETS.matrix)
-      ? JSON.parse(readFileSync(SECRETS.matrix, "utf8"))
-      : {}
-  ) as { password?: string; token?: string };
+  const saved = readOwnerAccount();
   if (saved.token) {
     return; // set up already: the caller restarts the job once its own change is made
   }

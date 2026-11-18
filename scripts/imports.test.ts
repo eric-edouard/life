@@ -13,6 +13,7 @@ const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
+const MATRIX_SEND = /\/send\/m\.room\.message/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
@@ -108,6 +109,17 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
+});
+
+// Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.
+test("only his answer to a decision sends: answerDecision alone calls sendDraft, which alone calls sendText, the one Matrix send", () => {
+  expect(importers(["sendDraft"], "draft-send")).toEqual([
+    "apps/server/src/memory/decisions.ts",
+  ]);
+  expect(importers(["sendText"], "matrix")).toEqual([
+    "apps/server/src/memory/draft-send.ts",
+  ]);
+  expect(running(MATRIX_SEND)).toEqual(["apps/server/src/sources/matrix.ts"]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.

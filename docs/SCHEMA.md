@@ -252,13 +252,17 @@ The decisions: a question an agent puts to him (`memory/decisions.ts`), append-o
 outside the lock, schemaVersion 3, by `kind`:
 - `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`),
   `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
-  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional: `to`, `channel`,
-  `text`, the exact message he approves), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
+  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional: `channel`, the source it goes
+  through; `to`, the chat's name; `chat`, the chat key Life resolved when asked (none on cards asked before Life could
+  send); `text`, the exact message he approves and Life sends), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
   recommended one first; `outgoing: true` when it sends, pays, books, deletes or changes something), `context`
   (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an
-  outgoing one, or null). A `draft` needs an outgoing option.
+  outgoing one, or null). A `draft` needs exactly one outgoing option.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
-  (`connector`). The first answer stands.
+  (`connector`, his app; `session`, a session's `bun life` command, which never sends). The first answer stands.
+- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
+  Matrix `eventId` once the bridge took it, or the `error` (which says whether it may have gone). The first stands; with
+  neither 2 minutes after his answer, the send never ended (worked out when read).
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.

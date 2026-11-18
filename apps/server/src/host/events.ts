@@ -106,6 +106,10 @@ const DecisionPayload = z.object({
     .nullable()
     .describe("The option you said you take if he doesn't answer"),
   question: z.string(),
+  send: z
+    .object({ error: z.string().optional(), eventId: z.string().optional() })
+    .optional()
+    .describe("Its draft, sent on his answer: the event, or why not"),
 });
 
 /** A decision events cursor: the instant the next window starts at (`request_decision` returns one at the asking instant). */
@@ -156,6 +160,14 @@ export function pollDecisions(
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
+          ...(d.send
+            ? {
+                send:
+                  d.send.kind === "sent"
+                    ? { eventId: d.send.eventId }
+                    : { error: d.send.error },
+              }
+            : {}),
         } satisfies z.infer<typeof DecisionPayload>,
         eventId: `${d.id}.${state}`,
         name,
