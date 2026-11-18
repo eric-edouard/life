@@ -14,7 +14,7 @@ function fixture() {
   const path = join(dir, "chat.db");
   const db = new Database(path);
   db.run(`create table message (ROWID integer primary key, guid text, date integer, is_from_me integer, text text,
-    attributedBody blob, error integer default 0)`);
+    attributedBody blob, error integer default 0, is_sent integer default 0)`);
   db.run(
     "create table chat (ROWID integer primary key, guid text, chat_identifier text)"
   );
@@ -31,10 +31,10 @@ function fixture() {
   db.run("insert into chat values (2, 'iMessage;-;+15550100', '+15550100')");
   db.run("insert into chat values (3, null, 'ana@example.com')");
   const old = toAppleNs(new Date("2026-01-01T00:00:00Z"));
-  db.run("insert into message values (1, 'old-sms', ?, 0, 'hi', null, 0)", [
+  db.run("insert into message values (1, 'old-sms', ?, 0, 'hi', null, 0, 1)", [
     old - 5n,
   ]);
-  db.run("insert into message values (2, 'old-im', ?, 1, 'ok', null, 0)", [
+  db.run("insert into message values (2, 'old-im', ?, 1, 'ok', null, 0, 1)", [
     old,
   ]);
   db.run("insert into chat_message_join values (1, 1), (2, 2)");
@@ -44,20 +44,39 @@ function fixture() {
 /** Messages as the test plays it: after osascript runs, the row it would have written appears in chat 2. */
 function messages(
   f: ReturnType<typeof fixture>,
-  row?: { error?: number; file?: string; text?: string }
+  row?: {
+    error?: number;
+    file?: string;
+    // What Messages does a moment later: it marks the row sent, or sets an error.
+    later?: { error?: number; sent?: number };
+    sent?: number;
+    text?: string;
+  }
 ) {
   const calls: string[][] = [];
   const run = (cmd: string[]) => {
     calls.push(cmd);
     if (row) {
       const id = 10 + calls.length;
-      f.db.run("insert into message values (?, ?, ?, 1, ?, null, ?)", [
+      f.db.run("insert into message values (?, ?, ?, 1, ?, null, ?, ?)", [
         id,
         `new-${id}`,
         toAppleNs(new Date(Date.now() + 1000)),
         row.text ?? "",
         row.error ?? 0,
+        row.sent ?? 1,
       ]);
+      if (row.later) {
+        const { later } = row;
+        setTimeout(
+          () =>
+            f.db.run(
+              "update message set error = ?, is_sent = ? where ROWID = ?",
+              [later.error ?? 0, later.sent ?? 0, id]
+            ),
+          60
+        );
+      }
       f.db.run("insert into chat_message_join values (2, ?)", [id]);
       if (row.file) {
         f.db.run("insert into attachment values (?, ?)", [id, row.file]);
@@ -73,7 +92,7 @@ const path = (
   f: ReturnType<typeof fixture>,
   run: ReturnType<typeof messages>["run"],
   staging?: string
-) => messagesAppSend({ confirmMs: 50, db: f.path, run, staging });
+) => messagesAppSend({ confirmMs: 400, db: f.path, pollMs: 20, run, staging });
 
 test("holds: only chats with a guid; block: readable chat.db", async () => {
   const f = fixture();
@@ -179,5 +198,48 @@ test("a reply, a reaction and mentions are refused; osascript failure is not sen
   expect(await p.refusal({ chat: "+15550100", text: "x" })).toBeUndefined();
   await expect(p.send({ chat: "+15550100", text: "x" }, "t")).rejects.toThrow(
     "not sent: Not authorized (-1743) (allow Life to control Messages: System Settings → Privacy & Security → Automation → Life → Messages)"
+  );
+});
+
+test("a row not yet sent waits: then sent confirms, then an error is not sent, never marked may have gone", async () => {
+  const f = fixture();
+  const d = { chat: "+15550100", text: "hello" };
+  await expect(
+    path(
+      f,
+      messages(f, { later: { sent: 1 }, sent: 0, text: "hello" }).run
+    ).send(d, "t")
+  ).resolves.toStartWith("imessage:new-");
+  const g = fixture();
+  await expect(
+    path(
+      g,
+      messages(g, { later: { error: 5 }, sent: 0, text: "hello" }).run
+    ).send(d, "t")
+  ).rejects.toThrow("not sent: Messages reports error 5");
+  const h = fixture();
+  await expect(
+    path(h, messages(h, { sent: 0, text: "hello" }).run).send(d, "t")
+  ).rejects.toThrow("may have gone");
+});
+
+test("after a file, a failed text says it was not sent, or may have gone", async () => {
+  const file = { bytes: new Uint8Array([1]), mime: "image/png", name: "a.png" };
+  const d = { chat: "+15550100", file, text: "hello" };
+  const f = fixture();
+  const m = messages(f, { file: "a.png", text: "" });
+  const failing = (cmd: string[]) =>
+    m.calls.length === 0
+      ? m.run(cmd)
+      : Promise.resolve({ code: 1, killed: null, stderr: "boom" });
+  await expect(path(f, failing, join(f.dir, "s")).send(d, "t")).rejects.toThrow(
+    "the file was sent, the text was not sent"
+  );
+  const g = fixture();
+  const k = messages(g, { file: "a.png", text: "" });
+  const silent = (cmd: string[]) =>
+    k.calls.length === 0 ? k.run(cmd) : Promise.resolve({ ...GOOD, code: 0 });
+  await expect(path(g, silent, join(g.dir, "s")).send(d, "t")).rejects.toThrow(
+    "the text may have gone"
   );
 });

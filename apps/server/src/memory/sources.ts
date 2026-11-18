@@ -1,5 +1,5 @@
-import { closeSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
+import { FULL_DISK, unreadable } from "../core/files";
 import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
@@ -83,15 +83,6 @@ import {
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, below).
 
-/** `why`, unless this process can open `path` (macOS refuses it without Full Disk Access). */
-function unreadable(path: string, why: string) {
-  try {
-    closeSync(openSync(path, "r"));
-  } catch {
-    return why;
-  }
-}
-export const FULL_DISK = "Full Disk Access for Life";
 /**
  * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.

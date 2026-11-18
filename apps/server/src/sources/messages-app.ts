@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { clock } from "../core/clock";
+import { FULL_DISK, unreadable } from "../core/files";
 import { HOME } from "../core/platform";
 import { exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import type { Outgoing, SendPath } from "./contract";
-import { DB, textFromAttributedBody, toAppleNs } from "./imessage";
+import { DB, messageIdOf, textFromAttributedBody, toAppleNs } from "./imessage";
 
 // The one iMessage send: Messages.app does it, told by osascript (the only place Life names that app,
 // `scripts/imports.test.ts`), and Life reads chat.db to see that it went. One macOS grant: Automation, Life →
@@ -17,6 +18,7 @@ import { DB, textFromAttributedBody, toAppleNs } from "./imessage";
  * macOS asks nothing for; if Messages ever refuses it, the send reads `not sent` and this is the knob.
  */
 const STAGING = join(HOME, "Pictures", "Life sends");
+/** How long a text is waited for; a file's upload gets three times as much, as the Matrix send's 60 s does. */
 const CONFIRM_MS = 20_000;
 const POLL_MS = 500;
 const NO_ACCESS = "-1743";
@@ -30,33 +32,26 @@ interface Options {
   confirmMs?: number;
   /** The chat database. */
   db?: string;
+  pollMs?: number;
   /** Runs one program (osascript). */
   run?: (cmd: string[]) => Promise<Run>;
   staging?: string;
 }
 
-/** What the chat's newest row of mine says about a message sent since `from` (Apple ns): its guid and error. */
+/** What the chat's newest row of mine says about a message sent since `from` (Apple ns): its guid, whether Messages sent it and its error. */
 interface Sent {
   attributedBody: Uint8Array | null;
   error: number;
   files: string | null;
   guid: string;
+  sent: number;
   text: string | null;
-}
-
-/** Whether chat.db can be opened (macOS refuses it without Full Disk Access). */
-function isReadable(path: string) {
-  try {
-    openReadOnly(path).close();
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** The send path of iMessage and SMS chats into Messages.app (`Descriptor.send`). */
 export function messagesAppSend({
   confirmMs = CONFIRM_MS,
+  pollMs = POLL_MS,
   db: path = DB,
   run = (cmd) => exec(cmd),
   staging = STAGING,
@@ -81,45 +76,45 @@ export function messagesAppSend({
           )
           .get(chat)?.guid
     );
-  /** The message of mine in chat `guid`, since `from`, that carries `text` or a file named `name`: waited for. */
+  /** The message of mine in chat `guid`, since `from`, that carries `text` or a file named `name`: waited for until Messages marks it sent (or reports an error). */
   const confirmed = async (
     guid: string,
     from: bigint,
     what: { name: string } | { text: string },
-    end = performance.now() + confirmMs
+    end: number
   ): Promise<string> => {
-    {
-      const rows = read((db) =>
-        db
-          .query<Sent, [string, bigint]>(
-            `select m.guid, m.text, m.attributedBody, m.error,
+    const rows = read((db) =>
+      db
+        .query<Sent, [string, bigint]>(
+          `select m.guid, m.text, m.attributedBody, m.error, m.is_sent as sent,
                     (select json_group_array(a.transfer_name) from message_attachment_join j
                        join attachment a on a.ROWID = j.attachment_id where j.message_id = m.ROWID) as files
                from message m join chat_message_join cmj on cmj.message_id = m.ROWID
                join chat c on c.ROWID = cmj.chat_id
               where c.guid = ? and m.is_from_me = 1 and m.date >= ? order by m.date`
-          )
-          .all(guid, from)
-      );
-      const row = rows.find((r) =>
-        "name" in what
-          ? (JSON.parse(r.files ?? "[]") as string[]).includes(what.name)
-          : (r.text || textFromAttributedBody(r.attributedBody)) === what.text
-      );
-      if (row) {
-        if (row.error) {
-          throw new Error(`not sent: Messages reports error ${row.error}`);
-        }
-        return row.guid;
-      }
-      if (performance.now() > end) {
-        throw new Error(
-          "may have gone: Messages didn't show it in the chat in time: read the chat"
-        );
-      }
-      await Bun.sleep(POLL_MS);
-      return confirmed(guid, from, what, end);
+        )
+        .all(guid, from)
+    );
+    const row = rows.find((r) =>
+      "name" in what
+        ? (JSON.parse(r.files ?? "[]") as string[]).includes(what.name)
+        : (r.text || textFromAttributedBody(r.attributedBody)).trim() ===
+          what.text.trim()
+    );
+    // Messages writes the row before the message goes and sets `error` or `is_sent` later.
+    if (row?.error) {
+      throw new Error(`not sent: Messages reports error ${row.error}`);
     }
+    if (row?.sent) {
+      return row.guid;
+    }
+    if (performance.now() > end) {
+      throw new Error(
+        "may have gone: Messages didn't show it in the chat in time: read the chat"
+      );
+    }
+    await Bun.sleep(pollMs);
+    return confirmed(guid, from, what, end);
   };
   /** Tells Messages to send `what` into chat `guid`, and waits to see it. */
   const tell = async (
@@ -149,15 +144,15 @@ export function messagesAppSend({
         `not sent: ${r.stderr.trim().slice(-300)}${r.stderr.includes(NO_ACCESS) ? " (allow Life to control Messages: System Settings → Privacy & Security → Automation → Life → Messages)" : ""}`
       );
     }
-    return confirmed(guid, from, file ? { name: what.name } : what);
+    return confirmed(
+      guid,
+      from,
+      file ? { name: what.name } : what,
+      performance.now() + (file ? 3 : 1) * confirmMs
+    );
   };
   return {
-    block: () =>
-      Promise.resolve(
-        isReadable(path)
-          ? undefined
-          : "Messages' database can't be read: Full Disk Access for Life"
-      ),
+    block: () => Promise.resolve(unreadable(path, FULL_DISK)),
     holds: (chats) =>
       read((db) =>
         db
@@ -171,7 +166,7 @@ export function messagesAppSend({
     refusal: (d: Outgoing) =>
       Promise.resolve(
         d.onMessage || d.reaction || d.mentions
-          ? "iMessage sends text and one file (a file with text goes as two messages, the file first)"
+          ? "iMessage sends text and one file"
           : undefined
       ),
     send: async (d) => {
@@ -198,13 +193,14 @@ export function messagesAppSend({
           if (!d.file) {
             throw e;
           }
+          const m = (e as Error).message;
           throw new Error(
-            `may have gone: the file was sent, the text was not (${(e as Error).message})`,
+            `may have gone: the file was sent, ${m.startsWith("not sent") ? "the text was not sent" : "the text may have gone"} (${m})`,
             { cause: e }
           );
         }
       }
-      return `imessage:${last}`;
+      return messageIdOf(last as string);
     },
   };
 }

@@ -1,7 +1,9 @@
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   statSync,
@@ -173,3 +175,13 @@ export async function removeAllBut(dir: string, keep: ReadonlySet<string>) {
   await Promise.all(gone.map((path) => rm(path)));
   return gone.length;
 }
+
+/** `why`, unless this process can open `path` (macOS refuses a protected file without Full Disk Access). */
+export function unreadable(path: string, why: string) {
+  try {
+    closeSync(openSync(path, "r"));
+  } catch {
+    return why;
+  }
+}
+export const FULL_DISK = "Full Disk Access for Life";
