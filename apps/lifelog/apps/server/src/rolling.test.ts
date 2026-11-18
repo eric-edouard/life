@@ -210,7 +210,6 @@ test("summaries off: a due conversation makes no run and nothing is due; turned 
   expect(runs.map((r) => r.state)).toEqual(["valid"]);
 });
 
-// The owner's Generate of the conversation at `id`, and every roll it leads to.
 test("with the Mac away nothing is called; a roll it dropped resumes where it stopped", async () => {
   let ready = false;
   let dropped = false;

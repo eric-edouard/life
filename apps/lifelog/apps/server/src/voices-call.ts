@@ -9,8 +9,8 @@
 import { z } from "zod";
 import type { Input } from "./voices-input";
 
-// 12: the run only reads the voices. A new version reaches new conversations and the owner's
-// Generate only; nothing runs older ones again by itself.
+// 12: the run only reads the voices. A new version reaches new conversations only;
+// nothing runs older ones again by itself.
 export const PROMPT_VERSION = 12;
 // The last prompt version whose runs hold a summary (chapters, title, TLDR).
 export const LAST_SUMMARY_VERSION = 11;

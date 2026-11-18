@@ -2211,7 +2211,7 @@
           "runId": {
             "type": ["string", "null"],
             "format": "uuid",
-            "description": "The summary its title, TLDR and chapters come from: Generate's `after`"
+            "description": "The summary its title, TLDR and chapters come from: the phone's `after`"
           },
           "splitSuggestions": {
             "type": "array",

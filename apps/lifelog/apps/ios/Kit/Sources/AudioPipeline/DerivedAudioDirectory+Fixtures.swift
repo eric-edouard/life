@@ -1,3 +1,4 @@
+#if DEBUG
 import AVFoundation
 import Timeline
 
@@ -32,3 +33,4 @@ extension DerivedAudioDirectory {
         return segment
     }
 }
+#endif

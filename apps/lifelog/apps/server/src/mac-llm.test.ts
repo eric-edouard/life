@@ -177,7 +177,7 @@ function conversation() {
     .values({
       captureEndedAt: new Date(start + 3_600_000),
       captureStartedAt: new Date(start),
-      closedAt: new Date(0),
+      closedAt: new Date(start + 3_600_000),
       id,
       sourceId: "dev1",
     })
@@ -185,8 +185,7 @@ function conversation() {
   mapJob(env.db, jobId, [[start, start + 3_600_000]]);
   return id;
 }
-const summarize = (id: string, again = false) =>
-  roll(env.db, s.rolling, id, again);
+const summarize = (id: string) => roll(env.db, s.rolling, id);
 const runsOf = (id: string) =>
   env.db.query.intelligenceRuns
     .findMany({

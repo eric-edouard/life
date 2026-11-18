@@ -109,7 +109,7 @@ reverse it, change its entry here in the same commit.
 - **Secrets in a 0600 file, not the Keychain.** The Keychain trusts one binary, so every rebuild asked for a password
   and nothing ran until someone answered. The helper and Host share `secrets.json`.
 - **Paid work happens once.** A page is in one fragment and one job that isn't failed; a send that may have been
-  billed is never sent again; a new prompt version reaches new conversations, failed runs and the owner's Generate,
+  billed is never sent again; a new prompt version reaches new conversations and failed runs (the owner's Generate: since 18 Nov 2026 this path is gone),
   never the whole archive. One exception, the owner's (29 Oct 2026): the speech blocks recorded in Thailand before
   the context router, where Thai was spotted but only parts went to Scribe (343, about 13 h), are heard by Scribe
   whole once more (a step since removed; `transcripts.scribe_words_at` marks them). Their words change turn by
@@ -174,7 +174,7 @@ reverse it, change its entry here in the same commit.
   readings, filtered to percentages before they leave.
 - **A run reads only the voices (15 Nov 2026, prompt version 12).** Chapters, per-chapter summaries, title, TLDR and AI
   splits are gone; old runs and chapter rows stay as stored (`latestSummary`), and no table is dropped. Both engines
-  answer one strict JSON schema; output that fails the checks is kept as `invalid` and retried only on the owner's Generate. A run keeps each usable answer, so
+  answer one strict JSON schema; output that fails the checks is kept as `invalid` and kept until its words change (the owner's Generate: since 18 Nov 2026 this path is gone). A run keeps each usable answer, so
   an interruption resumes instead of restarting. The owner's title always wins.
 - **Speakers are tokens named when read.** The model writes `{S2}`; the server renders the person's name, else
   "Speaker N", so naming a voice later fixes every summary at no cost.
