@@ -17,7 +17,7 @@ import {
 } from "./archived";
 import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
-import { BRIDGES } from "./matrix";
+import { BRIDGES, ghostOf, localpartOf } from "./matrix";
 
 // The Mac app's own store, opened read-only by its copy into the archive.
 export const WHATSAPP = join(
@@ -101,28 +101,84 @@ const PERSON_JID = /^\d+@(s\.whatsapp\.net|lid)$/;
 export const whatsappHandleOf = (chat: string) =>
   PERSON_JID.test(chat) ? chat : undefined;
 
-/**
- * A chat's room in the WhatsApp bridge (his send path, kept linked on 16 Nov 2026): its portal by the chat's id, a
- * `<phone>@s.whatsapp.net` one through the bridge's own map of phones to WhatsApp's `@lid` ids. None when the bridge
- * isn't on this Mac or never saw the chat.
- */
-export function whatsappRoomOf(chat: string, bridges = BRIDGES) {
+/** The WhatsApp bridge's own database (kept linked on 16 Nov 2026), opened for `read`; none when the bridge isn't on this Mac. */
+function withBridgeDb<T>(bridges: string, read: (db: Database) => T) {
   const file = join(bridges, "whatsapp", "whatsapp.db");
   if (!existsSync(file)) {
     return;
   }
   const db = openReadOnly(file);
   try {
-    const rooms = db
-      .query<{ room: string }, [string, string]>(
-        `select mxid as room from portal where mxid is not null
-          and id = coalesce((select lid || '@lid' from whatsmeow_lid_map where pn = ?), ?) limit 2`
-      )
-      .all(chat.replace(PHONE_JID, ""), chat);
-    return rooms.length === 1 ? rooms[0]?.room : undefined;
+    return read(db);
   } finally {
     db.close();
   }
+}
+
+/**
+ * A chat's portal in the WhatsApp bridge: its id and room, by the chat's id, a `<phone>@s.whatsapp.net` one through the
+ * bridge's own map of phones to WhatsApp's `@lid` ids. None when the bridge never saw the chat.
+ */
+const portalOf = (db: Database, chat: string) => {
+  const portals = db
+    .query<{ id: string; room: string }, [string, string]>(
+      `select id, mxid as room from portal where mxid is not null
+        and id = coalesce((select lid || '@lid' from whatsmeow_lid_map where pn = ?), ?) limit 2`
+    )
+    .all(chat.replace(PHONE_JID, ""), chat);
+  return portals.length === 1 ? portals[0] : undefined;
+};
+
+/** A chat's room in the WhatsApp bridge (his send path); none when the bridge isn't on this Mac or never saw the chat. */
+export const whatsappRoomOf = (chat: string, bridges = BRIDGES) =>
+  withBridgeDb(bridges, (db) => portalOf(db, chat)?.room);
+
+/**
+ * The Matrix event of a message id of Life's, `whatsapp:<chat>/<stanza>`: the bridge's one message in that chat's portal
+ * whose own id ends `:<stanza>` (it is `<chat>:<sender>:<stanza>`, mautrix-whatsapp's `waid`). None for a `pk:` id (a
+ * message with no stanza id), another chat's, or a stanza the bridge holds not once.
+ */
+export function whatsappEventOf(chat: string, id: string, bridges = BRIDGES) {
+  const prefix = `whatsapp:${chat}/`;
+  const stanza = id.startsWith(prefix) ? id.slice(prefix.length) : "";
+  if (!stanza || stanza.startsWith("pk:")) {
+    return;
+  }
+  return withBridgeDb(bridges, (db) => {
+    const portal = portalOf(db, chat);
+    const rows = db
+      .query<{ mxid: string }, [string, number, string]>(
+        "select mxid from message where room_id = ? and substr(id, -?) = ? limit 2"
+      )
+      .all(portal?.id ?? "", stanza.length + 1, `:${stanza}`);
+    return portal && rows.length === 1 ? rows[0]?.mxid : undefined;
+  });
+}
+
+/** Life's id for a message the bridge sent as Matrix event `event`, as the Mac app's copy will give it; the event when the bridge doesn't say. */
+export const whatsappIdOf = (
+  chat: string,
+  event: string,
+  bridges = BRIDGES
+) => {
+  const id = withBridgeDb(
+    bridges,
+    (db) =>
+      db
+        .query<{ id: string }, [string]>(
+          "select id from message where mxid = ?"
+        )
+        .get(event)?.id
+  );
+  return id ? `whatsapp:${chat}/${id.split(":").at(-1)}` : event;
+};
+
+/** The Matrix user a sender is on the WhatsApp bridge, by its user id (`waid.MakeUserID`): a phone's digits, or `lid-<n>`; none for another. */
+export function whatsappGhostOf(sender: string) {
+  const id = sender.startsWith("+")
+    ? sender.slice(1)
+    : sender.endsWith("@lid") && `lid-${sender.slice(0, -4)}`;
+  return id ? ghostOf("whatsapp", localpartOf(id)) : undefined;
 }
 
 /** Messages since `since` as events, oldest first. The sender is `+<phone>` when known, else the WhatsApp id. */

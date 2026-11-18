@@ -32,10 +32,18 @@ export interface AppStore {
   copy: () => void;
   deleted?: { media?: string };
 }
-/** A card's draft as a send path takes it. */
+/**
+ * A card's draft as a send path takes it: `text`, a `file` (its bytes, checked against the digest the card showed),
+ * `onMessage` (a message's id as `read` gives it: replied to, or with `reaction` reacted to), `mentions` (senders as
+ * `read` gives them, each an `@name` of `text`).
+ */
 export interface Outgoing {
   chat: string;
-  text: string;
+  file?: { bytes: Uint8Array; mime: string; name: string };
+  mentions?: { name: string; sender: string }[];
+  onMessage?: string;
+  reaction?: string;
+  text?: string;
 }
 
 /** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
@@ -46,7 +54,9 @@ export interface SendPath {
   holds: (chats: string[]) => string[];
   /** For a chat it can open (a new 1:1 chat): its name there, none when it has no such chat. */
   opens?: (chat: string) => Promise<string | undefined>;
-  /** Sends once per `txn`; the id once confirmed. Throws `not sent: …` (nothing went) or `may have gone: …`. */
+  /** What of this draft its chat can't take (a reply, a reaction, a file of this kind or size, a mention), asked again just before the send; none when it takes all. */
+  refusal: (draft: Outgoing) => Promise<string | undefined>;
+  /** Sends once per `txn`; the sent message's id once confirmed (Life's own event id where it knows it). Throws `not sent: …` (nothing went) or `may have gone: …`. */
   send: (draft: Outgoing, txn: string) => Promise<string>;
 }
 

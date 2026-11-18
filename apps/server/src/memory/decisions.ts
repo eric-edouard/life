@@ -5,7 +5,8 @@ import { z } from "zod";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
-import { readDraftChat, sendDraft } from "./draft-send";
+import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
+import { resolveDraft, sendDraft } from "./draft-send";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { readPeople } from "./who";
@@ -26,10 +27,6 @@ const PROJECT_OR_AREA = /^(?:project|area):/;
 /** The version decision lines are written at; earlier lines (the old decisions page's, the cards before titles) are skipped. */
 const VERSION = 3;
 const DecisionId = z.string().regex(/^dec_[0-9a-f]{12}$/);
-const ONE_LINE = /^[^\n]*$/;
-/** One line of at most `max` characters, shown whole on his card. */
-const oneLine = (max: number) =>
-  z.string().min(1).max(max).regex(ONE_LINE, "one line");
 const Option = z
   .object({
     id: z.string().min(1).max(40),
@@ -38,17 +35,6 @@ const Option = z
     outgoing: z.literal(true).optional(),
   })
   .strict();
-/** The exact message he approves, shown in full on his card: Life sends it into the one chat it names (`readDraftChat`). */
-export const MessageDraft = z
-  .object({
-    /** The source it goes through (`whatsapp`, `instagram`…). */
-    channel: z.string().min(1).max(40).optional(),
-    text: z.string().min(1).max(4000),
-    /** A chat key on `channel`, or a person with one 1:1 chat there; stored as the chat's name. */
-    to: oneLine(200),
-  })
-  .strict();
-
 /** What an asker gives (`requestDecision`, the connector's `request_decision`): an `asked` line less what Life stamps. */
 export const Ask = z
   .object({
@@ -87,13 +73,13 @@ export const DecisionRequest = Ask.omit({ agent: true })
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source, `to` a chat key from `read_chats` or a person with one 1:1 chat there, `text`; Life sends exactly `text` there when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, its event or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter step's id: it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
+  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` the id of a message of that chat from `read_chats`, replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the one a message of that chat names); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter step's id: it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
 
 const Asked = Ask.extend({
   asker: z.string().min(1),
   at: isoDateTime,
-  /** The chat Life resolved when asked (`chat`), its name as `to`; a card asked before Life could send has none, and sends nothing. */
-  draft: MessageDraft.extend({ chat: z.string().optional() }).optional(),
+  /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
+  draft: StoredDraft.optional(),
   id: DecisionId,
   kind: z.literal("asked"),
   schemaVersion: z.literal(VERSION),
@@ -120,7 +106,7 @@ const Withdrawn = z
     why: z.string().min(1),
   })
   .strict();
-/** What his answer sent: the Matrix event once the bridge took it, or why not (which may say it may have gone). */
+/** What his answer sent: the sent message's id (Life's own event id where it knows it) once its network took it. */
 const Sent = z
   .object({
     at: isoDateTime,
@@ -193,15 +179,15 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
 /** Whether his answer sends the card's draft: its one outgoing option picked alone, with no words of his changing it. */
 const isSendDue = (d: Omit<Decision, "state">) =>
   Boolean(
-    d.draft?.chat &&
+    isSendable(d.draft) &&
       d.answer &&
       !d.answer.note &&
       d.answer.options.length === 1 &&
       d.options.find((o) => o.id === d.answer?.options[0])?.outgoing
   );
 
-/** A send with no outcome this long after his answer never ended (a crash): a send path ends within about 50 s (`matrixSend`). */
-const SEND_ENDS_AFTER = 2 * MIN;
+/** A send with no outcome this long after his answer never ended (a crash): a send path ends within about 3 minutes, a file's upload and confirmation included (`matrixSend`). */
+const SEND_ENDS_AFTER = 5 * MIN;
 
 /** The send's outcome as stored, or, past `SEND_ENDS_AFTER` with none, one that never ended. */
 function sendOf(d: Omit<Decision, "state">, now: Date): Send | undefined {
@@ -300,7 +286,7 @@ export async function requestDecision(
   // Partial: an agent's arguments arrive unchecked; `Ask` checks them here.
   request: Partial<z.input<typeof Ask>> | Partial<z.input<typeof Withdrawal>>,
   now = clock(),
-  readChat = readDraftChat
+  readChat = resolveDraft
 ): Promise<{ id: string }> {
   if ("withdraw" in request && request.withdraw) {
     return withdrawDecision(asker, request, now);
@@ -334,21 +320,12 @@ export async function requestDecision(
       `Not done: no open matter holds ${ask.subject}; give its step id, \`project:<id>\`, \`area:<id>\` or no subject.`
     );
   }
-  const to = ask.draft && (await readChat(ask.draft, now));
+  const draft = ask.draft && (await readChat(ask.draft, now));
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
     {
       ...ask,
-      ...(ask.draft && to
-        ? {
-            draft: {
-              ...ask.draft,
-              channel: to.source,
-              chat: to.chat,
-              to: to.name,
-            },
-          }
-        : {}),
+      ...(draft ? { draft } : {}),
       asker,
       at: now.toISOString(),
       // In UTC, so deadlines sort as strings (`checksOf`).
@@ -391,7 +368,7 @@ export async function answerDecision(
   }
   if (
     via !== "connector" &&
-    d.draft?.chat &&
+    isSendable(d.draft) &&
     d.options.some((o) => o.outgoing && options.includes(o.id))
   ) {
     throw new Error(
@@ -412,11 +389,10 @@ export async function answerDecision(
   if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
-  if (!(isSendDue(stored) && stored.draft?.chat && stored.draft.channel)) {
+  if (!(isSendDue(stored) && isSendable(stored.draft))) {
     return [line];
   }
-  const { channel, chat, text } = stored.draft;
-  const outcome = await deliver(channel, chat, text, id).then(
+  const outcome = await deliver(stored.draft, id).then(
     (eventId) => ({ eventId, kind: "sent" as const }),
     (e: Error) => ({ error: e.message, kind: "send-failed" as const })
   );

@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
-import type { SendPath } from "./contract";
+import type { Outgoing, SendPath } from "./contract";
+import {
+  contentOf,
+  featureProblemOf,
+  type RoomFeatures,
+} from "./matrix-content";
 
 // The bridges' local Matrix homeserver (docs/use/bridges.md): each bridge's config and its provisioning API, which
 // says whether it is linked and connected, and the one Matrix send into a bridged chat (`matrixSend`). Reading the
@@ -60,6 +65,61 @@ export function readHomeserverRooms(synapse = SYNAPSE) {
     hs.close();
   }
 }
+
+/**
+ * What the bridge says the room takes: the content of its `com.beeper.room_features` state event, none when it never
+ * sent one (a room not opened yet). Read from the homeserver, never from a table of ours.
+ */
+export function roomFeaturesOf(room: string, synapse = SYNAPSE) {
+  if (!existsSync(synapse)) {
+    return;
+  }
+  const hs = openReadOnly(synapse);
+  try {
+    const row = hs
+      .query<{ json: string }, [string]>(
+        `select j.json from current_state_events c join event_json j on j.event_id = c.event_id
+          where c.room_id = ? and c.type = 'com.beeper.room_features' limit 1`
+      )
+      .get(room);
+    return row
+      ? (JSON.parse(row.json).content as RoomFeatures | undefined)
+      : undefined;
+  } finally {
+    hs.close();
+  }
+}
+
+/**
+ * A Matrix user id's localpart as a bridge writes it from a network id (mautrix's `EncodeUserLocalpart`): lowercase,
+ * digits and `-./` kept, an uppercase letter as `_` and itself lowercased, `_` doubled, anything else `=` and its hex.
+ */
+const KEPT = /[a-z0-9\-./]/;
+const UPPER = /[A-Z]/;
+export const localpartOf = (id: string) =>
+  [...id]
+    .map((c) => {
+      if (KEPT.test(c)) {
+        return c;
+      }
+      if (UPPER.test(c)) {
+        return `_${c.toLowerCase()}`;
+      }
+      return c === "_"
+        ? "__"
+        : [...new TextEncoder().encode(c)]
+            .map((b) => `=${b.toString(16).padStart(2, "0")}`)
+            .join("");
+    })
+    .join("");
+
+/** The Matrix user a bridge makes for a network user whose id's localpart is `localpart` (its `username_template`, from its own config). */
+export const ghostOf = (bridge: string, localpart: string) =>
+  userOn(
+    (
+      configOf(bridge).appservice?.username_template ?? `${bridge}_{{.}}`
+    ).replace("{{.}}", localpart)
+  );
 
 /** Whether a network's bridge is added: its folder holds its config (`bun life bridge add`). */
 export const isBridgeAdded = (network: string) =>
@@ -356,19 +416,25 @@ export async function unlinkBridge(bridge: string) {
 /** A refusal before the homeserver stored anything: a 4xx. A 5xx may come after it stored the event. */
 const REFUSED = /^4\d\d /;
 
-/** Where a send reaches, and how long it waits: only a test changes it. */
+/** Where a send reaches, and how long it waits: only a test changes it (a send with a file waits 60 s, else 20 s). */
 interface SendAt {
   bridges: string;
   confirmMs: number;
   homeserver: string;
+  synapse: string;
   token?: string;
 }
 
-/** Sends `text` as him into `room` through `bridge`, once per `txn`; the event, once the bridge confirmed it. */
-async function sendText(
+/**
+ * Sends `d` as him into `room` through `bridge`, once per `txn`: joins, uploads a file, puts the event, and waits for
+ * the bridge's own record of it (`message`, or `reaction` for a reaction); the event, once the bridge confirmed it.
+ * `target` is the event replied or reacted to, `users` the Matrix users mentioned.
+ */
+async function sendEvent(
   bridge: string,
   room: string,
-  text: string,
+  d: Outgoing,
+  ctx: { target?: string; users: string[] },
   txn: string,
   at: SendAt
 ) {
@@ -384,10 +450,15 @@ async function sendText(
   }).catch((e: Error) => {
     throw new Error(`not sent: ${bridge} room not joined: ${e.message}`);
   });
+  // An upload alone sends nothing: whatever fails there, nothing went.
+  const mxc = d.file && (await upload(d.file, at));
   const sent = await call(
-    `${path}/rooms/${id}/send/m.room.message/${encodeURIComponent(txn)}`,
+    `${path}/rooms/${id}/send/${d.reaction ? "m.reaction" : "m.room.message"}/${encodeURIComponent(txn)}`,
     at.token,
-    { body: JSON.stringify({ body: text, msgtype: "m.text" }), method: "PUT" }
+    {
+      body: JSON.stringify(contentOf(d, { ...ctx, mxc })),
+      method: "PUT",
+    }
   ).catch((e: Error) => {
     throw new Error(
       REFUSED.test(e.message)
@@ -399,7 +470,7 @@ async function sendText(
   const db = openReadOnly(join(at.bridges, bridge, `${bridge}.db`));
   try {
     const row = db.query<{ n: number }, [string]>(
-      "select 1 as n from message where mxid = ?"
+      `select 1 as n from ${d.reaction ? "reaction" : "message"} where mxid = ?`
     );
     for (let waited = 0; waited < at.confirmMs; waited += 500) {
       if (row.get(event)) {
@@ -416,25 +487,104 @@ async function sendText(
   );
 }
 
+/** Puts a file in the homeserver's media store: its `mxc://` address. */
+async function upload(file: NonNullable<Outgoing["file"]>, at: SendAt) {
+  const res = await fetch(
+    `${at.homeserver}/_matrix/media/v3/upload?filename=${encodeURIComponent(file.name)}`,
+    {
+      body: new Blob([file.bytes as BlobPart]),
+      headers: {
+        Authorization: `Bearer ${at.token}`,
+        "Content-Type": file.mime,
+      },
+      method: "POST",
+      signal: AbortSignal.timeout(60_000),
+    }
+  ).catch((e: Error) => {
+    throw new Error(`not sent: the file didn't upload: ${e.message}`);
+  });
+  const body = (await res.json().catch(() => ({}))) as { content_uri?: string };
+  if (!(res.ok && body.content_uri)) {
+    throw new Error(`not sent: the homeserver refused the file: ${res.status}`);
+  }
+  return body.content_uri;
+}
+
 /** What the bridge's provisioning says of an identifier (`resolve_identifier`, `create_dm`): the chat's name and room. */
 interface Resolved {
   dm_room_mxid?: string;
   name?: string;
 }
 
+/** A network's mappings between Life's ids and the bridge's (the defaults are a bridged network's own, `bridged.ts`), and `at`, which only a test sets. */
+interface SendOptions {
+  at?: Partial<SendAt>;
+  /** The Matrix event a message id of Life's names in `chat`, as the bridge holds it; none when it holds none. */
+  eventOf?: (chat: string, id: string, bridges: string) => string | undefined;
+  /** The Matrix user a sender, as Life's events name them, is on the bridge; none for one it can't name. */
+  ghostOf?: (sender: string) => string | undefined;
+  /** The chat's id the bridge opens a new 1:1 chat by, for a network that has one: asking the bridge to open a chat asks the network whether the handle has an account. */
+  handleOf?: (chat: string) => string | undefined;
+  /** Life's id for a message the bridge confirmed (`bridges` as `eventOf`), as `read` gives it later; the Matrix event where Life has none. */
+  idOf?: (chat: string, event: string, bridges: string) => string;
+  /** Reads the rooms once and gives a chat's room there (none for a chat the bridge holds no room for). */
+  roomsOf: () => (chat: string) => string | undefined;
+}
+
+/** The event of `<bridge>:<chat>/<$event>`, when the bridge's own record holds it. */
+function ownEventOf(bridge: string, chat: string, id: string, bridges: string) {
+  const prefix = `${bridge}:${chat}/`;
+  const event = id.startsWith(prefix) ? id.slice(prefix.length) : undefined;
+  const file = join(bridges, bridge, `${bridge}.db`);
+  if (!(event && existsSync(file))) {
+    return;
+  }
+  const db = openReadOnly(file);
+  try {
+    return db.query("select 1 from message where mxid = ?").get(event)
+      ? event
+      : undefined;
+  } finally {
+    db.close();
+  }
+}
+
 /**
- * A network's send path through its bridge, the one Matrix send (`scripts/imports.test.ts`). `roomsOf` reads the rooms
- * once and gives a chat's room there (none for a chat the bridge holds no room for); `handleOf` gives the id the bridge
- * opens a new 1:1 chat by, for a network that has one: asking the bridge to open a chat asks the network whether the
- * handle has an account. A send ends within about 50 s (a chat opened, two calls of 10 s, then 20 s).
+ * A network's send path through its bridge, the one Matrix send (`scripts/imports.test.ts`): text, a file, a reply, a
+ * reaction, mentions, as each room's own `com.beeper.room_features` allows (`roomFeaturesOf`).
+ * A send ends within about 3 minutes (a chat opened, a join and a put of 10 s, an upload of 60 s, a confirmation of 60 s).
  */
 export function matrixSend(
   bridge: string,
-  roomsOf: () => (chat: string) => string | undefined,
-  handleOf?: (chat: string) => string | undefined,
-  override: Partial<SendAt> = {}
+  {
+    at = {},
+    eventOf = (chat, id, bridges) => ownEventOf(bridge, chat, id, bridges),
+    ghostOf: userOf = (sender) => ghostOf(bridge, sender),
+    handleOf,
+    idOf = (chat, event) => `${bridge}:${chat}/${event}`,
+    roomsOf,
+  }: SendOptions
 ): SendPath {
   const handle = (chat: string) => encodeURIComponent(handleOf?.(chat) ?? "");
+  const where = (d?: Outgoing): SendAt => ({
+    bridges: BRIDGES,
+    confirmMs: d?.file ? 60_000 : 20_000,
+    homeserver: HOMESERVER_URL,
+    synapse: SYNAPSE,
+    ...readOwnerAccount(),
+    ...at,
+  });
+  /** What the draft names on the bridge: its target event and its mentioned users, or why it can't. */
+  const namedBy = (d: Outgoing, bridges: string) => {
+    const target = d.onMessage && eventOf(d.chat, d.onMessage, bridges);
+    const users = (d.mentions ?? []).map((m) => userOf(m.sender));
+    if (d.onMessage && !target) {
+      return "that message isn't one this chat's bridge holds";
+    }
+    return users.every(Boolean)
+      ? { target: target || undefined, users: users as string[] }
+      : "a sender it can't mention is named";
+  };
   return {
     block: async () =>
       isBridgeAdded(bridge)
@@ -464,11 +614,26 @@ export function matrixSend(
           }
         }
       : undefined,
-    send: async ({ chat, text }, txn) => {
-      let room = roomsOf()(chat);
-      if (!room && handleOf?.(chat)) {
+    refusal: (d) => {
+      const room = roomsOf()(d.chat);
+      const named = namedBy(d, where(d).bridges);
+      return Promise.resolve(
+        featureProblemOf(
+          d,
+          room ? roomFeaturesOf(room, where(d).synapse) : undefined
+        ) ?? (typeof named === "string" ? named : undefined)
+      );
+    },
+    send: async (d, txn) => {
+      const w = where(d);
+      const named = namedBy(d, w.bridges);
+      if (typeof named === "string") {
+        throw new Error(`not sent: ${named}`);
+      }
+      let room = roomsOf()(d.chat);
+      if (!room && handleOf?.(d.chat)) {
         room = (
-          (await provision(bridge, `create_dm/${handle(chat)}`, {
+          (await provision(bridge, `create_dm/${handle(d.chat)}`, {
             body: "{}",
             method: "POST",
           }).catch((e: Error) => {
@@ -481,13 +646,8 @@ export function matrixSend(
       if (!room) {
         throw new Error(`not sent: ${bridge} holds no room for this chat`);
       }
-      return sendText(bridge, room, text, txn, {
-        bridges: BRIDGES,
-        confirmMs: 20_000,
-        homeserver: HOMESERVER_URL,
-        ...readOwnerAccount(),
-        ...override,
-      });
+      const event = await sendEvent(bridge, room, d, named, txn, w);
+      return d.reaction ? event : idOf(d.chat, event, w.bridges);
     },
   };
 }

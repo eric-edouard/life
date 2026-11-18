@@ -22,10 +22,13 @@ import { type Descriptor, sourceFile } from "./contract";
 import {
   BRIDGES,
   configOf,
+  ghostOf,
   isBridgeAdded,
+  localpartOf,
   matrixSend,
   OWNER,
   readHomeserverRooms,
+  SERVER,
   SYNAPSE,
   userOn,
 } from "./matrix";
@@ -64,29 +67,6 @@ const EVENTS = `select e.stream_ordering as stream, e.event_id as id, e.room_id 
     e.origin_server_ts as ts, j.json
   from events e join event_json j on j.event_id = e.event_id`;
 
-/**
- * A Matrix user id's localpart as a bridge writes it from a network id (mautrix's `EncodeUserLocalpart`): lowercase,
- * digits and `-./` kept, an uppercase letter as `_` and itself lowercased, `_` doubled, anything else `=` and its hex.
- */
-const KEPT = /[a-z0-9\-./]/;
-const UPPER = /[A-Z]/;
-export const localpartOf = (id: string) =>
-  [...id]
-    .map((c) => {
-      if (KEPT.test(c)) {
-        return c;
-      }
-      if (UPPER.test(c)) {
-        return `_${c.toLowerCase()}`;
-      }
-      return c === "_"
-        ? "__"
-        : [...new TextEncoder().encode(c)]
-            .map((b) => `=${b.toString(16).padStart(2, "0")}`)
-            .join("");
-    })
-    .join("");
-
 interface Content {
   body?: string;
   filename?: string;
@@ -100,7 +80,7 @@ interface Content {
 }
 
 /** His side on this bridge: his own account, and the ghosts of his logins (his messages from his phone). */
-function hisIds(bridge: string, template: string) {
+function hisIds(bridge: string) {
   const db = openReadOnly(join(BRIDGES, bridge, `${bridge}.db`));
   try {
     const logins = db
@@ -108,9 +88,7 @@ function hisIds(bridge: string, template: string) {
       .all();
     return new Set([
       OWNER,
-      ...logins.map((l) =>
-        userOn(template.replace("{{.}}", localpartOf(l.id)))
-      ),
+      ...logins.map((l) => ghostOf(bridge, localpartOf(l.id))),
     ]);
   } finally {
     db.close();
@@ -259,9 +237,9 @@ export function copyBridged(
   }
   const { appservice } = configOf(bridge);
   const bot = userOn(`${appservice?.bot?.username}`);
-  const template = appservice?.username_template ?? `${bridge}_{{.}}`;
-  const prefix = `@${template.replace("{{.}}", "")}`;
-  const mine = hisIds(bridge, template);
+  // The ghosts' common start: `@<template before its {{.}}>`.
+  const prefix = ghostOf(bridge, "").slice(0, -`:${SERVER}`.length);
+  const mine = hisIds(bridge);
   const archive = openBridged(bridge, dir);
   const hs = openReadOnly(synapse);
   try {
@@ -681,9 +659,11 @@ export const bridgedSource = (network: Network): Descriptor => {
       ),
     read: (since, before) => readBridged(network, since, undefined, before),
     // A chat the bridge copied is its room; one Beeper or an export copied is not the bridge's.
-    send: matrixSend(name, () => {
-      const rooms = new Set(readHomeserverRooms());
-      return (chat) => (rooms.has(chat) ? chat : undefined);
+    send: matrixSend(name, {
+      roomsOf: () => {
+        const rooms = new Set(readHomeserverRooms());
+        return (chat) => (rooms.has(chat) ? chat : undefined);
+      },
     }),
     silentAfter: 72 * HOUR,
     store: {

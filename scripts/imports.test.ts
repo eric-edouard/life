@@ -13,7 +13,7 @@ const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
-const MATRIX_SEND = /\/send\/m\.room\.message/;
+const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;

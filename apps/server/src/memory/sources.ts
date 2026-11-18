@@ -64,7 +64,10 @@ import {
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
+  whatsappEventOf,
+  whatsappGhostOf,
   whatsappHandleOf,
+  whatsappIdOf,
   whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
@@ -130,7 +133,13 @@ const LISTED: Descriptor[] = [
     name: "whatsapp",
     newest: newestWhatsapp,
     read: (since, before) => readWhatsapp(since, undefined, undefined, before),
-    send: matrixSend("whatsapp", () => whatsappRoomOf, whatsappHandleOf),
+    send: matrixSend("whatsapp", {
+      eventOf: whatsappEventOf,
+      ghostOf: whatsappGhostOf,
+      handleOf: whatsappHandleOf,
+      idOf: whatsappIdOf,
+      roomsOf: () => whatsappRoomOf,
+    }),
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",
