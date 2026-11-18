@@ -102,6 +102,16 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     expect(await read("matter_zzzzzzzzzzzz")).toBe(
       "No matter matter_zzzzzzzzzzzz."
     );
+    // Host's Agents part and mark, given the matter's steps.
+    const withAgents = await oneMatter("matter_aaaaaaaaaaaa", (refs) =>
+      refs.includes("obs_000000000005") ? ["- agt_000000000001 [waiting]"] : []
+    );
+    expect(withAgents).toEndWith("\nAgents:\n- agt_000000000001 [waiting]");
+    expect(
+      await openMatters({}, (refs) =>
+        refs.includes("ep_000000000001") ? "agent agt_000000000001" : ""
+      )
+    ).toContain("(2026-10-12); agent agt_000000000001");
   } finally {
     people.mockRestore();
     book.mockRestore();
