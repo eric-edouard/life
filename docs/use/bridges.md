@@ -32,7 +32,8 @@ Telegram needs two keys of your own first, once: at https://my.telegram.org (log
 type) and writes them into the bridge's config. Until then the bridge isn't running, and `add` and the daily heal don't
 wait for it. Then it logs in with your phone number and the code Telegram sends you (a QR code is the other way).
 
-The bridges are also the only way Life sends: a card's draft, on your answer to its send option, goes as you into its
+The bridges are also the only way Life sends: a card's draft (a message, or a file, a reply, a reaction, mentions, as
+the chat allows: its bridge says), on your answer to its send option, goes as you into its
 one chat through the network's bridge (Instagram, Messenger, LinkedIn, Telegram once linked, and WhatsApp, whose bridge
 stays linked only for this: WhatsApp is read from its Mac app). A card can also start a one-to-one WhatsApp chat
 with a number the bridge never saw, as `<digits>@s.whatsapp.net`: Life asks WhatsApp whether the number has an account.

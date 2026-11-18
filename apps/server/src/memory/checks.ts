@@ -1,15 +1,10 @@
-import type { z } from "zod";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
-import {
-  type Decision,
-  decisionsNow,
-  isOnMatter,
-  type MessageDraft,
-} from "./decisions";
+import { type Decision, decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
+import type { StoredDraft } from "./draft";
 import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
@@ -65,7 +60,7 @@ export interface Check {
   /** By when he answers; null: no deadline. */
   deadline: string | null;
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
-  draft: z.infer<typeof MessageDraft> | null;
+  draft: StoredDraft | null;
   /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
   evidence: { from: string; quote: string } | null;
   group: CheckGroup;

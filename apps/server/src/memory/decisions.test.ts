@@ -10,6 +10,7 @@ import {
   requestDecision,
   settledBetween,
 } from "./decisions";
+import type { StoredDraft } from "./draft";
 
 const DECISION_ID = /^dec_[0-9a-f]{12}$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
@@ -31,9 +32,9 @@ const draft = { channel: "whatsapp", text: "Can you come Friday?", to: "Kit" };
 /** Life's reading of a draft's chat, made up: Kit's one WhatsApp chat. */
 const readChat = () =>
   Promise.resolve({
+    ...draft,
     chat: "155@s.whatsapp.net",
-    name: "Kit Moreau",
-    source: "whatsapp" as const,
+    to: "Kit Moreau",
   });
 const stateOf = (id: string, at = NOW) =>
   decisionsNow(at).find((d) => d.id === id)?.state;
@@ -93,7 +94,6 @@ test("a request is one card: one-line title and question, a draft only with its 
   await refused({ title: "Fix\nthe boiler" }, "one line");
   await refused({ question: "x".repeat(121) }, "question");
   await refused({ draft: { text: "Can you come Friday?" } }, "to");
-  await refused({ draft: { to: "Kit" } }, "text");
   const send = { id: "send", label: "Send it", outgoing: true as const };
   await refused({ draft }, "outgoing");
   await refused(
@@ -153,8 +153,8 @@ const draftCard = () =>
   );
 
 test("his answer to a draft's outgoing option alone sends its exact text once, into the chat named; a second answer sends nothing", async () => {
-  const sent: string[][] = [];
-  const deliver = (...a: string[]) => {
+  const sent: unknown[][] = [];
+  const deliver = (...a: [StoredDraft, string]) => {
     sent.push(a);
     return Promise.resolve("$event1");
   };
@@ -165,7 +165,7 @@ test("his answer to a draft's outgoing option alone sends its exact text once, i
     via: "connector",
   });
   expect(sent).toEqual([
-    ["whatsapp", "155@s.whatsapp.net", "Can you come Friday?", id],
+    [{ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" }, id],
   ]);
   expect(done.at(-1)).toMatchObject({ eventId: "$event1", kind: "sent" });
   await expect(
@@ -255,14 +255,14 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
   });
 });
 
-test("a send that never ended (a crash) is told as such two minutes after his answer", async () => {
+test("a send that never ended (a crash) is told as such five minutes after his answer", async () => {
   const { id } = await draftCard();
   appendFileSync(
     DECISIONS,
     `${JSON.stringify({ at: later(HOUR).toISOString(), id, kind: "answered", options: ["send"], schemaVersion: 3, via: "connector" })}\n`
   );
-  expect(decisionsNow(later(HOUR + 60_000))[0]?.send).toBeUndefined();
-  const [d] = decisionsNow(later(HOUR + 2 * 60_000));
+  expect(decisionsNow(later(HOUR + 4 * 60_000))[0]?.send).toBeUndefined();
+  const [d] = decisionsNow(later(HOUR + 5 * 60_000));
   expect(d?.send).toMatchObject({
     error: expect.stringContaining("never ended"),
   });

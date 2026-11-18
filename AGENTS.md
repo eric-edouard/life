@@ -136,12 +136,19 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `(Life)`, free, until an agent confirms one with him; one he deletes is never written again). They are its reading,
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). The one
   other act is a card's draft, sent on his answer (below).
-- **Life sends only the exact draft text of a card, on his answer to its outgoing option, into the one chat named
-  (or a new 1:1 WhatsApp chat by its number), through its own bridges** (his decision of 18 Nov 2026): Life resolves the chat when the card is asked (refused
-  unless exactly one); it sends once, on his pick of that option alone through `answer_check` (his app's token: never a
-  paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts` checks), never on
-  silence, never with his words added, never retried. Agents hold no send tool. Its only other mail and notifications
-  are to him (`docs/tasks.md`, "The only sends").
+- **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
+  (or a new 1:1 WhatsApp chat by its number), through its own bridges** (his decision of 18 Nov 2026): a draft is
+  text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
+  (`memory/draft.ts`). Life resolves the chat when the card is asked (refused unless exactly one) and stamps what he
+  sees: the chat's name, the message quoted, the file's real path, name, size and digest; the send reads only that
+  stored line, and a file's bytes must hash to the digest or nothing goes (`not sent`). What a chat takes is read from
+  its bridge's own room features (`com.beeper.room_features`, in the homeserver), never a table of Life's and never a
+  branch on a network's name: a room with none takes text only, and a feature it can't take is refused when the card
+  is asked and again before the send. It sends once, on his pick of that option alone through `answer_check` (his app's
+  token: never a paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts`
+  checks), never on silence, never with his words added, never retried. A file he approved leaves the Mac for its
+  network (`SECURITY.md`). Agents hold no send tool. Its only other mail and notifications are to him
+  (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer; his pick of a draft's outgoing option sends that draft), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
@@ -234,7 +241,8 @@ Before adding a helper, use the one that exists:
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`): his word, `truth/`, the people his Contacts name (`memory/contact-people.ts`, `people-contacts.jsonl`, appended by the night, never read from Contacts at read time; a card folds into someone in `truth/` by their whole name, a shared handle, or their first name and birthday), then Life's guesses; one person across every channel is `foldsOf`'s to say; a lifelog person id is `voicePersonOf`: the id, else the name lifelog gave it |
 | A person's details (birthday, home, work, family, handles) and their birthday | `detailsOf` (`memory/details.ts`): his directory, then Contacts, one birthday; read by `readDetailsOf`. Only what is already a field; anything else about someone is a page line |
 | A question an agent puts to him, and where it stands | the decisions (`memory/decisions.ts`): `requestDecision`, `answerDecision`, `decisionsNow` (open, answered, lapsed, withdrawn, worked out when read); he sees the open ones as checks (`checksNow`, kind `decision`), never a second list |
-| Sending a card's draft (which chat it names, the send) | `memory/draft-send.ts`: `readDraftChat` when asked, `sendDraft` on his answer, through the source's send path (`Descriptor.send`, `sources/contract.ts`); the Matrix one is `matrixSend` (`sources/matrix.ts`), the one Matrix send, which also opens a new 1:1 chat by its handle |
+| A card's draft (its shape, rules and words) | `memory/draft.ts`: `MessageDraft` (the agent's), `StoredDraft` (with Life's stamps), `draftProblemOf`, `isSendable` (the one check that a stored draft can be sent), `draftWords` |
+| Sending a card's draft (which chat it names, the send) | `memory/draft-send.ts`: `resolveDraft` when asked, `sendDraft` on his answer, through the source's send path (`Descriptor.send`, `sources/contract.ts`); the Matrix one is `matrixSend` (`sources/matrix.ts`), the one Matrix send: its options are the network's own mappings (the defaults are a bridged network's), what a room takes is `roomFeaturesOf` read by `featureProblemOf` (`sources/matrix-content.ts`), which also builds the event; it opens a new 1:1 chat by its handle. A bridge's ghost is `ghostOf` |
 | Whether a source was captured on a day (never "quiet" by default) | `readCoverage` (`memory/coverage.ts`): captured, not seen or unknown, for the sources that capture on their own (`capturesOnItsOwn`), from the units held, what each publication read (`memory/publications.jsonl`) and, for the pendant, the recorded days (`memory/recorded-days.ts`, the night's copy of lifelog's `GET /recorded`: no read asks lifelog); over a range of days, a day being a range of one; by month, `notCapturedOf` |
 | What he and a person exchanged, counted (who opens, who answers how fast, messages and deletions each way) | the exchange counts (`memory/exchange-counts.ts`): `exchangeCountsOf` then `pairCountsOf` over any span; `readExchangeCounts` for all years as of last night. Counted from the sources into Life's state, never stored in `memory/` |
 | How an open thing ended (a promise kept, a wait answered) | its link (`memory/links.ts`): `endingsOf` (`memory/endings.ts`) is the one place that decides what a link ends, `endingsRead` the one thing readers call; a link ends its step "probably" in the readers and asks him (an ending check among the checks, with no limit; right is his `outdated` word, wrong removes that link for good and reopens the step); its subject is the matter, never a person |

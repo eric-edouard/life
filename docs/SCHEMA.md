@@ -252,17 +252,23 @@ The decisions: a question an agent puts to him (`memory/decisions.ts`), append-o
 outside the lock, schemaVersion 3, by `kind`:
 - `asked` (`requestDecision`), one card: `id` (`dec_` + 12 hex), `at`, `asker` (the agent's pairing, or `desk`),
   `agent` (`agt_…`, a registered agent's, optional), `subject` (a matter step's id, `project:<id>` or `area:<id>`,
-  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional: `channel`, the source it goes
-  through; `to`, the chat's name; `chat`, the chat key Life resolved when asked (none on cards asked before Life could
-  send); `text`, the exact message he approves and Life sends), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
+  optional), `title` (one line, 80 chars), `question` (one line, 120 chars), `draft` (optional, `memory/draft.ts`. What the
+  agent gives: `channel`, the source it goes through; `to`, the chat's name once stored; one of `text`, `file` (an
+  absolute path) or `reaction` (an emoji, with `onMessage` and nothing else); `onMessage`, a message's id as `read_chats`
+  gives it (replied to, or reacted to); `mentions` (`[{name, sender}]`, each an `@name` of `text`, in order); for mail,
+  `from`, `subject`, `cc`, with addresses as `to`. What Life stamps when asked: `chat`, the chat key it resolved (none
+  on cards asked before Life could send, which send nothing); `file` as `{path (its real path), name, size, mime,
+  sha256}`; `quoted` as `{sender, text}` (the message `onMessage` names, its first 300 characters). Life sends exactly
+  what is stored), `options` (2 to 4 `{id, label, outgoing?}`, labels one line, the
   recommended one first; `outgoing: true` when it sends, pays, books, deletes or changes something), `context`
   (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an
   outgoing one, or null). A `draft` needs exactly one outgoing option.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends). The first answer stands.
 - `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
-  Matrix `eventId` once the bridge took it, or the `error` (which says whether it may have gone). The first stands; with
-  neither 2 minutes after his answer, the send never ended (worked out when read).
+  `eventId` (the sent message's id: Life's own event id where it knows it, else the network's) once its network took it,
+  or the `error` (which says whether it may have gone). The first stands; with neither 5 minutes after his answer, the
+  send never ended (worked out when read).
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
 
 Where each stands is worked out when read (`decisionsNow`): open, answered, lapsed (its deadline passed) or withdrawn.

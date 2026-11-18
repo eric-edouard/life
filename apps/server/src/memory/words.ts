@@ -724,7 +724,8 @@ function noteUnits(list: SourceEvent[], units: Set<string>) {
 
 /**
  * Messages as lines, a heading for each chat when it changes: where to read more, `chats --chat` for a chat app's,
- * `fetch` for the others' (`noteUnits`).
+ * `fetch` for the others' (`noteUnits`). A chat's line ends with the message's id and, beside a name, its sender's id: the
+ * values a draft's `onMessage` and `mentions` take.
  */
 function chatLinesOf(
   events: SourceEvent[],
@@ -734,21 +735,23 @@ function chatLinesOf(
   const byChat = chatGroups(events);
   return [...byChat.values()].flatMap((list) => {
     const [first] = list;
-    const more =
-      first && kindOf(first.source) === "chat"
-        ? `chat ${first.chat}`
-        : noteUnits(list, units);
+    const isChat = first && kindOf(first.source) === "chat";
+    const more = isChat ? `chat ${first.chat}` : noteUnits(list, units);
     return [
       "",
       `## ${first?.chatName ?? first?.chat} (${first?.source}, ${more})`,
-      ...list.map((e) =>
-        messageLine(
+      ...list.map((e) => {
+        const who = senderOf(e, people);
+        const line = messageLine(
           localTime(e.at),
-          senderOf(e, people),
+          who,
           redact(textOf(e)),
           e.deleted
-        )
-      ),
+        );
+        return isChat
+          ? `${line} [id ${e.id}${e.fromMe || e.sender === who ? "" : `; sender ${e.sender}`}]`
+          : line;
+      }),
     ];
   });
 }

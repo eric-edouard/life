@@ -299,9 +299,10 @@ test("his answer that sends a card's draft wakes its asker with the send's outco
       start,
       () =>
         Promise.resolve({
+          channel: "whatsapp",
           chat: "155@s.whatsapp.net",
-          name: "Kit",
-          source: "whatsapp" as const,
+          text: "Friday works",
+          to: "Kit",
         })
     );
     const first = await pollEvents(

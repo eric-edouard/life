@@ -221,9 +221,11 @@ reads the rest of its settings. How the report and the alerts go out:
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - Each new voice ask: a push to his phone, "<agent> heard you" (`notifyPhone`, through lifelog), so a missing one
   tells him at once it was not heard. Never his words. Voice asks come only from lifelog, so without it there is none to push.
-- Into a chat: only a card's draft, its exact text into the one chat Life resolved when the card was asked, once, when
+- Into a chat: only a card's draft (text, or a file, a reply, a reaction, mentions, as the chat allows), exactly as shown, into the one chat Life resolved when the card was asked, once, when
   he picks its one `outgoing` option alone through `answer_check` (`answerDecision`, `memory/draft-send.ts`), through
-  Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first). The outcome (`sent` with the sent message's id, or `send-failed` with why, which may
+  Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first). What the chat takes is its
+  bridge's room features, checked when asked and again before the send; a file is read once more and must match the
+  digest the card showed. The outcome (`sent` with the sent message's id, or `send-failed` with why, which may
   say it may have gone) is written on the decision and reaches its asker in `decision.answered`. A failed send is
   never retried; nothing goes on silence or with his words added. Networks without a bridge of Life's (LINE, read from
   Beeper; iMessage; mail) don't send.
