@@ -62,7 +62,6 @@ public protocol LifeAPI: Sendable {
     func setMatterDirection(steps: [String], goal: String?, nextStep: NextStepRequest?) async throws -> String
     /// His word that these observations (a matter's open steps) are done.
     func markDone(observations: [String], note: String) async throws -> String
-    /// Ticks (or unticks) one of his to-do items.
 }
 
 public struct MCPLifeAPI: LifeAPI {
