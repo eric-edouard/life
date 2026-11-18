@@ -597,7 +597,9 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
 test("read_inbox keeps its output keys: decisions, then factChecks, each with doubts, from, quote, ref, text", async () => {
   const checks = await import("../../memory/checks");
   const evidence = { from: "f", quote: "q" };
-  const check = [{ evidence, guess: "g", kind: "ending", ref: "a" }];
+  const check = [
+    { evidence, kind: "ending", question: "g", ref: "a", why: "w" },
+  ];
   const spy = spyOn(checks, "checksNow").mockResolvedValue(check as never);
   try {
     const { json } = await rpc(await token(), "tools/call", {
@@ -637,9 +639,16 @@ test("an agent asks a decision, only he answers it, and read_inbox lists it unti
   const { id } = JSON.parse(asked.content[0].text);
   const inbox = async () =>
     JSON.parse((await call("read_inbox", {})).content[0].text).decisions;
-  expect(await inbox()).toMatchObject([
-    { asker: "Orbit", id, question: decision.question, recommended: ["yes"] },
-  ]);
+  const [listed] = await inbox();
+  expect(listed).toMatchObject({
+    asker: "Orbit",
+    id,
+    question: decision.question,
+    recommended: ["yes"],
+  });
+  expect(Object.keys(listed).sort().join()).toBe(
+    "asker,at,context,deadline,id,links,onSilence,options,question,recommended,why"
+  );
   expect(await call("answer_decision", { id, options: ["yes"] })).toMatchObject(
     { isError: true }
   );

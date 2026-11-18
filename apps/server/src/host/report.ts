@@ -90,19 +90,20 @@ const ridesText = (r: Check["ridesOn"]) =>
     .filter(Boolean)
     .join(" and ")}`;
 
-/** A decision's row of Waiting on you: the question; what the agent recommends and why, by when, who asked, its link. */
-function decisionRow({
-  decision: d,
-  guess,
-}: Extract<Check, { kind: "decision" }>) {
-  const picks = d.options.filter((o) => d.recommended.includes(o.id));
+/** A row of Waiting on you: the question; what is recommended and why, by when, who asked, its link. */
+function waitingRow(c: Check) {
+  const picks = c.options.filter((o) => c.recommended.includes(o.id));
   return {
-    name: guess,
+    name: c.question,
     relation: [
-      `Recommended: ${picks.map((o) => o.label).join(", ")} (${d.why})`,
-      `by ${localTime(d.deadline)}`,
-      `asked by ${d.asker}`,
-      ...d.links.slice(0, 1),
+      ...(picks.length > 0
+        ? [
+            `Recommended: ${picks.map((o) => o.label).join(", ")}${c.why ? ` (${c.why})` : ""}`,
+          ]
+        : []),
+      ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
+      `asked by ${c.asker}`,
+      ...c.links.slice(0, 1),
     ].join(" · "),
   };
 }
@@ -168,7 +169,7 @@ export function successReport(day: string, ms: number, n: Night) {
   const { actions: done, problems } = n.acted;
   const a = n.episodes.agreement;
   const decisions = n.checks.flatMap((c) =>
-    c.kind === "decision" ? [decisionRow(c)] : []
+    c.kind === "decision" ? [waitingRow(c)] : []
   );
   const checks = n.checks.filter((c) => c.kind !== "decision");
   const models = [
@@ -219,7 +220,7 @@ export function successReport(day: string, ms: number, n: Night) {
         {
           kind: "pairs",
           list: checks.map((c) => ({
-            name: c.guess,
+            name: c.question,
             relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
           })),
           title: "Checks",
