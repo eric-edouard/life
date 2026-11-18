@@ -445,19 +445,12 @@ export function storeEdit(db: Db, row: typeof ownerEdits.$inferInsert) {
   regroupAfterCommit(db, pendantSources(db));
 }
 
-// A conversation's words changed (again: its last roll forgotten): the next drain rolls it.
+// A conversation's words changed: the next drain rolls it.
 export async function roll(
   db: Db,
   rolling: { drain: () => Promise<void> },
-  id: string,
-  again = false
+  id: string
 ) {
-  if (again) {
-    db.update(conversations)
-      .set({ turnsFp: null })
-      .where(eq(conversations.id, id))
-      .run();
-  }
   logChange(db, "conversation", id);
   await rolling.drain();
 }

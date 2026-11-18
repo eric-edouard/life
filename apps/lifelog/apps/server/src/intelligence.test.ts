@@ -100,7 +100,7 @@ function conversation(
     .values({
       captureEndedAt: new Date(start + 3_600_000),
       captureStartedAt: new Date(start),
-      closedAt: new Date(0),
+      closedAt: new Date(start + 3_600_000),
       id,
       sourceId: "dev1",
     })
@@ -110,8 +110,8 @@ function conversation(
 }
 
 // The roll a due conversation gets from the app's rolling.
-const post = (_app: ReturnType<typeof appWith>, id: string, again = false) =>
-  roll(env.db, rolling as Rolling, id, again);
+const post = (_app: ReturnType<typeof appWith>, id: string) =>
+  roll(env.db, rolling as Rolling, id);
 
 // The job whose turns the conversation holds.
 const jobOf = (id: string) =>
@@ -223,7 +223,7 @@ test("an unusable answer is asked again twice at most, inside the run, and every
   });
   const app = appWith(model);
   const id = conversation(app, 3);
-  // A run on top of the valid ones before it: the Generate's, from the first turn.
+  // A run on top of the valid ones before it: each new run, from the first turn.
   const run = async (...next: unknown[]) => {
     answers.push(...next);
     env.db
@@ -450,7 +450,7 @@ test("a piece with a version-11 run and a newer voices run keeps its summary and
   const id = conversation(app, 4);
   const old = summarized(id);
   // The phone sends the run it shows (the old one) as `after`.
-  await post(app, id, true);
+  await post(app, id);
   const [run] = await settled(id);
   expect(run?.state).toBe("valid");
   // The voices come from the new run: the old one's turns were never taken for read.
@@ -538,7 +538,7 @@ test("a long transcript is read window after window, each turn once, and the voi
     .values({
       captureEndedAt: new Date("2026-10-01T01:00:00Z"),
       captureStartedAt: new Date("2026-10-01T00:00:00Z"),
-      closedAt: new Date(0),
+      closedAt: new Date("2026-10-01T01:00:00Z"),
       id,
       sourceId: "dev1",
     })
@@ -591,7 +591,7 @@ test("transcript text cannot close its fence", async () => {
     .values({
       captureEndedAt: new Date("2026-10-01T01:00:00Z"),
       captureStartedAt: new Date("2026-10-01T00:00:00Z"),
-      closedAt: new Date(0),
+      closedAt: new Date("2026-10-01T01:00:00Z"),
       id,
       sourceId: "dev1",
     })

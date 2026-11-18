@@ -65,7 +65,7 @@ runs wait. They start as soon as the Mac is back, and every 5 minutes after that
 them to a paid API.
 
 **What is sent**, per call (a call is asked again up to twice when its answer is unusable; a roll sends only the
-window past what the previous run read, and the owner's Generate reads the conversation again from its first turn):
+window past what the previous run read):
 
 - the transcript text, turn by turn, each speaker a token (S1, S2…) with a legend: the owner, the owner's people by
   name, voices not identified yet,

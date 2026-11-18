@@ -108,7 +108,7 @@ const Feed = z
             .uuid()
             .nullable()
             .describe(
-              "The summary its title, TLDR and chapters come from: Generate's `after`"
+              "The summary its title, TLDR and chapters come from: the phone's `after`"
             ),
           splitSuggestions: z
             .array(z.object({ at: Instant, confidence: z.enum(["medium"]) }))
