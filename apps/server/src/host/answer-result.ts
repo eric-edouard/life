@@ -1,6 +1,10 @@
 import { clock, MIN } from "../core/clock";
-import { answerCheck, type CheckAnswer } from "../memory/answer-check";
-import { type Check, checksNow, inboxOf } from "../memory/checks";
+import {
+  answerCheck,
+  type CheckAnswer,
+  type StartAgent,
+} from "../memory/answer-check";
+import { type Check, inboxOf } from "../memory/checks";
 import {
   type Decision,
   decisionsNow,
@@ -9,12 +13,18 @@ import {
   sendsOn,
 } from "../memory/decisions";
 import { sendLimitMs, sendStepsOf } from "../memory/draft-send";
+import {
+  changeRegisteredAgent,
+  START_STAGES,
+  WAIT_MS,
+} from "./change-registered-agent";
 import { eventHeard, readDesk } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
+import { inboxNow, openCheckOf } from "./inbox";
 
 // His answer to a check, with proof (`answer_check`): what was written, what changed, what a send did, whether the
 // asker was told, whether the card left. Nothing is stored here: each fact is read again from the store that owns it
-// (the decisions' lines, the desk's event rows, `checksNow`), so this only composes them. Steps go out as they pass
+// (the decisions' lines, the desk's event rows, `inboxNow`), so this only composes them. Steps go out as they pass
 // (`report`, `mcp-tool.ts`) after the plan: the steps to come and the most seconds they may take.
 
 /** How long the asker's desk is given to queue the answer. */
@@ -104,7 +114,7 @@ function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
 
 /** The inbox after an answer: whether the card left, how many remain, how many are due today. */
 async function inboxAfter(ref: string, report: ToolCall["report"]) {
-  const list = await checksNow();
+  const list = await inboxNow();
   const { deadlinesToday, total } = inboxOf(list);
   report({ at: at(), step: "left_inbox", total });
   return { deadlinesToday, left: !list.some((c) => c.ref === ref), total };
@@ -139,6 +149,7 @@ async function decisionResult(
     kind: "decision",
     ref,
     send: sendResultOf(d, tap),
+    start: null,
   };
 }
 
@@ -156,6 +167,13 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
       ending: a.options[0] === "outdated" ? "done" : "reopened",
       matter: c.matter,
       step: c.ref,
+    };
+  }
+  if (c.group === "new matter") {
+    return {
+      answer: a.options[0],
+      matter: c.matter,
+      ...(a.options[0] === "edit-goal" ? { goal: a.note } : {}),
     };
   }
   if (c.group === "voice") {
@@ -193,6 +211,25 @@ function rememberTap(key: string, result: Record<string, unknown>) {
   taps.set(key, { at: t, result });
 }
 
+/** The steps an answer will report, in order: a decision's (and its send's), a new matter's Start (the desk's start stages), else Life's guesses'. */
+function planOf(
+  known: Decision | undefined,
+  sends: boolean | undefined,
+  starts: boolean
+) {
+  if (known) {
+    return [
+      "recorded",
+      ...(sends && known.draft ? sendStepsOf(known.draft) : []),
+      "asker_told",
+      "left_inbox",
+    ];
+  }
+  return starts
+    ? ["goal_saved", ...START_STAGES, "recorded", "left_inbox"]
+    : ["recorded", "left_inbox"];
+}
+
 async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   const { answerKey, report } = call;
   const known = decisionsNow().find((x) => x.id === ref);
@@ -209,23 +246,38 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   if (remembered) {
     return remembered;
   }
+  const open = await openCheckOf(ref);
   const sends = known?.state === "open" && sendsOn(known, a.options, a.note);
+  const starts = open.group === "new matter" && a.options[0] === "start";
   report({
     limitSeconds: Math.ceil(
-      ((sends && known.draft ? sendLimitMs(known.draft) : 0) + QUICK_MS) / 1000
+      ((sends && known.draft ? sendLimitMs(known.draft) : 0) +
+        (starts ? WAIT_MS : 0) +
+        QUICK_MS) /
+        1000
     ),
-    plan: known
-      ? [
-          "recorded",
-          ...(sends && known.draft ? sendStepsOf(known.draft) : []),
-          "asker_told",
-          "left_inbox",
-        ]
-      : ["recorded", "left_inbox"],
+    plan: planOf(known, sends, starts),
   });
-  const { check, done, item } = await answerCheck(ref, a, "connector", {
+  // A new matter's Start: the desk's start, as `change_registered_agent` asks it; its own plan is in this one.
+  let start: Awaited<ReturnType<typeof changeRegisteredAgent>> | null = null;
+  const startAgent: StartAgent = async (c, goal) => {
+    start = await changeRegisteredAgent(
+      { action: "start", said: goal, step: c.ref },
+      {
+        ...call,
+        report: (s) => {
+          if (!s.plan) {
+            report(s);
+          }
+        },
+      }
+    );
+    return { ask: "ask" in start ? start.ask : "" };
+  };
+  const { check, done, item } = await answerCheck(open, a, "connector", {
     answerKey,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
+    startAgent,
   });
   if (check.group === "decision") {
     return decisionResult(ref, report, answerKey);
@@ -246,6 +298,7 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     kind: check.group,
     ref,
     send: null,
+    start,
   };
   if (answerKey) {
     rememberTap(tapKey, result);

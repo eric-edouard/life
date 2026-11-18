@@ -133,6 +133,13 @@ export const holderOf = (db: Database, steps: string[]) =>
         )
         .get(...steps)?.id ?? null);
 
+/** Every step an agent is anchored on now, in any status (`re_point` drops an agent's old anchors). */
+export const anchoredSteps = (db: Database) =>
+  db
+    .query<{ step: string }, []>("select distinct step from anchor")
+    .all()
+    .map((r) => r.step);
+
 /** What the desk did with an ask of his (`change_registered_agent`): the agent it touched, or why it refused; null until applied. */
 export const agentChangeOf = (db: Database, ask: string) =>
   db

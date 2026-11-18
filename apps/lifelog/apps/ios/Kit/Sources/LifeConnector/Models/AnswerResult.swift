@@ -41,4 +41,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public let send: Send?
     public let asker: Asker?
     public let inbox: InboxAfter?
+    /// A new matter's Start: the desk's start, as `change_registered_agent` gives it. Nothing started: absent.
+    public let start: AgentChangeResult?
 }

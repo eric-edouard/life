@@ -27,7 +27,7 @@ test("an old drawn fact check, never answered, is no longer open, and answering 
     units: ["unit_000000000000"],
   };
   appendJsonl(FACT_CHECKS, FactCheck, [old]);
-  expect((await checksNow()).some((c) => c.ref === old.ref)).toBe(false);
+  expect((await checksNow(null)).some((c) => c.ref === old.ref)).toBe(false);
   await expect(recordFactCheckAnswer(old.ref, "outdated")).rejects.toThrow(
     "no open ending check"
   );

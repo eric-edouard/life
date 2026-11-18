@@ -8,7 +8,7 @@ import { LOG_DIR, log, logDays, recentEvents } from "../core/log";
 import { isOn } from "../core/outputs";
 import { settings } from "../core/settings";
 import { appointments } from "../memory/appointments";
-import { checksNow, isEndingKind } from "../memory/checks";
+import { isEndingKind } from "../memory/checks";
 import {
   closeness,
   lastYearsOf,
@@ -97,6 +97,7 @@ import { syncAppointments } from "./appointments-calendar";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
+import { inboxNow } from "./inbox";
 import { syncPast } from "./past-calendar";
 import { readAgentRows } from "./registered-agents";
 import {
@@ -151,7 +152,7 @@ export async function readDoneFor(
  */
 export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
   try {
-    return (await checksNow()).filter((c) => !isEndingKind(c));
+    return (await inboxNow()).filter((c) => !isEndingKind(c));
   } catch (e) {
     rec.error((e as Error).message, { step: "memory.nightly.checks" });
     return [];

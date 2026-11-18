@@ -172,6 +172,7 @@ export const PageSection = z.enum([
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
  * `matter-direction` is his goal or next step for a matter, pinned by its steps (all of them, as `read_matter` lists
  * them): his goal always wins over Life's draft, his next step until the matter gets a new step (`directionsOf`).
+ * `new-matter-dismissed` is his Dismiss on a new matter check, pinned by its steps: that matter is never offered again.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -237,6 +238,13 @@ export const Correction = z
         goal: GoalText.optional(),
         kind: z.literal("matter-direction"),
         nextStep: NextStep.optional(),
+        steps: z.array(z.string().min(1)).min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("new-matter-dismissed"),
         steps: z.array(z.string().min(1)).min(1),
       })
       .strict(),

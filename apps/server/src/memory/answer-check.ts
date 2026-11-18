@@ -5,20 +5,19 @@ import {
   namingQueueGuessesOf,
   readNamingQueue,
 } from "../sources/lifelog-voices";
-import {
-  type Check,
-  type CheckGroup,
-  checksNow,
-  type LIFE_CHECKS,
-} from "./checks";
+import type { Check, CheckGroup, LIFE_CHECKS } from "./checks";
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
+import { matterOfSteps } from "./matter-read";
+import { readMatterBook } from "./matters";
 import { recordCorrection } from "./memory-files";
 import { readPeople, voicePersonOf } from "./who";
+import { dayNow } from "./zones";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
-// check's ref, the person, card or name), so nothing new is stored.
+// check's ref, the person, card or name, the matter's steps). A new matter's Start is the one answer that acts: host
+// hands it in (`startAgent`), since only host reaches the desk.
 
 export interface CheckAnswer {
   /** A voice's new person: their name. */
@@ -31,11 +30,17 @@ export interface CheckAnswer {
   person?: string;
 }
 
-type Writer = (
-  c: Check,
-  a: CheckAnswer,
-  item?: NamingQueueItem
-) => Promise<unknown[]>;
+/** Asks the desk to start an agent on the new matter `c`, its goal as the brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
+export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
+
+/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start. */
+interface WriterExtras {
+  item?: NamingQueueItem;
+  onStep?: (step: string, detail?: Record<string, unknown>) => void;
+  startAgent: StartAgent;
+}
+
+type Writer = (c: Check, a: CheckAnswer, x: WriterExtras) => Promise<unknown[]>;
 
 /** `person`, checked: the options that name someone need it. */
 function personIn(a: CheckAnswer) {
@@ -99,6 +104,17 @@ async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
     : ({ kind: "confirm", name: people.nameOf(ref) } as const);
 }
 
+/** The new matter a check offers, as it reads now: its steps (what his word is pinned to) and its goal. */
+async function newMatterOf(c: Pick<Check, "ref">) {
+  const v = matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
+    c.ref,
+  ]);
+  if (!v?.goal) {
+    throw new Error(`Not done: no matter ${c.ref} with a goal.`);
+  }
+  return { goal: v.goal, steps: v.steps.map((s) => s.ref) };
+}
+
 /** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
 const WRITERS: {
   [G in keyof typeof LIFE_CHECKS]: Record<
@@ -148,41 +164,76 @@ const WRITERS: {
       );
     },
   },
+  "new matter": {
+    dismiss: async (c, a) =>
+      correct(
+        [
+          {
+            kind: "new-matter-dismissed",
+            steps: (await newMatterOf(c)).steps,
+          },
+        ],
+        a
+      ),
+    "edit-goal": async (c, a) => {
+      if (!a.note) {
+        throw new Error("Not done: give the goal, in his words, as `note`.");
+      }
+      // His words are the goal itself, not a note on it; the check stays, with his goal, for Start or Dismiss.
+      const { steps } = await newMatterOf(c);
+      return [
+        await recordCorrection({
+          goal: a.note,
+          kind: "matter-direction",
+          steps,
+        }),
+      ];
+    },
+    // The goal he saw becomes his word (the phone's start does the same), then the desk is asked with it as the brief.
+    start: async (c, _a, x) => {
+      const { goal, steps } = await newMatterOf(c);
+      const saved =
+        goal.by === "owner"
+          ? []
+          : [
+              await recordCorrection({
+                goal: goal.text,
+                kind: "matter-direction",
+                steps,
+              }),
+            ];
+      x.onStep?.("goal_saved");
+      return [...saved, await x.startAgent(c, goal.text)];
+    },
+  },
   voice: {
-    media: (c, _a, item) =>
+    media: (c, _a, { item }) =>
       answerVoice(c, item, async () => ({ kind: "media" })),
-    "not-anyone-i-know": (c, _a, item) =>
+    "not-anyone-i-know": (c, _a, { item }) =>
       answerVoice(c, item, async () => ({ kind: "ignore" })),
-    "not-relevant": (c, _a, item) =>
+    "not-relevant": (c, _a, { item }) =>
       answerVoice(c, item, async () => ({ kind: "not_relevant" })),
-    "this-is": (c, a, item) => answerVoice(c, item, (i) => thisIs(i, c, a)),
+    "this-is": (c, a, { item }) => answerVoice(c, item, (i) => thisIs(i, c, a)),
   },
 };
 
 /**
- * Records his answer to the open check `ref` through its kind's writer (a decision's draft is sent only `via` his app);
- * returns the check it found, the lines written and, for a voice, its queue item. `onStep` hears `recorded` once they are, and a send's own steps; `answerKey`
- * is his app's key for this tap, kept on a decision's answer. Throws when no open check has that ref or the option is
- * not one of its own.
+ * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
+ * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
+ * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
+ * decision's answer; `startAgent` is a new matter's Start. Throws when the option is not one of its own.
  */
 export async function answerCheck(
-  ref: string,
+  check: Check,
   a: CheckAnswer,
-  via: "connector" | "session" = "session",
+  via: "connector" | "session",
   {
     answerKey,
     onStep,
-  }: {
-    answerKey?: string;
-    onStep?: (step: string, detail?: Record<string, unknown>) => void;
-  } = {}
+    startAgent,
+  }: Omit<WriterExtras, "item"> & { answerKey?: string }
 ) {
-  const check = (await checksNow()).find((c) => c.ref === ref);
-  if (!check) {
-    throw new Error(
-      `Not done: no open check ${ref}; \`read_inbox\` lists them.`
-    );
-  }
+  const { ref } = check;
   if (check.group === "decision") {
     return {
       check,
@@ -205,7 +256,7 @@ export async function answerCheck(
     );
   }
   const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
-  const done = await write(check, a, item);
+  const done = await write(check, a, { item, onStep, startAgent });
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }

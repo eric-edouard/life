@@ -60,7 +60,7 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
 export type RegisteredAgentChange = z.infer<typeof RegisteredAgentChange>;
 
 /** How long the connector waits for the desk to apply his word (a start: its three stages): past it, `unconfirmed`. A tick is 5 s and may sit inside a 30 s message poll, so 15 s shows healthy starts unconfirmed. */
-const WAIT_MS = 20_000;
+export const WAIT_MS = 20_000;
 const POLL_MS = 500;
 
 /** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps) and its projects. */
@@ -126,14 +126,24 @@ async function withSubject({
 }
 
 /** What the connector reports for a start, in order: the desk's three facts (`goal_saved` is the phone's own call). */
-const STAGES = ["runtime_answers", "session_open", "turn_begun"] as const;
+export const START_STAGES = [
+  "runtime_answers",
+  "session_open",
+  "turn_begun",
+] as const;
 
 /** The start's stages as the desk's store has written them so far (`startOf`): each with its time and detail. */
 function stagesOf(s: ReturnType<typeof startOf>) {
   const { change, session, turn } = s;
   return [
     ...(change?.agent_id && !change.error
-      ? [{ agent: change.agent_id, at: change.applied_at, stage: STAGES[0] }]
+      ? [
+          {
+            agent: change.agent_id,
+            at: change.applied_at,
+            stage: START_STAGES[0],
+          },
+        ]
       : []),
     ...(session
       ? [
@@ -141,11 +151,11 @@ function stagesOf(s: ReturnType<typeof startOf>) {
             at: session.started_at,
             link: session.link,
             session: session.ref,
-            stage: STAGES[1],
+            stage: START_STAGES[1],
           },
         ]
       : []),
-    ...(turn?.begun_at ? [{ at: turn.begun_at, stage: STAGES[2] }] : []),
+    ...(turn?.begun_at ? [{ at: turn.begun_at, stage: START_STAGES[2] }] : []),
   ];
 }
 
@@ -170,7 +180,7 @@ function startResult(
   limitMs: number
 ) {
   const reason = s ? startFailure(s) : null;
-  const isStarted = stages.length === STAGES.length;
+  const isStarted = stages.length === START_STAGES.length;
   let state = "unconfirmed";
   if (reason) {
     state = "not_started";
@@ -185,7 +195,7 @@ function startResult(
       ? null
       : {
           reason: reason ?? `no answer from the desk in ${limitMs / 1000} s`,
-          stage: STAGES[stages.length] ?? STAGES[2],
+          stage: START_STAGES[stages.length] ?? START_STAGES[2],
         },
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
     // A matter held by an active agent has one running.
@@ -203,7 +213,7 @@ async function waitForStart(
   { report }: ToolCall,
   limitMs: number
 ) {
-  report({ limitSeconds: limitMs / 1000, plan: [...STAGES] });
+  report({ limitSeconds: limitMs / 1000, plan: [...START_STAGES] });
   let reported = 0;
   for (let waited = 0; ; waited += POLL_MS) {
     const read = readDesk(
@@ -223,7 +233,7 @@ async function waitForStart(
     }
     reported = stages.length;
     if (
-      reported === STAGES.length ||
+      reported === START_STAGES.length ||
       (s && startFailure(s)) ||
       waited >= limitMs
     ) {

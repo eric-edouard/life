@@ -4,7 +4,7 @@ import { clock, daysBefore } from "../core/clock";
 import { answerCheck } from "../memory/answer-check";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
-import { checksNow, checksText } from "../memory/checks";
+import { checksText } from "../memory/checks";
 import { closeness, readWithPeople } from "../memory/closeness";
 import { communicationStyles } from "../memory/communication-styles";
 import { writeContactPeople } from "../memory/contact-people";
@@ -57,6 +57,8 @@ import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
+import { changeRegisteredAgent } from "./change-registered-agent";
+import { inboxNow, openCheckOf } from "./inbox";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -172,11 +174,30 @@ const HANDLERS: Record<string, Handler> = {
   "answer-check": (values, [ref = "", option = "", ...note]) =>
     ref && option
       ? json(
-          answerCheck(ref, {
-            note: words(note) || undefined,
-            options: [option],
-            person: values.person,
-          }).then(({ done, ref: answered }) => ({ done, ref: answered }))
+          openCheckOf(ref)
+            .then((check) =>
+              answerCheck(
+                check,
+                {
+                  note: words(note) || undefined,
+                  options: [option],
+                  person: values.person,
+                },
+                "session",
+                {
+                  startAgent: async (c, goal) => {
+                    const r = await changeRegisteredAgent({
+                      action: "start",
+                      said: goal,
+                      step: c.ref,
+                    });
+                    console.log(JSON.stringify(r));
+                    return { ask: "ask" in r ? r.ask : "" };
+                  },
+                }
+              )
+            )
+            .then(({ done, ref: answered }) => ({ done, ref: answered }))
         )
       : usage(),
   appointments: step(() => appointments()),
@@ -190,9 +211,9 @@ const HANDLERS: Record<string, Handler> = {
       })
     ),
   chats: (values) => printed(chatsOf(values)),
-  /** `checks`: everything Life would like him to verify (`checksNow`), counted by kind and by what rides on it, then every row. Read-only. */
+  /** `checks`: everything Life would like him to verify (`inboxNow`), counted by kind and by what rides on it, then every row. Read-only. */
   async checks() {
-    console.log(checksText(await checksNow()));
+    console.log(checksText(await inboxNow()));
     return 0;
   },
   closeness: step(async () => closeness(await readWithPeople())),
