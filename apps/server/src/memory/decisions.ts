@@ -7,6 +7,7 @@ import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft, sendLimitMs } from "./draft-send";
+import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { readPeople } from "./who";
@@ -53,7 +54,7 @@ export const Ask = z
     /** The recommended one first. */
     options: z.array(Option).min(2).max(4),
     question: oneLine(120),
-    /** A matter step's id (it rides on that matter: listed while the matter is open), or `project:<id>` or `area:<id>`; none for a task with neither. */
+    /** A matter's id or a step's (it rides on that matter: listed while the matter is open; an id is stored as its newest step), or `project:<id>` or `area:<id>`; none for a task with neither. */
     subject: z.string().min(1).optional(),
     title: oneLine(80),
   })
@@ -75,7 +76,7 @@ export const DecisionRequest = Ask.omit({ agent: true })
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter step's id: it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
+  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source it goes through; `to` a chat key from `read_chats`, or a person with one 1:1 chat there (for mail, addresses); `text`, a `file` (an absolute path: he sees its name and size, and Life sends the bytes it reads when you ask), or a `reaction` (an emoji, which needs `onMessage` and nothing else); `onMessage` a message's id (`read_chats`, `read_new_events`; for mail, its id from `search` or `fetch`), replied to (or reacted to); `mentions` (`[{name, sender}]`: each `@name` in `text`, in its order, `sender` the sender id `read_chats` shows for that person in this chat); for mail only `from`, `subject`, `cc`; a feature the chat can't take is refused when you ask; Life sends it exactly as shown when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, the sent message's id or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter's id or one of its steps': it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
 
 const Asked = Ask.extend({
   asker: z.string().min(1),
@@ -351,23 +352,32 @@ export async function requestDecision(
       `Not done: ${ask.agent} already asks ${open.id}; withdraw it or wait for his answer.`
     );
   }
-  // A step no open matter holds would never be listed: refused, so no question goes unseen.
-  if (
-    isOnMatter(ask.subject) &&
-    !(await readMatterBook(await readPeople(), dayNow())).some(
-      (m) => m.open && m.steps.some((x) => x.ref === ask.subject)
-    )
-  ) {
+  // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
+  // its newest step: a step outlives a re-group, a matter id doesn't.
+  const matter = isOnMatter(ask.subject)
+    ? matterOfSteps(
+        (await readMatterBook(await readPeople(), dayNow())).filter(
+          (m) => m.open
+        ),
+        [ask.subject]
+      )
+    : undefined;
+  if (isOnMatter(ask.subject) && !matter) {
     throw new Error(
-      `Not done: no open matter holds ${ask.subject}; give its step id, \`project:<id>\`, \`area:<id>\` or no subject.`
+      `Not done: no open matter is or holds ${ask.subject}; give its id or a step's, \`project:<id>\`, \`area:<id>\` or no subject.`
     );
   }
+  const subject =
+    matter && matter.id === ask.subject
+      ? matter.steps.at(-1)?.ref
+      : ask.subject;
   const draft = ask.draft && (await readChat(ask.draft, now));
   const id = `dec_${randomBytes(6).toString("hex")}`;
   appendJsonl(DECISIONS, Asked, [
     {
       ...ask,
       ...(draft ? { draft } : {}),
+      ...(subject ? { subject } : {}),
       asker,
       at: now.toISOString(),
       // In UTC, so deadlines sort as strings (`checksOf`).

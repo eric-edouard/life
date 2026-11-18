@@ -12,7 +12,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 | `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, each kept whole as an export copy by `bun life import`) | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
 | `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, assets | Life.app: the helper's resources; a checkout: the checkout |
-| `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `MACHINE_DIR` (env `LIFE_MACHINE_DIR`) | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks; a second Life (a demo) sets its own, and `LIFE_PORT` for its ports | |
 
 - `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -85,6 +85,30 @@ records a ref and title once), the archive after its pass, and the app restarts 
 
 No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
 `docs/plans/2026-10-22-platforms.md`, "Verification").
+
+## Demo stress tests
+
+`bun run e2e:demo [scenario]` (`scripts/e2e-demo.ts`) proves the phone app end to end on made-up data: it writes the demo
+Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on this Mac, with its own ports (`LIFE_PORT`,
+46500 unless `LIFE_E2E_PORT` says otherwise) and machine folder (`LIFE_MACHINE_DIR`), so the app's Life, ports and locks
+are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
+never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh iPhone 17 Pro
+simulator, pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
+scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
+agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
+PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
+failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
+
+What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his. A second Life's
+Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but the door (none
+of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
+memory (`claude-runtime.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
+sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services
+get only the variables a CLI needs and the demo's own, none of his keys.
+
+Run it after a change to the app's flows, the desk or the inbox, one at a time and with the Mac's load under 20: about
+5 to 10 minutes (most of it the build and the agent's two turns) and two real Claude turns on Sonnet, about $0.40 of his
+subscription per run. It is kept out of `bun run check` and the pre-push hook for that time and cost.
 
 ## The schedule
 

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { z } from "zod";
 import { execOk } from "../../core/proc";
 import { setSettings, settings } from "../../core/settings";
-import { PUBLIC_PORT } from "./http";
+import { OWN_PORT, PUBLIC_PORT } from "./http";
 
 // How the connector is reached with no domain of his own: Tailscale. `serve` puts Life's server on his tailnet, for
 // his phone and his own computers; `funnel` puts it on the internet, for the agents that call from their makers'
@@ -43,6 +43,11 @@ export async function tailnetName() {
  * Claude.ai. Its origin becomes the connector's.
  */
 export async function connect(publicToo: boolean) {
+  if (PUBLIC_PORT !== OWN_PORT) {
+    throw new Error(
+      `a second Life (LIFE_PORT ${PUBLIC_PORT}) never takes this Mac's tailnet name`
+    );
+  }
   const name = await tailnetName();
   await tailscale([
     publicToo ? "funnel" : "serve",

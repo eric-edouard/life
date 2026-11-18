@@ -18,7 +18,7 @@ import Testing
 }
 
 /// The links every app reads alike (`fixtures/wire/pairing-links.json`).
-@Test func aLinkGivesLifesOriginAndCodeOverHTTPSOnly() throws {
+@Test func aLinkGivesLifesOriginAndCodeOverHTTPSOrLoopback() throws {
     struct Case: Decodable {
         struct Expected: Decodable { let origin: String, code: String }
         let `case`: String
@@ -26,7 +26,7 @@ import Testing
         let life: Expected?
     }
     let cases = try JSONDecoder().decode([Case].self, from: Data(try wireText("pairing-links.json").utf8))
-    #expect(cases.filter { $0.life != nil }.count == 2)
+    #expect(cases.filter { $0.life != nil }.count == 3)
     for c in cases {
         let pairing = LifePairing(link: try #require(URL(string: c.link), "\(c.case)"))
         #expect(pairing?.origin.absoluteString == c.life?.origin, "\(c.case)")

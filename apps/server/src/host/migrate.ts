@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR, real } from "../core/paths";
-import { MACHINE_DIR } from "../core/platform";
+import { APP_FOLDERS } from "../core/platform";
 import { Settings, writeSettings } from "../core/settings";
 
 // The settings step of this release (AGENTS.md, "A rename or a new field backfills"): matters, links, endings, the
@@ -21,7 +21,7 @@ const CORE = [
 /** Is the app's own state, which a checkout never rewrites (the old app may still be running)? */
 const isAppState = (state: string) =>
   existsSync(join(LIFE_CODE_DIR, ".git")) &&
-  real(state) === real(join(MACHINE_DIR, "state"));
+  real(state) === real(APP_FOLDERS.state);
 
 /** The settings without the core switches; a file holding none comes back as it is. Never through the strict parser: the old keys would throw. */
 function settingsOf(old: Row): Row {
