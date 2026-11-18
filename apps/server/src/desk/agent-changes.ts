@@ -145,8 +145,12 @@ function applyAsk(
       error: "asked over 10 minutes before the desk read it",
     };
   }
+  // Its own savepoint: a change that throws leaves nothing half written, only its error row.
   try {
-    return { agent: parsed.data.agent, ...apply(desk, parsed.data, ask.quote) };
+    return {
+      agent: parsed.data.agent,
+      ...desk.db.transaction(() => apply(desk, parsed.data, ask.quote))(),
+    };
   } catch (e) {
     return { agent: parsed.data.agent, error: (e as Error).message };
   }
