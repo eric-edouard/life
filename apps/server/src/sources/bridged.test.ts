@@ -9,11 +9,11 @@ import {
   copyBeeper,
   copyBridged,
   localpartOf,
-  NETWORKS,
   openBridged,
   readBridged,
 } from "./bridged";
 import { BRIDGES } from "./matrix";
+import { NETWORKS } from "./networks";
 
 const BOT = "@linebot:life.local";
 const ANA = "@line_u1:life.local";

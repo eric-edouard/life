@@ -23,16 +23,17 @@ import {
   BRIDGES,
   configOf,
   isBridgeAdded,
-  isOwnRoom,
+  matrixSend,
   OWNER,
+  readHomeserverRooms,
+  SYNAPSE,
   userOn,
 } from "./matrix";
+import type { CallNotice, Network } from "./networks";
 
 // A network bridged on his local homeserver (LINE, Instagram, Messenger: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
 // archive copies from each pass, so a message deleted before a copy, or while Life is down, is still copied.
-
-const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
 
 /**
  * A network's archive: the Matrix-shaped versions table, how far the homeserver's events were copied (`copied`), and
@@ -391,87 +392,6 @@ const mediaOf = (url: string) => {
     : undefined;
 };
 
-/** What a bridge's notice says of a call: it started (its end comes later), it ended, or the whole call. */
-interface CallNotice {
-  ends?: true;
-  seconds?: number;
-  video: boolean;
-}
-
-const META_CALL =
-  /^(?:(?<missed>You missed)|.+ started) an? (?<kind>audio call|video chat)$|^(?<ended>Audio call|Video chat) ended$/;
-// The length's form is the bridge's (`Voice call (5m33s)`, seen Nov 2026); the notice's time is taken as the call's.
-const LINE_CALL =
-  /^(?<missed>Missed )?(?<kind>[Vv]oice|[Vv]ideo) call(?: \((?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?<s>\d+)s\))?$/;
-
-const VIDEO = /video/i;
-
-/** A call in the notices of Meta's bridge (Instagram, Messenger): its start, its end, or a missed one. */
-function metaCallOf(text: string): CallNotice | undefined {
-  const g = META_CALL.exec(text)?.groups;
-  if (!g) {
-    return undefined;
-  }
-  const video = VIDEO.test(g.kind ?? g.ended ?? "");
-  if (g.ended) {
-    return { ends: true, video };
-  }
-  return g.missed ? { seconds: 0, video } : { video };
-}
-
-/**
- * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * what he calls it, the bridge's repository and command to build, and how its notices say a call (`callOf`). The one list.
- */
-export const NETWORKS = [
-  {
-    callOf: (text: string): CallNotice | undefined => {
-      const g = LINE_CALL.exec(text)?.groups;
-      if (!g || (!g.missed && g.s === undefined)) {
-        return undefined;
-      }
-      const seconds = g.missed
-        ? 0
-        : Number(g.h ?? 0) * 3600 + Number(g.m ?? 0) * 60 + Number(g.s);
-      return { seconds, video: VIDEO.test(g.kind ?? "") };
-    },
-    cmd: "cmd/matrix-line",
-    label: "LINE",
-    name: "line",
-    repo: "beeper/line",
-  },
-  {
-    callOf: metaCallOf,
-    cmd: "cmd/mautrix-instagram",
-    label: "Instagram",
-    name: "instagram",
-    repo: "mautrix/meta",
-  },
-  {
-    // ponytail: Instagram's call notices assumed; a Messenger call in another wording stays a plain notice until seen.
-    callOf: metaCallOf,
-    cmd: "cmd/mautrix-meta",
-    label: "Messenger",
-    name: "messenger",
-    repo: "mautrix/meta",
-  },
-  {
-    cmd: "cmd/mautrix-telegram",
-    label: "Telegram",
-    name: "telegram",
-    repo: "mautrix/telegram",
-  },
-  {
-    cmd: "cmd/mautrix-linkedin",
-    label: "LinkedIn",
-    name: "linkedin",
-    repo: "mautrix/linkedin",
-  },
-] as const;
-// The literal entries keep their names typed; a network with no calls has no `callOf`.
-export type Network = (typeof NETWORKS)[number] & {
-  callOf?: (text: string) => CallNotice | undefined;
-};
 /**
  * A network's calls as messages of their chats: a call's notice becomes a phone call, a start taking its outcome from
  * the chat's next end (its length) or missed notice (Instagram's "You missed" follows its start), which goes; a start
@@ -690,7 +610,7 @@ export function copyBeeper(
         `select max(at) as at from (select min(at) as at from cutover
            union all select max(at) from messages where chat in (select value from json_each(?)))`
       )
-      .get(JSON.stringify(bridgeRooms(synapse)))?.at;
+      .get(JSON.stringify(readHomeserverRooms(synapse)))?.at;
     // ponytail: every Beeper message after the boundary, every pass (1,100 LINE rows, Nov 2026), as the old Beeper copy
     // did; a window of the last days (an unsend is possible for 24 h) if it grows slow, at the cost of a late backfill.
     const rows = store
@@ -744,22 +664,6 @@ export function copyBeeper(
   }
 }
 
-/** The homeserver's rooms: the chats a bridge copied (the homeserver is never made again, so the set only grows). */
-function bridgeRooms(synapse: string) {
-  if (!existsSync(synapse)) {
-    return [];
-  }
-  const hs = openReadOnly(synapse);
-  try {
-    return hs
-      .query<{ room: string }, []>("select room_id as room from rooms")
-      .all()
-      .map((r) => r.room);
-  } finally {
-    hs.close();
-  }
-}
-
 /** A bridged network as a source: its archive's copy (by `copierOf`), its reading and newest. */
 export const bridgedSource = (network: Network): Descriptor => {
   const { label, name } = network;
@@ -777,7 +681,10 @@ export const bridgedSource = (network: Network): Descriptor => {
       ),
     read: (since, before) => readBridged(network, since, undefined, before),
     // A chat the bridge copied is its room; one Beeper or an export copied is not the bridge's.
-    roomOf: (chat) => (isOwnRoom(chat) ? chat : undefined),
+    send: matrixSend(name, () => {
+      const rooms = new Set(readHomeserverRooms());
+      return (chat) => (rooms.has(chat) ? chat : undefined);
+    }),
     silentAfter: 72 * HOUR,
     store: {
       // Beeper's store gets new messages only while Beeper runs; the bridges' one job keeps a bridge running.

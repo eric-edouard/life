@@ -200,7 +200,7 @@ const isSendDue = (d: Omit<Decision, "state">) =>
       d.options.find((o) => o.id === d.answer?.options[0])?.outgoing
   );
 
-/** A send with no outcome this long after his answer never ended (a crash): `sendText` ends within about 40 s. */
+/** A send with no outcome this long after his answer never ended (a crash): a send path ends within about 50 s (`matrixSend`). */
 const SEND_ENDS_AFTER = 2 * MIN;
 
 /** The send's outcome as stored, or, past `SEND_ENDS_AFTER` with none, one that never ended. */

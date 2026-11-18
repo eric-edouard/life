@@ -6,6 +6,7 @@ import type { Descriptor } from "../sources/contract";
 import { BRIDGES } from "../sources/matrix";
 import { readDraftChat } from "./draft-send";
 
+const KIT_JID = /^\d+@s\.whatsapp\.net$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
 const line = (chat: string, chatName: string): SourceEvent => ({
   at: "2026-11-10T12:00:00.000Z",
@@ -19,12 +20,24 @@ const line = (chat: string, chatName: string): SourceEvent => ({
 });
 
 /** A made-up bridged source: Ana's two chats, one of them its bridge's room, and a group. */
-const source = (name: string, events: SourceEvent[]): Descriptor => ({
+const source = (
+  name: string,
+  events: SourceEvent[],
+  opens = false
+): Descriptor => ({
   kind: "chat",
   label: name,
   name: name as never,
   read: () => events,
-  roomOf: (chat) => (chat.startsWith("!") ? chat : undefined),
+  send: {
+    block: async () =>
+      name === "elsewhere" ? "elsewhere's bridge isn't on this Mac" : undefined,
+    holds: (chats) => chats.filter((c) => c.startsWith("!")),
+    opens: opens
+      ? async (chat) => (KIT_JID.test(chat) ? "Test Kit" : undefined)
+      : undefined,
+    send: async () => "$ev",
+  },
   silentAfter: 0,
 });
 
@@ -71,7 +84,7 @@ test("a draft is refused when asked: two chats for one person, a source that doe
   await expect(
     readDraftChat({ channel: "sendnet", to: "Test Ana" }, NOW, [two])
   ).rejects.toThrow("Test Ana has 2 chats on sendnet");
-  const mail = { ...two, kind: "mail", name: "mail", roomOf: undefined };
+  const mail = { ...two, kind: "mail", name: "mail", send: undefined };
   await expect(
     readDraftChat({ channel: "mail", to: "Test Ana" }, NOW, [
       mail as Descriptor,
@@ -83,4 +96,19 @@ test("a draft is refused when asked: two chats for one person, a source that doe
       source("elsewhere", []),
     ])
   ).rejects.toThrow("elsewhere's bridge isn't on this Mac");
+});
+
+test("a chat that doesn't exist yet opens by its id when the source can open it; a group it never saw, or a name, doesn't", async () => {
+  const wa = source("whatsapp", [line("!ana:life.local", "Test Ana")], true);
+  const read = (to: string) =>
+    readDraftChat({ channel: "whatsapp", to }, NOW, [wa]);
+  expect(await read("66123456@s.whatsapp.net")).toEqual({
+    chat: "66123456@s.whatsapp.net",
+    name: "Test Kit",
+    source: "whatsapp",
+  });
+  await expect(read("120@g.us")).rejects.toThrow(
+    "a group it never saw can't be opened"
+  );
+  await expect(read("Nobody Known")).rejects.toThrow("no chat");
 });

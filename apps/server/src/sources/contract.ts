@@ -32,6 +32,24 @@ export interface AppStore {
   copy: () => void;
   deleted?: { media?: string };
 }
+/** A card's draft as a send path takes it. */
+export interface Outgoing {
+  chat: string;
+  text: string;
+}
+
+/** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
+export interface SendPath {
+  /** Why it can't send now (a bridge not added, not linked, not answering); none when it can. */
+  block: () => Promise<string | undefined>;
+  /** Of these chats, the ones it can send into today. One read, however many chats. */
+  holds: (chats: string[]) => string[];
+  /** For a chat it can open (a new 1:1 chat): its name there, none when it has no such chat. */
+  opens?: (chat: string) => Promise<string | undefined>;
+  /** Sends once per `txn`; the id once confirmed. Throws `not sent: …` (nothing went) or `may have gone: …`. */
+  send: (draft: Outgoing, txn: string) => Promise<string>;
+}
+
 /** A message as its store first wrote it (`incoming`): its row there, its id as `read` gives it and its time. */
 export interface NewRow {
   at: string;
@@ -68,11 +86,8 @@ export type Descriptor = {
   macOnly?: true;
   /** What he calls it. */
   label: string;
-  /**
-   * Its bridge's room on Life's homeserver for one of its chats, none for a chat the bridge holds no room for: a source
-   * with it sends a card's draft through the bridge of its name (`memory/draft-send.ts`).
-   */
-  roomOf?: (chat: string) => string | undefined;
+  /** How a card's draft goes into one of its chats (`memory/draft-send.ts`); a source without it sends nothing. */
+  send?: SendPath;
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;

@@ -1,8 +1,9 @@
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { enabledSources, SOURCES } from "../memory/sources";
-import { copierOf, NETWORKS, type Network } from "../sources/bridged";
+import { copierOf } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
 import { isBridgeAdded, readBlock } from "../sources/matrix";
+import { NETWORKS, type Network } from "../sources/networks";
 
 // `bun life bridge` (docs/use/bridges.md): every messaging connector he has, checked live and in parallel, one line
 // each: a spinner while it is checked, then ✓ or ✗ with what was found. A live probe of what each capability says now
@@ -67,8 +68,12 @@ const ago = (at: string) => {
     : `${Math.round(ms / DAY)} d ago`;
 };
 
-async function bridgePart(n: Network): Promise<Part> {
-  const copier = copierOf(n.name);
+async function bridgePart(n: Network): Promise<Part | undefined> {
+  // A network its own app is read from (WhatsApp) has a bridge only for sending: no bridge is no problem.
+  if (n.readByItsApp && !isBridgeAdded(n.name)) {
+    return;
+  }
+  const copier = n.readByItsApp ? "bridge" : copierOf(n.name);
   if (copier === "beeper") {
     return { kind: "bridge", ok: true, text: "read from Beeper" };
   }

@@ -112,12 +112,13 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
 });
 
 // Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.
-test("only his answer to a decision sends: answerDecision alone calls sendDraft, which alone calls sendText, the one Matrix send", () => {
+test("only his answer to a decision sends: answerDecision alone calls sendDraft, which sends through a source's send path, and only matrixSend, the one Matrix send, is built by the sources", () => {
   expect(importers(["sendDraft"], "draft-send")).toEqual([
     "apps/server/src/memory/decisions.ts",
   ]);
-  expect(importers(["sendText"], "matrix")).toEqual([
-    "apps/server/src/memory/draft-send.ts",
+  expect(importers(["matrixSend"], "matrix")).toEqual([
+    "apps/server/src/memory/sources.ts",
+    "apps/server/src/sources/bridged.ts",
   ]);
   expect(running(MATRIX_SEND)).toEqual(["apps/server/src/sources/matrix.ts"]);
 });

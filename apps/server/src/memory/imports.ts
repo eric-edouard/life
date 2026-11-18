@@ -29,8 +29,9 @@ import {
   parsedExport,
   pruned,
 } from "../sources/assistants";
-import { NETWORKS, type Network, readBridged } from "../sources/bridged";
+import { readBridged } from "../sources/bridged";
 import { copyInstagramExport } from "../sources/instagram-export";
+import { NETWORKS, type Network } from "../sources/networks";
 import { IMPORTED, keptConversations, readJudgments } from "./memory-files";
 import { describeFiles } from "./message-files";
 import { meContext } from "./model-context";

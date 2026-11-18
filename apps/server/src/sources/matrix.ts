@@ -3,10 +3,11 @@ import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
+import type { SendPath } from "./contract";
 
 // The bridges' local Matrix homeserver (docs/use/bridges.md): each bridge's config and its provisioning API, which
-// says whether it is linked and connected, and the one send into a bridged chat (`sendText`). Reading the bridges'
-// messages is `sources/bridged.ts`.
+// says whether it is linked and connected, and the one Matrix send into a bridged chat (`matrixSend`). Reading the
+// bridges' messages is `sources/bridged.ts`.
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
 export const BRIDGES = join(MACHINE_DIR, "bridges");
@@ -38,9 +39,27 @@ export const readOwnerAccount = (): { password?: string; token?: string } =>
     ? JSON.parse(readFileSync(SECRETS.matrix, "utf8"))
     : {};
 
-/** Whether a chat key is a room on Life's own homeserver (a Beeper room's key ends with Beeper's server). */
-export const isOwnRoom = (chat: string) =>
-  chat.startsWith("!") && chat.endsWith(`:${SERVER}`);
+/** The homeserver's database. */
+export const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
+
+/**
+ * The rooms on Life's homeserver (a room's id has no server part since room version 12, so only the homeserver can say
+ * which are its own); the homeserver is never made again, so the set only grows. One read per call, never per event.
+ */
+export function readHomeserverRooms(synapse = SYNAPSE) {
+  if (!existsSync(synapse)) {
+    return [];
+  }
+  const hs = openReadOnly(synapse);
+  try {
+    return hs
+      .query<{ room: string }, []>("select room_id as room from rooms")
+      .all()
+      .map((r) => r.room);
+  } finally {
+    hs.close();
+  }
+}
 
 /** Whether a network's bridge is added: its folder holds its config (`bun life bridge add`). */
 export const isBridgeAdded = (network: string) =>
@@ -337,23 +356,21 @@ export async function unlinkBridge(bridge: string) {
 /** A refusal before the homeserver stored anything: a 4xx. A 5xx may come after it stored the event. */
 const REFUSED = /^4\d\d /;
 
-/**
- * Sends `text` as him into `room` through `bridge`, once per `txn` (the homeserver keeps a resend of the same
- * transaction to its first event); returns the event, once the bridge has written it as sent to the network (its
- * `message` row for the event, within `confirmMs`). Ends within about 40 s (two calls of 10 s at most, then 20 s). Throws words that say whether anything may have
- * gone. Only `memory/draft-send.ts` calls it (`scripts/imports.test.ts`).
- */
-export async function sendText(
+/** Where a send reaches, and how long it waits: only a test changes it. */
+interface SendAt {
+  bridges: string;
+  confirmMs: number;
+  homeserver: string;
+  token?: string;
+}
+
+/** Sends `text` as him into `room` through `bridge`, once per `txn`; the event, once the bridge confirmed it. */
+async function sendText(
   bridge: string,
   room: string,
   text: string,
   txn: string,
-  at = {
-    bridges: BRIDGES,
-    confirmMs: 20_000,
-    homeserver: HOMESERVER_URL,
-    ...readOwnerAccount(),
-  }
+  at: SendAt
 ) {
   if (!at.token) {
     throw new Error("not sent: the homeserver holds no account of his");
@@ -397,4 +414,80 @@ export async function sendText(
   throw new Error(
     `may have gone: the homeserver took it (${event}) but the ${bridge} bridge didn't confirm it: read the chat`
   );
+}
+
+/** What the bridge's provisioning says of an identifier (`resolve_identifier`, `create_dm`): the chat's name and room. */
+interface Resolved {
+  dm_room_mxid?: string;
+  name?: string;
+}
+
+/**
+ * A network's send path through its bridge, the one Matrix send (`scripts/imports.test.ts`). `roomsOf` reads the rooms
+ * once and gives a chat's room there (none for a chat the bridge holds no room for); `handleOf` gives the id the bridge
+ * opens a new 1:1 chat by, for a network that has one: asking the bridge to open a chat asks the network whether the
+ * handle has an account. A send ends within about 50 s (a chat opened, two calls of 10 s, then 20 s).
+ */
+export function matrixSend(
+  bridge: string,
+  roomsOf: () => (chat: string) => string | undefined,
+  handleOf?: (chat: string) => string | undefined,
+  override: Partial<SendAt> = {}
+): SendPath {
+  const handle = (chat: string) => encodeURIComponent(handleOf?.(chat) ?? "");
+  return {
+    block: async () =>
+      isBridgeAdded(bridge)
+        ? await readBlock(bridge)
+        : `the ${bridge} bridge isn't on this Mac`,
+    holds: (chats) => {
+      const roomOf = roomsOf();
+      return chats.filter((c) => roomOf(c));
+    },
+    opens: handleOf
+      ? async (chat) => {
+          if (!handleOf(chat)) {
+            return;
+          }
+          try {
+            const who = (await provision(
+              bridge,
+              `resolve_identifier/${handle(chat)}`
+            )) as Resolved;
+            return who.name ?? handleOf(chat);
+          } catch (e) {
+            // The bridge's answer for a handle the network has no account for.
+            if ((e as Error).message.startsWith("404 ")) {
+              return;
+            }
+            throw e;
+          }
+        }
+      : undefined,
+    send: async ({ chat, text }, txn) => {
+      let room = roomsOf()(chat);
+      if (!room && handleOf?.(chat)) {
+        room = (
+          (await provision(bridge, `create_dm/${handle(chat)}`, {
+            body: "{}",
+            method: "POST",
+          }).catch((e: Error) => {
+            throw new Error(
+              `not sent: ${bridge} chat not opened: ${e.message}`
+            );
+          })) as Resolved
+        ).dm_room_mxid;
+      }
+      if (!room) {
+        throw new Error(`not sent: ${bridge} holds no room for this chat`);
+      }
+      return sendText(bridge, room, text, txn, {
+        bridges: BRIDGES,
+        confirmMs: 20_000,
+        homeserver: HOMESERVER_URL,
+        ...readOwnerAccount(),
+        ...override,
+      });
+    },
+  };
 }

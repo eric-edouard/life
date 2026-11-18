@@ -11,6 +11,7 @@ import {
   phoneCallOf,
   readWhatsapp,
   WHATSAPP,
+  whatsappHandleOf,
   whatsappRoomOf,
 } from "./whatsapp";
 
@@ -295,4 +296,11 @@ test("a chat's room in the WhatsApp bridge: by its id, a phone's through the bri
   expect(whatsappRoomOf("120@g.us", bridges)).toBe("!group:life.local");
   expect(whatsappRoomOf("156@s.whatsapp.net", bridges)).toBeUndefined();
   expect(whatsappRoomOf("157@s.whatsapp.net", bridges)).toBeUndefined();
+});
+
+test("a person's chat id is the handle the bridge opens a chat by; a group's or a name is not", () => {
+  expect(whatsappHandleOf("155@s.whatsapp.net")).toBe("155@s.whatsapp.net");
+  expect(whatsappHandleOf("900@lid")).toBe("900@lid");
+  expect(whatsappHandleOf("120@g.us")).toBeUndefined();
+  expect(whatsappHandleOf("Test Kit")).toBeUndefined();
 });
