@@ -161,6 +161,38 @@ export function changeAskedTodoItem(
   });
 }
 
+/**
+ * Ticks the to-do items `keys` (their ledger keys, as a matter's steps name them) on his word `said`, one
+ * `changeTodoItem` each, in turn. Refused, ticking none, when one is an item of another list app than this install's.
+ */
+export async function tickTodoItems(keys: readonly string[], said: string) {
+  const b = backend();
+  const items = [...todoItemsOf(await readLedger()).values()].filter((it) =>
+    keys.includes(it.key)
+  );
+  const foreign = items.find((it) => !it.target.startsWith(`${b.prefix}:`));
+  if (foreign) {
+    throw new Error(`Not done: ${foreign.key} isn't an item of ${b.label}.`);
+  }
+  const ticked: LedgerEntry[] = [];
+  for (const it of items) {
+    ticked.push(
+      // biome-ignore lint/performance/noAwaitInLoops: one change at a time, each its own ledger lines
+      await changeAskedTodoItem(
+        {
+          kind: "done",
+          said,
+          target: it.target.slice(b.prefix.length + 1),
+          title: String(it.fields.title ?? ""),
+          why: "his matter marked done",
+        },
+        "connector"
+      )
+    );
+  }
+  return ticked;
+}
+
 /** The most to-do items the auto-add permission adds in one of his days. */
 const AUTO_ADD_DAILY = 3;
 

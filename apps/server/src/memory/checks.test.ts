@@ -1,13 +1,21 @@
-import { expect, test } from "bun:test";
+import { expect, setSystemTime, spyOn, test } from "bun:test";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import {
   type Check,
   type CheckInputs,
+  checksNow,
   checksOf,
   checksText,
   pushIdOf,
 } from "./checks";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "./matters";
+import { OBSERVATIONS, UNITS } from "./memory-files";
+import { locked } from "./memory-lock";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -34,7 +42,8 @@ const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
 };
 const about = (ref: string, over = {}) => line({ subjects: [ref], ...over });
 
-const ASKED_UNTIL_22_NOV = /^Nothing starts\. Asked until .*22 Nov/;
+const ASKED_UNTIL_22_NOV =
+  /Next step: Book the plumber\. Asked until .*22 Nov\.$/;
 
 /** A matter's steps, made up: each on 1 Oct with a quote. */
 const stepsOf = (...refs: string[]) =>
@@ -429,8 +438,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       asker: "life",
       at: null,
       clips: [],
-      context:
-        "Nothing blocks its next step: an agent could move it now. Next step: Book the plumber",
+      context: expect.stringMatching(ASKED_UNTIL_22_NOV),
       deadline: null,
       draft: null,
       evidence: {
@@ -443,7 +451,8 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       links: [],
       matter: { id: matter.id, name: "Boiler service" },
       notSent: null,
-      onSilence: expect.stringMatching(ASKED_UNTIL_22_NOV),
+      // 19 Nov 2026 (review A, B5): it held a sentence where every other kind holds an option id.
+      onSilence: null,
       options: [
         expect.objectContaining({ id: "start" }),
         expect.objectContaining({ id: "edit-goal" }),
@@ -515,4 +524,46 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       matters: [regrouped],
     })
   ).toEqual([]);
+});
+
+// 19 Nov 2026 (review A, B3 and R1): a run that took and let go of the lock between two of the watcher's looks never
+// pushed its cards, and every reader read every episode and observation on every call. Then (PR 600's verdict): a key
+// on the lock's release changed with each of the watcher's unit syncs, every 5 minutes.
+test("the inbox is read again only when what it reads changed: not a unit sync; a run's lines, an agent anchored, a new day", async () => {
+  const reads = spyOn(matters, "readMatterRecords");
+  const day = join(OBSERVATIONS, "2026-11-19.jsonl");
+  // Made here and removed after, as other tests expect the made-up data without them.
+  const made = [UNITS, OBSERVATIONS].filter((d) => !existsSync(d));
+  try {
+    await checksNow(null);
+    reads.mockClear();
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(0);
+    // The watcher's sync: today's units written, under the lock.
+    await locked(() => {
+      mkdirSync(UNITS, { recursive: true });
+      writeFileSync(join(UNITS, "2026-11-19.jsonl"), "");
+      return Promise.resolve();
+    });
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(0);
+    // A night's run: an observation written.
+    mkdirSync(OBSERVATIONS, { recursive: true });
+    writeFileSync(day, "");
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(1);
+    await checksNow(new Set(["obs_000000000001"]));
+    expect(reads).toHaveBeenCalledTimes(2);
+    setSystemTime(new Date(clock().getTime() + DAY));
+    await checksNow(new Set(["obs_000000000001"]));
+    expect(reads).toHaveBeenCalledTimes(3);
+  } finally {
+    setSystemTime();
+    reads.mockRestore();
+    rmSync(day, { force: true });
+    rmSync(join(UNITS, "2026-11-19.jsonl"), { force: true });
+    for (const d of made) {
+      rmSync(d, { force: true, recursive: true });
+    }
+  }
 });

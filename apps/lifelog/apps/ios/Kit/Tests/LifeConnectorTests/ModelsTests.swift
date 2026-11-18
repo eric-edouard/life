@@ -13,8 +13,11 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 /// there first, then here, naming the model.
 @Test func everyReadOfLifeDecodes() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.total == 4)
-    #expect(inbox.counts == ["decision": 1, "voice": 1, "new matter": 1, "name": 1])
+    #expect(inbox.total == 7)
+    #expect(
+        inbox.counts == [
+            "decision": 1, "ending": 1, "new matter": 1, "guessed person": 1, "contacts card": 1, "name": 1, "voice": 1,
+        ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)
     #expect(decision.options.first?.outgoing == true)
@@ -22,17 +25,17 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(decision.draft?.file?.name == "quote.pdf")
     #expect(decision.draft?.quoted?.sender == "Kit")
     #expect(decision.deadline != nil)
-    let voice = inbox.checks[1]
+    let voice = try #require(inbox.checks.first { $0.group == .voice })
     #expect(voice.clips.first?.audio?.jobId == "job-1")
     #expect(voice.likelyPeople.first?.name == "Gran")
-    #expect(voice.ridesOn?.observations == 2)
-    let found = inbox.checks[2]
+    #expect(inbox.checks.first { $0.group == .ending }?.ridesOn?.matters == 1)
+    let found = try #require(inbox.checks.first { $0.group == .newMatter })
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
     #expect(found.options.map(found.shown) == ["Start", "Edit goal", "Dismiss"])
     #expect(found.offeredGoal == "Gran's photo is framed")
-    #expect(inbox.checks[3].draft == nil)
+    #expect(inbox.checks.last?.draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
     #expect(list.matters.map(\.id) == ["matter_aaaaaaaaaaaa", "matter_bbbbbbbbbbbb"])
@@ -105,7 +108,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
 
 @Test func anInboxCountsTheCardsOfAMatter() throws {
     let inbox = try decoded(Inbox.self, wireText("life/read_inbox.json"))
-    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 1)
+    #expect(inbox.openCount(matter: "matter_aaaaaaaaaaaa") == 2)
     #expect(inbox.openCount(matter: "nothing") == 0)
 }
 

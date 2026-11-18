@@ -257,8 +257,8 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   notSent: null,
   onSilence: null,
   options: [
-    { id: "this-is", label: "It is them" },
-    { id: "not-this-person", label: "Not them" },
+    { id: "this-is", label: "It is them", takes: null },
+    { id: "not-this-person", label: "Not them", takes: null },
   ],
   question: guess,
   ref: `person:${guess}`,
@@ -314,8 +314,8 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     notSent: null,
     onSilence: null,
     options: [
-      { id: "yes", label: "Book it" },
-      { id: "no", label: "Skip" },
+      { id: "yes", label: "Book it", takes: null },
+      { id: "no", label: "Skip", takes: null },
     ],
     question: `Book plumber ${i}?`,
     ref: `dec_00000000000${i}`,
