@@ -11,9 +11,27 @@ struct LifelogApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
 
+    @ViewBuilder private var root: some View {
+        #if DEBUG
+            if let size = DuoPose<AnyView>.requested {
+                DuoPose(
+                    size: size,
+                    content: AnyView(
+                        RootView().environment(appDelegate.capture).environment(\.library, appDelegate.library)
+                            .environment(appDelegate.sync).environment(appDelegate.life)
+                            .environment(appDelegate.playback).environment(appDelegate.appleHealth)
+                            .environment(\.scenePhase, .active)))
+            } else {
+                RootView()
+            }
+        #else
+            RootView()
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            root
                 // A fallback cycle while in the foreground only; background sync follows the Pendant's events.
                 .task(id: scenePhase == .active) {
                     guard scenePhase == .active else { return }

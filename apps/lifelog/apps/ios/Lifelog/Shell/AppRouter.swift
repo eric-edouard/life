@@ -12,8 +12,9 @@ final class AppRouter {
     }
 
     var tab = Tab.inbox
-    /// The matters stack: a matter's id per page.
-    var matters: [String] = []
+    /// The matter on show in the Matters tab, by id, and which column a compact width shows: the list or the matter.
+    var matter: String?
+    var matterColumn = NavigationSplitViewColumn.sidebar
     var sheet: Sheet?
     /// A card the Inbox should show next (a matter's "Answer").
     var focusedCard: String?
@@ -23,7 +24,8 @@ final class AppRouter {
     func open(matter id: String) {
         sheet = nil
         tab = .matters
-        matters = [id]
+        matter = id
+        matterColumn = .detail
     }
 
     func answer(card ref: String) {

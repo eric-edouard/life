@@ -12,15 +12,22 @@ struct InboxScreen: View {
     @State private var deferred: [String] = []
     @State private var current: String?
     @State private var notice: String?
+    /// What he typed or opened on each card: here, not in the card, so folding or unfolding the phone keeps it.
+    @State private var drafts: [String: CardDraft] = [:]
 
     var body: some View {
         Group {
             if let taken {
-                AnswerResultView(
-                    taken: taken, state: life.state(of: taken.key),
-                    next: ordered(life.inbox.value).first { $0.ref != taken.check.ref }?.question,
-                    retry: { Task { await life.answer(taken.request) } },
-                    keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
+                let state = life.state(of: taken.key)
+                let next = ordered(life.inbox.value).first { $0.ref != taken.check.ref }?.question
+                CardArrangement(check: taken.check) {
+                    AnswerResultView(taken: taken, state: state, next: next)
+                } bar: {
+                    ResultButtons(
+                        taken: taken, state: state, next: next,
+                        retry: { Task { await life.answer(taken.request) } },
+                        keepForLater: { leave(taken, keep: true) }, nextCard: { leave(taken, keep: false) })
+                }
             } else {
                 ReadScreen(
                     shown: life.inbox.shown(isEmpty: { $0.checks.isEmpty }), retry: { await life.refreshInbox() },
@@ -29,6 +36,16 @@ struct InboxScreen: View {
             }
         }
         .background(Palette.bg)
+        .sheet(isPresented: sameAsBinding) {
+            if let check = shownCheck {
+                SameAsSheet(people: check.likelyPeople) { choice in
+                    switch choice {
+                    case .person(let id): submit(check, AnswerRequest(ref: check.ref, options: [], person: id))
+                    case .name(let name): submit(check, AnswerRequest(ref: check.ref, options: [], name: name))
+                    }
+                }
+            }
+        }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
             current = opening.check?.ref
@@ -45,28 +62,46 @@ struct InboxScreen: View {
     }
 
     @ViewBuilder private func card(in inbox: Inbox) -> some View {
-        let checks = ordered(inbox)
-        let index = checks.firstIndex { $0.ref == current } ?? 0
-        if let check = checks.indices.contains(index) ? checks[index] : nil {
-            cardView(check, index: index, count: checks.count)
+        if let check = shownCheck(in: ordered(inbox)) {
+            cardView(check, count: ordered(inbox).count)
         } else {
             InboxZero(agents: working)
         }
     }
 
-    private func cardView(_ check: Check, index: Int, count: Int) -> some View {
-        VStack(spacing: 0) {
-            if let notice {
-                Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, 20).padding(.vertical, 10)
+    /// The card on show: the one he opened, else the most urgent.
+    private func shownCheck(in checks: [Check]) -> Check? { checks.first { $0.ref == current } ?? checks.first }
+    private var shownCheck: Check? { shownCheck(in: ordered(life.inbox.value)) }
+
+    private func cardView(_ check: Check, count: Int) -> some View {
+        let checks = ordered(life.inbox.value)
+        let position = (checks.firstIndex { $0.ref == check.ref } ?? 0) + 1
+        let draft = Binding(get: { drafts[check.ref] ?? CardDraft() }, set: { drafts[check.ref] = $0 })
+        return CardArrangement(check: check) {
+            VStack(spacing: 0) {
+                if let notice {
+                    Text(notice).font(.small).foregroundStyle(Palette.muted).padding(.horizontal, 20).padding(
+                        .vertical, 10
+                    )
                     .frame(maxWidth: .infinity, alignment: .leading).background(Color.fillTint)
+                }
+                CheckCard(
+                    check: check, position: position, total: count, runtimeName: runtimeName(of: check),
+                    openMatter: { router.open(matter: $0) }, draft: draft
+                )
+                .id(check.ref)
             }
-            CheckCard(
-                check: check, position: index + 1, total: count, runtimeName: runtimeName(of: check),
-                answer: { request in submit(check, request, position: index + 1, total: count) },
-                openMatter: { router.open(matter: $0) }
-            )
-            .id(check.ref)
+        } bar: {
+            CheckActions(
+                check: check, runtimeName: runtimeName(of: check), draft: draft,
+                answer: { submit(check, $0) })
         }
+    }
+
+    private var sameAsBinding: Binding<Bool> {
+        Binding(
+            get: { shownCheck.map { drafts[$0.ref]?.showsSameAs == true } ?? false },
+            set: { if let ref = shownCheck?.ref { drafts[ref, default: CardDraft()].showsSameAs = $0 } })
     }
 
     /// Most urgent first, as Life sends them; what he kept for later goes after.
@@ -82,10 +117,12 @@ struct InboxScreen: View {
 
     private var working: Int { life.agents.value?.agents.count { $0.status == .running || $0.status == .waiting } ?? 0 }
 
-    private func submit(_ check: Check, _ request: AnswerRequest, position: Int, total: Int) {
+    private func submit(_ check: Check, _ request: AnswerRequest) {
+        let checks = ordered(life.inbox.value)
         notice = nil
         taken = Taken(
-            check: check, request: request, position: position, total: total, runtimeName: runtimeName(of: check))
+            check: check, request: request, position: (checks.firstIndex { $0.ref == check.ref } ?? 0) + 1,
+            total: checks.count, runtimeName: runtimeName(of: check))
         Task { await life.answer(request) }
     }
 
@@ -121,6 +158,7 @@ private struct InboxZero: View {
         }
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .readingWidth()
     }
 }
 

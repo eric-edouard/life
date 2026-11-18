@@ -9,6 +9,7 @@ struct MatterPage: View {
     @Environment(LifeStore.self) private var life
     @Environment(AppRouter.self) private var router
     @State private var showsStart = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         let state = life.matter[id] ?? ReadState()
@@ -19,8 +20,9 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        .toolbarVisibility(.hidden, for: .tabBar)
-        .shellBar("Matter", hasSettings: false)
+        .toolbarVisibility(sizeClass == .regular ? .automatic : .hidden, for: .tabBar)
+        // Beside the list the Pendant is already in the list's bar.
+        .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
         .task { await life.refreshMatter(id) }
     }
 
@@ -48,7 +50,7 @@ struct MatterPage: View {
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
         .sheet(isPresented: $showsStart, onDismiss: { life.forget(.start(matter: id)) }) {
-            StartAgentSheet(matter: matter)
+            StartAgentSheet(matter: matter).presentationPlacement(.leading)
         }
     }
 

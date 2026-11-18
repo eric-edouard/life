@@ -9,14 +9,12 @@ struct CheckCard: View {
     let total: Int
     /// The runtime of the agent that asked, when the card's matter has one.
     let runtimeName: RuntimeName?
-    let answer: (AnswerRequest) -> Void
     let openMatter: (String) -> Void
+    /// What he has typed or opened on this card: kept by the screen, so folding the phone keeps it.
+    @Binding var draft: CardDraft
 
-    @Environment(\.openURL) private var openURL
-    @State private var isWritingOwnWords = false
-    @State private var words = ""
-    @State private var showsWhy = false
-    @State private var showsSameAs = false
+    /// A wide screen shows the card's context beside or below it, so its "Why" row goes.
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         ScrollView {
@@ -30,7 +28,7 @@ struct CheckCard: View {
                 Text(check.question).font(.cardQuestion).foregroundStyle(Palette.fg).lit()
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 4)
-                if isWritingOwnWords { ownWords } else { content }
+                if draft.isWritingOwnWords { ownWords } else { content }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -39,17 +37,6 @@ struct CheckCard: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .sheet(isPresented: $showsSameAs) {
-            SameAsSheet(people: check.likelyPeople) { choice in
-                switch choice {
-                case .person(let id): answer(AnswerRequest(ref: check.ref, options: [], person: id))
-                case .name(let name): answer(AnswerRequest(ref: check.ref, options: [], name: name))
-                }
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            actions.padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
-        }
     }
 
     // MARK: Top
@@ -116,8 +103,8 @@ struct CheckCard: View {
         if let line = ridesOnLine {
             Text(line).font(.small).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
         }
-        if let context = check.context, !context.isEmpty {
-            DisclosureGroup(isExpanded: $showsWhy) {
+        if sizeClass != .regular, let context = check.context, !context.isEmpty {
+            DisclosureGroup(isExpanded: $draft.showsWhy) {
                 Text(context).font(.body15).foregroundStyle(Palette.muted).frame(
                     maxWidth: .infinity, alignment: .leading
                 )
@@ -157,7 +144,7 @@ struct CheckCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Caps(check.group == .newMatter ? "Your goal" : "Your answer")
             TextField(
-                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $words, axis: .vertical
+                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $draft.words, axis: .vertical
             )
             .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
             .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
@@ -168,110 +155,6 @@ struct CheckCard: View {
         }
     }
 
-    // MARK: Actions
-
-    private var actions: some View {
-        VStack(spacing: 8) {
-            if isWritingOwnWords {
-                Button {
-                    answer(
-                        AnswerRequest(
-                            ref: check.ref, options: check.group == .newMatter ? ["edit-goal"] : [],
-                            note: words.trimmingCharacters(in: .whitespacesAndNewlines)))
-                } label: {
-                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
-                }
-                .buttonStyle(.pill(.filled))
-                .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button("Back to the options") { isWritingOwnWords = false }.buttonStyle(.pill(.quiet, height: 48))
-            } else {
-                options
-                HStack {
-                    if check.group != .newMatter {
-                        Button {
-                            isWritingOwnWords = true
-                        } label: {
-                            Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
-                                Palette.fg
-                            )
-                            .frame(minHeight: 44)
-                        }
-                    }
-                    Spacer(minLength: 12)
-                    if let link = check.links.first.flatMap(URL.init(string:)) {
-                        Button {
-                            openURL(link)
-                        } label: {
-                            Text("Open in \(runtimeName?.name ?? "its app") \(Image(systemName: "arrow.up.right"))")
-                                .font(.body15).foregroundStyle(Palette.muted).frame(minHeight: 44)
-                        }
-                    }
-                }
-                if let line = silence {
-                    Text(line).font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder private var options: some View {
-        if let first = check.options.first {
-            Button {
-                tap(first)
-            } label: {
-                HStack(spacing: 10) {
-                    if first.outgoing == true { Image(systemName: "arrow.up").accessibilityHidden(true) }
-                    Text(shown(first))
-                }
-            }
-            .buttonStyle(.pill(.filled, height: 54))
-            let rest = Array(check.options.dropFirst())
-            if !rest.isEmpty || asksWho {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
-                    ForEach(rest, id: \.id) { option in
-                        Button(shown(option)) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
-                    }
-                    if asksWho { Button("Same as…") { showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48)) }
-                }
-            }
-        }
-    }
-
-    /// A card about who someone is can name another person, or a new one.
-    private var asksWho: Bool { [.name, .guessedPerson, .voice].contains(check.group) }
-
-    private func shown(_ option: Check.Option) -> String { check.shown(option) }
-
-    /// The goal the card offers, between "Goal: " and " Work on it?".
-    private var goal: String {
-        check.question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
-    }
-
-    private func tap(_ option: Check.Option) {
-        if check.group == .newMatter, option.id == "edit-goal" {
-            words = goal
-            isWritingOwnWords = true
-            return
-        }
-        answer(AnswerRequest(ref: check.ref, options: [option.id]))
-    }
-
-    /// What happens when he does not answer: Life's own words for the kinds that have a standing rule, the asker's option otherwise.
-    private var silence: String? {
-        switch check.group {
-        case .ending: return "Until you say, Life treats it as probably done."
-        case .voice: return "Until you say, the voice stays unnamed."
-        case .name, .guessedPerson: return "Until you say, Life keeps its guess."
-        case .card, .newMatter: return "Nothing starts unless you say so."
-        case .decision, .unknown:
-            guard let deadline = check.deadline else { return nil }
-            let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
-            if check.draft != nil { return "No answer by \(when): nothing is sent." }
-            let chosen = check.options.first { $0.id == check.onSilence }?.label
-            return "No answer by \(when): " + (chosen.map { "“\($0)”." } ?? "nothing happens.")
-        }
-    }
 }
 
 // MARK: Bodies

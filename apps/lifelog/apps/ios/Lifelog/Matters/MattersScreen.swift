@@ -10,10 +10,13 @@ struct MattersScreen: View {
     @State private var query = ""
     @State private var filter = MatterFilter()
     @State private var showsFilters = false
+    @State private var visibility = NavigationSplitViewVisibility.all
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
+    /// Two columns, the list and the matter: side by side on a regular width, one at a time on a compact one.
     var body: some View {
         @Bindable var router = router
-        NavigationStack(path: $router.matters) {
+        NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $router.matterColumn) {
             ReadScreen(
                 shown: life.matters.shown(isEmpty: { $0.matters.isEmpty }), retry: { await life.refreshMatters() },
                 loading: { RowsPlaceholder() },
@@ -25,17 +28,35 @@ struct MattersScreen: View {
                 content: { list in content(list) }
             )
             .background(Palette.bg)
-            .navigationDestination(for: String.self) { MatterPage(id: $0) }
             .shellBar("Matters")
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            if let id = router.matter {
+                MatterPage(id: id).id(id)
+            } else {
+                Notice(title: "No matter chosen.", detail: "Pick one from the list.").background(Palette.bg)
+            }
         }
+        // The split view can drop the selection when it expands: a regular width always shows a matter.
+        .onChange(of: sizeClass, initial: true) { fillSelection() }
+        .onChange(of: life.matters.value) { fillSelection() }
         .onChange(of: router.showsAgentsOnly, initial: true) { _, on in
             guard on else { return }
             filter.withAgent = true
             router.showsAgentsOnly = false
         }
         .sheet(isPresented: $showsFilters) {
-            if let list = life.matters.value { FiltersSheet(list: list, query: query, filter: $filter) }
+            if let list = life.matters.value {
+                FiltersSheet(list: list, query: query, filter: $filter).presentationPlacement(.trailing)
+            }
         }
+    }
+
+    private func fillSelection() {
+        guard sizeClass == .regular,
+            router.matter == nil || life.matters.value?.matters.contains(where: { $0.id == router.matter }) == false
+        else { return }
+        router.matter = life.matters.value?.matters.first?.id
     }
 
     private func content(_ list: MatterList) -> some View {
@@ -75,12 +96,16 @@ struct MattersScreen: View {
                     .padding(20)
                 }
                 ForEach(Array(rows.enumerated()), id: \.element.id) { offset, row in
-                    NavigationLink(value: row.id) {
+                    Button {
+                        router.open(matter: row.id)
+                    } label: {
                         MatterRowView(
                             rank: offset + 1, row: row, cards: inbox?.openCount(matter: row.id) ?? 0,
                             agent: life.agents.value?.agents.first { $0.id == row.agent })
                     }
                     .buttonStyle(.plain)
+                    .background(sizeClass == .regular && router.matter == row.id ? Color.fillTint : .clear)
+                    .accessibilityAddTraits(router.matter == row.id ? .isSelected : [])
                 }
             }
             .padding(.bottom, 24)
