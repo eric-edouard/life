@@ -14,6 +14,8 @@ struct InboxScreen: View {
     @State private var notice: String?
     /// What he typed or opened on each card: here, not in the card, so folding or unfolding the phone keeps it.
     @State private var inputs: [String: CardInput] = [:]
+    /// The card whose "Same as…" he opened.
+    @State private var sameAsRef: String?
 
     var body: some View {
         Group {
@@ -94,18 +96,15 @@ struct InboxScreen: View {
         } bar: {
             CheckActions(
                 check: check, runtimeName: runtimeName(of: check), input: input,
-                answer: { submit(check, $0) })
+                answer: { submit(check, $0) }, sameAs: { sameAsRef = check.ref })
         }
     }
 
-    /// The card whose "Same as…" he opened: that card, even if the inbox reorders under the sheet.
+    /// The card whose "Same as…" he opened: that card, even if the inbox reorders under the sheet; gone with it.
     private var sameAsCard: Binding<Check?> {
         Binding(
-            get: {
-                guard let ref = inputs.first(where: { $0.value.showsSameAs })?.key else { return nil }
-                return life.inbox.value?.checks.first { $0.ref == ref }
-            },
-            set: { if $0 == nil { for ref in inputs.keys { inputs[ref]?.showsSameAs = false } } })
+            get: { sameAsRef.flatMap { ref in life.inbox.value?.checks.first { $0.ref == ref } } },
+            set: { if $0 == nil { sameAsRef = nil } })
     }
 
     /// Most urgent first, as Life sends them; what he kept for later goes after.

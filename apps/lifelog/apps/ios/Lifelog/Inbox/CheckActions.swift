@@ -6,7 +6,6 @@ struct CardInput: Equatable {
     var isWritingOwnWords = false
     var words = ""
     var showsWhy = false
-    var showsSameAs = false
 }
 
 /// A card's answers: its options, "Something else", the link to the asker's app and what happens on silence. Apart from the
@@ -16,6 +15,7 @@ struct CheckActions: View {
     let runtimeName: RuntimeName?
     @Binding var input: CardInput
     let answer: (AnswerRequest) -> Void
+    let sameAs: () -> Void
 
     @Environment(\.openURL) private var openURL
 
@@ -82,7 +82,7 @@ struct CheckActions: View {
                         Button(shown(option)) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
                     if asksWho {
-                        Button("Same as…") { input.showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48))
+                        Button("Same as…", action: sameAs).buttonStyle(.pill(.quiet, height: 48))
                     }
                 }
             }
