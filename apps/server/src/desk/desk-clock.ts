@@ -22,12 +22,13 @@ import {
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
-import { readPeople } from "../memory/who";
+import { type People, readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
 import { finish, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
+  BEGIN_WITHIN_MS,
   defaultWaitOf,
   dueOf,
   failuresOf,
@@ -60,6 +61,18 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
+/** Who his people are, read when a poll first needs them: once per poll (`readPeopleOnce`). */
+type ReadPeople = () => Promise<People>;
+
+/** `readPeople`, read at most once however often it is asked. */
+export function readPeopleOnce(): ReadPeople {
+  let read: Promise<People> | undefined;
+  return () => {
+    read ??= readPeople();
+    return read;
+  };
+}
+
 /** Queues `wakes` (one event each, kept once per agent and id) as `name`. */
 function queue(
   db: Desk["db"],
@@ -80,14 +93,14 @@ function queue(
  * transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice (an event id
  * is kept once per agent). With no agent active, nothing is read, and the next read starts at that time.
  */
-export async function pollMessages(desk: Desk) {
+export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
   const { db, sources } = desk;
   const agents = activeAgents(db);
   if (agents.length === 0) {
     saveCursor(db, MESSAGE_RECEIVED, null);
     return;
   }
-  const people = await readPeople();
+  const people = await readPeopleNow();
   const nets = await netsOf(desk, people);
   const matchers = agents.flatMap((a) =>
     filtersOf(a).flatMap((f) => {
@@ -124,11 +137,11 @@ export async function pollMessages(desk: Desk) {
 }
 
 /** Queues his pendant's new recordings for every agent on a matter they relate to (`relatedRecordings`). */
-export async function pollRecordings(desk: Desk) {
+export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
   if (activeAgents(desk.db).length === 0) {
     return;
   }
-  const people = await readPeople();
+  const people = await readPeopleNow();
   const wakes = await relatedRecordings(
     desk,
     await netsOf(desk, people),
@@ -138,11 +151,14 @@ export async function pollRecordings(desk: Desk) {
 }
 
 /** Ends each active agent whose matter is done (`netsOf`'s read of the matters): nothing is left for it to do or wait for. */
-export async function endAgentsOnDoneMatters(desk: Desk) {
+export async function endAgentsOnDoneMatters(
+  desk: Desk,
+  readPeopleNow: ReadPeople
+) {
   if (activeAgents(desk.db).length === 0) {
     return;
   }
-  const nets = await netsOf(desk, await readPeople());
+  const nets = await netsOf(desk, await readPeopleNow());
   for (const n of nets.filter((x) => x.isDone)) {
     // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
     await finish(desk, n.agent, "its matter is done");
@@ -368,10 +384,16 @@ export async function wakeDue(desk: Desk) {
       const turns = lastTurns(desk.db, a.id);
       const d = dueOf(a, turns, queuedEvents(desk.db, a.id));
       return d && d.at <= t
-        ? [{ a, at: d.at, isFirst: d.cause === "answer" || turns.length === 0 }]
+        ? [
+            {
+              a,
+              at: d.at,
+              isAtOnce: d.cause === "answer" || turns.length === 0,
+            },
+          ]
         : [];
     })
-    .toSorted((x, y) => Number(y.isFirst) - Number(x.isFirst) || x.at - y.at);
+    .toSorted((x, y) => Number(y.isAtOnce) - Number(x.isAtOnce) || x.at - y.at);
   let started = 0;
   for (const d of due) {
     if (started === STARTS_PER_TICK) {
@@ -393,9 +415,10 @@ export async function tick(desk: Desk, isPollDue = true) {
   await endUnbegunTurns(desk);
   await wakeDue(desk);
   if (isPollDue) {
-    await pollMessages(desk);
-    await pollRecordings(desk);
-    await endAgentsOnDoneMatters(desk);
+    const people = readPeopleOnce();
+    await pollMessages(desk, people);
+    await pollRecordings(desk, people);
+    await endAgentsOnDoneMatters(desk, people);
     await endLostTurns(desk);
   }
 }
@@ -571,21 +594,32 @@ export async function endLostTurns(desk: Desk) {
 }
 
 /**
- * Ends each desk turn launched and not begun within its runtime's limit (`isBeginLate`): a hung launch (a door that
- * never connects, a stuck CLI). The turn is ended first (a first turn: its agent not started, its matter freed; a later
- * one failed, retried), then its run stopped, whose end then finds the turn closed.
+ * Ends each desk turn launched and not begun within `BEGIN_WITHIN_MS` (`isBeginLate`): a hung launch (a door that never
+ * connects, a stuck CLI). A turn this process does not watch (launched before a restart) is first asked of its runtime's
+ * own record (`hasBegun`): one that began while the helper was down is marked begun, never ended. Else the turn is ended
+ * first (a first turn: its agent not started, its matter freed; a later one failed, retried), then its run stopped,
+ * whose end then finds the turn closed.
  */
 export async function endUnbegunTurns(desk: Desk) {
   const at = clock().getTime();
+  const watching = watchedIn(desk.db);
   await eachOpenTurn(desk, async (a, t, runtime) => {
-    if (!(runtime && isBeginLate(t, runtime.beginWithinMs, at))) {
+    if (!(runtime && isBeginLate(t, at))) {
+      return;
+    }
+    if (
+      !watching.has(t.id) &&
+      t.session &&
+      (await runtime.hasBegun(t.session).catch(() => false))
+    ) {
+      markBegun(desk.db, t.id);
       return;
     }
     await turnEnded(
       desk,
       a.id,
       true,
-      `it did not begin within ${runtime.beginWithinMs / MIN} minutes`
+      `it did not begin within ${BEGIN_WITHIN_MS / MIN} minutes`
     );
     if (t.session) {
       await stopRun(runtime, a.id, t.session);

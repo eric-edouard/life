@@ -15,14 +15,14 @@ import { CODEX_HOME } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import {
   codexArgsOf,
-  codexHomeOf,
   codexRuntime,
   hasEvent,
   hasModelItem,
   isRolloutTurnOpen,
+  readCodexHome,
   rolloutUsageOf,
 } from "./codex-runtime";
-import { programOf } from "./contract";
+import { readProgram } from "./contract";
 
 // The codex runtime: the command it runs, a rollout's usage, and a start and a turn driven through a fake `codex` on
 // the PATH (made-up events). Nothing runs the real Codex.
@@ -244,7 +244,7 @@ test("a turn that dies mid-way ended not ok; one that dies before it began never
 });
 
 test("a session is running while its rollout's last turn is open and fresh (his own turn in the app); a compressed rollout is not gone", async () => {
-  const dir = join(codexHomeOf(), "sessions", "2026", "01", "01");
+  const dir = join(readCodexHome(), "sessions", "2026", "01", "01");
   mkdirSync(dir, { recursive: true });
   const ev = (type: string) =>
     JSON.stringify({ payload: { type }, type: "event_msg" });
@@ -324,7 +324,7 @@ test("the desk launches the program on the PATH, never one in node_modules/.bin 
   const path = process.env.PATH;
   process.env.PATH = `${pinned}:${his}:${path}`;
   try {
-    expect(programOf("codex")).toBe(join(his, "codex"));
+    expect(readProgram("codex")).toBe(join(his, "codex"));
   } finally {
     process.env.PATH = path;
   }

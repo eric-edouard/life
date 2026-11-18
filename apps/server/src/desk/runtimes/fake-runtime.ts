@@ -1,4 +1,4 @@
-import { BEGIN_WITHIN_MS, type Runtime } from "./contract";
+import type { Runtime } from "./contract";
 
 // A runtime for tests: sessions in memory. The test plays the agent (its door calls and its turn's end) and sets what
 // the runtime does: fail, report a session's growth, forget a session, run a turn of his, end a run.
@@ -61,7 +61,6 @@ export function fakeRuntime() {
     /** While set, `start` and `send` throw, as a CLI that fails. */
     isFailing: false as boolean,
     runtime: {
-      beginWithinMs: BEGIN_WITHIN_MS,
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
       hasBegun: (ref: string) => Promise.resolve(begun.has(ref)),
       async send(_agent, ref, message) {

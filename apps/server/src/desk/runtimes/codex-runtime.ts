@@ -15,13 +15,12 @@ import { firstLine, startDetached } from "../../core/proc";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF, toml } from "../../models/llm";
 import {
   type Agent,
-  BEGIN_WITHIN_MS,
   begunWhen,
-  cliBlockOf,
   isHeld,
-  programOf,
   type Run,
   type Runtime,
+  readCliBlock,
+  readProgram,
   stopMatching,
   type Usage,
 } from "./contract";
@@ -61,11 +60,11 @@ const SECOND_LIFE = {
 };
 
 /** The Codex home its sessions run in: his own `~/.codex`, or a second Life's Life's own. */
-export const codexHomeOf = () =>
+export const readCodexHome = () =>
   isOwnLife() ? join(HOME, ".codex") : CODEX_HOME;
 
 /** Where its sessions' rollouts are. */
-const sessionsDir = () => join(codexHomeOf(), "sessions");
+const sessionsDir = () => join(readCodexHome(), "sessions");
 
 /** What a codex process is given besides `cliEnv`. */
 const envOf = (): Record<string, string> =>
@@ -131,7 +130,7 @@ export const hasModelItem = (lines: string[]) =>
   eventsOf(lines).some((e) => e.type?.startsWith("item."));
 
 /** The files of session `ref`'s runs, oldest first (one name each: `<ref>-<ms>.jsonl`). */
-const runFilesOf = (ref: string) => {
+const readRunFiles = (ref: string) => {
   try {
     return [...new Bun.Glob(`${ref}-*.jsonl`).scanSync(DESK_RUNS)]
       .toSorted()
@@ -151,7 +150,7 @@ function run(a: Agent, ref: string, message: string): Run {
   // Made before the process, so `begunWhen` can watch it from the start.
   writeFileSync(path, "");
   const [program = "", ...args] = codexArgsOf(a, ref, message);
-  const exited = startDetached([programOf(program), ...args], {
+  const exited = startDetached([readProgram(program), ...args], {
     cwd: a.folder,
     env: { ...envOf(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
@@ -184,7 +183,7 @@ function run(a: Agent, ref: string, message: string): Run {
 /** A new thread in `folder`, through a short-lived `codex app-server` (killed once it answers): its id. */
 async function newThread(folder: string) {
   const line = await firstLine(
-    [programOf("codex"), "app-server"],
+    [readProgram("codex"), "app-server"],
     [
       {
         id: 1,
@@ -305,10 +304,9 @@ export function rolloutUsageOf(lines: string[]): Usage | null {
 }
 
 export const codexRuntime: Runtime = {
-  beginWithinMs: BEGIN_WITHIN_MS,
-  block: () => cliBlockOf("codex"),
+  block: () => readCliBlock("codex"),
   hasBegun(ref) {
-    const last = runFilesOf(ref).at(-1);
+    const last = readRunFiles(ref).at(-1);
     return Promise.resolve(last ? hasModelItem(linesOf(last)) : false);
   },
   async send(a, ref, message) {
@@ -338,7 +336,7 @@ export const codexRuntime: Runtime = {
   async stop(ref) {
     // The desk's own runs only: his Codex app holds no process with the id.
     await stopMatching(`exec resume ${ref}`);
-    for (const f of runFilesOf(ref)) {
+    for (const f of readRunFiles(ref)) {
       rmSync(f, { force: true });
     }
   },

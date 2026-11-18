@@ -6,13 +6,12 @@ import { HOME, isOwnLife, WINDOWS } from "../../core/platform";
 import { exec, startDetached } from "../../core/proc";
 import {
   type Agent,
-  BEGIN_WITHIN_MS,
   begunWhen,
-  cliBlockOf,
   isHeld,
-  programOf,
   type Run,
   type Runtime,
+  readCliBlock,
+  readProgram,
   stopMatching,
   type Usage,
 } from "./contract";
@@ -126,7 +125,7 @@ export function hasAnswered(lines: string | undefined, before: number) {
 function run(a: Agent, argv: string[], ref: string): Run {
   const before = promptsIn(readTranscript(ref));
   const [program = "", ...args] = argv;
-  const ended = startDetached([programOf(program), ...args], {
+  const ended = startDetached([readProgram(program), ...args], {
     cwd: a.folder,
     env: {
       LIFE_DESK_KEY: a.door.key,
@@ -151,7 +150,7 @@ async function handOff(a: Agent, ref: string) {
       "script",
       "-q",
       "/dev/null",
-      programOf("claude"),
+      readProgram("claude"),
       "--desktop",
       "--resume",
       ref,
@@ -267,8 +266,7 @@ export function usageOf(lines: string): Usage | null {
 }
 
 export const claudeRuntime: Runtime = {
-  beginWithinMs: BEGIN_WITHIN_MS,
-  block: () => cliBlockOf("claude"),
+  block: () => readCliBlock("claude"),
   hasBegun(ref) {
     const lines = readTranscript(ref);
     return Promise.resolve(hasAnswered(lines, promptsIn(lines) - 1));

@@ -131,10 +131,13 @@ export function openDesk(path = DESK_STORE) {
     )
     .get();
   if (!hasWhy) {
-    db.run("alter table agent add column why_not_started text");
-    db.run(
-      "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome like 'not started: %'"
-    );
+    // One transaction; `glob`, which keeps case: an agent's own "Not started: …" stays its outcome.
+    db.transaction(() => {
+      db.run("alter table agent add column why_not_started text");
+      db.run(
+        "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
+      );
+    })();
   }
   return db;
 }

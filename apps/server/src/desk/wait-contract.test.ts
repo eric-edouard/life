@@ -19,15 +19,16 @@ import {
 } from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
+import { BEGIN_WITHIN_MS } from "./agent-wait";
 import {
   endLostTurns,
-  endUnbegunTurns,
   pollAnswers,
   pollMessages,
+  readPeopleOnce,
+  tick,
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
-import { BEGIN_WITHIN_MS } from "./runtimes/contract";
 import { ANA, advance, ahead, setup, started } from "./test-desk";
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
@@ -128,15 +129,15 @@ test("W6: a failure mid-turn leaves its events queued and retries at 5 minutes",
 test("W7: a matching message wakes a waiting agent once its last turn is 10 minutes old; others don't", async () => {
   const { desk, turns, waiting, write } = setup();
   const id = await waiting(DAY);
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   write("Test Bruno");
   advance(3 * MIN);
   write();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(1);
   advance(7 * MIN + 30_000);
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "event", outcome: null });
   expect(desk.db.query("select event_id from event").all()).toEqual([
@@ -147,11 +148,11 @@ test("W7: a matching message wakes a waiting agent once its last turn is 10 minu
 test("W8: an event during a turn waits in the queue; a turn starts after the first ends", async () => {
   const { desk, end, eventRow, turns, waiting, write } = setup();
   const id = await waiting();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   advance(HOUR);
   await wakeDue(desk);
   const m = write();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   await setWait(desk, id, { events: [ANA], reason: "r", until: ahead(DAY) });
   await end(id);
   expect(eventRow(id, m)).toEqual({
@@ -168,14 +169,14 @@ test("W8: an event during a turn waits in the queue; a turn starts after the fir
 test("W9: an event read twice is one row, handed once", async () => {
   const { desk, eventRow, turns, waiting, write } = setup();
   const id = await waiting();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   const start = desk.db.query("select value from cursor").get();
   const m = write();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   desk.db.run("update cursor set value = ?", [
     (start as { value: string }).value,
   ]);
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   expect(desk.db.query("select count(*) as n from event").get()).toEqual({
     n: 1,
   });
@@ -188,11 +189,11 @@ test("W9: an event read twice is one row, handed once", async () => {
 test("W10: killed before the transaction commits, the next poll reads the same events", async () => {
   const { desk, path, waiting, write } = setup();
   await waiting();
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   const cursor = desk.db.query("select value from cursor").get();
   const m = write();
   desk.db.run("drop table cursor");
-  await expect(pollMessages(desk)).rejects.toThrow();
+  await expect(pollMessages(desk, readPeopleOnce())).rejects.toThrow();
   expect(desk.db.query("select count(*) as n from event").get()).toEqual({
     n: 0,
   });
@@ -201,7 +202,7 @@ test("W10: killed before the transaction commits, the next poll reads the same e
     "insert into cursor (name, value) values ('message.received', ?)",
     [(cursor as { value: string }).value]
   );
-  await pollMessages(again);
+  await pollMessages(again, readPeopleOnce());
   expect(again.db.query("select event_id from event").all()).toEqual([
     { event_id: m },
   ]);
@@ -634,10 +635,10 @@ test("a first turn not begun within its runtime's limit ends its agent not start
   const id = await started(desk, "obs_00000000b010");
   const ref = agentOf(desk.db, id)?.session ?? "";
   advance(BEGIN_WITHIN_MS - MIN);
-  await endUnbegunTurns(desk);
+  await tick(desk, false);
   expect(agentOf(desk.db, id)?.status).toBe("active");
   advance(2 * MIN);
-  await endUnbegunTurns(desk);
+  await tick(desk, false);
   expect(agentOf(desk.db, id)).toMatchObject({
     status: "ended",
     why_not_started: "it did not begin within 5 minutes",
@@ -649,7 +650,7 @@ test("a first turn not begun within its runtime's limit ends its agent not start
   advance(HOUR);
   await wakeDue(desk);
   advance(BEGIN_WITHIN_MS + MIN);
-  await endUnbegunTurns(desk);
+  await tick(desk, false);
   expect(agentOf(desk.db, later)?.status).toBe("active");
   expect(turns(later).at(-1)).toEqual({ cause: "deadline", outcome: "failed" });
 });
@@ -749,4 +750,17 @@ test("a new agent's first turn ranks with his answers, ahead of older deadlines,
   });
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(1);
+});
+
+test("after a restart, a turn its runtime's record shows began while the helper was down is marked begun, never ended by the begin limit", async () => {
+  const { desk, fake, path } = setup();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b014");
+  fake.beganBefore(agentOf(desk.db, id)?.session ?? "");
+  advance(BEGIN_WITHIN_MS + MIN);
+  const again: Desk = { ...desk, db: openDesk(path) };
+  await tick(again, false);
+  expect(openTurn(again.db, id)?.begun_at).not.toBeNull();
+  expect(agentOf(again.db, id)?.status).toBe("active");
+  expect(fake.stopped).toEqual([]);
 });

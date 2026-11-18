@@ -2,7 +2,7 @@ import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { agentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
@@ -10,9 +10,10 @@ import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { register } from "./agent-actions";
 import {
-  endAgentsOnDoneMatters,
   pollMessages,
   pollRecordings,
+  readPeopleOnce,
+  tick,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -146,12 +147,12 @@ test("a matter's agent is woken by its people's messages and by messages close t
     JSON.stringify([{ chat: "Test Ana", from_me: false }]),
     agent,
   ]);
-  await pollMessages(desk); // the cursor starts now
+  await pollMessages(desk, readPeopleOnce()); // the cursor starts now
   const fromAna = write("Test Ana", "ok");
   const close = write("Test Shop", "The beads are ready for pickup on Friday");
   write("Test Bob", "Dinner tonight? The plumber came by");
   write("Test Bob", "bead");
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   const events = queuedEvents(desk.db, agent);
   expect(events.map((e) => [e.name, e.event_id])).toEqual([
     ["message.received", fromAna],
@@ -171,10 +172,10 @@ test("a matter's agent is woken by its people's messages and by messages close t
 test("with no embedder, people still wake it", async () => {
   await mocked();
   const { agent, desk, write } = setup(null);
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   const fromAna = write("Test Ana", "ok");
   write("Test Shop", "The beads are ready for pickup on Friday");
-  await pollMessages(desk);
+  await pollMessages(desk, readPeopleOnce());
   expect(queuedEvents(desk.db, agent).map((e) => e.event_id)).toEqual([
     fromAna,
   ]);
@@ -214,7 +215,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
     spoken
   );
   setSystemTime(new Date(T0 + 6 * MIN));
-  await pollRecordings(desk);
+  await pollRecordings(desk, readPeopleOnce());
   expect(queuedEvents(desk.db, agent)).toEqual([]);
   held = unit(at(10));
   said = [
@@ -224,7 +225,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
       "I still have to get the pickup day for the beads from the shop"
     ),
   ];
-  await pollRecordings(desk);
+  await pollRecordings(desk, readPeopleOnce());
   // Only the new line was compared, in one part.
   expect(calls.at(-1)).toEqual([
     "I still have to get the pickup day for the beads from the shop",
@@ -238,15 +239,15 @@ test("his pendant's new words close to the matter wake it once, read from where 
   });
   // Read up to its end: nothing new, nothing compared.
   const n = calls.length;
-  await pollRecordings(desk);
+  await pollRecordings(desk, readPeopleOnce());
   expect(calls.length).toBe(n);
   // His words read wrong (lifelog down): read again on the next poll, and Ana's voice, folded into her since, wakes it.
   held = unit(at(12));
   said = [...said, line(at(12), "the beads, the pickup", "person:ana-voice")];
   spoken.mockRejectedValueOnce(new Error("down"));
-  await pollRecordings(desk);
+  await pollRecordings(desk, readPeopleOnce());
   expect(queuedEvents(desk.db, agent)).toHaveLength(1);
-  await pollRecordings(desk);
+  await pollRecordings(desk, readPeopleOnce());
   expect(queuedEvents(desk.db, agent).at(-1)).toMatchObject({
     event_id: `unit_00000000e001@${at(12)}`,
   });
@@ -258,7 +259,12 @@ test("his pendant's new words close to the matter wake it once, read from where 
 test("an agent whose matter is done is ended; one only probably done (a link's) keeps going", async () => {
   await mocked("probably_done");
   const { agent, desk } = setup();
-  await endAgentsOnDoneMatters(desk);
+  // Its first turn not due yet: this tick only polls.
+  desk.db.run("update agent set wait_until = ? where id = ?", [
+    new Date(T0 + DAY).toISOString(),
+    agent,
+  ]);
+  await tick(desk);
   expect(agentOf(desk.db, agent)?.status).toBe("active");
   for (const s of spies.splice(0)) {
     s.mockRestore();
@@ -266,7 +272,7 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
   await mocked("done");
   // The nets are read again once `NETS_FOR` passed.
   setSystemTime(new Date(T0 + 11 * MIN));
-  await endAgentsOnDoneMatters(desk);
+  await tick(desk);
   expect(agentOf(desk.db, agent)).toMatchObject({
     outcome: "its matter is done",
     status: "ended",

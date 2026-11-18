@@ -3,7 +3,6 @@
 // clock takes as the turn's end (`turnEnded`, `desk-clock.ts`).
 
 import { type FSWatcher, watch } from "node:fs";
-import { MIN } from "../../core/clock";
 import { cliEnv } from "../../core/platform";
 import { exec } from "../../core/proc";
 
@@ -33,8 +32,6 @@ export interface Agent {
 }
 
 export interface Runtime {
-  /** How long a launched run may take to begin (`Run.begun`) before the desk stops it: past it, a first turn is not started. */
-  beginWithinMs: number;
   /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
   block: () => Promise<string | undefined>;
   /** Whether the session's own record shows its current run's model answering: what a restart reads, never a process alone. */
@@ -54,14 +51,11 @@ export interface Runtime {
   usage: (ref: string) => Promise<Usage | null>;
 }
 
-/** A first answer in this long is a run that hangs (a door that never connects, a stuck update): the runtimes' begin limit. */
-export const BEGIN_WITHIN_MS = 5 * MIN;
-
 /**
  * The program the desk launches for a CLI: found on the PATH as it is now (`cliEnv`), less any `node_modules/.bin` (where
  * `bun run` puts Life's own pinned Codex, which is not his); the bare name when none is found.
  */
-export function programOf(name: string) {
+export function readProgram(name: string) {
   const path = (cliEnv().PATH ?? "")
     .split(":")
     .filter((d) => !d.endsWith("node_modules/.bin"))
@@ -70,8 +64,8 @@ export function programOf(name: string) {
 }
 
 /** `Runtime.block` for a CLI: why `<program> --version` fails, none when it answers. */
-export async function cliBlockOf(program: string) {
-  const r = await exec([programOf(program), "--version"], {
+export async function readCliBlock(program: string) {
+  const r = await exec([readProgram(program), "--version"], {
     env: cliEnv(),
     timeout: 5000,
   });
