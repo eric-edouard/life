@@ -43,21 +43,34 @@ interface WriterExtras {
 
 type Writer = (c: Check, a: CheckAnswer, x: WriterExtras) => Promise<unknown[]>;
 
-/** `person`, checked: the options that name someone need it, as `person:<id>` or a name or handle Life reads as one person (his app types it). */
-async function personIn(a: CheckAnswer) {
+/** `person`, checked: the options that name someone need it (`person:<id>`; a typed name is read first, `typedPersonOf`). */
+function personIn(a: CheckAnswer) {
   const ref = PersonRef.safeParse(a.person);
-  if (ref.success) {
-    return ref.data;
-  }
-  const known = a.person ? (await readPeople()).resolve(a.person) : null;
-  if (!known) {
+  if (!ref.success) {
     throw new Error(
-      a.person
-        ? `Not done: Life knows no one as "${a.person}"; give who it is as \`person\` (person:<id>, or a name Life knows).`
-        : "Not done: give who it is as `person` (person:<id>, or a name Life knows)."
+      "Not done: give who it is as `person` (person:<id>, or a name Life knows)."
     );
   }
-  return known;
+  return ref.data;
+}
+
+/**
+ * A name his app typed as `person`, read as the one person it names, so his answer is never written against a guess: only
+ * by his own word, his truth/ or his Contacts, and only a name no two of them share. Gives the answer with that person's
+ * ref and their name, to show what was recorded; a `person:<id>`, or no person, passes as it is.
+ */
+async function typedPersonOf(a: CheckAnswer) {
+  if (!a.person || PersonRef.safeParse(a.person).success) {
+    return { a, recordedAs: undefined };
+  }
+  const people = await readPeople();
+  const r = people.readingNow(a.person);
+  if (!r || r.by === "guess" || (r.isShared && r.by !== "his word")) {
+    throw new Error(
+      `Not done: Life doesn't know who "${a.person}" is for sure; pick from the card or use their full name.`
+    );
+  }
+  return { a: { ...a, person: r.ref }, recordedAs: people.nameOf(r.ref) };
 }
 
 const correct = (said: object[], a: CheckAnswer) =>
@@ -103,7 +116,7 @@ async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
   if (!a.person) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
-  const ref = await personIn(a);
+  const ref = personIn(a);
   const people = await readPeople();
   const id = namingQueueGuessesOf(item).find(
     (x) => x && voicePersonOf(people.resolve, x, null) === ref
@@ -132,8 +145,8 @@ const WRITERS: {
   >;
 } = {
   "contacts card": {
-    "same-person": async (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: await personIn(a) }], a),
+    "same-person": (c, a) =>
+      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
   },
   ending: {
     false: async (c, a) => [
@@ -154,8 +167,8 @@ const WRITERS: {
         })),
         a
       ),
-    "same-person": async (c, a) =>
-      correct([{ from: c.ref, kind: "same-person", to: await personIn(a) }], a),
+    "same-person": (c, a) =>
+      correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
     "this-is": (c, a) =>
       correct(
         c.about
@@ -165,8 +178,8 @@ const WRITERS: {
       ),
   },
   name: {
-    "this-is": async (c, a) => {
-      const person = await personIn(a);
+    "this-is": (c, a) => {
+      const person = personIn(a);
       return correct(
         c.about.map((n) => ({ kind: "this-is", nameOrHandle: n, person })),
         a
@@ -241,6 +254,7 @@ export async function answerCheck(
   const { ref } = check;
   if (check.group === "decision") {
     return {
+      answer: a,
       check,
       done: await answerDecision(ref, a.options, a.note, {
         answerKey,
@@ -248,6 +262,7 @@ export async function answerCheck(
         via,
       }),
       item: undefined,
+      recordedAs: undefined,
       ref,
     };
   }
@@ -261,10 +276,18 @@ export async function answerCheck(
     );
   }
   const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
-  const done = await write(check, a, { item, onStep, startAgent });
+  const typed = await typedPersonOf(a);
+  const done = await write(check, typed.a, { item, onStep, startAgent });
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }
   onStep?.("recorded");
-  return { check, done, item, ref };
+  return {
+    answer: typed.a,
+    check,
+    done,
+    item,
+    recordedAs: typed.recordedAs,
+    ref,
+  };
 }

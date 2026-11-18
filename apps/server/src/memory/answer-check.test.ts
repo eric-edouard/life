@@ -76,15 +76,32 @@ test("a name reads as the person he names, each way it was written; a card becom
   ]);
 });
 
-test("his app may name the person as he typed it: Life reads it as the one person it knows by that name, else refuses", async () => {
+test("his app may name the person as he typed it: only one person his truth/ or Contacts name, never a guess or a shared name", async () => {
+  const readings: Record<string, object> = {
+    // A unique name in truth/: recorded, and his result shows who.
+    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
+    // Only Life's guess goes by "Kit": refused.
+    Kit: { by: "guess", isShared: false, ref: "person:inf_kit" },
+    // Two people in truth/ or his Contacts share "Sam": refused.
+    Sam: { by: "contacts", isShared: true, ref: "person:con_sam" },
+  };
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
-    resolve: (n: string) => (n === "Kit Moreau" ? "person:kit" : null),
+    nameOf: (r: string) => (r === "person:kit" ? "Kit Moreau" : r),
+    readingNow: (n: string) => readings[n] ?? null,
   } as never);
   try {
-    await answerCheck(card, { options: ["same-person"], person: "Kit Moreau" });
-    await expect(
-      answerCheck(name, { options: ["this-is"], person: "Nobody Known" })
-    ).rejects.toThrow('Life knows no one as "Nobody Known"');
+    const answered = await answerCheck(card, {
+      options: ["same-person"],
+      person: "Kit Moreau",
+    });
+    expect(answered.recordedAs).toBe("Kit Moreau");
+    for (const typed of ["Kit", "Sam", "Nobody Known"]) {
+      await expect(
+        answerCheck(name, { options: ["this-is"], person: typed })
+      ).rejects.toThrow(
+        `Life doesn't know who "${typed}" is for sure; pick from the card or use their full name`
+      );
+    }
     expect(said()).toEqual([
       { from: card.ref, kind: "same-person", to: "person:kit" },
     ]);

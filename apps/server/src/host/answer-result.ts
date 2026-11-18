@@ -274,18 +274,24 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
     );
     return { ask: "ask" in start ? start.ask : "" };
   };
-  const { check, done, item } = await answerCheck(open, a, "connector", {
-    answerKey,
-    onStep: (step, detail) => report({ at: at(), step, ...detail }),
-    startAgent,
-  });
+  const { answer, check, done, item, recordedAs } = await answerCheck(
+    open,
+    a,
+    "connector",
+    {
+      answerKey,
+      onStep: (step, detail) => report({ at: at(), step, ...detail }),
+      startAgent,
+    }
+  );
   if (check.group === "decision") {
     return decisionResult(ref, report, answerKey);
   }
   const result = {
     asker: { name: "life", told: "recorded" },
     changed: {
-      ...changedOf(check, a, done),
+      ...changedOf(check, answer, done),
+      ...(recordedAs ? { recordedAs } : {}),
       ...(item
         ? {
             conversations: new Set(item.voices.map((v) => v.jobId)).size,
