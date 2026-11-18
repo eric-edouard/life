@@ -50,7 +50,7 @@ export const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
 
 /** An open matter as `read_day` and a person's page list it: its newest open step, who it is with, where it stands. */
 function lineOf(v: MatterView, nameOf: (ref: string) => string) {
-  const next = v.next as MatterStepNow;
+  const next = v.newestOpenStep as MatterStepNow;
   const who = (label: string, refs: string[]) =>
     refs.length > 0 ? `; ${label} ${refs.map(nameOf).join(", ")}` : "";
   return `- ${v.id} ${next.day} ${next.kind}: ${next.text}${next.when ? ` (for ${next.when})` : ""} (${v.name}; ${v.status}${who("owed to", v.owedTo)}${who("waiting on", v.waitingOn)}) "${oneLine(next.quote)}" (${next.ref})`;
@@ -67,8 +67,8 @@ export const matterItems = (
   date: string
 ): Candidate[] =>
   book.flatMap((v): Candidate[] => {
-    const { next } = v;
-    // `next` is an open step: a to-do, promise, wait or to-do item.
+    const next = v.newestOpenStep;
+    // An open step: a to-do, promise, wait or to-do item.
     if (!(v.open && next)) {
       return [];
     }

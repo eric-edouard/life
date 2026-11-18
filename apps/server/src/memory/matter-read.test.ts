@@ -116,6 +116,7 @@ const MAILERS = new Set([
 ]);
 const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   current: new Set(),
+  directions: [],
   episodeOf: new Map(episodes.flatMap((m) => m.units.map((u) => [u, m]))),
   isMailer: (r) => MAILERS.has(r),
   ledger: [],
@@ -144,7 +145,7 @@ test("the errand: moving, next 'call the shop', owed to Gran, the partner only w
   expect(rest).toEqual([]);
   expect(errand).toMatchObject({
     areas: ["family"],
-    next: { kind: "promise", text: "Call the shop" },
+    newestOpenStep: { kind: "promise", text: "Call the shop" },
     open: true,
     owedTo: [GRAN],
     projects: ["shop-fit-out"],
@@ -172,7 +173,7 @@ test("a matter's status: done when every open step is ended, stuck when the next
   // One ended step does not close a matter while another is open, whichever is newer.
   expect(book({ retired: gone(ask) })[0]?.open).toBe(true);
   expect(book({ retired: gone(promise) })[0]).toMatchObject({
-    next: { text: "Get Gran's watch repaired" },
+    newestOpenStep: { text: "Get Gran's watch repaired" },
     open: true,
   });
   // Silence is never stuck: no step for a while is dormant, still open.
@@ -205,7 +206,7 @@ test("a matter's status: done when every open step is ended, stuck when the next
     }),
   ];
   expect(book({ observations: waits })[0]).toMatchObject({
-    next: { text: "The shop answers" },
+    newestOpenStep: { text: "The shop answers" },
     status: "waiting_on_someone",
     waitingOn: [SHOP],
   });
@@ -243,7 +244,10 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
   expect(all.map((v) => v.id).toSorted()).toEqual(
     [`entry_${pad(2)}`, first].toSorted()
   );
-  expect(b).toMatchObject({ lone: true, next: { kind: "todo_item" } });
+  expect(b).toMatchObject({
+    lone: true,
+    newestOpenStep: { kind: "todo_item" },
+  });
   expect(b?.steps.map((s) => s.ref)).toEqual([first, `entry_${pad(1)}`]);
   const ranked = openItems(matterItems(all, nameOf, "2026-10-19"), {
     date: "2026-10-19",
@@ -510,7 +514,7 @@ test("a link ends its step at once: the matter reads probably done, the step sho
   ]);
   // Another step still open: the matter stays open, its next step the open one.
   const [open] = book({ linkEndings: linked });
-  expect(open).toMatchObject({ next: { ref: ask }, open: true });
+  expect(open).toMatchObject({ newestOpenStep: { ref: ask }, open: true });
   expect(open?.steps.find((s) => s.ref === promise)?.ending).toEqual({
     at: "2026-10-16T09:00:00Z",
     by: "link",

@@ -24,6 +24,7 @@ import {
   episodesWhere,
   MATTERS,
   readBy,
+  readDirectionPins,
   readLedger,
   readUnitsFor,
 } from "./memory-files";
@@ -183,6 +184,7 @@ export async function readMatterRecords(people: People) {
   );
   return {
     current,
+    directions: readDirectionPins(),
     episodeOf: readBy(episodes),
     episodes,
     isMailer: (ref: string) =>

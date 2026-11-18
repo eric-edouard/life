@@ -12,6 +12,7 @@ import {
   slug,
   UnitId,
 } from "./fields";
+import { GoalText, NextStep } from "./matter";
 import { MemoryType } from "./unit";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
@@ -169,6 +170,8 @@ export const PageSection = z.enum([
  * retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
  * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`); `reread`
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
+ * `matter-direction` is his goal or next step for a matter, pinned by its steps (all of them, as `read_matter` lists
+ * them): his goal always wins over Life's draft, his next step until the matter gets a new step (`directionsOf`).
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -231,6 +234,15 @@ export const Correction = z
     z
       .object({
         ...Correcting,
+        goal: GoalText.optional(),
+        kind: z.literal("matter-direction"),
+        nextStep: NextStep.optional(),
+        steps: z.array(z.string().min(1)).min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
         kind: z.literal("closeness"),
         person: PersonRef,
         personal: ClosenessLevel.optional(),
@@ -238,6 +250,9 @@ export const Correction = z
       })
       .strict(),
   ])
+  .refine((c) => c.kind !== "matter-direction" || !!(c.goal || c.nextStep), {
+    message: "a matter-direction gives a goal, a next step or both",
+  })
   .refine((c) => c.kind !== "closeness" || !!(c.personal || c.work), {
     message: "a closeness correction names a personal or a work level",
   });
