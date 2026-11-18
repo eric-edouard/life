@@ -1,0 +1,105 @@
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { rmSync } from "node:fs";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "../memory/matters";
+import { CORRECTIONS, readCorrections } from "../memory/memory-files";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as todo from "./change-todo-item";
+import { correct } from "./http/mcp";
+
+// 19 Nov 2026 (review C, B7 and R1): the phone decided which steps were open and sent only its obs_ ones, so a
+// matter's to-do items stayed open while it said "Marked as done", and one of to-do items only was refused.
+
+const step = (ref: string, kind: string, ending?: object) => ({
+  at: "2026-11-10T10:00:00.000Z",
+  day: "2026-11-10",
+  kind,
+  quote: "it",
+  ref,
+  text: "it",
+  ...(ending ? { ending } : {}),
+});
+const matter = {
+  id: "matter_aaaaaaaaaaaa",
+  name: "Mend the boiler",
+  open: true,
+  steps: [
+    step("ep_000000000001", "episode"),
+    step("obs_000000000001", "promise"),
+    step("obs_000000000002", "waiting_on_someone", {
+      at: "2026-11-11T10:00:00.000Z",
+      by: "link",
+      quote: "The plumber came.",
+    }),
+    step("obs_000000000003", "to_do", {
+      at: "2026-11-11T10:00:00.000Z",
+      by: "record",
+      why: "done",
+    }),
+    step("entry_000000000001", "todo_item"),
+  ],
+};
+let book: ReturnType<typeof spyOn>;
+let tick: ReturnType<typeof spyOn>;
+beforeEach(() => {
+  rmSync(CORRECTIONS, { force: true });
+  book = spyOn(matters, "readMatterBook").mockResolvedValue([matter] as never);
+  tick = spyOn(todo, "tickTodoItems").mockResolvedValue([]);
+});
+afterEach(() => {
+  book.mockRestore();
+  tick.mockRestore();
+  rmSync(CORRECTIONS, { force: true });
+});
+
+test("a matter marked done by its id closes every open step as Life reads it: observations outdated, to-do items ticked", async () => {
+  await correct({
+    correction: {
+      kind: "outdated",
+      matter: "matter_aaaaaaaaaaaa",
+      note: "Marked done in the Life app.",
+    },
+    kind: "memory",
+  });
+  expect(tick).toHaveBeenCalledWith(
+    ["entry_000000000001"],
+    "Marked done in the Life app."
+  );
+  expect(readCorrections()).toMatchObject([
+    {
+      kind: "outdated",
+      note: "Marked done in the Life app.",
+      // The step a link ended becomes his word; the one already retired, and the episode, are left.
+      observations: ["obs_000000000001", "obs_000000000002"],
+    },
+  ]);
+});
+
+test("his goal by a matter's id is pinned to every step it holds; an agent's token can't speak for him on a matter", async () => {
+  await correct({
+    correction: {
+      goal: "The boiler works.",
+      kind: "matter-direction",
+      matter: "obs_000000000001",
+    },
+    kind: "memory",
+  });
+  expect(readCorrections()).toMatchObject([
+    { goal: "The boiler works.", steps: matter.steps.map((s) => s.ref) },
+  ]);
+  await expect(
+    correct(
+      {
+        correction: { kind: "outdated", matter: "matter_aaaaaaaaaaaa" },
+        kind: "memory",
+      },
+      "agt_000000000001"
+    )
+  ).rejects.toThrow("an agent's words are not his");
+  await expect(
+    correct({
+      correction: { kind: "outdated", matter: "matter_bbbbbbbbbbbb" },
+      kind: "memory",
+    })
+  ).rejects.toThrow("no matter");
+});

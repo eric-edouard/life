@@ -48,6 +48,7 @@ import {
   autoAddTodoItem,
   changeAskedTodoItem,
 } from "../change-todo-item";
+import { correctMatter } from "../correct-matter";
 import {
   DECISION_ANSWERED,
   DECISION_LAPSED,
@@ -166,7 +167,7 @@ const Correct = Fix.extend({
     .record(z.string(), z.unknown())
     .optional()
     .describe(
-      "memory: a Life correction as `bun life memory correct` takes it, e.g. {kind:'wrong', observations:['<obs_ or ep_ id>']}"
+      "memory: a Life correction as `bun life memory correct` takes it, e.g. {kind:'wrong', observations:['<obs_ or ep_ id>']}; on a whole matter, `matter` (its id) instead of `observations` or `steps`"
     ),
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
@@ -175,8 +176,14 @@ const Correct = Fix.extend({
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
-/** Applies one correction the owner asked for: a Life memory correction, or one of lifelog's four. */
-export async function correct(a: z.infer<typeof Correct>) {
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id: his token only), or one of lifelog's four. */
+export async function correct(a: z.infer<typeof Correct>, agent?: string) {
+  if (a.kind === "memory" && a.correction?.matter !== undefined) {
+    if (agent) {
+      throw new Error(NOT_HIS);
+    }
+    return { done: await correctMatter(a.correction) };
+  }
   await (a.kind === "memory"
     ? recordCorrection(a.correction)
     : forward(a.kind, a));
@@ -391,7 +398,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: `outdated` over its open steps' obs_ ids; his goal or next step for a matter: kind `matter-direction`, `steps` every step id `read_matter` lists, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
