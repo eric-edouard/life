@@ -2,10 +2,13 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
+import { clock, daysBefore } from "@life/server/src/core/clock";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
-import { MACHINE_DIR } from "@life/server/src/core/platform";
+import { APP_FOLDERS, MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
+import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
+import { MATTERS_PROMPT } from "@life/server/src/memory/matters";
 import {
   layoutOf,
   type PageLine,
@@ -19,6 +22,10 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 // A made-up Life for the README and docs/examples.md: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
 // apps/server/src/test-data, plus a week of invented memory: a landlord, a plumber, a friend, runs, a side project and the owner's goals) and builds its search index.
 // It reads no source: its settings turn every source off. `demo.test.ts` checks the ids both cite against it.
+// It also holds a new matter dated from the day it is made (the leaking tap, with a goal and a `do` next step), so its
+// inbox offers "Work on it?", with the desk on and the connector on loopback. Written and run as a second Life on this Mac
+// with `LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state LIFE_MACHINE_DIR=<out>/machine LIFE_PORT=46500`, the
+// phone paired by `bun life pair --link`: `bun run e2e:demo` does all of it.
 //
 // Their transcripts are Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
@@ -35,6 +42,7 @@ const live = [
   OWNER_DATA_DIR,
   LIFE_STATE_DIR,
   MACHINE_DIR,
+  ...Object.values(APP_FOLDERS),
   join(homedir(), "Life"),
 ];
 if (!process.argv[2] || existsSync(out) || live.some(inside)) {
@@ -64,7 +72,15 @@ const hex = (s: string, n: number) =>
 
 writeFileSync(
   join(state, "settings.json"),
-  JSON.stringify({ agents: { Orbit: { wake: ["orbit"] } }, sources: [] })
+  JSON.stringify({
+    agents: { Orbit: { wake: ["orbit"] } },
+    connector: { origin: `http://127.0.0.1:${PUBLIC_PORT}` },
+    desk: {
+      defaultRuntime: "claude",
+      runtimes: { claude: { model: "sonnet" } },
+    },
+    sources: [],
+  })
 );
 write(join(data, "memory/zones.jsonl"), [
   { from: "2019-01-01T00:00:00.000Z", schemaVersion: 1, tz: "Europe/Lisbon" },
@@ -121,6 +137,31 @@ interface Demo {
   source: "git" | "lifelog" | "mail" | "whatsapp";
   title: string;
 }
+/** The new matter's day: two days before the demo is made, so it is offered for five more. */
+const tapDay = daysBefore(clock().toISOString().slice(0, 10), 2);
+const TAP: Demo = {
+  at: `${tapDay} 09:30`,
+  key: "351910000001@s.whatsapp.net",
+  observations: [
+    [
+      "news",
+      "Jean Dupont told Sam the kitchen tap at the flat on Rua das Flores is leaking again.",
+      "The kitchen tap is dripping again, can you have a look?",
+      "jean-dupont",
+      [],
+    ],
+    [
+      "to_do",
+      "Sam needs to book Hans to fix the leaking kitchen tap at the flat.",
+      "I'll get Hans to come and fix the tap",
+      "me",
+      ["jean-dupont", "hans"],
+    ],
+  ],
+  ref: `whatsapp:351910000001@s.whatsapp.net/T${tapDay}`,
+  source: "whatsapp",
+  title: "Jean Dupont",
+};
 const DEMO: Demo[] = [
   {
     at: "2026-10-13 09:12",
@@ -310,14 +351,17 @@ const DEMO: Demo[] = [
 ];
 
 const extract = { ...madeBy, prompt: "memory-extract.v6" };
-for (const d of DEMO) {
+const unitIdOf = (d: Demo) => `unit_${hex(d.ref, 12)}`;
+const observationIdOf = (d: Demo, [type, text, quote]: DemoObservation) =>
+  `obs_${hex(unitIdOf(d) + type + quote + text, 12)}`;
+for (const d of [...DEMO, TAP]) {
   const day = d.at.slice(0, 10);
   const at = new Date(`${d.at.replace(" ", "T")}:00+01:00`).toISOString();
   const u = unit({
     date: day,
     end: at,
     hash: hex(`${d.ref}#`, 16),
-    id: `unit_${hex(d.ref, 12)}`,
+    id: unitIdOf(d),
     key: d.key,
     people: [`unknown:${d.title}`, "person:me"],
     refs: [d.ref],
@@ -327,14 +371,14 @@ for (const d of DEMO) {
   });
   write(join(data, `memory/units/${day}.jsonl`), [u]);
   write(
-    join(data, "memory/observations/2026-10.jsonl"),
+    join(data, `memory/observations/${day.slice(0, 7)}.jsonl`),
     d.observations.map(([type, text, quote, speaker, people, when]) => ({
       about: `person:${speaker}`,
       area: null,
       at,
       confidence: 0.9,
       date: day,
-      id: `obs_${hex(u.id + type + quote + text, 12)}`,
+      id: observationIdOf(d, [type, text, quote, speaker, people]),
       importance: when ? 3 : 2,
       madeBy: { ...extract, unitHash: u.hash },
       modality: when ? "plan" : "fact",
@@ -390,6 +434,47 @@ for (const d of DEMO) {
     ]);
   }
 }
+// The tap as the night leaves it: one matter (the matters step) and its goal and next step (the directions step).
+const tapSteps = TAP.observations.map((o) => ({
+  day: tapDay,
+  quote: o[2],
+  ref: observationIdOf(TAP, o),
+}));
+const tapAt = `${tapDay}T23:00:00.000Z`;
+write(join(data, "memory/matters.jsonl"), [
+  {
+    at: tapAt,
+    madeBy: { ...madeBy, prompt: MATTERS_PROMPT },
+    matters: [
+      {
+        areas: [],
+        id: `matter_${hex(TAP.ref, 12)}`,
+        name: "The leaking kitchen tap at the flat",
+        projects: [],
+        steps: tapSteps,
+      },
+    ],
+    offered: [unitIdOf(TAP)],
+    schemaVersion: 1,
+  },
+]);
+write(join(data, "memory/matter-directions.jsonl"), [
+  {
+    at: tapAt,
+    directions: [
+      {
+        goal: "Get the kitchen tap at the flat fixed",
+        nextStep: {
+          kind: "do",
+          text: "Find a time with Hans for him to come and fix the tap",
+        },
+        steps: tapSteps.map((s) => s.ref),
+      },
+    ],
+    madeBy,
+    schemaVersion: 1,
+  },
+]);
 // NODE_ENV=test (a `bun test` run) would point the CLI at the tests' own copy instead.
 await execOk(
   [

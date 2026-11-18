@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
+import { OWN_PORT, portOf } from "./http";
 import { pair } from "./oauth";
 import { signedIn } from "./server";
 
@@ -76,4 +77,13 @@ test("the public port refuses /mcp without a token, serves Life's brand to anyon
   expect((await get("/docs/glossary.md")).status).toBe(404);
   const none = await get("/nope");
   expect([none.status, await none.text()]).toEqual([404, "not found"]);
+});
+
+test("LIFE_PORT: Life's own port unset, a whole port for a second Life, never another port with his own data", () => {
+  expect(portOf(undefined, true)).toBe(OWN_PORT);
+  expect(portOf("46500", false)).toBe(46_500);
+  for (const bad of ["", "x", "46500.5", "80", "65534"]) {
+    expect(() => portOf(bad, false)).toThrow("not a port");
+  }
+  expect(() => portOf("46500", true)).toThrow("second Life");
 });

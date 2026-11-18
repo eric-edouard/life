@@ -43,7 +43,7 @@ import { localDate, type Window } from "./zones";
 // is one appended line of memory/matters.jsonl: the matters it placed records in, and every record it was asked about,
 // so what is due is derived and nothing is paid twice. What is open in a matter, its status and people are worked out when read (`matter-read.ts`).
 
-const PROMPT = "memory-matters.v2";
+export const MATTERS_PROMPT = "memory-matters.v2";
 /** What a reply calls a matter that starts in it. */
 const NEW_ID = /^new-\d+$/;
 /** The most characters of episodes one call is shown: a longer span takes several calls, in order. */
@@ -114,7 +114,9 @@ export const readMatters = () =>
  * placement of a record winning (the record leaves the matter it was in).
  */
 export function mattersNow(all: MatterBatch[]) {
-  const batches = all.filter((b) => isPromptVersion(b.madeBy.prompt, PROMPT));
+  const batches = all.filter((b) =>
+    isPromptVersion(b.madeBy.prompt, MATTERS_PROMPT)
+  );
   const byId = new Map<string, Matter & { steps: MatterStep[] }>();
   const placedIn = new Map<string, string>();
   const offered = new Set<string>();
@@ -483,7 +485,7 @@ export async function matters(
   people: People,
   records: Awaited<ReturnType<typeof readMatterRecords>>
 ) {
-  const step = await begin("matters", "fast", { prompt: PROMPT });
+  const step = await begin("matters", "fast", { prompt: MATTERS_PROMPT });
   const { truth } = people;
   const context = {
     ...meContext(truth),
@@ -515,7 +517,7 @@ export async function matters(
               title,
             })),
           },
-          prompt: PROMPT,
+          prompt: MATTERS_PROMPT,
         });
         const known = knownOf(call);
         const at = step.now.toISOString();
@@ -532,7 +534,7 @@ export async function matters(
         appendJsonl(MATTERS, MatterBatch, [
           {
             at,
-            madeBy: step.madeBy(PROMPT),
+            madeBy: step.madeBy(MATTERS_PROMPT),
             matters: kept,
             offered: [...new Set([...known.values()].flatMap((k) => k.refs))],
             schemaVersion: 1,
