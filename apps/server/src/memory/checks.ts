@@ -4,6 +4,7 @@ import { KEEP_AT } from "../records/unit";
 import {
   type NamingQueueItem,
   readNamingQueue,
+  voiceGuessesOf,
 } from "../sources/lifelog-voices";
 import { pagedNow } from "./closeness";
 import { type Decision, decisionsNow, isOnMatter } from "./decisions";
@@ -501,65 +502,60 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     });
     return [...guessed, ...cards, ...names];
   },
-  /** Every voice lifelog asks him to name, none left out. */
+  /** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
   voice: (c) =>
-    c.voices.map((item) => {
-      const known = voicePersonOf(c.people.resolve, item.personId, item.name);
-      const likely = [
-        ...new Set([item.personId, ...item.likely].filter((x) => x !== null)),
-      ]
-        .flatMap((id) => {
-          const ref = voicePersonOf(c.people.resolve, id, null);
-          return ref ? [ref] : [];
-        })
-        .filter((ref, i, all) => all.indexOf(ref) === i)
-        .slice(0, 5)
-        .map((ref) => ({ name: c.people.nameOf(ref), person: ref }));
-      const [first] = item.evidence;
-      const who =
-        known && item.kind !== "new_person" && item.kind !== "several"
-          ? c.people.nameOf(known)
-          : null;
-      return {
-        check: {
-          about: item.name ? [item.name] : [],
-          asker: "life",
-          at: null,
-          clips: item.clips.map((k) => ({
-            at: k.at,
-            audio: k.audio,
-            text: k.text,
-            until: k.until,
-          })),
-          context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
-          deadline: null,
-          draft: null,
-          evidence: first
-            ? {
-                from: `a recorded conversation, ${first.at ? plain(localDate(first.at)) : "date unknown"}`,
-                quote: first.text,
-              }
-            : null,
-          group: "voice",
-          kind: "voice",
-          likelyPeople: likely,
-          links: [],
-          onSilence: null,
-          options: [...LIFE_CHECKS.voice.options],
-          question: who
-            ? `Is this voice ${who}?`
-            : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
-          ref: `voice:${item.id}`,
-          ridesOn: { matters: 0, observations: 0, pages: 0 },
-          subject: null,
-          title: LIFE_CHECKS.voice.title,
-        },
-        day: item.clips.reduce(
-          (m, k) => (k.at && localDate(k.at) > m ? localDate(k.at) : m),
-          ""
-        ),
-      };
-    }),
+    c.voices
+      .filter((item) => item.kind !== "several")
+      .map((item) => {
+        const known = voicePersonOf(c.people.resolve, item.personId, item.name);
+        const likely = voiceGuessesOf(item)
+          .flatMap((id) => {
+            const ref = voicePersonOf(c.people.resolve, id, null);
+            return ref ? [ref] : [];
+          })
+          .filter((ref, i, all) => all.indexOf(ref) === i)
+          .slice(0, 5)
+          .map((ref) => ({ name: c.people.nameOf(ref), person: ref }));
+        const [first] = item.evidence;
+        const who =
+          known && item.kind !== "new_person" && item.kind !== "several"
+            ? c.people.nameOf(known)
+            : null;
+        return {
+          check: {
+            about: item.name ? [item.name] : [],
+            asker: "life",
+            at: null,
+            clips: item.clips,
+            context: `${LIFE_CHECKS.voice.context} Heard in ${item.conversations} conversations, ${item.words} words.`,
+            deadline: null,
+            draft: null,
+            evidence: first
+              ? {
+                  from: `a recorded conversation, ${first.at ? plain(localDate(first.at)) : "date unknown"}`,
+                  quote: first.text,
+                }
+              : null,
+            group: "voice",
+            kind: "voice",
+            likelyPeople: likely,
+            links: [],
+            onSilence: null,
+            options: [...LIFE_CHECKS.voice.options],
+            question: who
+              ? `Is this voice ${who}?`
+              : `Who is this voice?${item.name ? ` It was called "${item.name}".` : ""}`,
+            ref: `voice:${item.id}`,
+            ridesOn: { matters: 0, observations: 0, pages: 0 },
+            subject: null,
+            title: LIFE_CHECKS.voice.title,
+          },
+          day: item.clips.reduce(
+            (m, k) => (k.at && localDate(k.at) > m ? localDate(k.at) : m),
+            ""
+          ),
+        };
+      }),
 };
 
 /** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */

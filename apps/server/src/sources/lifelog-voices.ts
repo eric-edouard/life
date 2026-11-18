@@ -219,6 +219,15 @@ export async function readNamingQueue() {
   }
 }
 
+/** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
+export const voiceGuessesOf = (item: NamingQueueItem) => [
+  ...new Set(
+    [item.personId, item.namedPersonId, ...item.likely].filter(
+      (x): x is string => !!x
+    )
+  ),
+];
+
 /** The owner's answer to a queue item's voices (`POST /naming-queue/answer`): who they are, or that they are not worth naming. */
 export const answerNamingQueue = (
   voices: { jobId: string; speakerLabel: string }[],

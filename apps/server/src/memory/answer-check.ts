@@ -3,6 +3,7 @@ import {
   answerNamingQueue,
   type NamingQueueItem,
   readNamingQueue,
+  voiceGuessesOf,
 } from "../sources/lifelog-voices";
 import {
   type Check,
@@ -77,7 +78,7 @@ async function thisIs(item: NamingQueueItem, c: Check, a: CheckAnswer) {
   }
   const ref = personIn(a);
   const people = await readPeople();
-  const id = [item.personId, item.namedPersonId, ...item.likely].find(
+  const id = voiceGuessesOf(item).find(
     (x) => x && voicePersonOf(people.resolve, x, null) === ref
   );
   return id

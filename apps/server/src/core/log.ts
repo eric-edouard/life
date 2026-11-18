@@ -10,7 +10,7 @@ import { agentNames } from "./settings";
 // error messages. Never message text or quotes (those live in the sources and memory/), with two exceptions:
 // `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars) or why it was refused, never the
 // answer's text, and
-// `lifelog.write` logs the correction it forwards and lifelog's answer.
+// `lifelog.write` logs each write to lifelog (a correction, a voice answer, a push's fixed text) and lifelog's answer.
 
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 

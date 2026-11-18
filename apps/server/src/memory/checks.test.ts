@@ -336,9 +336,10 @@ test("every voice in lifelog's queue is a card of the one inbox, with its clips 
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
   items[0] = voice("v0", { kind: "known_person", personId: DANA_ID });
   items[1] = voice("v1", { name: "Kofi" });
-  const cards = checksOf(inputs([], { voices: items })).filter(
-    (c) => c.group === "voice"
-  );
+  // One he called several people is not asked in v1: one answer would give all its turns to one person.
+  const cards = checksOf(
+    inputs([], { voices: [...items, voice("v60", { kind: "several" })] })
+  ).filter((c) => c.group === "voice");
   expect(cards).toHaveLength(60);
   const byRef = (r: string) => cards.find((c) => c.ref === r);
   expect(byRef("voice:v0")?.question).toBe("Is this voice Dana?");
