@@ -12,10 +12,9 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
-import {
-  readEndingChecks,
-  recordFactCheckAnswer,
-} from "../../memory/fact-checks";
+import { readInbox } from "../../memory/checks";
+import { Ask, answerDecision, requestDecision } from "../../memory/decisions";
+import { recordFactCheckAnswer } from "../../memory/fact-checks";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
@@ -174,8 +173,19 @@ const Correct = Fix.extend({
   ref: z
     .string()
     .optional()
-    .describe("fact_check: the obs_ or ep_ id from `read_fact_checks`"),
+    .describe("fact_check: the obs_ or ep_ id from `read_inbox`"),
 });
+
+/** What an agent asks (`request_decision`): an `Ask` less the desk's stamp, or a withdrawal; `requestDecision` checks the rest. */
+const RequestDecisionArgs = Ask.omit({ agent: true })
+  .partial()
+  .extend({
+    why: Ask.shape.why,
+    withdraw: z
+      .string()
+      .optional()
+      .describe("A decision id you asked, to withdraw it (with `why`)"),
+  });
 
 /** What an agent's token may not write: his own words (`tell_life`), his answer to a fact check. */
 const NOT_HIS =
@@ -494,17 +504,49 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `fact_check` (his answer to one of `read_fact_checks`), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `fact_check` (his answer to one of `read_inbox`'s fact checks), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
   );
   tool(
     server,
-    "read_fact_checks",
-    "The open steps Life thinks are done, for the owner to confirm (JSON): each step word for word, why Life thinks so, where it came from and the words it was read from. Ask him; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
+    "read_inbox",
+    "What waits on the owner's word (JSON). `decisions`: the open questions agents asked him, soonest deadline first, each with its options, what the agent recommends and why, its context and links; record his answer with `answer_decision`. `factChecks`: the open steps Life thinks are done, each word for word, why Life thinks so, where it came from and the words it was read from; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
     z.object({}),
-    async () => ({ factChecks: await readEndingChecks() })
+    () => readInbox()
+  );
+  tool(
+    server,
+    "request_decision",
+    "As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (`read_inbox`, the nightly report, a push as its deadline nears). `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids) and `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject` (a matter step's id: it leaves the list when the matter ends; or `project:<id>`, `area:<id>`). Or `withdraw` (a decision id you asked) with `why`. Returns its id; his answer: `read_inbox` no longer lists it.",
+    RequestDecisionArgs,
+    ({ withdraw, why, ...ask }, agent) => {
+      const asker = agentOnly(agent);
+      return requestDecision(
+        asker,
+        withdraw ? { why, withdraw } : { ...ask, why }
+      );
+    },
+    REVERSIBLE
+  );
+  tool(
+    server,
+    "answer_decision",
+    "Record the owner's answer to a decision `read_inbox` lists, only as he gave it in this chat: `id`, `options` (the option ids he picked; none when he answered in words), `note` (his words, verbatim). The first answer stands.",
+    z.object({
+      id: z.string().describe("dec_…"),
+      note: z.string().min(1).max(4000).optional(),
+      options: z.array(z.string()),
+    }),
+    ({ id, note, options }, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      answerDecision(id, options, note);
+      return Promise.resolve(`Answered: ${id}.`);
+    },
+    REVERSIBLE
   );
   // His directory, by his words: always on (it needs no source), his token only like `tell_life`.
   tool(

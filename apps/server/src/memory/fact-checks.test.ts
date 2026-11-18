@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { FactCheck } from "../records/fact-check";
-import { readEndingChecks, recordFactCheckAnswer } from "./fact-checks";
+import { readInbox } from "./checks";
+import { recordFactCheckAnswer } from "./fact-checks";
 import {
   FACT_CHECK_ANSWERS,
   FACT_CHECKS,
@@ -26,7 +27,7 @@ test("an old drawn fact check, never answered, is no longer open; answering one 
     units: ["unit_000000000000"],
   };
   appendJsonl(FACT_CHECKS, FactCheck, [old]);
-  expect(await readEndingChecks()).toEqual([]);
+  expect((await readInbox()).factChecks).toEqual([]);
   await recordFactCheckAnswer(old.ref, "true");
   expect(readFactChecks()).toEqual([old]);
   expect(readFactCheckAnswers().get(old.ref)?.answer).toBe("true");

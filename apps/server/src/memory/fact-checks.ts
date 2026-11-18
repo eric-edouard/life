@@ -5,7 +5,7 @@ import {
   FactCheckAnswer,
   isEndingCheck,
 } from "../records/fact-check";
-import { checksNow, endingGuessOf, isEndingKind, isEndingOpen } from "./checks";
+import { endingGuessOf, isEndingOpen } from "./checks";
 import { factCheckKindOf } from "./doubts";
 import { readMatterRecords } from "./matters";
 import {
@@ -17,19 +17,8 @@ import {
 import { readPeople } from "./who";
 
 // His fact checks: nothing is drawn. The open ones are the ending checks `checksNow` lists (`checks.ts`), put to him in a
-// chat (`read_fact_checks`) and answered there (`correct_memory`, kind `fact_check`). A check is written to
+// chat (`read_inbox`) and answered there (`correct_memory`, kind `fact_check`). A check is written to
 // memory/fact-checks.jsonl only with his answer, as it was shown, so the answer reads back the same.
-
-/** The ending checks as he is asked them: the step, why Life thinks it is done, the words it came from. */
-export async function readEndingChecks() {
-  return (await checksNow()).filter(isEndingKind).map((c) => ({
-    doubts: ["a later step seems to show it done"],
-    from: c.evidence.from,
-    quote: c.evidence.quote,
-    ref: c.ref,
-    text: c.guess,
-  }));
-}
 
 /**
  * Appends his answer to a fact check: first the check as it is shown (an open ending check: its guess as the text, the later step's channel as the source), then the answer, so a stored answer always has its check. A later answer replaces it.
