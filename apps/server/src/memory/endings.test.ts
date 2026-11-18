@@ -54,6 +54,7 @@ async function ended(n: number) {
   const matters = await import("./matters");
   const records = spyOn(matters, "readMatterRecords").mockResolvedValue({
     episodes: [],
+    goals: [],
     linkEndings: new Map(
       Array.from({ length: n }, (_, i) => [
         promise(i + 1),

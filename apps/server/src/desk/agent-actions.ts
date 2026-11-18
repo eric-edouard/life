@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
+import { DESK_AGENT_FOLDERS } from "../core/paths";
 import {
   agentOf,
   anchorsOf,
@@ -15,6 +18,7 @@ import {
   decisionsNow,
   requestDecision,
 } from "../memory/decisions";
+import { oneMatter } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
 import { waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
@@ -46,13 +50,16 @@ export function writeSubject(
   db.run("update agent set project = ? where id = ?", [s.project ?? null, id]);
 }
 
-/** Registers an agent on his words: active, its first turn due now. Refused while the desk keeps its most agents. */
+/**
+ * Registers an agent on his words: active, its first turn due now, in `folder`, else in a folder of its own
+ * (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its most agents.
+ */
 export function register(
   desk: Desk,
   a: {
     brief: string;
     effort?: string;
-    folder: string;
+    folder?: string;
     model?: string;
     project?: string;
     runtime: string;
@@ -65,6 +72,8 @@ export function register(
   }
   const id = `agt_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
+  const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
+  mkdirSync(folder, { recursive: true });
   db.transaction(() => {
     db.run(
       "insert into agent (id, brief, runtime, folder, model, effort, status, wait_until, wait_reason, created_at) values (?, ?, ?, ?, ?, ?, 'active', ?, 'first turn', ?)",
@@ -72,7 +81,7 @@ export function register(
         id,
         a.brief,
         a.runtime,
-        a.folder,
+        folder,
         a.model ?? null,
         a.effort ?? null,
         now,
@@ -169,8 +178,12 @@ export function askDecision(
 const contractOf = (id: string) =>
   `You are ${id}, a registered agent of the owner's desk. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, call \`set_wait\` (what you wait for, until when) or \`finish\`; ask him only through \`request_decision\`, one at a time, with options and a recommendation; write your notes (\`write_notes\`) before you stop. His own rules apply as in any session of his.`;
 
-/** `read_packet`: what a fresh session starts from: the brief, its subject, its notes, its queued events (facts only), its open decision. */
-export function readPacket({ db }: Desk, id: string) {
+/**
+ * `read_packet`: what a fresh session starts from: its matter as read now, its goal first (`oneMatter`: the goal, where
+ * it stands, its steps so far), or its project; then the brief, the contract, its notes, its queued events (facts only)
+ * and its open decision.
+ */
+export async function readPacket({ db }: Desk, id: string) {
   const a = agentOf(db, id);
   if (!a) {
     return "";
@@ -178,11 +191,11 @@ export function readPacket({ db }: Desk, id: string) {
   const events = queuedEvents(db, id).map((e) => e.payload);
   const steps = anchorsOf(db, id);
   return [
-    a.brief,
-    contractOf(a.id),
     a.project
       ? `Your subject: the project ${a.project} (\`read_area_page\`).`
-      : `Your subject: the matter holding ${steps.join(", ") || "(none)"} (\`read_matter\` with the first).`,
+      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${await oneMatter(steps)}`,
+    a.brief,
+    contractOf(a.id),
     `Your notes:\n${a.notes || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
     `Your open decision: ${openDecisionOf(id) ?? "none"}`,

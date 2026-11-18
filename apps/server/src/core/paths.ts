@@ -47,6 +47,8 @@ export const LIFE_STATE_DIR = real(
 );
 /** The desk's store (`apps/server/src/desk/`): his registered agents, their waits, turns and queued events. Host reads it read-only. */
 export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
+/** Where an agent started with no folder (and no repo of its project) runs: a folder of its own, `<agt_…>`, made by the desk. */
+export const DESK_AGENT_FOLDERS = join(LIFE_STATE_DIR, "desk", "agents");
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`) asks this. */
 export function isHis(data = OWNER_DATA_DIR) {
   return real(data) === real(join(homedir(), "Life"));

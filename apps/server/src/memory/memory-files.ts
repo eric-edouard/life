@@ -21,6 +21,7 @@ import {
   isEndingCheck,
 } from "../records/fact-check";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
+import { type GoalPin, MatterGoalBatch } from "../records/matter";
 import {
   ContactPerson,
   Correction,
@@ -78,6 +79,8 @@ export const communicationStylePath = (ref: string) =>
 export const LINKS = join(MEMORY, "links.jsonl");
 /** The matters (`memory/matters.ts`): one line per call, append-only, the latest line naming a matter wins. */
 export const MATTERS = join(MEMORY, "matters.jsonl");
+/** Life's drafts of the matters' goals (`memory/matter-goals.ts`): one line per call, append-only. */
+export const MATTER_GOALS = join(MEMORY, "matter-goals.jsonl");
 /** Each person's past months with him, summarised once, and their story (`personal/histories.ts`), one file per person. */
 export const HISTORIES = join(MEMORY, "histories");
 export const historyPath = (ref: string) =>
@@ -673,6 +676,24 @@ export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
+
+/** The matters' goals as pinned to their steps (`goalsOf`): Life's drafts, then his word (`matter-goal`), each with when it was written. */
+export const readGoalPins = (): GoalPin[] => [
+  ...rowsOf(MATTER_GOALS, MatterGoalBatch).flatMap((b) =>
+    b.goals.map((g) => ({
+      agentCanMove: g.agentCanMove,
+      at: b.at,
+      by: "life" as const,
+      steps: g.steps,
+      text: g.goal,
+    }))
+  ),
+  ...rowsOf(CORRECTIONS, Correction).flatMap((c) =>
+    c.kind === "matter-goal"
+      ? [{ at: c.at, by: "owner" as const, steps: c.steps, text: c.goal }]
+      : []
+  ),
+];
 
 /** The lines of the people his Contacts name, as appended (`contactsNow` folds them). */
 export const readContactLines = () => rowsOf(CONTACT_PEOPLE, ContactPerson);

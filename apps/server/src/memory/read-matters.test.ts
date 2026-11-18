@@ -34,6 +34,11 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
   ];
   const errand = view({
+    goal: {
+      at: "2026-10-13T02:00:00.000Z",
+      by: "life",
+      text: "Gran has her watch back",
+    },
     id: "matter_aaaaaaaaaaaa",
     name: "Mend Gran's watch",
     next: steps[1],
@@ -75,7 +80,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   try {
     const all = await openMatters({});
     expect(all).toContain(
-      "- matter_aaaaaaaaaaaa Mend Gran's watch [moving]; owed to gran; next: Call the shop (2026-10-12)"
+      "- matter_aaaaaaaaaaaa Mend Gran's watch [moving]; goal: Gran has her watch back (Life's draft); owed to gran; next: Call the shop (2026-10-12)"
     );
     expect(all).toContain("waiting on shop");
     expect(all).not.toContain("Old");
@@ -86,10 +91,11 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     const ofProject = await openMatters({ project: "Shop fit-out" });
     expect(ofProject).toContain("matter_aaaaaaaaaaaa");
     expect(ofProject).not.toContain("matter_bbbbbbbbbbbb");
-    const read = oneMatter;
+    const read = (id: string) => oneMatter([id]);
     const one = (await read("matter_aaaaaaaaaaaa")).split("\n");
-    expect(one.slice(0, 4)).toEqual([
+    expect(one.slice(0, 5)).toEqual([
       "matter_aaaaaaaaaaaa Mend Gran's watch [moving]",
+      "Goal: Gran has her watch back (Life's draft)",
       "owed to: gran",
       "with: partner",
       "Projects: shop-fit-out",
@@ -103,7 +109,11 @@ test("read_matters lists the open matters, of one project when asked; read_matte
       "No matter matter_zzzzzzzzzzzz."
     );
     // Host's Agents part and mark, given the matter's steps.
-    const withAgents = await oneMatter("matter_aaaaaaaaaaaa", (refs) =>
+    // Anchors find it by the first that still names a step.
+    expect(await oneMatter(["obs_gone", "obs_000000000005"])).toBe(
+      one.join("\n")
+    );
+    const withAgents = await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
       refs.includes("obs_000000000005") ? ["- agt_000000000001 [waiting]"] : []
     );
     expect(withAgents).toEndWith("\nAgents:\n- agt_000000000001 [waiting]");

@@ -20,10 +20,12 @@ import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
+import { dueGoalsOf, matterGoals } from "../memory/matter-goals";
 import {
   callsOf,
   matterLines,
   matters,
+  readMatterBook,
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
@@ -55,6 +57,7 @@ import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
+import { startOnMatter } from "./change-registered-agent";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -169,11 +172,15 @@ const HANDLERS: Record<string, Handler> = {
   "answer-check": (values, [ref = "", option = "", ...note]) =>
     ref && option
       ? json(
-          answerCheck(ref, {
-            note: words(note) || undefined,
-            options: [option],
-            person: values.person,
-          })
+          answerCheck(
+            ref,
+            {
+              note: words(note) || undefined,
+              options: [option],
+              person: values.person,
+            },
+            { startAgent: startOnMatter }
+          )
         )
       : usage(),
   appointments: step(() => appointments()),
@@ -313,6 +320,18 @@ const HANDLERS: Record<string, Handler> = {
       return values.force ? links(pending) : { ...pending.counts, failed: 0 };
     })(values, rest);
   },
+  /** `matter-goals [--force]`: how many matters are due a goal tonight, with no model; `--force` drafts them, as the night does. */
+  "matter-goals": step(async (values) => {
+    const people = await readPeople();
+    if (values.force) {
+      return await matterGoals(people);
+    }
+    const today = dayNow();
+    return {
+      due: dueGoalsOf(await readMatterBook(people, today), today).length,
+      failed: 0,
+    };
+  }),
   /**
    * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
    * episodes, to-do items), with no model; `--force` places it, as the night does;
@@ -444,7 +463,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-goals [--force] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

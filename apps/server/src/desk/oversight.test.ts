@@ -1,10 +1,10 @@
 import { afterAll, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
-import { DESK_STORE } from "../core/paths";
+import { DESK_AGENT_FOLDERS, DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { ask } from "../host/asks";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
@@ -101,8 +101,16 @@ test("his word starts an agent on a matter, with the desk's default runtime and 
     )?.error
   ).toStartWith("name exactly one subject");
   expect(
-    (await applied({ action: "start", steps: [STEP] }))?.error
-  ).toStartWith("name the folder");
+    (await applied({ action: "start", folder: "/nowhere", steps: ["x"] }))
+      ?.error
+  ).toStartWith("the folder its sessions start in must be absolute and exist");
+  // No folder: one of its own, under the desk's state.
+  const own = (await applied({ action: "start", steps: ["obs_00000000a1ff"] }))
+    ?.agent_id as string;
+  const ownFolder = agentOf(desk.db, own)?.folder ?? "";
+  expect(ownFolder).toBe(join(DESK_AGENT_FOLDERS, own));
+  expect(existsSync(ownFolder)).toBe(true);
+  await applied({ action: "stop", agent: own });
   expect(
     (await applied({ action: "start", folder, runtime: "nope", steps: ["x"] }))
       ?.error
@@ -253,7 +261,27 @@ test("change_registered_agent records his word and answers with what the desk di
       status: "moving",
       steps: [{ ref: "obs_00000000a201" }, { ref: "obs_00000000a202" }],
     },
+    {
+      id: "matter_00000000a003",
+      name: "Test shop sign",
+      projects: ["test-shop"],
+      status: "moving",
+      steps: [{ ref: "obs_00000000a301" }],
+    },
   ] as never);
+  const readTruth = await import("../memory/read-truth");
+  const made = await readTruth.loadTruth();
+  const truth = spyOn(readTruth, "loadTruth").mockResolvedValue({
+    ...made,
+    projects: [
+      ...made.projects,
+      { id: "test-shop", name: "Test shop", repos: ["someone/test-shop-site"] },
+    ],
+  } as never);
+  const repos = spyOn(
+    await import("../sources/git"),
+    "listRepos"
+  ).mockReturnValue([{ key: "test-shop-site", path: folder }]);
   try {
     await expect(
       changeRegisteredAgent({
@@ -290,8 +318,21 @@ test("change_registered_agent records his word and answers with what the desk di
         said: "Test: resume",
       })
     ).rejects.toThrow(`${id} is active`);
+    // No folder named: its project's repo, when it is on the Mac.
+    setTimeout(() => applyAgentChanges(desk), 300);
+    const inRepo = await changeRegisteredAgent({
+      action: "start",
+      runtime: "claude",
+      said: "Test: the sign",
+      step: "obs_00000000a301",
+    });
+    expect(agentOf(desk.db, inRepo.split(" ").at(-1) ?? "")?.folder).toBe(
+      folder
+    );
   } finally {
     book.mockRestore();
+    truth.mockRestore();
+    repos.mockRestore();
   }
 });
 

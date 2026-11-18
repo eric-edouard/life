@@ -34,10 +34,13 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
     decisions: [],
     doubted: new Set(),
     endings: new Map(),
+    isDeskOn: false,
     kept: new Set(lines.map((l) => l.id)),
     lines,
     matters: [],
+    now: "2026-11-18T09:00:00.000Z",
     paged: new Set(),
+    startsAnswered: new Set(),
     unresolved: [],
     where: new Map(),
     ...over,
@@ -151,6 +154,9 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
       inferred: ["inf_a", "inf_b", "inf_c", "inf_d", "inf_e"],
       matters: [
         {
+          id: "matter_000000000001",
+          lone: false,
+          name: "An errand",
           open: true,
           owedTo: [],
           steps: [{ ref: a.id }],
@@ -196,6 +202,9 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
 test("an ending rides on its open matter and goes with his answer", () => {
   const o = line({ text: "Send the quote." });
   const matter = {
+    id: "matter_000000000001",
+    lone: false,
+    name: "An errand",
     open: true,
     owedTo: [],
     steps: [{ ref: o.id }],
@@ -244,6 +253,9 @@ const decision = (id: string, deadline: string, subject?: string) => ({
 test("open decisions come first, soonest deadline first; one on a step leaves with its matter, one on a project stays", () => {
   const o = line();
   const matter = (open: boolean) => ({
+    id: "matter_000000000001",
+    lone: false,
+    name: "An errand",
     open,
     owedTo: [],
     steps: [{ ref: o.id }],
@@ -290,4 +302,80 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
     "dec_00000000000a",
     REF,
   ]);
+});
+
+test("a new matter an agent could move asks 'work on it?' while the desk is on, until he answers it or a week passes", () => {
+  const draft = { agentCanMove: true, at: "2026-11-15T02:00:00.000Z" };
+  const matter = {
+    goal: {
+      at: draft.at,
+      by: "life" as const,
+      draft,
+      text: "The boiler is serviced",
+    },
+    id: "matter_000000000007",
+    lone: false,
+    name: "Boiler service",
+    open: true,
+    owedTo: [],
+    steps: [{ ref: "obs_000000000071" }, { ref: "unit_000000000072" }],
+    told: [],
+    waitingOn: [],
+    with: [],
+  };
+  const base = inputs([], { isDeskOn: true, matters: [matter] });
+  expect(checksOf(base)).toEqual([
+    {
+      about: [],
+      asker: "life",
+      at: draft.at,
+      context: null,
+      deadline: "2026-11-22T02:00:00.000Z",
+      evidence: null,
+      group: "matter start",
+      kind: "matter start",
+      links: [],
+      onSilence: null,
+      options: expect.arrayContaining([
+        expect.objectContaining({ id: "start" }),
+        expect.objectContaining({ id: "edit-goal" }),
+        expect.objectContaining({ id: "dismiss" }),
+      ]),
+      question:
+        'Life found "Boiler service". Goal: The boiler is serviced. Work on it?',
+      recommended: ["start"],
+      ref: "start:obs_000000000071",
+      ridesOn: { matters: 1, observations: 0, pages: 0 },
+      subject: "obs_000000000071",
+      why: "An agent could move it forward.",
+    },
+  ]);
+  // His goal, once he edits it, is what it asks about.
+  const edited = {
+    ...matter,
+    goal: {
+      at: "2026-11-16T09:00:00.000Z",
+      by: "owner" as const,
+      draft,
+      text: "Serviced and the leak fixed",
+    },
+  };
+  expect(checksOf({ ...base, matters: [edited] })[0]?.question).toContain(
+    "Goal: Serviced and the leak fixed."
+  );
+  const none = (over: Partial<CheckInputs>) => checksOf({ ...base, ...over });
+  expect(none({ isDeskOn: false })).toEqual([]);
+  expect(none({ now: "2026-11-22T02:00:00.000Z" })).toEqual([]);
+  expect(none({ startsAnswered: new Set(["unit_000000000072"]) })).toEqual([]);
+  expect(
+    none({
+      matters: [
+        {
+          ...matter,
+          goal: { ...matter.goal, draft: { ...draft, agentCanMove: false } },
+        },
+      ],
+    })
+  ).toEqual([]);
+  expect(none({ matters: [{ ...matter, open: false }] })).toEqual([]);
 });

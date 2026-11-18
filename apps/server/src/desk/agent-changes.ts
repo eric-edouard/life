@@ -46,7 +46,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     : null;
 }
 
-/** Starts an agent on his words (`brief`): his subject, a runtime the desk drives, a folder that exists. */
+/** Starts an agent on his words (`brief`): his subject, a runtime the desk drives, a folder that exists when he names one. */
 function start(desk: Desk, c: AgentChange, brief: string) {
   const runtime = c.runtime ?? settings().desk?.defaultRuntime;
   if (!(runtime && desk.runtimes[runtime])) {
@@ -54,8 +54,10 @@ function start(desk: Desk, c: AgentChange, brief: string) {
       error: `name a runtime: ${Object.keys(desk.runtimes).join(", ")}`,
     };
   }
-  if (!(c.folder && isAbsolute(c.folder) && existsSync(c.folder))) {
-    return { error: "name the folder its sessions start in (absolute)" };
+  if (c.folder && !(isAbsolute(c.folder) && existsSync(c.folder))) {
+    return {
+      error: "the folder its sessions start in must be absolute and exist",
+    };
   }
   const refused = subjectRefusal(desk, c);
   return refused

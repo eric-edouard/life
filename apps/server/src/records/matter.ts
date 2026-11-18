@@ -48,3 +48,37 @@ export const MatterBatch = z
   })
   .strict();
 export type MatterBatch = z.infer<typeof MatterBatch>;
+
+/**
+ * A matter's goal as Life drafts it: one line, where the matter is going, and whether an agent could move it forward
+ * (not a talk only he can have). Pinned to the matter's steps when drafted (oldest first), never to its id: a re-group
+ * keeps it (`goalsOf`).
+ */
+export const MatterGoalDraft = z
+  .object({
+    agentCanMove: z.boolean(),
+    goal: z.string().trim().min(1).max(200),
+    steps: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+export type MatterGoalDraft = z.infer<typeof MatterGoalDraft>;
+
+/** One call's line of memory/matter-goals.jsonl: the goals it drafted. */
+export const MatterGoalBatch = z
+  .object({
+    at: isoDateTime,
+    goals: z.array(MatterGoalDraft),
+    madeBy: MadeBy,
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+export type MatterGoalBatch = z.infer<typeof MatterGoalBatch>;
+
+/** A goal as stored, pinned to the steps of its matter: Life's draft (with whether an agent could move it), or his word (`matter-goal`). */
+export interface GoalPin {
+  agentCanMove?: boolean;
+  at: string;
+  by: "life" | "owner";
+  steps: readonly string[];
+  text: string;
+}

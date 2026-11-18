@@ -1,13 +1,22 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
-import { answerCheck } from "./answer-check";
+import { answerCheck as answerWith, type CheckAnswer } from "./answer-check";
 import type { Check, CheckGroup } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
   ({ about, group, kind: group, ref }) as unknown as Check;
+/** The starts host was asked for (a matter start's Start). */
+let started: Check[] = [];
+const answerCheck = (ref: string, a: CheckAnswer) =>
+  answerWith(ref, a, {
+    startAgent: (c) => {
+      started.push(c);
+      return Promise.resolve("Done: start agt_000000000001");
+    },
+  });
 const guess = check("person:inf_kit", "guessed person", [
   "Kit",
   "+33600000001",
@@ -19,6 +28,7 @@ let listed: ReturnType<typeof spyOn>;
 
 beforeEach(async () => {
   rmSync(CORRECTIONS, { force: true });
+  started = [];
   listed = spyOn(await import("./checks"), "checksNow").mockResolvedValue([
     guess,
     name,
@@ -121,4 +131,37 @@ test("a decision goes to answerDecision", async () => {
     "yes",
   ]);
   rmSync(DECISIONS, { force: true });
+});
+
+test("a matter start: Edit goal records his goal, Dismiss his no, Start asks host to start an agent, then records it", async () => {
+  const start = {
+    ...check("start:obs_000000000002", "matter start"),
+    subject: "obs_000000000002",
+  } as Check;
+  listed.mockResolvedValue([start]);
+  await expect(
+    answerCheck(start.ref, { options: ["edit-goal"] })
+  ).rejects.toThrow("`note`");
+  await answerCheck(start.ref, {
+    note: "The boiler is serviced before winter",
+    options: ["edit-goal"],
+  });
+  await answerCheck(start.ref, { options: ["dismiss"] });
+  expect(said()).toEqual([
+    {
+      goal: "The boiler is serviced before winter",
+      kind: "matter-goal",
+      steps: ["obs_000000000002"],
+    },
+    { answer: "dismiss", kind: "matter-start", steps: ["obs_000000000002"] },
+  ]);
+  expect(started).toEqual([]);
+  const { done } = await answerCheck(start.ref, { options: ["start"] });
+  expect(done[0]).toBe("Done: start agt_000000000001");
+  expect(started).toEqual([start]);
+  expect(said().at(-1)).toEqual({
+    answer: "start",
+    kind: "matter-start",
+    steps: ["obs_000000000002"],
+  });
 });

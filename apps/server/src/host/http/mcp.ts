@@ -42,6 +42,7 @@ import {
 import {
   changeRegisteredAgent,
   RegisteredAgentChange,
+  startOnMatter,
 } from "../change-registered-agent";
 import {
   Asked,
@@ -289,7 +290,7 @@ export function buildServer(readsOnly = false) {
           "A matter id, or the id of one of its steps (an observation or a to-do item)."
         ),
     }),
-    ({ id }) => oneMatter(id, agentLinesOnSteps)
+    ({ id }) => oneMatter([id], agentLinesOnSteps)
   );
   tool(
     server,
@@ -385,7 +386,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter's goal in his words, kind `matter-goal` with `steps` (its step ids) and `goal`), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -393,7 +394,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each has its `ref`, `question`, `asker`, `evidence` (the words it rests on), `options` (each saying what choosing it does), `recommended` and `why`, `deadline` and `onSilence`, `subject`, `context`, `links`. Put them to him one at a time; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), a new matter an agent could move (`matter start`: Start, Edit goal with his words as `note`, Dismiss), who someone is (`guessed person`, a Contacts `card`, a `name`). Each has its `ref`, `question`, `asker`, `evidence` (the words it rests on), `options` (each saying what choosing it does), `recommended` and `why`, `deadline` and `onSilence`, `subject`, `context`, `links`. Put them to him one at a time; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
@@ -409,7 +410,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project, with `folder` (and `runtime`, `model`, `effort`, else the desk's defaults; his words are its brief); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words are its brief); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent) => {
       if (agent) {
@@ -451,7 +452,7 @@ export function buildServer(readsOnly = false) {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      return answerCheck(ref, a);
+      return answerCheck(ref, a, { startAgent: startOnMatter });
     },
     WRITES
   );

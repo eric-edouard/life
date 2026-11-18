@@ -1,5 +1,11 @@
+import { clock, DAY, iso } from "../core/clock";
+import { off } from "../core/outputs";
 import { isEndingCheck } from "../records/fact-check";
-import type { InferredPerson, Unresolved } from "../records/observation";
+import type {
+  Correction,
+  InferredPerson,
+  Unresolved,
+} from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
 import { type Decision, decisionsNow, isOnMatter } from "./decisions";
@@ -7,6 +13,7 @@ import { guessedOf, plain } from "./doubts";
 import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
+  readCorrections,
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
@@ -26,11 +33,12 @@ import { dayNow } from "./zones";
 // listed while open, first. Derived when read, never stored: his answer (`answerCheck`, `answer-check.ts`) is a
 // correction (a person), a fact-check answer (an ending) or his answer to the decision, each in its kind's own store.
 
-type CheckKind = "decision" | "ending" | "person";
-/** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
+type CheckKind = "decision" | "ending" | "matter start" | "person";
+/** What a check is, for counting: a decision, an ending, a new matter an agent could move, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
 export type CheckGroup =
   | "decision"
   | "ending"
+  | "matter start"
   | "guessed person"
   | "card"
   | "name";
@@ -107,15 +115,27 @@ export interface CheckInputs {
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
   endings: ReadonlyMap<string, { later: string; quote: string }>;
+  /** Whether the desk is on: a matter start check is listed only then (its Start goes to the desk). */
+  isDeskOn: boolean;
   /** Every observation that shows, and the ids of those that are kept: active, at or above `KEEP_AT`. */
   kept: ReadonlySet<string>;
   lines: readonly Line[];
   matters: readonly (Pick<
     MatterView,
-    "open" | "owedTo" | "told" | "waitingOn" | "with"
+    | "goal"
+    | "id"
+    | "lone"
+    | "name"
+    | "open"
+    | "owedTo"
+    | "told"
+    | "waitingOn"
+    | "with"
   > & {
     steps: { ref: string }[];
   })[];
+  /** Now, as an instant: a matter start check lapses a week after its draft. */
+  now: string;
   paged: ReadonlySet<string>;
   people: Pick<
     People,
@@ -132,6 +152,8 @@ export interface CheckInputs {
       | "relation"
     >[];
   };
+  /** The steps of the matters he already answered a matter start for, started or dismissed (`startsAnsweredOf`). */
+  startsAnswered: ReadonlySet<string>;
   unresolved: readonly Pick<Unresolved, "nameAsWritten" | "observation">[];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;
@@ -175,6 +197,9 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
+/** A matter start check lapses this long after Life drafted its goal: on silence nothing starts. */
+const START_LAPSES_AFTER = 7 * DAY;
+
 /** What he can answer each kind of Life's guesses, and what choosing it does (`answerCheck` writes it); `person`: who it is, as `answer_check` takes it. */
 export const OPTIONS = {
   card: [
@@ -194,6 +219,19 @@ export const OPTIONS = {
       id: "same-person",
       label: "Someone Life already knows (give `person`): the two become one",
     },
+  ],
+  "matter start": [
+    {
+      id: "start",
+      label:
+        "Start: an agent works on it, with the desk's default runtime and model, the goal as its brief",
+    },
+    {
+      id: "edit-goal",
+      label:
+        "Edit the goal (his words as `note`): they become its goal; then start or not",
+    },
+    { id: "dismiss", label: "Dismiss: never asked again for this matter" },
   ],
   name: [
     {
@@ -364,6 +402,52 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           )
         : [];
     }),
+  /**
+   * Each open matter Life drafted a goal for that an agent could move, while the desk is on: "work on it?", until he
+   * starts or dismisses it (`startsAnswered`) or a week passes. Editing its goal keeps it open, with his goal.
+   */
+  "matter start": (c) =>
+    c.isDeskOn
+      ? c.matters.flatMap((v) => {
+          const draft = v.goal?.draft;
+          const [first] = v.steps;
+          const deadline =
+            draft && iso(Date.parse(draft.at) + START_LAPSES_AFTER);
+          return v.goal &&
+            draft?.agentCanMove &&
+            first &&
+            deadline &&
+            deadline > c.now &&
+            v.open &&
+            !v.lone &&
+            !v.steps.some((s) => c.startsAnswered.has(s.ref))
+            ? [
+                {
+                  check: {
+                    about: [],
+                    asker: "life",
+                    at: draft.at,
+                    context: null,
+                    deadline,
+                    evidence: null,
+                    group: "matter start",
+                    kind: "matter start",
+                    links: [],
+                    onSilence: null,
+                    options: [...OPTIONS["matter start"]],
+                    question: `Life found "${v.name}". Goal: ${v.goal.text}. Work on it?`,
+                    recommended: ["start"],
+                    ref: `start:${first.ref}`,
+                    ridesOn: { matters: 1, observations: 0, pages: 0 },
+                    subject: first.ref,
+                    why: "An agent could move it forward.",
+                  },
+                  day: draft.at,
+                },
+              ]
+            : [];
+        })
+      : [],
   /** The three guesses about who someone is: a guessed person, a Contacts card Life cannot place, a name it cannot place. */
   person: (c) => {
     const { people } = c;
@@ -455,6 +539,12 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     .map((r) => r.check);
 };
 
+/** The steps of the matters he answered a matter start for (`matter-start`: started or dismissed). Pure. */
+export const startsAnsweredOf = (corrections: readonly Correction[]) =>
+  new Set(
+    corrections.flatMap((c) => (c.kind === "matter-start" ? c.steps : []))
+  );
+
 /** What waits on his word now, over what is stored today: read-only, no model call. */
 export async function checksNow(): Promise<Check[]> {
   const people = await readPeople();
@@ -478,6 +568,7 @@ export async function checksNow(): Promise<Check[]> {
         .map((s) => s.ref)
     ),
     endings: records.linkEndings,
+    isDeskOn: !off("desk"),
     // Kept: shown, not retired, at or above KEEP_AT (what `observationStatusOf` calls active).
     kept: new Set(
       records.observations
@@ -486,8 +577,10 @@ export async function checksNow(): Promise<Check[]> {
     ),
     lines: records.observations,
     matters,
+    now: clock().toISOString(),
     paged,
     people,
+    startsAnswered: startsAnsweredOf(readCorrections()),
     unresolved,
     where: new Map([
       ...units.map((u): [string, Where] => [

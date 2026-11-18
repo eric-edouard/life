@@ -285,6 +285,16 @@ bump re-groups his whole history: ask first). A matter is worked out when read (
 areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
 its steps only, never a status. What is open, a matter's status, next step and people by role are worked out when read (`matterOf`); the readers are `read_matters`, `read_matter`, `read_day`'s Due, a person's page and `bun life memory matters list`.
 
+## matter-goals.jsonl
+
+Life's drafts of the matters' goals (`memory/matter-goals.ts`, its only writer), one line per call, append-only:
+`goals` (each `goal`, one line: where the matter is going; `agentCanMove`, whether an agent could move it forward;
+`steps`, the matter's step ids when drafted, oldest first: the pin, never its id, so a re-group keeps the goal), `at`,
+`madeBy`, `schemaVersion`. Drafted once, for a matter new in the last 7 days with no goal; a matter with a goal is never
+drafted again, whatever the prompt version. Read with his `matter-goal` corrections into each matter's goal
+(`goalsOf`, `memory/matter-read.ts`): a goal belongs to the matter its first pinned step still in a matter finds; his
+word wins.
+
 ## read-replies/<YYYY-MM>.jsonl
 
 What a model answered when it read exchanges of a one-to-one chat (`memory/read-replies.ts`), one line per call,
@@ -331,6 +341,8 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
+| `matter-goal` | `steps` (some of a matter's step ids), `goal` (one line, his words) | His goal for the matter those steps find (`goalsOf`): wins over Life's draft, whenever written |
+| `matter-start` | `steps`, `answer` (`start` or `dismiss`) | His answer to the matter start check (Life's "work on it?"): started (the desk's ask is written first), or dismissed, never asked again |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
 

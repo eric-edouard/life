@@ -6,7 +6,7 @@ import {
   type LedgerEntry,
   stands,
 } from "../records/ledger-entry";
-import type { Matter } from "../records/matter";
+import type { GoalPin, Matter } from "../records/matter";
 import type { Observation } from "../records/observation";
 import { KEEP_AT, TOP_AT } from "../records/unit";
 import {
@@ -68,6 +68,8 @@ export interface MatterRecords {
   current: ReadonlySet<string>;
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
+  /** The goals pinned to matters' steps: Life's drafts (memory/matter-goals.jsonl) and his word (`matter-goal`), in the order written. */
+  goals: readonly GoalPin[];
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
   isMailer: (ref: string) => boolean;
   ledger: readonly LedgerEntry[];
@@ -86,6 +88,14 @@ export interface MatterRecords {
   >;
   /** Every to-do item the ledger holds, open or not. */
   todoItems: readonly StepTodoItem[];
+}
+
+/** A matter's goal as it reads now: his latest word, else Life's latest draft; `draft` is Life's latest, whether or not his word replaced it. */
+export interface MatterGoal {
+  at: string;
+  by: "life" | "owner";
+  draft?: { agentCanMove: boolean; at: string };
+  text: string;
 }
 
 /** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
@@ -113,6 +123,8 @@ export interface MatterStepNow {
 
 export interface MatterView {
   areas: string[];
+  /** Where it is going (`goalsOf`); none until Life drafts one or he says it. */
+  goal?: MatterGoal;
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
@@ -419,6 +431,65 @@ const isOpenKind = (o: StepObservation) =>
     o.type === "waiting_on_someone" ||
     (o.type === "to_do" && o.speaker === OWNER));
 
+/** What a matter is to its finder: its id and its steps' ids. */
+interface Found {
+  id: string;
+  steps: readonly { ref: string }[];
+}
+
+/**
+ * The finder of the matter `refs` name, over `book`: the first ref that is a matter's id or one of its steps' finds it
+ * (an agent's anchors, a pinned goal: the first step, then each later one). Pure; built once for many lookups.
+ */
+export function matterFinderOf<V extends Found>(book: readonly V[]) {
+  const by = new Map<string, V>();
+  for (const v of book) {
+    for (const ref of [v.id, ...v.steps.map((s) => s.ref)]) {
+      if (!by.has(ref)) {
+        by.set(ref, v);
+      }
+    }
+  }
+  return (refs: readonly string[]) =>
+    refs.map((r) => by.get(r)).find((v) => v !== undefined);
+}
+
+/** The matter `refs` name (`matterFinderOf`), for one lookup. */
+export const matterOfSteps = <V extends Found>(
+  book: readonly V[],
+  refs: readonly string[]
+) => matterFinderOf(book)(refs);
+
+/**
+ * Each matter's goal (`MatterGoal`) from the pins as written: a pin belongs to the matter its steps find
+ * (`matterFinderOf`), so a re-group keeps it; a later pin wins, except that a draft never replaces his word. Pure.
+ */
+export function goalsOf<V extends Found>(
+  book: readonly V[],
+  pins: readonly GoalPin[]
+) {
+  const find = matterFinderOf(book);
+  const goals = new Map<V, MatterGoal>();
+  for (const p of pins.toSorted((a, b) => a.at.localeCompare(b.at))) {
+    const v = find(p.steps);
+    if (!v) {
+      continue;
+    }
+    const was = goals.get(v);
+    const draft =
+      p.by === "life"
+        ? { agentCanMove: p.agentCanMove ?? false, at: p.at }
+        : was?.draft;
+    goals.set(
+      v,
+      was?.by === "owner" && p.by === "life"
+        ? { ...was, ...(draft ? { draft } : {}) }
+        : { at: p.at, by: p.by, ...(draft ? { draft } : {}), text: p.text }
+    );
+  }
+  return goals;
+}
+
 /**
  * Every matter as it reads on `today`, the newest step first: the stored ones (`mattersNow`'s), then a matter of one for each
  * open observation and open to-do item no matter holds (a to-do item made from an observation joins it). Pure.
@@ -458,9 +529,16 @@ export function matterBookOf(
   const loneItems = rec.todoItems
     .filter((t) => isOpenTodoItem(t) && !held.has(t.key))
     .flatMap((t) => lone(t.key, String(t.fields.title ?? "")));
-  return [...views, ...loneObservations, ...loneItems].toSorted((a, b) =>
-    (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
-  );
+  const book = [...views, ...loneObservations, ...loneItems];
+  const goals = goalsOf(book, rec.goals);
+  return book
+    .map((v) => {
+      const goal = goals.get(v);
+      return goal ? { ...v, goal } : v;
+    })
+    .toSorted((a, b) =>
+      (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
+    );
 }
 
 /**

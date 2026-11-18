@@ -24,6 +24,7 @@ import {
   episodesWhere,
   MATTERS,
   readBy,
+  readGoalPins,
   readLedger,
   readUnitsFor,
 } from "./memory-files";
@@ -185,6 +186,7 @@ export async function readMatterRecords(people: People) {
     current,
     episodeOf: readBy(episodes),
     episodes,
+    goals: readGoalPins(),
     isMailer: (ref: string) =>
       ref.startsWith(UNKNOWN) && isMailerHandle(ref.slice(UNKNOWN.length)),
     ledger,

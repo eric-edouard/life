@@ -6,7 +6,8 @@ import { recordCorrection } from "./memory-files";
 
 // His answer to a check (`answer_check`, `bun life memory answer-check`): one call for every kind. Each option goes to
 // the writer its kind already has, and the line written names the check it settled (the decision's id, the fact
-// check's ref, the person, card or name), so nothing new is stored.
+// check's ref, the person, card or name, the matter's step), so nothing new is stored. A matter start's Start is the
+// one act: host gives it (`CheckActs`), since only host reaches the desk.
 
 export interface CheckAnswer {
   /** His words, verbatim. */
@@ -17,7 +18,15 @@ export interface CheckAnswer {
   person?: string;
 }
 
-type Writer = (c: Check, a: CheckAnswer) => Promise<unknown[]>;
+/** What host does for an answer that acts: Start asks the desk to start an agent on the check's matter (its `subject`, a step). */
+export interface CheckActs {
+  startAgent: (c: Check) => Promise<unknown>;
+}
+
+type Writer = (c: Check, a: CheckAnswer, acts: CheckActs) => Promise<unknown[]>;
+
+/** The check's matter, as his word pins it: its step. */
+const stepsOf = (c: Check) => [c.subject ?? ""];
 
 /** `person`, checked: the options that name someone need it. */
 function personIn(a: CheckAnswer) {
@@ -75,6 +84,34 @@ const WRITERS: {
         a
       ),
   },
+  "matter start": {
+    dismiss: (c, a) =>
+      correct(
+        [{ answer: "dismiss", kind: "matter-start", steps: stepsOf(c) }],
+        a
+      ),
+    "edit-goal": async (c, a) => {
+      if (!a.note) {
+        throw new Error("Not done: give his goal, in his words, as `note`.");
+      }
+      // His words are the goal itself, not a note on it; the check stays, with his goal, for Start or Dismiss.
+      return [
+        await recordCorrection({
+          goal: a.note,
+          kind: "matter-goal",
+          steps: stepsOf(c),
+        }),
+      ];
+    },
+    // The desk refusing writes nothing: the check stays, to start again or dismiss.
+    start: async (c, a, acts) => [
+      await acts.startAgent(c),
+      ...(await correct(
+        [{ answer: "start", kind: "matter-start", steps: stepsOf(c) }],
+        a
+      )),
+    ],
+  },
   name: {
     "this-is": (c, a) => {
       const person = personIn(a);
@@ -87,7 +124,11 @@ const WRITERS: {
 };
 
 /** Records his answer to the open check `ref` through its kind's writer; returns the lines written. Throws when no open check has that ref or the option is not one of its own. */
-export async function answerCheck(ref: string, a: CheckAnswer) {
+export async function answerCheck(
+  ref: string,
+  a: CheckAnswer,
+  acts: CheckActs
+) {
   const check = (await checksNow()).find((c) => c.ref === ref);
   if (!check) {
     throw new Error(
@@ -106,7 +147,7 @@ export async function answerCheck(ref: string, a: CheckAnswer) {
       `Not done: pick one of ${Object.keys(writers).join(", ")} for ${ref}.`
     );
   }
-  const done = await write(check, a);
+  const done = await write(check, a, acts);
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }

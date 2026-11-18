@@ -161,6 +161,9 @@ export const PageSection = z.enum([
   "earlier",
 ]);
 
+/** A matter as his word pins it: some of its steps' ids (a unit, an observation or a to-do item key), never its id (a re-group changes it). */
+const MatterSteps = z.array(z.string().min(1)).min(1);
+
 /**
  * memory/corrections.jsonl: what the owner told Life, append-only, written by a Claude session when he says it in
  * conversation (`bun life memory correct`) and by the pages step when it finds him editing a page file. Every
@@ -169,6 +172,9 @@ export const PageSection = z.enum([
  * retired as history, by itself; `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
  * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`); `reread`
  * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
+ * `matter-goal` is his goal for a matter (it wins over Life's draft, `goalsOf`); `matter-start` is his answer to Life's
+ * offer to put an agent on a matter (its matter start check): started, or dismissed (never offered again). Both pin the
+ * matter by its steps.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -226,6 +232,22 @@ export const Correction = z
         ...Correcting,
         kind: z.literal("reread"),
         units: z.array(UnitId).min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        goal: z.string().trim().min(1).max(200),
+        kind: z.literal("matter-goal"),
+        steps: MatterSteps,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        answer: z.enum(["start", "dismiss"]),
+        kind: z.literal("matter-start"),
+        steps: MatterSteps,
       })
       .strict(),
     z

@@ -1,4 +1,10 @@
-import { isRunning, type MatterStepNow, type MatterView } from "./matter-read";
+import {
+  isRunning,
+  type MatterGoal,
+  type MatterStepNow,
+  type MatterView,
+  matterOfSteps,
+} from "./matter-read";
 import { readMatterBook } from "./matters";
 import {
   endingWords,
@@ -26,6 +32,10 @@ const WHO = [
 
 const stepLine = (s: MatterStepNow) =>
   `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${oneLine(s.quote)}"`;
+
+/** A matter's goal in words: his, or Life's draft. */
+const goalWords = (g: MatterGoal) =>
+  `${g.text}${g.by === "life" ? " (Life's draft)" : ""}`;
 
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
@@ -80,31 +90,30 @@ export async function openMatters(
               : []
           );
           const mark = markOf(refsOf(v));
-          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}${mark ? `; ${mark}` : ""}`;
+          return `- ${v.id} ${v.name} [${v.status}]${v.goal ? `; goal: ${goalWords(v.goal)}` : ""}${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}${mark ? `; ${mark}` : ""}`;
         })
         .join("\n");
 }
 
 /**
- * One matter, by its id or the id of one of its steps (an observation or a to-do item key: an agent anchored on a record
- * finds its matter again after a re-group): where it stands, its people by role, projects and areas, and its steps in
- * time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it now and before, from host).
+ * One matter, found by `refs` (its id, or its steps' ids, the first that finds one: an agent anchored on records finds
+ * its matter again after a re-group, `matterOfSteps`): its goal, where it stands, its people by role, projects and
+ * areas, and its steps in time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it
+ * now and before, from host).
  */
 export async function oneMatter(
-  id: string,
+  refs: readonly string[],
   agentLinesOf: (steps: string[]) => string[] = () => []
 ) {
   const people = await readPeople();
-  const book = await readMatterBook(people, dayNow());
-  const v =
-    book.find((m) => m.id === id) ??
-    book.find((m) => m.steps.some((s) => s.ref === id));
+  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   if (!v) {
-    return `No matter ${id}.`;
+    return `No matter ${refs.join(", ")}.`;
   }
   const agents = agentLinesOf(refsOf(v));
   return [
     `${v.id} ${v.name} [${v.status}]`,
+    ...(v.goal ? [`Goal: ${goalWords(v.goal)}`] : []),
     ...WHO.flatMap(([label, of]) =>
       of(v).length > 0
         ? [`${label}: ${of(v).map(people.nameOf).join(", ")}`]

@@ -199,7 +199,10 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
         ? ((await runtime.usage(a.session))?.grownBy ?? 0)
         : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
-      const s = await runtime.start(sessionAgentOf(a), readPacket(desk, a.id));
+      const s = await runtime.start(
+        sessionAgentOf(a),
+        await readPacket(desk, a.id)
+      );
       db.transaction(() => {
         db.run(
           "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",

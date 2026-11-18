@@ -117,6 +117,7 @@ const MAILERS = new Set([
 const records = (over: Partial<MatterRecords> = {}): MatterRecords => ({
   current: new Set(),
   episodeOf: new Map(episodes.flatMap((m) => m.units.map((u) => [u, m]))),
+  goals: [],
   isMailer: (r) => MAILERS.has(r),
   ledger: [],
   linkEndings: new Map(),
