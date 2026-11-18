@@ -163,6 +163,9 @@ export const isEnded = (s: Pick<MatterStepNow, "ending">) =>
   s.ending !== undefined;
 const isOpenStep = (s: MatterStepNow) =>
   ACTIONABLE.includes(s.kind) && !isEnded(s);
+/** Whether a step still waits on his word to end: open, or ended only by a link ("probably", until his word). */
+export const isOpenUntilHisWord = (s: MatterStepNow) =>
+  isOpenStep(s.ending?.by === "link" ? { ...s, ending: undefined } : s);
 
 /** The lookups over the records, built once for every matter. `offered`: every record a matters call was shown (`mattersNow`). */
 function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {

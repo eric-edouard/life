@@ -1,4 +1,4 @@
-import { ACTIONABLE, matterOfSteps } from "../memory/matter-read";
+import { isOpenUntilHisWord, matterOfSteps } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { recordCorrection } from "../memory/memory-files";
 import { readPeople } from "../memory/who";
@@ -17,8 +17,9 @@ export async function correctMatter(correction: Record<string, unknown>) {
   const { matter, ...said } = correction;
   const book = await readMatterBook(await readPeople(), dayNow());
   const v = matterOfSteps(book, [String(matter)]);
-  if (!v) {
-    throw new Error(`Not done: no matter ${matter}.`);
+  // Only the matter's own id: a step's would mark the whole matter holding it.
+  if (!v || v.id !== matter) {
+    throw new Error(`Not done: no matter ${matter}; give a matter's id.`);
   }
   if (said.kind === "matter-direction") {
     return [
@@ -30,9 +31,7 @@ export async function correctMatter(correction: Record<string, unknown>) {
       "Not done: `matter` goes with kind `outdated` (it is done) or `matter-direction`."
     );
   }
-  const open = v.steps.filter(
-    (s) => ACTIONABLE.includes(s.kind) && (!s.ending || s.ending.by === "link")
-  );
+  const open = v.steps.filter(isOpenUntilHisWord);
   const items = open.filter((s) => s.kind === "todo_item").map((s) => s.ref);
   const observations = open
     .filter((s) => s.kind !== "todo_item")
@@ -40,8 +39,14 @@ export async function correctMatter(correction: Record<string, unknown>) {
   if (open.length === 0) {
     throw new Error(`Not done: nothing of ${v.id} is open.`);
   }
-  const note = typeof said.note === "string" ? said.note : "It is done.";
-  const ticked = items.length > 0 ? await tickTodoItems(items, note) : [];
+  const note = typeof said.note === "string" ? said.note : undefined;
+  const ticked =
+    items.length > 0
+      ? await tickTodoItems(
+          items,
+          note ?? "Marked done (Life's words: he gave none)."
+        )
+      : [];
   return [
     ...ticked,
     ...(observations.length > 0

@@ -75,12 +75,12 @@ test("a matter marked done by its id closes every open step as Life reads it: ob
   ]);
 });
 
-test("his goal by a matter's id is pinned to every step it holds; an agent's token can't speak for him on a matter", async () => {
+test("his goal by a matter's id is pinned to every step it holds; a step's id, another matter or an agent's token is refused", async () => {
   await correct({
     correction: {
       goal: "The boiler works.",
       kind: "matter-direction",
-      matter: "obs_000000000001",
+      matter: "matter_aaaaaaaaaaaa",
     },
     kind: "memory",
   });
@@ -102,4 +102,25 @@ test("his goal by a matter's id is pinned to every step it holds; an agent's tok
       kind: "memory",
     })
   ).rejects.toThrow("no matter");
+  // PR 600's verdict: a step's id marked the whole matter holding it done.
+  await expect(
+    correct({
+      correction: { kind: "outdated", matter: "obs_000000000001" },
+      kind: "memory",
+    })
+  ).rejects.toThrow("give a matter's id");
+  expect(readCorrections()).toHaveLength(1);
+  expect(tick).not.toHaveBeenCalled();
+});
+
+test("with no words of his, the to-do items' ask says the words are Life's, and the correction has no note", async () => {
+  await correct({
+    correction: { kind: "outdated", matter: "matter_aaaaaaaaaaaa" },
+    kind: "memory",
+  });
+  expect(tick).toHaveBeenCalledWith(
+    ["entry_000000000001"],
+    "Marked done (Life's words: he gave none)."
+  );
+  expect(readCorrections()[0]?.note).toBeUndefined();
 });
