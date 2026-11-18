@@ -598,7 +598,7 @@ test("readIndex takes no async read: the index closes when the read returns", ()
 });
 
 test("an episode day is parsed again once rewritten, and an unchanged one hands back the same rows", async () => {
-  const line = (title: string) =>
+  const dayLine = (title: string) =>
     `${JSON.stringify({ copies: [], day: "2026-10-20", end: null, id: "ep_000000000001", importance: 1, madeBy, people: [], place: null, schemaVersion: 1, start: null, title, units: ["unit_000000000001"], what: "They talk.", within: null })}\n`;
   const path = join(EPISODES, "2026-10-20.jsonl");
   mkdirSync(EPISODES, { recursive: true });
