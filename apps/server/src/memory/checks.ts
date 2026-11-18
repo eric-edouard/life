@@ -3,8 +3,8 @@ import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import {
   type NamingQueueItem,
+  namingQueueGuessesOf,
   readNamingQueue,
-  voiceGuessesOf,
 } from "../sources/lifelog-voices";
 import { pagedNow } from "./closeness";
 import { type Decision, decisionsNow, isOnMatter } from "./decisions";
@@ -508,7 +508,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
       .filter((item) => item.kind !== "several")
       .map((item) => {
         const known = voicePersonOf(c.people.resolve, item.personId, item.name);
-        const likely = voiceGuessesOf(item)
+        const likely = namingQueueGuessesOf(item)
           .flatMap((id) => {
             const ref = voicePersonOf(c.people.resolve, id, null);
             return ref ? [ref] : [];

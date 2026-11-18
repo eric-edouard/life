@@ -220,7 +220,7 @@ export async function readNamingQueue() {
 }
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
-export const voiceGuessesOf = (item: NamingQueueItem) => [
+export const namingQueueGuessesOf = (item: NamingQueueItem) => [
   ...new Set(
     [item.personId, item.namedPersonId, ...item.likely].filter(
       (x): x is string => !!x

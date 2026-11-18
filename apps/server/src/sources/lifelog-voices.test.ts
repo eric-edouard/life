@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { readNamingQueue, voiceGuessesOf } from "./lifelog-voices";
+import { namingQueueGuessesOf, readNamingQueue } from "./lifelog-voices";
 import { lifelogServer } from "./store-fixtures";
 
 const DANA = "00000000-0000-4000-8000-000000000001";
@@ -30,8 +30,7 @@ test("the naming queue is read, and a lifelog that fails it leaves the inbox wit
 });
 
 test("a voice's guesses: its best guess first, each once", () => {
-  expect(voiceGuessesOf({ ...item, namedPersonId: KOFI } as never)).toEqual([
-    DANA,
-    KOFI,
-  ]);
+  expect(
+    namingQueueGuessesOf({ ...item, namedPersonId: KOFI } as never)
+  ).toEqual([DANA, KOFI]);
 });
