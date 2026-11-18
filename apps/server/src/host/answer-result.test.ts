@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
@@ -405,5 +405,164 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     record.mockRestore();
     queue.mockRestore();
     send.mockRestore();
+  }
+});
+
+test("a new matter: Start saves the goal he saw, asks the desk with it, reports its stages in one plan and returns the desk's result; Edit goal keeps the card", async () => {
+  const steps = ["obs_000000000071", "unit_000000000072"];
+  const newMatter = asCheck({
+    group: "new matter",
+    matter: { id: "matter_000000000007", name: "Boiler service" },
+    ref: "matter_000000000007",
+  });
+  guesses = [newMatter];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      goal: {
+        at: "2026-11-17T02:00:00Z",
+        by: "life",
+        text: "The boiler is serviced",
+      },
+      id: newMatter.ref,
+      steps: steps.map((ref) => ({ ref })),
+    },
+  ] as never);
+  const started = readStarted();
+  const desk = spyOn(
+    await import("./change-registered-agent"),
+    "changeRegisteredAgent"
+  ).mockImplementation((_change, c) => {
+    c?.report({
+      limitSeconds: 20,
+      plan: ["runtime_answers", "session_open", "turn_begun"],
+    });
+    for (const { stage, ...detail } of started.stages) {
+      c?.report({ step: stage, ...detail });
+    }
+    // The desk anchors its agent on the matter: the card leaves.
+    guesses = [];
+    return Promise.resolve(started as never);
+  });
+  try {
+    const edited = await call(newMatter.ref, ["edit-goal"], "tap-g", {
+      note: "Serviced and the leak fixed",
+    }).result;
+    expectWire("answer_check_new_matter_goal_edited", edited, true);
+    expect(edited).toMatchObject({
+      changed: { answer: "edit-goal", goal: "Serviced and the leak fixed" },
+      inbox: { left: false },
+      start: null,
+    });
+    const { result, steps: reported } = call(newMatter.ref, ["start"], "tap-s");
+    const r = await result;
+    expectWire("answer_check_new_matter_started", r, true);
+    expect(reported.map((s) => s.plan ?? s.step)).toEqual([
+      [
+        "goal_saved",
+        "runtime_answers",
+        "session_open",
+        "turn_begun",
+        "recorded",
+        "left_inbox",
+      ],
+      "goal_saved",
+      "runtime_answers",
+      "session_open",
+      "turn_begun",
+      "recorded",
+      "left_inbox",
+    ]);
+    expect(reported[0]).toMatchObject({ limitSeconds: 30 });
+    expect(desk.mock.calls[0]?.[0]).toEqual({
+      action: "start",
+      said: "The boiler is serviced",
+      step: newMatter.ref,
+    });
+    expect(r).toMatchObject({
+      inbox: { left: true },
+      kind: "new matter",
+      start: { state: "started" },
+    });
+    expect(
+      readCorrections().map(({ at: _a, schemaVersion: _v, ...c }) => c)
+    ).toEqual([
+      { goal: "Serviced and the leak fixed", kind: "matter-direction", steps },
+      { goal: "The boiler is serviced", kind: "matter-direction", steps },
+    ]);
+    // The same tap again after a dropped stream: its result, no second ask of the desk.
+    expect(await call(newMatter.ref, ["start"], "tap-s").result).toBe(r);
+    expect(desk).toHaveBeenCalledTimes(1);
+  } finally {
+    desk.mockRestore();
+    book.mockRestore();
+    people.mockRestore();
+  }
+});
+
+/** The desk's answer to a start, as the phone's fixture has it: one that began, else `not_started`. */
+function readStarted(name = "started") {
+  return JSON.parse(
+    readFileSync(
+      join(
+        import.meta.dir,
+        `../../../lifelog/fixtures/wire/life/change_registered_agent_${name}.json`
+      ),
+      "utf8"
+    )
+  ) as { stages: { stage: string }[] };
+}
+
+test("a new matter's Start the desk did not start: the result says where it stopped, the card stays, and his next tap starts again", async () => {
+  const newMatter = asCheck({
+    group: "new matter",
+    matter: { id: "matter_000000000008", name: "Frame the photo" },
+    ref: "matter_000000000008",
+  });
+  guesses = [newMatter];
+  const people = spyOn(
+    await import("../memory/who"),
+    "readPeople"
+  ).mockResolvedValue({} as never);
+  const book = spyOn(
+    await import("../memory/matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      goal: {
+        at: "2026-11-17T02:00:00Z",
+        by: "owner",
+        text: "The photo is framed",
+      },
+      id: newMatter.ref,
+      steps: [{ ref: "obs_000000000081" }],
+    },
+  ] as never);
+  const desk = spyOn(
+    await import("./change-registered-agent"),
+    "changeRegisteredAgent"
+  )
+    .mockResolvedValueOnce(readStarted("not_started") as never)
+    .mockResolvedValueOnce(readStarted() as never);
+  try {
+    const refused = await call(newMatter.ref, ["start"], "tap-1").result;
+    expect(refused).toMatchObject({
+      inbox: { left: false },
+      start: { failed: { stage: "runtime_answers" }, state: "not_started" },
+    });
+    expect(guesses).toEqual([newMatter]);
+    const again = await call(newMatter.ref, ["start"], "tap-2").result;
+    expect(again).toMatchObject({ start: { state: "started" } });
+    expect(desk).toHaveBeenCalledTimes(2);
+  } finally {
+    desk.mockRestore();
+    book.mockRestore();
+    people.mockRestore();
   }
 });

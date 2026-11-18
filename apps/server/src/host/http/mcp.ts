@@ -9,7 +9,6 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
-import { readInbox } from "../../memory/checks";
 import { CARD, DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
@@ -58,6 +57,7 @@ import {
   PollParams,
   pollEvents,
 } from "../events";
+import { readInbox } from "../inbox";
 import {
   agentLinesOnProjects,
   readActiveAgentOf,

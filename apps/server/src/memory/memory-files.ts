@@ -708,6 +708,12 @@ export const readDirectionPins = (): DirectionPin[] => [
   ),
 ];
 
+/** The matters he dismissed as new matter checks, each as the steps it was pinned to (`new-matter-dismissed`). */
+export const readDismissedMatterPins = () =>
+  rowsOf(CORRECTIONS, Correction).flatMap((c) =>
+    c.kind === "new-matter-dismissed" ? [c.steps] : []
+  );
+
 /** The lines of the people his Contacts name, as appended (`contactsNow` folds them). */
 export const readContactLines = () => rowsOf(CONTACT_PEOPLE, ContactPerson);
 

@@ -546,7 +546,7 @@ export const netOf = (v: MatterView) => ({
  * (`wait_decision`, never stored), else its `nextStep`. Pure.
  */
 export function nextStepNow(
-  v: MatterView,
+  v: Pick<MatterView, "nextStep"> & { steps: readonly { ref: string }[] },
   openDecisions: readonly { question: string; subject?: string }[]
 ):
   | (Omit<NextStep, "kind"> & {
