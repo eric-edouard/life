@@ -119,10 +119,10 @@ const ask = () =>
     title: "It is due.",
   });
 let held: ReturnType<typeof spyOn<typeof memoryLock, "isLocked">>;
-let queue: ReturnType<typeof spyOn<typeof voices, "readNamingQueue">>;
+let queue: ReturnType<typeof spyOn<typeof voices, "fetchNamingQueue">>;
 beforeEach(() => {
   held = spyOn(memoryLock, "isLocked").mockReturnValue(false);
-  queue = spyOn(voices, "readNamingQueue").mockResolvedValue([]);
+  queue = spyOn(voices, "fetchNamingQueue").mockResolvedValue([]);
 });
 afterEach(() => {
   held.mockRestore();
@@ -178,4 +178,12 @@ test("while a run holds the lock a new decision still pushes, from its own lines
       },
     ],
   ]);
+  // The lock is released with the decision open: the full look finds it seen, and pushes nothing more.
+  open = [
+    ...cards(2),
+    { asker: "planner", pushId: checks.pushIdOf(id) },
+  ] as checks.InboxCheck[];
+  held.mockReturnValue(false);
+  await pushNewCardsIfChanged();
+  expect(push).toHaveBeenCalledTimes(1);
 });

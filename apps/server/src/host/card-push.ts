@@ -10,7 +10,7 @@ import { isLocked } from "../memory/memory-lock";
 import { dayNow } from "../memory/zones";
 import { WATCH } from "../sources/lifelog";
 import { notifyPhone } from "../sources/lifelog-push";
-import { readNamingQueue } from "../sources/lifelog-voices";
+import { fetchNamingQueue } from "../sources/lifelog-voices";
 
 // A push for each new card in his inbox, the only push of cards: the words "1 new card" or "N new cards", the badge (every
 // open card) and, for one card, its `pushId` (an HMAC of its ref under a key that never leaves the Mac). Never a title,
@@ -81,6 +81,7 @@ const pushNewDecisions = () =>
 /** What the last look saw of what changes the open cards; empty before the first look, and after a run held the lock. */
 let looked = "";
 let decisionsLooked = -1;
+let voices = "";
 /**
  * The watcher's minute: `pushNewCards` only when the decisions, the corrections, his fact-check answers or the voices
  * lifelog queues changed since the last look: never `checksNow` on every tick (the queue is one read of his own lifelog). A
@@ -103,11 +104,15 @@ export async function pushNewCardsIfChanged() {
     }
     return;
   }
+  // lifelog down: the last list stands, and nothing is logged for it every minute.
+  voices = await fetchNamingQueue()
+    .then((q) => q.map((v) => v.id).join(" "))
+    .catch(() => voices);
   const now = [
     decisions,
     readLineCount(CORRECTIONS),
     readLineCount(FACT_CHECK_ANSWERS),
-    (await readNamingQueue()).map((v) => v.id).join(" "),
+    voices,
   ].join();
   if (now === looked) {
     return;
