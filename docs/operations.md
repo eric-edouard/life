@@ -250,6 +250,13 @@ late with harm), or spoken asks above about one a day for a month.
 - The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, an API engine's as its routes), only
   on a copy of the data; `LIFE_LLM` is refused on the live data.
 
+## Sending through Messages
+
+An iMessage send (`sources/messages-app.ts`) needs one macOS grant: Automation, Life → Messages (System Settings →
+Privacy & Security → Automation). macOS asks at the first send; a refusal reads `not sent … (-1743)` with those words.
+chat.db must stay readable (Full Disk Access, as for reading). A file is written to a fresh folder under
+`~/Pictures/Life sends` for the send and removed after it.
+
 ## Backups and exports
 
 `apps/server/src/host/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
