@@ -1,13 +1,18 @@
-import { expect, test } from "bun:test";
+import { expect, setSystemTime, spyOn, test } from "bun:test";
+import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import {
   type Check,
   type CheckInputs,
+  checksNow,
   checksOf,
   checksText,
   pushIdOf,
 } from "./checks";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as matters from "./matters";
+import { locked } from "./memory-lock";
 import { guessTestOf } from "./who";
 
 type Input = Partial<Omit<CheckInputs, "people">> & {
@@ -516,4 +521,27 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       matters: [regrouped],
     })
   ).toEqual([]);
+});
+
+// 19 Nov 2026 (review A, B3 and R1): a run that took and let go of the lock between two of the watcher's looks never
+// pushed its cards, and every reader read every episode and observation on every call.
+test("the inbox is read again only when what it is read from changed: a run's end, an agent anchored, a new day", async () => {
+  const reads = spyOn(matters, "readMatterRecords");
+  try {
+    await checksNow(null);
+    reads.mockClear();
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(0);
+    await locked(() => Promise.resolve());
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(1);
+    await checksNow(new Set(["obs_000000000001"]));
+    expect(reads).toHaveBeenCalledTimes(2);
+    setSystemTime(new Date(clock().getTime() + DAY));
+    await checksNow(new Set(["obs_000000000001"]));
+    expect(reads).toHaveBeenCalledTimes(3);
+  } finally {
+    setSystemTime();
+    reads.mockRestore();
+  }
 });

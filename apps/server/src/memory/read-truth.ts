@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
@@ -65,6 +65,15 @@ function frontmatter(text: string, path: string) {
 
 /** His truth/ folder. */
 export const TRUTH = join(OWNER_DATA_DIR, "truth");
+
+/** When a file of truth/ last changed (its newest mtime): cheap, for what keys on his directory (`checksNow`). */
+export const truthChangedAt = () =>
+  Math.max(
+    0,
+    ...readdirSync(TRUTH, { recursive: true }).map(
+      (n) => statSync(join(TRUTH, String(n))).mtimeMs
+    )
+  );
 
 /** truth/me.md, read fresh. */
 export const loadMe = async (data = OWNER_DATA_DIR) =>
