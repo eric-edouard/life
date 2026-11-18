@@ -5,18 +5,18 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
-import { FactCheck, type FactCheckAnswer } from "../records/fact-check";
+import { FactCheck, FactCheckAnswer } from "../records/fact-check";
 import type {
   Correction,
   Extracted,
   Observation,
   Supersession,
 } from "../records/observation";
-import { recordFactCheckAnswer } from "./fact-checks";
 import { buildIndex } from "./index-writer";
 import {
   answeredFactCheckCorrections,
   answeredFactChecks,
+  FACT_CHECK_ANSWERS,
   FACT_CHECKS,
   hiding,
   INDEX,
@@ -444,13 +444,20 @@ test("a fact check is rated only once he was shown it, with his why; the eval re
     shown(old),
     shown(passed),
   ]);
-  await expect(
-    recordFactCheckAnswer("obs_fac700000009", "true")
-  ).rejects.toThrow("no fact check");
-  await recordFactCheckAnswer(right, "true");
-  await recordFactCheckAnswer(half, "partly", "it was Tuesday");
-  await recordFactCheckAnswer(old, "outdated");
-  await recordFactCheckAnswer(passed, "skip");
+  const answer = (ref: string, a: FactCheckAnswer["answer"], note?: string) =>
+    appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
+      {
+        answer: a,
+        at: "2026-10-30T09:00:00.000Z",
+        ...(note ? { note } : {}),
+        ref,
+        schemaVersion: 1,
+      },
+    ]);
+  answer(right, "true");
+  answer(half, "partly", "it was Tuesday");
+  answer(old, "outdated");
+  answer(passed, "skip");
   expect(readFactCheckAnswers().get(half)?.note).toBe("it was Tuesday");
   const facts = new Map(answeredFactChecks().map((f) => [f.id, f]));
   expect([right, half, old, passed].map((r) => facts.get(r)?.true)).toEqual([

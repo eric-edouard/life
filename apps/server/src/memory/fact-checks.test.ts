@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { FactCheck } from "../records/fact-check";
-import { readInbox } from "./checks";
+import { checksNow } from "./checks";
 import { recordFactCheckAnswer } from "./fact-checks";
 import {
   FACT_CHECK_ANSWERS,
@@ -11,7 +11,7 @@ import {
   readFactChecks,
 } from "./memory-files";
 
-test("an old drawn fact check, never answered, is no longer open; answering one still works and keeps the line as it was", async () => {
+test("an old drawn fact check, never answered, is no longer open, and answering it is refused", async () => {
   for (const f of [FACT_CHECK_ANSWERS, FACT_CHECKS]) {
     rmSync(f, { force: true });
   }
@@ -27,10 +27,12 @@ test("an old drawn fact check, never answered, is no longer open; answering one 
     units: ["unit_000000000000"],
   };
   appendJsonl(FACT_CHECKS, FactCheck, [old]);
-  expect((await readInbox()).factChecks).toEqual([]);
-  await recordFactCheckAnswer(old.ref, "true");
+  expect((await checksNow()).some((c) => c.ref === old.ref)).toBe(false);
+  await expect(recordFactCheckAnswer(old.ref, "outdated")).rejects.toThrow(
+    "no open ending check"
+  );
   expect(readFactChecks()).toEqual([old]);
-  expect(readFactCheckAnswers().get(old.ref)?.answer).toBe("true");
+  expect(readFactCheckAnswers().get(old.ref)).toBeUndefined();
   rmSync(FACT_CHECKS, { force: true });
   rmSync(FACT_CHECK_ANSWERS, { force: true });
 });

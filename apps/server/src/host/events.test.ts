@@ -1,6 +1,15 @@
-import { expect, test } from "bun:test";
+import { expect, setSystemTime, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { HOUR } from "../core/clock";
+import { DECISIONS, requestDecision } from "../memory/decisions";
 import type { SourceEvent } from "../records/source";
-import { MESSAGE_RECEIVED, type Messaging, pollEvents } from "./events";
+import {
+  DECISION_LAPSED,
+  MESSAGE_RECEIVED,
+  type Messaging,
+  pollEvents,
+  pollMessages,
+} from "./events";
 
 /** A source whose store holds `list`, row by row from 1, as `incoming` and `read` see it. */
 function fake(name: "mail" | "telegram" | "whatsapp", list: SourceEvent[]) {
@@ -47,7 +56,7 @@ async function stores() {
   const sources = (["mail", "telegram", "whatsapp"] as const).map((s) =>
     fake(s, lists[s])
   );
-  const first = await pollEvents(
+  const first = await pollMessages(
     { arguments: {}, cursor: null, name: MESSAGE_RECEIVED },
     sources
   );
@@ -60,7 +69,7 @@ const at = (
   sources: Messaging[],
   maxEvents?: number
 ) =>
-  pollEvents(
+  pollMessages(
     {
       arguments: args,
       cursor,
@@ -158,7 +167,7 @@ test("an app not on, an unknown person or an unknown event is refused", async ()
     "No one goes by"
   );
   await expect(
-    pollEvents({ arguments: {}, cursor, name: "ask.received" }, sources)
+    pollMessages({ arguments: {}, cursor, name: "ask.received" }, sources)
   ).rejects.toMatchObject({ code: -32_023 });
 });
 
@@ -226,4 +235,38 @@ test("a source missing from a poll keeps its place: what it wrote meanwhile come
   expect(
     (await at({}, without.cursor, sources)).events.map((e) => e.eventId)
   ).toEqual([lists.whatsapp[1]?.id ?? ""]);
+});
+
+test("a decision that lapsed wakes its own asker once, with what it said it takes on silence; another agent or a plain app gets nothing", async () => {
+  rmSync(DECISIONS, { force: true });
+  const start = new Date("2026-11-18T09:00:00.000Z");
+  setSystemTime(start);
+  try {
+    const { id } = await requestDecision("planner", {
+      deadline: new Date(start.getTime() + HOUR).toISOString(),
+      onSilence: "wait",
+      options: [
+        { id: "yes", label: "Book Kit" },
+        { id: "wait", label: "Wait" },
+      ],
+      question: "Book Kit?",
+      recommended: ["yes"],
+      why: "Cheapest.",
+    });
+    const poll = (agent: string | undefined, cursor: string | null) =>
+      pollEvents({ arguments: {}, cursor, name: DECISION_LAPSED }, agent);
+    const first = await poll("planner", null);
+    expect(first.events).toEqual([]);
+    setSystemTime(new Date(start.getTime() + 2 * HOUR));
+    const lapsed = await poll("planner", first.cursor);
+    expect(lapsed.events).toMatchObject([
+      { data: { id, onSilence: "wait" }, name: DECISION_LAPSED },
+    ]);
+    expect((await poll("planner", lapsed.cursor)).events).toEqual([]);
+    expect((await poll("atlas", first.cursor)).events).toEqual([]);
+    await expect(poll(undefined, first.cursor)).rejects.toThrow("paired agent");
+  } finally {
+    setSystemTime();
+    rmSync(DECISIONS, { force: true });
+  }
 });

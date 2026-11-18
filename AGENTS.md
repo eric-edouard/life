@@ -123,7 +123,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments").
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer (`answer_decision`), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
+- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer), acts only through `change_todo_item`, and writes his `truth/` only through `change_directory_entry` (by his words).** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Life serves no page.** Only `/mcp`, its OAuth, and the app's status reads behind the local key. Never take the local key on the public port (`docs/architecture.md`, "Pages").

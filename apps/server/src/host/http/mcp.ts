@@ -7,14 +7,15 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { hasAddOn } from "../../core/add-ons";
+import { clock } from "../../core/clock";
 import { log } from "../../core/log";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector, settings } from "../../core/settings";
+import { answerCheck } from "../../memory/answer-check";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { readInbox } from "../../memory/checks";
-import { Ask, answerDecision, requestDecision } from "../../memory/decisions";
-import { recordFactCheckAnswer } from "../../memory/fact-checks";
+import { Ask, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
@@ -48,7 +49,15 @@ import {
   autoAddTodoItem,
   changeAskedTodoItem,
 } from "../change-todo-item";
-import { EVENTS, eventTypes, PollParams, pollEvents } from "../events";
+import {
+  DECISION_ANSWERED,
+  DECISION_LAPSED,
+  decisionCursorOf,
+  EVENTS,
+  eventTypes,
+  PollParams,
+  pollEvents,
+} from "../events";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
@@ -158,22 +167,13 @@ const range = {
 };
 
 const Correct = Fix.extend({
-  answer: z
-    .enum(["true", "partly", "false"])
-    .optional()
-    .describe("fact_check: his answer, right, partly or wrong"),
   correction: z
     .record(z.string(), z.unknown())
     .optional()
     .describe(
       "memory: a Life correction as `bun life memory correct` takes it, e.g. {kind:'wrong', observations:['<obs_ or ep_ id>']}"
     ),
-  kind: z.enum(["memory", "fact_check", ...FORWARD_KINDS]),
-  note: z.string().min(1).optional().describe("fact_check: his why, his words"),
-  ref: z
-    .string()
-    .optional()
-    .describe("fact_check: the obs_ or ep_ id from `read_inbox`"),
+  kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
 /** What an agent asks (`request_decision`): an `Ask` less the desk's stamp, or a withdrawal; `requestDecision` checks the rest. */
@@ -187,25 +187,15 @@ const RequestDecisionArgs = Ask.omit({ agent: true })
       .describe("A decision id you asked, to withdraw it (with `why`)"),
   });
 
-/** What an agent's token may not write: his own words (`tell_life`), his answer to a fact check. */
+/** What an agent's token may not write: his own words (`tell_life`), his answer to a check. */
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
-/** Applies one correction the owner asked for: a Life memory correction, his answer to a fact check, or one of lifelog's four. */
-export async function correct(a: z.infer<typeof Correct>, agent?: string) {
-  if (a.kind === "fact_check") {
-    if (agent) {
-      throw new Error(NOT_HIS);
-    }
-    if (!(a.ref && a.answer)) {
-      throw new Error("Not done: a fact_check needs `ref` and `answer`.");
-    }
-    await recordFactCheckAnswer(a.ref, a.answer, a.note);
-  } else {
-    await (a.kind === "memory"
-      ? recordCorrection(a.correction)
-      : forward(a.kind, a));
-  }
+/** Applies one correction the owner asked for: a Life memory correction, or one of lifelog's four. */
+export async function correct(a: z.infer<typeof Correct>) {
+  await (a.kind === "memory"
+    ? recordCorrection(a.correction)
+    : forward(a.kind, a));
   return `Done: ${a.kind}.`;
 }
 
@@ -504,7 +494,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `fact_check` (his answer to one of `read_inbox`'s fact checks), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -512,41 +502,47 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON). `decisions`: the open questions agents asked him, soonest deadline first, each with its options, what the agent recommends and why, its context and links; record his answer with `answer_decision`. `factChecks`: the open steps Life thinks are done, each word for word, why Life thinks so, where it came from and the words it was read from; record each answer with `correct_memory` (`fact_check`) and anything new he says with `tell_life`.",
-    z.object({}),
-    () => readInbox()
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each has its `ref`, `question`, `asker`, `evidence` (the words it rests on), `options` (each saying what choosing it does), `recommended` and `why`, `deadline` and `onSilence`, `subject`, `context`, `links`. Put them to him one at a time; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    z.object({
+      limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
+    }),
+    ({ limit = 50 }) => readInbox(limit)
   );
   tool(
     server,
     "request_decision",
-    "As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (`read_inbox`, the nightly report, a push as its deadline nears). `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids) and `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject` (a matter step's id: it leaves the list when the matter ends; or `project:<id>`, `area:<id>`). Or `withdraw` (a decision id you asked) with `why`. Returns its id; his answer: `read_inbox` no longer lists it.",
+    "As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (`read_inbox`, the nightly report, a push as its deadline nears). `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids) and `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject` (a matter step's id: it leaves the list when the matter ends; or `project:<id>`, `area:<id>`). Or `withdraw` (a decision id you asked) with `why`. Returns its id and a `cursor`: poll `read_new_events` from it for `decision.answered` (his answer) and `decision.lapsed` (no answer by the deadline: take `onSilence`).",
     RequestDecisionArgs,
-    ({ withdraw, why, ...ask }, agent) => {
+    async ({ withdraw, why, ...ask }, agent) => {
       const asker = agentOnly(agent);
-      return requestDecision(
-        asker,
-        withdraw ? { why, withdraw } : { ...ask, why }
-      );
+      const cursor = decisionCursorOf(clock());
+      return {
+        ...(await requestDecision(
+          asker,
+          withdraw ? { why, withdraw } : { ...ask, why }
+        )),
+        cursor,
+      };
     },
     REVERSIBLE
   );
   tool(
     server,
-    "answer_decision",
-    "Record the owner's answer to a decision `read_inbox` lists, only as he gave it in this chat: `id`, `options` (the option ids he picked; none when he answered in words), `note` (his words, verbatim). The first answer stands.",
+    "answer_check",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in words), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is). Life acts on it at once (a decision's asker is told; a step closes or reopens; who someone is is recorded) and returns the lines written.",
     z.object({
-      id: z.string().describe("dec_…"),
       note: z.string().min(1).max(4000).optional(),
-      options: z.array(z.string()),
+      options: z.array(z.string()).default([]),
+      person: z.string().optional().describe("person:<id>"),
+      ref: z.string().describe("The check's `ref`"),
     }),
-    ({ id, note, options }, agent) => {
+    ({ ref, ...a }, agent) => {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      answerDecision(id, options, note);
-      return Promise.resolve(`Answered: ${id}.`);
+      return answerCheck(ref, a);
     },
-    REVERSIBLE
+    WRITES
   );
   // His directory, by his words: always on (it needs no source), his token only like `tell_life`.
   tool(
@@ -634,18 +630,25 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_new_events",
-    "To be woken when something happens (a reply you wait on), when your client can't send MCP's `events/poll`: what happened past your cursor that you watch (JSON), the same poll. No cursor starts at now. `event`: `message.received`, a message in a chat app or mail, who wrote it, where and when, never its text (`fetch` it). Its `arguments`, each optional: `person` (a name, handle or person id: who wrote it; on his own, the 1:1 chat's person), `channels` (apps), `chat` (a chat key), `from_me` (his own instead of others'), `text_matches` (a regular expression, any case). Poll again from the returned `cursor` while `hasMore`, else after `nextPollMs`.",
+    `To be woken when something happens (a reply you wait on), when your client can't send MCP's \`events/poll\`: what happened past your cursor that you watch (JSON), the same poll. No cursor starts at now. \`event\`: \`message.received\`, a message in a chat app or mail, who wrote it, where and when, never its text (\`fetch\` it). Its \`arguments\`, each optional: \`person\` (a name, handle or person id: who wrote it; on his own, the 1:1 chat's person), \`channels\` (apps), \`chat\` (a chat key), \`from_me\` (his own instead of others'), \`text_matches\` (a regular expression, any case). Or, as a paired agent, \`${DECISION_ANSWERED}\` (his answer to a decision you asked) and \`${DECISION_LAPSED}\` (one that lapsed unanswered), from the cursor \`request_decision\` returned. Poll again from the returned \`cursor\` while \`hasMore\`, else after \`nextPollMs\`.`,
     z.object({
       arguments: z.record(z.string(), z.unknown()).optional(),
       cursor: z
         .string()
         .optional()
         .describe("The `cursor` of the previous call"),
-      event: z.string().describe("`message.received`"),
+      event: z
+        .string()
+        .describe(
+          "`message.received`, `decision.answered` or `decision.lapsed`"
+        ),
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
-    ({ arguments: args = {}, cursor = null, event, limit }) =>
-      pollEvents({ arguments: args, cursor, maxEvents: limit, name: event })
+    ({ arguments: args = {}, cursor = null, event, limit }, agent) =>
+      pollEvents(
+        { arguments: args, cursor, maxEvents: limit, name: event },
+        agent
+      )
   );
   // MCP's Events extension (`events.ts`), by poll: what an agent can wait for, and what happened past its cursor.
   server.server.registerCapabilities({ extensions: { [EVENTS]: {} } });
@@ -659,7 +662,7 @@ export function buildServer(readsOnly = false) {
     { params: PollParams.loose() },
     async (params, ctx) => {
       const started = performance.now();
-      const result = await pollEvents(params);
+      const result = await pollEvents(params, agentIn(ctx.http?.authInfo));
       log("mcp.call", {
         ...who(ctx.http?.authInfo),
         args: cut(params),

@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { addOnOf } from "../core/add-ons";
 import { clock, daysBefore } from "../core/clock";
+import { answerCheck } from "../memory/answer-check";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
 import { checksNow, checksText } from "../memory/checks";
@@ -16,7 +17,6 @@ import { episodes } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { recordFactCheckAnswer } from "../memory/fact-checks";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
@@ -55,7 +55,6 @@ import { dayNow, isDay, lastDays, type Window } from "../memory/zones";
 import { histories, readHistoryWork } from "../personal/histories";
 import { readPerson } from "../personal/person-parts";
 import { personaReadingsOf, personas } from "../personal/personas";
-import { FactCheckAnswer } from "../records/fact-check";
 import { nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -166,23 +165,17 @@ const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
 
 const HANDLERS: Record<string, Handler> = {
-  /** `answer-fact-check <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/fact-check-answers.jsonl). */
-  async "answer-fact-check"(_values, [ref = "", answer = "", ...note]) {
-    const said = FactCheckAnswer.shape.answer.safeParse(answer);
-    if (!(ref && said.success && said.data)) {
-      return usage();
-    }
-    try {
-      await recordFactCheckAnswer(ref, said.data, words(note) || undefined);
-      console.log(
-        `recorded ${said.data} for ${ref} in memory/fact-check-answers.jsonl`
-      );
-      return 0;
-    } catch (e) {
-      console.error((e as Error).message);
-      return 1;
-    }
-  },
+  /** `answer-check <ref> <option> [note] [--person person:<id>]`: his answer to an open check (`answerCheck`), through its kind's writer. */
+  "answer-check": (values, [ref = "", option = "", ...note]) =>
+    ref && option
+      ? json(
+          answerCheck(ref, {
+            note: words(note) || undefined,
+            options: [option],
+            person: values.person,
+          })
+        )
+      : usage(),
   appointments: step(() => appointments()),
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
   changes: (v) =>
@@ -451,7 +444,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-fact-check <obs_ or ep_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

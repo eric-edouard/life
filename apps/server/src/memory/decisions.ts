@@ -231,6 +231,23 @@ export function answerDecision(
   return line;
 }
 
+/**
+ * The decisions answered or lapsed in [`from`, `to`), by when: his answer's instant, or the deadline for a lapse (a
+ * withdrawal is the asker's own act). Half-open, so a poll's next window starts at this one's end and none is seen twice
+ * or skipped.
+ */
+export const settledBetween = (list: Decision[], from: Date, to: Date) =>
+  list
+    .map((d) => ({ at: Date.parse(d.answer?.at ?? d.deadline), d }))
+    .filter(
+      ({ at, d }) =>
+        (d.state === "answered" || d.state === "lapsed") &&
+        at >= from.getTime() &&
+        at < to.getTime()
+    )
+    .toSorted((a, b) => a.at - b.at)
+    .map((x) => x.d);
+
 /** When a decision is pushed: as its deadline comes within 24 hours, or when asked if it already has. */
 const pushAtOf = (d: Decision) =>
   Math.max(Date.parse(d.at), Date.parse(d.deadline) - DAY);

@@ -17,16 +17,16 @@ import {
 import { readPeople } from "./who";
 
 // His fact checks: nothing is drawn. The open ones are the ending checks `checksNow` lists (`checks.ts`), put to him in a
-// chat (`read_inbox`) and answered there (`correct_memory`, kind `fact_check`). A check is written to
+// chat (`read_inbox`) and answered there (`answer_check`, `answer-check.ts`). A check is written to
 // memory/fact-checks.jsonl only with his answer, as it was shown, so the answer reads back the same.
 
 /**
- * Appends his answer to a fact check: first the check as it is shown (an open ending check: its guess as the text, the later step's channel as the source), then the answer, so a stored answer always has its check. A later answer replaces it.
- * Throws for a ref with no line and no current ending.
+ * Appends his answer to an open ending check and returns it: first the check as it is shown (its guess as the text, the later step's channel as the source), then the answer, so a stored answer always has its check.
+ * Throws for any other ref: one answered already, an old doubt line, a step with no ending found.
  */
 export async function recordFactCheckAnswer(
   ref: string,
-  answer: NonNullable<FactCheckAnswer["answer"]>,
+  answer: "false" | "outdated",
   note?: string
 ) {
   const at = clock().toISOString();
@@ -42,36 +42,34 @@ export async function recordFactCheckAnswer(
   const answered = new Set(
     [...readFactCheckAnswers()].flatMap(([r, a]) => (a.answer ? [r] : []))
   );
-  if (link && o && isEndingOpen(ref, { answered, doubted })) {
-    if (!lines.some((s) => s.ref === ref && s.endedBy === link.later)) {
-      appendJsonl(FACT_CHECKS, FactCheck, [
-        {
-          at,
-          date: o.date,
-          endedBy: link.later,
-          group: o.subjects[0] ?? "episodes",
-          kind: factCheckKindOf(o),
-          ref,
-          schemaVersion: 1,
-          // Where the later step's words were said, as the check showed them (an episode has no channel).
-          source:
-            observations.find((x) => x.id === link.later)?.source.channel ??
-            null,
-          text: endingGuessOf(o.text),
-          units: [o.unit],
-        },
-      ]);
-    }
-  } else if (!lines.some((s) => s.ref === ref) || (link && doubted.has(ref))) {
-    throw new Error(`no fact check ${ref} in memory/fact-checks.jsonl`);
+  if (!(link && o && isEndingOpen(ref, { answered, doubted }))) {
+    throw new Error(`Not done: no open ending check ${ref}.`);
   }
-  return appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [
-    {
-      answer,
-      at,
-      ...(note ? { note } : {}),
-      ref,
-      schemaVersion: 1,
-    },
-  ]);
+  if (!lines.some((s) => s.ref === ref && s.endedBy === link.later)) {
+    appendJsonl(FACT_CHECKS, FactCheck, [
+      {
+        at,
+        date: o.date,
+        endedBy: link.later,
+        group: o.subjects[0] ?? "episodes",
+        kind: factCheckKindOf(o),
+        ref,
+        schemaVersion: 1,
+        // Where the later step's words were said, as the check showed them (an episode has no channel).
+        source:
+          observations.find((x) => x.id === link.later)?.source.channel ?? null,
+        text: endingGuessOf(o.text),
+        units: [o.unit],
+      },
+    ]);
+  }
+  const line: FactCheckAnswer = {
+    answer,
+    at,
+    ...(note ? { note } : {}),
+    ref,
+    schemaVersion: 1,
+  };
+  appendJsonl(FACT_CHECK_ANSWERS, FactCheckAnswer, [line]);
+  return line;
 }

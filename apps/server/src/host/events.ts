@@ -1,7 +1,10 @@
 import { INVALID_PARAMS, ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { clock } from "../core/clock";
 import { log } from "../core/log";
 import {
+  decode,
+  encode,
   feedPage,
   MAX_PAGE,
   PAGE,
@@ -9,6 +12,7 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
+import { decisionsNow, settledBetween } from "../memory/decisions";
 import { readySources } from "../memory/sources";
 import { isLifeOutput, speakerOf } from "../memory/units";
 import { meant, readPeople } from "../memory/who";
@@ -17,10 +21,15 @@ import type { Descriptor } from "../sources/contract";
 
 // Events: what an agent can wait for, MCP's Events extension (SEP-3415, a draft; `io.modelcontextprotocol/events`),
 // served by poll only. The agent picks its own arguments and Life matches them by code. An event is computed when it
-// is polled, from each source's own order (`incoming`): Life stores nothing for it, and the agent keeps its cursor.
+// is polled, from each source's own order (`incoming`), or from the decisions as they stand (`decisionsNow`): Life
+// stores nothing for it, and the agent keeps its cursor.
 
 export const EVENTS = "io.modelcontextprotocol/events";
 export const MESSAGE_RECEIVED = "message.received";
+/** A decision the caller asked got his answer, or lapsed unanswered at its deadline: the follow-through to its asker. */
+export const DECISION_ANSWERED = "decision.answered";
+export const DECISION_LAPSED = "decision.lapsed";
+const DECISION_EVENTS = [DECISION_ANSWERED, DECISION_LAPSED];
 /** How often an agent should poll when nothing is waiting. */
 const NEXT_POLL_MS = 30_000;
 // The extension's provisional error code for an unknown event name.
@@ -94,6 +103,86 @@ const Payload = z.object({
   source: z.string(),
 });
 
+const DecisionPayload = z.object({
+  answer: z
+    .object({
+      at: z.iso.datetime(),
+      note: z.string().optional().describe("His words"),
+      options: z.array(z.string()).describe("The option ids he picked"),
+    })
+    .optional(),
+  at: z.iso
+    .datetime()
+    .describe("When he answered, or the deadline it lapsed at"),
+  id: z.string().describe("The decision's id, as `request_decision` gave it"),
+  onSilence: z
+    .string()
+    .nullable()
+    .describe("The option you said you take if he doesn't answer"),
+  question: z.string(),
+});
+
+/** A decision events cursor: the instant the next window starts at (`request_decision` returns one at the asking instant). */
+export const decisionCursorOf = (at: Date) => encode({ at: at.getTime() });
+
+/**
+ * The decisions `agent` asked that got his answer (`decision.answered`) or lapsed (`decision.lapsed`) since `cursor`
+ * (none: from now), all of them: an agent has few, so one page. The new cursor is now, the window half-open, so an
+ * answer recorded in the same instant comes on the next poll.
+ */
+export function pollDecisions(
+  name: string,
+  cursor: string | null,
+  agent: string | undefined
+) {
+  if (!agent) {
+    throw new ProtocolError(
+      INVALID_PARAMS,
+      "Only a paired agent waits for its decisions (`bun life pair <agent>`)"
+    );
+  }
+  const now = clock();
+  const from = new Date(
+    decode(cursor ?? undefined, z.object({ at: z.int() }), {
+      at: now.getTime(),
+    }).at
+  );
+  const state = name === DECISION_ANSWERED ? "answered" : "lapsed";
+  const settled = settledBetween(decisionsNow(now), from, now).filter(
+    (d) => d.asker === agent && d.state === state
+  );
+  return {
+    cursor: decisionCursorOf(now),
+    events: settled.map((d) => {
+      const at = d.answer?.at ?? d.deadline;
+      return {
+        data: {
+          ...(d.answer
+            ? {
+                answer: {
+                  at: d.answer.at,
+                  ...(d.answer.note ? { note: d.answer.note } : {}),
+                  options: d.answer.options,
+                },
+              }
+            : {}),
+          at,
+          id: d.id,
+          onSilence: d.onSilence,
+          question: d.question,
+        } satisfies z.infer<typeof DecisionPayload>,
+        eventId: `${d.id}.${state}`,
+        name,
+        timestamp: at,
+      };
+    }),
+    hasMore: false,
+    nextPollMs: NEXT_POLL_MS,
+    resultType: "complete",
+    truncated: false,
+  };
+}
+
 /** `events/list`: the event types an agent can poll now, built from the sources that are on (a plugin's come with it). */
 export function eventTypes() {
   const channels = messaging().map((s) => s.name);
@@ -107,6 +196,16 @@ export function eventTypes() {
         name: MESSAGE_RECEIVED,
         payloadSchema: z.toJSONSchema(Payload),
       },
+      ...DECISION_EVENTS.map((name) => ({
+        delivery: ["poll"],
+        description:
+          name === DECISION_ANSWERED
+            ? "A decision you asked (`request_decision`) got his answer: the options he picked and his words."
+            : "A decision you asked lapsed unanswered at its deadline: take your `onSilence` option now.",
+        inputSchema: z.toJSONSchema(z.object({}).strict(), { io: "input" }),
+        name,
+        payloadSchema: z.toJSONSchema(DecisionPayload),
+      })),
     ],
     resultType: "complete",
   };
@@ -156,11 +255,20 @@ function readNewMessages(s: Messaging, from: number | undefined) {
   };
 }
 
+/** `events/poll`: the caller's decisions settled since `cursor` (`pollDecisions`), else its messages (`pollMessages`). */
+export const pollEvents = async (
+  p: z.infer<typeof PollParams>,
+  agent: string | undefined
+) =>
+  DECISION_EVENTS.includes(p.name)
+    ? pollDecisions(p.name, p.cursor, agent)
+    : pollMessages(p);
+
 /**
- * `events/poll`: the messages matching `arguments` past `cursor` (none: start at now). A source that cannot be read keeps
- * its place, so nothing it wrote meanwhile is skipped.
+ * The messages matching `arguments` past `cursor` (none: start at now). A source that cannot be read keeps its place,
+ * so nothing it wrote meanwhile is skipped.
  */
-export async function pollEvents(
+export async function pollMessages(
   p: z.infer<typeof PollParams>,
   sources = messaging()
 ) {
