@@ -16,7 +16,7 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(inbox.total == 7)
     #expect(
         inbox.counts == [
-            "decision": 1, "ending": 1, "new matter": 1, "guessed person": 1, "card": 1, "name": 1, "voice": 1,
+            "decision": 1, "ending": 1, "new matter": 1, "guessed person": 1, "contacts card": 1, "name": 1, "voice": 1,
         ])
     let decision = try #require(inbox.checks.first)
     #expect(decision.group == .decision)

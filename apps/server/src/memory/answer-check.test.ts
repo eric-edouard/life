@@ -15,7 +15,7 @@ const guess = check("person:inf_kit", "guessed person", [
   "+33600000001",
 ]);
 const name = check("name:kit", "name", ["Kit", "kit"]);
-const card = check("person:con_kit", "card");
+const card = check("person:con_kit", "contacts card");
 const ending = check("obs_000000000001", "ending");
 /** The goals a new matter's Start asked the desk to start on. */
 let started: string[] = [];

@@ -2,13 +2,13 @@
 // label is his app's button, a few words for him; what choosing it does, in words a model reads, is in `answer_check`'s
 // description (`host/http/mcp.ts`), and what his answer must carry is `takes`.
 
-/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place, a name it cannot place, a voice. */
+/** What a check is, for counting: a decision, an ending, a new matter, a guessed person, a Contacts card Life cannot place (`contacts card`), a name it cannot place, a voice. */
 export type CheckGroup =
   | "decision"
   | "ending"
   | "new matter"
   | "guessed person"
-  | "card"
+  | "contacts card"
   | "name"
   | "voice";
 
@@ -27,7 +27,7 @@ export interface CheckOption {
 
 /** Each kind of Life's guesses: what it is trying to do (its title), why it asks (its context), and what he can answer, its guess first (`answerCheck` writes it). */
 export const LIFE_CHECKS = {
-  card: {
+  "contacts card": {
     context:
       "Its name and handles fit more than one person: Life keeps them apart until you say.",
     options: [

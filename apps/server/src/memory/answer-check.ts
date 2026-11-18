@@ -123,7 +123,7 @@ const WRITERS: {
     Writer
   >;
 } = {
-  card: {
+  "contacts card": {
     "same-person": (c, a) =>
       correct([{ from: c.ref, kind: "same-person", to: personIn(a) }], a),
   },

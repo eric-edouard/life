@@ -200,7 +200,7 @@
       "deadline": null,
       "draft": null,
       "evidence": null,
-      "group": "card",
+      "group": "contacts card",
       "kind": "person",
       "likelyPeople": [],
       "links": [],
@@ -346,7 +346,7 @@
     "ending": 1,
     "new matter": 1,
     "name": 1,
-    "card": 1,
+    "contacts card": 1,
     "guessed person": 1,
     "voice": 1
   },
