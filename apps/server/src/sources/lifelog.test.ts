@@ -29,6 +29,7 @@ import {
   writeMarks,
 } from "./lifelog";
 import { conversationsWith } from "./lifelog-conversations";
+import type { Push } from "./lifelog-push";
 import { Recorded } from "./lifelog-recorded";
 import {
   ConversationAnswer,
@@ -732,4 +733,24 @@ test("the name lifelog gave a person id is the newest one, and no name leaves th
     { at: "2026-10-01T00:00:00.000Z", id: "p2", name: null },
   ]);
   expect([...names]).toEqual([["p1", "Dana"]]);
+});
+
+test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: the same fields, each of the type it holds", async () => {
+  const api = JSON.parse(await Bun.file(CONTRACT).text());
+  const theirs =
+    api.paths["/notifications"].post.requestBody.content["application/json"]
+      .schema.properties;
+  // `Required<Push>` makes this list every field of `Push`: a field added there fails to compile until it is here.
+  const mine: Required<Push> = {
+    badge: 1,
+    body: "1 new card",
+    pushId: "9f2c41d07ab35e68",
+    quiet: true,
+    title: "Life",
+  };
+  expect(Object.keys(theirs).sort()).toEqual(Object.keys(mine).sort());
+  for (const [field, value] of Object.entries(mine)) {
+    const { type } = theirs[field];
+    expect(type === "integer" ? "number" : type).toBe(typeof value);
+  }
 });

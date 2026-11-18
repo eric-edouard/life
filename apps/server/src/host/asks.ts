@@ -7,7 +7,7 @@ import { feedPage, fileSource, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/memory-files";
 import { clip } from "../memory/units";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
-import { notifyPhone } from "../sources/lifelog";
+import { notifyPhone } from "../sources/lifelog-push";
 import { entryId } from "./change-todo-item";
 
 // His asks of his agents: each "hey <agent>" (`hear.ts`), `bun life ask` or his word about a registered agent
@@ -53,7 +53,10 @@ export function ask(
     // Heard, not done: a voice ask with no push tells him at once it was not heard (his ask, 8 Nov 2026). His words
     // stay off the push (it goes through Apple).
     if (via === "watch") {
-      notifyPhone(`${after.agent} heard you`, "Your ask reached it.");
+      notifyPhone({
+        body: "Your ask reached it.",
+        title: `${after.agent} heard you`,
+      });
     }
   }
   return old ?? line;

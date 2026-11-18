@@ -2,7 +2,7 @@
 // the status the owner's sessions read.
 import { createRoute, z } from "@hono/zod-openapi";
 import { diagnosticKinds } from "@lifelog/db/schema";
-import { storePushToken } from "../apns";
+import { NoticeRequest, storePushToken } from "../apns";
 import {
   Diagnostic,
   DiagnosticUpload,
@@ -134,8 +134,10 @@ export function healthRoutes(
     .openapi(
       createRoute({
         description:
-          "A visible push to the phone that another app of the owner's asks for (Life: each voice " +
-          "ask it heard, so a missing one tells him at once it was not). Sent once, recorded as an " +
+          "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, " +
+          "so a missing one tells him at once it was not; its new cards: a count, a badge and one card's " +
+          "opaque id, `pushId`, 16 hex). Words (`title` and `body` together) and/or a `badge`; `quiet` is " +
+          "passive, with no sound. Sent once, recorded as an " +
           "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         method: "post",
         path: "/notifications",
@@ -143,10 +145,7 @@ export function healthRoutes(
           body: {
             content: {
               "application/json": {
-                schema: z.object({
-                  body: z.string().min(1).max(500),
-                  title: z.string().min(1).max(100),
-                }),
+                schema: NoticeRequest,
               },
             },
             required: true,
@@ -155,8 +154,7 @@ export function healthRoutes(
         responses: { 200: json(Stored, "Sent, or recorded as skipped") },
       }),
       async (c) => {
-        const { body, title } = c.req.valid("json");
-        await s.notice(title, body);
+        await s.notice(c.req.valid("json"));
         return c.json({ stored: true }, 200);
       }
     )

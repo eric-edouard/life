@@ -189,6 +189,7 @@ enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
+- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute but reads three line counts; only a change in the decisions, corrections, fact-check answers or queued voices, or a night's end, runs `checksNow` and pushes what is new (the voices lifelog queues count as a change: one read of his lifelog a minute; while a run holds the memory lock only a new decision pushes) (`pushed-cards.json` in the watcher's folder; the first run pushes nothing).
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
   conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
   retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only

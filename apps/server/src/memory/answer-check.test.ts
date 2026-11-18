@@ -3,12 +3,12 @@ import { rmSync } from "node:fs";
 import { DAY } from "../core/clock";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerCheck } from "./answer-check";
-import type { Check, CheckGroup } from "./checks";
+import type { CheckGroup, InboxCheck } from "./checks";
 import { DECISIONS, decisionsNow, requestDecision } from "./decisions";
 import { CORRECTIONS, readCorrections } from "./memory-files";
 
 const check = (ref: string, group: CheckGroup, about: string[] = []) =>
-  ({ about, group, kind: group, ref }) as unknown as Check;
+  ({ about, group, kind: group, ref }) as unknown as InboxCheck;
 const guess = check("person:inf_kit", "guessed person", [
   "Kit",
   "+33600000001",
