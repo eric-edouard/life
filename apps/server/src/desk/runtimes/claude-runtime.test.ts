@@ -12,7 +12,8 @@ test("the claude runtime puts the door's key in the environment, never the comma
     ...argsOf(a, "again", { resume: "u-1" }),
   ];
   expect(argv.join(" ")).not.toContain(door.key);
-  expect(argv.join(" ")).toContain("${LIFE_DESK_KEY}");
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: what Claude expands from the environment
+  expect(argv.join(" ")).toContain("Bearer ${LIFE_DESK_KEY}");
   expect(argsOf(a, "again", { resume: "u-1" }).slice(0, 4)).toEqual([
     "claude",
     "-p",

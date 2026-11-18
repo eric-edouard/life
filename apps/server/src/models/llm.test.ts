@@ -401,7 +401,8 @@ const STARTS_MODEL = [
 ];
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
-test("only llm.ts starts the model CLIs", async () => {
+// Life's own model calls are llm.ts's; the desk's runtimes start his registered agents' sessions (AGENTS.md).
+test("only llm.ts and the desk's runtimes start the model CLIs", async () => {
   const code = repoFiles(
     LIFE_CODE_DIR,
     ["apps/server/src", "scripts"],
@@ -416,7 +417,10 @@ test("only llm.ts starts the model CLIs", async () => {
         RUNS_PROGRAMS.test(texts[i] ?? "") &&
         STARTS_MODEL.some((p) => p.test(texts[i] ?? ""))
     )
-  ).toEqual(["apps/server/src/models/llm.ts"]);
+  ).toEqual([
+    "apps/server/src/desk/runtimes/claude-runtime.ts",
+    "apps/server/src/models/llm.ts",
+  ]);
 });
 
 test("the Codex quota: the fuller window and its reset; no window or no answer is none", () => {
