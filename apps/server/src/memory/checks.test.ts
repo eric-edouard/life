@@ -1,4 +1,6 @@
 import { expect, setSystemTime, spyOn, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
@@ -12,6 +14,7 @@ import {
 } from "./checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "./matters";
+import { OBSERVATIONS, UNITS } from "./memory-files";
 import { locked } from "./memory-lock";
 import { guessTestOf } from "./who";
 
@@ -524,15 +527,26 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
 });
 
 // 19 Nov 2026 (review A, B3 and R1): a run that took and let go of the lock between two of the watcher's looks never
-// pushed its cards, and every reader read every episode and observation on every call.
-test("the inbox is read again only when what it is read from changed: a run's end, an agent anchored, a new day", async () => {
+// pushed its cards, and every reader read every episode and observation on every call. Then (PR 600's verdict): a key
+// on the lock's release changed with each of the watcher's unit syncs, every 5 minutes.
+test("the inbox is read again only when what it reads changed: not a unit sync; a run's lines, an agent anchored, a new day", async () => {
   const reads = spyOn(matters, "readMatterRecords");
+  const day = join(OBSERVATIONS, "2026-11-19.jsonl");
   try {
     await checksNow(null);
     reads.mockClear();
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(0);
-    await locked(() => Promise.resolve());
+    // The watcher's sync: today's units written, under the lock.
+    await locked(async () => {
+      mkdirSync(UNITS, { recursive: true });
+      writeFileSync(join(UNITS, "2026-11-19.jsonl"), "");
+    });
+    await checksNow(null);
+    expect(reads).toHaveBeenCalledTimes(0);
+    // A night's run: an observation written.
+    mkdirSync(OBSERVATIONS, { recursive: true });
+    writeFileSync(day, "");
     await checksNow(null);
     expect(reads).toHaveBeenCalledTimes(1);
     await checksNow(new Set(["obs_000000000001"]));
@@ -543,5 +557,7 @@ test("the inbox is read again only when what it is read from changed: a run's en
   } finally {
     setSystemTime();
     reads.mockRestore();
+    rmSync(day, { force: true });
+    rmSync(join(UNITS, "2026-11-19.jsonl"), { force: true });
   }
 });

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { daysBefore } from "../core/clock";
-import { readLineCount } from "../core/files";
+import { readChangeStamp } from "../core/files";
 import { secretIn } from "../core/secret";
 import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
@@ -32,16 +32,29 @@ import {
 } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
+  CLOSENESS,
+  CONTACT_PEOPLE,
   CORRECTIONS,
+  EPISODES,
   FACT_CHECK_ANSWERS,
+  FACT_CHECKS,
+  INFERRED,
   LEDGER,
+  LINKS,
+  MATTER_DIRECTIONS,
+  MATTERS,
+  OBSERVATIONS,
+  PAGES,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
+  SUPERSESSIONS,
+  UNRESOLVED,
+  ZONES,
 } from "./memory-files";
-import { isLocked, readLastRelease } from "./memory-lock";
-import { truthChangedAt } from "./read-truth";
+import { isLocked } from "./memory-lock";
+import { TRUTH } from "./read-truth";
 import { nameKey } from "./units";
 import {
   type People,
@@ -483,7 +496,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     const cards = people.ambiguousCards.flatMap((a) =>
       ranked(
         c,
-        "card",
+        "contacts card",
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
           question: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
@@ -610,9 +623,33 @@ export type InboxCheck = Check & { pushId: string };
 let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 
 /**
- * What the checks are read from, cheaply: a run's end (`readLastRelease`), the single lines written outside the lock
- * (decisions, corrections, fact-check answers, the ledger), truth/, his day, the open decisions (one lapses), the steps
- * agents are anchored on and the voices lifelog queues. The same key, the same list.
+ * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
+ * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
+ */
+const CHECKS_READ = [
+  CLOSENESS,
+  CONTACT_PEOPLE,
+  CORRECTIONS,
+  DECISIONS,
+  EPISODES,
+  FACT_CHECK_ANSWERS,
+  FACT_CHECKS,
+  INFERRED,
+  LEDGER,
+  LINKS,
+  MATTER_DIRECTIONS,
+  MATTERS,
+  OBSERVATIONS,
+  PAGES,
+  SUPERSESSIONS,
+  TRUTH,
+  UNRESOLVED,
+  ZONES,
+];
+
+/**
+ * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open
+ * decisions (one lapses), the steps agents are anchored on and the voices lifelog queues. The same key, the same list.
  */
 const checksKeyOf = (
   anchored: ReadonlySet<string> | null,
@@ -620,9 +657,7 @@ const checksKeyOf = (
   decisions: readonly Decision[]
 ) =>
   JSON.stringify([
-    readLastRelease(),
-    [DECISIONS, CORRECTIONS, FACT_CHECK_ANSWERS, LEDGER].map(readLineCount),
-    truthChangedAt(),
+    readChangeStamp(CHECKS_READ),
     dayNow(),
     decisions.map((d) => d.id),
     anchored && [...anchored],
