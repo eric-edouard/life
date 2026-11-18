@@ -142,7 +142,8 @@ function run(a: Agent, ref: string, message: string): Run {
     () => hasEvent(linesOf(path), "turn.started"),
     path
   );
-  const ended = exited.then(async (code) => {
+  const ended = (async () => {
+    const code = await exited;
     await begun.catch(() => undefined);
     const lines = linesOf(path);
     const isOk = code === 0 && hasEvent(lines, "turn.completed");
@@ -157,7 +158,7 @@ function run(a: Agent, ref: string, message: string): Run {
     }
     rmSync(path, { force: true });
     return { ok: isOk };
-  });
+  })();
   return { begun, ended };
 }
 

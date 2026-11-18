@@ -72,7 +72,7 @@ export async function begunWhen(
   watched?: string
 ) {
   let isOver = false;
-  let wake = () => undefined as void;
+  let wake: () => void = () => undefined;
   const over = () => {
     isOver = true;
     wake();
