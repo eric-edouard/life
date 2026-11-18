@@ -31,6 +31,7 @@ import {
   SERVER,
   SYNAPSE,
   userOn,
+  withBridgeDb,
 } from "./matrix";
 import type { CallNotice, Network } from "./networks";
 
@@ -81,18 +82,14 @@ interface Content {
 
 /** His side on this bridge: his own account, and the ghosts of his logins (his messages from his phone). */
 function hisIds(bridge: string) {
-  const db = openReadOnly(join(BRIDGES, bridge, `${bridge}.db`));
-  try {
-    const logins = db
-      .query<{ id: string }, []>("select id from user_login")
-      .all();
-    return new Set([
-      OWNER,
-      ...logins.map((l) => ghostOf(bridge, localpartOf(l.id))),
-    ]);
-  } finally {
-    db.close();
-  }
+  const logins =
+    withBridgeDb(bridge, (db) =>
+      db.query<{ id: string }, []>("select id from user_login").all()
+    ) ?? [];
+  return new Set([
+    OWNER,
+    ...logins.map((l) => ghostOf(bridge, localpartOf(l.id))),
+  ]);
 }
 
 /**
@@ -100,24 +97,22 @@ function hisIds(bridge: string) {
  * the other person's id as the bridge writes it. None when the bridge was never added on this Mac.
  */
 export function portalsOf(bridge: string, bridges = BRIDGES) {
-  const file = join(bridges, bridge, `${bridge}.db`);
-  if (!existsSync(file)) {
-    return new Map<string, { other: string | null; room: string }>();
-  }
-  const db = openReadOnly(file);
-  try {
-    return new Map(
-      db
-        .query<{ igid: string; other: string | null; room: string }, []>(
-          `select json_extract(metadata, '$.igid') as igid, mxid as room, other_user_id as other from portal
+  return new Map(
+    withBridgeDb(
+      bridge,
+      (db) =>
+        db
+          .query<{ igid: string; other: string | null; room: string }, []>(
+            `select json_extract(metadata, '$.igid') as igid, mxid as room, other_user_id as other from portal
             where mxid is not null and json_extract(metadata, '$.igid') is not null`
-        )
-        .all()
-        .map((p) => [String(p.igid), { other: p.other, room: p.room }])
-    );
-  } finally {
-    db.close();
-  }
+          )
+          .all()
+          .map(
+            (p) => [String(p.igid), { other: p.other, room: p.room }] as const
+          ),
+      bridges
+    ) ?? []
+  );
 }
 
 /** A room's name: its own (`m.room.name`), else its other joined members' names, his and the bot's left out. */

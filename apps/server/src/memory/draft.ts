@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mentionsAt } from "../sources/matrix-content";
 
 // A card's draft (AGENTS.md, "Life sends only…"): what an agent gives (`MessageDraft`), what Life stores beside it when
 // the card is asked (`StoredDraft`), and the rules both go by. Resolving and sending it is `draft-send.ts`.
@@ -94,12 +95,10 @@ export function draftProblemOf(d: MessageDraft, kind: "chat" | "mail") {
   if (d.reaction && !(d.onMessage && !d.text && !d.file && !d.mentions)) {
     return "a `reaction` is an emoji on `onMessage` and nothing else";
   }
-  let at = 0;
-  for (const m of d.mentions ?? []) {
-    at = (d.text ?? "").indexOf(`@${m.name}`, at);
-    if (at < 0) {
-      return `\`mentions\` names ${m.name}: \`text\` needs \`@${m.name}\`, after the mentions before it`;
-    }
+  const found = mentionsAt(d.text ?? "", d.mentions ?? []);
+  const missing = d.mentions?.find((_, i) => !found[i]);
+  if (missing) {
+    return `\`mentions\` names ${missing.name}: \`text\` needs \`@${missing.name}\` (whole, as a word), after the mentions before it`;
   }
   return kindProblemOf(d, kind === "mail");
 }

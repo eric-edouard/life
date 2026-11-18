@@ -225,6 +225,7 @@ test("a send joins the room, then puts exactly the text once under its transacti
     bridges: bridgeWith(["$ev1"]),
     confirmMs: 1000,
     homeserver: server.url.origin,
+    synapse: synapseWith({}, [["!r:life.local", "$ev1", 1234]]),
     token: "made-up",
   };
   try {
@@ -233,7 +234,7 @@ test("a send joins the room, then puts exactly the text once under its transacti
         { chat: "!r:life.local", text: "See you at 8" },
         "dec_000000000001"
       )
-    ).toBe("fake:!r:life.local/$ev1");
+    ).toBe("fake:!r:life.local/1234");
   } finally {
     server.stop();
   }
@@ -337,6 +338,7 @@ test("a chat the bridge holds no room for opens by its handle: the network says 
       bridges: bridgeWith(["$ev1"], "provnet"),
       confirmMs: 1000,
       homeserver: homeserver.server.url.origin,
+      synapse: synapseWith({}, [["!NewDm0001", "$ev1", 55]]),
       token: "made-up",
     },
     handleOf,
@@ -349,7 +351,7 @@ test("a chat the bridge holds no room for opens by its handle: the network says 
     expect(await path.opens?.("a-group")).toBeUndefined();
     expect(
       await path.send({ chat: "kit-chat", text: "hi" }, "dec_000000000005")
-    ).toBe("provnet:kit-chat/$ev1");
+    ).toBe("provnet:kit-chat/55");
     expect(homeserver.seen.map((r) => r.path)).toContain(
       "/_matrix/client/v3/rooms/!NewDm0001/send/m.room.message/dec_000000000005"
     );
@@ -371,7 +373,10 @@ test("a chat the bridge holds no room for opens by its handle: the network says 
 });
 
 /** A made-up homeserver database holding the `com.beeper.room_features` event of each room given. */
-function synapseWith(features: Record<string, object>) {
+function synapseWith(
+  features: Record<string, object>,
+  events: [room: string, event: string, stream: number][] = []
+) {
   const dir = join(BRIDGES, "..", `hs-${crypto.randomUUID()}`);
   mkdirSync(dir, { recursive: true });
   const file = join(dir, "homeserver.db");
@@ -380,6 +385,12 @@ function synapseWith(features: Record<string, object>) {
     "create table current_state_events (room_id text, type text, event_id text)"
   );
   db.run("create table event_json (event_id text, json text)");
+  db.run(
+    "create table events (event_id text, room_id text, stream_ordering integer)"
+  );
+  for (const [room, event, stream] of events) {
+    db.run("insert into events values (?, ?, ?)", [event, room, stream]);
+  }
   Object.entries(features).forEach(([room, content], i) => {
     db.run(
       "insert into current_state_events values (?, 'com.beeper.room_features', ?)",
@@ -436,7 +447,8 @@ const file = (text: string, mime = "image/png", name = "menu.png") => ({
   name,
 });
 const ROOM_ = "!full";
-const ref = (event: string) => `fake:${ROOM_}/${event}`;
+/** A message id as the archive gives it: the room and the homeserver's number for the event. */
+const ref = (stream: number) => `fake:${ROOM_}/${stream}`;
 
 /** A made-up path into `!full` (its features as given), `!bare` (a bridge that states none) and `!none` (no event). */
 const pathWith = (
@@ -449,7 +461,10 @@ const pathWith = (
       bridges: bridgeWith(["$ev1", "$t1"], "fake", reactions),
       confirmMs: 500,
       homeserver: home?.server.url.origin,
-      synapse: synapseWith(features),
+      synapse: synapseWith(features, [
+        [ROOM_, "$t1", 7],
+        [ROOM_, "$ev1", 101],
+      ]),
       token: "made-up",
     },
     ghostOf: (sender) =>
@@ -466,7 +481,7 @@ test("a room takes what its features say, and text when they say nothing: a refu
   const refusal = (chat: string, over: object) =>
     path.refusal({ chat, text: "hi", ...over });
   expect(await refusal("!none", {})).toBeUndefined();
-  expect(await refusal("!none", { onMessage: ref("$t1") })).toContain(
+  expect(await refusal("!none", { onMessage: ref(7) })).toContain(
     "takes text only"
   );
   expect(await refusal("!none", { file: file("x") })).toContain(
@@ -488,17 +503,17 @@ test("a room takes what its features say, and text when they say nothing: a refu
   expect(
     await refusal("!bare", { mentions: [{ name: "Ana", sender: "ana-h" }] })
   ).toContain("no mentions");
-  expect(await refusal(ROOM_, { onMessage: ref("$t1") })).toBeUndefined();
+  expect(await refusal(ROOM_, { onMessage: ref(7) })).toBeUndefined();
   expect(
     await refusal(ROOM_, {
-      onMessage: ref("$t1"),
+      onMessage: ref(7),
       reaction: "👍",
       text: undefined,
     })
   ).toBeUndefined();
   expect(
     await refusal(ROOM_, {
-      onMessage: ref("$t1"),
+      onMessage: ref(7),
       reaction: "😀",
       text: undefined,
     })
@@ -535,7 +550,7 @@ test("a message or sender the bridge doesn't know is refused: another chat's id,
   expect(await refusal({ onMessage: "fake:!other/$t1" })).toContain(
     "isn't one this chat's bridge holds"
   );
-  expect(await refusal({ onMessage: ref("$never") })).toContain(
+  expect(await refusal({ onMessage: ref(999) })).toContain(
     "isn't one this chat's bridge holds"
   );
   expect(
@@ -551,10 +566,10 @@ test("each event goes as its exact body: a reply, a mention (escaped, linked, li
   try {
     expect(
       await path.send(
-        { chat: ROOM_, onMessage: ref("$t1"), text: "Yes" },
+        { chat: ROOM_, onMessage: ref(7), text: "Yes" },
         "dec_000000000011"
       )
-    ).toBe(ref("$ev1"));
+    ).toBe(ref(101));
     expect(put()).toEqual({
       body: "Yes",
       "m.relates_to": { "m.in_reply_to": { event_id: "$t1" } },
@@ -603,7 +618,7 @@ test("each event goes as its exact body: a reply, a mention (escaped, linked, li
     // A reaction is its own event type, confirmed by the bridge's own reaction record.
     expect(
       await path.send(
-        { chat: ROOM_, onMessage: ref("$t1"), reaction: "👍" },
+        { chat: ROOM_, onMessage: ref(7), reaction: "👍" },
         "dec_000000000015"
       )
     ).toBe("$ev1");
@@ -626,7 +641,7 @@ test("a reaction the bridge never recorded may have gone, though a message of th
   try {
     await expect(
       unconfirmed.send(
-        { chat: ROOM_, onMessage: ref("$t1"), reaction: "👍" },
+        { chat: ROOM_, onMessage: ref(7), reaction: "👍" },
         "dec_000000000016"
       )
     ).rejects.toThrow("may have gone: the homeserver took it ($ev1)");
@@ -637,5 +652,32 @@ test("a reaction the bridge never recorded may have gone, though a message of th
   } finally {
     home.server.stop();
     refused.server.stop();
+  }
+});
+
+test("a bridged message's id is its homeserver number: a reply finds the event through the homeserver, and only one the bridge holds", async () => {
+  const path = matrixSend("instagram", {
+    at: {
+      bridges: bridgeWith(["$held"], "instagram"),
+      synapse: synapseWith({ "!AbCd": FULL }, [
+        ["!AbCd", "$held", 1234],
+        ["!AbCd", "$other", 1235],
+      ]),
+    },
+    roomsOf: () => (c) => c,
+  });
+  const refusal = (onMessage: string) =>
+    path.refusal({ chat: "!AbCd", onMessage, text: "hi" });
+  expect(await refusal("instagram:!AbCd/1234")).toBeUndefined();
+  const refused = await Promise.all(
+    [
+      "instagram:!AbCd/1235",
+      "instagram:!AbCd/9999",
+      "instagram:!AbCd/$held",
+      "instagram:!Other/1234",
+    ].map(refusal)
+  );
+  for (const r of refused) {
+    expect(r).toContain("isn't one this chat's bridge holds");
   }
 });

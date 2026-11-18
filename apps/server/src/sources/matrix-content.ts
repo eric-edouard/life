@@ -79,6 +79,31 @@ export function featureProblemOf(d: Outgoing, f?: RoomFeatures) {
   return fileProblemOf(d, f);
 }
 
+const WORD_CHAR = /[\p{L}\p{N}_]/u;
+
+/**
+ * Where each mention's `@name` stands in `text`, in order: each searched after the one before, and a name only whole
+ * (`@Ann` isn't in `@Anna`). A mention with none is missing from the end of the list. The one place that finds them:
+ * the rules and the message sent both use it, so they never disagree.
+ */
+export function mentionsAt(text: string, mentions: { name: string }[]) {
+  const found: { at: number; length: number }[] = [];
+  let from = 0;
+  for (const m of mentions) {
+    const tag = `@${m.name}`;
+    let at = text.indexOf(tag, from);
+    while (at >= 0 && WORD_CHAR.test(text[at + tag.length] ?? "")) {
+      at = text.indexOf(tag, at + 1);
+    }
+    if (at < 0) {
+      break;
+    }
+    found.push({ at, length: tag.length });
+    from = at + tag.length;
+  }
+  return found;
+}
+
 const escaped = (s: string) =>
   s
     .replaceAll("&", "&amp;")
@@ -87,14 +112,13 @@ const escaped = (s: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("\n", "<br>");
 
-/** `text` as HTML with each mention's `@name` (in order) a link to its Matrix user, the rest escaped. */
-function htmlOf(text: string, names: string[], users: string[]) {
+/** `text` as HTML with each mention's `@name` (found by `mentionsAt`) a link to its Matrix user, the rest escaped. */
+function htmlOf(text: string, mentions: { name: string }[], users: string[]) {
   let at = 0;
   let html = "";
-  names.forEach((name, i) => {
-    const from = text.indexOf(`@${name}`, at);
-    html += `${escaped(text.slice(at, from))}<a href="https://matrix.to/#/${escaped(users[i] ?? "")}">@${escaped(name)}</a>`;
-    at = from + name.length + 1;
+  mentionsAt(text, mentions).forEach((m, i) => {
+    html += `${escaped(text.slice(at, m.at))}<a href="https://matrix.to/#/${escaped(users[i] ?? "")}">${escaped(text.slice(m.at, m.at + m.length))}</a>`;
+    at = m.at + m.length;
   });
   return html + escaped(text.slice(at));
 }
@@ -130,11 +154,7 @@ export function contentOf(
     ...(d.text && d.mentions
       ? {
           format: "org.matrix.custom.html",
-          formatted_body: htmlOf(
-            d.text,
-            d.mentions.map((m) => m.name),
-            users
-          ),
+          formatted_body: htmlOf(d.text, d.mentions, users),
           "m.mentions": { user_ids: users },
         }
       : {}),

@@ -17,7 +17,7 @@ import {
 } from "./archived";
 import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
-import { BRIDGES, ghostOf, localpartOf } from "./matrix";
+import { BRIDGES, ghostOf, localpartOf, withBridgeDb } from "./matrix";
 
 // The Mac app's own store, opened read-only by its copy into the archive.
 export const WHATSAPP = join(
@@ -101,20 +101,6 @@ const PERSON_JID = /^\d+@(s\.whatsapp\.net|lid)$/;
 export const whatsappHandleOf = (chat: string) =>
   PERSON_JID.test(chat) ? chat : undefined;
 
-/** The WhatsApp bridge's own database (kept linked on 16 Nov 2026), opened for `read`; none when the bridge isn't on this Mac. */
-function withBridgeDb<T>(bridges: string, read: (db: Database) => T) {
-  const file = join(bridges, "whatsapp", "whatsapp.db");
-  if (!existsSync(file)) {
-    return;
-  }
-  const db = openReadOnly(file);
-  try {
-    return read(db);
-  } finally {
-    db.close();
-  }
-}
-
 /**
  * A chat's portal in the WhatsApp bridge: its id and room, by the chat's id, a `<phone>@s.whatsapp.net` one through the
  * bridge's own map of phones to WhatsApp's `@lid` ids. None when the bridge never saw the chat.
@@ -131,7 +117,7 @@ const portalOf = (db: Database, chat: string) => {
 
 /** A chat's room in the WhatsApp bridge (his send path); none when the bridge isn't on this Mac or never saw the chat. */
 export const whatsappRoomOf = (chat: string, bridges = BRIDGES) =>
-  withBridgeDb(bridges, (db) => portalOf(db, chat)?.room);
+  withBridgeDb("whatsapp", (db) => portalOf(db, chat)?.room, bridges);
 
 /**
  * The Matrix event of a message id of Life's, `whatsapp:<chat>/<stanza>`: the bridge's one message in that chat's portal
@@ -144,15 +130,19 @@ export function whatsappEventOf(chat: string, id: string, bridges = BRIDGES) {
   if (!stanza || stanza.startsWith("pk:")) {
     return;
   }
-  return withBridgeDb(bridges, (db) => {
-    const portal = portalOf(db, chat);
-    const rows = db
-      .query<{ mxid: string }, [string, number, string]>(
-        "select mxid from message where room_id = ? and substr(id, -?) = ? limit 2"
-      )
-      .all(portal?.id ?? "", stanza.length + 1, `:${stanza}`);
-    return portal && rows.length === 1 ? rows[0]?.mxid : undefined;
-  });
+  return withBridgeDb(
+    "whatsapp",
+    (db) => {
+      const portal = portalOf(db, chat);
+      const rows = db
+        .query<{ mxid: string }, [string, number, string]>(
+          "select mxid from message where room_id = ? and substr(id, -?) = ? limit 2"
+        )
+        .all(portal?.id ?? "", stanza.length + 1, `:${stanza}`);
+      return portal && rows.length === 1 ? rows[0]?.mxid : undefined;
+    },
+    bridges
+  );
 }
 
 /** Life's id for a message the bridge sent as Matrix event `event`, as the Mac app's copy will give it; the event when the bridge doesn't say. */
@@ -162,13 +152,14 @@ export const whatsappIdOf = (
   bridges = BRIDGES
 ) => {
   const id = withBridgeDb(
-    bridges,
+    "whatsapp",
     (db) =>
       db
         .query<{ id: string }, [string]>(
           "select id from message where mxid = ?"
         )
-        .get(event)?.id
+        .get(event)?.id,
+    bridges
   );
   return id ? `whatsapp:${chat}/${id.split(":").at(-1)}` : event;
 };

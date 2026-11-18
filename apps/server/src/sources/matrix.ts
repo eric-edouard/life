@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
@@ -47,23 +48,50 @@ export const readOwnerAccount = (): { password?: string; token?: string } =>
 /** The homeserver's database. */
 export const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
 
+/** The homeserver's database opened for `read`; none when it isn't on this Mac. */
+export function withHomeserver<T>(synapse: string, read: (hs: Database) => T) {
+  if (!existsSync(synapse)) {
+    return;
+  }
+  const hs = openReadOnly(synapse);
+  try {
+    return read(hs);
+  } finally {
+    hs.close();
+  }
+}
+
+/** A bridge's own database (`<bridges>/<bridge>/<bridge>.db`) opened for `read`; none when the bridge isn't on this Mac. */
+export function withBridgeDb<T>(
+  bridge: string,
+  read: (db: Database) => T,
+  bridges = BRIDGES
+) {
+  const file = join(bridges, bridge, `${bridge}.db`);
+  if (!existsSync(file)) {
+    return;
+  }
+  const db = openReadOnly(file);
+  try {
+    return read(db);
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * The rooms on Life's homeserver (a room's id has no server part since room version 12, so only the homeserver can say
  * which are its own); the homeserver is never made again, so the set only grows. One read per call, never per event.
  */
 export function readHomeserverRooms(synapse = SYNAPSE) {
-  if (!existsSync(synapse)) {
-    return [];
-  }
-  const hs = openReadOnly(synapse);
-  try {
-    return hs
-      .query<{ room: string }, []>("select room_id as room from rooms")
-      .all()
-      .map((r) => r.room);
-  } finally {
-    hs.close();
-  }
+  return (
+    withHomeserver(synapse, (hs) =>
+      hs
+        .query<{ room: string }, []>("select room_id as room from rooms")
+        .all()
+        .map((r) => r.room)
+    ) ?? []
+  );
 }
 
 /**
@@ -71,11 +99,7 @@ export function readHomeserverRooms(synapse = SYNAPSE) {
  * sent one (a room not opened yet). Read from the homeserver, never from a table of ours.
  */
 export function roomFeaturesOf(room: string, synapse = SYNAPSE) {
-  if (!existsSync(synapse)) {
-    return;
-  }
-  const hs = openReadOnly(synapse);
-  try {
+  return withHomeserver(synapse, (hs) => {
     const row = hs
       .query<{ json: string }, [string]>(
         `select j.json from current_state_events c join event_json j on j.event_id = c.event_id
@@ -85,9 +109,7 @@ export function roomFeaturesOf(room: string, synapse = SYNAPSE) {
     return row
       ? (JSON.parse(row.json).content as RoomFeatures | undefined)
       : undefined;
-  } finally {
-    hs.close();
-  }
+  });
 }
 
 /**
@@ -467,20 +489,23 @@ async function sendEvent(
     );
   });
   const event = String(sent.event_id);
-  const db = openReadOnly(join(at.bridges, bridge, `${bridge}.db`));
-  try {
-    const row = db.query<{ n: number }, [string]>(
-      `select 1 as n from ${d.reaction ? "reaction" : "message"} where mxid = ?`
+  const confirmed = () =>
+    withBridgeDb(
+      bridge,
+      (db) =>
+        db
+          .query(
+            `select 1 from ${d.reaction ? "reaction" : "message"} where mxid = ?`
+          )
+          .get(event),
+      at.bridges
     );
-    for (let waited = 0; waited < at.confirmMs; waited += 500) {
-      if (row.get(event)) {
-        return event;
-      }
-      // biome-ignore lint/performance/noAwaitInLoops: polling the bridge's own record
-      await Bun.sleep(500);
+  for (let waited = 0; waited < at.confirmMs; waited += 500) {
+    if (confirmed()) {
+      return event;
     }
-  } finally {
-    db.close();
+    // biome-ignore lint/performance/noAwaitInLoops: polling the bridge's own record
+    await Bun.sleep(500);
   }
   throw new Error(
     `may have gone: the homeserver took it (${event}) but the ${bridge} bridge didn't confirm it: read the chat`
@@ -520,33 +545,76 @@ interface Resolved {
 interface SendOptions {
   at?: Partial<SendAt>;
   /** The Matrix event a message id of Life's names in `chat`, as the bridge holds it; none when it holds none. */
-  eventOf?: (chat: string, id: string, bridges: string) => string | undefined;
+  eventOf?: (
+    chat: string,
+    id: string,
+    bridges: string,
+    synapse: string
+  ) => string | undefined;
   /** The Matrix user a sender, as Life's events name them, is on the bridge; none for one it can't name. */
   ghostOf?: (sender: string) => string | undefined;
   /** The chat's id the bridge opens a new 1:1 chat by, for a network that has one: asking the bridge to open a chat asks the network whether the handle has an account. */
   handleOf?: (chat: string) => string | undefined;
-  /** Life's id for a message the bridge confirmed (`bridges` as `eventOf`), as `read` gives it later; the Matrix event where Life has none. */
-  idOf?: (chat: string, event: string, bridges: string) => string;
+  /** Life's id for a message the bridge confirmed (`bridges` and `synapse` as `eventOf`), as `read` gives it later; the Matrix event where Life has none. */
+  idOf?: (
+    chat: string,
+    event: string,
+    bridges: string,
+    synapse: string
+  ) => string;
   /** Reads the rooms once and gives a chat's room there (none for a chat the bridge holds no room for). */
   roomsOf: () => (chat: string) => string | undefined;
 }
 
-/** The event of `<bridge>:<chat>/<$event>`, when the bridge's own record holds it. */
-function ownEventOf(bridge: string, chat: string, id: string, bridges: string) {
+const NUMBER = /^\d+$/;
+
+/**
+ * The Matrix event of a bridged message's id of Life's, `<bridge>:<room>/<number>`: the number is the homeserver's own
+ * order of the event (`bridged.ts` copies it as the archive's id), and the bridge's own record must hold the event.
+ */
+function ownEventOf(
+  bridge: string,
+  chat: string,
+  id: string,
+  bridges: string,
+  synapse: string
+) {
   const prefix = `${bridge}:${chat}/`;
-  const event = id.startsWith(prefix) ? id.slice(prefix.length) : undefined;
-  const file = join(bridges, bridge, `${bridge}.db`);
-  if (!(event && existsSync(file))) {
+  const stream = id.startsWith(prefix) ? id.slice(prefix.length) : "";
+  if (!NUMBER.test(stream)) {
     return;
   }
-  const db = openReadOnly(file);
-  try {
-    return db.query("select 1 from message where mxid = ?").get(event)
-      ? event
-      : undefined;
-  } finally {
-    db.close();
-  }
+  const event = withHomeserver(
+    synapse,
+    (hs) =>
+      hs
+        .query<{ id: string }, [string, number]>(
+          "select event_id as id from events where room_id = ? and stream_ordering = ?"
+        )
+        .get(chat, Number(stream))?.id
+  );
+  return event &&
+    withBridgeDb(
+      bridge,
+      (db) => db.query("select 1 from message where mxid = ?").get(event),
+      bridges
+    )
+    ? event
+    : undefined;
+}
+
+/** Life's id for the message the bridge sent as Matrix event `event` (the reverse of `ownEventOf`); the event when the homeserver doesn't hold it. */
+function ownIdOf(bridge: string, chat: string, event: string, synapse: string) {
+  const stream = withHomeserver(
+    synapse,
+    (hs) =>
+      hs
+        .query<{ n: number }, [string]>(
+          "select stream_ordering as n from events where event_id = ?"
+        )
+        .get(event)?.n
+  );
+  return stream === undefined ? event : `${bridge}:${chat}/${stream}`;
 }
 
 /**
@@ -558,10 +626,12 @@ export function matrixSend(
   bridge: string,
   {
     at = {},
-    eventOf = (chat, id, bridges) => ownEventOf(bridge, chat, id, bridges),
+    eventOf = (chat, id, bridges, synapse) =>
+      ownEventOf(bridge, chat, id, bridges, synapse),
     ghostOf: userOf = (sender) => ghostOf(bridge, sender),
     handleOf,
-    idOf = (chat, event) => `${bridge}:${chat}/${event}`,
+    idOf = (chat, event, _bridges, synapse) =>
+      ownIdOf(bridge, chat, event, synapse),
     roomsOf,
   }: SendOptions
 ): SendPath {
@@ -575,8 +645,9 @@ export function matrixSend(
     ...at,
   });
   /** What the draft names on the bridge: its target event and its mentioned users, or why it can't. */
-  const namedBy = (d: Outgoing, bridges: string) => {
-    const target = d.onMessage && eventOf(d.chat, d.onMessage, bridges);
+  const namedBy = (d: Outgoing, { bridges, synapse }: SendAt) => {
+    const target =
+      d.onMessage && eventOf(d.chat, d.onMessage, bridges, synapse);
     const users = (d.mentions ?? []).map((m) => userOf(m.sender));
     if (d.onMessage && !target) {
       return "that message isn't one this chat's bridge holds";
@@ -616,7 +687,7 @@ export function matrixSend(
       : undefined,
     refusal: (d) => {
       const room = roomsOf()(d.chat);
-      const named = namedBy(d, where(d).bridges);
+      const named = namedBy(d, where(d));
       return Promise.resolve(
         featureProblemOf(
           d,
@@ -626,7 +697,7 @@ export function matrixSend(
     },
     send: async (d, txn) => {
       const w = where(d);
-      const named = namedBy(d, w.bridges);
+      const named = namedBy(d, w);
       if (typeof named === "string") {
         throw new Error(`not sent: ${named}`);
       }
@@ -647,7 +718,7 @@ export function matrixSend(
         throw new Error(`not sent: ${bridge} holds no room for this chat`);
       }
       const event = await sendEvent(bridge, room, d, named, txn, w);
-      return d.reaction ? event : idOf(d.chat, event, w.bridges);
+      return d.reaction ? event : idOf(d.chat, event, w.bridges, w.synapse);
     },
   };
 }

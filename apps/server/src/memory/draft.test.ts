@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { mentionsAt } from "../sources/matrix-content";
 import { draftProblemOf, draftWords, type MessageDraft } from "./draft";
 
 const chat = (over: Partial<MessageDraft> = {}): MessageDraft => ({
@@ -101,4 +102,28 @@ test("the report words a draft in lines: to and text, then its file, the message
       to: "Ana",
     })
   ).toEqual(["Draft to Ana", 'Reaction 👍 to Ana: "ok"']);
+});
+
+test("a mention is its whole `@name`, found after the one before it: validation and the sent message use the same positions", () => {
+  const ann = { name: "Ann", sender: "a" };
+  const anna = { name: "Anna", sender: "b" };
+  expect(
+    draftProblemOf({ mentions: [ann, anna], text: "hi @Anna", to: "x" }, "chat")
+  ).toContain("needs `@Ann`");
+  expect(
+    draftProblemOf({ mentions: [ann, ann], text: "hi @Ann", to: "x" }, "chat")
+  ).toContain("needs `@Ann`");
+  expect(
+    draftProblemOf({ mentions: [ann], text: "hi @Anna", to: "x" }, "chat")
+  ).toContain("needs `@Ann`");
+  expect(
+    draftProblemOf(
+      { mentions: [ann, anna], text: "hi @Ann, @Anna", to: "x" },
+      "chat"
+    )
+  ).toBeUndefined();
+  expect(mentionsAt("hi @Ann, @Anna", [ann, anna])).toEqual([
+    { at: 3, length: 4 },
+    { at: 9, length: 5 },
+  ]);
 });
