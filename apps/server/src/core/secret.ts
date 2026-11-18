@@ -19,6 +19,8 @@ import { MACHINE_DIR } from "./platform";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** The desk's key: each registered agent's door key is derived from it (`desk/desk-door.ts`). */
+  deskKey: join(LIFE_STATE_DIR, "desk", "desk.key"),
   /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`); kept by `bun life gog-keyring`. */
   gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
@@ -61,7 +63,7 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: "localKey"): string {
+export function secretIn(name: "deskKey" | "localKey"): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");

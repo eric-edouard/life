@@ -5,12 +5,23 @@ import { join } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import type { Messaging } from "../host/events";
-import { decisionsNow, requestDecision } from "../memory/decisions";
+import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
+import {
+  answerDecision,
+  decisionsNow,
+  requestDecision,
+} from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
 import type { SourceEvent } from "../records/source";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
-import { ANSWER, flagsOf } from "./agent-wait";
-import { pollMessages, recover, turnEnded, wakeDue } from "./desk-clock";
+import { flagsOf } from "./agent-wait";
+import {
+  endLostTurns,
+  pollAnswers,
+  pollMessages,
+  turnEnded,
+  wakeDue,
+} from "./desk-clock";
 import { agentOf, type Desk, openDesk, openTurn } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
@@ -74,7 +85,7 @@ function setup() {
     if (s) {
       s.running = false;
     }
-    await turnEnded(desk, id, { failed });
+    await turnEnded(desk, id, failed);
   };
   /** A registered agent after its first turn: waiting for Ana's messages until `until`. */
   const waiting = async (until = HOUR) => {
@@ -346,34 +357,86 @@ test("W12: a 9-hour jump over 5 deadlines runs all 5, 3 at a time, oldest first"
 });
 
 test("W13: on restart, a running turn its runtime doesn't know failed, and is retried", async () => {
-  const { desk, fake, turns, waiting } = setup();
+  const { desk, fake, path, turns, waiting } = setup();
   const id = await waiting();
   advance(HOUR);
   await wakeDue(desk);
   fake.sessions.clear();
-  await recover(desk);
+  // The helper started again: its own store handle, no run watched.
+  const again: Desk = { ...desk, db: openDesk(path) };
+  await endLostTurns(again);
   expect(turns(id).at(-1)?.outcome).toBe("failed");
   advance(5 * MIN);
-  await wakeDue(desk);
+  await wakeDue(again);
   expect(turns(id).at(-1)).toEqual({ cause: "retry", outcome: null });
   expect(fake.sessions.size).toBe(1);
 });
 
-test("W14: his answer starts a turn at once, ahead of older deadlines, with no 10-minute gap", async () => {
+test("W14: his answer starts a turn at once, ahead of older deadlines, with no 10-minute gap; a lapse too", async () => {
   const { desk, queue, turns, waiting } = setup();
   const others = [await waiting(), await waiting(), await waiting()];
   const id = await waiting(DAY);
+  const lapsed = await waiting(DAY);
   advance(2 * HOUR);
-  queue(id, "dec_1", ANSWER);
+  queue(id, "dec_1.answered", DECISION_ANSWERED);
+  queue(lapsed, "dec_2.lapsed", DECISION_LAPSED);
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
-  expect(others.filter((o) => openTurn(desk.db, o))).toHaveLength(2);
+  expect(turns(lapsed).at(-1)).toEqual({ cause: "answer", outcome: null });
+  expect(others.filter((o) => openTurn(desk.db, o))).toHaveLength(1);
 });
 
-test("W15: his own turn is his_own: no reminder, the old wait stands and still fires", async () => {
-  const { desk, end, fake, turns, waiting } = setup();
+test("his answer, read from his decisions, is queued for the agent that asked it and wakes it", async () => {
+  const { desk, turns, waiting } = setup();
+  const id = await waiting(DAY);
+  const other = await waiting(DAY);
+  pollAnswers(desk);
+  const { id: dec } = await requestDecision("desk", {
+    agent: id,
+    deadline: ahead(DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: book the made-up table?",
+    recommended: ["yes"],
+    why: "a test",
+  });
+  advance(1000);
+  answerDecision(dec, ["yes"]);
+  advance(1000);
+  pollAnswers(desk);
+  pollAnswers(desk);
+  await wakeDue(desk);
+  expect(turns(id).at(-1)).toEqual({ cause: "answer", outcome: null });
+  expect(turns(other)).toHaveLength(1);
+  expect(
+    desk.db.query("select event_id, name from event where agent_id = ?").all(id)
+  ).toEqual([{ event_id: `${dec}.answered`, name: DECISION_ANSWERED }]);
+  // Its deadline passing unanswered is a lapse, queued the same way.
+  const { id: lapsing } = await requestDecision("desk", {
+    agent: other,
+    deadline: ahead(2 * HOUR),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: order the made-up flour?",
+    recommended: ["no"],
+    why: "a test",
+  });
+  advance(2 * HOUR + 1000);
+  pollAnswers(desk);
+  expect(
+    desk.db
+      .query("select event_id, name from event where agent_id = ?")
+      .all(other)
+  ).toEqual([{ event_id: `${lapsing}.lapsed`, name: DECISION_LAPSED }]);
+});
+
+test("W15: while he runs the session himself, the agent waits; its old wait still fires after", async () => {
+  const { desk, fake, turns, waiting } = setup();
   const id = await waiting(HOUR);
-  const said = fake.said.length;
   const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
   if (s) {
     s.running = true;
@@ -381,20 +444,38 @@ test("W15: his own turn is his_own: no reminder, the old wait stands and still f
   advance(HOUR + MIN);
   await wakeDue(desk);
   expect(turns(id)).toHaveLength(1);
-  await end(id);
-  expect(fake.said).toHaveLength(said);
-  expect(turns(id).at(-1)?.outcome).toBe("his_own");
+  if (s) {
+    s.running = false;
+  }
   await wakeDue(desk);
   expect(turns(id).at(-1)).toEqual({ cause: "deadline", outcome: null });
 });
 
-test("W16: a wake into a 45,000-token session starts a fresh one from the packet; the old link stays", async () => {
+test("a run's end ends its turn, once: the lost-turn check leaves a watched run alone", async () => {
+  const { desk, fake, turns, waiting } = setup();
+  const id = await waiting();
+  advance(HOUR);
+  await wakeDue(desk);
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  const s = fake.sessions.get(ref);
+  if (s) {
+    s.running = false;
+  }
+  await endLostTurns(desk);
+  expect(openTurn(desk.db, id)).not.toBeNull();
+  fake.exit(ref);
+  await Bun.sleep(0);
+  expect(turns(id).at(-1)).toEqual({ cause: "deadline", outcome: "waited" });
+});
+
+test("W16: a wake into a session grown by 45,000 tokens starts a fresh one from the packet; the old link stays", async () => {
   const { desk, fake, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
   const s = fake.sessions.get(old?.session ?? "");
   if (s) {
-    s.tokens = 45_000;
+    s.grownBy = 45_000;
   }
   writeNotes(desk, id, "Test notes: Ana may answer Friday");
   advance(HOUR);
@@ -458,7 +539,7 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
   });
   const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
   if (s) {
-    s.tokens = 45_000;
+    s.grownBy = 45_000;
   }
   advance(HOUR);
   await wakeDue(desk);

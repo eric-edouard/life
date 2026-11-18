@@ -43,21 +43,5 @@ export type AgentWait = z.infer<typeof AgentWait>;
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 
-/**
- * How an agent turn ended: it set a wait or finished, the desk set the default wait, it failed (the runtime said so, or
- * no longer knows it), or it was his own turn (he typed in the session).
- */
-export type TurnOutcome =
-  | "waited"
-  | "finished"
-  | "default_wait"
-  | "failed"
-  | "his_own";
-
-/** What a runtime reports at a turn's end: whether it failed, and its tokens. */
-export interface TurnEnd {
-  failed?: boolean;
-  tokensCached?: number;
-  tokensIn?: number;
-  tokensOut?: number;
-}
+/** How an agent turn ended: it set a wait or finished, the desk set the default wait, or it failed (its process failed, or ended unheard). */
+export type TurnOutcome = "waited" | "finished" | "default_wait" | "failed";

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DAY, HOUR, iso, MIN } from "../core/clock";
+import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
 import { AgentWait } from "../records/registered-agent";
 import {
   type AgentRow,
@@ -22,12 +23,15 @@ const EVENT_GAP = 10 * MIN;
 const RETRIES = [5 * MIN, 10 * MIN, 20 * MIN];
 /** An event is handed to this many turns that did not consume it (once, then again 3 times at most), then dropped. */
 export const MAX_HANDED = RETRIES.length + 1;
-/** A wake sends into the session under this context; at or over it, a fresh session starts from the packet. */
-export const FRESH_AT = 30_000;
+/**
+ * A wake sends into the session while it has grown less than this since its first turn; past it, a fresh session
+ * starts from the packet. Growth, not size: a new session already holds 28,000 to 78,000 tokens (the runtime proofs).
+ */
+export const GROWTH_LIMIT = 30_000;
 /** At most this many turns start in one tick, his answers first, then the oldest deadline. */
 export const STARTS_PER_TICK = 3;
-/** His answer to an agent's decision: it wakes the agent at once. */
-export const ANSWER = "decision.answered";
+/** His answer to an agent's decision, or its lapse: either wakes the agent at once. */
+export const ANSWERS = [DECISION_ANSWERED, DECISION_LAPSED];
 const LATE_AFTER = 10 * MIN;
 const SILENT_AFTER = HOUR;
 
@@ -83,7 +87,7 @@ export function dueOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
       cause: "retry",
     };
   }
-  const answer = events.find((e) => e.name === ANSWER);
+  const answer = events.find((e) => ANSWERS.includes(e.name));
   if (answer) {
     return { at: at(answer.received_at), cause: "answer" };
   }

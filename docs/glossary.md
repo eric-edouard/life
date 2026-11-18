@@ -50,9 +50,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | session | One conversation of a runtime, with a link that opens it. A registered agent has one current session and its past ones. | |
 | agent wait | What an active registered agent waits for: messages (`MessageFilter`), one deadline 5 minutes to 7 days ahead, and a reason. Exactly one, always. The **default wait** (24 hours, flagged) is the desk's when a turn ends with neither `set_wait` nor `finish`. Not a matter's wait step. | |
 | agent wake | The desk starting an agent turn, for a cause: his answer, an event, the deadline, a retry. Not a wake word. | |
-| agent turn | One run of a session, from a message to the model stopping. `his_own` when he typed it. Not a spoken turn. | |
-| packet | What a fresh session starts from: the brief, the agent's notes, its queued events, its open decision (`readPacket`). | |
-| door | The desk's loopback MCP server, one key per registered agent: the only thing the desk adds to a session. | |
+| agent turn | One run of a session the desk started, from a message to the model stopping: for `claude`, one `claude -p` process, whose exit is the turn's end. A turn he types in the session is his, never counted. Not a spoken turn. | |
+| packet | What a fresh session starts from: the brief, the door's contract (spec 5.4), the agent's notes, its queued events, its open decision (`readPacket`). A wake starts a fresh session once the current one has grown by 30,000 tokens since its first turn (`GROWTH_LIMIT`). | |
+| door | The desk's loopback MCP server (`desk/desk-door.ts`, `127.0.0.1:46202/mcp/<agt_…>`), one key per registered agent (derived from the desk's key, given to its session only in its environment): `set_wait`, `finish`, `write_notes`, `request_decision`, `read_packet`. The only thing the desk adds to a session. | |
 
 ## The ledger and the to-do list
 

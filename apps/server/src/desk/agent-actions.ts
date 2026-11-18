@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
+import { z } from "zod";
 import { clock } from "../core/clock";
 import { matcherOf } from "../host/events";
-import { decisionsNow, requestDecision } from "../memory/decisions";
+import { Ask, decisionsNow, requestDecision } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import { waitOf } from "./agent-wait";
 import {
@@ -13,12 +14,13 @@ import {
   writeWait,
 } from "./desk-store";
 
-// What a registered agent does at the desk (the door's tools, step 3) and how one is registered. Each writes its row
+// What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
+// registered. Each writes its row
 // at once; a desk turn running notes that it was heard from (`heard_at`) and how it will end.
 
 const NOTES_MAX = 6000;
 /** Who asks his decisions for a registered agent (each stamped with the agent's id). */
-const DESK_ASKER = "desk";
+export const DESK_ASKER = "desk";
 
 /** The decision `id` asked him that is still open, if any: one at a time, worked out from his decisions, never stored here. */
 const openDecisionOf = (id: string) =>
@@ -54,9 +56,6 @@ function heard({ db }: Desk, id: string, outcome?: "waited" | "finished") {
 
 /** `set_wait`: the agent's new wait, or why it is refused (the old wait then stands): a filter's person must be someone Life knows. */
 export async function setWait(desk: Desk, id: string, input: unknown) {
-  if (agentOf(desk.db, id)?.status !== "active") {
-    return { error: `${id} is not active` };
-  }
   const r = waitOf(input, clock().getTime());
   const { wait } = r;
   if (!wait) {
@@ -86,6 +85,7 @@ export async function finish(desk: Desk, id: string, outcome: string) {
   const open = openDecisionOf(id);
   if (open) {
     await requestDecision(DESK_ASKER, {
+      agent: id,
       why: "its agent finished",
       withdraw: open,
     });
@@ -101,6 +101,46 @@ export function writeNotes(desk: Desk, id: string, text: string) {
   heard(desk, id);
 }
 
+/**
+ * What an agent gives `request_decision` at the door: an `Ask` less the desk's stamp, or a withdrawal.
+ * ponytail: the connector keeps the same shape private in `host/http/mcp.ts` (`RequestDecisionArgs`); step 4 exports one.
+ */
+export const DoorAsk = Ask.omit({ agent: true })
+  .partial()
+  .extend({
+    why: Ask.shape.why,
+    withdraw: z
+      .string()
+      .optional()
+      .describe("A decision id you asked, to withdraw it (with `why`)"),
+  });
+
+/**
+ * `request_decision`: asks him as the desk, stamped with the agent's id and its session's link first; or withdraws its
+ * own decision. `requestDecision` checks the rest, one open decision per agent included.
+ */
+export function askDecision(
+  desk: Desk,
+  id: string,
+  { withdraw, why, ...ask }: z.infer<typeof DoorAsk>
+) {
+  heard(desk, id);
+  if (withdraw) {
+    return requestDecision(DESK_ASKER, { agent: id, why, withdraw });
+  }
+  const link = agentOf(desk.db, id)?.link;
+  return requestDecision(DESK_ASKER, {
+    ...ask,
+    agent: id,
+    links: [...(link ? [link] : []), ...(ask.links ?? [])],
+    why,
+  });
+}
+
+/** What every session of a registered agent is told after its brief (the desk spec, 5.4): the door's contract, no rule on its work. */
+const contractOf = (id: string) =>
+  `You are ${id}, a registered agent of the owner's desk. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, call \`set_wait\` (what you wait for, until when) or \`finish\`; ask him only through \`request_decision\`, one at a time, with options and a recommendation; write your notes (\`write_notes\`) before you stop. His own rules apply as in any session of his.`;
+
 /** `read_packet`: what a fresh session starts from: the brief, its notes, its queued events (facts only), its open decision. */
 export function readPacket({ db }: Desk, id: string) {
   const a = agentOf(db, id);
@@ -110,7 +150,8 @@ export function readPacket({ db }: Desk, id: string) {
   const events = queuedEvents(db, id).map((e) => e.payload);
   return [
     a.brief,
-    `You are ${a.id}. Your notes:\n${a.notes || "(none yet)"}`,
+    contractOf(a.id),
+    `Your notes:\n${a.notes || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
     `Your open decision: ${openDecisionOf(id) ?? "none"}`,
   ].join("\n\n");

@@ -31,7 +31,11 @@ the Mac by a local model (llama.cpp, `describePhotos` setting); no image goes to
 
 ## Agents
 
-Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
+The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
+Life, unattended, on a message from anyone in its subject, his answer or its deadline, and acts with his access. Its
+only guards are its runtime's permissions and his rules; Life adds none (his yes to the desk, 18 Nov 2026). Its door
+is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.
+Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's
 secrets (his OK, 3 Nov 2026), and the question cases' agent a developer's script starts to measure Life ("Models",
 above; his word, 10 Nov 2026): each pulls its own asks through the connector. An agent run is outside Life's boundary: it has
 the Mac's access (his files, his accounts). An agent sends as him only on his yes on the exact text, its own rule:
@@ -55,6 +59,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
   photos, the names Apple's People gives, his captions and, with `describePhotos` on, Life's own one-paragraph description of each
   photo; never an image, a face or a face print.
+- To a registered agent's runtime (his Claude subscription): its brief and packet (his words, its notes, the facts of
+  its queued events, its open decision) (his yes to the desk, 18 Nov 2026).
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac. The question
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).
