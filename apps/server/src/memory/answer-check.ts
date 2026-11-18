@@ -49,6 +49,15 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
+/** The voice lifelog still asks him to name for the open check `c`. */
+export async function readVoiceItem(c: Pick<Check, "ref">) {
+  const item = (await readNamingQueue()).find((i) => `voice:${i.id}` === c.ref);
+  if (!item) {
+    throw new Error(`Not done: no open check ${c.ref}`);
+  }
+  return item;
+}
+
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
   c: Check,
@@ -56,10 +65,7 @@ async function answerVoice(
     item: NamingQueueItem
   ) => Promise<Parameters<typeof answerNamingQueue>[1]>
 ) {
-  const item = (await readNamingQueue()).find((i) => `voice:${i.id}` === c.ref);
-  if (!item) {
-    throw new Error(`Not done: no open check ${c.ref}`);
-  }
+  const item = await readVoiceItem(c);
   return [
     await answerNamingQueue(
       item.voices.map(({ jobId, speakerLabel }) => ({ jobId, speakerLabel })),
@@ -145,11 +151,23 @@ const WRITERS: {
   },
 };
 
-/** Records his answer to the open check `ref` through its kind's writer (a decision's draft is sent only `via` his app); returns the lines written. Throws when no open check has that ref or the option is not one of its own. */
+/**
+ * Records his answer to the open check `ref` through its kind's writer (a decision's draft is sent only `via` his app);
+ * returns the lines written. `onStep` hears `recorded` once they are, and a send's own steps; `answerKey`
+ * is his app's key for this tap, kept on a decision's answer. Throws when no open check has that ref or the option is
+ * not one of its own.
+ */
 export async function answerCheck(
   ref: string,
   a: CheckAnswer,
-  via: "connector" | "session" = "session"
+  via: "connector" | "session" = "session",
+  {
+    answerKey,
+    onStep,
+  }: {
+    answerKey?: string;
+    onStep?: (step: string, detail?: Record<string, unknown>) => void;
+  } = {}
 ) {
   const check = (await checksNow()).find((c) => c.ref === ref);
   if (!check) {
@@ -159,7 +177,11 @@ export async function answerCheck(
   }
   if (check.group === "decision") {
     return {
-      done: await answerDecision(ref, a.options, a.note, { via }),
+      done: await answerDecision(ref, a.options, a.note, {
+        answerKey,
+        onStep,
+        via,
+      }),
       ref,
     };
   }
@@ -176,5 +198,6 @@ export async function answerCheck(
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }
+  onStep?.("recorded");
   return { done, ref };
 }

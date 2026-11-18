@@ -52,15 +52,19 @@ async function stampFile(path: string) {
   };
 }
 
+/** A `not sent:` that his next tap would meet again (the file, the chat or the channel is not there): the outcome stores `retry: false`. */
+const never = (why: string) =>
+  Object.assign(new Error(`not sent: ${why}`), { retry: false as const });
+
 /** The bytes of a stamped file, read now: only the ones he saw (the stamp's digest), else `not sent`. */
 async function readVerifiedFile(file: NonNullable<StoredDraft["file"]>) {
   const bytes = await Bun.file(file.path)
     .bytes()
     .catch(() => {
-      throw new Error("not sent: the file is gone");
+      throw never("the file is gone");
     });
   if (digest("sha256", Buffer.from(bytes), 64) !== file.sha256) {
-    throw new Error("not sent: the file changed since the card was asked");
+    throw never("the file changed since the card was asked");
   }
   return bytes;
 }
@@ -218,21 +222,28 @@ export async function resolveDraft(
 
 /**
  * Sends a stored draft once per `txn` (its decision), exactly as the card showed it: a file's bytes are read now and
- * must hash to its stamp. Returns the sent message's id (Life's own where the path knows it). Throws why not.
+ * must hash to its stamp, and a chat nobody wrote in since `since` (the card's asking, or his last attempt that went
+ * nowhere; his own messages count) else nothing goes. `onStep` hears `chat_checked` (a chat only), `handed` (the
+ * network took it) and `confirmed` (with the event id). Returns the sent message's id (Life's own where the path knows it). Throws why not.
  */
 export async function sendDraft(
   draft: StoredDraft,
   txn: string,
+  {
+    onStep,
+    since,
+  }: {
+    onStep?: (step: string, detail?: Record<string, unknown>) => void;
+    since: Date;
+  },
   sources = enabledSources()
 ) {
   const s = sources.find((x) => x.name === draft.channel);
   if (!isSendable(draft)) {
-    throw new Error("not sent: the card has no chat to send into");
+    throw never("the card has no chat to send into");
   }
   if (!s?.send) {
-    throw new Error(
-      `not sent: ${s ? `${s.label} doesn't send` : `${draft.channel} is off`}`
-    );
+    throw never(s ? `${s.label} doesn't send` : `${draft.channel} is off`);
   }
   const block = await s.send.block();
   if (block) {
@@ -244,7 +255,30 @@ export async function sendDraft(
   );
   const refusal = await s.send.refusal(outgoing);
   if (refusal) {
-    throw new Error(`not sent: ${refusal}`);
+    throw never(refusal);
   }
-  return s.send.send(outgoing, txn);
+  if (s.kind === "chat") {
+    // ponytail: the archive's copy can trail the network by its copier's interval, so a message written seconds ago may be missed.
+    const wrote = s
+      .read(since)
+      .some((e) => e.chat === draft.chat && e.at > since.toISOString());
+    if (wrote) {
+      throw new Error(
+        `not sent: someone wrote in ${draft.to} since this card was asked`
+      );
+    }
+    onStep?.("chat_checked");
+  }
+  const id = await s.send.send(outgoing, txn, () => onStep?.("handed"));
+  onStep?.("confirmed", { eventId: id });
+  return id;
+}
+
+/** How long sending this card's draft may take, at most (its send path's own waits), 0 for a source that doesn't send. */
+export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
+  return (
+    sources
+      .find((x) => x.name === draft.channel)
+      ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ?? 0
+  );
 }

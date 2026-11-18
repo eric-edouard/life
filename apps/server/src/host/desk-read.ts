@@ -371,3 +371,22 @@ export function readDesk<T>(read: (db: Database) => T, empty: T): DeskRead<T> {
     db?.close();
   }
 }
+
+/** Whether the desk has queued the event `eventId` for `agent` (`queued`) and then started a turn for it (`woken`: a turn of cause `answer` begun after), else `not_yet`. */
+export function eventHeard(db: Database, agent: string, eventId: string) {
+  const e = db
+    .query<{ received_at: string }, [string, string]>(
+      "select received_at from event where agent_id = ? and event_id = ?"
+    )
+    .get(agent, eventId);
+  if (!e) {
+    return "not_yet";
+  }
+  return db
+    .query<{ n: number }, [string, string]>(
+      "select count(*) as n from turn where agent_id = ? and cause = 'answer' and started_at >= ?"
+    )
+    .get(agent, e.received_at)?.n
+    ? "woken"
+    : "queued";
+}

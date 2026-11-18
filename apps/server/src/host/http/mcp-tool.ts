@@ -26,10 +26,17 @@ export const WRITES = {
  */
 export const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
-/** A tool's work: its arguments, and the caller's agent (its grant's agent claim), none for a plain app. */
+/** What a call carries beside its arguments: `report` sends one step of an action as it passes (a `notifications/progress` message; nothing without a progress token) and `answerKey` is the app's key for one tap (`_meta` `life/answerKey`). */
+export interface ToolCall {
+  answerKey?: string;
+  report: (step: Record<string, unknown>) => void;
+}
+
+/** A tool's work: its arguments, the caller's agent (its grant's agent claim), none for a plain app, and its call. */
 export type Tool<S extends z.ZodObject> = (
   args: z.infer<S>,
-  agent: string | undefined
+  agent: string | undefined,
+  call: ToolCall
 ) => Promise<string | Record<string, unknown> | null>;
 
 const respond = (body: string, isError: boolean) => ({
@@ -95,6 +102,29 @@ export function tool<S extends z.ZodObject>(
     },
     async (args, ctx) => {
       const started = performance.now();
+      const { progressToken, "life/answerKey": key } = ctx.mcpReq._meta ?? {};
+      // The steps go in order, and all before the result.
+      let sent = Promise.resolve();
+      let progress = 0;
+      const call: ToolCall = {
+        ...(typeof key === "string" ? { answerKey: key } : {}),
+        report: (step) => {
+          if (progressToken !== undefined) {
+            progress += 1;
+            const params = {
+              message: JSON.stringify(step),
+              progress,
+              progressToken,
+            };
+            // A closed stream never fails the action.
+            sent = sent
+              .then(() =>
+                ctx.mcpReq.notify({ method: "notifications/progress", params })
+              )
+              .catch(() => undefined);
+          }
+        },
+      };
       const parsed = inputSchema.safeParse(args);
       const result = await answer(() => {
         if (!parsed.success) {
@@ -102,8 +132,13 @@ export function tool<S extends z.ZodObject>(
             `Invalid arguments: ${z.prettifyError(parsed.error)}`
           );
         }
-        return run(parsed.data as z.infer<S>, agentIn(ctx.http?.authInfo));
+        return run(
+          parsed.data as z.infer<S>,
+          agentIn(ctx.http?.authInfo),
+          call
+        );
       });
+      await sent;
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
         ...who(ctx.http?.authInfo),

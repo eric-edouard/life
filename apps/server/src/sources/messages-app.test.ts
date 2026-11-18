@@ -109,11 +109,15 @@ test("holds: only chats with a guid; block: readable chat.db", async () => {
 test("text goes into the newest chat of a handle, as argv only, and the matching row confirms", async () => {
   const f = fixture();
   const m = messages(f, { text: 'say "hi"; rm -rf /' });
+  const handed: string[] = [];
   const id = await path(f, m.run).send(
     { chat: "+15550100", text: 'say "hi"; rm -rf /' },
-    "t"
+    "t",
+    () => handed.push("handed")
   );
   expect(id).toBe("imessage:new-11");
+  // Called once, after osascript exited 0.
+  expect(handed).toEqual(["handed"]);
   expect(m.calls[0]?.slice(-2)).toEqual([
     "iMessage;-;+15550100",
     'say "hi"; rm -rf /',

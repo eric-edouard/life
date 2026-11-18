@@ -1,0 +1,360 @@
+import { Database } from "bun:sqlite";
+import { afterAll, afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
+import { DAY } from "../core/clock";
+import { DESK_STORE } from "../core/paths";
+import { setSettings } from "../core/settings";
+import type { Check } from "../memory/checks";
+import { DECISIONS, decisionsNow, requestDecision } from "../memory/decisions";
+import { CORRECTIONS, readCorrections } from "../memory/memory-files";
+import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { answerWithResult } from "./answer-result";
+
+// Made-up people, chats and ids throughout.
+
+const draft = { channel: "whatsapp", text: "Can you come Friday?", to: "Kit" };
+const readChat = () =>
+  Promise.resolve({ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" });
+const OPTIONS = [
+  { id: "send", label: "Send it", outgoing: true as const },
+  { id: "wait", label: "Wait" },
+];
+const card = (asker = "planner", agent?: string) =>
+  requestDecision(
+    asker,
+    {
+      ...(agent ? { agent } : {}),
+      deadline: new Date(Date.now() + 2 * DAY).toISOString(),
+      draft,
+      onSilence: "wait",
+      options: OPTIONS,
+      question: "Send Kit the message?",
+      title: "Ask Kit",
+    },
+    undefined,
+    readChat
+  );
+
+const asCheck = (c: Partial<Check>) =>
+  ({ about: [], matter: null, ...c }) as Check;
+/** The inbox as it is: the open decisions, plus made-up guesses. */
+let guesses: Check[] = [];
+let listed: ReturnType<typeof spyOn>;
+let sends: ReturnType<typeof spyOn>;
+beforeEach(async () => {
+  rmSync(DECISIONS, { force: true });
+  rmSync(CORRECTIONS, { force: true });
+  guesses = [];
+  listed = spyOn(
+    await import("../memory/checks"),
+    "checksNow"
+  ).mockImplementation(async () => [
+    ...decisionsNow()
+      .filter((d) => d.state === "open")
+      .map((d) =>
+        asCheck({ deadline: d.deadline, group: "decision", ref: d.id })
+      ),
+    ...guesses,
+  ]);
+  sends = spyOn(await import("../memory/draft-send"), "sendDraft");
+});
+afterEach(() => {
+  listed.mockRestore();
+  sends.mockRestore();
+});
+afterAll(() => {
+  rmSync(DECISIONS, { force: true });
+  rmSync(CORRECTIONS, { force: true });
+});
+
+/** Runs a call and keeps every step it reports. */
+const call = (
+  ref: string,
+  options: string[],
+  answerKey?: string,
+  extra = {}
+) => {
+  const steps: Record<string, unknown>[] = [];
+  const result = answerWithResult(
+    ref,
+    { options, ...extra },
+    { ...(answerKey ? { answerKey } : {}), report: (s) => steps.push(s) }
+  );
+  return { result, steps };
+};
+
+test("a send: the plan first, the steps in order, the lines written, the send, the asker and the inbox after", async () => {
+  sends.mockImplementation(
+    (
+      _d: unknown,
+      _t: unknown,
+      o: { onStep?: (s: string, d?: object) => void }
+    ) => {
+      o.onStep?.("chat_checked");
+      o.onStep?.("handed");
+      o.onStep?.("confirmed", { eventId: "$ev1" });
+      return Promise.resolve("$ev1");
+    }
+  );
+  const { id } = await card();
+  const { result, steps } = call(id, ["send"], "tap-1");
+  const r = await result;
+  expect(steps.map((s) => s.plan ?? s.step)).toEqual([
+    [
+      "recorded",
+      "chat_checked",
+      "handed",
+      "confirmed",
+      "asker_told",
+      "left_inbox",
+    ],
+    "recorded",
+    "chat_checked",
+    "handed",
+    "confirmed",
+    "asker_told",
+    "left_inbox",
+  ]);
+  expect(steps[0]).toMatchObject({ limitSeconds: 50 });
+  expect(steps.find((s) => s.step === "confirmed")).toMatchObject({
+    eventId: "$ev1",
+  });
+  expect(r).toMatchObject({
+    asker: { name: "planner", told: "on_its_next_poll" },
+    changed: { decision: id, options: ["send"], state: "answered" },
+    inbox: { left: true, total: 0 },
+    kind: "decision",
+    ref: id,
+    send: {
+      channel: "whatsapp",
+      eventId: "$ev1",
+      state: "sent",
+      to: "Kit Moreau",
+    },
+  });
+  expect(r.done).toMatchObject([
+    { answerKey: "tap-1", kind: "answered" },
+    { eventId: "$ev1", kind: "sent" },
+  ]);
+});
+
+test("a not-sent outcome reopens the card: the result says so and whether to try again; the same tap again returns it, a new tap sends once", async () => {
+  sends.mockRejectedValueOnce(
+    new Error("not sent: someone wrote in Kit Moreau since this card was asked")
+  );
+  const { id } = await card();
+  const first = await call(id, ["send"], "tap-1").result;
+  expect(first).toMatchObject({
+    asker: { told: "not_told" },
+    changed: { options: ["send"], state: "open" },
+    inbox: { left: false },
+    send: {
+      canRetry: true,
+      reason: expect.stringContaining("someone wrote"),
+      state: "not_sent",
+    },
+  });
+  // The tap again (a dropped stream): the stored result, no second send.
+  const again = await call(id, ["send"], "tap-1").result;
+  expect(again).toMatchObject({ send: { state: "not_sent" } });
+  expect(sends).toHaveBeenCalledTimes(1);
+  expect(decisionsNow()[0]?.notSent).toBeDefined();
+  // His new tap sends, with the attempt's instant as its baseline.
+  sends.mockResolvedValueOnce("$ev2");
+  const second = await call(id, ["send"], "tap-2").result;
+  expect(second).toMatchObject({ send: { eventId: "$ev2", state: "sent" } });
+  expect(sends).toHaveBeenCalledTimes(2);
+  expect(sends.mock.calls[1]?.[2]).toMatchObject({
+    since: new Date(decisionsNow()[0]?.notSent?.at ?? ""),
+  });
+  // And the same tap again after it sent: the stored sent, nothing more.
+  const third = await call(id, ["send"], "tap-2").result;
+  expect(third).toMatchObject({ send: { eventId: "$ev2", state: "sent" } });
+  expect(sends).toHaveBeenCalledTimes(2);
+});
+
+test("a never-retryable not-sent says canRetry false; may have gone stays answered", async () => {
+  sends.mockRejectedValueOnce(
+    Object.assign(new Error("not sent: the file is gone"), { retry: false })
+  );
+  const { id } = await card();
+  expect((await call(id, ["send"], "a").result).send).toMatchObject({
+    canRetry: false,
+    state: "not_sent",
+  });
+  sends.mockRejectedValueOnce(new Error("may have gone: no answer"));
+  expect((await call(id, ["send"], "b").result).send).toMatchObject({
+    canRetry: false,
+    state: "may_have_gone",
+  });
+  await expect(call(id, ["send"], "c").result).rejects.toThrow(
+    "Not done: no open check"
+  );
+});
+
+test("two calls at once on one check: one answer, both get its result", async () => {
+  sends.mockResolvedValue("$ev3");
+  const { id } = await card();
+  const [a, b] = await Promise.all([
+    call(id, ["send"]).result,
+    call(id, ["send"]).result,
+  ]);
+  expect(a).toBe(b);
+  expect(sends).toHaveBeenCalledTimes(1);
+});
+
+test("a decision without a send: its plan has no send steps", async () => {
+  const { id } = await card();
+  const { result, steps } = call(id, ["wait"]);
+  const r = await result;
+  expect(steps[0]?.plan).toEqual(["recorded", "asker_told", "left_inbox"]);
+  expect(r.send).toBeNull();
+  expect(sends).not.toHaveBeenCalled();
+});
+
+test("a registered agent's asker: not yet without a desk, queued then woken as the desk's rows say", async () => {
+  const { id } = await card("desk", "agt_0123456789ab");
+  setSettings({ desk: { defaultRuntime: "claude", runtimes: { claude: {} } } });
+  rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  // Only the two tables the answer's reader asks.
+  mkdirSync(dirname(DESK_STORE), { recursive: true });
+  const db = new Database(DESK_STORE, { create: true, strict: true });
+  db.run(
+    "create table event (agent_id text, event_id text, name text, payload text, received_at text)"
+  );
+  db.run("create table turn (agent_id text, cause text, started_at text)");
+  try {
+    const r = await call(id, ["wait"]).result;
+    expect(r.asker).toMatchObject({
+      agent: "agt_0123456789ab",
+      told: "not_yet",
+    });
+    const { id: id2 } = await card("desk", "agt_0123456789ab");
+    db.run(
+      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      [
+        "agt_0123456789ab",
+        `${id2}.answered`,
+        "decision.answered",
+        "{}",
+        "2026-11-18T09:00:00.000Z",
+      ]
+    );
+    expect((await call(id2, ["wait"]).result).asker).toMatchObject({
+      told: "queued",
+    });
+    const { id: id3 } = await card("desk", "agt_0123456789ab");
+    db.run(
+      "insert into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      [
+        "agt_0123456789ab",
+        `${id3}.answered`,
+        "decision.answered",
+        "{}",
+        "2026-11-18T09:00:00.000Z",
+      ]
+    );
+    db.run("insert into turn (agent_id, cause, started_at) values (?, ?, ?)", [
+      "agt_0123456789ab",
+      "answer",
+      "2026-11-18T09:00:05.000Z",
+    ]);
+    expect((await call(id3, ["wait"]).result).asker).toMatchObject({
+      told: "woken",
+    });
+  } finally {
+    db.close();
+    setSettings({ desk: null });
+    rmSync(dirname(DESK_STORE), { force: true, recursive: true });
+  }
+}, 15_000);
+
+test("each kind says what changed: an ending, a person (two parallel calls write once), a voice with its counts", async () => {
+  const record = spyOn(
+    await import("../memory/fact-checks"),
+    "recordFactCheckAnswer"
+  ).mockResolvedValue({} as never);
+  guesses = [
+    asCheck({
+      group: "ending",
+      matter: { id: "matter_1", name: "Boiler" },
+      ref: "obs_000000000001",
+    }),
+    asCheck({
+      about: ["Kit", "+33600000001"],
+      group: "guessed person",
+      ref: "person:inf_kit",
+    }),
+    asCheck({ group: "voice", ref: "voice:v1" }),
+  ];
+  const item: NamingQueueItem = {
+    clips: [],
+    conversations: 2,
+    evidence: [],
+    id: "v1",
+    kind: "new_person",
+    likely: [],
+    name: null,
+    namedPersonId: null,
+    personId: null,
+    voices: [
+      { conversationId: "c1", jobId: "job-1", speakerLabel: "A" },
+      { conversationId: "c1", jobId: "job-1", speakerLabel: "B" },
+      { conversationId: "c2", jobId: "job-2", speakerLabel: "A" },
+    ],
+    words: 9,
+  };
+  const queue = spyOn(
+    await import("../sources/lifelog-voices"),
+    "readNamingQueue"
+  ).mockResolvedValue([item]);
+  const send = spyOn(
+    await import("../sources/lifelog-voices"),
+    "answerNamingQueue"
+  ).mockResolvedValue({ personId: "p1" });
+  try {
+    const ended = await call("obs_000000000001", ["outdated"], undefined, {
+      note: "paid",
+    }).result;
+    expect(ended).toMatchObject({
+      asker: { told: "recorded" },
+      changed: {
+        ending: "done",
+        matter: { id: "matter_1" },
+        step: "obs_000000000001",
+      },
+      kind: "ending",
+      send: null,
+    });
+    const [x, y] = await Promise.all([
+      call("person:inf_kit", ["this-is"]).result,
+      call("person:inf_kit", ["this-is"]).result,
+    ]);
+    expect(x).toBe(y);
+    expect(x).toMatchObject({
+      changed: {
+        corrections: 1,
+        names: ["Kit", "+33600000001"],
+        person: "person:inf_kit",
+      },
+    });
+    expect(readCorrections()).toHaveLength(1);
+    const { steps, result } = call("voice:v1", ["media"]);
+    expect(await result).toMatchObject({
+      changed: { answer: "media", conversations: 2, person: "p1", voices: 3 },
+    });
+    expect(steps.map((s) => s.plan ?? s.step)).toEqual([
+      ["recorded", "left_inbox"],
+      "recorded",
+      "left_inbox",
+    ]);
+    await expect(call("person:none", ["this-is"]).result).rejects.toThrow(
+      "Not done: no open check"
+    );
+  } finally {
+    record.mockRestore();
+    queue.mockRestore();
+    send.mockRestore();
+  }
+});

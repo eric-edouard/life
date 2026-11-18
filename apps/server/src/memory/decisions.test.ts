@@ -165,7 +165,11 @@ test("his answer to a draft's outgoing option alone sends its exact text once, i
     via: "connector",
   });
   expect(sent).toEqual([
-    [{ ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" }, id],
+    [
+      { ...draft, chat: "155@s.whatsapp.net", to: "Kit Moreau" },
+      id,
+      { onStep: undefined, since: NOW },
+    ],
   ]);
   expect(done.at(-1)).toMatchObject({ eventId: "$event1", kind: "sent" });
   await expect(
@@ -245,14 +249,129 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
   ]);
   const failed = await draftCard();
   await answerDecision(failed.id, ["send"], undefined, {
-    deliver: () => Promise.reject(new Error("not sent: room not joined")),
+    deliver: () => Promise.reject(new Error("may have gone: no answer")),
     now: answered,
     via: "connector",
   });
   expect(decisionsNow().find((d) => d.id === failed.id)?.send).toMatchObject({
-    error: "not sent: room not joined",
+    error: "may have gone: no answer",
     kind: "send-failed",
   });
+});
+
+const notSent =
+  (why = "room not joined") =>
+  () =>
+    Promise.reject(new Error(`not sent: ${why}`));
+
+test("a not-sent outcome voids its answer: the card is open again, only his next answer sends, once; may have gone stays answered", async () => {
+  const { id } = await draftCard();
+  const at = later(HOUR);
+  const first = await answerDecision(id, ["send"], undefined, {
+    answerKey: "tap-1",
+    deliver: notSent(),
+    now: at,
+    via: "connector",
+  });
+  expect(first.at(-1)).toMatchObject({ kind: "send-failed" });
+  const [open] = decisionsNow(later(2 * HOUR));
+  expect(open).toMatchObject({
+    notSent: { error: "not sent: room not joined" },
+    state: "open",
+    voided: { answerKey: "tap-1" },
+  });
+  expect(open?.answer).toBeUndefined();
+  expect(open?.send).toBeUndefined();
+  // Nothing settled for its asker yet.
+  expect(
+    settledBetween(decisionsNow(later(2 * HOUR)), NOW, later(DAY))
+  ).toEqual([]);
+  const sent: unknown[] = [];
+  const deliver = (...a: unknown[]) => {
+    sent.push(a);
+    return Promise.resolve("$ev9");
+  };
+  // Two answers at once after the not-sent: one sends.
+  const both = await Promise.allSettled(
+    [0, 1].map(() =>
+      answerDecision(id, ["send"], undefined, {
+        deliver,
+        now: later(2 * HOUR),
+        via: "connector",
+      })
+    )
+  );
+  expect(both.map((r) => r.status).toSorted()).toEqual([
+    "fulfilled",
+    "rejected",
+  ]);
+  expect(sent).toHaveLength(1);
+  expect(decisionsNow(later(2 * HOUR))[0]).toMatchObject({
+    send: { eventId: "$ev9" },
+    state: "answered",
+  });
+  // The send's own words: since his last attempt that went nowhere.
+  expect(sent[0]).toMatchObject([
+    expect.anything(),
+    id,
+    { since: new Date(open?.notSent?.at ?? "") },
+  ]);
+  const gone = await draftCard();
+  await answerDecision(gone.id, ["send"], undefined, {
+    deliver: () => Promise.reject(new Error("may have gone: x")),
+    now: at,
+    via: "connector",
+  });
+  await expect(
+    answerDecision(gone.id, ["send"], undefined, {
+      deliver,
+      now: at,
+      via: "connector",
+    })
+  ).rejects.toThrow("answered");
+});
+
+test("a lapse whose answer a late not-sent voided settles when it was voided, so a poll past the deadline sees it; never retryable is kept", async () => {
+  const { id } = await requestDecision(
+    "planner",
+    ask({
+      deadline: later(HOUR + 30_000).toISOString(),
+      draft,
+      options: [
+        { id: "send", label: "Send it", outgoing: true },
+        { id: "wait", label: "Wait" },
+      ],
+    }),
+    NOW,
+    readChat
+  );
+  const gone = Object.assign(new Error("not sent: the file is gone"), {
+    retry: false,
+  });
+  setSystemTime(later(HOUR + 60_000));
+  await answerDecision(id, ["send"], undefined, {
+    deliver: () => Promise.reject(gone),
+    now: later(HOUR),
+    via: "connector",
+  });
+  const [d] = decisionsNow(later(HOUR + 60_000));
+  expect(d).toMatchObject({ notSent: { retry: false }, state: "lapsed" });
+  expect(
+    settledBetween(
+      decisionsNow(later(2 * HOUR)),
+      later(HOUR + 45_000),
+      later(2 * HOUR)
+    )
+  ).toHaveLength(1);
+});
+
+test("an answer's key is kept on its line", async () => {
+  const { id } = await requestDecision("planner", ask(), NOW);
+  await answerDecision(id, ["yes"], undefined, {
+    answerKey: "tap-7",
+    now: NOW,
+  });
+  expect(decisionsNow(NOW)[0]?.answer?.answerKey).toBe("tap-7");
 });
 
 test("a send that never ended (a crash) is told as such five minutes after his answer", async () => {

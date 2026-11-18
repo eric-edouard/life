@@ -90,6 +90,8 @@ export interface Check {
   links: string[];
   /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
   matter: { id: string; name: string } | null;
+  /** A decision whose draft his last answer did not send (nothing went): when, why, and whether the same tap could work again; null: none. */
+  notSent: { at: string; canRetry: boolean; reason: string } | null;
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
   /** What he can answer, each with what choosing it does; with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
@@ -354,6 +356,7 @@ function ranked(
             kind,
             likelyPeople: [],
             links: [],
+            notSent: null,
             onSilence: null,
             options: [...LIFE_CHECKS[group].options],
             question: fields.question,
@@ -393,6 +396,13 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
+          notSent: d.notSent
+            ? {
+                at: d.notSent.at,
+                canRetry: d.notSent.retry !== false,
+                reason: d.notSent.error,
+              }
+            : null,
           onSilence: d.onSilence,
           options: d.options,
           question: d.question,
@@ -538,6 +548,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             kind: "voice",
             likelyPeople: likely,
             links: [],
+            notSent: null,
             onSilence: null,
             options: [...LIFE_CHECKS.voice.options],
             question: who
@@ -630,18 +641,19 @@ export async function checksNow(): Promise<Check[]> {
 /** The inbox (`read_inbox`): the first `limit` checks, most pressing first, with how many there are of each group; answered ones leave, so reading again shows the next. */
 export async function readInbox(limit: number) {
   const list = await checksNow();
-  return {
-    checks: list.slice(0, limit),
-    counts: Object.fromEntries(
-      [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
-    ),
-    /** Due by the end of his day (`dayNow`): the app's badge. */
-    deadlinesToday: list.filter(
-      (c) => c.deadline && localDate(c.deadline) <= dayNow()
-    ).length,
-    total: list.length,
-  };
+  return { checks: list.slice(0, limit), ...inboxOf(list) };
 }
+
+/** What the inbox holds: how many of each group, how many in all, and how many are due by the end of his day (`dayNow`: the app's badge). */
+export const inboxOf = (list: Check[]) => ({
+  counts: Object.fromEntries(
+    [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
+  ),
+  deadlinesToday: list.filter(
+    (c) => c.deadline && localDate(c.deadline) <= dayNow()
+  ).length,
+  total: list.length,
+});
 
 const BIG = 5;
 /** How many ride on an open matter, and of the rest on one line, two to five, more than five. */
