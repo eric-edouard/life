@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
@@ -12,6 +19,7 @@ import {
   duplicateOf,
   entryId,
   requested,
+  tickTodoItems,
 } from "./change-todo-item";
 
 test("an add repeats an open to-do item with the same title, whatever the case and accents; nothing else is a duplicate", () => {
@@ -233,4 +241,19 @@ test("with the actions output off, a change is refused before anything is record
   } finally {
     setSettings({ todoList: on });
   }
+});
+
+test("a matter's to-do items are ticked only when they are all this install's list app's: one of another, and none is", async () => {
+  const before = existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "";
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  appendFileSync(
+    LEDGER,
+    `${JSON.stringify({ after: { title: "Call the plumber" }, at: "2026-11-10T10:00:00.000Z", id: "entry_00000000feed", kind: "add", result: "ok", schemaVersion: 1, target: "gtasks:abc", via: "session", why: "he asked" })}\n`
+  );
+  const written = readFileSync(LEDGER, "utf8");
+  await expect(
+    tickTodoItems(["entry_00000000feed"], "It is done.")
+  ).rejects.toThrow("isn't an item of");
+  expect(readFileSync(LEDGER, "utf8")).toBe(written);
+  writeFileSync(LEDGER, before);
 });

@@ -62,6 +62,27 @@ export function keptReader<T>(read: (path: string) => T) {
   };
 }
 
+/** What last changed under `paths` (files or folders, walked; a missing one counts nothing): the newest mtime and the bytes in all. Stats only, no read. */
+export function readChangeStamp(paths: readonly string[]) {
+  let newest = 0;
+  let bytes = 0;
+  const visit = (path: string) => {
+    const s = statSync(path, { throwIfNoEntry: false });
+    if (s?.isDirectory()) {
+      for (const name of readdirSync(path)) {
+        visit(join(path, name));
+      }
+    } else if (s) {
+      newest = Math.max(newest, s.mtimeMs);
+      bytes += s.size;
+    }
+  };
+  for (const path of paths) {
+    visit(path);
+  }
+  return `${newest}/${bytes}`;
+}
+
 /** A file's complete lines, blanks included (`linesOf`'s count). */
 export const readLineCount = keptReader((path) => linesOf(path).length);
 
