@@ -63,15 +63,26 @@ test("the codex runtime puts the door's key in the environment, never the comman
   expect(chosen).toContain('model_reasoning_effort="low"');
 });
 
-test("a copy's agent (a Life not his) takes none of his config, MCP servers, instruction files or skills; his own agent runs as before", () => {
-  const copy = codexArgsOf(a, "u-1", "hello", true);
-  expect(copy).toContain("--ignore-user-config");
-  expect(copy).toContain("project_doc_max_bytes=0");
-  expect(copy).toContain("skills.include_instructions=false");
+test("a second Life's agent (not his own) takes none of his config, rules, instruction files, skills or shell: its door alone; his own runs as before", () => {
+  const second = codexArgsOf(a, "u-1", "hello", false);
+  for (const flag of [
+    "--ignore-user-config",
+    "--ignore-rules",
+    "shell_tool",
+    "plugins",
+    'sandbox_mode="read-only"',
+    "project_doc_max_bytes=0",
+    "skills.include_instructions=false",
+  ]) {
+    expect(second).toContain(flag);
+  }
   // Its door still reaches it.
-  expect(copy).toContain(`mcp_servers.desk.url=${JSON.stringify(a.door.url)}`);
-  const his = codexArgsOf(a, "u-1", "hello", false);
+  expect(second).toContain(
+    `mcp_servers.desk.url=${JSON.stringify(a.door.url)}`
+  );
+  const his = codexArgsOf(a, "u-1", "hello", true);
   expect(his).not.toContain("--ignore-user-config");
+  expect(his).not.toContain("--disable");
   expect(his.join(" ")).not.toContain("project_doc_max_bytes");
 });
 

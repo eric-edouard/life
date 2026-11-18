@@ -68,10 +68,10 @@ const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
 // network), so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its
 // nested `clock__curr_time` reads the real time, which is the time its questions are asked at (verified 21 Oct 2026 on
 // codex 0.162.1 against a fake provider, no quota spent).
-const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
+export const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
 /** The name a call's one MCP server goes by. */
 const SERVER = "life";
-const CODEX_OFF =
+export const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
   );

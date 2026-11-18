@@ -9,10 +9,10 @@ import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
-import { DESK_RUNS, isHis } from "../../core/paths";
-import { cliEnv, HOME } from "../../core/platform";
+import { DESK_RUNS } from "../../core/paths";
+import { cliEnv, HOME, isOwnLife } from "../../core/platform";
 import { firstLine, startDetached } from "../../core/proc";
-import { CODEX_HOME, toml } from "../../models/llm";
+import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF, toml } from "../../models/llm";
 import {
   type Agent,
   begunWhen,
@@ -30,29 +30,50 @@ import {
 // reaches the session by `-c`, its key only through the environment; its tools are approved for the desk server alone
 // (`exec` auto-denies an MCP tool otherwise). Nothing is kept here: running is a process holding the id, idle a
 // rollout on disk.
-// A copy's agent (a demo Life, `isHis` false) runs apart from his setup: in Life's own Codex home (none of his
-// AGENTS.md, config, MCP servers or sessions, so never in his Codex app; a login of its own, as Life's model engine),
-// with no instruction file of its folder and no skills.
+// A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup, since his MCP servers and files reach his
+// own Life: its door alone (`SECOND_LIFE`), as the claude runtime's, and never in his Codex app.
 // ponytail: his own turn in the Codex app holds no process with the id; it counts as running while the rollout's last
 // turn is open and was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the
 // desk may send beside it. And the app holding the thread open while idle keeps its own copy: his next message there may
 // continue from it, missing the desk's turn (as the claude runtime's warm process does).
 
-/** The Codex home its sessions run in: his own `~/.codex`, or a copy's Life's own. */
-export const codexHomeOf = () => (isHis() ? join(HOME, ".codex") : CODEX_HOME);
+/**
+ * A second Life's agent: Life's own Codex home (a login of its own, as Life's model engine; none of his AGENTS.md,
+ * config, MCP servers or sessions), none of his rules, no instruction file of its folder, no skill, web search or extra,
+ * no shell and a read-only sandbox (its door's tools reached as the question cases' agent reaches Life's).
+ */
+const SECOND_LIFE = {
+  args: [
+    ...["--ignore-user-config", "--ignore-rules"],
+    ...[...CODEX_OFF, ...CODEX_AGENT_OFF].flatMap((f) => ["--disable", f]),
+    ...[
+      'sandbox_mode="read-only"',
+      "project_doc_max_bytes=0",
+      'web_search="disabled"',
+      "skills.bundled.enabled=false",
+      "skills.include_instructions=false",
+    ].flatMap((c) => ["-c", c]),
+  ],
+  env: { CODEX_HOME },
+};
+
+/** The Codex home its sessions run in: his own `~/.codex`, or a second Life's Life's own. */
+export const codexHomeOf = () =>
+  isOwnLife() ? join(HOME, ".codex") : CODEX_HOME;
 
 /** Where its sessions' rollouts are. */
 const sessionsDir = () => join(codexHomeOf(), "sessions");
 
-/** What a codex process is given besides `cliEnv`: a copy's Codex home. */
-const homeEnv = (): Record<string, string> => (isHis() ? {} : { CODEX_HOME });
+/** What a codex process is given besides `cliEnv`. */
+const envOf = (): Record<string, string> =>
+  isOwnLife() ? {} : SECOND_LIFE.env;
 
 /** The command that runs one turn of session `ref`: its key is never in it. */
 export const codexArgsOf = (
   a: Agent,
   ref: string,
   message: string,
-  isCopy = !isHis()
+  isOwn = isOwnLife()
 ) => [
   "codex",
   "exec",
@@ -60,15 +81,7 @@ export const codexArgsOf = (
   ref,
   "--json",
   "--skip-git-repo-check",
-  ...(isCopy
-    ? [
-        "--ignore-user-config",
-        "-c",
-        "project_doc_max_bytes=0",
-        "-c",
-        "skills.include_instructions=false",
-      ]
-    : []),
+  ...(isOwn ? [] : SECOND_LIFE.args),
   ...(a.model ? ["-m", a.model] : []),
   ...(a.effort ? ["-c", `model_reasoning_effort=${toml(a.effort)}`] : []),
   "-c",
@@ -121,7 +134,7 @@ function run(a: Agent, ref: string, message: string): Run {
   writeFileSync(path, "");
   const exited = startDetached(codexArgsOf(a, ref, message), {
     cwd: a.folder,
-    env: { ...homeEnv(), LIFE_DESK_KEY: a.door.key },
+    env: { ...envOf(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
   });
   const begun = begunWhen(
@@ -164,7 +177,7 @@ async function newThread(folder: string) {
       .map((m) => `${JSON.stringify(m)}\n`)
       .join(""),
     (l) => JSON.parse(l).id === 2,
-    { env: { ...cliEnv(), ...homeEnv() }, timeout: 30_000 }
+    { env: { ...cliEnv(), ...envOf() }, timeout: 30_000 }
   );
   const answer = line ? JSON.parse(line) : undefined;
   const id: unknown = answer?.result?.thread?.id;
