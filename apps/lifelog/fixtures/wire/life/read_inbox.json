@@ -131,15 +131,15 @@
       "options": [
         {
           "id": "start",
-          "label": "Start"
+          "label": "Start: the goal becomes yours and an agent works toward it, with the goal as its brief"
         },
         {
           "id": "edit-goal",
-          "label": "Edit goal"
+          "label": "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss"
         },
         {
           "id": "dismiss",
-          "label": "Dismiss"
+          "label": "Dismiss: never asked again for this matter"
         }
       ],
       "question": "Goal: Gran's photo is framed. Work on it?",

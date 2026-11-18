@@ -14,6 +14,7 @@ struct Taken: Equatable {
     /// A new matter whose goal he changed is still waiting for Start or Dismiss.
     var staysOpen: Bool { check.group == .newMatter && request.options == ["edit-goal"] }
     var isSend: Bool { check.draft != nil }
+    var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
             to: check.draft?.to, channel: check.draft?.channel,
@@ -49,6 +50,7 @@ struct AnswerResultView: View {
     }
 
     private var isSend: Bool { taken.isSend }
+    private var isStart: Bool { taken.isStart }
     private var lines: [CheckLine] { ActionCopy.lines(state, taken.context) }
 
     private var header: some View {
@@ -140,11 +142,13 @@ struct AnswerResultView: View {
 
     private func failedWord(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return isSend ? "May have gone." : "Check first." }
+        if isStart { return "Not started." }
         return isSend ? "Not sent." : "Not saved."
     }
 
     private func failedLine(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
+        if isStart { return "Your goal is saved. The card stays here." }
         return isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
     }
 }

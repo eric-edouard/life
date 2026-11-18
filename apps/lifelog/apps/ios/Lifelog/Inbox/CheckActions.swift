@@ -94,14 +94,9 @@ struct CheckActions: View {
 
     private func shown(_ option: Check.Option) -> String { check.shown(option) }
 
-    /// The goal the card offers, between "Goal: " and " Work on it?".
-    private var goal: String {
-        check.question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
-    }
-
     private func tap(_ option: Check.Option) {
         if check.group == .newMatter, option.id == "edit-goal" {
-            draft.words = goal
+            draft.words = check.offeredGoal
             draft.isWritingOwnWords = true
             return
         }

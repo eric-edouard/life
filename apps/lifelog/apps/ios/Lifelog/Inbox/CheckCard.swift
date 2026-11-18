@@ -283,11 +283,3 @@ private struct ClipBlock: View {
         }
     }
 }
-
-extension Check {
-    /// An option as its button says it. A new matter's options say what they do after a colon, or how to give the goal in brackets: the button keeps the first words.
-    func shown(_ option: Option) -> String {
-        guard group == .newMatter else { return option.label }
-        return String(option.label.prefix { $0 != ":" && $0 != "(" }).trimmingCharacters(in: .whitespaces)
-    }
-}
