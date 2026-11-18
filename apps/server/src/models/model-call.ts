@@ -54,9 +54,6 @@ export const add = (a: Tokens, b: Tokens): Tokens => ({
   output: a.output + b.output,
 });
 
-/** Input-equivalent tokens: an output token weighs about three input tokens (the arrival cap compares these). */
-export const inputEquivalentOf = (t: Tokens) => t.input + 3 * t.output;
-
 /**
  * What a call was shown, by source: the number of distinct units whose content it read (`memory`: Life's own lines
  * only). Counts only, never ids or text; made only by `readsOf` (memory/run.ts), required by `askOnce`.

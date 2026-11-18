@@ -70,6 +70,7 @@ import {
   recordState,
 } from "../memory/schedule";
 import { situations } from "../memory/situations";
+import { readSourceUse, sourceUseLine } from "../memory/source-use";
 import { keptStores } from "../memory/sources";
 import { forReaders } from "../memory/status-inputs";
 import { type Built, gather } from "../memory/units";
@@ -453,10 +454,13 @@ async function spent(rec: Metered, now: Quota | undefined) {
     recent.push(...page.items);
     ({ cursor } = page);
   } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
-  return spendLines(recent, since, {
-    id: `memory.nightly/${rec.run}`,
-    quota: now,
-  });
+  return [
+    ...spendLines(recent, since, {
+      id: `memory.nightly/${rec.run}`,
+      quota: now,
+    }),
+    ...sourceUseLine(await readSourceUse(1)),
+  ];
 }
 
 /**

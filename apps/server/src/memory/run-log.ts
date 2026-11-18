@@ -332,7 +332,7 @@ export function callsOf(events: LogEvent[]) {
 }
 
 /** One day's events a run is made of: its run lines and the model calls it made. */
-const runEvents = (name: string, dir = LOG_DIR) => [
+export const runEvents = (name: string, dir = LOG_DIR) => [
   ...logEvents<LogEvent>(name, "run.", dir),
   ...logEvents<LogEvent>(name, "model.run", dir),
 ];
