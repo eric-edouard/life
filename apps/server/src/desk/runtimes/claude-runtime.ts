@@ -55,7 +55,8 @@ const transcriptOf = (ref: string) =>
 /** Whether some process runs session `ref` now: the desk's turn, or his in the app. */
 async function isHeld(ref: string) {
   const { code, stderr } = await exec(["pgrep", "-f", ref]);
-  if (code > 1) {
+  // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
+  if (code !== 0 && code !== 1) {
     throw new Error(`pgrep: ${stderr}`);
   }
   return code === 0;

@@ -32,85 +32,68 @@ export const doorOf = (id: string) => ({
   url: `http://127.0.0.1:${DOOR_PORT}/mcp/${id}`,
 });
 
-/** One door tool: its arguments checked, refused unless the agent is active (`read_packet` aside), each call logged. */
-function tool<S extends z.ZodObject>(
-  server: McpServer,
-  desk: Desk,
-  id: string,
-  name: string,
-  description: string,
-  input: S,
-  run: (args: z.infer<S>) => Promise<unknown> | unknown
-) {
-  server.registerTool(
-    name,
-    { description, inputSchema: input.shape },
-    async (args) => {
-      let body: string;
-      let isError = false;
-      try {
-        if (
-          name !== "read_packet" &&
-          agentOf(desk.db, id)?.status !== "active"
-        ) {
-          throw new Error(`Not done: ${id} is not active.`);
-        }
-        const r = (await run(input.parse(args))) ?? "Done.";
-        body = typeof r === "string" ? r : JSON.stringify(r);
-        isError = typeof r === "object" && r !== null && "error" in r;
-      } catch (e) {
-        body = (e as Error).message;
-        isError = true;
-      }
-      log("mcp.call", { agent: id, door: true, error: isError, tool: name });
-      return { content: [{ text: body, type: "text" as const }], isError };
-    }
-  );
-}
-
-/** Agent `id`'s door: its five tools. */
+/**
+ * Agent `id`'s door: its five tools, each with its arguments checked, refused unless the agent is active
+ * (`read_packet` aside), each call logged.
+ * ponytail: a smaller copy of the connector's private `tool()` (`host/http/mcp.ts`); step 4 exports one helper.
+ */
 function doorServer(desk: Desk, id: string) {
   const server = new McpServer({ name: "desk", version: "1" });
+  const tool = <S extends z.ZodObject>(
+    name: string,
+    description: string,
+    input: S,
+    run: (args: z.infer<S>) => unknown
+  ) =>
+    server.registerTool(
+      name,
+      { description, inputSchema: input.shape },
+      async (args) => {
+        let body: string;
+        let isError = false;
+        try {
+          if (
+            name !== "read_packet" &&
+            agentOf(desk.db, id)?.status !== "active"
+          ) {
+            throw new Error(`Not done: ${id} is not active.`);
+          }
+          const r = (await run(input.parse(args))) ?? "Done.";
+          body = typeof r === "string" ? r : JSON.stringify(r);
+          isError = typeof r === "object" && r !== null && "error" in r;
+        } catch (e) {
+          body = (e as Error).message;
+          isError = true;
+        }
+        log("mcp.call", { agent: id, door: true, error: isError, tool: name });
+        return { content: [{ text: body, type: "text" as const }], isError };
+      }
+    );
   tool(
-    server,
-    desk,
-    id,
     "set_wait",
     "Set what you wait for before you stop: `events` (messages: `person`, `channels`, `chat`, `from_me`), `until` (5 minutes to 7 days ahead, ISO), `reason`. The desk wakes you at `until`, on a matching message, or on his answer to your decision.",
     AgentWait,
     (w) => setWait(desk, id, w)
   );
   tool(
-    server,
-    desk,
-    id,
     "finish",
     "End your work for good, with its `outcome` in one line; your open decision is withdrawn.",
     z.object({ outcome: z.string().min(1).max(300) }),
     ({ outcome }) => finish(desk, id, outcome)
   );
   tool(
-    server,
-    desk,
-    id,
     "write_notes",
     "Replace your notes (6,000 characters): what you did, what you wait on, why. They open your next packet.",
     z.object({ text: z.string().min(1) }),
     ({ text: notes }) => writeNotes(desk, id, notes)
   );
   tool(
-    server,
-    desk,
-    id,
     "request_decision",
     "Ask the owner one decision (one open at a time): `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids), `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject`. Or `withdraw` (your decision's id) with `why`. His answer wakes you.",
     DoorAsk,
     (ask) => askDecision(desk, id, ask)
   );
   tool(
-    server,
-    desk,
-    id,
     "read_packet",
     "Your brief, your notes, the events waiting for you and your open decision.",
     z.object({}),

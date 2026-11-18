@@ -413,6 +413,25 @@ test("his answer, read from his decisions, is queued for the agent that asked it
   expect(
     desk.db.query("select event_id, name from event where agent_id = ?").all(id)
   ).toEqual([{ event_id: `${dec}.answered`, name: DECISION_ANSWERED }]);
+  // Its deadline passing unanswered is a lapse, queued the same way.
+  const { id: lapsing } = await requestDecision("desk", {
+    agent: other,
+    deadline: ahead(2 * HOUR),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: order the made-up flour?",
+    recommended: ["no"],
+    why: "a test",
+  });
+  advance(2 * HOUR + 1000);
+  pollAnswers(desk);
+  expect(
+    desk.db
+      .query("select event_id, name from event where agent_id = ?")
+      .all(other)
+  ).toEqual([{ event_id: `${lapsing}.lapsed`, name: DECISION_LAPSED }]);
 });
 
 test("W15: while he runs the session himself, the agent waits; its old wait still fires after", async () => {

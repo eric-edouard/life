@@ -96,9 +96,13 @@ export async function pollMessages({ db, sources }: Desk) {
  */
 export function pollAnswers({ db }: Desk) {
   const active = new Set(activeAgents(db).map((a) => a.id));
+  const reads = ANSWERS.map((name) => ({
+    name,
+    read: pollDecisions(name, readCursor(db, name), DESK_ASKER),
+  }));
+  // Read after the polls, so every decision they return is known.
   const askedBy = new Map(decisionsNow().map((d) => [d.id, d.agent]));
-  for (const name of ANSWERS) {
-    const read = pollDecisions(name, readCursor(db, name), DESK_ASKER);
+  for (const { name, read } of reads) {
     db.transaction(() => {
       for (const e of read.events) {
         const id = askedBy.get(e.data.id);
