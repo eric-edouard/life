@@ -98,11 +98,7 @@ private struct ContextRegion: View {
             line("Next step", matter.row.nextStep?.text)
             ForEach(matter.steps.suffix(3).reversed()) { step in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(
-                        [step.at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), step.with]
-                            .compactMap(\.self).joined(separator: " · ")
-                    )
-                    .font(.body15).foregroundStyle(Palette.muted)
+                    Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
                     Text(step.text).font(.leadBold).foregroundStyle(Palette.fg)
                 }
                 .accessibilityElement(children: .combine)

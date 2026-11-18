@@ -36,16 +36,14 @@ struct InboxScreen: View {
             }
         }
         .background(Palette.bg)
-        .sheet(isPresented: sameAsBinding) {
-            if let check = shownCheck {
-                SameAsSheet(people: check.likelyPeople) { choice in
-                    switch choice {
-                    case .person(let id): submit(check, AnswerRequest(ref: check.ref, options: [], person: id))
-                    case .name(let name): submit(check, AnswerRequest(ref: check.ref, options: [], name: name))
-                    }
+        .sheet(item: sameAsCard) { check in
+            SameAsSheet(people: check.likelyPeople) { choice in
+                switch choice {
+                case .person(let id): submit(check, AnswerRequest(ref: check.ref, options: [], person: id))
+                case .name(let name): submit(check, AnswerRequest(ref: check.ref, options: [], name: name))
                 }
-                .presentationPlacement(.trailing)
             }
+            .presentationPlacement(.trailing)
         }
         .onChange(of: life.openedCard, initial: true) { _, opening in
             guard let opening else { return }
@@ -100,10 +98,14 @@ struct InboxScreen: View {
         }
     }
 
-    private var sameAsBinding: Binding<Bool> {
+    /// The card whose "Same as…" he opened: that card, even if the inbox reorders under the sheet.
+    private var sameAsCard: Binding<Check?> {
         Binding(
-            get: { shownCheck.map { inputs[$0.ref]?.showsSameAs == true } ?? false },
-            set: { if let ref = shownCheck?.ref { inputs[ref, default: CardInput()].showsSameAs = $0 } })
+            get: {
+                guard let ref = inputs.first(where: { $0.value.showsSameAs })?.key else { return nil }
+                return life.inbox.value?.checks.first { $0.ref == ref }
+            },
+            set: { if $0 == nil { for ref in inputs.keys { inputs[ref]?.showsSameAs = false } } })
     }
 
     /// Most urgent first, as Life sends them; what he kept for later goes after.

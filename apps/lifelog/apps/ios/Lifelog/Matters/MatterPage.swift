@@ -298,11 +298,7 @@ private struct Steps: View {
                     Text(String(format: "%02d", steps.count - offset)).font(.monoSmall).foregroundStyle(Palette.muted)
                         .frame(width: 22, alignment: .leading).padding(.top, 3)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(
-                            [step.at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), step.with]
-                                .compactMap(\.self).joined(separator: " · ")
-                        )
-                        .font(.body15).foregroundStyle(Palette.muted)
+                        Text(step.whenAndWith).font(.body15).foregroundStyle(Palette.muted)
                         Text(step.kind.replacing("_", with: " ")).label().foregroundStyle(
                             step.ending == nil ? Palette.fg : Palette.faint)
                         Text(step.text).font(.leadBold).foregroundStyle(
@@ -352,5 +348,13 @@ private struct PagePlaceholder: View {
         }
         .padding(20)
         .accessibilityLabel("Loading the matter")
+    }
+}
+
+extension MatterStep {
+    /// A step's day and who or what it came from, as the matter page and the card's context both show it.
+    var whenAndWith: String {
+        [at.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)), with].compactMap(\.self)
+            .joined(separator: " · ")
     }
 }

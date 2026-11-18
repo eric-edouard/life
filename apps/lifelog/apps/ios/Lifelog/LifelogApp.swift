@@ -17,10 +17,7 @@ struct LifelogApp: App {
                 DuoPose(
                     size: size,
                     content: AnyView(
-                        RootView().environment(appDelegate.capture).environment(\.library, appDelegate.library)
-                            .environment(appDelegate.sync).environment(appDelegate.life)
-                            .environment(appDelegate.playback).environment(appDelegate.appleHealth)
-                            .environment(\.scenePhase, .active)))
+                        RootView().stores(of: appDelegate).environment(\.scenePhase, .active)))
             } else {
                 RootView()
             }
@@ -37,13 +34,8 @@ struct LifelogApp: App {
                     guard scenePhase == .active else { return }
                     await appDelegate.capture.resyncWhileActive()
                 }
+                .stores(of: appDelegate)
         }
-        .environment(appDelegate.capture)
-        .environment(\.library, appDelegate.library)
-        .environment(appDelegate.sync)
-        .environment(appDelegate.life)
-        .environment(appDelegate.playback)
-        .environment(appDelegate.appleHealth)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
@@ -187,4 +179,12 @@ extension Settings {
 extension LibraryStore {
     /// What screens say when the library didn't open at launch.
     static let notOpen = "lifelog couldn't open the library. The diagnostics report says why."
+}
+
+extension View {
+    /// The stores every screen reads, built once at launch: the one list, for the app and its debug poses alike.
+    fileprivate func stores(of app: AppDelegate) -> some View {
+        environment(app.capture).environment(\.library, app.library).environment(app.sync).environment(app.life)
+            .environment(app.playback).environment(app.appleHealth)
+    }
 }
