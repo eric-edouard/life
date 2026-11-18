@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
+import { DESK_AGENT_FOLDERS } from "../core/paths";
 import {
   agentOf,
   anchorsOf,
@@ -46,13 +49,16 @@ export function writeSubject(
   db.run("update agent set project = ? where id = ?", [s.project ?? null, id]);
 }
 
-/** Registers an agent on his words: active, its first turn due now. Refused while the desk keeps its most agents. */
+/**
+ * Registers an agent on his words: active, its first turn due now, in `folder`, else in a folder of its own
+ * (`DESK_AGENT_FOLDERS`). Refused while the desk keeps its most agents.
+ */
 export function register(
   desk: Desk,
   a: {
     brief: string;
     effort?: string;
-    folder: string;
+    folder?: string;
     model?: string;
     project?: string;
     runtime: string;
@@ -65,6 +71,7 @@ export function register(
   }
   const id = `agt_${randomBytes(6).toString("hex")}`;
   const now = clock().toISOString();
+  const folder = a.folder ?? join(DESK_AGENT_FOLDERS, id);
   db.transaction(() => {
     db.run(
       "insert into agent (id, brief, runtime, folder, model, effort, status, wait_until, wait_reason, created_at) values (?, ?, ?, ?, ?, ?, 'active', ?, 'first turn', ?)",
@@ -72,7 +79,7 @@ export function register(
         id,
         a.brief,
         a.runtime,
-        a.folder,
+        folder,
         a.model ?? null,
         a.effort ?? null,
         now,
@@ -81,6 +88,7 @@ export function register(
     );
     writeSubject(desk, id, a);
   })();
+  mkdirSync(folder, { recursive: true });
   return id;
 }
 
