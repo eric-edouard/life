@@ -436,11 +436,12 @@ const STARTS_MODEL = [
   /\[\s*["'`][^"'`]*\b(?:claude|codex)["'`]/,
   /\$`\s*\S*\b(?:claude|codex)\b/,
   /\bCODEX(?:_BIN)?\b/,
+  /\[\s*process\.execPath/,
 ];
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
-// Life's own model calls are llm.ts's; the desk's runtimes start his registered agents' sessions (AGENTS.md).
-test("only llm.ts and the desk's runtimes start the model CLIs", async () => {
+// Life's own model calls are llm.ts's; the desk's runtime rows start his registered agents' sessions (AGENTS.md).
+test("only llm.ts and the desk's runtime rows start the model CLIs", async () => {
   const code = repoFiles(
     LIFE_CODE_DIR,
     ["apps/server/src", "scripts"],
@@ -456,7 +457,7 @@ test("only llm.ts and the desk's runtimes start the model CLIs", async () => {
         STARTS_MODEL.some((p) => p.test(texts[i] ?? ""))
     )
   ).toEqual([
-    "apps/server/src/desk/runtimes/claude-runtime.ts",
+    "apps/server/src/desk/runtimes/runtime-rows.ts",
     "apps/server/src/models/llm.ts",
   ]);
 });

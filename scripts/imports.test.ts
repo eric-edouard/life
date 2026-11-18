@@ -23,15 +23,14 @@ const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 const LINE_BREAK = /\r?\n/;
 const DESK_IMPORT = /from "[^"]*\/desk\//;
 const MODEL_SPAWN =
-  /"claude",\s*"-p"|"codex",\s*"exec"|CODEX_BIN,\s*"exec"|\/chat\/completions/;
+  /"claude",\s*"-p"|"codex",\s*"exec"|CODEX_BIN,\s*"exec"|\[\s*process\.execPath|\/chat\/completions/;
 // A call's reads written by hand: a literal keyed by a source or `memory`.
 const READS_LITERAL = new RegExp(
   `\\breads:\\s*\\{\\s*"?(${[...SourceName.options, "memory"].join("|")})"?\\s*:`
 );
 // Every file that calls a model (a spawn or a router's endpoint), in one list: the desk's runtimes may change shape.
 const MODEL_CALL_FILES = [
-  "apps/server/src/desk/runtimes/claude-runtime.ts",
-  "apps/server/src/desk/runtimes/codex-runtime.ts",
+  "apps/server/src/desk/runtimes/runtime-rows.ts",
   "apps/server/src/models/describer.ts",
   "apps/server/src/models/llm.ts",
   "apps/server/src/models/routers.ts",

@@ -42,7 +42,8 @@ create table if not exists session (
   link text not null,
   started_at text not null,
   ended_at text,
-  why_ended text
+  why_ended text,
+  context_at_first_call integer
 );
 create table if not exists event (
   agent_id text not null,
@@ -68,7 +69,8 @@ create table if not exists turn (
   outcome text,
   tokens_in integer,
   tokens_cached integer,
-  tokens_out integer
+  tokens_out integer,
+  context_used integer
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create table if not exists cursor (name text primary key, value text not null);
@@ -138,6 +140,18 @@ export function openDesk(path = DESK_STORE) {
         "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome glob 'not started: *'"
       );
     })();
+  }
+  // A store made before the two context columns (`growthOf`): older sessions and turns have none, so they grow 0.
+  for (const [table, column] of [
+    ["session", "context_at_first_call"],
+    ["turn", "context_used"],
+  ] as const) {
+    const has = db
+      .query(`select 1 from pragma_table_info('${table}') where name = ?`)
+      .get(column);
+    if (!has) {
+      db.run(`alter table ${table} add column ${column} integer`);
+    }
   }
   return db;
 }

@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.108.1",
+    "@agentclientprotocol/codex-acp": "2.7.0",
+    "@agentclientprotocol/sdk": "2.8.0",
     "@modelcontextprotocol/server": "catalog:",
     "@openai/codex": "0.162.1",
     "hono": "4.13.13",

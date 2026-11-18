@@ -4,7 +4,7 @@ import { CODEX } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
-// every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
+// every page's assets, the pinned codex, the two ACP adapters) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
 // `bun scripts/helper.ts [out]` (default dist/helper).
 
 const ROOT = join(import.meta.dir, "..");
@@ -25,7 +25,31 @@ await execOk(
   ],
   { timeout: 300_000 }
 );
+// The ACP adapters are Node scripts: each is bundled whole for bun, at the path `runtime-rows.ts` runs it from.
+const ADAPTERS = ["claude-agent-acp", "codex-acp"];
 await Promise.all([
+  ...ADAPTERS.map((name) => {
+    const at = join(
+      "node_modules",
+      "@agentclientprotocol",
+      name,
+      "dist",
+      "index.js"
+    );
+    return execOk(
+      [
+        "bun",
+        "build",
+        "--target=bun",
+        join(ROOT, at),
+        "--outfile",
+        join(resources, at),
+      ],
+      {
+        timeout: 300_000,
+      }
+    );
+  }),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),

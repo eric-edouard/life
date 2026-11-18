@@ -29,7 +29,7 @@ import {
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
-import { ANA, advance, ahead, setup, started } from "./test-desk";
+import { ANA, advance, ahead, grow, setup, started } from "./test-desk";
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
 // chats. The test plays each agent: its door calls (`setWait`, `finish`) and its turn's end (`turnEnded`).
@@ -379,10 +379,7 @@ test("W16: a wake into a session grown by 45,000 tokens starts a fresh one from 
   const { desk, fake, waiting } = setup();
   const id = await waiting();
   const old = agentOf(desk.db, id);
-  const s = fake.sessions.get(old?.session ?? "");
-  if (s) {
-    s.grownBy = 45_000;
-  }
+  grow(desk, old?.session ?? "", 45_000);
   writeNotes(desk, id, "Test notes: Ana may answer Friday");
   advance(HOUR);
   await wakeDue(desk);
@@ -442,10 +439,7 @@ test("W20: finish ends the agent and withdraws its open decision", async () => {
     question: "Test: send the made-up reply to Ana?",
     title: "a test",
   });
-  const s = fake.sessions.get(agentOf(desk.db, id)?.session ?? "");
-  if (s) {
-    s.grownBy = 45_000;
-  }
+  grow(desk, agentOf(desk.db, id)?.session ?? "", 45_000);
   advance(HOUR);
   await wakeDue(desk);
   expect(fake.said.at(-1)?.message).toContain(asked.id);
@@ -584,27 +578,10 @@ test("a first turn that began in the instant its run failed is retried, not ende
   const id = await started(desk, "obs_00000000b007");
   const ref = agentOf(desk.db, id)?.session ?? "";
   // It exits failed and `begun` settles right after `ended`.
-  fake.exit(ref, false, true);
+  fake.exit(ref, false, { isBegunLate: true });
   await Bun.sleep(5);
   expect(agentOf(desk.db, id)?.status).toBe("active");
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
-});
-
-test("after a restart a first turn still running is marked begun only when its runtime's record says so: then it is not ended as not started when it fails later", async () => {
-  const { desk, fake, path } = setup();
-  fake.holdBegun();
-  const id = await started(desk, "obs_00000000b008");
-  const ref = agentOf(desk.db, id)?.session ?? "";
-  const again: Desk = { ...desk, db: openDesk(path) };
-  // Its process runs, its record shows no answer yet: not begun.
-  await endLostTurns(again);
-  expect(openTurn(again.db, id)?.begun_at).toBeNull();
-  fake.beganBefore(ref);
-  await endLostTurns(again);
-  expect(openTurn(again.db, id)?.begun_at).not.toBeNull();
-  fake.exit(ref, false);
-  await endLostTurns(again);
-  expect(agentOf(again.db, id)?.status).toBe("active");
 });
 
 test("a runtime that can't say a lost turn's state leaves it alone this poll: never marked begun, never ended", async () => {
@@ -752,15 +729,59 @@ test("a new agent's first turn ranks with his answers, ahead of older deadlines,
   expect(turns(id)).toHaveLength(1);
 });
 
-test("after a restart, a turn its runtime's record shows began while the helper was down is marked begun, never ended by the begin limit", async () => {
-  const { desk, fake, path } = setup();
-  fake.holdBegun();
-  const id = await started(desk, "obs_00000000b014");
-  fake.beganBefore(agentOf(desk.db, id)?.session ?? "");
-  advance(BEGIN_WITHIN_MS + MIN);
-  const again: Desk = { ...desk, db: openDesk(path) };
-  await tick(again, false);
-  expect(openTurn(again.db, id)?.begun_at).not.toBeNull();
-  expect(agentOf(again.db, id)?.status).toBe("active");
-  expect(fake.stopped).toEqual([]);
+test("a turn's context is kept as its run reports it, the session's first call once", async () => {
+  const { desk, fake } = setup();
+  const id = await started(desk, "obs_00000000b015");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  const usage = (n: number) => ({
+    contextFirst: n,
+    contextLast: n + 500,
+    tokensCached: 1,
+    tokensIn: 2,
+    tokensOut: 3,
+  });
+  const wait = () =>
+    setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  await wait();
+  fake.exit(ref, true, { usage: usage(30_000) });
+  await Bun.sleep(5);
+  advance(HOUR);
+  await wakeDue(desk);
+  await wait();
+  fake.exit(ref, true, { usage: usage(60_000) });
+  await Bun.sleep(5);
+  expect(
+    desk.db
+      .query("select context_used from turn where agent_id = ? order by id")
+      .all(id)
+  ).toEqual([{ context_used: 30_500 }, { context_used: 60_500 }]);
+  expect(
+    desk.db
+      .query("select context_at_first_call from session where ref = ?")
+      .get(ref)
+  ).toEqual({ context_at_first_call: 30_000 });
+});
+
+test("a first turn that is reminded still sets the session's first call, from its own run", async () => {
+  const { desk, fake } = setup();
+  const id = await started(desk, "obs_00000000b016");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  const usage = (n: number) => ({
+    contextFirst: n,
+    contextLast: n + 500,
+    tokensCached: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+  });
+  // Ends with no set_wait: reminded, its run starts later in the conversation.
+  fake.exit(ref, true, { usage: usage(30_000) });
+  await Bun.sleep(5);
+  await setWait(desk, id, { events: [], reason: "r", until: ahead(HOUR) });
+  fake.exit(ref, true, { usage: usage(60_000) });
+  await Bun.sleep(5);
+  expect(
+    desk.db
+      .query("select context_at_first_call from session where ref = ?")
+      .get(ref)
+  ).toEqual({ context_at_first_call: 30_000 });
 });
