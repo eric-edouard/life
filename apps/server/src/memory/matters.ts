@@ -20,16 +20,30 @@ import {
   matterBookOf,
 } from "./matter-read";
 import {
+  CONTACT_PEOPLE,
+  CORRECTIONS,
   daysOf,
+  EPISODES,
+  EXTRACTED,
   episodesWhere,
+  FACT_CHECK_ANSWERS,
+  FACT_CHECKS,
+  INFERRED,
+  LEDGER,
+  LINKS,
+  MATTER_DIRECTIONS,
   MATTERS,
+  OBSERVATIONS,
   readBy,
   readDirectionPins,
   readLedger,
   readUnitsFor,
+  SUPERSESSIONS,
+  UNRESOLVED,
 } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
+import { TRUTH } from "./read-truth";
 import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
@@ -199,6 +213,29 @@ export async function readMatterRecords(people: People) {
     todoItems: [...todoItemsOf(ledger).values()],
   };
 }
+
+/**
+ * Every file the matter book is read from, units aside (the watcher writes them every few minutes, and a matter changes
+ * only through these): its steps, endings, directions, his word, the to-do items and the people. A reader keyed by a
+ * change stamp of the book spreads this list, so a new read here reaches every such key.
+ */
+export const MATTER_BOOK_READS = [
+  CONTACT_PEOPLE,
+  CORRECTIONS,
+  EPISODES,
+  EXTRACTED,
+  FACT_CHECK_ANSWERS,
+  FACT_CHECKS,
+  INFERRED,
+  LEDGER,
+  LINKS,
+  MATTER_DIRECTIONS,
+  MATTERS,
+  OBSERVATIONS,
+  SUPERSESSIONS,
+  TRUTH,
+  UNRESOLVED,
+];
 
 /** Every matter on `today`, as the stored lines and the records say now (`matterBookOf`). */
 export const readMatterBook = async (people: People, today: string) =>

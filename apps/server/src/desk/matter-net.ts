@@ -7,18 +7,8 @@ import { log } from "../core/log";
 import { activeAgents, anchorsOf } from "../host/desk-read";
 import type { MessagePayload } from "../host/events";
 import { matterFinderOf, netOf } from "../memory/matter-read";
-import { readMatterBook } from "../memory/matters";
-import {
-  CORRECTIONS,
-  EPISODES,
-  EXTRACTED,
-  LEDGER,
-  LINKS,
-  MATTERS,
-  OBSERVATIONS,
-  readUnitsOf,
-  SUPERSESSIONS,
-} from "../memory/memory-files";
+import { MATTER_BOOK_READS, readMatterBook } from "../memory/matters";
+import { readUnitsOf } from "../memory/memory-files";
 import { kindOf } from "../memory/sources";
 import { embedderNow } from "../memory/vectors";
 import type { People } from "../memory/who";
@@ -43,22 +33,6 @@ const CLOSE_AT = 0.55;
 const MIN_CHARS = 20;
 /** A recording's new words are compared in parts of at most this many characters (the embedder reads about 2,000 bytes). */
 const PART_CHARS = 1500;
-/**
- * What the matter book is read from (its steps, endings, his word, the to-do items): a change to any of them builds the
- * nets again, so a matter he marks done ends its agent on the next poll. Units are left out, as the checks do: the
- * watcher writes them every few minutes, and a matter changes only through the files here.
- */
-const NETS_READ = [
-  CORRECTIONS,
-  EPISODES,
-  EXTRACTED,
-  LEDGER,
-  LINKS,
-  MATTERS,
-  OBSERVATIONS,
-  SUPERSESSIONS,
-];
-
 /** An agent's matter as the net reads it: its people, and its texts' vectors. */
 interface Net {
   agent: string;
@@ -102,7 +76,7 @@ async function queryVectors(embedder: Embedder | null, texts: string[]) {
 
 /**
  * The nets of the active agents on a matter (an agent on a project has none), its matter found by its anchors. The
- * matter book is read again only once the agents, their anchors, his day or what it is read from (`NETS_READ`, by its
+ * matter book is read again only once the agents, their anchors, his day or what it is read from (`MATTER_BOOK_READS`, by its
  * change stamp: stats, no read) changed; a net whose vectors
  * the embedder could not make is not kept, so the next poll tries again.
  */
@@ -116,7 +90,7 @@ export async function netsOf(desk: Desk, people: People) {
     return [];
   }
   const key = JSON.stringify([
-    readChangeStamp(NETS_READ),
+    readChangeStamp(MATTER_BOOK_READS),
     dayNow(),
     agents.map(({ a, steps }) => [a.id, steps]),
   ]);
