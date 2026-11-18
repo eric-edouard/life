@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { log } from "../../core/log";
 import { HOME, WINDOWS } from "../../core/platform";
 import { exec, startDetached } from "../../core/proc";
 import type { Agent, Run, Runtime, Usage } from "./contract";
@@ -28,6 +29,7 @@ export const argsOf = (
   JSON.stringify({
     mcpServers: {
       desk: {
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: Claude expands it from the environment
         headers: { Authorization: "Bearer ${LIFE_DESK_KEY}" },
         type: "http",
         url: a.door.url,
@@ -60,18 +62,22 @@ async function isHeld(ref: string) {
 }
 
 /**
- * Opens the new session in the Claude app, so its link works: once its transcript exists (the CLI refuses before),
+ * Opens session `ref` in the Claude app, so its link works: once no process runs it (the CLI refuses while one does),
  * under a pseudo-terminal (it refuses without one). It lists the session in the app; no process of the app runs it.
  */
 async function handOff(a: Agent, ref: string) {
-  for (let i = 0; i < 40 && !transcriptOf(ref); i += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: waiting for one file
-    await Bun.sleep(500);
-  }
-  await exec(
+  const r = await exec(
     ["script", "-q", "/dev/null", "claude", "--desktop", "--resume", ref],
     { cwd: a.folder, timeout: 30_000 }
   );
+  if (r.code !== 0) {
+    log("desk.runtime", {
+      agent: a.id,
+      error: r.stdout.slice(-300),
+      ok: false,
+      what: "link",
+    });
+  }
 }
 
 interface Entry {
@@ -151,13 +157,16 @@ export const claudeRuntime: Runtime = {
   },
   start(a, brief) {
     const ref = randomUUID();
-    const r = run(a, argsOf(a, brief, { start: ref }));
-    if (!WINDOWS) {
-      // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
-      handOff(a, ref).catch(() => undefined);
-    }
+    const { ended } = run(a, argsOf(a, brief, { start: ref }));
     return Promise.resolve({
-      ...r,
+      // The first turn's end waits for the hand-off, so no next turn runs beside it.
+      // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
+      ended: ended.then(async (end) => {
+        if (!WINDOWS) {
+          await handOff(a, ref);
+        }
+        return end;
+      }),
       link: `claude://claude.ai/epitaxy/local_${ref}`,
       ref,
     });
