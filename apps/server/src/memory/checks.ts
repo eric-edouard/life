@@ -5,7 +5,12 @@ import { pagedNow } from "./closeness";
 import { type Decision, decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
-import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
+import {
+  type MatterView,
+  matterBookOf,
+  matterFinderOf,
+  matterPeopleOf,
+} from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
 import {
   readFactCheckAnswers,
@@ -19,7 +24,7 @@ import {
   readUnresolvedPeople,
   type Shown,
 } from "./who";
-import { dayNow } from "./zones";
+import { dayNow, localDate } from "./zones";
 
 // The checks: everything waiting on his word, in one shape and one list, with no limit. A check is one guess of Life's
 // that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
@@ -67,6 +72,8 @@ export interface Check {
   kind: CheckKind;
   /** Where to look or act (the agent's link first). */
   links: string[];
+  /** The matter it belongs to: the one holding its `subject`, else its `ref` (`matterFinderOf`), closed ones too (an ending check is about a matter that reads probably done); null: none. */
+  matter: { id: string; name: string } | null;
   /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
   /** What he can answer, each with what choosing it does; with two or more, the first is the one recommended (Life: its guess). Besides them he can always answer in his own words (a decision's `note`, else `tell_life`). */
@@ -114,7 +121,7 @@ export interface CheckInputs {
   lines: readonly Line[];
   matters: readonly (Pick<
     MatterView,
-    "open" | "owedTo" | "told" | "waitingOn" | "with"
+    "id" | "name" | "open" | "owedTo" | "told" | "waitingOn" | "with"
   > & {
     steps: { ref: string }[];
   })[];
@@ -140,7 +147,7 @@ export interface CheckInputs {
 }
 
 interface Ranked {
-  check: Check;
+  check: Omit<Check, "matter">;
   /** The newest day among the lines it rides on, for the order. */
   day: string;
 }
@@ -454,6 +461,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
 /** The checks: those with a deadline first (an agent's decisions), soonest first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
+  const matterOf = matterFinderOf(inputs.matters);
   return Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
@@ -466,7 +474,10 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
         b.day.localeCompare(a.day) ||
         a.check.ref.localeCompare(b.check.ref)
     )
-    .map((r) => r.check);
+    .map(({ check }) => {
+      const m = matterOf([check.subject ?? check.ref]);
+      return { ...check, matter: m ? { id: m.id, name: m.name } : null };
+    });
 };
 
 /** What waits on his word now, over what is stored today: read-only, no model call. */
@@ -524,6 +535,10 @@ export async function readInbox(limit: number) {
     counts: Object.fromEntries(
       [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
     ),
+    /** Due by the end of his day (`dayNow`): the app's badge. */
+    deadlinesToday: list.filter(
+      (c) => c.deadline && localDate(c.deadline) <= dayNow()
+    ).length,
     total: list.length,
   };
 }

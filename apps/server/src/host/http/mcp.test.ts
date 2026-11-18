@@ -9,7 +9,7 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { DAY } from "../../core/clock";
+import { clock, DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
 import { OWNER_DATA_DIR } from "../../core/paths";
@@ -603,13 +603,22 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
-test("read_inbox: the first checks in the one shape, counts by group and the total", async () => {
+test("read_inbox: the first checks in the one shape, counts by group, those due by the end of his day and the total", async () => {
   const checks = await import("../../memory/checks");
-  const check = (ref: string, group: string) => ({ group, ref });
+  const check = (
+    ref: string,
+    group: string,
+    deadline: string | null = null
+  ) => ({
+    deadline,
+    group,
+    ref,
+  });
+  const now = clock().toISOString();
   const spy = spyOn(checks, "checksNow").mockResolvedValue([
-    check("a", "ending"),
+    check("a", "decision", now),
     check("b", "name"),
-    check("c", "ending"),
+    check("c", "decision", "2099-01-01T09:00:00.000Z"),
   ] as never);
   try {
     const { json } = await rpc(await token(), "tools/call", {
@@ -617,8 +626,9 @@ test("read_inbox: the first checks in the one shape, counts by group and the tot
       name: "read_inbox",
     });
     expect(JSON.parse(json.result.content[0].text)).toEqual({
-      checks: [check("a", "ending"), check("b", "name")],
-      counts: { ending: 2, name: 1 },
+      checks: [check("a", "decision", now), check("b", "name")],
+      counts: { decision: 2, name: 1 },
+      deadlinesToday: 1,
       total: 3,
     });
   } finally {

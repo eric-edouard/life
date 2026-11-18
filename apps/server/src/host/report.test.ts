@@ -251,6 +251,7 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   group: "guessed person",
   kind: "person",
   links: [],
+  matter: null,
   onSilence: null,
   options: [
     { id: "this-is", label: "It is them" },
@@ -304,6 +305,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     group: "decision",
     kind: "decision",
     links: [`https://example.com/session/${i}`],
+    matter: null,
     onSilence: null,
     options: [
       { id: "yes", label: "Book it" },

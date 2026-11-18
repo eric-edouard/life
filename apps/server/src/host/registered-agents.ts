@@ -18,7 +18,7 @@ import {
 } from "./desk-read";
 
 // "What are my agents doing?": every registered agent as read now, as one typed answer (`readRegisteredAgents`) that
-// the connector (`read_registered_agents`), the nightly report and later the apps' local API share; and the Agents
+// the connector (`read_registered_agents`), the nightly report and his apps (through the connector) share; and the Agents
 // parts the matter and area reads show. Reads only; the desk off or its store unreadable is said, never thrown.
 
 /** A registered agent as read now, with the matter its first anchor finds, when its subject is one. */
@@ -115,9 +115,14 @@ const linesOf = (read: DeskRead<AgentNow[]>) => {
   return read.state === "ok" ? read.value.map((a) => `- ${agentLine(a)}`) : [];
 };
 
-/** The Agents part of a matter's read: the agents ever anchored on its steps, active first. */
-export const agentLinesOnSteps = (steps: string[]) =>
-  linesOf(readDesk((db) => agentsOnSteps(db, steps, clock().getTime()), []));
+/** The Agents part of a matter's read: the agents ever anchored on its steps, active first; none while the desk is off or unreadable (`read_registered_agents` says which). */
+export function readAgentsOnSteps(steps: string[]) {
+  const read = readDesk(
+    (db) => agentsOnSteps(db, steps, clock().getTime()),
+    []
+  );
+  return read.state === "ok" ? read.value : [];
+}
 
 /** The agents on a project (or each project of an area), active first. */
 export const agentLinesOnProjects = (projects: string[]) =>
@@ -125,8 +130,8 @@ export const agentLinesOnProjects = (projects: string[]) =>
     readDesk((db) => agentsOnProjects(db, projects, clock().getTime()), [])
   );
 
-/** The mark `read_matters` gives a matter an active agent holds, read once for every matter of the call. */
-export function readAgentMarks() {
+/** The active agent holding one of a matter's steps, for `read_matters`: the desk read once for every matter of the call. */
+export function readActiveAgentOf() {
   const read = readDesk(
     (db) =>
       activeAgents(db).flatMap((a) =>
@@ -135,10 +140,7 @@ export function readAgentMarks() {
     []
   );
   const byStep = new Map(read.state === "ok" ? read.value : []);
-  return (steps: string[]) => {
-    const id = steps.map((s) => byStep.get(s)).find(Boolean);
-    return id ? `agent ${id}` : "";
-  };
+  return (steps: string[]) => steps.map((s) => byStep.get(s)).find(Boolean);
 }
 
 /**

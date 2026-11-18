@@ -271,6 +271,12 @@ Life serves no web pages. The watcher's server serves the connector, its issuer 
 data before a token. Every route is a Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens. The web
 app and the legacy portrait (`/me`) were removed on 8 Nov 2026; the server version will build what it needs.
 
+His own apps (the iPhone app first) read Life as a client of the connector, never through a second API: paired like any
+app (`bun life pair`, OAuth with PKCE), they call `/mcp`'s tools at the connector's origin and read the same answers the
+models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
+in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
+`correct_memory`, `change_todo_item`).
+
 - **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), open to all: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.
 

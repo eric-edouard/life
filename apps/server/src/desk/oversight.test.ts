@@ -12,9 +12,9 @@ import { requested } from "../host/change-todo-item";
 import { agentChangeOf, agentOf, modelOf } from "../host/desk-read";
 import {
   agentLinesOnProjects,
-  agentLinesOnSteps,
-  readAgentMarks,
+  readActiveAgentOf,
   readAgentRows,
+  readAgentsOnSteps,
   readRegisteredAgents,
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
@@ -224,22 +224,31 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       project: "test-shop",
     });
 
-    expect(agentLinesOnSteps([STEP, "obs_00000000a999"])[0]).toStartWith(
-      `- ${onMatter?.id} [waiting]`
-    );
+    expect(readAgentsOnSteps([STEP, "obs_00000000a999"])[0]).toMatchObject({
+      id: onMatter?.id,
+      status: "waiting",
+    });
     expect(agentLinesOnProjects(["test-shop"])[0]).toContain(
       "amber: default wait"
     );
-    expect(readAgentMarks()([STEP])).toBe(`agent ${onMatter?.id}`);
+    expect(readActiveAgentOf()([STEP])).toBe(onMatter?.id);
     // Its packet opens with its matter as read now: its goal and next step first.
     expect(
-      (await readPacket(desk, onMatter?.id ?? "")).split("\n").slice(1, 4)
-    ).toEqual([
-      "matter_00000000a001 Test bakery order [moving]",
-      "Goal: The cake is collected",
-      "Next step: do: Ask the bakery for the pickup day (Life's draft)",
-    ]);
-    expect(readAgentMarks()(["obs_00000000a999"])).toBe("");
+      JSON.parse(
+        (await readPacket(desk, onMatter?.id ?? "")).split("\n")[1] ?? ""
+      )
+    ).toMatchObject({
+      goal: { text: "The cake is collected" },
+      id: "matter_00000000a001",
+      name: "Test bakery order",
+      nextStep: {
+        by: "life",
+        kind: "do",
+        text: "Ask the bakery for the pickup day",
+      },
+      status: "moving",
+    });
+    expect(readActiveAgentOf()(["obs_00000000a999"])).toBeUndefined();
 
     const since = new Date(clock().getTime() - MIN).toISOString();
     postReportLine(desk.db, {
@@ -270,7 +279,7 @@ test("the desk off breaks no read: each says so, and his word is refused", async
   setSettings({ desk: null });
   expect((await readRegisteredAgents()).desk).toBe("off");
   expect(await readAgentRows(clock().toISOString())).toEqual([]);
-  expect(agentLinesOnSteps([STEP])).toEqual([]);
+  expect(readAgentsOnSteps([STEP])).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "idle",
     word: "off",
@@ -398,9 +407,7 @@ test("its store unreadable, the reads say so and the report still has its sectio
   expect(await readAgentRows(clock().toISOString())).toEqual([
     { name: "Desk", relation: "its store could not be read" },
   ]);
-  expect(agentLinesOnSteps([STEP])).toEqual([
-    "The desk's store could not be read.",
-  ]);
+  expect(readAgentsOnSteps([STEP])).toEqual([]);
   expect(deskCard(clock().getTime())).toMatchObject({
     tone: "bad",
     word: "unreadable",

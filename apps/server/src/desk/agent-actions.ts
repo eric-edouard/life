@@ -196,7 +196,7 @@ export async function readPacket({ db }: Desk, id: string) {
   return [
     a.project
       ? `Your subject: the project ${a.project} (\`read_area_page\`).`
-      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${await oneMatter(steps)}`,
+      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${JSON.stringify((await oneMatter(steps)) ?? `No matter holds ${steps.join(", ")} now.`)}`,
     a.brief,
     contractOf(a.id),
     `Your notes:\n${a.notes || "(none yet)"}`,

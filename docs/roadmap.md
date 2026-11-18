@@ -20,8 +20,9 @@ In this order: each one makes the next one simpler.
 4. Scaling to ten years of data: a night reads a bounded span; the exchange counts are kept per month; a portrait is
    built from its last version plus what is new; search and `read_day` are served from the index; verdicts are split
    by month; digests hold refs, not names, so a rename re-reads nothing; the status check reads a file.
-5. Typed reads and a local app API: matters, a day and a person as data rather than prose for a model, on a local
-   API the live app reads. One of the two things called "status reads" gets a new name.
+5. Typed reads for his apps, through the connector (no second API, `docs/architecture.md`, "Pages"): matters, the
+   inbox and his agents are JSON (18 Nov 2026); a day and a person are still prose for a model. One of the two
+   things called "status reads" gets a new name.
 6. Later: `memory/` split into zones (the readers apart from the model steps), and AGENTS.md cut to the rules that
    protect data.
 

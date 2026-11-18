@@ -29,10 +29,10 @@ import { dayNow, dayStart, localDate } from "./zones";
 // person's page lists as open with them. `open-items.ts` times and ranks them.
 
 /** A quote or a note on one line, clipped to `QUOTE_MAX`. */
-export const oneLine = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
+const oneLine = (s: string) => clip(s.replace(/\s+/g, " "), QUOTE_MAX);
 
 /** How a step ended, in words, with its day: none while open. */
-export const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
+const endingWords = ({ ending: e }: Pick<MatterStepNow, "ending">) => {
   if (!e) {
     return "";
   }

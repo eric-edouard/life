@@ -31,7 +31,10 @@ test("read_matters lists the open matters, of one project when asked; read_matte
   });
   const steps = [
     step("episode", "Gran's watch", "2026-10-02", "ep_000000000001"),
-    step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
+    {
+      ...step("promise", "Call the shop", "2026-10-12", "obs_000000000005"),
+      with: "person:partner",
+    },
   ];
   const errand = view({
     goal: {
@@ -85,51 +88,66 @@ test("read_matters lists the open matters, of one project when asked; read_matte
     },
   ] as never);
   try {
-    const all = await openMatters({});
-    expect(all).toContain(
-      "- matter_aaaaaaaaaaaa Mend Gran's watch [moving]; goal: Gran has her watch back (Life's draft); next step: wait_event (the shop): The shop's quote; owed to gran; newest open step: Call the shop (2026-10-12)"
-    );
-    expect(all).toContain("waiting on shop");
-    expect(all).not.toContain("Old");
-    // Ranked, not newest first: a promise owed comes before a wait, though the wait is older.
-    expect(all.indexOf("matter_aaaaaaaaaaaa")).toBeLessThan(
-      all.indexOf("matter_bbbbbbbbbbbb")
-    );
-    const ofProject = await openMatters({ project: "Shop fit-out" });
-    expect(ofProject).toContain("matter_aaaaaaaaaaaa");
-    expect(ofProject).not.toContain("matter_bbbbbbbbbbbb");
-    const read = (id: string) => oneMatter([id]);
-    const one = (await read("matter_aaaaaaaaaaaa")).split("\n");
-    expect(one.slice(0, 6)).toEqual([
-      "matter_aaaaaaaaaaaa Mend Gran's watch [moving]",
-      "Goal: Gran has her watch back (Life's draft)",
-      "Next step: wait_event (the shop): The shop's quote",
-      "owed to: gran",
-      "with: partner",
-      "Projects: shop-fit-out",
+    const all = (await openMatters({})).matters;
+    // Ranked, not newest first: a promise owed comes before a wait, though the wait is older; a done one is not running.
+    expect(all.map((m) => m.id)).toEqual([
+      "matter_aaaaaaaaaaaa",
+      "matter_bbbbbbbbbbbb",
     ]);
-    expect(one).toContain(
-      '- 2026-10-12 promise obs_000000000005: Call the shop ""Call the shop" said Gran"'
-    );
-    // A step's id opens the matter holding it.
-    expect(await read("obs_000000000005")).toBe(one.join("\n"));
-    expect(await read("matter_zzzzzzzzzzzz")).toBe(
-      "No matter matter_zzzzzzzzzzzz."
-    );
-    // Host's Agents part and mark, given the matter's steps.
-    // Anchors find it by the first that still names a step.
-    expect(await oneMatter(["obs_gone", "obs_000000000005"])).toBe(
-      one.join("\n")
-    );
-    const withAgents = await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
-      refs.includes("obs_000000000005") ? ["- agt_000000000001 [waiting]"] : []
-    );
-    expect(withAgents).toEndWith("\nAgents:\n- agt_000000000001 [waiting]");
+    const row = {
+      goal: { by: "life", text: "Gran has her watch back" },
+      id: "matter_aaaaaaaaaaaa",
+      lastStepAt: "2026-10-12T10:00:00.000Z",
+      name: "Mend Gran's watch",
+      newestOpenStep: { day: "2026-10-12", text: "Call the shop" },
+      nextStep: {
+        by: "owner",
+        kind: "wait_event",
+        text: "The shop's quote",
+        waitsOn: "the shop",
+      },
+      people: {
+        owedTo: ["gran"],
+        with: ["partner"],
+      },
+      projects: ["Shop fit-out"],
+      status: "moving",
+    };
+    // Empty fields are left out of the JSON a model reads.
+    expect(JSON.parse(JSON.stringify(all[0]))).toEqual(row);
+    expect(all[1]?.people?.waitingOn).toEqual(["shop"]);
     expect(
-      await openMatters({}, (refs) =>
-        refs.includes("ep_000000000001") ? "agent agt_000000000001" : ""
-      )
-    ).toContain("(2026-10-12); agent agt_000000000001");
+      (await openMatters({ project: "Shop fit-out" })).matters.map((m) => m.id)
+    ).toEqual(["matter_aaaaaaaaaaaa"]);
+    await expect(openMatters({ project: "Nowhere" })).rejects.toThrow(
+      "No project goes by that name."
+    );
+    const one = await oneMatter(["matter_aaaaaaaaaaaa"]);
+    // A step's company by name, as the row's people.
+    expect(JSON.parse(JSON.stringify(one))).toEqual({
+      ...row,
+      agents: [],
+      steps: [steps[0], { ...steps[1], with: "partner" }],
+    });
+    // A step's id opens the matter holding it; anchors find it by the first that still names a step.
+    expect(await oneMatter(["obs_000000000005"])).toEqual(one);
+    expect(await oneMatter(["obs_gone", "obs_000000000005"])).toEqual(one);
+    expect(await oneMatter(["matter_zzzzzzzzzzzz"])).toBeUndefined();
+    // Host's agents on it and its active agent, given the matter's steps.
+    expect(
+      (
+        await oneMatter(["matter_aaaaaaaaaaaa"], (refs) =>
+          refs.includes("obs_000000000005") ? [{ id: "agt_000000000001" }] : []
+        )
+      )?.agents
+    ).toEqual([{ id: "agt_000000000001" }]);
+    expect(
+      (
+        await openMatters({}, (refs) =>
+          refs.includes("ep_000000000001") ? "agt_000000000001" : undefined
+        )
+      ).matters[0]?.agent
+    ).toBe("agt_000000000001");
   } finally {
     people.mockRestore();
     book.mockRestore();
