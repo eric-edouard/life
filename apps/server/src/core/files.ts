@@ -41,7 +41,8 @@ const seenOf = ({ ino, mtimeMs, size }: Seen): Seen => ({ ino, mtimeMs, size });
 
 /**
  * `read` of a file, kept per process: read again only once the file changed (`isSameFile`), whole. For values far
- * smaller than the file (its line count, its slim rows), read often, of files few of which change.
+ * smaller than the file (its line count, its slim rows), or the rows of files read on every call, few of which change
+ * (the episodes' days), read often. The value is shared: callers never mutate it.
  */
 export function keptReader<T>(read: (path: string) => T) {
   const kept = new Map<string, Seen & { value: T }>();

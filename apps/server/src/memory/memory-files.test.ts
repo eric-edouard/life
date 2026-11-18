@@ -16,6 +16,7 @@ import { buildIndex } from "./index-writer";
 import {
   answeredFactCheckCorrections,
   answeredFactChecks,
+  EPISODES,
   FACT_CHECK_ANSWERS,
   FACT_CHECKS,
   hiding,
@@ -28,6 +29,7 @@ import {
   type ObservationStatusInputs,
   observationStatusOf,
   outdatedBy,
+  readEpisodes,
   readFactCheckAnswers,
   readIndex,
   readObservationStatusInputs,
@@ -593,4 +595,21 @@ test("readIndex takes no async read: the index closes when the read returns", ()
   // @ts-expect-error a promise would settle after the index is closed (`bun run check` types this file)
   const refused = () => readIndex(async () => 1);
   expect(refused).toBeFunction();
+});
+
+test("an episode day is parsed again once rewritten, and an unchanged one hands back the same rows", async () => {
+  const dayLine = (title: string) =>
+    `${JSON.stringify({ copies: [], day: "2026-10-20", end: null, id: "ep_000000000001", importance: 1, madeBy, people: [], place: null, schemaVersion: 1, start: null, title, units: ["unit_000000000001"], what: "They talk.", within: null })}\n`;
+  const path = join(EPISODES, "2026-10-20.jsonl");
+  mkdirSync(EPISODES, { recursive: true });
+  try {
+    writeFileSync(path, dayLine("Lunch"));
+    const first = await readEpisodes();
+    expect(first.map((m) => m.title)).toEqual(["Lunch"]);
+    expect((await readEpisodes())[0]).toBe(first[0]);
+    writeFileSync(path, dayLine("Dinner out"));
+    expect((await readEpisodes()).map((m) => m.title)).toEqual(["Dinner out"]);
+  } finally {
+    rmSync(EPISODES, { force: true, recursive: true });
+  }
 });
