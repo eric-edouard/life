@@ -5,6 +5,7 @@ import Library
 public enum CheckGroup: String, UnknownTolerant, Sendable {
     case decision, ending, card, name, voice
     case guessedPerson = "guessed person"
+    case newMatter = "new matter"
     case unknown
 }
 

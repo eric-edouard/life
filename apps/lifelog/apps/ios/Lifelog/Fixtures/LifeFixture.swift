@@ -134,13 +134,32 @@
             try await gate()
             let check = Self.checks.first { $0["ref"] as? String == answer.ref }
             let draft = check?["draft"] as? [String: Any]
+            let isNewMatter = check?["group"] as? String == "new matter"
             let plan =
-                draft == nil
-                ? ["recorded", "asker_told", "left_inbox"]
-                : ["recorded", "chat_checked", "handed", "confirmed", "asker_told", "left_inbox"]
+                isNewMatter
+                ? (answer.options == ["start"]
+                    ? ["goal_saved", "runtime_answers", "session_open", "turn_begun", "left_inbox"]
+                    : answer.options == ["edit-goal"] ? ["goal_saved"] : ["recorded", "left_inbox"])
+                : draft == nil
+                    ? ["recorded", "asker_told", "left_inbox"]
+                    : ["recorded", "chat_checked", "handed", "confirmed", "asker_told", "left_inbox"]
             onProgress(message(["plan": plan, "limitSeconds": 20]))
             for step in plan {
                 try await Task.sleep(for: .milliseconds(700))
+                if isNewMatter, step == "runtime_answers", LifeFixture.start == "starting" {
+                    try await Task.sleep(for: .seconds(3_600))
+                }
+                if isNewMatter, step == "runtime_answers", LifeFixture.start == "failed" {
+                    return json([
+                        "ref": answer.ref, "kind": "new matter",
+                        "start": [
+                            "action": "start", "state": "not_started", "nothingRunning": true,
+                            "failed": [
+                                "stage": "runtime_answers", "reason": "Claude Code did not answer within 15 seconds",
+                            ],
+                        ],
+                    ])
+                }
                 if draft != nil, step == "handed", LifeFixture.answer == "sending" {
                     try await Task.sleep(for: .seconds(3_600))
                 }
@@ -155,6 +174,12 @@
                     ],
                 ])
             }
+            if isNewMatter, answer.options == ["edit-goal"] {
+                return json([
+                    "ref": answer.ref, "kind": "new matter",
+                    "inbox": ["left": false, "total": 12, "deadlinesToday": 0],
+                ])
+            }
             answered.withLock { _ = $0.insert(answer.ref) }
             var result: [String: Any] = [
                 "ref": answer.ref, "kind": "decision", "asker": ["name": "Claude Code", "told": "recorded"],
@@ -162,6 +187,11 @@
             ]
             if draft != nil {
                 result["send"] = ["state": "sent", "at": at(18, 14, 3), "channel": "whatsapp", "to": "Hélène Aubert"]
+            } else if isNewMatter, answer.options == ["start"] {
+                result["start"] = [
+                    "action": "start", "state": "started", "nothingRunning": false, "runtime": "claude",
+                    "stages": [["stage": "runtime_answers"], ["stage": "session_open"], ["stage": "turn_begun"]],
+                ]
             } else if check?["group"] as? String == "voice" {
                 result["changed"] = ["voices": 3, "conversations": 2]
             }
@@ -313,9 +343,17 @@
                         ],
                     ]),
                 check(
-                    "card_found", group: "card", title: "Life found a new matter: a table for Mum’s 60th",
+                    "card_found", group: "new matter", title: "Life found a new matter: a table for Mum’s 60th",
                     question: "Goal: a table for eight at Chez Odile on Friday 27th. Work on it?",
-                    options: [option("start", "Start"), option("edit", "Edit goal"), option("dismiss", "Dismiss")],
+                    options: [
+                        option(
+                            "start",
+                            "Start: the goal becomes yours and an agent works toward it, with the goal as its brief"),
+                        option(
+                            "edit-goal",
+                            "Edit goal (give your goal as `note`): it becomes the goal; then Start or Dismiss"),
+                        option("dismiss", "Dismiss: never asked again for this matter"),
+                    ],
                     matter: table,
                     context: "Camille proposed Chez Odile on Saturday; you said you would handle it."),
             ]

@@ -51,6 +51,8 @@ struct AnswerResultView: View {
         }
     }
 
+    /// A new matter whose goal he changed is still waiting for Start or Dismiss.
+    private var staysOpen: Bool { taken.check.group == .newMatter && taken.request.options == ["edit-goal"] }
     private var isSend: Bool { taken.check.draft != nil }
     private var lines: [CheckLine] { ActionCopy.lines(state, taken.context) }
 
@@ -106,6 +108,9 @@ struct AnswerResultView: View {
         case .voice: "Named."
         case .ending: "Noted."
         case .card: "Done."
+        case .newMatter:
+            taken.request.options == ["edit-goal"]
+                ? "Goal saved." : taken.request.options == ["dismiss"] ? "Dismissed." : "Started."
         case .name, .guessedPerson: "Saved."
         case .decision, .unknown: "Answered."
         }
@@ -118,8 +123,14 @@ struct AnswerResultView: View {
             let when = send.at.map { ", at \($0.formatted(.dateTime.hour().minute()))" } ?? ""
             return "To \(to.joined(separator: " on "))\(when)."
         }
+        if taken.check.group == .newMatter {
+            return taken.request.options == ["start"]
+                ? "An agent works toward the goal."
+                : taken.request.options == ["edit-goal"]
+                    ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
+        }
         if taken.request.options.isEmpty { return "Your words went to \(taken.context.asker ?? "the asker")." }
-        let label = taken.check.options.first { taken.request.options.contains($0.id) }?.label
+        let label = taken.check.options.first { taken.request.options.contains($0.id) }.map(taken.check.shown)
         return label.map { "\($0)." } ?? "Your answer is recorded."
     }
 
@@ -148,7 +159,8 @@ struct AnswerResultView: View {
         VStack(spacing: 8) {
             switch state {
             case .succeeded:
-                Button(next == nil ? "Done" : "Next card", action: nextCard).buttonStyle(.pill(.filled))
+                Button(staysOpen ? "Back to the card" : next == nil ? "Done" : "Next card", action: nextCard)
+                    .buttonStyle(.pill(.filled))
             case .failed(let failure, _):
                 if failure.retry == .allowed && !failure.mayHaveHappened {
                     Button("Try again", action: retry).buttonStyle(.pill(.filled))

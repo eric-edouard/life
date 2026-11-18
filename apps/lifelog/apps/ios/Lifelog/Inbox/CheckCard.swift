@@ -146,7 +146,7 @@ struct CheckCard: View {
 
     private var whyLabel: String {
         switch check.group {
-        case .card: "Where Life found it"
+        case .card, .newMatter: "Where Life found it"
         case .ending: "What rests on it"
         case .voice: "Why Life thinks so"
         default: "Why, and what it rests on"
@@ -155,11 +155,16 @@ struct CheckCard: View {
 
     private var ownWords: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Caps("Your answer")
-            TextField("Say it in your own words", text: $words, axis: .vertical)
-                .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
-                .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
-            Text("Your words go to the agent as they are.").font(.small).foregroundStyle(Palette.faint)
+            Caps(check.group == .newMatter ? "Your goal" : "Your answer")
+            TextField(
+                check.group == .newMatter ? "The goal" : "Say it in your own words", text: $words, axis: .vertical
+            )
+            .font(.quote).foregroundStyle(Palette.fg).lineLimit(3...8)
+            .padding(16).background(Palette.card, in: .rect(cornerRadius: 20))
+            Text(
+                check.group == .newMatter
+                    ? "It becomes the matter's goal. Then Start or Dismiss." : "Your words go to the agent as they are."
+            ).font(.small).foregroundStyle(Palette.faint)
         }
     }
 
@@ -171,9 +176,10 @@ struct CheckCard: View {
                 Button {
                     answer(
                         AnswerRequest(
-                            ref: check.ref, options: [], note: words.trimmingCharacters(in: .whitespacesAndNewlines)))
+                            ref: check.ref, options: check.group == .newMatter ? ["edit-goal"] : [],
+                            note: words.trimmingCharacters(in: .whitespacesAndNewlines)))
                 } label: {
-                    Text("Send my answer")
+                    Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
                 }
                 .buttonStyle(.pill(.filled))
                 .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -181,13 +187,15 @@ struct CheckCard: View {
             } else {
                 options
                 HStack {
-                    Button {
-                        isWritingOwnWords = true
-                    } label: {
-                        Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
-                            Palette.fg
-                        )
-                        .frame(minHeight: 44)
+                    if check.group != .newMatter {
+                        Button {
+                            isWritingOwnWords = true
+                        } label: {
+                            Label("Something else", systemImage: "mic").font(.rowName).foregroundStyle(
+                                Palette.fg
+                            )
+                            .frame(minHeight: 44)
+                        }
                     }
                     Spacer(minLength: 12)
                     if let link = check.links.first.flatMap(URL.init(string:)) {
@@ -214,7 +222,7 @@ struct CheckCard: View {
             } label: {
                 HStack(spacing: 10) {
                     if first.outgoing == true { Image(systemName: "arrow.up").accessibilityHidden(true) }
-                    Text(first.label)
+                    Text(shown(first))
                 }
             }
             .buttonStyle(.pill(.filled, height: 54))
@@ -222,7 +230,7 @@ struct CheckCard: View {
             if !rest.isEmpty || asksWho {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
                     ForEach(rest, id: \.id) { option in
-                        Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
+                        Button(shown(option)) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
                     if asksWho { Button("Same as…") { showsSameAs = true }.buttonStyle(.pill(.quiet, height: 48)) }
                 }
@@ -233,7 +241,19 @@ struct CheckCard: View {
     /// A card about who someone is can name another person, or a new one.
     private var asksWho: Bool { [.name, .guessedPerson, .voice].contains(check.group) }
 
+    private func shown(_ option: Check.Option) -> String { check.shown(option) }
+
+    /// The goal the card offers, between "Goal: " and " Work on it?".
+    private var goal: String {
+        check.question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
+    }
+
     private func tap(_ option: Check.Option) {
+        if check.group == .newMatter, option.id == "edit-goal" {
+            words = goal
+            isWritingOwnWords = true
+            return
+        }
         answer(AnswerRequest(ref: check.ref, options: [option.id]))
     }
 
@@ -243,7 +263,7 @@ struct CheckCard: View {
         case .ending: return "Until you say, Life treats it as probably done."
         case .voice: return "Until you say, the voice stays unnamed."
         case .name, .guessedPerson: return "Until you say, Life keeps its guess."
-        case .card: return "Nothing starts unless you say so."
+        case .card, .newMatter: return "Nothing starts unless you say so."
         case .decision, .unknown:
             guard let deadline = check.deadline else { return nil }
             let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())
@@ -378,5 +398,13 @@ private struct ClipBlock: View {
             guard let file else { return failed = true }
             playback.play(file, from: audio.start, for: audio.end - audio.start)
         }
+    }
+}
+
+extension Check {
+    /// An option as its button says it. A new matter's options say what they do after a colon, or how to give the goal in brackets: the button keeps the first words.
+    func shown(_ option: Option) -> String {
+        guard group == .newMatter else { return option.label }
+        return String(option.label.prefix { $0 != ":" && $0 != "(" }).trimmingCharacters(in: .whitespaces)
     }
 }
