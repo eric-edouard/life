@@ -270,7 +270,6 @@ function seedMap() {
     kind: "new_person" as const,
     likely: [],
     name: null,
-    namedPersonId: null,
     personId: null,
     seconds: 100,
     voices: [{ conversationId, jobId, speakerLabel: "c" }],

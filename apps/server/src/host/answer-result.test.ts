@@ -372,7 +372,6 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     kind: "new_person",
     likely: [],
     name: null,
-    namedPersonId: null,
     personId: null,
     voices: [
       { conversationId: "c1", jobId: "job-1", speakerLabel: "A" },

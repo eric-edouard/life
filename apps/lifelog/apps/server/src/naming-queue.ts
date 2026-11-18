@@ -234,7 +234,6 @@ function cardOf(
     id: group,
     kind: personId ? "known_person" : "new_person",
     name: mostOf(voices.flatMap((v) => v.names)),
-    namedPersonId: null,
     personId,
     seconds: Math.round(seconds),
     voices: voices.map(({ conversationId, jobId, speakerLabel }) => ({

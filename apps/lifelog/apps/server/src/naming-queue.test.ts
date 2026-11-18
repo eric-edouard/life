@@ -166,7 +166,6 @@ test("a voice that talked with the owner is queued with the name heard; others a
       kind: "new_person",
       likely: [],
       name: "Hervé",
-      namedPersonId: null,
       personId: null,
       seconds: 72,
       voices: [

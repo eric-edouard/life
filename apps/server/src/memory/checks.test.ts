@@ -355,7 +355,6 @@ const voice = (id: string, over: Partial<NamingQueueItem> = {}) =>
     kind: "new_person",
     likely: [DANA_ID, "00000000-0000-4000-8000-000000000002"],
     name: null,
-    namedPersonId: null,
     personId: null,
     voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
     words: 40,

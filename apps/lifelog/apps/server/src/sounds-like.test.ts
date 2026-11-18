@@ -199,7 +199,6 @@ test("the existing answer settles either name, through the worker", async () => 
     [same, first],
     [changed, second],
   ] as const) {
-    expect(rowOf(held.jobId)?.rechecked).toBe(false);
     // biome-ignore lint/performance/noAwaitInLoops: each answer must publish its successor snapshot
     const response = await app.request("/naming-queue/answer", {
       body: JSON.stringify({
@@ -210,7 +209,7 @@ test("the existing answer settles either name, through the worker", async () => 
       method: "POST",
     });
     expect(response.status).toBe(200);
-    expect(rowOf(held.jobId)).toMatchObject({ personId, rechecked: true });
+    expect(rowOf(held.jobId)).toMatchObject({ personId });
   }
   const quiet = voice(null, [THIRD, THIRD]);
   const dismissed = await app.request("/naming-queue/answer", {
@@ -223,32 +222,6 @@ test("the existing answer settles either name, through the worker", async () => 
   });
   expect(dismissed.status).toBe(200);
   expect(rowOf(quiet.jobId)?.status).toBe("not_relevant");
-});
-
-test("only owner replacement of the same scope sets the mark; recognition never does", () => {
-  const { first } = setup();
-  const held = voice(null, [FIRST, FIRST]);
-  recognize(env.db, held.jobId);
-  expect(rowOf(held.jobId)).toMatchObject({
-    rechecked: false,
-    source: "recognized",
-  });
-  const input = {
-    jobId: held.jobId,
-    speakerLabel: "voice",
-    target: { kind: "person" as const, personId: first },
-    turnIndex: null,
-  };
-  assign(env.db, input);
-  expect(rowOf(held.jobId)?.rechecked).toBe(false);
-  assign(env.db, { ...input, turnIndex: 0 });
-  expect(rowOf(held.jobId, 0)?.rechecked).toBe(false);
-  assign(env.db, { ...input, turnIndex: 0 });
-  expect(rowOf(held.jobId, 0)?.rechecked).toBe(true);
-  expect(rowOf(held.jobId)?.rechecked).toBe(false);
-  assign(env.db, input);
-  recognize(env.db, held.jobId);
-  expect(rowOf(held.jobId)?.rechecked).toBe(true);
 });
 
 test("not relevant: never asked again, its voice kept, never a stranger's, nothing to score", () => {

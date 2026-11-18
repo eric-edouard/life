@@ -166,7 +166,6 @@ const madeUpInbox: CheckInputs = {
       kind: "new_person",
       likely: [GRAN_VOICE],
       name: null,
-      namedPersonId: null,
       personId: null,
       voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
       words: 40,

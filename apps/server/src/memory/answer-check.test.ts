@@ -151,7 +151,6 @@ const item: NamingQueueItem = {
   kind: "new_person",
   likely: [DANA_ID],
   name: null,
-  namedPersonId: null,
   personId: null,
   voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
   words: 9,

@@ -1616,7 +1616,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["new_person", "known_person", "recheck", "several"]
+            "enum": ["new_person", "known_person", "several"]
           },
           "likely": {
             "type": "array",
@@ -1627,10 +1627,6 @@
           },
           "name": {
             "type": ["string", "null"]
-          },
-          "namedPersonId": {
-            "type": ["string", "null"],
-            "format": "uuid"
           },
           "personId": {
             "type": ["string", "null"],
@@ -1672,7 +1668,6 @@
           "kind",
           "likely",
           "name",
-          "namedPersonId",
           "personId",
           "seconds",
           "voices",
