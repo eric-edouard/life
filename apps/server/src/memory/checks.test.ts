@@ -152,6 +152,8 @@ test("the order: open matters, then lines, then pages, then the newest", () => {
       inferred: ["inf_a", "inf_b", "inf_c", "inf_d", "inf_e"],
       matters: [
         {
+          id: "matter_aaaaaaaaaaaa",
+          name: "Fix the gate",
           open: true,
           owedTo: [],
           steps: [{ ref: a.id }],
@@ -197,6 +199,8 @@ test("the list holds every guessed person, ambiguous card and unplaced name that
 test("an ending rides on its open matter and goes with his answer", () => {
   const o = line({ text: "Send the quote." });
   const matter = {
+    id: "matter_aaaaaaaaaaaa",
+    name: "Send the quote",
     open: true,
     owedTo: [],
     steps: [{ ref: o.id }],
@@ -213,6 +217,7 @@ test("an ending rides on its open matter and goes with his answer", () => {
   expect(ending).toMatchObject({
     evidence: { quote: "Sent it." },
     kind: "ending",
+    matter: { id: "matter_aaaaaaaaaaaa", name: "Send the quote" },
     ref: o.id,
     ridesOn: { matters: 1, observations: 0 },
   });
@@ -244,6 +249,8 @@ const decision = (id: string, deadline: string, subject?: string) => ({
 test("open decisions come first, soonest deadline first; one on a step leaves with its matter, one on a project stays", () => {
   const o = line();
   const matter = (open: boolean) => ({
+    id: "matter_bbbbbbbbbbbb",
+    name: "Boiler repair",
     open,
     owedTo: [],
     steps: [{ ref: o.id }],
@@ -272,6 +279,7 @@ test("open decisions come first, soonest deadline first; one on a step leaves wi
   expect(list[1]).toMatchObject({
     asker: "planner",
     group: "decision",
+    matter: { id: "matter_bbbbbbbbbbbb", name: "Boiler repair" },
     options: [
       { id: "yes", label: "Yes" },
       { id: "no", label: "No" },

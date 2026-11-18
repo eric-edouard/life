@@ -60,8 +60,8 @@ import {
 } from "../events";
 import {
   agentLinesOnProjects,
-  agentLinesOnSteps,
-  readAgentMarks,
+  readActiveAgentOf,
+  readAgentsOnSteps,
   readRegisteredAgents,
 } from "../registered-agents";
 import { lifeStatus } from "../status/life";
@@ -269,18 +269,18 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), its goal and next step (`do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`), who it is owed to, who is waited on, its newest open step and the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), most pressing first (JSON, `matters`). Each: `id`, `name`, matter `status` (waiting_on_someone, moving, stuck), `goal` and `nextStep` (`kind` `do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`; `waitsOn`; `by` life: Life's draft, owner: his word), `people` by role (`owedTo`, `waitingOn`, `with`, `told`: names), `areas`, `projects`, `newestOpenStep`, `lastStepAt`, and `agent`, the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
-    (q) => openMatters(q, readAgentMarks())
+    (q) => openMatters(q, readActiveAgentOf())
   );
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, its goal and next step, every step in time order with its day and words (the episodes, observations and to-do items that belong to it), and its Agents: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
+    "One matter, by the id `read_matters` or `read_day` gives (JSON): its fields as `read_matters` gives them, then `steps`, every step in time order (the episodes, observations and to-do items that belong to it: `ref`, `day`, `kind`, `text`, `quote`, `when`, and `ending` once it ended: `by` record (retired, `why`), ticked, or link (probably done, `quote`: the later words, until his word)), and `agents`: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -289,7 +289,13 @@ export function buildServer(readsOnly = false) {
           "A matter id, or the id of one of its steps (an observation or a to-do item)."
         ),
     }),
-    ({ id }) => oneMatter([id], agentLinesOnSteps)
+    async ({ id }) => {
+      const matter = await oneMatter([id], readAgentsOnSteps);
+      if (!matter) {
+        throw new Error(`No matter ${id}.`);
+      }
+      return matter;
+    }
   );
   tool(
     server,
@@ -385,7 +391,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: `outdated` over its open steps' obs_ ids; his goal or next step for a matter: kind `matter-direction`, `steps` every step id `read_matter` lists, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -393,7 +399,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group and `total`. Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
