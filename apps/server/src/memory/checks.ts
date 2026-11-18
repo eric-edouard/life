@@ -518,9 +518,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           .map((ref) => ({ name: c.people.nameOf(ref), person: ref }));
         const [first] = item.evidence;
         const who =
-          known && item.kind !== "new_person" && item.kind !== "several"
-            ? c.people.nameOf(known)
-            : null;
+          known && item.kind !== "new_person" ? c.people.nameOf(known) : null;
         return {
           check: {
             about: item.name ? [item.name] : [],
