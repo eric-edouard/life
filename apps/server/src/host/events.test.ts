@@ -8,7 +8,7 @@ import {
   MESSAGE_RECEIVED,
   type Messaging,
   pollEvents,
-  pollMessages,
+  pollMessagesReceived,
 } from "./events";
 
 /** A source whose store holds `list`, row by row from 1, as `incoming` and `read` see it. */
@@ -56,7 +56,7 @@ async function stores() {
   const sources = (["mail", "telegram", "whatsapp"] as const).map((s) =>
     fake(s, lists[s])
   );
-  const first = await pollMessages(
+  const first = await pollMessagesReceived(
     { arguments: {}, cursor: null, name: MESSAGE_RECEIVED },
     sources
   );
@@ -69,7 +69,7 @@ const at = (
   sources: Messaging[],
   maxEvents?: number
 ) =>
-  pollMessages(
+  pollMessagesReceived(
     {
       arguments: args,
       cursor,
@@ -167,7 +167,10 @@ test("an app not on, an unknown person or an unknown event is refused", async ()
     "No one goes by"
   );
   await expect(
-    pollMessages({ arguments: {}, cursor, name: "ask.received" }, sources)
+    pollMessagesReceived(
+      { arguments: {}, cursor, name: "ask.received" },
+      sources
+    )
   ).rejects.toMatchObject({ code: -32_023 });
 });
 

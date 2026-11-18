@@ -335,17 +335,17 @@ export function readMessageEvents<T>(
   };
 }
 
-/** `events/poll`: the caller's decisions settled since `cursor` (`pollDecisions`), else its messages (`pollMessages`). */
+/** `events/poll`: the caller's decisions settled since `cursor` (`pollDecisions`), else its messages (`pollMessagesReceived`). */
 export const pollEvents = async (
   p: z.infer<typeof PollParams>,
   agent: string | undefined
 ) =>
   DECISION_EVENTS.includes(p.name)
     ? pollDecisions(p.name, p.cursor, agent)
-    : pollMessages(p);
+    : pollMessagesReceived(p);
 
 /** The messages matching `arguments` past `cursor`. */
-export async function pollMessages(
+export async function pollMessagesReceived(
   p: z.infer<typeof PollParams>,
   sources = messaging()
 ) {
