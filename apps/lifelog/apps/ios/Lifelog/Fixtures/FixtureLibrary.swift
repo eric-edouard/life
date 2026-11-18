@@ -58,7 +58,7 @@
                 uploads = UploadStatus(unsent: .milliseconds(unsent.reduce(0) { $0 + $1.conversation.range.millis }))
                 try await writeAudio(
                     layouts.prefix(FixtureConversation.all.count).map { ($0.recorded, $0.words) },
-                    deviceID: PlaybackStore.deviceID)
+                    deviceID: CaptureStore.deviceID)
             } catch {
                 print("Fixture library failed: \(error)")
             }

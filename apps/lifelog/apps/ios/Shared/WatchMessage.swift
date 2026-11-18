@@ -8,11 +8,6 @@ nonisolated enum WatchMessage {
     /// Watch to iPhone: resume (`true`) or pause (`false`). Only while the iPhone is in reach, never queued: a pause
     /// that lands hours later would be wrong.
     static let setRecording = "setRecording"
-    /// Watch to iPhone: split the conversation at this time (seconds since 1970), as the scissors do. Only while the
-    /// iPhone is in reach, which is also when the Watch knows the Pendant is recording.
-    static let split = "split"
-    /// The iPhone's answer to a split: saved at this time, or why not.
-    static let markedAt = "markedAt"
     static let error = "error"
 }
 

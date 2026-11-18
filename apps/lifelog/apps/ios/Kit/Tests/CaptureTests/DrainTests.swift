@@ -460,21 +460,6 @@ import Testing
         }
     }
 
-    @Test func everyQuickPressIsDeliveredEvenInsideOneStatusUpdate() async throws {
-        let harness = Harness(.observe)
-        var presses = harness.coordinator.quickPresses.makeAsyncIterator()
-        await harness.run {
-            #expect(await eventually { await harness.status().sync.isCaughtUp })
-            // Back to back: the coalescing status stream may show only the second.
-            await harness.fake.pressButton()
-            await harness.fake.pressButton()
-            await harness.fake.longPress()
-            let first = await presses.next()
-            let second = await presses.next()
-            #expect(first != nil && second != nil && first?.id != second?.id)
-        }
-    }
-
     @Test func statusSnapshotCarriesDeviceTelemetry() async throws {
         let harness = Harness(.observe)
         await harness.fake.record(pages: 4)

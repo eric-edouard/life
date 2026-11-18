@@ -36,8 +36,6 @@ final class CaptureStore {
     private(set) var connectionSince = Date.now
     /// The last time a sync finished with nothing left on the Pendant to save.
     private(set) var lastCaughtUp: Date?
-    /// Where a tapped notification leads: `RootView` opens it and clears this.
-    var routeToOpen: NotificationRoute?
     /// Free space on the archive's volume, refreshed when a sync settles and when the app comes forward, at most once a
     /// minute (`refreshPhoneFreeSpace`).
     private(set) var phoneFreeBytes: Int64?
@@ -70,7 +68,7 @@ final class CaptureStore {
     @ObservationIgnored let notifier = IncidentNotifier()
     @ObservationIgnored private let health = HealthReporter()
     @ObservationIgnored private let snapshots: SnapshotPublisher
-    /// The Watch's link, for what capture doesn't own (the split, which processing does).
+    /// The Watch's link, for what capture doesn't own .
     var watch: WatchRelay { snapshots.watch }
     @ObservationIgnored private let root: URL
     @ObservationIgnored private var transport: (any PendantTransport)?
@@ -116,7 +114,6 @@ final class CaptureStore {
 
     /// Starts capture. Call once at launch, in the foreground or a background relaunch.
     func start() {
-        notifier.open = { [weak self] in self?.routeToOpen = $0 }
         // Pause or Resume on the Watch, through the same request as Shortcuts: pending until the Pendant confirms.
         snapshots.watch.setRecording = { [weak self] recording in
             let intent: RecordingIntent = recording ? .resume : .pause
@@ -284,9 +281,6 @@ final class CaptureStore {
         run = Task {
             await withDiscardingTaskGroup { group in
                 group.addTask { await coordinator.run(knownDevice: knownDevice) }
-                group.addTask {
-                    for await press in coordinator.quickPresses { await self.pressed(press) }
-                }
                 for await status in coordinator.statusUpdates {
                     self.receive(status, persistKnownDevice: persistKnownDevice)
                 }
@@ -428,17 +422,6 @@ final class CaptureStore {
         guard let sourceStore else { return }
         archive = try? await sourceStore.storageStats()
     }
-
-    // MARK: Presses
-
-    /// A live press on the Pendant. Logged as an event (no text): `bun run events press`.
-    private func pressed(_ press: QuickPress) {
-        appEvent("press", ["id": press.id])
-        onPress?(press)
-    }
-
-    /// What a press does (`ButtonActions`); set at launch.
-    @ObservationIgnored var onPress: ((QuickPress) -> Void)?
 
     #if DEBUG
         private(set) var scenario: FakeScenario?

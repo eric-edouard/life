@@ -29,15 +29,10 @@ extension ServerClient {
             /// Since when the owner has been dictating to the Mac; `nil` when not.
             public var dictatingSince: Date?
             public var llm: MacLLM?
-            /// The subscription limits the Mac last observed, for the Lock Screen dials.
-            public var subscriptions: SubscriptionUsageSnapshot?
 
-            public init(
-                dictatingSince: Date? = nil, llm: MacLLM? = nil, subscriptions: SubscriptionUsageSnapshot? = nil
-            ) {
+            public init(dictatingSince: Date? = nil, llm: MacLLM? = nil) {
                 self.dictatingSince = dictatingSince
                 self.llm = llm
-                self.subscriptions = subscriptions
             }
         }
 

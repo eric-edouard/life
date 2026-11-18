@@ -160,10 +160,8 @@ public actor DrainCoordinator {
     /// Every timer's clock, so tests can move time on instead of waiting for it.
     private let clock: any Clock<Duration>
     private let statusContinuation: AsyncStream<CaptureStatus>.Continuation
-    private let pressContinuation: AsyncStream<QuickPress>.Continuation
     private var connection = ConnectionMachine()
     private var recording = RecordingControl()
-    private var presses = PressReader()
     private var session: Session?
     private var drainCounter: UInt64 = 0
     private var measuredAudio: (seconds: Double, pages: Int) = (0, 0)
@@ -182,9 +180,6 @@ public actor DrainCoordinator {
 
     /// Latest snapshot first, then every change. Single consumer.
     public nonisolated let statusUpdates: AsyncStream<CaptureStatus>
-    /// Every live press, in order, never coalesced: two presses inside one status update are two.
-    /// A press replayed at connect, or made while paused (it only resumes), never comes. Single consumer.
-    public nonisolated let quickPresses: AsyncStream<QuickPress>
     public private(set) var status = CaptureStatus() {
         didSet { if status != oldValue { statusContinuation.yield(status) } }
     }
@@ -204,7 +199,6 @@ public actor DrainCoordinator {
         self.now = now
         self.clock = clock
         (statusUpdates, statusContinuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        (quickPresses, pressContinuation) = AsyncStream.makeStream()
         statusContinuation.yield(CaptureStatus())
     }
 
@@ -386,17 +380,9 @@ public actor DrainCoordinator {
             }
             let live = PressClock.isLive(button, previousPresses: session?.shortPresses, receivedAtMillis: received)
             session?.shortPresses = button.shortPressesSinceBoot
-            if live, button.event == .short {
-                // While paused a press only turns recording back on (the Pendant reports presses in idle mode).
-                if case .paused = recording.state {
-                    await applyRecording(.quickPress(at: now()), generation)
-                } else if let press = presses.press(
-                    button, deviceID: deviceID,
-                    at: Date(
-                        timeIntervalSince1970: Double(PressClock.pressedAt(button, receivedAtMillis: received)) / 1000))
-                {
-                    pressContinuation.yield(press)
-                }
+            // While paused a press only turns recording back on (the Pendant reports presses in idle mode).
+            if live, button.event == .short, case .paused = recording.state {
+                await applyRecording(.quickPress(at: now()), generation)
             }
             if button.event == .long { await applyRecording(.firmwareToggle(at: now()), generation) }
         case .deviceInfo(let info): await identified(info, generation)

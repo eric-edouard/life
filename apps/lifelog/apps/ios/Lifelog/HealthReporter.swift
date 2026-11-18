@@ -30,8 +30,6 @@ nonisolated func report(_ error: any Error, file: StaticString = #fileID, line: 
         (status, serverCode, text) = (code, errorCode, "The server couldn't do that right now.")
     case let error as URLError where error.isTransient:
         text = "Can't reach the server."
-    case let error as PlaybackStore.Unavailable:
-        text = error.description
     default:
         text = "Something went wrong."
     }

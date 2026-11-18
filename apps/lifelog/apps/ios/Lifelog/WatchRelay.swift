@@ -2,7 +2,7 @@ import Foundation
 import Glance
 import WatchConnectivity
 
-/// Sends the glance to the Watch, and takes its splits, pauses and resumes.
+/// Sends the glance to the Watch, and takes its pauses and resumes.
 ///
 /// The application context carries the latest glance (free, latest wins), sound at most every `soundStep`. The complication's budgeted transfers, which wake the Watch to redraw, go only on a change of state,
 /// never for newer evidence or sound; with few left they're kept for recording and connection changes.
@@ -12,8 +12,6 @@ final class WatchRelay: NSObject {
 
     /// Pauses or resumes; says why not, or `nil` once confirmed or waiting for the Pendant. Set by `CaptureStore`.
     var setRecording: ((Bool) async -> String?)?
-    /// Splits the conversation at the time the Watch asked, as the scissors do; says why not. Set by `AppDelegate`.
-    var split: ((Date) async -> String?)?
 
     private var sent: RecordingGlance?
     private var sentAt = Date.distantPast
@@ -46,12 +44,6 @@ final class WatchRelay: NSObject {
         guard let setRecording else { return [WatchMessage.error: "lifelog isn't ready yet."] }
         return await setRecording(recording).map { [WatchMessage.error: $0] } ?? [:]
     }
-
-    private func split(at: Date) async -> [String: Any] {
-        guard let split else { return [WatchMessage.error: "lifelog isn't ready yet."] }
-        return await split(at).map { [WatchMessage.error: "The split wasn't saved: \($0)"] }
-            ?? [WatchMessage.markedAt: at.timeIntervalSince1970]
-    }
 }
 
 extension WatchRelay: WCSessionDelegate {
@@ -66,7 +58,7 @@ extension WatchRelay: WCSessionDelegate {
         session.activate()
     }
 
-    /// A split, a pause or a resume while the iPhone is reachable: the Watch waits for the answer.
+    /// A pause or a resume while the iPhone is reachable: the Watch waits for the answer.
     nonisolated func session(
         _ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void
     ) {
@@ -74,8 +66,6 @@ extension WatchRelay: WCSessionDelegate {
         nonisolated(unsafe) let reply = replyHandler
         if let recording = message[WatchMessage.setRecording] as? Bool {
             Task { @MainActor in reply(await set(recording: recording)) }
-        } else if let seconds = message[WatchMessage.split] as? Double {
-            Task { @MainActor in reply(await split(at: Date(timeIntervalSince1970: seconds))) }
         } else {
             reply([:])
         }

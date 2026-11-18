@@ -1,29 +1,13 @@
-import Incidents
-import Library
 import LifeConnector
 import ServerAPI
 import SwiftUI
 import UIKit
 
-/// Pendant, Library and the Pendant's presses. Each tab's view is owned by one feature folder and reads the feature
-/// stores.
+/// The Pendant tab alone: the minimal shell until the new screens replace it.
 struct RootView: View {
-    private enum Screen: Hashable {
-        case pendant, library, presses
-    }
-
-    @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
-    @Environment(NamingQueue.self) private var naming
     @Environment(LifeStore.self) private var life
-    @Environment(ButtonActions.self) private var buttons
-    @Environment(\.library) private var library
     @Environment(\.scenePhase) private var scenePhase
-    @State private var screen = Screen.pendant
-    /// The Library tab's list.
-    @State private var list: LibraryListStore?
-    /// The Library tab's stack, here so a notification can open People on it.
-    @State private var libraryPath: [LibraryRoute] = []
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming = Offer()
 
@@ -34,30 +18,13 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView(selection: $screen) {
-            Tab("Pendant", systemImage: "record.circle", value: .pendant) { PendantView() }
-            Tab("Library", systemImage: "books.vertical", value: .library) {
-                LibraryView(store: list, path: $libraryPath)
-            }
-            Tab("Presses", systemImage: "hand.tap", value: .presses) { PressesView() }
-        }
-        .onAppear {
-            if list == nil, let library { list = LibraryListStore(library: library, sync: sync) }
-            PressOverlay.install(buttons)
-        }
-        // The driver applied the feed, or the owner edited: the loaded rows are read again.
-        .onChange(of: sync.generation) { Task { await list?.reload() } }
-        // A tapped notification, from a cold launch, the background or the foreground.
-        .onChange(of: capture.routeToOpen, initial: true) { _, route in
-            guard let route else { return }
-            capture.routeToOpen = nil
-            open(route)
+        TabView {
+            Tab("Pendant", systemImage: "record.circle") { PendantView() }
         }
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
             // Here rather than on the scene's phase change, which a cold launch in the foreground never sends.
             sync.becameActive()
-            await naming.refresh()
             #if DEBUG
                 await life.importFromEnvironment()
             #endif
@@ -82,9 +49,7 @@ struct RootView: View {
         } message: { offer in
             Text(pairingMessage(offer))
         }
-        .playbackHost()
         .tint(Palette.redText)
-        .preferredColorScheme(.dark)
     }
 
     /// A server as the owner reads it: its host, and its port when it isn't the usual one.
@@ -111,26 +76,11 @@ struct RootView: View {
         return [lifelog, toLife].compactMap(\.self).joined(separator: " ")
     }
 
-    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever tab or sheet was showing. The
-    /// route waits for the sheet to go: a push made during its dismissal lands as an empty page.
-    private func open(_ route: NotificationRoute) {
-        dismissSheet { show(route) }
-    }
-
     /// Runs `then` once no sheet is up, dismissing the one that is.
     private func dismissSheet(then: @escaping () -> Void) {
         let presented = UIApplication.shared.connectedScenes.lazy
             .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController?.presentedViewController }.first
         guard let presented else { return then() }
         presented.dismiss(animated: true, completion: then)
-    }
-
-    private func show(_ route: NotificationRoute) {
-        switch route {
-        case .peopleDigest:
-            screen = .library
-            libraryPath = [.naming]
-        case .quickQuestion(let words): buttons.showQuestion(words)
-        }
     }
 }

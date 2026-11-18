@@ -11,7 +11,7 @@ struct LifelogWatchWidgets: WidgetBundle {
 
 /// "Am I recording?" and the battery on the watch face, from the glance the iPhone last sent: rectangular for the
 /// Modular face's large slot, circular for its small ones, corner and inline. The rectangular one is a remote: Record
-/// or Pause and Split buttons whose intents run in the Watch app (`FaceIntents.swift`). The small ones have
+/// or a Pause button whose intents run in the Watch app (`FaceIntents.swift`). The small ones have
 /// room for one tap, which opens the app and pauses or resumes from there, in one go.
 struct RecordingComplication: Widget {
     var body: some WidgetConfiguration {
@@ -19,7 +19,7 @@ struct RecordingComplication: Widget {
             ComplicationView(entry: entry)
         }
         .configurationDisplayName("Pendant Recording")
-        .description("Whether your Pendant is recording, and its battery. Pause, resume and split from here.")
+        .description("Whether your Pendant is recording, and its battery. Pause and resume from here.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryCorner, .accessoryInline])
     }
 }
@@ -118,9 +118,9 @@ struct ComplicationView: View {
         .accessibilityLabel(glance.sentence(now: now))
     }
 
-    /// Status on top (or what the last tap did), then Record or Pause, and Split. Record or Pause shows what a
+    /// Status on top (or what the last tap did), then Record or Pause. Record or Pause shows what a
     /// tap asks for, from the Pendant's confirmed state; with nothing to flip (waiting, not connected) it shows why and
-    /// a tap only opens the app. Split is offered only while the Pendant records.
+    /// a tap only opens the app.
     private func remote(_ glance: RecordingGlance) -> some View {
         AccessoryWidgetGroup {
             HStack(spacing: 4) {
@@ -146,16 +146,6 @@ struct ComplicationView: View {
             } else {
                 Image(systemName: glance.symbol(now: now))
                     .accessibilityLabel("\(glance.headline(now: now)) Opens lifelog.")
-            }
-            if glance.isRecording(now: now) {
-                Button(intent: FaceSplitIntent()) {
-                    Image(systemName: "scissors")
-                }
-                .accessibilityLabel("Split the conversation here")
-            } else {
-                Image(systemName: "scissors")
-                    .foregroundStyle(.tertiary)
-                    .accessibilityLabel("Split, offered while recording")
             }
         }
     }
@@ -200,7 +190,7 @@ struct ComplicationView: View {
             date: .now,
             glance: RecordingGlance(
                 connected: true, microphone: .recording, reportedAt: .now, currentUntil: .now + 300, battery: 82),
-            note: FaceNote(text: "Split at 14:02", until: .now + 60))
+            note: FaceNote(text: "Sent · not confirmed", until: .now + 60))
         GlanceEntry(
             date: .now, glance: RecordingGlance(connected: false, microphone: .recording, reportedAt: .now - 900))
     }

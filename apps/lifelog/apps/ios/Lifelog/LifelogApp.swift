@@ -24,9 +24,7 @@ struct LifelogApp: App {
         .environment(\.library, appDelegate.library)
         .environment(appDelegate.sync)
         .environment(appDelegate.life)
-        .environment(appDelegate.naming)
         .environment(appDelegate.playback)
-        .environment(appDelegate.buttons)
         .environment(appDelegate.appleHealth)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -53,12 +51,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     let appleHealth = AppleHealthReader()
     /// Life's reads (inbox, matters, agents) and its pairing: the phone is one more app of Life's connector.
     lazy var life = LifeStore()
-    /// The voices to name, read by the Library, People and "Who's this?".
-    lazy var naming = NamingQueue(library: library, sync: sync)
-    /// The Pendant's button: built at launch, so a press that wakes the app in the background is answered.
-    lazy var buttons = ButtonActions(capture: capture)
-    /// Built when the first scene asks, not in a background relaunch: it registers the Lock Screen's commands.
-    lazy var playback = PlaybackStore()
+    /// Plays recorded audio and marks it quiet for the Pendant.
+    lazy var playback = PlaybackStore(library: library, sync: sync)
 
     override init() {
         _ = ScreenTiming.launched
@@ -107,9 +101,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             "sinceHeartbeatS": HealthReporter.saved?.lastSent.map { "\(Int(Date.now.timeIntervalSince($0)))" } ?? "",
         ]
         capture.onAudioSaved = { [sync] in sync.run(audio: true) }
-        capture.onPress = { [buttons] in buttons.handle($0) }
-        // The Watch's scissors: the same split as the Pendant screen's.
-        capture.watch.split = { [sync] at in await sync.perform(.split(at: at)) }
         capture.start()
         appEvent("app.launch", launch)
         startLocation()

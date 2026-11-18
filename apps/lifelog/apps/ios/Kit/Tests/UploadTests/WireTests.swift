@@ -84,9 +84,6 @@ private final class Reports: Sendable {
     let feed = try await library.feed()
     #expect(feed.switches?.engine == .claude && feed.pulledAt != nil)
     #expect(feed.mac?.llm != nil)
-    #expect(feed.mac?.subscriptions?.claude == nil)
-    #expect(feed.mac?.subscriptions?.codex?.sevenDay?.usedPercent == 42.5)
-    #expect(feed.mac?.subscriptions?.codex?.fiveHour?.usedPercent == 0)
     #expect(feed.vocabulary == ["Oakridge"])
     #expect(reports.errors.withLock { $0 }.isEmpty, "every row decodes")
 }

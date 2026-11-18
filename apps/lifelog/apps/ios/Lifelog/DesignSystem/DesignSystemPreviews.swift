@@ -79,12 +79,6 @@ import SwiftUI
                         ProcessingBadge(title: "Not transcribed yet", glyph: .waiting)
                         ProcessingBadge(title: "Transcription failed", glyph: .failed)
                     }
-                    PassageText(
-                        text: "Je t’envoie le contact du proprio, il cherche quelqu’un pour février.",
-                        color: Palette.textPrimary, lit: NSRange(location: 10, length: 2)
-                    )
-                    .padding(12)
-                    .background(Palette.surface2, in: .rect(cornerRadius: Metrics.Radius.passage))
                 }
                 .foregroundStyle(Palette.textPrimary)
                 .padding(Metrics.gutter)

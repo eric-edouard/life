@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The controls under the lens: a button that names what tapping does, and the scissors. The header above them (the
+/// The control under the lens: a button that names what tapping does. The header above them (the
 /// lens and its word) gets the reading with this screen's reconnect attempt laid over it, and is hidden from VoiceOver:
 /// the button speaks the sentence and its evidence, "Recording. Confirmed by the Pendant 6 seconds ago", "Double-tap to
 /// pause."
@@ -8,8 +8,6 @@ struct StatusHero<Header: View>: View {
     let reading: HeroReading
     let perform: (HeroReading.Control) -> Void
     let recover: (Recovery) -> Void
-    /// Ends the conversation at this moment. Only offered while the Pendant confirms it is recording.
-    let split: () -> Void
     @ViewBuilder let header: (HeroReading) -> Header
 
     /// A reconnect asked for here, waiting to see whether the Pendant comes back. Only ever local feedback.
@@ -59,10 +57,7 @@ struct StatusHero<Header: View>: View {
                     // The hero's one element: its label is the sentence and evidence, so UI flows read the hero here.
                     .accessibilityIdentifier("pendant.switch")
                     .accessibilitySortPriority(1)
-                    SplitButton(isEnabled: shown.mode == .live, action: split)
                 }
-                // The scissors take the button's height, even when a large title makes it taller.
-                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .contain)
@@ -170,35 +165,6 @@ struct PendingRing: View {
             }
         }
         .accessibilityHidden(true)
-    }
-}
-
-/// Scissors beside the record button: ends the conversation now, as "Split here" does in a transcript. Never touches the
-/// Pendant, so recording goes on.
-struct SplitButton: View {
-    let isEnabled: Bool
-    let action: () -> Void
-
-    @State private var taps = 0
-
-    var body: some View {
-        Button {
-            taps += 1
-            action()
-        } label: {
-            Image(systemName: "scissors")
-                .font(.title2)
-                .foregroundStyle(isEnabled ? Palette.textPrimary : Palette.textTertiary)
-                .frame(width: 72)
-                .frame(maxHeight: .infinity)
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .glassEffect(.regular.interactive(), in: .capsule)
-        .sensoryFeedback(.impact(weight: .light), trigger: taps)
-        .accessibilityLabel("Split the conversation here")
-        .accessibilityIdentifier("pendant.split")
     }
 }
 

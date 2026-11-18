@@ -36,7 +36,7 @@ final class WatchDelegate: NSObject, WKApplicationDelegate {
 }
 
 /// A remote for the Pendant, through the iPhone: status and battery on top, then Record or Pause as one big control
-/// showing the confirmed state, then Split. Sized for the smallest Watch, with no Crown needed.
+/// showing the confirmed state. Sized for the smallest Watch, with no Crown needed.
 /// A complication's tap lands here with what the face showed, and is sent at once.
 struct RemoteView: View {
     @Environment(PhoneLink.self) private var phone
@@ -65,24 +65,14 @@ private struct Remote: View {
                     StatusLine(glance: glance, now: now)
                 }
                 RecordingButton(glance: glance, now: now)
-                MomentButton(title: "Split", symbol: "scissors") { Task { await phone.split() } }
-                    .disabled(glance?.isRecording(now: now) != true || phone.mark.isSending)
-                    .accessibilityLabel("Split the conversation here")
-                Outcome(mark: phone.mark, control: phone.control)
+                Outcome(control: phone.control)
                 if let sound = glance?.soundLine {
                     Text(sound).font(.footnote).foregroundStyle(.secondary)
                 }
             }
         }
-        // Felt, not just seen: the Pendant confirmed a new state, or a split was saved, or something failed.
+        // Felt, not just seen: the Pendant confirmed a new state, or something failed.
         .sensoryFeedback(.success, trigger: confirmed) { old, new in old != nil && new != nil && old != new }
-        .sensoryFeedback(trigger: phone.mark) { _, new in
-            switch new {
-            case .marked: .success
-            case .failed: .error
-            case .idle, .sending: nil
-            }
-        }
         .sensoryFeedback(.error, trigger: phone.control) { _, new in
             if case .failed = new { true } else { false }
         }
@@ -181,50 +171,17 @@ private struct RecordingButton: View {
     }
 }
 
-private struct MomentButton: View {
-    let title: String
-    let symbol: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: symbol).font(.title3).accessibilityHidden(true)
-                Text(title)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.glass)
-    }
-}
-
-/// What happened to the last split, pause or resume.
+/// What happened to the last pause or resume.
 private struct Outcome: View {
-    let mark: PhoneLink.Mark
     let control: PhoneLink.Control
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if case .failed(let reason) = control { Text(reason) }
-            switch mark {
-            case .idle: EmptyView()
-            case .sending: Text("Sending to iPhone…")
-            case .marked(let at): Text("Split at \(at.moment) · a new conversation starts here")
-            case .failed(let reason): Text(reason)
-            }
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-extension PhoneLink.Mark {
-    var isSending: Bool {
-        if case .sending = self { true } else { false }
     }
 }
 
@@ -245,7 +202,6 @@ extension PhoneLink.Mark {
     }
     #Preview("Out of reach") { remote(.preview(RecordingGlance(connected: false))) }
     #Preview("Never heard") { remote(.preview(nil)) }
-    #Preview("Split saved") { remote(.preview(recording, mark: .marked(.now))) }
     #Preview("Pause failed") {
         remote(.preview(recording, control: .failed("The Pendant didn't answer. Try again on the iPhone.")))
     }

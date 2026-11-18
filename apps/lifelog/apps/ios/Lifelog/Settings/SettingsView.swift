@@ -7,10 +7,10 @@ import ServerAPI
 import SwiftUI
 
 /// Settings, pushed from the gear on the Pendant screen: the processing switches and the vocabulary, alerts, the Lock
-/// Screen, the light, spending and your data.
+/// Screen, the light and your data.
 ///
 /// A push rather than a sheet: it has pages of its own (Light guide, Backup, Server), which push in the same
-/// stack with the usual back swipe, and the Spending sheet opens over it without stacking sheets.
+/// stack with the usual back swipe.
 struct SettingsView: View {
     let permissions: PermissionsStore
     let allowNotifications: () -> Void
@@ -19,7 +19,6 @@ struct SettingsView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Bindable private var settings = Settings.shared
-    @State private var showsSpending = false
 
     var body: some View {
         let switches = sync.switches
@@ -40,9 +39,6 @@ struct SettingsView: View {
                         isOn: switches?.ai
                     ) { on in set(.switches(transcription: nil, ai: on, engine: nil)) }
                     .accessibilityIdentifier("settings.switch.ai")
-                    EnginePicker(engine: switches?.engine) { engine in
-                        set(.switches(transcription: nil, ai: nil, engine: engine))
-                    }
                     NavigationLink {
                         VocabularyView()
                     } label: {
@@ -91,18 +87,6 @@ struct SettingsView: View {
                         }
                         .accessibilityIdentifier("pendant.settings.lightGuide")
                     }
-                }
-                SettingsGroup("Spending") {
-                    Button {
-                        showsSpending = true
-                    } label: {
-                        SettingsLink("Spending")
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("pendant.settings.spending")
-                }
-                .sheet(isPresented: $showsSpending) {
-                    SpendingSheet()
                 }
                 SettingsGroup("Your data") {
                     if AppleHealthReader.isAvailable {
@@ -326,30 +310,5 @@ private struct OpenAppPicker: View {
         }
         .disabled(minutes == nil)
         .accessibilityIdentifier("settings.openAppAfter")
-    }
-}
-
-private struct EnginePicker: View {
-    let engine: ServerClient.Switches.Engine?
-    let set: (ServerClient.Switches.Engine) -> Void
-
-    var body: some View {
-        Picker(
-            "AI model",
-            selection: Binding(
-                get: { engine ?? .unknown },
-                set: { selected in
-                    guard selected != .unknown, selected != engine else { return }
-                    set(selected)
-                })
-        ) {
-            Text("Claude").tag(ServerClient.Switches.Engine.claude)
-            Text("ChatGPT").tag(ServerClient.Switches.Engine.codex)
-            if engine == nil || engine == .unknown {
-                Text("Unavailable").tag(ServerClient.Switches.Engine.unknown)
-            }
-        }
-        .disabled(engine == nil || engine == .unknown)
-        .accessibilityIdentifier("settings.switch.engine")
     }
 }

@@ -4,18 +4,9 @@ import Observation
 import WatchConnectivity
 import WidgetKit
 
-/// The Watch's side of WatchConnectivity: the glance the iPhone sends, and splits, pauses and resumes sent back. The Watch never hears from the Pendant itself, so all it can say is what the iPhone last knew.
+/// The Watch's side of WatchConnectivity: the glance the iPhone sends, and the pauses and resumes sent back. The Watch never hears from the Pendant itself, so all it can say is what the iPhone last knew.
 @Observable
 final class PhoneLink: NSObject {
-    /// A split, which the iPhone saves at the time it was asked here.
-    enum Mark: Equatable {
-        case idle
-        case sending
-        /// The iPhone saved it.
-        case marked(Date)
-        case failed(String)
-    }
-
     /// A pause or resume on its way to the iPhone, which answers once the Pendant confirmed it or it stopped waiting.
     enum Control: Equatable {
         case idle
@@ -27,7 +18,6 @@ final class PhoneLink: NSObject {
     static let shared = PhoneLink()
 
     private(set) var glance = RecordingGlance.stored()
-    private(set) var mark = Mark.idle
     private(set) var control = Control.idle
 
     @ObservationIgnored private let session = WCSession.default
@@ -42,32 +32,13 @@ final class PhoneLink: NSObject {
 
     #if DEBUG
         /// Previews: what the iPhone last sent, and a moment or a pause in some state, with no iPhone behind it.
-        static func preview(_ glance: RecordingGlance?, mark: Mark = .idle, control: Control = .idle) -> PhoneLink {
+        static func preview(_ glance: RecordingGlance?, control: Control = .idle) -> PhoneLink {
             let link = PhoneLink(live: false)
             link.glance = glance
-            link.mark = mark
             link.control = control
             return link
         }
     #endif
-
-    /// The Watch offers a split only while the iPhone is in reach.
-    func split() async {
-        let at = Date.now.timeIntervalSince1970
-        guard await reachable() else {
-            mark = .failed("Your iPhone isn't in reach, so nothing was split.")
-            return
-        }
-        mark = .sending
-        do {
-            let reply = try await send([WatchMessage.split: at])
-            let markedAt = (reply[WatchMessage.markedAt] as? Double).map(Date.init(timeIntervalSince1970:))
-            let error = reply[WatchMessage.error] as? String
-            mark = markedAt.map { .marked($0) } ?? .failed(error ?? "lifelog didn't answer.")
-        } catch {
-            mark = .failed("Your iPhone didn't answer, so nothing was split.")
-        }
-    }
 
     /// Runs on the iPhone through the same request as Shortcuts and the control, and returns once the iPhone
     /// answers: the Pendant confirmed, or it stopped waiting. Meanwhile the glance it sends says "Pausing…".

@@ -302,11 +302,9 @@ import Timeline
 
     @Test func aQuickPressWhilePausedOnlyResumesRecording() async {
         let harness = Harness(.observe)
-        var presses = harness.coordinator.quickPresses.makeAsyncIterator()
         await harness.run {
             #expect(await eventually { await harness.status().recording.isRecording })
             await harness.fake.pressButton()
-            #expect(await presses.next() != nil)
             #expect(await harness.status().recording.isRecording, "a press while recording changes nothing")
             await harness.coordinator.requestPause()
             #expect(await eventually { await harness.status().recording.isPaused })
@@ -314,8 +312,6 @@ import Timeline
             // Confirmed by the Pendant like any resume.
             #expect(await eventually { await harness.status().recording.isRecording })
             #expect(await harness.fake.isRecording)
-            await harness.fake.pressButton()
-            #expect(await presses.next() != nil, "the press while paused asked for nothing: this one is the next")
         }
     }
 }
@@ -365,21 +361,4 @@ import Timeline
         PressClock.offset(press(.short, at: phone + 300, count: 3), previousPresses: 2, receivedAtMillis: phone) == nil,
         "under a second is latency, not drift")
     #expect(PressClock.offset(press(.short, at: 1000, count: 3), previousPresses: 2, receivedAtMillis: phone) == nil)
-    // A press is placed at the Pendant's time, which can be seconds before it arrived; never in the future.
-    #expect(
-        PressClock.pressedAt(press(.short, at: phone - 11_000, count: 3), receivedAtMillis: phone) == phone - 11_000)
-    #expect(PressClock.pressedAt(press(.short, at: phone + 900, count: 3), receivedAtMillis: phone) == phone)
-    #expect(PressClock.pressedAt(press(.short, at: 1000, count: 3), receivedAtMillis: phone) == phone, "clock unset")
-}
-
-@Test func aPressReplayedAtConnectIsNotASecondPress() {
-    var reader = PressReader()
-    func press(_ millis: UInt64) -> QuickPress? {
-        reader.press(
-            ButtonStatus(event: .short, eventTimestampMillis: millis, shortPressesSinceBoot: millis), deviceID: "p",
-            at: .now)
-    }
-    #expect(press(1_000) != nil)
-    #expect(press(1_000) == nil, "the same press replayed")
-    #expect(press(1_300) != nil, "a second press, however quick")
 }

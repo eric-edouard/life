@@ -79,21 +79,11 @@ struct TranscriptionFacts: Equatable {
     /// Live conversations waiting, by the feed's reason.
     var waiting: [WaitingReason: Int] = [:]
     var macLlm: ServerClient.MacLLM?
-    /// What lifelog spent, `nil` until the server answered.
-    var spending: Spending?
 
     /// Something the owner can act on; the rest of processing shows in the status and its sheet.
     var needsOwner: Bool {
         !isPaired || switches?.transcription == false || switches?.ai == false
             || waiting[.creditsOut] != nil || waiting[.macAway] != nil
-    }
-
-    /// The server's estimates at list prices.
-    struct Spending: Equatable {
-        /// Everything spent today: transcription, summaries, place names and search.
-        var today: Double
-        /// Transcription this month.
-        var monthTranscription: Double
     }
 }
 
@@ -101,9 +91,6 @@ extension TranscriptionFacts {
     init(_ sync: SyncStore) {
         self.init(
             isPaired: sync.isPaired, switches: sync.switches,
-            waiting: sync.waiting, macLlm: sync.feed.mac?.llm,
-            spending: sync.spending.map {
-                Spending(today: $0.today.totalUsd, monthTranscription: $0.thisMonth.transcription.usd)
-            })
+            waiting: sync.waiting, macLlm: sync.feed.mac?.llm)
     }
 }

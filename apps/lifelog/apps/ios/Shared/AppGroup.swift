@@ -21,8 +21,5 @@ nonisolated enum AppGroup {
         static let recordingGlance = "recordingGlance"
         /// The Watch face's note (`FaceNote`).
         static let faceNote = "faceNote"
-        /// Provider quota evidence, kept independently so either widget can update its own reading.
-        static let claudeUsage = "subscriptionUsage.claude"
-        static let codexUsage = "subscriptionUsage.codex"
     }
 }

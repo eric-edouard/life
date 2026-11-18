@@ -65,8 +65,6 @@ struct PendantScreen: View {
     let showsNotificationsInvite: Bool
     let actions: PendantActions
 
-    @State private var mark: MarkResult?
-
     var body: some View {
         TimelineView(.explicit(capture.boundaries(after: .now))) { timeline in
             let now = timeline.date
@@ -75,7 +73,7 @@ struct PendantScreen: View {
             let input = PendantLayoutInput(
                 capture: capture, transcription: transcription,
                 hero: hero(conditions: conditions, now: now),
-                glance: glance(now: now), actions: actions, split: split, now: now)
+                glance: glance(now: now), actions: actions, now: now)
             let status = capture.status
             let omi = capture.pairedKind == .omi && OmiFirmware.freesOnDelivery(status.firmwareRevision)
             let attention = AttentionList(
@@ -124,38 +122,6 @@ struct PendantScreen: View {
                 .accessibilityIdentifier("pendant.settings")
             }
         }
-        // An inset, not an overlay: the rows can scroll clear of it, and it never takes their taps.
-        .safeAreaInset(edge: .bottom) {
-            if let mark {
-                MarkToast(result: mark)
-                    .accessibilityIdentifier("pendant.markToast")
-                    .padding(.bottom, 12)
-                    .allowsHitTesting(false)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .motion(Motion.rise, value: mark)
-        .sensoryFeedback(trigger: mark) { _, mark in
-            switch mark {
-            case .splitFailed?: .error
-            // The scissors gave their own light tap already.
-            case .split?, nil: nil
-            }
-        }
-        .task(id: mark) {
-            // A newer mark cancels this wait and keeps its own toast.
-            guard mark != nil, (try? await Task.sleep(for: .seconds(2.6))) != nil else { return }
-            mark = nil
-        }
-    }
-
-    private func split() {
-        let at = Date.now
-        Task {
-            let error = await actions.split(at: at)
-            mark = error.map(MarkResult.splitFailed) ?? .split(at: at)
-            if let mark { AccessibilityNotification.Announcement(mark.sentence).post() }
-        }
     }
 
     /// An Omi has no pause or resume command: its hero offers neither.
@@ -174,7 +140,7 @@ struct PendantScreen: View {
             sync: SyncSummary(status.sync, lastCaughtUp: capture.lastCaughtUp),
             backlog: Fact(status.backlog, connected: connected, now: now), lastCaughtUp: capture.lastCaughtUp,
             lastSaved: capture.lastSaved, phoneFreeBytes: capture.phoneFreeBytes, archiveBytes: capture.archiveBytes,
-            today: today, spending: transcription.spending,
+            today: today,
             isPaired: transcription.isPaired, batteryLife: capture.batteryLife)
     }
 }

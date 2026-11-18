@@ -3,8 +3,8 @@ import PendantProtocol
 import SwiftUI
 
 /// The calm Pendant screen (docs/design.md, Pendant): a large HAL lens lit only by a confirmed
-/// recording, one word under it with the sound line, Pause and the scissors, then what needs the owner. Below the
-/// fold, on solid surfaces: today's audio and spending, battery and storage, and the audio still on the Pendant.
+/// recording, one word under it with the sound line, Pause, then what needs the owner. Below the
+/// fold, on solid surfaces: today's audio, battery and storage, and the audio still on the Pendant.
 struct LensLayout<Attention: View>: View {
     let input: PendantLayoutInput
     @ViewBuilder let attention: Attention
@@ -14,10 +14,8 @@ struct LensLayout<Attention: View>: View {
     var body: some View {
         let glance = input.glance
         VStack(alignment: .leading, spacing: 12) {
-            StatusHero(
-                reading: input.hero, perform: input.actions.control, recover: input.actions.recover,
-                split: input.split
-            ) { shown in
+            StatusHero(reading: input.hero, perform: input.actions.control, recover: input.actions.recover) {
+                shown in
                 LensHeader(reading: shown, since: input.capture.recordingSince, catchUp: catchUp)
             }
             .padding(.bottom, 8)
@@ -25,7 +23,6 @@ struct LensLayout<Attention: View>: View {
             LensSection("Today")
             GlanceGridLayout(columns: columns) {
                 LensSaved(today: glance.today)
-                LensSpent(spending: glance.spending, isPaired: glance.isPaired)
                 LensBattery(
                     level: glance.battery, caption: glance.batteryCaption, isLow: glance.batteryIsLow,
                     isCharging: glance.isCharging)
@@ -63,15 +60,12 @@ private struct LensHeader: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isScrolling) private var isScrolling
-    /// A press at work brightens the lens and runs its ring with the overlay's stages.
-    @Environment(ButtonActions.self) private var buttons: ButtonActions?
 
     var body: some View {
-        let press = buttons?.shown.flatMap { $0.ended ? nil : $0 }
         VStack(spacing: 0) {
             HALLens(
-                light: light, hearing: reading.sound?.isHearing == true || press != nil,
-                progress: catchUp?.fraction ?? press?.progress,
+                light: light, hearing: reading.sound?.isHearing == true,
+                progress: catchUp?.fraction,
                 diameter: typeSize.isAccessibilitySize ? 150 : 196
             )
             .padding(.top, 22)
@@ -201,41 +195,6 @@ private struct LensSaved: View {
                     String(AttributedString(localized: "^[\($0.conversations) conversation](inflect: true)").characters)
                 } ?? "Library not open yet")
         }
-    }
-}
-
-/// Opens the Spending sheet.
-private struct LensSpent: View {
-    let spending: TranscriptionFacts.Spending?
-    let isPaired: Bool
-
-    @State private var showsSheet = false
-
-    var body: some View {
-        Button {
-            showsSheet = true
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Spent")
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.forward")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Palette.textTertiary)
-                        .accessibilityHidden(true)
-                }
-                .font(.footnote)
-                .foregroundStyle(Palette.textSecondary)
-                SpendingFigure(spending: spending, isPaired: isPaired)
-            }
-            .lensCard()
-            .contentShape(.rect(cornerRadius: Metrics.Radius.card))
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens spending.")
-        .accessibilityIdentifier("pendant.lens.spent")
-        .sheet(isPresented: $showsSheet) { SpendingSheet() }
     }
 }
 

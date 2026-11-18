@@ -7,8 +7,6 @@ import WidgetKit
 struct LifelogWidgets: WidgetBundle {
     var body: some Widget {
         RecordingWidget()
-        CodexUsageWidget()
-        ClaudeUsageWidget()
         RecordingControl()
     }
 }
