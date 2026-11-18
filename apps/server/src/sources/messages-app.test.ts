@@ -125,6 +125,19 @@ test("text goes into the newest chat of a handle, as argv only, and the matching
   expect(m.calls[0]?.[0]).toBe("osascript");
 });
 
+test("its limit counts one hand-over per tell, and the confirmations", () => {
+  const f = fixture();
+  const p = path(f, messages(f, {}).run);
+  const text = p.limitMs({ chat: "+15550100", text: "hi" });
+  const both = p.limitMs({
+    chat: "+15550100",
+    file: { bytes: new Uint8Array(), mime: "text/plain", name: "a.txt" },
+    text: "hi",
+  });
+  expect(both).toBeGreaterThan(text);
+  expect(text).toBeGreaterThan(0);
+});
+
 test("a row of mine with other text does not confirm; none in time may have gone", async () => {
   const f = fixture();
   await expect(

@@ -6,7 +6,13 @@ import { DAY } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import type { Check } from "../memory/checks";
-import { DECISIONS, decisionsNow, requestDecision } from "../memory/decisions";
+import {
+  DECISIONS,
+  type Decision,
+  decisionsNow,
+  notSentOf,
+  requestDecision,
+} from "../memory/decisions";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerWithResult } from "./answer-result";
@@ -174,9 +180,44 @@ test("a not-sent outcome reopens the card: the result says so and whether to try
   expect(sends).toHaveBeenCalledTimes(2);
 });
 
+test("an older not-sent tap replayed returns its own stored result and sends nothing; a different key and answer on an open call is refused", async () => {
+  sends.mockRejectedValueOnce(new Error("not sent: someone wrote"));
+  sends.mockRejectedValueOnce(new Error("not sent: someone wrote again"));
+  const { id } = await card();
+  await call(id, ["send"], "tap-a").result;
+  await call(id, ["send"], "tap-b").result;
+  expect(sends).toHaveBeenCalledTimes(2);
+  const replay = await call(id, ["send"], "tap-a").result;
+  expect(replay).toMatchObject({
+    send: {
+      reason: expect.stringContaining("someone wrote"),
+      state: "not_sent",
+    },
+  });
+  expect(sends).toHaveBeenCalledTimes(2);
+  sends.mockImplementation(
+    () => new Promise((r) => setTimeout(() => r("$e"), 50))
+  );
+  const first = call(id, ["send"], "x").result;
+  await expect(call(id, ["wait"], "y").result).rejects.toThrow("Not done");
+  await first;
+  sends.mockReset();
+});
+
+test("a late not-sent, after the card's deadline, cannot be retried", async () => {
+  const { id } = await card();
+  const d = decisionsNow().find((x) => x.id === id);
+  expect(
+    notSentOf({ ...(d as Decision), deadline: "2020-01-01T00:00:00.000Z" }, {
+      at: "2026-01-01T00:00:00.000Z",
+      error: "not sent: x",
+    } as never)?.canRetry
+  ).toBe(false);
+});
+
 test("a never-retryable not-sent says canRetry false; may have gone stays answered", async () => {
   sends.mockRejectedValueOnce(
-    Object.assign(new Error("not sent: the file is gone"), { retry: false })
+    Object.assign(new Error("not sent: the file is gone"), { canRetry: false })
   );
   const { id } = await card();
   expect((await call(id, ["send"], "a").result).send).toMatchObject({

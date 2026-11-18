@@ -414,7 +414,7 @@ test("a send that can never go says so: the file gone, the chat's refusal, a cha
     [net]
   );
   const off = await sendDraft(stored, "t", { since: NOW }, []).catch((e) => e);
-  expect(off).toMatchObject({ retry: false });
+  expect(off).toMatchObject({ canRetry: false });
   const blocked = source("sendnet", [ana()], false);
   blocked.send = {
     ...(blocked.send as SendPath),
@@ -424,5 +424,5 @@ test("a send that can never go says so: the file gone, the chat's refusal, a cha
     (e) => e
   );
   expect(later.message).toBe("not sent: the bridge is down");
-  expect(later.retry).toBeUndefined();
+  expect(later.canRetry).toBeUndefined();
 });

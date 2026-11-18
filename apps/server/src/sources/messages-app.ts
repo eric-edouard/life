@@ -22,7 +22,7 @@ const STAGING = join(HOME, "Pictures", "Life sends");
 const CONFIRM_MS = 20_000;
 const POLL_MS = 500;
 const NO_ACCESS = "-1743";
-/** What osascript is given to hand a message over. */
+/** What osascript is given to hand one message over: it is killed (`may have gone`) after it. */
 const HAND_OVER_MS = 10_000;
 
 interface Run {
@@ -55,7 +55,7 @@ export function messagesAppSend({
   confirmMs = CONFIRM_MS,
   pollMs = POLL_MS,
   db: path = DB,
-  run = (cmd) => exec(cmd),
+  run = (cmd) => exec(cmd, { timeout: HAND_OVER_MS }),
   staging = STAGING,
 }: Options = {}): SendPath {
   const read = <T>(f: (db: ReturnType<typeof openReadOnly>) => T) => {
@@ -168,7 +168,7 @@ export function messagesAppSend({
           .map((r) => r.id)
       ),
     limitMs: (d) =>
-      (d.file ? 2 : 0) * HAND_OVER_MS +
+      ((d.file ? 1 : 0) + (d.text ? 1 : 0)) * HAND_OVER_MS +
       ((d.file ? 3 : 0) + (d.text ? 1 : 0)) * confirmMs,
     refusal: (d: Outgoing) =>
       Promise.resolve(

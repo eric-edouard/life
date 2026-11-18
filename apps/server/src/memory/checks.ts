@@ -7,7 +7,12 @@ import {
   readNamingQueue,
 } from "../sources/lifelog-voices";
 import { pagedNow } from "./closeness";
-import { type Decision, decisionsNow, isOnMatter } from "./decisions";
+import {
+  type Decision,
+  decisionsNow,
+  isOnMatter,
+  notSentOf,
+} from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import type { StoredDraft } from "./draft";
 import {
@@ -396,13 +401,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           kind: "decision",
           likelyPeople: [],
           links: d.links,
-          notSent: d.notSent
-            ? {
-                at: d.notSent.at,
-                canRetry: d.notSent.retry !== false,
-                reason: d.notSent.error,
-              }
-            : null,
+          notSent: notSentOf(d),
           onSilence: d.onSilence,
           options: d.options,
           question: d.question,

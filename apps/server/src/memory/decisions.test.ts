@@ -278,7 +278,7 @@ test("a not-sent outcome voids its answer: the card is open again, only his next
   expect(open).toMatchObject({
     notSent: { error: "not sent: room not joined" },
     state: "open",
-    voided: { answerKey: "tap-1" },
+    voided: [{ answer: { answerKey: "tap-1" } }],
   });
   expect(open?.answer).toBeUndefined();
   expect(open?.send).toBeUndefined();
@@ -346,7 +346,7 @@ test("a lapse whose answer a late not-sent voided settles when it was voided, so
     readChat
   );
   const gone = Object.assign(new Error("not sent: the file is gone"), {
-    retry: false,
+    canRetry: false,
   });
   setSystemTime(later(HOUR + 60_000));
   await answerDecision(id, ["send"], undefined, {
@@ -355,7 +355,7 @@ test("a lapse whose answer a late not-sent voided settles when it was voided, so
     via: "connector",
   });
   const [d] = decisionsNow(later(HOUR + 60_000));
-  expect(d).toMatchObject({ notSent: { retry: false }, state: "lapsed" });
+  expect(d).toMatchObject({ notSent: { canRetry: false }, state: "lapsed" });
   expect(
     settledBetween(
       decisionsNow(later(2 * HOUR)),

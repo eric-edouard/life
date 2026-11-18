@@ -1,14 +1,11 @@
 import { clock } from "../core/clock";
-import {
-  answerCheck,
-  type CheckAnswer,
-  readVoiceItem,
-} from "../memory/answer-check";
+import { answerCheck, type CheckAnswer } from "../memory/answer-check";
 import { type Check, checksNow, inboxOf } from "../memory/checks";
 import {
   type Decision,
   decisionsNow,
   isSendDue,
+  notSentOf,
   sendsOn,
 } from "../memory/decisions";
 import { sendLimitMs } from "../memory/draft-send";
@@ -28,9 +25,6 @@ const QUICK_MS = ASKER_WAIT_MS + 5000;
 const POLL_MS = 500;
 
 const at = () => clock().toISOString();
-
-/** The answers being recorded now, by check: a second call on the same check awaits the first. */
-const inFlight = new Map<string, Promise<Record<string, unknown>>>();
 
 /** Whether the desk has the answer of decision `d` queued for its registered agent, else why not. */
 async function askerOf(d: Decision) {
@@ -73,44 +67,48 @@ async function askerOf(d: Decision) {
   }
 }
 
-/** What his answer's send did, as the app shows it: none when it sends nothing. */
-function sendOf(d: Decision) {
-  const channel = d.draft?.channel;
-  const to = d.draft?.to;
-  if (d.answer && d.send) {
-    return d.send.kind === "sent"
-      ? {
-          at: d.send.at,
-          channel,
-          eventId: d.send.eventId,
-          state: "sent",
-          to,
-        }
-      : {
-          at: d.send.at,
-          canRetry: false,
-          reason: d.send.error,
-          state: "may_have_gone",
-        };
+/** The tap `key` made (the newest without a key): its answer, the outcome of its send, or the one that voided it. */
+function tapOf(d: Decision, key?: string) {
+  if (d.answer && (!key || d.answer.answerKey === key)) {
+    return { answer: d.answer, notSent: undefined, send: d.send };
   }
-  if (!d.answer && d.notSent) {
-    return {
-      at: d.notSent.at,
-      canRetry: d.notSent.retry !== false,
-      reason: d.notSent.error,
-      state: "not_sent",
-    };
-  }
-  return null;
+  const v = key
+    ? d.voided?.find((x) => x.answer.answerKey === key)
+    : d.voided?.at(-1);
+  return { answer: v?.answer, notSent: v?.notSent, send: undefined };
 }
 
-/** The lines this tap wrote, from the store: his answer and the send's outcome (a tap whose answer a `not sent:` voided too). */
-function linesOf(d: Decision, key?: string) {
-  const mine =
-    d.answer && (!key || d.answer.answerKey === key)
-      ? [d.answer, d.send]
-      : [d.voided, d.notSent];
-  return mine.filter(Boolean);
+/** What a tap's send did, as the app shows it: none when it sends nothing. */
+function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
+  if (tap.notSent) {
+    return { ...notSentOf(d, tap.notSent), state: "not_sent" };
+  }
+  if (tap.send?.kind === "sent") {
+    return {
+      at: tap.send.at,
+      channel: d.draft?.channel,
+      eventId: tap.send.eventId,
+      state: "sent",
+      to: d.draft?.to,
+    };
+  }
+  if (tap.send) {
+    return {
+      at: tap.send.at,
+      canRetry: false,
+      reason: tap.send.error,
+      state: "may_have_gone",
+    };
+  }
+  return tap.answer && isSendDue(d) ? { state: "pending" } : null;
+}
+
+/** The inbox after an answer: whether the card left, how many remain, how many are due today. */
+async function inboxAfter(ref: string, report: ToolCall["report"]) {
+  const list = await checksNow();
+  const { deadlinesToday, total } = inboxOf(list);
+  report({ at: at(), step: "left_inbox", total });
+  return { deadlinesToday, left: !list.some((c) => c.ref === ref), total };
 }
 
 /** The answer's proof for a decision, composed from what is stored, and the inbox after. */
@@ -127,27 +125,21 @@ async function decisionResult(
     await Bun.sleep(POLL_MS);
     d = decisionsNow().find((x) => x.id === ref) as Decision;
   }
+  const tap = tapOf(d, key);
   const asker = await askerOf(d);
   report({ at: at(), step: "asker_told", told: asker.told });
-  const list = await checksNow();
-  const inbox = { left: !list.some((c) => c.ref === ref), ...inboxOf(list) };
-  report({ at: at(), step: "left_inbox", total: inbox.total });
   return {
     asker,
     changed: {
       decision: ref,
-      options: (d.answer ?? d.voided)?.options ?? [],
+      options: tap.answer?.options ?? [],
       state: d.state,
     },
-    done: linesOf(d, key),
-    inbox: {
-      deadlinesToday: inbox.deadlinesToday,
-      left: inbox.left,
-      total: inbox.total,
-    },
+    done: [tap.answer, tap.notSent ?? tap.send].filter(Boolean),
+    inbox: await inboxAfter(ref, report),
     kind: "decision",
     ref,
-    send: sendOf(d),
+    send: sendResultOf(d, tap),
   };
 }
 
@@ -184,30 +176,24 @@ function changedOf(c: Check, a: CheckAnswer, done: unknown[]) {
 async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
   const { answerKey, report } = call;
   const known = decisionsNow().find((x) => x.id === ref);
-  // The same tap again (his app's key on the answered line, or on the one a `not sent:` voided): the stored result, nothing written.
+  // The same tap again (his app's key on the answered line, or on one a `not sent:` voided): the stored result, nothing written.
   if (
     answerKey &&
     (known?.answer?.answerKey === answerKey ||
-      known?.voided?.answerKey === answerKey)
+      known?.voided?.some((v) => v.answer.answerKey === answerKey))
   ) {
     return decisionResult(ref, report, answerKey);
   }
-  const check = (await checksNow()).find((c) => c.ref === ref);
-  if (!check) {
-    throw new Error(
-      `Not done: no open check ${ref}; \`read_inbox\` lists them.`
-    );
-  }
-  const sends = known && sendsOn(known, a.options, a.note);
+  const sends = known?.state === "open" && sendsOn(known, a.options, a.note);
   const mail =
     sends &&
-    known.draft?.channel &&
     enabledSources().find((s) => s.name === known.draft?.channel)?.kind ===
       "mail";
-  const voice =
-    check.group === "voice" ? await readVoiceItem(check) : undefined;
-  const plan =
-    check.group === "decision"
+  report({
+    limitSeconds: Math.ceil(
+      ((sends && known.draft ? sendLimitMs(known.draft) : 0) + QUICK_MS) / 1000
+    ),
+    plan: known
       ? [
           "recorded",
           ...(sends
@@ -216,57 +202,58 @@ async function answer(ref: string, a: CheckAnswer, call: ToolCall) {
           "asker_told",
           "left_inbox",
         ]
-      : ["recorded", "left_inbox"];
-  report({
-    limitSeconds: Math.ceil(
-      ((sends && known.draft ? sendLimitMs(known.draft) : 0) + QUICK_MS) / 1000
-    ),
-    plan,
+      : ["recorded", "left_inbox"],
   });
-  const { done } = await answerCheck(ref, a, "connector", {
+  const { check, done, item } = await answerCheck(ref, a, "connector", {
     answerKey,
     onStep: (step, detail) => report({ at: at(), step, ...detail }),
   });
   if (check.group === "decision") {
     return decisionResult(ref, report, answerKey);
   }
-  const list = await checksNow();
-  const inbox = { ...inboxOf(list), left: !list.some((c) => c.ref === ref) };
-  report({ at: at(), step: "left_inbox", total: inbox.total });
   return {
     asker: { name: "life", told: "recorded" },
     changed: {
       ...changedOf(check, a, done),
-      ...(voice
+      ...(item
         ? {
-            conversations: new Set(voice.voices.map((v) => v.jobId)).size,
-            voices: voice.voices.length,
+            conversations: new Set(item.voices.map((v) => v.jobId)).size,
+            voices: item.voices.length,
           }
         : {}),
     },
     done,
-    inbox: {
-      deadlinesToday: inbox.deadlinesToday,
-      left: inbox.left,
-      total: inbox.total,
-    },
+    inbox: await inboxAfter(ref, report),
     kind: check.group,
     ref,
     send: null,
   };
 }
 
+/** The answers being recorded now, by check, with what each was given. */
+const running = new Map<
+  string,
+  { call: ToolCall; result: Promise<Record<string, unknown>>; said: string }
+>();
+
 /**
  * Records his answer to the open check `ref` (`answerCheck`) and returns the proof: `done` (the lines written),
  * `changed`, `send`, `asker`, `inbox`. With the app's key for this tap (`call.answerKey`) a repeat of it returns the
- * stored result and writes and sends nothing; a second call on the same check while one runs gets that one's result.
+ * stored result and writes and sends nothing. A second call on the same check while one runs gets that one's result,
+ * unless it differs in both key and answer: then it is refused.
  */
 export function answerWithResult(ref: string, a: CheckAnswer, call: ToolCall) {
-  const running = inFlight.get(ref);
-  if (running) {
-    return running;
+  const said = JSON.stringify([a.options, a.note ?? null]);
+  const first = running.get(ref);
+  if (first) {
+    if (first.call.answerKey !== call.answerKey && first.said !== said) {
+      return Promise.reject(
+        new Error(`Not done: another answer to ${ref} is being recorded.`)
+      );
+    }
+    return first.result;
   }
-  const first = answer(ref, a, call).finally(() => inFlight.delete(ref));
-  inFlight.set(ref, first);
-  return first;
+  const result = answer(ref, a, call).finally(() => running.delete(ref));
+  running.set(ref, { call, result, said });
+  return result;
 }

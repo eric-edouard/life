@@ -31,7 +31,11 @@ export interface CheckAnswer {
   person?: string;
 }
 
-type Writer = (c: Check, a: CheckAnswer) => Promise<unknown[]>;
+type Writer = (
+  c: Check,
+  a: CheckAnswer,
+  item?: NamingQueueItem
+) => Promise<unknown[]>;
 
 /** `person`, checked: the options that name someone need it. */
 function personIn(a: CheckAnswer) {
@@ -50,7 +54,7 @@ const correct = (said: object[], a: CheckAnswer) =>
   );
 
 /** The voice lifelog still asks him to name for the open check `c`. */
-export async function readVoiceItem(c: Pick<Check, "ref">) {
+async function readVoiceItem(c: Pick<Check, "ref">) {
   const item = (await readNamingQueue()).find((i) => `voice:${i.id}` === c.ref);
   if (!item) {
     throw new Error(`Not done: no open check ${c.ref}`);
@@ -61,11 +65,14 @@ export async function readVoiceItem(c: Pick<Check, "ref">) {
 /** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
 async function answerVoice(
   c: Check,
+  item: NamingQueueItem | undefined,
   answerOf: (
     item: NamingQueueItem
   ) => Promise<Parameters<typeof answerNamingQueue>[1]>
 ) {
-  const item = await readVoiceItem(c);
+  if (!item) {
+    throw new Error(`Not done: no open check ${c.ref}`);
+  }
   return [
     await answerNamingQueue(
       item.voices.map(({ jobId, speakerLabel }) => ({ jobId, speakerLabel })),
@@ -142,18 +149,19 @@ const WRITERS: {
     },
   },
   voice: {
-    media: (c) => answerVoice(c, async () => ({ kind: "media" })),
-    "not-anyone-i-know": (c) =>
-      answerVoice(c, async () => ({ kind: "ignore" })),
-    "not-relevant": (c) =>
-      answerVoice(c, async () => ({ kind: "not_relevant" })),
-    "this-is": (c, a) => answerVoice(c, (item) => thisIs(item, c, a)),
+    media: (c, _a, item) =>
+      answerVoice(c, item, async () => ({ kind: "media" })),
+    "not-anyone-i-know": (c, _a, item) =>
+      answerVoice(c, item, async () => ({ kind: "ignore" })),
+    "not-relevant": (c, _a, item) =>
+      answerVoice(c, item, async () => ({ kind: "not_relevant" })),
+    "this-is": (c, a, item) => answerVoice(c, item, (i) => thisIs(i, c, a)),
   },
 };
 
 /**
  * Records his answer to the open check `ref` through its kind's writer (a decision's draft is sent only `via` his app);
- * returns the lines written. `onStep` hears `recorded` once they are, and a send's own steps; `answerKey`
+ * returns the check it found, the lines written and, for a voice, its queue item. `onStep` hears `recorded` once they are, and a send's own steps; `answerKey`
  * is his app's key for this tap, kept on a decision's answer. Throws when no open check has that ref or the option is
  * not one of its own.
  */
@@ -177,11 +185,13 @@ export async function answerCheck(
   }
   if (check.group === "decision") {
     return {
+      check,
       done: await answerDecision(ref, a.options, a.note, {
         answerKey,
         onStep,
         via,
       }),
+      item: undefined,
       ref,
     };
   }
@@ -194,10 +204,11 @@ export async function answerCheck(
       `Not done: pick one of ${Object.keys(writers).join(", ")} for ${ref}.`
     );
   }
-  const done = await write(check, a);
+  const item = check.group === "voice" ? await readVoiceItem(check) : undefined;
+  const done = await write(check, a, item);
   if (done.length === 0) {
     throw new Error(`Not done: ${ref} names no one to correct.`);
   }
   onStep?.("recorded");
-  return { done, ref };
+  return { check, done, item, ref };
 }

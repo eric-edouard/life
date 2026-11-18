@@ -52,9 +52,9 @@ async function stampFile(path: string) {
   };
 }
 
-/** A `not sent:` that his next tap would meet again (the file, the chat or the channel is not there): the outcome stores `retry: false`. */
+/** A `not sent:` that his next tap would meet again (the file, the chat or the channel is not there): the outcome stores `canRetry: false`. */
 const never = (why: string) =>
-  Object.assign(new Error(`not sent: ${why}`), { retry: false as const });
+  Object.assign(new Error(`not sent: ${why}`), { canRetry: false as const });
 
 /** The bytes of a stamped file, read now: only the ones he saw (the stamp's digest), else `not sent`. */
 async function readVerifiedFile(file: NonNullable<StoredDraft["file"]>) {

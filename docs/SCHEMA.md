@@ -269,9 +269,9 @@ outside the lock, schemaVersion 3, by `kind`:
   ended `not sent:`.
 - `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
   `eventId` (the sent message's id: Life's own event id where it knows it, else the network's) once its network took it,
-  or the `error` (which says whether it may have gone, or began `not sent:`: nothing went), and `retry: false` when the same draft
+  or the `error` (which says whether it may have gone, or began `not sent:`: nothing went), and `canRetry: false` when the same draft
   can never go (the file gone or changed, no chat, the channel off). A `not sent:` line voids the answer before it: the
-  decision is open again and the next answer is the first (`notSent` holds it, `voided` the answer it voided); any other
+  decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.
 - `withdrawn` (`requestDecision`, by its asker): `id`, `at`, `why`.
