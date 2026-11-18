@@ -1,5 +1,19 @@
 import { clock } from "../core/clock";
 import { log } from "../core/log";
+import { DESK_AGENT } from "../core/names";
+import {
+  type AgentRow,
+  activeAgents,
+  agentOf,
+  type EventRow,
+  filtersOf,
+  lastTurns,
+  modelOf,
+  openTurn,
+  queuedEvents,
+  readCursor,
+  type TurnRow,
+} from "../host/desk-read";
 import {
   MESSAGE_RECEIVED,
   matcherOf,
@@ -10,7 +24,8 @@ import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { readPeople } from "../memory/who";
 import type { TurnOutcome } from "../records/registered-agent";
-import { DESK_ASKER, readPacket } from "./agent-actions";
+import { readPacket } from "./agent-actions";
+import { applyAgentChanges } from "./agent-changes";
 import {
   ANSWERS,
   defaultWaitOf,
@@ -21,21 +36,7 @@ import {
   STARTS_PER_TICK,
 } from "./agent-wait";
 import { doorOf } from "./desk-door";
-import {
-  type AgentRow,
-  activeAgents,
-  agentOf,
-  type Desk,
-  type EventRow,
-  filtersOf,
-  lastTurns,
-  openTurn,
-  queuedEvents,
-  readCursor,
-  saveCursor,
-  type TurnRow,
-  writeWait,
-} from "./desk-store";
+import { type Desk, saveCursor, writeWait } from "./desk-store";
 import type { Run, Agent as SessionAgent, Usage } from "./runtimes/contract";
 
 // The desk's clock (the desk spec, sections 6 and 7): one tick polls his answers and the messages its agents wait for
@@ -98,7 +99,7 @@ export function pollAnswers({ db }: Desk) {
   const active = new Set(activeAgents(db).map((a) => a.id));
   const reads = ANSWERS.map((name) => ({
     name,
-    read: pollDecisions(name, readCursor(db, name), DESK_ASKER),
+    read: pollDecisions(name, readCursor(db, name), DESK_AGENT),
   }));
   // Read after the polls, so every decision they return is known.
   const askedBy = new Map(decisionsNow().map((d) => [d.id, d.agent]));
@@ -125,8 +126,9 @@ const wakeMessageOf = (cause: string, events: EventRow[]) =>
     ...events.map((e) => `${e.name} ${e.payload}`),
   ].join("\n");
 
-/** What a session of `a` is given: its door, its folder, a title. */
+/** What a session of `a` is given: its door, its folder, a title, the model it runs with. */
 const sessionAgentOf = (a: AgentRow): SessionAgent => ({
+  ...modelOf(a),
   door: doorOf(a.id),
   folder: a.folder,
   id: a.id,
@@ -266,10 +268,11 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his answers, then (when their poll is due) the messages and the turns lost to a restart, then
+ * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages and the turns lost to a restart, then
  * the turns due.
  */
 export async function tick(desk: Desk, isPollDue = true) {
+  await applyAgentChanges(desk);
   pollAnswers(desk);
   if (isPollDue) {
     await pollMessages(desk);

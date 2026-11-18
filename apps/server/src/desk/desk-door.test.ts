@@ -3,10 +3,11 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso } from "../core/clock";
+import { agentOf } from "../host/desk-read";
 import { decisionsNow } from "../memory/decisions";
 import { register } from "./agent-actions";
 import { doorFetch, doorOf } from "./desk-door";
-import { agentOf, type Desk, openDesk } from "./desk-store";
+import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
 // The door: an agent is known by its key alone; its tools reach the desk's actions. Made-up agents and briefs.

@@ -1,13 +1,10 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { clock } from "../core/clock";
 import { DESK_STORE } from "../core/paths";
 import type { Messaging } from "../host/events";
-import type {
-  AgentStatus,
-  AgentWait,
-  MessageFilter,
-} from "../records/registered-agent";
+import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
 
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
@@ -20,6 +17,9 @@ create table if not exists agent (
   brief text not null,
   runtime text not null,
   folder text not null,
+  project text,
+  model text,
+  effort text,
   session text,
   link text,
   status text not null check (status in ('active', 'stopped', 'handed_over', 'ended')),
@@ -69,6 +69,32 @@ create table if not exists turn (
 );
 create index if not exists turn_by_agent on turn (agent_id, id);
 create table if not exists cursor (name text primary key, value text not null);
+create table if not exists anchor (
+  agent_id text not null,
+  step text not null,
+  added_at text not null,
+  primary key (agent_id, step)
+);
+create index if not exists anchor_by_step on anchor (step);
+create index if not exists agent_by_project on agent (project);
+create index if not exists agent_by_status on agent (status, ended_at);
+create index if not exists event_dropped on event (agent_id, dropped_at) where dropped_at is not null;
+create table if not exists report_line (
+  source text not null,
+  day text not null,
+  line text not null,
+  link text,
+  posted_at text not null,
+  primary key (source, day)
+);
+create index if not exists report_line_by_posted on report_line (posted_at);
+create table if not exists agent_change (
+  ask text primary key,
+  agent_id text,
+  error text,
+  applied_at text not null
+);
+create index if not exists agent_change_by_applied on agent_change (applied_at);
 `;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
@@ -88,100 +114,6 @@ export function openDesk(path = DESK_STORE) {
   return db;
 }
 
-/** A registered agent's row. `status` `active` is running while a desk turn is open, else waiting. */
-export interface AgentRow {
-  brief: string;
-  created_at: string;
-  folder: string;
-  id: string;
-  link: string | null;
-  notes: string;
-  runtime: string;
-  session: string | null;
-  status: AgentStatus;
-  wait_events: string;
-  wait_is_default: number;
-  wait_reason: string | null;
-  wait_until: string | null;
-}
-
-/** An agent turn's row; `ended_at` null while it runs. */
-export interface TurnRow {
-  agent_id: string;
-  cause: string;
-  ended_at: string | null;
-  heard_at: string | null;
-  id: number;
-  outcome: string | null;
-  reminded_at: string | null;
-  session: string | null;
-  started_at: string;
-}
-
-/** A queued event's row: not yet consumed or dropped. */
-export interface EventRow {
-  event_id: string;
-  handed: number;
-  name: string;
-  payload: string;
-  received_at: string;
-}
-
-/** The most agents the desk keeps active: every read of them is bounded by it. */
-const MAX_ACTIVE = 50;
-
-/** Whether the desk keeps its most agents active: no other is registered then. */
-export const isFull = (db: Database) =>
-  (db
-    .query<{ n: number }, []>(
-      "select count(*) as n from agent where status = 'active'"
-    )
-    .get()?.n ?? 0) >= MAX_ACTIVE;
-
-export const activeAgents = (db: Database) =>
-  db
-    .query<AgentRow, [number]>(
-      "select * from agent where status = 'active' order by created_at limit ?"
-    )
-    .all(MAX_ACTIVE);
-
-export const agentOf = (db: Database, id: string) =>
-  db.query<AgentRow, [string]>("select * from agent where id = ?").get(id);
-
-/** An agent's last turns, newest first: enough for its open turn, its last one and a run of failures. */
-export const lastTurns = (db: Database, id: string, n = 4) =>
-  db
-    .query<TurnRow, [string, number]>(
-      "select * from turn where agent_id = ? order by id desc limit ?"
-    )
-    .all(id, n);
-
-/** The desk turn running now for an agent, if any. */
-export const openTurn = (db: Database, id: string) =>
-  db
-    .query<TurnRow, [string]>(
-      "select * from turn where agent_id = ? and ended_at is null"
-    )
-    .get(id);
-
-/** An agent's queued events, oldest first. */
-export const queuedEvents = (db: Database, id: string) =>
-  db
-    .query<EventRow, [string]>(
-      "select event_id, handed, name, payload, received_at from event where agent_id = ? and consumed_at is null and dropped_at is null order by rowid"
-    )
-    .all(id);
-
-export const filtersOf = (a: AgentRow) =>
-  JSON.parse(a.wait_events) as MessageFilter[];
-
-export const readCursor = (db: Database, name: string) =>
-  db
-    .query<{ value: string }, [string]>(
-      "select value from cursor where name = ?"
-    )
-    .get(name)?.value ?? null;
-
 export const saveCursor = (db: Database, name: string, value: string | null) =>
   value === null
     ? db.run("delete from cursor where name = ?", [name])
@@ -200,4 +132,14 @@ export const writeWait = (
   db.run(
     "update agent set wait_events = ?, wait_until = ?, wait_reason = ?, wait_is_default = ? where id = ?",
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
+  );
+
+/** Posts a line for the report (`life desk report-line`): one per source per day, a second that day replacing it. */
+export const postReportLine = (
+  db: Database,
+  r: { day: string; line: string; link?: string; source: string }
+) =>
+  db.run(
+    "insert into report_line (source, day, line, link, posted_at) values (?, ?, ?, ?, ?) on conflict (source, day) do update set line = excluded.line, link = excluded.link, posted_at = excluded.posted_at",
+    [r.source, r.day, r.line, r.link ?? null, clock().toISOString()]
   );

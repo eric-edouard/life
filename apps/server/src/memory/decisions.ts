@@ -43,6 +43,17 @@ export const Ask = z
     why: z.string().min(1).max(300),
   })
   .strict();
+/** What an agent gives `request_decision` (the connector's, the door's): an `Ask` less the desk's stamp, or a withdrawal; `requestDecision` checks the rest. */
+export const DecisionRequest = Ask.omit({ agent: true })
+  .partial()
+  .extend({
+    why: Ask.shape.why,
+    withdraw: z
+      .string()
+      .optional()
+      .describe("A decision id you asked, to withdraw it (with `why`)"),
+  });
+
 const Asked = Ask.extend({
   asker: z.string().min(1),
   at: isoDateTime,

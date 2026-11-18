@@ -1,9 +1,5 @@
 import { join } from "node:path";
-import {
-  type AuthInfo,
-  createMcpHandler,
-  McpServer,
-} from "@modelcontextprotocol/server";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { Hono } from "hono";
 import { z } from "zod";
 import { hasAddOn } from "../../core/add-ons";
@@ -15,7 +11,7 @@ import { connector, settings } from "../../core/settings";
 import { answerCheck } from "../../memory/answer-check";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { readInbox } from "../../memory/checks";
-import { Ask, requestDecision } from "../../memory/decisions";
+import { DecisionRequest, requestDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/memory-files";
 import { openById } from "../../memory/open-by-id";
 import { paymentsOf } from "../../memory/payments";
@@ -44,6 +40,10 @@ import {
   DirectoryEntryChange,
 } from "../change-directory-entry";
 import {
+  changeRegisteredAgent,
+  RegisteredAgentChange,
+} from "../change-registered-agent";
+import {
   Asked,
   AutoAdded,
   autoAddTodoItem,
@@ -58,9 +58,24 @@ import {
   PollParams,
   pollEvents,
 } from "../events";
+import {
+  agentLinesOnProjects,
+  agentLinesOnSteps,
+  readAgentMarks,
+  readRegisteredAgents,
+} from "../registered-agents";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
+import {
+  agentIn,
+  cut,
+  READERS,
+  REVERSIBLE,
+  tool,
+  WRITES,
+  who,
+} from "./mcp-tool";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
@@ -97,26 +112,6 @@ export function personPageDescription() {
   ];
   return `Read it before he meets, calls or writes to someone, and for any question about a person. Returns the person in parts of about 6,000 characters; this call is the first, \`now\`: their details (birthday, where they live, work, family, handles: from his directory and his Contacts); how close they are; the last exchange; how each writes to the other (their communication style: draft his messages to them in it); what is open between them, whatever its day (what he owes them, then what he waits on from them); their Situation (where things stand now${hasAddOn("relationships") ? ": together or not, how they get along" : ""}, read nightly from the 30 days up to their newest episode); and what their time together was about (the titles of their last episodes, by month). It ends with Next reads, refs you open with \`fetch\`: ${reads.join(", ")}. ${offers.some((o) => o.part === "story") ? "Go deeper the same way: story names each year, a year its months' summaries, a month its words and days, evidence its days with ids; " : "Evidence names its days with ids; "}\`fetch\` an id for the conversation. \`before\` (a day) returns the evidence older than it. Old chats: \`read_chats\` (\`who\`, \`from\`). A name no one goes by lists the names near it. With no name, lists who has a page.`;
 }
-
-const READ_ONLY = {
-  destructiveHint: false,
-  openWorldHint: false,
-  readOnlyHint: true,
-};
-// `correct_memory`, `change_directory_entry` and `change_todo_item` stay on the `life:read` token: one owner, checked by `sub`. `correct_memory` is destructive (a merge
-// of two people is hard to undo), so clients ask first.
-const WRITES = {
-  destructiveHint: true,
-  idempotentHint: false,
-  openWorldHint: false,
-  readOnlyHint: false,
-};
-
-/**
- * `change_todo_item` writes, but only his own Reminders (a remove goes to Recently Deleted) and Life's ledger, and
- * nothing it does is lost or hard to undo: not destructive, so an agent uses it unattended.
- */
-const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
 const ChangeTodoItemArgs = Change.extend({
   obs: ObservationId.optional().describe(
@@ -176,17 +171,6 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** What an agent asks (`request_decision`): an `Ask` less the desk's stamp, or a withdrawal; `requestDecision` checks the rest. */
-const RequestDecisionArgs = Ask.omit({ agent: true })
-  .partial()
-  .extend({
-    why: Ask.shape.why,
-    withdraw: z
-      .string()
-      .optional()
-      .describe("A decision id you asked, to withdraw it (with `why`)"),
-  });
-
 /** What an agent's token may not write: his own words (`tell_life`), his answer to a check. */
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
@@ -199,46 +183,6 @@ export async function correct(a: z.infer<typeof Correct>) {
   return `Done: ${a.kind}.`;
 }
 
-/** A tool's work: its arguments, and the caller's agent (its grant's agent claim), none for a plain app. */
-type Tool<S extends z.ZodObject> = (
-  args: z.infer<S>,
-  agent: string | undefined
-) => Promise<string | Record<string, unknown> | null>;
-
-const respond = (body: string, isError: boolean) => ({
-  content: [{ text: body, type: "text" as const }],
-  isError,
-});
-
-/** The answer as text, JSON sent once as text (null: the question named nothing to look for); a throw is an error to the client. */
-async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
-  try {
-    const a = await run();
-    return a !== null && typeof a === "object"
-      ? respond(JSON.stringify(a), false)
-      : respond(a ?? "Give more to look for.", a === null);
-  } catch (e) {
-    return respond((e as Error).message, true);
-  }
-}
-
-/** The ids an answer cites: observations, episodes, units, matters, ledger entries (`entry_`: to-do items, tasks) and conversations (UUIDs). */
-const IDS =
-  /\b(?:obs|ep|unit|entry|matter)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
-
-/** The arguments with every string clipped to 200 chars. */
-const cut = (args: unknown) =>
-  JSON.parse(
-    JSON.stringify(args, (_, v) => (typeof v === "string" ? clip(v, 200) : v))
-  );
-
-/** Who asked, on every `mcp.call` line: the OAuth client and its grant's agent claim. */
-const who = (auth?: AuthInfo) => ({
-  agent: agentIn(auth),
-  client: auth?.clientId,
-});
-const agentIn = (auth?: AuthInfo) =>
-  typeof auth?.extra?.agent === "string" ? auth.extra.agent : undefined;
 /** The caller's agent, for the tools that are an agent's own; a plain app is refused. */
 function agentOnly(agent: string | undefined) {
   if (!agent) {
@@ -247,59 +191,6 @@ function agentOnly(agent: string | undefined) {
     );
   }
   return agent;
-}
-
-/** The schema clients see, but every call reaches `tool()`, which validates it: invalid arguments are logged like any call. */
-const unchecked = (s: z.ZodObject) => ({
-  "~standard": { ...s["~standard"], validate: (value: unknown) => ({ value }) },
-});
-
-/** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
-const READERS = new WeakSet<McpServer>();
-
-/** Registers one tool. Each call logs who asked (OAuth client, agent claim), the arguments, and what surfaced without its text: length, cited ids, error. */
-function tool<S extends z.ZodObject>(
-  server: McpServer,
-  name: string,
-  description: string,
-  inputSchema: S,
-  run: Tool<S>,
-  annotations = READ_ONLY
-) {
-  if (READERS.has(server) && annotations !== READ_ONLY) {
-    return;
-  }
-  server.registerTool(
-    name,
-    {
-      annotations,
-      description,
-      inputSchema: unchecked(inputSchema) as unknown as z.ZodObject,
-    },
-    async (args, ctx) => {
-      const started = performance.now();
-      const parsed = inputSchema.safeParse(args);
-      const result = await answer(() => {
-        if (!parsed.success) {
-          throw new Error(
-            `Invalid arguments: ${z.prettifyError(parsed.error)}`
-          );
-        }
-        return run(parsed.data as z.infer<S>, agentIn(ctx.http?.authInfo));
-      });
-      const body = result.content.map((c) => c.text).join("");
-      log("mcp.call", {
-        ...who(ctx.http?.authInfo),
-        args: cut(args),
-        chars: body.length,
-        error: result.isError,
-        ids: [...new Set(body.match(IDS))],
-        ms: Math.round(performance.now() - started),
-        tool: name,
-      });
-      return result;
-    }
-  );
 }
 
 /**
@@ -378,18 +269,18 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on and what is next. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on, what is next and the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
-    (q) => openMatters(q)
+    (q) => openMatters(q, readAgentMarks())
   );
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, and every step in time order with its day and words (the episodes, observations and to-do items that belong to it).",
+    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, every step in time order with its day and words (the episodes, observations and to-do items that belong to it), and its Agents: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -398,16 +289,16 @@ export function buildServer(readsOnly = false) {
           "A matter id, or the id of one of its steps (an observation or a to-do item)."
         ),
     }),
-    ({ id }) => oneMatter(id)
+    ({ id }) => oneMatter(id, agentLinesOnSteps)
   );
   tool(
     server,
     "read_area_page",
-    "For a project or a part of his life (a business, the house, health): its area page and its latest observations. A project's id or name reads its area, after the project's line; a name that is neither lists the ids.",
+    "For a project or a part of his life (a business, the house, health): its area page and its latest observations, then the registered agents on it. A project's id or name reads its area, after the project's line; a name that is neither lists the ids.",
     z.object({
       name: z.string().min(1).describe("Area or project id or name"),
     }),
-    ({ name }) => area(name)
+    ({ name }) => area(name, agentLinesOnProjects)
   );
   tool(
     server,
@@ -510,9 +401,29 @@ export function buildServer(readsOnly = false) {
   );
   tool(
     server,
+    "read_registered_agents",
+    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, handed_over, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
+    z.object({}),
+    async () => ({ ...(await readRegisteredAgents()) })
+  );
+  tool(
+    server,
+    "change_registered_agent",
+    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project, with `folder` (and `runtime`, `model`, `effort`, else the desk's defaults; his words are its brief); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    RegisteredAgentChange,
+    (a, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      return changeRegisteredAgent(a);
+    },
+    WRITES
+  );
+  tool(
+    server,
     "request_decision",
     "As a paired agent, ask the owner a decision instead of mailing or messaging him: it joins his one list (`read_inbox`, the nightly report, a push as its deadline nears). `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids) and `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject` (a matter step's id: it leaves the list when the matter ends; or `project:<id>`, `area:<id>`). Or `withdraw` (a decision id you asked) with `why`. Returns its id and a `cursor`: poll `read_new_events` from it for `decision.answered` (his answer) and `decision.lapsed` (no answer by the deadline: take `onSilence`).",
-    RequestDecisionArgs,
+    DecisionRequest,
     async ({ withdraw, why, ...ask }, agent) => {
       const asker = agentOnly(agent);
       const cursor = decisionCursorOf(clock());

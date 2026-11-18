@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { DAY, HOUR, iso, MIN } from "../core/clock";
-import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
-import { AgentWait } from "../records/registered-agent";
+import { DAY, iso, MIN } from "../core/clock";
 import {
   type AgentRow,
   type EventRow,
   filtersOf,
   type TurnRow,
-} from "./desk-store";
+} from "../host/desk-read";
+import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
+import { AgentWait } from "../records/registered-agent";
 
 // The wait contract's rules (docs: the desk spec, section 6), pure: rows and the time in, a decision out. The clock
 // (`desk-clock.ts`) and the agent's actions (`agent-actions.ts`) apply them.
@@ -32,8 +32,6 @@ export const GROWTH_LIMIT = 30_000;
 export const STARTS_PER_TICK = 3;
 /** His answer to an agent's decision, or its lapse: either wakes the agent at once. */
 export const ANSWERS = [DECISION_ANSWERED, DECISION_LAPSED];
-const LATE_AFTER = 10 * MIN;
-const SILENT_AFTER = HOUR;
 
 const at = (t: string) => new Date(t).getTime();
 
@@ -104,29 +102,4 @@ export function dueOf(a: AgentRow, turns: TurnRow[], events: EventRow[]) {
     cause: "event",
   };
   return event.at < deadline.at ? event : deadline;
-}
-
-/**
- * What shows amber for an agent, worked out when read, never stored: its default wait, a deadline over 10 minutes late
- * with no turn, a turn silent (no door call, no hook) for over an hour, and its dropped events.
- */
-export function flagsOf(
-  a: AgentRow,
-  open: TurnRow | null,
-  dropped: number,
-  now: number
-) {
-  const heard = open
-    ? Math.max(
-        ...[open.started_at, open.heard_at, open.reminded_at].map((t) =>
-          t ? at(t) : 0
-        )
-      )
-    : 0;
-  return {
-    defaultWait: a.wait_is_default === 1,
-    dropped,
-    late: !open && a.wait_until !== null && now - at(a.wait_until) > LATE_AFTER,
-    silent: open !== null && now - heard > SILENT_AFTER,
-  };
 }

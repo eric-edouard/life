@@ -6,7 +6,14 @@ import { argsOf, usageOf } from "./claude-runtime";
 
 test("the claude runtime puts the door's key in the environment, never the command line", () => {
   const door = doorOf("agt_0123456789ab");
-  const a = { door, folder: "/tmp", id: "agt_0123456789ab", title: "Test" };
+  const a = {
+    door,
+    effort: null,
+    folder: "/tmp",
+    id: "agt_0123456789ab",
+    model: null,
+    title: "Test",
+  };
   const argv = [
     ...argsOf(a, "hello", { start: "u-1" }),
     ...argsOf(a, "again", { resume: "u-1" }),
@@ -20,6 +27,17 @@ test("the claude runtime puts the door's key in the environment, never the comma
     "--resume",
     "u-1",
   ]);
+  // His model and effort, when the agent has them; none leaves Claude's own.
+  const chosen = argsOf({ ...a, effort: "high", model: "test-model" }, "x", {
+    resume: "u-1",
+  });
+  expect(chosen.slice(4, 8)).toEqual([
+    "--model",
+    "test-model",
+    "--effort",
+    "high",
+  ]);
+  expect(argsOf(a, "x", { resume: "u-1" })).not.toContain("--model");
 });
 
 test("a transcript's usage: growth since its first call, and its last turn's calls counted once each", () => {

@@ -91,6 +91,7 @@ test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
 const night = (facts: number) =>
   ({
     acted: { actions: [], problems: [] },
+    agents: [],
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     birthdays: [],
@@ -332,6 +333,24 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     text.indexOf("Birthdays")
   );
   expect(text).toContain("Checks (1)\n- Life thinks this is Zed");
+  // The Agents section comes second, each row as given.
+  n.agents = [
+    { name: "agt_000000000001 [waiting] Bakery order", relation: "claude" },
+    {
+      name: "daily-plan · 2026-10-15",
+      relation: "Plan ready · https://example.com/p",
+    },
+  ];
+  const withAgents = successReport("2026-10-15", 1000, n).text;
+  expect(withAgents).toContain(
+    "Agents (2)\n- agt_000000000001 [waiting] Bakery order: claude\n- daily-plan · 2026-10-15: Plan ready"
+  );
+  expect(withAgents.indexOf("Waiting on you")).toBeLessThan(
+    withAgents.indexOf("Agents (2)")
+  );
+  expect(withAgents.indexOf("Agents (2)")).toBeLessThan(
+    withAgents.indexOf("Birthdays")
+  );
 });
 
 test("the Code section lists yesterday's rows and this night's new repos", () => {

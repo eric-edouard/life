@@ -28,9 +28,13 @@ export function areaFor(
 
 /**
  * `bun life memory area <id or name>`: an area's page and latest observations. A project's id or name reads its area,
- * after the project's line; a name that is neither lists the ids.
+ * after the project's line; a name that is neither lists the ids. Then `agentLinesOf`'s Agents part (from host): the
+ * agents on the project, or on each project of the area.
  */
-export async function area(name: string) {
+export async function area(
+  name: string,
+  agentLinesOf: (projects: string[]) => string[] = () => []
+) {
   const truth = await loadTruth();
   const { id, project } = areaFor(name, truth);
   if (!id) {
@@ -38,6 +42,11 @@ export async function area(name: string) {
   }
   const file = Bun.file(pagePath(`area:${id}`));
   const text = (await file.exists()) ? await file.text() : null;
+  const agents = agentLinesOf(
+    project
+      ? [project.id]
+      : truth.projects.filter((p) => p.area === id).map((p) => p.id)
+  );
   return withIndex((db) => [
     ...(project
       ? [
@@ -46,6 +55,7 @@ export async function area(name: string) {
         ]
       : []),
     ...pageAndLatest(db, text, latest(db, "where o.area = ?", id).map(line)),
+    ...(agents.length > 0 ? ["", "Agents:", ...agents] : []),
   ]);
 }
 

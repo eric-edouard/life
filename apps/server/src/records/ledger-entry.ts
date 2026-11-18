@@ -19,7 +19,8 @@ export const TODO_CHANGE_KINDS = [
 /**
  * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the to-do item's fields; `target` what was touched. An ask
- * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`).
+ * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: the agent pulls it (`read_agent_asks`);
+ * one for the desk (`agent` `DESK_AGENT`) from `change_registered_agent` also has `agentChange` (`AgentChange`), which the desk applies.
  * `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies until 2 Nov 2026, Life's nudges and his steers until 20 Oct; they only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */

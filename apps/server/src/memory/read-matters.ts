@@ -27,15 +27,21 @@ const WHO = [
 const stepLine = (s: MatterStepNow) =>
   `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${oneLine(s.quote)}"`;
 
+/** A matter's steps' ids: what an agent working on it is anchored on. */
+const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
+
 /**
  * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each with its matter
- * status, who it is owed to, who is waited on and what is next.
+ * status, who it is owed to, who is waited on, what is next, and `markOf`'s mark (the agent on it, from host).
  */
-export async function openMatters(q: {
-  area?: string;
-  person?: string;
-  project?: string;
-}) {
+export async function openMatters(
+  q: {
+    area?: string;
+    person?: string;
+    project?: string;
+  },
+  markOf: (steps: string[]) => string = () => ""
+) {
   const people = await readPeople();
   const { truth } = people;
   const known = q.person ? meant(q.person, people).known : undefined;
@@ -73,7 +79,8 @@ export async function openMatters(q: {
               ? [`${label} ${of(v).map(people.nameOf).join(", ")}`]
               : []
           );
-          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}`;
+          const mark = markOf(refsOf(v));
+          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}${mark ? `; ${mark}` : ""}`;
         })
         .join("\n");
 }
@@ -81,9 +88,12 @@ export async function openMatters(q: {
 /**
  * One matter, by its id or the id of one of its steps (an observation or a to-do item key: an agent anchored on a record
  * finds its matter again after a re-group): where it stands, its people by role, projects and areas, and its steps in
- * time order, each with its day and words.
+ * time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it now and before, from host).
  */
-export async function oneMatter(id: string) {
+export async function oneMatter(
+  id: string,
+  agentLinesOf: (steps: string[]) => string[] = () => []
+) {
   const people = await readPeople();
   const book = await readMatterBook(people, dayNow());
   const v =
@@ -92,6 +102,7 @@ export async function oneMatter(id: string) {
   if (!v) {
     return `No matter ${id}.`;
   }
+  const agents = agentLinesOf(refsOf(v));
   return [
     `${v.id} ${v.name} [${v.status}]`,
     ...WHO.flatMap(([label, of]) =>
@@ -104,5 +115,6 @@ export async function oneMatter(id: string) {
     ...(v.next ? [`Next: ${v.next.text}`] : []),
     "Steps, oldest first:",
     ...v.steps.map(stepLine),
+    ...(agents.length > 0 ? ["Agents:", ...agents] : []),
   ].join("\n");
 }
