@@ -9,7 +9,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { untilAnswers } from "../core/proc";
-import { pendingKeysOf, RUN_BRIDGES, withKeys } from "./bridges";
+import { pendingKeysOf } from "./app-keys";
+import { RUN_BRIDGES, withKeys } from "./bridges";
 
 // A made-up program: says it started, and that it was stopped on TERM.
 const program = (name: string) =>

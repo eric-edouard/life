@@ -24,7 +24,9 @@ import {
   configOf,
   ghostOf,
   isBridgeAdded,
+  isBridgeLinked,
   localpartOf,
+  loginIdsOf,
   matrixSend,
   OWNER,
   readHomeserverRooms,
@@ -41,9 +43,10 @@ import type { CallNotice, Network } from "./networks";
 
 /**
  * A network's archive: the Matrix-shaped versions table, how far the homeserver's events were copied (`copied`), and
- * when Life's own copy of it began (`cutover`, once): what the bridge backfilled from before it is never read, the
- * history there is the earlier copy's (imported 30 Oct 2026). One copier at a time (`copierOf`): the bridge, or Beeper
- * from the newest message the bridge copied on (`copyBeeper`), so each time is read from one of them.
+ * each time the bridge took over from an earlier copy (`cutover`, appended: the import of 30 Oct 2026, a switch from
+ * Beeper): what the bridge backfilled from before a cutover is never read (`asReadOf`), the history there is the
+ * earlier copy's. One copier at a time (`copierOf`): the bridge, or Beeper from the newest message the bridge copied on
+ * (`copyBeeper`), so each time is read from one of them.
  */
 export const openBridged = (name: string, dir: string) =>
   openArchive(
@@ -82,13 +85,9 @@ interface Content {
 
 /** His side on this bridge: his own account, and the ghosts of his logins (his messages from his phone). */
 function hisIds(bridge: string) {
-  const logins =
-    withBridgeDb(bridge, (db) =>
-      db.query<{ id: string }, []>("select id from user_login").all()
-    ) ?? [];
   return new Set([
     OWNER,
-    ...logins.map((l) => ghostOf(bridge, localpartOf(l.id))),
+    ...loginIdsOf(bridge).map((id) => ghostOf(bridge, localpartOf(id))),
   ]);
 }
 
@@ -301,8 +300,9 @@ export function copyBridged(
       }
     }
     const last = events.at(-1)?.stream;
-    // One transaction: the versions and how far they were copied land together.
+    // One transaction: the versions, how far they were copied and a switch's cutover land together.
     const added = archive.transaction(() => {
+      cutOverFromBeeper(archive, readHomeserverRooms(synapse));
       const n = insertVersions(archive, files, rows);
       if (last) {
         archive.run("delete from copied");
@@ -315,6 +315,36 @@ export function copyBridged(
     hs.close();
     archive.close();
   }
+}
+
+/**
+ * The bridge's first pass after Beeper copied (the newest message held, an export row aside, is not in a homeserver
+ * room) appends a cutover just after Beeper's newest message: from it on the bridge's rows are read, and what the bridge
+ * backfills from before it is Beeper's (`asReadOf`). Nothing is changed: a row is only appended, and a pass before the
+ * bridge copies anything adds the same cutover once.
+ */
+function cutOverFromBeeper(archive: Database, rooms: string[]) {
+  const json = JSON.stringify(rooms);
+  const newest = archive
+    .query<{ own: number }, [string]>(
+      `select m.chat in (select value from json_each(?)) as own from messages m
+        where not (${EXPORT_ROW}) order by m.rowid desc limit 1`
+    )
+    .get(json);
+  if (!newest || newest.own) {
+    return;
+  }
+  const last = archive
+    .query<{ at: string }, [string]>(
+      `select max(m.at) as at from messages m
+        where not (${EXPORT_ROW}) and m.chat not in (select value from json_each(?))`
+    )
+    .get(json)?.at as string;
+  const at = new Date(Date.parse(last) + 1).toISOString();
+  archive.run(
+    "insert into cutover select ? where not exists (select 1 from cutover where at >= ?)",
+    [at, at]
+  );
 }
 
 /**
@@ -402,27 +432,28 @@ function withCalls(events: SourceEvent[], notices: Map<string, CallNotice>) {
 const keyOf = (r: { at: string; chat: string }) => `${r.chat} ${r.at}`;
 
 /**
- * A version the readers take (alias `m`): not what the bridge backfilled from before its cutover (written after it,
- * about a time before it: that time is the earlier copy's), but an export row, whose import chose it (`EXPORT_ROW`).
+ * A version the readers take (alias `m`), given the homeserver's rooms: not what the bridge backfilled from before a
+ * cutover (a version of its own room written after it, about a time before it: that time is the earlier copy's,
+ * Beeper's or the import's), but an export row, whose import chose it (`EXPORT_ROW`). Only the homeserver's own rooms
+ * are hidden: what Beeper copied after a cutover's time is still Beeper's only copy.
  */
-export const AS_READ = `(${EXPORT_ROW} or not (m.at < coalesce((select min(at) from cutover), '')
-      and m.seenAt >= coalesce((select min(at) from cutover), '')))`;
+export const asReadOf = (rooms: readonly string[]) =>
+  `(${EXPORT_ROW} or not (m.chat in (select value from json_each('${JSON.stringify(rooms).replaceAll("'", "''")}'))
+      and exists (select 1 from cutover c where m.at < c.at and m.seenAt >= c.at)))`;
 
-/** Of the archive's versions, the latest ones the readers take (`AS_READ`). */
-const SINCE_CUTOVER = `${LATEST_VERSIONS}
-    and ${AS_READ}`;
-
-/** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`), its calls as phone calls. */
+/** The network's messages since `since`, from its archive, oldest first (the latest versions `asReadOf` takes), its calls as phone calls. */
 export function readBridged(
   { callOf, name: bridge }: Network,
   since: Date,
   archive = ARCHIVE,
-  before?: Date
+  before?: Date,
+  synapse = SYNAPSE
 ): SourceEvent[] {
   const notices = new Map<string, CallNotice>();
   const events = readArchived<Row & { files: string | null; type: string }>(
     bridge,
-    SINCE_CUTOVER,
+    `${LATEST_VERSIONS}
+    and ${asReadOf(readHomeserverRooms(synapse))}`,
     since,
     archive,
     (s) => s,
@@ -491,19 +522,23 @@ function beeperChats(network: string, beeper: string) {
 }
 
 /**
- * Who copies a network into its archive: its bridge, when one is added on this Mac; else Beeper Desktop, when it holds
- * an account of the network (LINE allows one such session: he keeps LINE in Beeper, 6 Nov 2026); else no one.
+ * Who copies a network into its archive: its bridge once he has linked it (it holds a login); else Beeper Desktop, when
+ * it holds an account of the network (LINE allows one session: he moved it from Beeper to Life's own bridge, 18 Nov
+ * 2026, and linking ends Beeper's), so no gap opens before he links; else the bridge when one is added; else no one.
  * `beeper-closed` while Beeper's store can't say: only Beeper could be copying it, so the archive opens it.
  */
 export function copierOf(network: string, beeper = BEEPER) {
-  if (isBridgeAdded(network)) {
+  if (isBridgeLinked(network)) {
     return "bridge" as const;
   }
   const chats = beeperChats(network, beeper);
   if (!chats) {
     return "beeper-closed" as const;
   }
-  return chats.length > 0 ? ("beeper" as const) : undefined;
+  if (chats.length > 0) {
+    return "beeper" as const;
+  }
+  return isBridgeAdded(network) ? ("bridge" as const) : undefined;
 }
 
 // Beeper caches mxc://<host>/<id> at media/<host>/<id>, localmxc://<bridge>/<id> at media/localhost<bridge>/<id>.
@@ -557,7 +592,7 @@ const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat,
 /**
  * Copies a network's new and changed messages from Beeper Desktop's store into the network's archive, as the 30 Oct
  * import wrote Beeper's history there: each version kept (Beeper blanks a deleted message), its cached files cloned.
- * Only what comes after the bridge's copy (the newest message in one of the homeserver's rooms) and after the cutover
+ * Only what comes after the bridge's copy (the newest message in one of the homeserver's rooms) and after the newest cutover
  * (`openBridged`), so no time is copied twice. Beeper's whole table each pass: it backfills old chats at any time.
  * Returns how many versions were new.
  */
@@ -580,7 +615,7 @@ export function copyBeeper(
   try {
     const after = archive
       .query<{ at: string | null }, [string]>(
-        `select max(at) as at from (select min(at) as at from cutover
+        `select max(at) as at from (select max(at) as at from cutover
            union all select max(at) from messages where chat in (select value from json_each(?)))`
       )
       .get(JSON.stringify(readHomeserverRooms(synapse)))?.at;

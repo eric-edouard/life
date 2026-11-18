@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
@@ -28,10 +20,12 @@ import {
   readBlock,
   readLogins,
   readOwnerAccount,
+  readYaml,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
+import { configPath, needsAppKeys, pendingAppKeys } from "./app-keys";
 import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
@@ -46,33 +40,8 @@ const PYTHON = join(VENV, "python");
 const HOMESERVER_YAML = join(SYNAPSE_DIR, "homeserver.yaml");
 const PORT = Number(new URL(HOMESERVER_URL).port);
 
-const readYaml = (path: string) =>
-  Bun.YAML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 const writeYaml = (path: string, value: unknown) =>
   writeFileSync(path, Bun.YAML.stringify(value, null, 2));
-
-const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
-
-const valueAt = (c: unknown, path: string) =>
-  path
-    .split(".")
-    .reduce<unknown>(
-      (o, k) => (o as Record<string, unknown> | undefined)?.[k],
-      c
-    );
-
-/** The keys still holding the example config's value (a placeholder), and whether that value is a number. */
-export const pendingKeysOf = (
-  paths: readonly string[],
-  config: unknown,
-  example: unknown
-) =>
-  paths
-    .filter((p) => valueAt(config, p) === valueAt(example, p))
-    .map((path) => ({
-      isNumber: typeof valueAt(example, path) === "number",
-      path,
-    }));
 
 /** The config with each key set (a dotted path), the rest kept. */
 export function withKeys(config: unknown, values: Record<string, unknown>) {
@@ -93,29 +62,6 @@ export function withKeys(config: unknown, values: Record<string, unknown>) {
   return out;
 }
 
-/** Its `appKeys` still the example's: the example is the one the bridge itself writes (`-e`), so Life holds no placeholder. */
-async function pendingAppKeys(n: Network) {
-  if (!n.appKeys) {
-    return [];
-  }
-  const tmp = mkdtempSync(join(tmpdir(), "bridge-example-"));
-  try {
-    const example = join(tmp, "config.yaml");
-    await execOk([join(BRIDGES, n.name, "bridge"), "-c", example, "-e"], {
-      cwd: tmp,
-    });
-    return pendingKeysOf(
-      n.appKeys.paths,
-      readYaml(configPath(n)),
-      readYaml(example)
-    );
-  } finally {
-    rmSync(tmp, { force: true, recursive: true });
-  }
-}
-
-/** A bridge that exits until he fills in its keys: its login can't be waited for (the one job restarts it every 10 s). */
-const needsAppKeys = async (n: Network) => (await pendingAppKeys(n)).length > 0;
 const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /**

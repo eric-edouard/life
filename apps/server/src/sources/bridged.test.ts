@@ -18,7 +18,8 @@ import { NETWORKS, type Network } from "./networks";
 const BOT = "@linebot:life.local";
 const ANA = "@line_u1:life.local";
 const ME = "@line_u_me:life.local";
-const ROOM = "!r1:life.local";
+// A room version 12 id: no server part, so only the homeserver can say it is its own.
+const ROOM = "!AbCd123";
 
 /** A made-up homeserver and LINE bridge: Ana and him in one room, the bridge's bot joined. */
 function stores() {
@@ -41,6 +42,8 @@ function stores() {
   hs.run(`create table events (stream_ordering integer primary key, event_id text, room_id text, type text,
     sender text, origin_server_ts integer, rejection_reason text, outlier integer default 0)`);
   hs.run("create table event_json (event_id text, json text)");
+  hs.run("create table rooms (room_id text)");
+  hs.run("insert into rooms values (?)", [ROOM]);
   hs.run(`create table room_memberships (room_id text, user_id text, membership text, display_name text,
     event_stream_ordering integer)`);
   hs.run(
@@ -62,7 +65,8 @@ function stores() {
     type: string,
     sender: string,
     content: object,
-    extra: object = {}
+    extra: object = {},
+    at = 1_800_000_000_000 + (n + 1) * 1000
   ) => {
     n += 1;
     const id = `$e${n}`;
@@ -72,7 +76,7 @@ function stores() {
       ROOM,
       type,
       sender,
-      1_800_000_000_000 + n * 1000,
+      at,
     ]);
     hs.run("insert into event_json values (?, ?)", [
       id,
@@ -298,4 +302,207 @@ test("a bridged network sends into the homeserver's own rooms, whatever their id
   } finally {
     rmSync(SYNAPSE);
   }
+});
+
+/** A made-up archive row: `at`, `seenAt` and the message's text, in `chat`. */
+const row = (
+  db: Database,
+  [chat, eventId, at, seenAt, text]: [string, string, string, string, string],
+  id = 1
+) =>
+  db.run(
+    `insert into messages (id, eventId, chat, fromMe, at, type, text, deleted, seenAt)
+     values (?, ?, ?, 0, ?, 'm.text', ?, 0, ?)`,
+    [id, eventId, chat, at, text, seenAt]
+  );
+const stored = (dir: string) => {
+  const db = new Database(join(dir, "line.sqlite"));
+  const rows = db.query("select rowid, * from messages order by rowid").all();
+  const cutovers = db
+    .query<{ at: string }, []>("select at from cutover order by rowid")
+    .all()
+    .map((c) => c.at);
+  db.close();
+  return { cutovers, rows };
+};
+
+test("a network is copied from Beeper until he links its bridge, then from the bridge", () => {
+  stores();
+  const beeper = beeperStore([[1, Date.now(), "hi", 0]]);
+  const none = beeperStore([], "whatsapp.u0");
+  const logins = (rows: string[]) => {
+    const db = new Database(join(BRIDGES, "line", "line.db"));
+    db.run("delete from user_login");
+    for (const id of rows) {
+      db.run("insert into user_login values (?)", [id]);
+    }
+    db.close();
+  };
+  // Added, no login yet: Beeper while it holds the network, the bridge when it doesn't, and nothing is lost either way.
+  logins([]);
+  expect(copierOf("line", beeper)).toBe("beeper");
+  expect(copierOf("line", none)).toBe("bridge");
+  logins(["uMe"]);
+  expect(copierOf("line", beeper)).toBe("bridge");
+});
+
+test("the switch from Beeper to the bridge: each message once, nothing lost, nothing rewritten, and a second pass adds no cutover", () => {
+  const { event, synapse } = stores();
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  const db = openBridged("line", archive);
+  db.run("insert into cutover values ('2026-10-30T00:00:00.000Z')");
+  const BEEPER_CHAT = "!b1:beeper.local";
+  // An earlier bridge era (5 Nov), then what Beeper copied until 12:03, seen a few seconds after each.
+  row(db, [
+    ROOM,
+    "$old",
+    "2026-11-05T10:00:00.000Z",
+    "2026-11-05T10:00:01.000Z",
+    "from the first bridge era",
+  ]);
+  row(
+    db,
+    [
+      BEEPER_CHAT,
+      "$b1",
+      "2026-11-06T11:50:00.000Z",
+      "2026-11-06T11:50:04.000Z",
+      "see you at 8",
+    ],
+    2
+  );
+  row(
+    db,
+    [
+      BEEPER_CHAT,
+      "$b2",
+      "2026-11-06T12:03:00.000Z",
+      "2026-11-06T12:03:05.000Z",
+      "ok",
+    ],
+    3
+  );
+  db.close();
+  // He links: the bridge backfills the two he already has (new ids) and gets what came after.
+  const at = (hhmm: string) => Date.parse(`2026-11-06T${hhmm}:00.000Z`);
+  event(
+    "m.room.message",
+    ANA,
+    { body: "see you at 8", msgtype: "m.text" },
+    {},
+    at("11:50")
+  );
+  event(
+    "m.room.message",
+    ME,
+    { body: "ok", msgtype: "m.text" },
+    {},
+    at("12:03")
+  );
+  event(
+    "m.room.message",
+    ANA,
+    { body: "back", msgtype: "m.text" },
+    {},
+    at("12:05")
+  );
+  event(
+    "m.room.message",
+    ANA,
+    { body: "more", msgtype: "m.text" },
+    {},
+    at("12:10")
+  );
+  const before = stored(archive);
+  const now = Date.parse("2026-11-18T09:00:00.000Z");
+  expect(copyBridged("line", archive, now, synapse)).toBe(4);
+
+  const after = stored(archive);
+  expect(after.cutovers).toEqual([
+    "2026-10-30T00:00:00.000Z",
+    "2026-11-06T12:03:00.001Z",
+  ]);
+  const read = () =>
+    readBridged(NETWORKS[0], new Date(0), archive, undefined, synapse).map(
+      (e) => e.text
+    );
+  expect(read()).toEqual([
+    "from the first bridge era",
+    "see you at 8",
+    "ok",
+    "back",
+    "more",
+  ]);
+  // A second pass, and one with a new message: no second cutover.
+  expect(copyBridged("line", archive, now, synapse)).toBe(0);
+  event("m.room.message", ANA, { body: "later", msgtype: "m.text" });
+  expect(copyBridged("line", archive, now, synapse)).toBe(1);
+  expect(stored(archive).cutovers).toEqual(after.cutovers);
+  expect(read().at(-1)).toBe("later");
+  // Only appended: every row there before is as it was, in its place.
+  expect(stored(archive).rows.slice(0, before.rows.length)).toEqual(
+    before.rows
+  );
+  expect(stored(archive).rows.length).toBe(before.rows.length + 5);
+});
+
+test("a bridge that copied nothing yet adds its cutover once; an archive of export rows and bridge rows reads the same", () => {
+  const { synapse } = stores();
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  const db = openBridged("line", archive);
+  db.run("insert into cutover values ('2026-10-29T00:00:00.000Z')");
+  row(db, [
+    "!b1:beeper.local",
+    "$b1",
+    "2026-11-06T12:03:00.000Z",
+    "2026-11-06T12:03:05.000Z",
+    "from Beeper",
+  ]);
+  db.close();
+  copyBridged("line", archive, Date.now(), synapse);
+  copyBridged("line", archive, Date.now(), synapse);
+  expect(stored(archive).cutovers).toHaveLength(2);
+
+  // An Instagram-shaped archive: its one cutover, export rows, bridge rows (one backfilled from before the cutover).
+  const ig = mkdtempSync(join(tmpdir(), "archive-"));
+  const igDb = openBridged("line", ig);
+  igDb.run("insert into cutover values ('2026-10-29T00:00:00.000Z')");
+  row(igDb, [
+    "1000",
+    "export:1",
+    "2024-01-01T00:00:00.000Z",
+    "2026-11-12T00:00:00.000Z",
+    "from the export",
+  ]);
+  row(
+    igDb,
+    [
+      ROOM,
+      "$back",
+      "2026-10-01T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z",
+      "backfilled",
+    ],
+    2
+  );
+  row(
+    igDb,
+    [
+      ROOM,
+      "$new",
+      "2026-11-02T00:00:00.000Z",
+      "2026-11-02T00:00:01.000Z",
+      "arrived",
+    ],
+    3
+  );
+  igDb.close();
+  const read = () =>
+    readBridged(NETWORKS[0], new Date(0), ig, undefined, synapse).map(
+      (e) => e.text
+    );
+  expect(read()).toEqual(["from the export", "arrived"]);
+  copyBridged("line", ig, Date.now(), synapse);
+  expect(stored(ig).cutovers).toHaveLength(1);
+  expect(read()).toEqual(["from the export", "arrived"]);
 });
