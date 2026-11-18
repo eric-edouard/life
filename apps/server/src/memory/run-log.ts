@@ -42,7 +42,7 @@ const omit = (e: LogEvent | undefined) => {
   return rest;
 };
 
-/** What model calls spent and read, summed (`callsOf`): tokens, dollars, the calls with no cost (unpriced), units read by source. */
+/** What model calls spent and read, summed (`modelCallsOf`): tokens, dollars, the calls with no cost (unpriced), units read by source. */
 export interface Calls {
   costUsd: number;
   reads: CallReads;
@@ -302,7 +302,7 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
     r.outcome = outcomeOf(r, lockSince);
   }
   nest(list, orphans);
-  const callsBy = callsOf(events);
+  const callsBy = modelCallsOf(events);
   for (const r of list) {
     if (r.startedAt) {
       r.use = useOf(r, callsBy, byId);
@@ -312,7 +312,7 @@ export function assembleRuns(events: LogEvent[], lockSince: Date | null) {
 }
 
 /** The model calls (`model.run` lines) summed by run id: a call with no `costUsd` is unpriced. */
-export function callsOf(events: LogEvent[]) {
+export function modelCallsOf(events: LogEvent[]) {
   const by = new Map<string, Calls>();
   for (const e of events) {
     if (e.kind === "model.run" && e.run) {

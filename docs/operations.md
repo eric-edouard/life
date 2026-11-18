@@ -266,7 +266,7 @@ late with harm), or spoken asks above about one a day for a month.
   host list is the guarantee. Every host takes images (the files step sends them).
 - Every call logs its tokens, what it read (`reads`: units by source, `readsOf`) and, when its router sends one, its
   cost (`costUsd`; a call without it is unpriced) on its `model.run` line, with its run. A run's use is the sum of its
-  calls and every step nested in it (`callsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
+  calls and every step nested in it (`modelCallsOf`, `useOf`, run-log.ts: every logged run is assembled, whatever a reader
   shows). The nightly email lists every run of the last 24 h that called a model, a processing run's steps under it,
   then the spend by source; the quota lines appear only for an engine that has one (`hasQuota`).
 - `bun life memory source-use [--days 7] [--json]`: what each source costs a day (items and units, readers, model

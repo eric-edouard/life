@@ -29,7 +29,7 @@ import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
 import { answeredFactChecks } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
-import { callsOf } from "@life/server/src/memory/run-log";
+import { modelCallsOf } from "@life/server/src/memory/run-log";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
@@ -120,7 +120,7 @@ async function readDays(files: string[]) {
     );
     // This worktree's log holds this run alone so far: its calls' cost (a router's report one), else their tokens.
     const calls = [
-      ...callsOf(
+      ...modelCallsOf(
         (await logDays(LOG_DIR)).flatMap((n) =>
           logEvents<LogEvent>(n, "model.run")
         )

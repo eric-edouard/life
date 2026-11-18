@@ -46,6 +46,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     id: "unit_000000000001",
     people: ["person:jerome", "unknown:Bob"],
     source: "lifelog",
+    stats: { chars: 0, fromMe: 0, items: 1 },
     title: "Improving output prompts before advertising tests",
   } as unknown as Unit;
   const statusInputs = {
