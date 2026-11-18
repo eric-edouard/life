@@ -293,8 +293,8 @@ append-only: `directions` (each `goal`, one line: where the matter is going; `ne
 ids when drafted: the pin, never its id, so a re-group keeps it), `at`, `madeBy`, `schemaVersion`. A running matter is
 drafted when it has none, or once it has a step, or a step's ending, newer than its latest next step
 (`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
-`goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter one of its steps still
-finds; his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
+`goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
+steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
 its steps) is worked out when read (`nextStepNow`), never stored.
 
 ## read-replies/<YYYY-MM>.jsonl

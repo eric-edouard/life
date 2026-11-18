@@ -226,3 +226,23 @@ test("a matter waits on his decision while one he has not answered is about one 
     waitsOn: "his decision",
   });
 });
+
+test("a direction goes to the matter holding most of its pinned steps, though its first step is a unit another matter also holds", () => {
+  const shared = "unit_000000000001";
+  const own = ["obs_000000000002", "obs_000000000003"];
+  const pin: DirectionPin = {
+    at: "2026-11-18T02:00:00.000Z",
+    by: "life",
+    goal: "The parcel is home",
+    nextStep: { kind: "do", text: "Ask the courier" },
+    steps: [shared, ...own],
+  };
+  const other = { id: "matter_000000000010", steps: [{ ref: shared }] };
+  const mine = {
+    id: "matter_000000000011",
+    steps: [shared, ...own].map((ref) => ({ ref })),
+  };
+  const read = directionsOf([other, mine], [pin]);
+  expect(read.get(mine)?.goal?.text).toBe("The parcel is home");
+  expect(read.has(other)).toBe(false);
+});

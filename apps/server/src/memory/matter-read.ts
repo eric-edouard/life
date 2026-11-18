@@ -435,20 +435,32 @@ interface Found {
 }
 
 /**
- * The finder of the matter `refs` name, over `book`: the first ref that is a matter's id or one of its steps' finds it
- * (an agent's anchors, a pinned direction: the first step, then each later one). Pure; built once for many lookups.
+ * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
+ * unit can be a step of several matters), on a tie the first holder of the earliest ref (an agent's anchors, a pinned
+ * direction, a single id). Pure; built once for many lookups.
  */
 export function matterFinderOf<V extends Found>(book: readonly V[]) {
-  const by = new Map<string, V>();
+  const holders = new Map<string, V[]>();
   for (const v of book) {
-    for (const ref of [v.id, ...v.steps.map((s) => s.ref)]) {
-      if (!by.has(ref)) {
-        by.set(ref, v);
-      }
+    for (const ref of new Set([v.id, ...v.steps.map((s) => s.ref)])) {
+      holders.set(ref, [...(holders.get(ref) ?? []), v]);
     }
   }
-  return (refs: readonly string[]) =>
-    refs.map((r) => by.get(r)).find((v) => v !== undefined);
+  return (refs: readonly string[]) => {
+    const held = new Map<V, number>();
+    for (const ref of new Set(refs)) {
+      for (const v of holders.get(ref) ?? []) {
+        held.set(v, (held.get(v) ?? 0) + 1);
+      }
+    }
+    let best: [V, number] | undefined;
+    for (const [v, n] of held) {
+      if (!best || n > best[1]) {
+        best = [v, n];
+      }
+    }
+    return best?.[0];
+  };
 }
 
 /** The matter `refs` name (`matterFinderOf`), for one lookup. */
