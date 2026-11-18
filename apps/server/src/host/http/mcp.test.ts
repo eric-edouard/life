@@ -31,7 +31,7 @@ import {
 } from "../../sources/store-fixtures";
 import { ask } from "../asks";
 import { ownerTokens } from "./auth";
-import { buildServer, correct, createMcp } from "./mcp";
+import { buildServer, createMcp } from "./mcp";
 
 const { metadata, origin, resource: RESOURCE } = settingsOf();
 const ISSUER = `${origin}/auth`;
@@ -163,14 +163,14 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: the read-only tools; `correct_memory` asks for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
     name: string;
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
-    "answer_decision",
+    "answer_check",
     "change_directory_entry",
     "change_todo_item",
     "correct_memory",
@@ -205,16 +205,16 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
       )
       .sort()
   ).toEqual([
-    "answer_decision(id,note,options)",
+    "answer_check(note,options,person,ref)",
     "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
-    "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
+    "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
     "read_agent_asks(cursor,limit)",
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
-    "read_inbox()",
+    "read_inbox(limit)",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,person,project)",
@@ -245,7 +245,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
   const writes = [
-    "answer_decision",
+    "answer_check",
     "correct_memory",
     "change_directory_entry",
     "change_todo_item",
@@ -260,7 +260,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
   }
   for (const name of writes) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
-      destructiveHint: name === "correct_memory",
+      destructiveHint: name === "correct_memory" || name === "answer_check",
       openWorldHint: false,
       readOnlyHint: false,
     });
@@ -594,29 +594,30 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
-test("read_inbox keeps its output keys: decisions, then factChecks, each with doubts, from, quote, ref, text", async () => {
+test("read_inbox: the first checks in the one shape, counts by group and the total", async () => {
   const checks = await import("../../memory/checks");
-  const evidence = { from: "f", quote: "q" };
-  const check = [
-    { evidence, kind: "ending", question: "g", ref: "a", why: "w" },
-  ];
-  const spy = spyOn(checks, "checksNow").mockResolvedValue(check as never);
+  const check = (ref: string, group: string) => ({ group, ref });
+  const spy = spyOn(checks, "checksNow").mockResolvedValue([
+    check("a", "ending"),
+    check("b", "name"),
+    check("c", "ending"),
+  ] as never);
   try {
     const { json } = await rpc(await token(), "tools/call", {
-      arguments: {},
+      arguments: { limit: 2 },
       name: "read_inbox",
     });
-    const body = JSON.parse(json.result.content[0].text);
-    expect(Object.keys(body)).toEqual(["decisions", "factChecks"]);
-    expect(Object.keys(body.factChecks[0]).sort().join()).toBe(
-      "doubts,from,quote,ref,text"
-    );
+    expect(JSON.parse(json.result.content[0].text)).toEqual({
+      checks: [check("a", "ending"), check("b", "name")],
+      counts: { ending: 2, name: 1 },
+      total: 3,
+    });
   } finally {
     spy.mockRestore();
   }
 });
 
-test("an agent asks a decision, only he answers it, and read_inbox lists it until he has", async () => {
+test("an agent asks a decision; only he answers it, through answer_check; the agent is told by its own event, another agent is not", async () => {
   rmSync(DECISIONS, { force: true });
   const call = async (name: string, args: object, over = {}) =>
     (await rpc(await token(over), "tools/call", { arguments: args, name })).json
@@ -636,40 +637,46 @@ test("an agent asks a decision, only he answers it, and read_inbox lists it unti
   ).toMatchObject({ isError: true });
   const asked = await call("request_decision", decision);
   expect(asked.isError).toBe(false);
-  const { id } = JSON.parse(asked.content[0].text);
+  const { cursor, id } = JSON.parse(asked.content[0].text);
   const inbox = async () =>
-    JSON.parse((await call("read_inbox", {})).content[0].text).decisions;
+    JSON.parse((await call("read_inbox", {})).content[0].text).checks;
   const [listed] = await inbox();
   expect(listed).toMatchObject({
     asker: "Orbit",
-    id,
+    group: "decision",
     question: decision.question,
     recommended: ["yes"],
+    ref: id,
   });
-  expect(Object.keys(listed).sort().join()).toBe(
-    "asker,at,context,deadline,id,links,onSilence,options,question,recommended,why"
-  );
-  expect(await call("answer_decision", { id, options: ["yes"] })).toMatchObject(
-    { isError: true }
-  );
+  expect(
+    await call("answer_check", { options: ["yes"], ref: id })
+  ).toMatchObject({ isError: true });
   expect(
     await call(
-      "answer_decision",
-      { id, options: ["yes"] },
+      "answer_check",
+      { note: "go", options: ["yes"], ref: id },
       { agent: undefined }
     )
   ).toMatchObject({ isError: false });
   expect(await inbox()).toEqual([]);
+  const poll = async (over = {}) =>
+    JSON.parse(
+      (
+        await call(
+          "read_new_events",
+          { cursor, event: "decision.answered" },
+          over
+        )
+      ).content[0].text
+    ).events;
+  expect(await poll()).toMatchObject([
+    {
+      data: { answer: { note: "go", options: ["yes"] }, id },
+      name: "decision.answered",
+    },
+  ]);
+  expect(await poll({ agent: "Atlas" })).toEqual([]);
   rmSync(DECISIONS, { force: true });
-});
-
-test("a fact check's answer is his: an agent's token is refused", async () => {
-  await expect(
-    correct(
-      { answer: "true", kind: "fact_check", ref: "obs_000000000001" },
-      "orbit"
-    )
-  ).rejects.toThrow("an agent's words are not his");
 });
 
 test("tell_life keeps his words verbatim, marked, the question as the assistant's line; an agent's call is refused", async () => {

@@ -82,24 +82,22 @@ async function ended(n: number) {
   return () => records.mockRestore();
 }
 
-test("an answer to an ending writes its check first, then the answer, once", async () => {
+test("an answer to an ending writes its check first, then the answer; a second answer is refused", async () => {
   reset();
   const undo = await ended(2);
   const files = await import("../core/files");
   const append = spyOn(files, "appendJsonl");
   try {
-    await recordFactCheckAnswer(promise(1), "true");
-    await recordFactCheckAnswer(promise(1), "false", "changed my mind");
+    await recordFactCheckAnswer(promise(1), "outdated");
+    await expect(
+      recordFactCheckAnswer(promise(1), "false", "changed my mind")
+    ).rejects.toThrow("no open ending check");
   } finally {
     undo();
   }
   const written = append.mock.calls.map(([path]) => path);
   append.mockRestore();
-  expect(written).toEqual([
-    FACT_CHECKS,
-    FACT_CHECK_ANSWERS,
-    FACT_CHECK_ANSWERS,
-  ]);
+  expect(written).toEqual([FACT_CHECKS, FACT_CHECK_ANSWERS]);
   expect(readFactChecks().map((s) => [s.ref, s.text, s.endedBy])).toEqual([
     [promise(1), "Life thinks this is done: Call the shop 1", later(101)],
   ]);
@@ -124,7 +122,7 @@ test("an old unanswered doubt line on the same ref gets no ending answer, and ne
   const undo = await ended(1);
   try {
     await expect(recordFactCheckAnswer(promise(1), "false")).rejects.toThrow(
-      "no fact check"
+      "no open ending check"
     );
     expect((await checksNow()).some((c) => c.ref === promise(1))).toBe(false);
   } finally {
@@ -139,7 +137,7 @@ test("wrong removes those two ids' link for good and ends the step no more; righ
   linked(2);
   const undo = await ended(2);
   await recordFactCheckAnswer(promise(1), "false");
-  await recordFactCheckAnswer(promise(2), "true");
+  await recordFactCheckAnswer(promise(2), "outdated");
   undo();
   // A later batch ties the same ids again: still refused, and ends the step no more.
   linked(1);

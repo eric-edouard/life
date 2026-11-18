@@ -8,6 +8,7 @@ import {
   decisionsNow,
   pushDueOf,
   requestDecision,
+  settledBetween,
 } from "./decisions";
 
 const DECISION_ID = /^dec_[0-9a-f]{12}$/;
@@ -122,4 +123,14 @@ test("a decision is pushed once, as its deadline comes within 24 hours, or at on
   expect(due(NOW, later(DAY - 60_000))).toEqual([]);
   expect(due(later(DAY - 60_000), later(DAY))).toEqual(ids.slice(0, 1));
   expect(due(later(DAY), later(DAY + 60_000))).toEqual([]);
+});
+
+test("settled in a half-open window: an answer at a window's end comes in the next, once", async () => {
+  const { id } = await requestDecision("planner", ask(), NOW);
+  answerDecision(id, ["yes"], undefined, later(HOUR));
+  const all = decisionsNow(later(2 * HOUR));
+  expect(settledBetween(all, NOW, later(HOUR))).toEqual([]);
+  expect(settledBetween(all, later(HOUR), later(2 * HOUR))).toMatchObject([
+    { id, state: "answered" },
+  ]);
 });

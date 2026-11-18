@@ -499,10 +499,9 @@ The fact checks he answered, as he was shown them, append-only. Nothing is drawn
 
 ## fact-check-answers.jsonl
 
-The owner's answers to the fact checks (a `FactCheckAnswer`), append-only, written by `recordFactCheckAnswer` (his answer to a fact check in a chat, `correct_memory` `fact_check`; his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct; by hand `bun life memory answer-fact-check <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
+The owner's answers to the fact checks (a `FactCheckAnswer`), append-only, written by `recordFactCheckAnswer` (his answer to an ending check, `answer_check` or by hand `bun life memory answer-check <ref> <option> [why]`; `correct_memory` `fact_check` until 18 Nov 2026, his decisions-page tap before 8 Nov 2026, his fact-check loop before 30 Oct, and the check page before 29 Oct): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
-`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a check with a line here, or an ending check open now, can be
-answered. What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for an observation is the owner's answer. A `false` hides the observation as a `wrong` correction would
+`skip` or null (the owner took their last answer back); `note` his why, in his words. Only an ending check open now can be answered (from 18 Nov 2026; before, any line here too). What each answer means is one table (`ANSWERS`, `memory-files.ts`). The latest line for an observation is the owner's answer. A `false` hides the observation as a `wrong` correction would
 (`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
 same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction

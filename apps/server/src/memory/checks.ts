@@ -23,12 +23,17 @@ import { dayNow } from "./zones";
 // The checks: everything waiting on his word, in one shape and one list, with no limit. A check is one guess of Life's
 // that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
 // an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
-// listed while open, first. Derived when read, never stored: his answer is a correction (a person), an `outdated` word
-// (an ending), a fact-check answer or his answer to the decision.
+// listed while open, first. Derived when read, never stored: his answer (`answerCheck`, `answer-check.ts`) is a
+// correction (a person), a fact-check answer (an ending) or his answer to the decision, each in its kind's own store.
 
 type CheckKind = "decision" | "ending" | "person";
 /** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
-type CheckGroup = "decision" | "ending" | "guessed person" | "card" | "name";
+export type CheckGroup =
+  | "decision"
+  | "ending"
+  | "guessed person"
+  | "card"
+  | "name";
 
 /** One answer he can give: its id, as the tool that records it takes it, and what choosing it does. */
 export interface CheckOption {
@@ -170,21 +175,34 @@ function ctxOf(c: CheckInputs): Ctx {
   };
 }
 
-/** What he can answer a guess of Life's, as `correct_memory` takes it, and what each does. */
-const OPTIONS = {
+/** What he can answer each kind of Life's guesses, and what choosing it does (`answerCheck` writes it); `person`: who it is, as `answer_check` takes it. */
+export const OPTIONS = {
+  card: [
+    {
+      id: "same-person",
+      label: "It is this person (give `person`): the card becomes theirs",
+    },
+  ],
   ending: [
     { id: "outdated", label: "Done: the step closes" },
     { id: "false", label: "Not done: the link goes, the step stays open" },
   ],
-  person: [
-    { id: "this-is", label: "It is them: Life records who this is" },
+  "guessed person": [
+    { id: "this-is", label: "It is them: Life keeps the guess as his word" },
     { id: "not-this-person", label: "Not them: Life drops the guess" },
     {
       id: "same-person",
-      label: "Someone Life already knows: the two become one",
+      label: "Someone Life already knows (give `person`): the two become one",
     },
   ],
-} satisfies Record<Exclude<CheckKind, "decision">, CheckOption[]>;
+  name: [
+    {
+      id: "this-is",
+      label:
+        "It is this person (give `person`): the name reads as them from now on",
+    },
+  ],
+} as const satisfies Record<Exclude<CheckGroup, "decision">, CheckOption[]>;
 
 /** The guess of an ending check, in one place: the builder shows it and his answer stores it. */
 export const endingGuessOf = (step: string) =>
@@ -238,7 +256,7 @@ const newest = (lines: Line[]) =>
 
 function ranked(
   c: Ctx,
-  group: CheckGroup,
+  group: Exclude<CheckGroup, "decision">,
   fields: Pick<Check, "about" | "question" | "ref"> & {
     /** Life's own guess, when it has one (an option id), and why, when its question does not say. */
     guessed?: { option: string; why?: string };
@@ -266,7 +284,7 @@ function ranked(
             kind,
             links: [],
             onSilence: null,
-            options: OPTIONS[kind],
+            options: [...OPTIONS[group]],
             question: fields.question,
             recommended: fields.guessed ? [fields.guessed.option] : [],
             ref: fields.ref,
@@ -484,37 +502,15 @@ export async function checksNow(): Promise<Check[]> {
   });
 }
 
-/** The inbox (`read_inbox`): the open decisions, then the ending checks as he is asked them (the step, why Life thinks it is done, the words it came from). */
-export async function readInbox() {
+/** The inbox (`read_inbox`): the first `limit` checks, most pressing first, with how many there are of each group; answered ones leave, so reading again shows the next. */
+export async function readInbox(limit: number) {
   const list = await checksNow();
   return {
-    decisions: list.flatMap((c) =>
-      c.kind === "decision"
-        ? [
-            {
-              asker: c.asker,
-              at: c.at,
-              context: c.context ?? "",
-              deadline: c.deadline,
-              id: c.ref,
-              links: c.links,
-              onSilence: c.onSilence,
-              options: c.options,
-              question: c.question,
-              recommended: c.recommended,
-              ...(c.subject ? { subject: c.subject } : {}),
-              why: c.why,
-            },
-          ]
-        : []
+    checks: list.slice(0, limit),
+    counts: Object.fromEntries(
+      [...Map.groupBy(list, (c) => c.group)].map(([g, l]) => [g, l.length])
     ),
-    factChecks: list.filter(isEndingKind).map((c) => ({
-      doubts: c.why ? [c.why] : [],
-      from: c.evidence.from,
-      quote: c.evidence.quote,
-      ref: c.ref,
-      text: c.question,
-    })),
+    total: list.length,
   };
 }
 
