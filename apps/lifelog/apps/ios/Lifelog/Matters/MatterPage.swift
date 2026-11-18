@@ -28,13 +28,19 @@ struct MatterPage: View {
     private func page(_ matter: Matter) -> some View {
         let row = matter.row
         let open = life.inbox.value?.checks.first { $0.matter?.id == id }
-        let agent = matter.agents.first { $0.status != .ended }
+        // Life lists the active one first, else the newest past one: an ended agent shows how it ended.
+        let agent = matter.agents.first
+        let canStart = agent?.isOver ?? true
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header(matter)
                 GoalAndNext(matter: matter)
                 if let open { CardLink(check: open) { router.answer(card: open.ref) } }
-                if let agent { AgentBlock(agent: agent) } else { NoAgent() }
+                if let agent {
+                    AgentBlock(agent: agent, waitsOnYou: open != nil || row.wait == .decision)
+                } else {
+                    NoAgent()
+                }
                 People(people: row.people)
                 Steps(steps: matter.steps)
             }
@@ -43,10 +49,11 @@ struct MatterPage: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 8) {
             VStack(spacing: 8) {
-                if agent == nil {
-                    Button("Start an agent") { router.startSheetMatter = id }.buttonStyle(.pill(.filled))
+                if canStart {
+                    Button(agent == nil ? "Start an agent" : "Start again") { router.startSheetMatter = id }
+                        .buttonStyle(.pill(.filled))
                 }
-                DoneButton(matter: matter)
+                DoneButton(id: id)
             }
             .padding(.horizontal, 20).padding(.bottom, 8).readingWidth().background(Palette.bg)
         }
@@ -86,12 +93,12 @@ private struct GoalAndNext: View {
             EditableLine(
                 label: "Goal", text: matter.row.goal?.text ?? "",
                 state: life.state(of: .edit(matter: matter.row.id, .goal)),
-                save: { text in await life.setGoal(of: matter, text) })
+                save: { text in await life.setGoal(of: matter.row.id, text) })
             Hairline()
             EditableLine(
                 label: "Next step", text: matter.row.nextStep?.text ?? "",
                 state: life.state(of: .edit(matter: matter.row.id, .next)),
-                save: { text in await life.setNextStep(of: matter, NextStepRequest(kind: "do", text: text)) })
+                save: { text in await life.setNextStep(of: matter.row.id, NextStepRequest(kind: "do", text: text)) })
         }
         .card(radius: 22)
     }
@@ -188,12 +195,13 @@ private struct NoAgent: View {
 
 private struct AgentBlock: View {
     let agent: RegisteredAgent
+    /// A card of this matter waits on him, or its next step is his decision.
+    let waitsOnYou: Bool
     @Environment(LifeStore.self) private var life
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         let state = life.state(of: .agent(agent.id))
-        let isStopped = agent.status == .stopped
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Label(agent.runtimeName.name, systemImage: "sparkle").font(.leadBold).foregroundStyle(
@@ -202,7 +210,7 @@ private struct AgentBlock: View {
                     Text(model).font(.lead).foregroundStyle(Palette.muted)
                 }
                 Spacer()
-                if agent.wait?.reason == "his answer" { Caps("Waits on you", color: Palette.flag) }
+                if waitsOnYou && !agent.isOver { Caps("Waits on you", color: Palette.flag) }
             }
             Text(status).font(.leadBold).foregroundStyle(Palette.fg).fixedSize(
                 horizontal: false, vertical: true)
@@ -210,16 +218,28 @@ private struct AgentBlock: View {
                 Text("Last turn, \((turn.endedAt ?? turn.startedAt).formatted(.dateTime.hour().minute())): \(outcome)")
                     .font(.body15).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 8) {
-                if let link = agent.link.flatMap(URL.init(string:)) {
-                    Button {
-                        openURL(link)
-                    } label: {
-                        Text("Open in \(agent.runtimeName.name) \(Image(systemName: "arrow.up.right"))").lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                    .buttonStyle(.pill(.quiet, height: 48))
+            controls(state)
+            if case .failed(let failure, _) = state {
+                Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
+            }
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading).card(radius: 22)
+    }
+
+    /// Its session's link, and Stop or Resume while it is not over.
+    private func controls(_ state: ActionState<ActionProof>) -> some View {
+        let isStopped = agent.status == .stopped
+        return HStack(spacing: 8) {
+            if let link = agent.link.flatMap(URL.init(string:)) {
+                Button {
+                    openURL(link)
+                } label: {
+                    Text("Open in \(agent.runtimeName.name) \(Image(systemName: "arrow.up.right"))").lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
+                .buttonStyle(.pill(.quiet, height: 48))
+            }
+            if !agent.isOver {
                 Button {
                     Task { isStopped ? await life.resumeAgent(agent.id) : await life.stopAgent(agent.id) }
                 } label: {
@@ -229,21 +249,21 @@ private struct AgentBlock: View {
                 }
                 .buttonStyle(.pill(.quiet, height: 48)).disabled(state.isRunning)
             }
-            if case .failed(let failure, _) = state {
-                Text(failure.reason).font(.small).foregroundStyle(Palette.flag)
-            }
         }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading).card(radius: 22)
     }
 
     private var status: String {
         if let wait = agent.wait {
-            return "Waiting for \(wait.reason), until \(wait.until.formatted(.dateTime.weekday(.wide).hour().minute()))"
+            // The agent's own words for what it waits for, as it wrote them.
+            let until = wait.until.formatted(.dateTime.weekday(.wide).hour().minute())
+            return "\(wait.reason.prefix(1).uppercased())\(wait.reason.dropFirst()), until \(until)"
         }
+        if let why = agent.notStarted { return "Not started: \(why)" }
         switch agent.status {
         case .running: return "Working on it"
         case .stopped: return "Stopped"
-        case .ended, .handedOver: return agent.outcome ?? "Finished"
+        case .ended: return agent.outcome ?? "Finished"
+        case .handedOver: return agent.outcome ?? "Handed over"
         case .waiting, .unknown: return "Waiting"
         }
     }
@@ -261,7 +281,11 @@ private struct People: View {
         ].filter { !$0.1.isEmpty }
         if !groups.isEmpty {
             FlowLayout(spacing: 8) {
-                ForEach(groups.flatMap { role, names in names.map { (role, $0) } }, id: \.1) { role, name in
+                // One person can be in two roles: each pill is its role and name.
+                ForEach(
+                    groups.flatMap { role, names in names.map { (id: "\(role)/\($0)", role: role, name: $0) } },
+                    id: \.id
+                ) { _, role, name in
                     HStack(spacing: 8) {
                         Text(
                             name.split(separator: " ").prefix(2).compactMap { $0.first.map(String.init) }.joined()
@@ -314,14 +338,14 @@ private struct Steps: View {
 
 /// His word that the matter is done: an action, so it says what it is doing and what came of it.
 private struct DoneButton: View {
-    let matter: Matter
+    let id: String
     @Environment(LifeStore.self) private var life
 
     var body: some View {
-        let state = life.state(of: .edit(matter: matter.row.id, .done))
+        let state = life.state(of: .edit(matter: id, .done))
         VStack(spacing: 6) {
             Button {
-                Task { await life.markDone(matter) }
+                Task { await life.markDone(id) }
             } label: {
                 switch state {
                 case .running: Text("Marking it done…")

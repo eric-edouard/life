@@ -76,6 +76,42 @@ test("a name reads as the person he names, each way it was written; a card becom
   ]);
 });
 
+test("his app may name the person as he typed it: only one person his truth/ or Contacts name, never a guess or a shared name", async () => {
+  const readings: Record<string, object> = {
+    // Only Life's guess goes by "Kit": refused.
+    Kit: { by: "guess", isShared: false, ref: "person:inf_kit" },
+    // A unique name in truth/: recorded, and his result shows who.
+    "Kit Moreau": { by: "truth", isShared: false, ref: "person:kit" },
+    // Two people in truth/ or his Contacts share "Sam": refused.
+    Sam: { by: "contacts", isShared: true, ref: "person:con_sam" },
+  };
+  const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
+    nameOf: (r: string) => (r === "person:kit" ? "Kit Moreau" : r),
+    readingNow: (n: string) => readings[n] ?? null,
+  } as never);
+  try {
+    const answered = await answerCheck(card, {
+      options: ["same-person"],
+      person: "Kit Moreau",
+    });
+    expect(answered.recordedAs).toBe("Kit Moreau");
+    await Promise.all(
+      ["Kit", "Sam", "Nobody Known"].map((typed) =>
+        expect(
+          answerCheck(name, { options: ["this-is"], person: typed })
+        ).rejects.toThrow(
+          `Life doesn't know who "${typed}" is for sure; pick from the card or use their full name`
+        )
+      )
+    );
+    expect(said()).toEqual([
+      { from: card.ref, kind: "same-person", to: "person:kit" },
+    ]);
+  } finally {
+    people.mockRestore();
+  }
+});
+
 test("an ending goes to its fact-check answer", async () => {
   const record = spyOn(
     await import("./fact-checks"),
@@ -134,7 +170,6 @@ const item: NamingQueueItem = {
   kind: "new_person",
   likely: [DANA_ID],
   name: null,
-  namedPersonId: null,
   personId: null,
   voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
   words: 9,

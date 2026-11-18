@@ -69,10 +69,6 @@ public struct CachedConversation: Sendable, Equatable, Decodable, Identifiable {
     public var range: Range<CaptureInstant> {
         CaptureInstant(startAt)..<max(CaptureInstant(startAt), CaptureInstant(endAt))
     }
-    /// A recording from the old app: its edges are fixed, so it is never split or merged.
-    public var isImported: Bool { kind == .imported }
-    /// The owner's title always wins over a generated one.
-    public var shownTitle: String? { ownerTitle ?? title }
 }
 
 public enum ConversationKind: String, Sendable, UnknownTolerant {

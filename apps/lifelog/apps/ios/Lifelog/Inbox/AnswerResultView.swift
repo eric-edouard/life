@@ -17,9 +17,7 @@ struct Taken: Equatable {
     var isStart: Bool { check.group == .newMatter && request.options == ["start"] }
     var context: ActionCopy.Context {
         .init(
-            to: check.draft?.to, channel: check.draft?.channel,
-            asker: check.asker.caseInsensitiveCompare("life") == .orderedSame
-                ? "Life" : (runtimeName?.name ?? check.asker), runtimeName: runtimeName?.name)
+            to: check.draft?.to, channel: check.draft?.channel, asker: check.askerName(runtime: runtimeName))
     }
 }
 
@@ -95,14 +93,19 @@ struct AnswerResultView: View {
         header
         Text(failedWord(failure)).font(.statusWord).foregroundStyle(Palette.flag).padding(.top, 12)
         Text(failedLine(failure)).font(.lead).foregroundStyle(Palette.muted)
-        CheckLines(lines: lines).padding(.top, 8)
+        // Life's own reason: on the step it stopped at, else on its own (it stopped before Life's plan).
+        CheckLines(
+            lines: lines.contains { $0.mark == .failed }
+                ? lines : lines + [CheckLine(id: "reason", text: failure.reason, mark: .failed)]
+        )
+        .padding(.top, 8)
     }
 
     private var doneWord: String {
         switch taken.check.group {
         case .voice: "Named."
         case .ending: "Noted."
-        case .card: "Done."
+        case .contactsCard: "Saved."
         case .newMatter:
             taken.request.options == ["edit-goal"]
                 ? "Goal saved." : taken.request.options == ["dismiss"] ? "Dismissed." : "Started."
@@ -125,12 +128,13 @@ struct AnswerResultView: View {
                     ? "The goal is yours now. Start or Dismiss is still waiting." : "Never asked again for this matter."
         }
         if taken.request.options.isEmpty { return "Your words went to \(taken.context.asker ?? "the asker")." }
-        let label = taken.check.options.first { taken.request.options.contains($0.id) }.map(taken.check.shown)
+        let label = taken.check.options.first { taken.request.options.contains($0.id) }?.label
         return label.map { "\($0)." } ?? "Your answer is recorded."
     }
 
     private func counts(_ proof: ActionProof) -> String? {
         guard case .answered(let result) = proof, let changed = result.changed else { return nil }
+        if let name = changed.recordedAs { return "Recorded as \(name)" }
         let parts = [
             changed.voices.map { "\($0) clip\($0 == 1 ? "" : "s")" },
             changed.conversations.map { "\($0) conversation\($0 == 1 ? "" : "s")" },
@@ -138,16 +142,21 @@ struct AnswerResultView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " and ") + " now carry the name"
     }
 
+    /// Only what Life said: a call that never gave its answer may have run, so it claims nothing.
     private func failedWord(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return taken.isSend ? "May have gone." : "Check first." }
+        if failure.isSameTap { return "No answer from Life." }
         if taken.isStart { return "Not started." }
         return taken.isSend ? "Not sent." : "Not saved."
     }
 
     private func failedLine(_ failure: ActionFailure) -> String {
         if failure.mayHaveHappened { return "Check before answering again. The card stays here." }
-        if taken.isStart { return "Your goal is saved. The card stays here." }
-        return taken.isSend ? "Nothing went out. The card stays here." : "Nothing was recorded. The card stays here."
+        if failure.isSameTap { return "Life may have it: trying again repeats the same tap. The card stays here." }
+        if taken.isStart, state.steps.contains(where: { $0.id == "goal_saved" && $0.passedAt != nil }) {
+            return "Your goal is saved. The card stays here."
+        }
+        return "The card stays here."
     }
 }
 
@@ -186,13 +195,13 @@ struct ResultButtons: View {
                 } label: {
                     Text(taken.isSend ? "Sending…" : "Saving…")
                 }.buttonStyle(.pill(.quiet)).disabled(true)
-                if taken.isSend {
-                    LimitNote(limit: state.limit) {
-                        "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
+                LimitNote(state: state) {
+                    taken.isSend
+                        ? "Stays on this card until \(ActionCopy.channel(taken.check.draft?.channel)) answers"
                             + ($0.map { ", \($0)." } ?? ".")
-                    }
-                    .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
+                        : $0.map { "Life answers in \($0)." } ?? ""
                 }
+                .font(.small).foregroundStyle(Palette.faint).multilineTextAlignment(.center)
             }
         }
     }

@@ -39,8 +39,8 @@ private func ids(_ state: State) -> [String] { state.steps.map(\.id) }
     state.apply(.started)
     state.apply(.planned(["goal_saved"], limitSeconds: nil, at: t0))
     state.apply(.passed("goal_saved", at: t0, detail: [:]))
-    state.apply(.planned(["runtime_answers", "session_open"], limitSeconds: 20, at: t0))
-    #expect(ids(state) == ["goal_saved", "runtime_answers", "session_open"])
+    state.apply(.planned(["desk_accepted", "session_open"], limitSeconds: 20, at: t0))
+    #expect(ids(state) == ["goal_saved", "desk_accepted", "session_open"])
     #expect(state.steps[0].passedAt != nil)
 }
 

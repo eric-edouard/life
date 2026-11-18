@@ -137,7 +137,14 @@ const madeUpInbox: CheckInputs = {
       },
     ],
     isGuess: (ref: string) => ref === "person:inf_kit",
-    nameOf: (r: string) => (r === "person:gran" ? "Gran" : r),
+    nameOf: (r: string) =>
+      (
+        ({
+          "person:con_lou": "Lou",
+          "person:gran": "Gran",
+          "person:partner": "Robin",
+        }) as Record<string, string>
+      )[r] ?? r,
     names: new Map([["person:con_lou", "Lou"]]),
     refOf: (r: string) => r,
     resolve: (s: string) => (s === GRAN_VOICE ? "person:gran" : null),
@@ -166,7 +173,6 @@ const madeUpInbox: CheckInputs = {
       kind: "new_person",
       likely: [GRAN_VOICE],
       name: null,
-      namedPersonId: null,
       personId: null,
       voices: [{ conversationId: "c1", jobId: "job-1", speakerLabel: "A" }],
       words: 40,

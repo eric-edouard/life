@@ -100,9 +100,11 @@ export interface Check {
   draft: StoredDraft | null;
   /** The quoted words a guess of Life's rests on, with where and when they were said; null for a card or a decision. */
   evidence: { from: string; quote: string } | null;
+  /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */
+  goal: string | null;
   group: CheckGroup;
   kind: CheckKind;
-  /** Who a voice may be, as Life knows them; none but a voice's. */
+  /** Who it may be, as Life knows them: a voice's likely people, a Contacts card's candidates; none for other kinds. */
   likelyPeople: { name: string; person: string }[];
   /** Where to look or act (the agent's link first). */
   links: string[];
@@ -302,7 +304,8 @@ const newest = (lines: Line[]) =>
 function ranked(
   c: Ctx,
   group: Exclude<CheckGroup, "decision">,
-  fields: Pick<Check, "about" | "question" | "ref">,
+  fields: Pick<Check, "about" | "question" | "ref"> &
+    Partial<Pick<Check, "likelyPeople">>,
   lines: Line[],
   refs: string[],
   evidence: { quote: string; where?: Where } | null
@@ -324,9 +327,10 @@ function ranked(
               from: evidence.where ?? "an earlier message",
               quote: evidence.quote,
             },
+            goal: null,
             group,
             kind,
-            likelyPeople: [],
+            likelyPeople: fields.likelyPeople ?? [],
             links: [],
             notSent: null,
             onSilence: null,
@@ -364,6 +368,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           deadline: d.deadline,
           draft: d.draft ?? null,
           evidence: null,
+          goal: null,
           group: "decision",
           kind: "decision",
           likelyPeople: [],
@@ -445,6 +450,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 deadline: null,
                 draft: null,
                 evidence: { from: plain(first.day), quote: first.quote },
+                goal: v.goal.text,
                 group: "new matter",
                 kind: "new matter",
                 likelyPeople: [],
@@ -493,20 +499,26 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     const byRef = keptBy(c, (l) =>
       [l.about ?? "", ...l.subjects].map(people.refOf)
     );
-    const cards = people.ambiguousCards.flatMap((a) =>
-      ranked(
+    const cards = people.ambiguousCards.flatMap((a) => {
+      // The people its name and handles say, named once: his answer is one of them.
+      const likelyPeople = a.people.map((p) => ({
+        name: people.nameOf(p),
+        person: p,
+      }));
+      return ranked(
         c,
         "contacts card",
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
-          question: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
+          likelyPeople,
+          question: `Life cannot place the Contacts card ${people.nameOf(a.card)}: its name and handles say ${likelyPeople.map((p) => p.name).join(" and ")}`,
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
         [a.card],
         null
-      )
-    );
+      );
+    });
     const open = c.unresolved.filter(
       (r) => r.observation && !people.resolve(r.nameAsWritten)
     );
@@ -567,6 +579,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                   quote: first.text,
                 }
               : null,
+            goal: null,
             group: "voice",
             kind: "voice",
             likelyPeople: likely,

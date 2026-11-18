@@ -188,18 +188,6 @@ extension LibraryStore {
             """, [.int(range.lowerBound.millis), .int(range.upperBound.millis)])
     }
 
-    /// Live recordings of the hidden kinds (wordless, dictation to the Mac) starting in `range`, oldest first: the
-    /// library folds them into one line a day.
-    public func quietConversations(in range: Range<CaptureInstant>) throws -> [CachedConversation] {
-        try cached(
-            """
-            SELECT kind, key, json FROM feed_rows WHERE kind = 'conversations' AND start_ms >= ?1 AND start_ms < ?2
-            AND json_extract(CAST(json AS TEXT), '$.retired') IS NULL
-            AND json_extract(CAST(json AS TEXT), '$.kind') IN ('silent', 'dictation')
-            ORDER BY start_ms
-            """, [.int(range.lowerBound.millis), .int(range.upperBound.millis)])
-    }
-
     /// The conversation, or the live one a merge or undo retired it into. `nil` when the feed never sent it.
     public func conversation(_ id: UUID) throws -> CachedConversation? {
         var current = id
@@ -287,40 +275,6 @@ extension LibraryStore {
                 GROUP BY reason
                 """
             ) { (WaitingReason(rawValue: $0.text(0)) ?? .unknown, Int($0.int(1))) }, uniquingKeysWith: +)
-    }
-
-    // MARK: Search
-
-    /// The trigram index matches nothing shorter.
-    public static let minimumSearchLength = 3
-
-    /// Conversations whose words, titles, summaries or chapters hold `text`, best match first, each
-    /// once, with the text around its best match and, when words matched, the start of that turn. Case and
-    /// diacritics insensitive. A query shorter than `minimumSearchLength` returns nothing.
-    /// ponytail: reads up to 2000 matches then pages in memory; page in SQL if a word matches more.
-    public func search(_ text: String, limit: Int, offset: Int = 0) throws -> [SearchMatch] {
-        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.count >= Self.minimumSearchLength else { return [] }
-        let hits = try db.query(
-            """
-            SELECT c.key, t.kind, t.start_ms, snippet(feed_text, 0, '', '', '…', 64)
-            FROM feed_text t JOIN feed_rows c ON c.kind = 'conversations' AND c.key = t.conversation
-                AND \(Self.listed("c.json"))
-            WHERE feed_text MATCH ?1 ORDER BY t.rank LIMIT 2000
-            """, [.text("\"" + query.replacing("\"", with: "\"\"") + "\"")]
-        ) { row in
-            (
-                conversation: UUID(uuidString: row.text(0)),
-                passage: row.text(1) == "turns"
-                    ? CaptureInstant(millis: row.int(2)) : nil, snippet: row.text(3)
-            )
-        }
-        var seen: Set<UUID> = []
-        let matches = hits.compactMap { hit -> SearchMatch? in
-            guard let id = hit.conversation, seen.insert(id).inserted else { return nil }
-            return SearchMatch(conversation: id, passage: hit.passage, snippet: hit.snippet, source: .words)
-        }
-        return Array(matches.dropFirst(offset).prefix(limit))
     }
 
     // MARK: Private

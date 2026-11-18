@@ -183,7 +183,7 @@ to sync".
 **A new screen.** Give it an `@Observable` store that the view owns with `@State`, built from the library and
 `SyncStore`; read app-wide stores from the environment. Its rows come from the cache, never from the server (see
 "Local first" below), and it reads again when `SyncStore.generation` moves. Use the design system's parts (`.card()`,
-`Metrics`, `tapTarget()`), English string literals, and a `#Preview` per state: `.previewSync()` and
+`Metrics`), English string literals, and a `#Preview` per state: `.previewSync()` and
 `CaptureStore.preview()` open no Bluetooth or Keychain, and `FixtureLibrary.page` fills a cache. In the simulator,
 `-fixtureLibrary` and `-fakePendant <scenario>` give data.
 

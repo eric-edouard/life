@@ -190,10 +190,9 @@ export const NamingQueueItem = z.object({
     })
   ),
   id: z.string(),
-  kind: z.enum(["new_person", "known_person", "recheck", "several"]),
+  kind: z.enum(["new_person", "known_person", "several"]),
   likely: z.array(z.string()),
   name: z.string().nullable(),
-  namedPersonId: z.string().nullable(),
   personId: z.string().nullable(),
   voices: z.array(
     z.object({
@@ -231,11 +230,7 @@ export async function readNamingQueue() {
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
-  ...new Set(
-    [item.personId, item.namedPersonId, ...item.likely].filter(
-      (x): x is string => !!x
-    )
-  ),
+  ...new Set([item.personId, ...item.likely].filter((x): x is string => !!x)),
 ];
 
 /** The owner's answer to a queue item's voices (`POST /naming-queue/answer`): who they are, or that they are not worth naming. */

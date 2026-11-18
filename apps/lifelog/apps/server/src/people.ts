@@ -955,7 +955,7 @@ export function assign(
   });
 }
 
-// Replaces the owner row for a speaker or turn (a second answer of his is `rechecked`) and moves
+// Replaces the owner row for a speaker or turn and moves
 // that scope's evidence in this transcript to the person (or drops it: several are nobody's).
 function writeOwnerRow(
   tx: Db,
@@ -976,7 +976,6 @@ function writeOwnerRow(
       ? isNull(assignments.turnIndex)
       : eq(assignments.turnIndex, turnIndex)
   );
-  const previous = tx.select().from(assignments).where(scoped).get();
   tx.delete(assignments).where(scoped).run();
   const [row] = tx
     .insert(assignments)
@@ -984,7 +983,6 @@ function writeOwnerRow(
       candidates: scope.candidates,
       jobId,
       personId,
-      rechecked: previous?.source === "owner",
       source: "owner",
       speakerLabel,
       status,

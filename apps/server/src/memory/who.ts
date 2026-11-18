@@ -125,7 +125,8 @@ export function guessTestOf(corrections: Correction[]) {
  * (handles, then names and aliases), the person his Contacts name (a handle of its card, else its name when one
  * contact person alone goes by it), then its latest confident inferred guess (the person in truth/ it links to, else
  * the guess). His Contacts are his word on a number: no guess outranks a card. A `not-this-person` correction blocks
- * that match.
+ * that match. Each reading says which of those it came from (`by`) and whether more than one person in truth/ or his
+ * Contacts goes by that name (`isShared`), so an answer by a typed name can refuse a guess or a shared name.
  */
 function readingOf(
   people: Person[],
@@ -158,7 +159,7 @@ function readingOf(
     }
   }
   const guessed = guessesOf(inferred);
-  return (nameOrHandle: string): string | null => {
+  return (nameOrHandle: string): Reading | null => {
     const ks = keysOf(nameOrHandle);
     const key = contactKeyOf(nameOrHandle);
     const truth =
@@ -173,17 +174,28 @@ function readingOf(
       (key ? carded.get(key) : undefined) ??
       ks.map((k) => carded.get(k)).find(Boolean) ??
       (bare ? cardNames.get(bare) : undefined);
-    return (
-      [
-        ...ks.map((k) => said.get(k)),
-        truth && `person:${truth}`,
-        named && `person:${named}`,
-        card && `person:${card}`,
-        ...guesses.map((g) => g?.person),
-        ...guesses.map((g) => g && `person:${g.id}`),
-      ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`))) ?? null
+    const isShared =
+      !!bare && (names.get(bare) === null || cardNames.get(bare) === null);
+    const tiers: (readonly [Reading["by"], string | null | undefined])[] = [
+      ...ks.map((k) => ["his word", said.get(k)] as const),
+      ["truth", truth && `person:${truth}`],
+      ["truth", named && `person:${named}`],
+      ["contacts", card && `person:${card}`],
+      ...guesses.map((g) => ["guess", g?.person] as const),
+      ...guesses.map((g) => ["guess", g && `person:${g.id}`] as const),
+    ];
+    const found = tiers.find(
+      ([, r]) => r && !ks.some((k) => not.has(`${k}|${r}`))
     );
+    return found?.[1] ? { by: found[0], isShared, ref: found[1] } : null;
   };
+}
+
+/** What a name, handle or address reads as (`readingOf`): the person, and which of Life's sources said so. */
+export interface Reading {
+  by: "his word" | "truth" | "contacts" | "guess";
+  isShared: boolean;
+  ref: string;
 }
 
 /**
@@ -199,7 +211,8 @@ export function foldsOf(
   corrections: Correction[],
   contacts: ContactNow[]
 ) {
-  const read = readingOf(people, inferred, corrections, contacts);
+  const reading = readingOf(people, inferred, corrections, contacts);
+  const read = (nameOrHandle: string) => reading(nameOrHandle)?.ref ?? null;
   // His word that a handle is not someone: a card holding that handle is not them by its name either.
   const isRuledOut = (c: ContactNow, ref: string) =>
     corrections.some(
@@ -254,11 +267,14 @@ export function foldsOf(
     }
     return [{ card: t.card, people: now }];
   });
-  const resolve = (nameOrHandle: string): string | null => {
-    const ref = read(nameOrHandle);
-    return ref ? canon(ref) : null;
+  /** What a name as written reads as now, folded, with where that came from. */
+  const readingNow = (nameOrHandle: string): Reading | null => {
+    const r = reading(nameOrHandle);
+    return r && { ...r, ref: canon(r.ref) };
   };
-  return { ambiguousCards, canon, resolve };
+  const resolve = (nameOrHandle: string) =>
+    readingNow(nameOrHandle)?.ref ?? null;
+  return { ambiguousCards, canon, readingNow, resolve };
 }
 
 /**
@@ -533,7 +549,7 @@ export async function readPeople() {
     readCorrections(),
   ]);
   const contacts = contactsNow(readContactLines());
-  const { ambiguousCards, canon, resolve } = foldsOf(
+  const { ambiguousCards, canon, readingNow, resolve } = foldsOf(
     truth.people,
     inferred,
     corrections,
@@ -570,6 +586,8 @@ export async function readPeople() {
     names,
     /** Everyone outside the directory (`peopleOutsideDirectoryOf`), folded or not: what every listing of people reads. */
     outsideDirectory,
+    /** What a name as written reads as now (`resolve`), with which source said so and whether the name is shared. */
+    readingNow,
     /** Who an episode's person ref is as of today: a name since resolved, a person since folded into another. */
     refOf,
     resolve,

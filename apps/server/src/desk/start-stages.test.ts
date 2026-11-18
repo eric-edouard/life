@@ -87,13 +87,13 @@ test("a start on a matter reports its plan, saves his words as its goal, then ea
   expect(steps.map((s) => s.step ?? "plan")).toEqual([
     "plan",
     "goal_saved",
-    "runtime_answers",
+    "desk_accepted",
     "session_open",
     "turn_begun",
   ]);
   expect(steps[0]).toEqual({
     limitSeconds: 5,
-    plan: ["goal_saved", "runtime_answers", "session_open", "turn_begun"],
+    plan: ["goal_saved", "desk_accepted", "session_open", "turn_begun"],
   });
   expect(goalsSaved()).toEqual([
     {
@@ -110,7 +110,7 @@ test("a start on a matter reports its plan, saves his words as its goal, then ea
   });
   const r = result as { agent: string; stages: { session?: string }[] };
   expect(r.stages.map((s) => (s as { stage: string }).stage)).toEqual([
-    "runtime_answers",
+    "desk_accepted",
     "session_open",
     "turn_begun",
   ]);
@@ -161,7 +161,7 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
     agent: null,
     failed: {
       reason: "claude does not answer: claude: command not found",
-      stage: "runtime_answers",
+      stage: "desk_accepted",
     },
     nothingRunning: true,
     stages: [],
@@ -195,18 +195,20 @@ test("a desk that does not act within the limit is unconfirmed, at the stage rea
   expect(result).toMatchObject({
     failed: {
       reason: "no answer from the desk in 1 s",
-      stage: "runtime_answers",
+      stage: "desk_accepted",
     },
     nothingRunning: false,
     state: "unconfirmed",
   });
 });
 
-test("a start refused because the matter is already held says something runs there", async () => {
+test("a start refused because the matter is already held says something runs there, and on which runtime", async () => {
   const { result } = await start(1, "Test: other words on matter 1");
   expect(result).toMatchObject({
-    failed: { stage: "runtime_answers" },
+    failed: { stage: "desk_accepted" },
     nothingRunning: false,
+    // It named none: the runtime the desk took is its default (the refusal is about the matter, not the runtime).
+    runtime: "claude",
     state: "not_started",
   });
 });

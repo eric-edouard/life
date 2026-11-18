@@ -8,8 +8,10 @@ struct CardInput: Equatable {
     var showsWhy = false
 }
 
-/// A card's answers: its options, "Something else", the link to the asker's app and what happens on silence. Apart from the
-/// card so a wide screen can put them at the bottom of the card's region or, when the regions are stacked, of the screen.
+/// A card's answers: its options as Life labels them, "Something else" where an agent reads his words, the link to the
+/// asker's app and what happens on silence. An option that takes more than a tap asks for it: who it is ("Same as…"),
+/// or his words. Apart from the card so a wide screen can put them at the bottom of the card's region or, when the
+/// regions are stacked, of the screen.
 struct CheckActions: View {
     let check: Check
     let runtimeName: RuntimeName?
@@ -19,24 +21,23 @@ struct CheckActions: View {
 
     @Environment(\.openURL) private var openURL
 
+    private var words: String { input.words.trimmingCharacters(in: .whitespacesAndNewlines) }
+
     var body: some View {
         VStack(spacing: 8) {
             if input.isWritingOwnWords {
                 Button {
-                    answer(
-                        AnswerRequest(
-                            ref: check.ref, options: check.group == .newMatter ? ["edit-goal"] : [],
-                            note: input.words.trimmingCharacters(in: .whitespacesAndNewlines)))
+                    if let request = check.answer(words: words) { answer(request) }
                 } label: {
                     Text(check.group == .newMatter ? "Save the goal" : "Send my answer")
                 }
                 .buttonStyle(.pill(.filled))
-                .disabled(input.words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(words.isEmpty)
                 Button("Back to the options") { input.isWritingOwnWords = false }.buttonStyle(.pill(.quiet, height: 48))
             } else {
                 options
                 HStack {
-                    if check.group != .newMatter {
+                    if check.takesOwnWords {
                         Button {
                             input.isWritingOwnWords = true
                         } label: {
@@ -71,36 +72,32 @@ struct CheckActions: View {
             } label: {
                 HStack(spacing: 10) {
                     if first.outgoing == true { Image(systemName: "arrow.up").accessibilityHidden(true) }
-                    Text(shown(first))
+                    Text(first.label)
                 }
             }
             .buttonStyle(.pill(.filled, height: 54))
             let rest = Array(check.options.dropFirst())
-            if !rest.isEmpty || asksWho {
+            if !rest.isEmpty {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
                     ForEach(rest, id: \.id) { option in
-                        Button(shown(option)) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
-                    }
-                    if asksWho {
-                        Button("Same as…", action: sameAs).buttonStyle(.pill(.quiet, height: 48))
+                        Button(option.label) { tap(option) }.buttonStyle(.pill(.quiet, height: 48))
                     }
                 }
             }
         }
     }
 
-    /// A card about who someone is can name another person, or a new one.
-    private var asksWho: Bool { [.name, .guessedPerson, .voice].contains(check.group) }
-
-    private func shown(_ option: Check.Option) -> String { check.shown(option) }
-
+    /// One tap answers; an option that takes a note opens his words (a new matter's goal, ready to edit), one that names
+    /// someone opens "Same as…".
     private func tap(_ option: Check.Option) {
-        if check.group == .newMatter, option.id == "edit-goal" {
-            input.words = check.offeredGoal
+        if let request = check.answer(option) { return answer(request) }
+        switch option.takes {
+        case .note?:
+            input.words = check.goal ?? ""
             input.isWritingOwnWords = true
-            return
+        case .person?, .personOrName?: sameAs()
+        case .unknown?, nil: break
         }
-        answer(AnswerRequest(ref: check.ref, options: [option.id]))
     }
 
     /// What happens when he does not answer: Life's own words for the kinds that have a standing rule, the asker's option otherwise.
@@ -109,7 +106,8 @@ struct CheckActions: View {
         case .ending: return "Until you say, Life treats it as probably done."
         case .voice: return "Until you say, the voice stays unnamed."
         case .name, .guessedPerson: return "Until you say, Life keeps its guess."
-        case .card, .newMatter: return "Nothing starts unless you say so."
+        case .contactsCard: return "Until you say, Life keeps them apart."
+        case .newMatter: return "Nothing starts unless you say so."
         case .decision, .unknown:
             guard let deadline = check.deadline else { return nil }
             let when = deadline.formatted(.dateTime.weekday(.wide).hour().minute())

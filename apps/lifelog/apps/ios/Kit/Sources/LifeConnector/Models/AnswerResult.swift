@@ -17,7 +17,6 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let reason: String?
         /// A `not sent` the same tap may be tried again after; `mayHaveGone` never is.
         public let canRetry: Bool?
-        public let eventId: String?
         public let channel: String?
         public let to: String?
     }
@@ -39,6 +38,8 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public struct Changed: Decodable, Sendable, Equatable {
         public let voices: Int?
         public let conversations: Int?
+        /// The person a typed name was read as. Picked from the card, or no person: absent.
+        public let recordedAs: String?
     }
 
     public let ref: String

@@ -3,7 +3,6 @@ import { isAbsolute } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
-import { settings } from "../core/settings";
 import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
@@ -11,6 +10,7 @@ import {
   holderOf,
   projectHolderOf,
   readCursor,
+  runtimeOf,
 } from "../host/desk-read";
 import { AgentChange } from "../records/registered-agent";
 import { register, withdrawOpenDecision, writeSubject } from "./agent-actions";
@@ -46,10 +46,6 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     ? `that matter is already held by ${holder}`
     : null;
 }
-
-/** The runtime a start names, else the desk's default. */
-const runtimeOf = (c: AgentChange) =>
-  c.runtime ?? settings().desk?.defaultRuntime;
 
 /**
  * Starts an agent on his words (`brief`): his subject, a runtime the desk drives that answers (`blocked`: why it can't

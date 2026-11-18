@@ -4,11 +4,11 @@
   "ask": "entry_000000000001",
   "failed": {
     "reason": "claude does not answer: claude: command not found",
-    "stage": "runtime_answers"
+    "stage": "desk_accepted"
   },
   "model": null,
   "nothingRunning": true,
-  "runtime": null,
+  "runtime": "claude",
   "stages": [],
   "state": "not_started"
 }

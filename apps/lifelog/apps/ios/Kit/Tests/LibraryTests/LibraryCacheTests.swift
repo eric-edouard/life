@@ -149,10 +149,8 @@ private func page(_ cursor: Int, _ arrays: [String: [String]]) -> Data {
             ]), withdrawn: { _ in })
     let listed = try await library.conversations(before: nil, limit: 10).map(\.id.uuidString)
     #expect(listed == [id(4), id(1)].map { $0.uppercased() }, "retired, silent and dictation aren't listed")
-    let quiet = try await library.quietConversations(in: at(0)..<at(1000)).map(\.id.uuidString)
-    #expect(quiet == [id(3), id(5)].map { $0.uppercased() }, "folded into a line a day instead")
-    #expect(try await library.conversations(before: at(300), limit: 10).map(\.shownTitle) == ["Plumber"])
-    #expect(try await library.conversation(UUID(uuidString: id(2))!)?.shownTitle == "Plumber")
+    #expect(try await library.conversations(before: at(300), limit: 10).map(\.title) == ["Plumber"])
+    #expect(try await library.conversation(UUID(uuidString: id(2))!)?.title == "Plumber")
 }
 
 @Test func aConversationsWordsAreTheOnesTheFeedPutsInIt() async throws {
@@ -186,32 +184,6 @@ private func page(_ cursor: Int, _ arrays: [String: [String]]) -> Data {
         facts[first.id]
             == ConversationFacts(
                 people: ["Marie-Jo"], opening: "Remember the plumber. Monday at nine.", hasWords: true))
-}
-
-@Test func aRemovedRowGoesAndARowSentAgainReplacesItsSearchText() async throws {
-    let library = try LibraryStore(directory: temporaryDirectory())
-    try await library.apply(
-        feed: page(
-            1,
-            [
-                "conversations": [conversation(1, 0, 100, title: "Lunch with Mai"), conversation(2, 200, 300)],
-                "turns": [turn(0, 210, "ต้มยำกุ้ง อร่อยมาก", conversation: 2), turn(1, 20, "See you", conversation: 1)],
-            ]), withdrawn: { _ in })
-    #expect(try await library.search("lunch", limit: 10).map(\.passage) == [nil], "a title opens at the top")
-    let thai = try await library.search("อร่อย", limit: 10)
-    #expect(thai.map(\.conversation.uuidString) == [id(2).uppercased()])
-    #expect(thai.first?.passage == at(210), "words open at their turn")
-    #expect(try await library.search("lu", limit: 10).isEmpty, "too short for the index")
-
-    try await library.apply(
-        feed: Data(
-            #"""
-            {"cursor":"2","conversations":[\#(conversation(1, 0, 100, title: "Dinner"))],
-             "removed":[{"kind":"turn","ref":"\#(id(99)):0"}]}
-            """#.utf8), withdrawn: { _ in })
-    #expect(try await library.search("lunch", limit: 10).isEmpty)
-    #expect(try await library.search("อร่อย", limit: 10).isEmpty)
-    #expect(try await library.search("dinner", limit: 10).count == 1)
 }
 
 @Test func aConversationsStateIsTheFeedsUnlessItsAudioIsStillOnlyHere() {

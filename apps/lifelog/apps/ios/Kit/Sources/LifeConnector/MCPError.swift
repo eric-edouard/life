@@ -14,6 +14,8 @@ public enum MCPError: Error, Equatable, Sendable {
     case failed(String)
     /// The stream ended with no result: the call may or may not have run.
     case streamDropped
+    /// The task that asked was cancelled (its screen left): not a failure of Life's or of the connection.
+    case cancelled
 
     /// In words, for a screen.
     public var reason: String {
@@ -23,14 +25,17 @@ public enum MCPError: Error, Equatable, Sendable {
         case .wrongCode: "That pairing code did not match, or it expired."
         case .refused(let why), .failed(let why): why
         case .streamDropped: "The connection dropped before Life answered."
+        case .cancelled: "Cancelled."
         }
     }
 
     /// The error as this module names it: a `URLError` that means "cannot reach", else the error in words.
     public static func of(_ error: any Error) -> MCPError {
         if let known = error as? MCPError { return known }
+        if error is CancellationError { return .cancelled }
         guard let url = error as? URLError else { return .failed("\(error)") }
         switch url.code {
+        case .cancelled: return .cancelled
         case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost, .timedOut, .networkConnectionLost,
             .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff,
             .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
