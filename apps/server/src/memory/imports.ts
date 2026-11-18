@@ -36,7 +36,7 @@ import { IMPORTED, keptConversations, readJudgments } from "./memory-files";
 import { describeFiles } from "./message-files";
 import { meContext } from "./model-context";
 import { loadTruth } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches } from "./run";
+import { begin, checkedEntries, chunks, inBatches, readsOf } from "./run";
 import { spareQuota } from "./schedule";
 import { clip } from "./units";
 import { localDate, wall } from "./zones";
@@ -294,6 +294,7 @@ export async function importExport(folder: string) {
           })),
         },
         prompt: IMPORT_KEEP_PROMPT,
+        reads: readsOf(batch.map((c) => ({ source, unit: c.id }))),
       });
       const checked = parseJudged(
         json,

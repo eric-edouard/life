@@ -15,7 +15,7 @@ import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { buildServer } from "@life/server/src/host/http/mcp";
 import { INDEX, OUT } from "@life/server/src/memory/memory-files";
 import { parseReadPartRef } from "@life/server/src/memory/read-part";
-import { ended, metered } from "@life/server/src/memory/run";
+import { ended, metered, readsOf } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { judge, tally } from "@life/server/src/memory/tally";
 import { dayNow } from "@life/server/src/memory/zones";
@@ -175,6 +175,7 @@ async function askAgent(c: Case, dir: string, run: string) {
       input: { question: c.question },
       llm: llmFor("main", AGENT),
       prompt: PROMPT,
+      reads: readsOf([{ source: "memory", unit: c.id }]),
       run,
       tools: {
         command: [

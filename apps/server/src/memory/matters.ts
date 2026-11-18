@@ -30,7 +30,7 @@ import {
 } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
-import { begin } from "./run";
+import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
 import { localDate, type Window } from "./zones";
@@ -495,6 +495,7 @@ export async function matters(
     areas: new Set(truth.areas.map((a) => a.id)),
     projects: new Set(truth.projects.map((p) => p.id)),
   };
+  const observationOf = new Map(records.observations.map((o) => [o.id, o]));
   let placed = 0;
   let refusedSteps = 0;
   for (const [i, call] of callsOf(work).entries()) {
@@ -518,6 +519,24 @@ export async function matters(
             })),
           },
           prompt: MATTERS_PROMPT,
+          reads: readsOf([
+            ...call.episodes.map((e) => ({
+              source: "memory" as const,
+              unit: e.id,
+            })),
+            ...call.episodes
+              .flatMap((e) => e.observations)
+              .flatMap(({ id }) => observationOf.get(id) ?? [])
+              .map((o) => ({ source: o.source.channel, unit: o.unit })),
+            ...call.todoItems.map((r) => ({
+              source: "memory" as const,
+              unit: r.key,
+            })),
+            ...shown.map((m) => ({
+              source: "memory" as const,
+              unit: m.id,
+            })),
+          ]),
         });
         const known = knownOf(call);
         const at = step.now.toISOString();

@@ -3,6 +3,7 @@ import { authorOf, type LifelogTurn, turnRef } from "../sources/lifelog";
 import { voiceKey } from "../sources/lifelog-voices";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
+import { voiceUnitId } from "./unit-ids";
 import { turnKey, unnamedTurnKey, voiceTokensOf } from "./units";
 import type { People } from "./who";
 import { isTalkingWithOwner, messageLine, turnLines } from "./words";
@@ -50,6 +51,8 @@ export interface SpokenPart {
   people: string[];
   /** Its first turn's ref: what opens it (`fetch person:me/conversation/<ref>`). */
   ref: string;
+  /** The conversation-days its turns are in (`voiceUnitId`): what it reads, as a call's `reads` count. */
+  units: string[];
   /** When its last turn ended. */
   until: string;
   /** What each line is made of, in order: `lines` are made from these. */
@@ -181,6 +184,11 @@ export async function spokenPartsOf(
       lines: part.map((s, n) => partLine(n, s.voice, s.who)),
       people: [...new Set(part.flatMap((s) => s.voice.name || []))],
       ref: first?.ref ?? "",
+      units: [
+        ...new Set(
+          part.map((s) => voiceUnitId(s.t.conversation, localDate(s.t.at)))
+        ),
+      ],
       until: new Date(
         Math.max(...part.map((s) => Date.parse(s.t.end ?? s.t.at)))
       ).toISOString(),

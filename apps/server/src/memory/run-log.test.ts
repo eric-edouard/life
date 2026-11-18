@@ -53,14 +53,7 @@ test("runs: processing runs hold their steps; failed, unfinished, running and ol
     ev("run.start", "memory.pages", now, { run: id(now) }),
     ev("run.start", "memory.intent", now, { run: id(now) }),
   ];
-  const steps = new Set([
-    "memory.nightly",
-    "memory.backfill",
-    "memory.episodes",
-    "memory.extract",
-    "memory.pages",
-  ]);
-  const list = assembleRuns(events, steps, new Date(now));
+  const list = assembleRuns(events, new Date(now));
   const by = (step: string) => list.find((r) => r.step === step);
   expect(by("memory.nightly")).toMatchObject({
     children: [`memory.episodes/${id(triage)}`],
@@ -83,7 +76,8 @@ test("runs: processing runs hold their steps; failed, unfinished, running and ol
     outcome: "failed",
     step: "memory.nightly",
   });
-  expect(list.some((r) => r.step === "memory.intent")).toBe(false);
+  // Every step is assembled; the readers choose what they show.
+  expect(by("memory.intent")?.outcome).toBe("running");
 });
 
 test("an interrupted processing run ends where the next one starts: it never claims later steps", () => {
@@ -97,7 +91,6 @@ test("an interrupted processing run ends where the next one starts: it never cla
       ev("run.start", "memory.episodes", later, { run: id(later) }),
       ev("run.error", "memory.nightly.actions", later, { error: "offline" }),
     ],
-    new Set(["memory.nightly", "memory.episodes"]),
     null
   );
   const processingRun = (at: string) =>
@@ -193,17 +186,18 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const step = "2026-10-15T00:31:05.000Z";
   const tokens = (input: number) => ({ cached: input / 2, input, output: 10 });
   const q = (used: number) => ({ resetsAt: "2026-10-20T00:00:00.000Z", used });
-  const call = (run: string, input: number) => ({
+  const call = (run: string, input: number, more = {}) => ({
     at: step,
     kind: "model.run",
     run,
     tokens: tokens(input),
+    ...more,
   });
   const events = [
     ev("run.start", "memory.nightly", night, { quota: q(40), run: id(night) }),
     ev("run.start", "memory.episodes", step, { run: id(step) }),
-    call(id(step), 1000),
-    call(id(step), 3000),
+    call(id(step), 1000, { costUsd: 0.25, reads: { whatsapp: 2 } }),
+    call(id(step), 3000, { reads: { memory: 1, whatsapp: 1 } }),
     call("other", 5),
     ev("run.end", "memory.episodes", "2026-10-15T00:40:00.000Z", {
       failed: 0,
@@ -218,32 +212,44 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   const list = assembleRuns(
     // model.run lines name no step.
     events as Parameters<typeof assembleRuns>[0],
-    new Set(["memory.nightly", "memory.episodes"]),
     null
   );
   const by = (s: string) => list.find((r) => r.step === s);
   const spent = { cached: 2000, input: 4000, output: 20 };
-  expect(by("memory.episodes")?.use).toEqual({ quota: null, tokens: spent });
-  const use = by("memory.nightly")?.use;
-  expect(use).toEqual({
-    quota: { after: q(43), before: q(40) },
+  // Its calls summed: tokens, dollars, the calls with no cost, the units read by source.
+  const calls = {
+    calls: 2,
+    costUsd: 0.25,
+    reads: { memory: 1, whatsapp: 3 },
     tokens: spent,
-  });
+    unpriced: 1,
+  };
+  expect(by("memory.episodes")?.use).toEqual({ ...calls, quota: null });
+  const use = by("memory.nightly")?.use;
+  expect(use).toEqual({ ...calls, quota: { after: q(43), before: q(40) } });
   expect(use && percentOf(use)).toBe(3);
-  expect(useText(use ?? null)).toBe("+3% of the quota, 4k tokens (2k cached)");
+  expect(useText(use ?? null)).toBe(
+    "+3% of the quota, 4k tokens (2k cached), $0.25, 1 unpriced"
+  );
+  const none = { calls: 0, costUsd: 0, reads: {}, unpriced: 0 };
   expect(
     useText({
+      ...none,
       quota: { after: q(40), before: q(40) },
       tokens: tokens(2_000_000),
     })
   ).toBe("under 1% of the quota, 2.0M tokens (1.0M cached)");
   const reset = { resetsAt: "2026-10-27T00:00:00.000Z", used: 1 };
   expect(
-    useText({ quota: { after: reset, before: q(90) }, tokens: tokens(0) })
+    useText({
+      ...none,
+      quota: { after: reset, before: q(90) },
+      tokens: tokens(0),
+    })
   ).toBe("the quota reset during it, 0k tokens (0k cached)");
   // A step, or a run on an engine with no quota (allmodels): its tokens alone, no "quota not read".
   expect(useText(by("memory.episodes")?.use ?? null)).toBe(
-    "4k tokens (2k cached)"
+    "4k tokens (2k cached), $0.25, 1 unpriced"
   );
 });
 
@@ -261,7 +267,6 @@ test("a processing run holds its steps in the order it entered them", () => {
       phase("gather", 3),
       phase("index", 4),
     ],
-    new Set(["memory.nightly"]),
     null
   );
   expect(list[0]?.processingSteps).toEqual(["repos", "gather", "index"]);
@@ -271,8 +276,12 @@ const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
 
 test("spend lines: every run of the window that called a model, oldest first, a processing run's steps under it", () => {
   const t = (input: number) => ({
+    calls: 1,
+    costUsd: 0,
     quota: null,
+    reads: {},
     tokens: { cached: 0, input, output: 0 },
+    unpriced: 0,
   });
   const runOf = (
     ref: string,
@@ -313,4 +322,54 @@ test("spend lines: every run of the window that called a model, oldest first, a 
     "  pages: 2k tokens (0k cached)",
     expect.stringMatching(IMPORT_LINE),
   ]);
+});
+
+test("a night's use holds every step it ran, listed or not (17 Nov 2026: appointments and exchange reads missed the email), and a night that failed before any call is still listed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-runs-"));
+  const night = "2026-11-17T00:31:00.000Z";
+  const child = "2026-11-17T00:40:00.000Z";
+  const failed = "2026-11-18T00:31:00.000Z";
+  const lines = [
+    ev("run.start", "memory.nightly", night, { run: id(night) }),
+    ev("run.start", "memory.appointments", child, { run: id(child) }),
+    {
+      at: child,
+      kind: "model.run",
+      reads: { memory: 2 },
+      run: id(child),
+      tokens: { cached: 0, input: 38_000, output: 100 },
+    },
+    ev("run.end", "memory.appointments", child, { failed: 0, run: id(child) }),
+    ev("run.end", "memory.nightly", "2026-11-17T00:50:00.000Z", {
+      outcome: "ok",
+      run: id(night),
+    }),
+    ev("run.start", "memory.nightly", failed, { run: id(failed) }),
+    ev("run.end", "memory.nightly", failed, {
+      outcome: "failed",
+      run: id(failed),
+    }),
+  ];
+  writeFileSync(
+    join(dir, "2026-11-18.jsonl"),
+    `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`
+  );
+  const nightOf = (items: Run[]) =>
+    items.find((r) => r.id === `memory.nightly/${id(night)}`);
+  const every = await runs({ everyStep: true }, dir);
+  expect(nightOf(every.items)?.use?.tokens.input).toBe(38_000);
+  expect(
+    every.items.find((r) => r.id === `memory.appointments/${id(child)}`)
+      ?.processingRun
+  ).toBe(`memory.nightly/${id(night)}`);
+  // The pipeline's list shows the night alone, with what its unlisted step spent.
+  const pipeline = await runs({}, dir);
+  expect(nightOf(pipeline.items)?.use?.tokens.input).toBe(38_000);
+  expect(pipeline.items.some((r) => r.step === "memory.appointments")).toBe(
+    false
+  );
+  const nightFailed = every.items.find(
+    (r) => r.id === `memory.nightly/${id(failed)}`
+  );
+  expect(nightFailed).toMatchObject({ outcome: "failed", use: null });
 });

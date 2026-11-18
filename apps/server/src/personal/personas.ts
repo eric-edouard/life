@@ -22,9 +22,17 @@ import {
 import { meContext } from "../memory/model-context";
 import { foundQuotesAt } from "../memory/quote-check";
 import { OWNER } from "../memory/read-truth";
-import { begin, inBatches, inputsOf, isDue, replyLines } from "../memory/run";
+import {
+  begin,
+  inBatches,
+  inputsOf,
+  isDue,
+  readsOf,
+  replyLines,
+} from "../memory/run";
 import { isDirect, kindOf, safely, tables } from "../memory/sources";
-import { clip, dayUnitId, isFrozen, speakerOf, textOf } from "../memory/units";
+import { dayUnitId } from "../memory/unit-ids";
+import { clip, isFrozen, speakerOf, textOf } from "../memory/units";
 import { type People, readPeople, unitNow } from "../memory/who";
 import { messageLine, spokenLines } from "../memory/words";
 import { localDate, time } from "../memory/zones";
@@ -139,6 +147,8 @@ interface ShownDay extends Sampled {
   kind: DayKind;
   messages: Shown[];
   source: Unit["source"];
+  /** Its unit's id (a chat-day's `dayUnitId`, a recorded conversation-day's): what the call read, as its `reads` count. */
+  unit: string;
   with: string;
 }
 
@@ -173,6 +183,7 @@ export function shownDaysOf(
       messages,
       size: sizeOf(messages),
       source: first.source,
+      unit: dayUnitId(first),
       with: withOf(first),
     };
   });
@@ -304,18 +315,29 @@ export async function spokenOf(
         messages,
         size,
         source: u.source,
+        unit: u.id,
         with: [
           ...new Set(messages.flatMap((m) => (m.fromMe ? [] : [m.who]))),
         ].join(", "),
       },
     ];
   });
-  const recorded = recordings.flatMap((r) =>
-    isFrozen(r.unit) && !hasWords(r.unit)
-      ? [{ day: r.day, summary: r.unit.summary, title: r.unit.title }]
-      : []
+  const summarised = recordings.filter(
+    (r) => isFrozen(r.unit) && !hasWords(r.unit)
   );
-  return { days: days.toReversed(), recorded };
+  return {
+    days: days.toReversed(),
+    recorded: summarised.map((r) => ({
+      day: r.day,
+      summary: r.unit.summary,
+      title: r.unit.title,
+    })),
+    // The same summaries as units, for the call's `reads`.
+    recordedUnits: summarised.map((r) => ({
+      source: r.unit.source,
+      unit: r.unit.id,
+    })),
+  };
 }
 
 /** What passed between him and `refs` in one group chat-day or recording: his and their lines, when they said anything. */
@@ -560,6 +582,7 @@ export async function personas({ events, failed }: WithPeople) {
           dir,
           input,
           prompt: PERSONA_PROMPT,
+          reads: readsOf([...all, ...spoken.recordedUnits]),
         });
         const lines = personaLines(reply, all);
         const gist = z

@@ -33,7 +33,7 @@ import {
 import { involvedOf, refContext } from "./model-context";
 import { parseObservations, type Reject, type Source } from "./quote-check";
 import { othersIn } from "./read-truth";
-import { begin, inBatches } from "./run";
+import { begin, inBatches, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup } from "./tags";
 import { type Built, type Evidence, MARKED, UNKNOWN } from "./units";
@@ -477,6 +477,9 @@ export async function extract(evidence: Evidence) {
         dir: bdir,
         input,
         prompt: EXTRACT_PROMPT,
+        reads: readsOf(
+          sources.map(({ unit }) => ({ source: unit.source, unit: unit.id }))
+        ),
       });
       const parsed = parseObservations(json, {
         areas: areaLookup(truth.areas),

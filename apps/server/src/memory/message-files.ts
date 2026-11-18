@@ -12,7 +12,8 @@ import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
 import { emlxPart } from "../sources/mail";
 import { FILES, readFiles } from "./memory-files";
-import { begin, chunks, inBatches } from "./run";
+import { begin, chunks, inBatches, readsOf } from "./run";
+import { dayUnitId } from "./unit-ids";
 
 // A message's files: each read once into memory/files.jsonl (`describeFiles`, from `gather`), then shown as a line of
 // its message (`showFiles`) with what was read off it, so every step, search and the connector see it with no path of
@@ -210,6 +211,9 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
     { hash, refs }: Content,
     read: Omit<FileEntry, "hash" | "ref" | "schemaVersion">
   ) => refs.map((ref): FileEntry => ({ hash, ref, schemaVersion: 1, ...read }));
+  const eventOfRef = new Map(
+    events.flatMap((e) => (e.files ?? []).map((f) => [f.ref, e] as const))
+  );
   const tmp = await mkdtemp(join(tmpdir(), "life-files-"));
   try {
     const prepared: (Content & Read)[] = [];
@@ -242,6 +246,12 @@ export async function describeFiles(events: SourceEvent[], engine?: Engine) {
               })),
             },
             prompt: MESSAGE_FILE_DESCRIPTION_PROMPT,
+            reads: readsOf(
+              batch
+                .flatMap((b) => b.refs)
+                .flatMap((r) => eventOfRef.get(r) ?? [])
+                .map((e) => ({ source: e.source, unit: dayUnitId(e) }))
+            ),
           })
         )
       );

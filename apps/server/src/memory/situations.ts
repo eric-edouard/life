@@ -25,7 +25,7 @@ import {
 } from "./memory-files";
 import { refContext } from "./model-context";
 import { OWNER, readMayKeep } from "./read-truth";
-import { begin, inBatches, inputsOf, replyLines } from "./run";
+import { begin, inBatches, inputsOf, readsOf, replyLines } from "./run";
 import { readPeople } from "./who";
 
 // `bun life memory situations`: the situation step (docs/architecture.md, "The pipeline"). For him and each person with a
@@ -201,6 +201,14 @@ export async function situations(
             today: step.today,
           },
           prompt: SITUATION_PROMPT,
+          // The page and the episodes are Life's own lines.
+          reads: readsOf([
+            { source: "memory", unit: t.ref },
+            ...t.episodes.map((m) => ({
+              source: "memory" as const,
+              unit: m.id,
+            })),
+          ]),
         });
         const lines = shownLines(reply, new Set(t.episodes.map((m) => m.id)));
         // A reply with no line citing what it was shown is a failed call: the last situation stays, the next run retries.

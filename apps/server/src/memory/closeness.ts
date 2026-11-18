@@ -10,7 +10,7 @@ import { speakerTurns } from "../sources/lifelog-voices";
 import { CLOSENESS, latestBy, writtenPeople } from "./memory-files";
 import { meContext } from "./model-context";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches } from "./run";
+import { begin, checkedEntries, chunks, inBatches, readsOf } from "./run";
 import { kindOf, safely, tables } from "./sources";
 import { chatPerson, isLifeOutput } from "./units";
 import { meant, type People, readPeople, voicePersonOf } from "./who";
@@ -486,6 +486,9 @@ export async function closeness({ events, failed, since }: WithPeople) {
             today,
           },
           prompt: MEMORY_CLOSENESS_PROMPT,
+          reads: readsOf(
+            batch.map(({ ref }) => ({ source: "memory", unit: ref }))
+          ),
         });
         const checked = parseLevels(
           json,

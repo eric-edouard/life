@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { SourceName } from "@life/server/src/core/names";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
@@ -21,6 +22,20 @@ const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
 const LINE_BREAK = /\r?\n/;
 const DESK_IMPORT = /from "[^"]*\/desk\//;
+const MODEL_SPAWN =
+  /"claude",\s*"-p"|"codex",\s*"exec"|CODEX_BIN,\s*"exec"|\/chat\/completions/;
+// A call's reads written by hand: a literal keyed by a source or `memory`.
+const READS_LITERAL = new RegExp(
+  `\\breads:\\s*\\{\\s*"?(${[...SourceName.options, "memory"].join("|")})"?\\s*:`
+);
+// Every file that calls a model (a spawn or a router's endpoint), in one list: the desk's runtimes may change shape.
+const MODEL_CALL_FILES = [
+  "apps/server/src/desk/runtimes/claude-runtime.ts",
+  "apps/server/src/desk/runtimes/codex-runtime.ts",
+  "apps/server/src/models/describer.ts",
+  "apps/server/src/models/llm.ts",
+  "apps/server/src/models/routers.ts",
+];
 // Files over Biome's 800 lines (off for them in biome.json), each at its line count: 8 Nov 2026 debt audit (search.ts reached 1592 lines).
 const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/jobs.test.ts": 1486,
@@ -39,6 +54,13 @@ const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
 const texts = new Map(
   files.map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")])
 );
+/** The server's code and the scripts': what the model-call rule scans. */
+const withScripts = new Map([
+  ...texts,
+  ...repoFiles(LIFE_CODE_DIR, ["scripts"], [".ts"])
+    .filter((f) => !f.endsWith(".test.ts"))
+    .map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")] as const),
+]);
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
 // capability's implementations import its contract.ts, and only its registry imports them (AGENTS.md).
@@ -78,9 +100,9 @@ test("no import cycles in the server's code", () => {
 });
 
 /** The files that import any of `names` (aliased too) from a path ending in `module`. */
-const importers = (names: string[], module: string) =>
-  files.filter((f) =>
-    [...(texts.get(f) ?? "").matchAll(NAMED)].some(
+const importers = (names: string[], module: string, among = texts) =>
+  [...among.keys()].filter((f) =>
+    [...(among.get(f) ?? "").matchAll(NAMED)].some(
       ([, what = "", path = ""]) =>
         path.endsWith(`/${module}`) &&
         what
@@ -88,8 +110,8 @@ const importers = (names: string[], module: string) =>
           .some((w) => names.includes(w.trim().split(SPACE)[0] ?? ""))
     )
   );
-const running = (program: RegExp) =>
-  files.filter((f) => program.test(texts.get(f) ?? ""));
+const running = (program: RegExp, among = texts) =>
+  [...among.keys()].filter((f) => program.test(among.get(f) ?? ""));
 
 // 2 Nov 2026: the agent boards wrote his Reminders beside `changeTodoItem`, so the minute pass read each of their items back as
 // his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `changeTodoItem` reaches a backend.
@@ -156,8 +178,13 @@ const lifelogTexts = repoFiles(LIFE_CODE_DIR, ["apps/lifelog"], [".ts"])
   .filter((f) => !f.endsWith(".test.ts"))
   .map((f) => [f, readFileSync(join(LIFE_CODE_DIR, f), "utf8")] as const);
 /** The `file:line`s of server code (and lifelog's, with `lifelog`) matching `pattern`, outside the files in `except`. */
-const linesMatching = (pattern: RegExp, except: string[], lifelog = false) =>
-  [...texts, ...(lifelog ? lifelogTexts : [])].flatMap(([f, text]) =>
+const linesMatching = (
+  pattern: RegExp,
+  except: string[],
+  lifelog = false,
+  among = texts
+) =>
+  [...among, ...(lifelog ? lifelogTexts : [])].flatMap(([f, text]) =>
     except.includes(f)
       ? []
       : text
@@ -225,4 +252,32 @@ test("no two of the server's files share a name, a capability's contract.ts and 
     .map((f) => basename(f))
     .filter((n) => n !== "contract.ts" && n !== "backend.ts");
   expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+});
+
+// 19 Nov 2026: a night's spend missed two of its steps, and no call said what it read. Each memory call goes through
+// askOnce, which refuses one that names no reads; reads are made only by readsOf, so none is written by hand.
+test("every model call is made in a known file, and every memory call goes through askOnce with reads made by readsOf", () => {
+  expect(importers(["askOnce"], "llm", withScripts).toSorted()).toEqual([
+    "apps/server/src/memory/run.ts",
+    "apps/server/src/memory/tally.ts",
+    "scripts/memory-pilot.ts",
+    "scripts/question-cases.ts",
+  ]);
+  expect(importers(["askRoutes", "ROUTERS"], "routers", withScripts)).toEqual([
+    "apps/server/src/models/llm.ts",
+  ]);
+  expect(importers(["startDescriber"], "describer", withScripts)).toEqual([
+    "apps/server/src/host/describe-photos.ts",
+  ]);
+  expect(running(MODEL_SPAWN, withScripts).toSorted()).toEqual(
+    MODEL_CALL_FILES
+  );
+  expect(
+    linesMatching(
+      READS_LITERAL,
+      ["apps/server/src/memory/run.ts"],
+      false,
+      withScripts
+    )
+  ).toEqual([]);
 });

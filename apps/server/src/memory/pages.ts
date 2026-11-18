@@ -59,7 +59,7 @@ import {
   wordsOf,
 } from "./page-format";
 import { OWNER, type Truth } from "./read-truth";
-import { begin, inBatches, type Step } from "./run";
+import { begin, inBatches, readsOf, type Step } from "./run";
 import { nameKey } from "./units";
 import {
   observationsNow,
@@ -424,6 +424,13 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     dir,
     input,
     prompt: PAGES_PROMPT,
+    // The page itself is Life's own lines; its observations count by the units they came from.
+    reads: readsOf([
+      { source: "memory", unit: t.ref },
+      ...[...input.cited, ...input.observations]
+        .flatMap(({ id }) => known.byId.get(id) ?? [])
+        .map((o) => ({ source: o.source.channel, unit: o.unit })),
+    ]),
   });
   // Only the observations the model was shown can start a line.
   const shown = new Set(input.observations.map((o) => o.id));

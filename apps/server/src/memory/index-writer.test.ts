@@ -169,3 +169,36 @@ test("a conversation summary is indexed under its first turn's ref, with its day
   expect(row?.at).toBe(localDate(summary.at));
   expect(row?.hash).toBe(textHashOf(EMBEDDER_MODEL, row?.text ?? ""));
 });
+
+test("the units hold their items, a window by date reads the date index, and an index without items rebuilds", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "life-items-")), "i.sqlite");
+  const u = unit();
+  buildIndex(
+    [],
+    path,
+    {
+      corrections: [],
+      latest: new Map(),
+      live: new Set([u.id]),
+      retired: new Map(),
+    },
+    [{ unit: u, verdict: verdict(u) }],
+    new Date("2099-01-01")
+  );
+  const db = new Database(path);
+  expect(
+    db.query<{ items: number }, []>("select items from units").get()?.items
+  ).toBe(3);
+  const plan = db
+    .query<{ detail: string }, []>(
+      "explain query plan select source, date, count(*), sum(items) from units where date between '2026-10-01' and '2026-10-09' group by source, date"
+    )
+    .all()
+    .map((r) => r.detail)
+    .join(" ");
+  expect(plan).toContain("units_date");
+  expect(readStaleness(path)).toBeNull();
+  db.run("alter table units drop column items");
+  expect(readStaleness(path)).toBe("index");
+  db.close();
+});

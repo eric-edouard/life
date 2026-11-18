@@ -12,7 +12,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { clock, HOUR, MIN } from "@life/server/src/core/clock";
-import { LOG_DIR, logDays, logEvents } from "@life/server/src/core/log";
+import {
+  LOG_DIR,
+  type LogEvent,
+  logDays,
+  logEvents,
+} from "@life/server/src/core/log";
 import {
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
@@ -24,12 +29,13 @@ import { episodes } from "@life/server/src/memory/episodes";
 import { extract } from "@life/server/src/memory/extract";
 import { answeredFactChecks } from "@life/server/src/memory/memory-files";
 import { locked } from "@life/server/src/memory/memory-lock";
+import { modelCallsOf } from "@life/server/src/memory/run-log";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
-import { add, NONE, type Tokens } from "@life/server/src/models/model-call";
+import { add, NONE } from "@life/server/src/models/model-call";
 import { newestTurn } from "@life/server/src/sources/lifelog";
 import { TruthSet, type timelineScore } from "./timeline";
 
@@ -112,19 +118,21 @@ async function readDays(files: string[]) {
         .map((c) => JSON.stringify({ date: c.date, id: c.ref, text: c.text }))
         .join("\n")
     );
-    // This worktree's log holds this run alone so far: its calls' cost (claude's alone report one), else their tokens.
-    const calls = (await logDays(LOG_DIR)).flatMap((n) =>
-      logEvents<{ costUsd?: number; tokens?: Tokens }>(n, "model.run")
-    );
-    const costs = calls.flatMap((l) =>
-      typeof l.costUsd === "number" ? [l.costUsd] : []
-    );
-    const tokens = calls.reduce((t, l) => add(t, l.tokens ?? NONE), NONE);
+    // This worktree's log holds this run alone so far: its calls' cost (a router's report one), else their tokens.
+    const calls = [
+      ...modelCallsOf(
+        (await logDays(LOG_DIR)).flatMap((n) =>
+          logEvents<LogEvent>(n, "model.run")
+        )
+      ).values(),
+    ];
+    const costUsd = calls.reduce((n, c) => n + c.costUsd, 0);
+    const tokens = calls.reduce((t, c) => add(t, c.tokens), NONE);
     return {
       ...read,
       cost:
-        costs.length > 0
-          ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
+        costUsd > 0
+          ? `$${costUsd.toFixed(2)}`
           : `${Math.round((tokens.input + tokens.output) / 1e3)}k tokens`,
       memoryLines: memoryLines.length,
       model: llmSpec(llmFor("deep")),
