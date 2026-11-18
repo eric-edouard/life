@@ -34,7 +34,8 @@ const line = (over: Partial<CheckInputs["lines"][number]> = {}) => {
 };
 const about = (ref: string, over = {}) => line({ subjects: [ref], ...over });
 
-const ASKED_UNTIL_22_NOV = /^Nothing starts\. Asked until .*22 Nov/;
+const ASKED_UNTIL_22_NOV =
+  /Next step: Book the plumber\. Asked until .*22 Nov\.$/;
 
 /** A matter's steps, made up: each on 1 Oct with a quote. */
 const stepsOf = (...refs: string[]) =>
@@ -429,8 +430,7 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       asker: "life",
       at: null,
       clips: [],
-      context:
-        "Nothing blocks its next step: an agent could move it now. Next step: Book the plumber",
+      context: expect.stringMatching(ASKED_UNTIL_22_NOV),
       deadline: null,
       draft: null,
       evidence: {
@@ -443,7 +443,8 @@ test("a new matter an agent could move asks 'Work on it?' for 7 days from its fi
       links: [],
       matter: { id: matter.id, name: "Boiler service" },
       notSent: null,
-      onSilence: expect.stringMatching(ASKED_UNTIL_22_NOV),
+      // 19 Nov 2026 (review A, B5): it held a sentence where every other kind holds an option id.
+      onSilence: null,
       options: [
         expect.objectContaining({ id: "start" }),
         expect.objectContaining({ id: "edit-goal" }),

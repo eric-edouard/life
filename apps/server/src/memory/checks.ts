@@ -521,7 +521,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 asker: "life",
                 at: null,
                 clips: [],
-                context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}`,
+                context: `${LIFE_CHECKS["new matter"].context} Next step: ${next.text}. Asked until ${plain(lastDay)}.`,
                 deadline: null,
                 draft: null,
                 evidence: { from: plain(first.day), quote: first.quote },
@@ -530,7 +530,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
                 likelyPeople: [],
                 links: [],
                 notSent: null,
-                onSilence: `Nothing starts. Asked until ${plain(lastDay)}.`,
+                // Nothing starts on silence: no option is taken.
+                onSilence: null,
                 options: [...LIFE_CHECKS["new matter"].options],
                 question: `Goal: ${v.goal.text.replace(FINAL_STOP, "")}. Work on it?`,
                 ref: v.id,
