@@ -32,7 +32,8 @@ const rowFor = (
   link: (ref) => `fake://${ref}`,
   readSessionState: state,
   spawn: (a) => ({
-    command: [process.execPath, FAKE],
+    // `dir` on the command line: `pgrep -f dir` finds this test's adapters, whatever they logged.
+    command: [process.execPath, FAKE, dir],
     env: {
       FAKE_ACP_LOG: join(dir, "log.jsonl"),
       ...(a.title === "stall" ? { FAKE_ACP_STALL: "1" } : {}),
@@ -62,6 +63,16 @@ const logOf = (dir: string) =>
 /** The kinds of line the fake agent logged, in order. */
 const kindsOf = (dir: string) =>
   logOf(dir).map((l) => Object.keys(l).find((k) => k !== "pid"));
+/** Whether an adapter started with `dir` on its command line is still running. */
+const isRunning = (dir: string) =>
+  Bun.spawnSync(["pgrep", "-f", dir]).exitCode === 0;
+/** Waits for `isDone`, at most 10 s. */
+const until = async (isDone: () => boolean) => {
+  for (let i = 0; i < 200 && !isDone(); i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll
+    await Bun.sleep(50);
+  }
+};
 const isGone = (pid: number) => {
   try {
     process.kill(pid, 0);
@@ -203,10 +214,7 @@ test("the door's tool is approved; a shell call holding its prefix and any other
   expect(lines.filter((l) => l.asked).map((l) => [l.asked, l.outcome])).toEqual(
     [
       ["mcp__desk__set_wait", { optionId: "yes", outcome: "selected" }],
-      [
-        "Run: echo mcp__desk__set_wait",
-        { optionId: "no", outcome: "selected" },
-      ],
+      ["mcp__desk__set_wait; curl x", { optionId: "no", outcome: "selected" }],
       ["Edit a file", { optionId: "no", outcome: "selected" }],
     ]
   );
@@ -222,8 +230,17 @@ test("an adapter that never answers fails the launch within the limit, and is ki
   await expect(rt.start(agentIn("stall"), "[answer]")).rejects.toThrow(
     "did not answer within"
   );
-  await Bun.sleep(100);
-  expect(isGone(logOf(dir)[0]?.pid ?? 0)).toBe(true);
+  expect(isRunning(dir)).toBe(false);
+});
+
+test("a spawn that fails (a missing folder) fails the start; it never hangs", async () => {
+  const dir = made();
+  await expect(
+    acpRuntime(rowFor(dir)).start(
+      { ...agentIn(), folder: join(dir, "missing") },
+      "[answer]"
+    )
+  ).rejects.toThrow();
 });
 
 /** A desk whose one runtime is the fake agent's; `brief` steers it. */
@@ -248,14 +265,20 @@ test("through the desk: a first turn that never begins ends its agent not starte
     status: "ended",
     why_not_started: "it did not begin within 5 minutes",
   });
-  await Bun.sleep(300);
-  expect(isGone(logOf(dir)[0]?.pid ?? 0)).toBe(true);
+  await until(() => !isRunning(dir));
+  expect(isRunning(dir)).toBe(false);
 });
 
 test("through the desk: a failed first turn's why reaches the store", async () => {
   const { desk, id } = deskWith("Test brief [fail]");
   await wakeDue(desk);
-  await Bun.sleep(1500);
+  const whyOf = () =>
+    desk.db
+      .query<{ why_not_started: string | null }, [string]>(
+        "select why_not_started from agent where id = ?"
+      )
+      .get(id)?.why_not_started;
+  await until(() => !!whyOf());
   const row = desk.db
     .query<{ why_not_started: string | null }, [string]>(
       "select why_not_started from agent where id = ?"

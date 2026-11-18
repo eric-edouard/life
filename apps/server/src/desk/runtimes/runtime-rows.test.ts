@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CODEX_HOME } from "../../models/llm";
+import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import {
   isRolloutTurnOpen,
@@ -75,14 +75,26 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
       },
     },
   });
+  expect(rows.claude.meta).toMatchObject({
+    claudeCode: { options: { permissionMode: "default" } },
+  });
+  const { env } = rows.claude.spawn(a);
+  expect(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
+  expect(env.CLAUDE_CODE_DISABLE_CLAUDE_MDS).toBe("1");
   expect(rows.claude.handOff).toBeUndefined();
   const second = JSON.parse(rows.codex.spawn(a).env.CODEX_CONFIG ?? "");
   expect(second.project_doc_max_bytes).toBe(0);
+  for (const f of [...CODEX_OFF, ...CODEX_AGENT_OFF]) {
+    expect(second.features[f]).toBe(false);
+  }
   expect(second.web_search).toBe("disabled");
   expect(second.skills.include_instructions).toBe(false);
   expect(rows.codex.spawn(a).env.CODEX_HOME).toBe(CODEX_HOME);
   const his = runtimeRowsOf(true);
   expect(his.claude.meta).toBeUndefined();
+  expect(
+    his.claude.spawn(a).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY
+  ).toBeUndefined();
   expect(his.codex.spawn(a).env.CODEX_HOME).toBeUndefined();
   expect(JSON.parse(his.codex.spawn(a).env.CODEX_CONFIG ?? "")).toEqual({});
 });
