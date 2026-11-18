@@ -473,7 +473,7 @@ export const conversations = sqliteTable("conversations", {
   // The live conversation that now covers its anchor (or else its range).
   successorId: uuid("successor_id"),
   // What its last finished roll read: its turn keys and whether it was open (runs.ts). A
-  // summary is due when its words differ from it; null: never read, .
+  // summary is due when its words differ from it; null: never read, so it is due.
   turnsFp: text("turns_fp"),
   updatedAt,
   waitingReason: text("waiting_reason", { enum: waitingReasons }),

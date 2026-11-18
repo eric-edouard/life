@@ -36,8 +36,9 @@ action through `LifeStore`'s `ActionState`. Manrope is the one font (`DesignSyst
   `DEVELOPMENT_TEAM`); code reads them from the bundle's Info.plist (`AppGroup`, `SyncStore.backgroundTaskID`). The Keychain
   service is `<bundle id>.server` (`DeviceToken`), which for the owner's build is the name it always had, so his
   stored token stays readable; changing the bundle id starts unpaired.
-- Screens read the library's cache of the server's feed and the outbox, never the server first (`docs/architecture.md`,
-  "Local first").
+- The app is Life's Inbox and Matters, read through the connector, plus the Pendant's capture and upload. No screen
+  reads the library; its cache of the server's feed stays, and any screen that returns reads the cache first
+  (`docs/architecture.md`, "Local first").
 - A source's `sentThrough` (on the server) means everything before it was sent or decided. A new install's uploader
   starts there (`Uploader.restore`) and never reads derived files below it: `derived/` and `upload/` are kept out of
   backups, `timeline.sqlite` is not, so a migrated phone has an index of sidecars it lacks. A lost sidecar is

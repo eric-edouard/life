@@ -70,8 +70,6 @@ final class CaptureStore {
     @ObservationIgnored let notifier = IncidentNotifier()
     @ObservationIgnored private let health = HealthReporter()
     @ObservationIgnored private let snapshots: SnapshotPublisher
-    /// The Watch's link, for what capture doesn't own .
-    var watch: WatchRelay { snapshots.watch }
     @ObservationIgnored private let root: URL
     @ObservationIgnored private var transport: (any PendantTransport)?
     @ObservationIgnored private var coordinator: DrainCoordinator?
