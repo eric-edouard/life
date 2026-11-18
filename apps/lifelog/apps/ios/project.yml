@@ -61,6 +61,8 @@ targets:
         product: Glance
       - package: LifelogKit
         product: Health
+      - package: LifelogKit
+        product: LifeConnector
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)

@@ -8,7 +8,7 @@ lifelog (the pendant pipeline: the iPhone app, its server, the Mac helper and Li
 folded in from its own repo on 24 Oct 2026, with its own `AGENTS.md`. It still runs as its own service on the Mac, and
 Life reads it only through its REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database;
 lifelog may use Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`); lifelog
-reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of 90 days). One gate, `bun run check` at the root, covers both.
+reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of 90 days). The iPhone app is also a client of Life's connector, paired by code like any app (`LifeConnector`, in its Kit); it holds no second API. One gate, `bun run check` at the root, covers both.
 
 Read before changing an area: `docs/glossary.md` (every concept's name), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),

@@ -1,0 +1,71 @@
+{
+  "goal": {
+    "by": "life",
+    "text": "Gran has her watch back"
+  },
+  "id": "matter_aaaaaaaaaaaa",
+  "lastStepAt": "2026-10-12T10:00:00.000Z",
+  "name": "Mend Gran's watch",
+  "newestOpenStep": {
+    "day": "2026-10-12",
+    "text": "Call the shop"
+  },
+  "nextStep": {
+    "by": "owner",
+    "kind": "wait_event",
+    "text": "The shop's quote",
+    "waitsOn": "the shop"
+  },
+  "people": {
+    "owedTo": ["gran"],
+    "with": ["partner"]
+  },
+  "projects": ["Shop fit-out"],
+  "status": "moving",
+  "agents": [
+    {
+      "amber": [],
+      "effort": "medium",
+      "id": "agt_000000000001",
+      "lastTurn": {
+        "cause": "start",
+        "endedAt": null,
+        "outcome": null,
+        "startedAt": "2026-10-13T09:00:00.000Z"
+      },
+      "link": "https://agents.example.test/s/1",
+      "model": "model-one",
+      "notes": "Gran's watch: the shop quotes by Friday.",
+      "outcome": null,
+      "project": null,
+      "runtime": "claude",
+      "status": "running",
+      "steps": ["obs_000000000005"],
+      "title": "Get Gran's watch mended",
+      "wait": null
+    }
+  ],
+  "steps": [
+    {
+      "at": "2026-10-02T10:00:00.000Z",
+      "day": "2026-10-02",
+      "kind": "episode",
+      "quote": "\"Gran's watch\" said Gran",
+      "ref": "ep_000000000001",
+      "text": "Gran's watch"
+    },
+    {
+      "at": "2026-10-12T10:00:00.000Z",
+      "day": "2026-10-12",
+      "kind": "promise",
+      "quote": "\"Call the shop\" said Gran",
+      "ref": "obs_000000000005",
+      "text": "Call the shop",
+      "ending": {
+        "at": "2026-10-14T10:00:00.000Z",
+        "by": "ticked"
+      },
+      "with": "partner"
+    }
+  ]
+}

@@ -284,14 +284,9 @@ final class SyncStore {
         return gone
     }
 
-    /// A pairing link opened from outside (`onOpenURL`), waiting for the owner to confirm it on screen: a link
-    /// could come from anywhere, so it never repoints the app on its own.
-    var offeredPairing: Pairing?
-
     /// Pairs the phone with a server (a link from its Mac, confirmed): the token into the Keychain, the server beside
     /// it. Returns whether both were kept.
     func pair(_ pairing: Pairing) -> Bool {
-        offeredPairing = nil
         guard DeviceToken.pair(pairing) else { return false }
         server = DeviceToken.paired
         run()

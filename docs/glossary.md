@@ -15,7 +15,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | memory language | The language his memory is written in, asked at the first run beside his name: the `memoryLanguage` setting, `{{language}}` in prompts. Absent: English. Quotes stay as said; topic tags stay English. | |
 | action step | One named step of an action as it passes (`recorded`, `chat_checked`, `handed`, `confirmed`, `asker_told`, `left_inbox`), sent as a `notifications/progress` message after the plan (`report`, `mcp-tool.ts`). Not a matter step, not a processing step, not a night step. | |
 | agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
-| pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
+| pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. `--link` prints the link the iPhone app opens (`lifelog://pair?life=<origin>&code=<code>`). | |
 | speaker | Who said a turn in a recording. | |
 | split group | Clean sampled turns separated from a job's speaker label by voice; recognized turn rows keep the group, which supplies no identity or evidence. | |
 | Not anyone I know | The owner's answer for a voice he does not know: a stranger (status `unknown` with `basis: owner` in lifelog). The voice naming never guesses it: its guess is stored `unknown` at `weak` whatever the model said, and the score counts how many such voices a hidden run guessed a person or him (`ownAnswerOf`, `sources/lifelog-voices.ts`). Not "not relevant". | |
@@ -243,6 +243,12 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | route | One host an API engine asks, in order: a router, the model on it, the host (`routesOf`). | |
 | embedder | The local model that turns a text into a vector for search by meaning (`core/embedder.ts`): EmbeddingGemma under llama.cpp, a Lifelog Host child. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `episode.ts`, `ledger-entry.ts`…). | |
+
+## The phone
+
+| Word | Means | Planned |
+|---|---|---|
+| read state | What one read of Life is on the phone (`ReadState`, Kit's `LifeConnector`): its last good value, when it was read, and what the latest try is doing. A screen shows `shown`: loading, loaded, empty, stale (a failed refresh after a good read), unreachable (the Mac is out of reach), failed or not paired. | |
 
 ## Folders
 
