@@ -102,13 +102,13 @@ failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add
 What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his. A second Life's
 Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but the door (none
 of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
-memory (`claude-runtime.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
+memory (its row in `runtime-rows.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
 sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services
 get only the variables a CLI needs and the demo's own, none of his keys.
 
 Run it after a change to the app's flows, the desk or the inbox, one at a time and with the Mac's load under 20: about
 5 to 10 minutes (most of it the build and the agent's two turns) and two real Claude turns on Sonnet, about $0.40 of his
-subscription per run. It is kept out of `bun run check` and the pre-push hook for that time and cost.
+subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same scenarios on Codex (two real Codex turns, on his Codex subscription). It is kept out of `bun run check` and the pre-push hook for that time and cost.
 
 ## The schedule
 

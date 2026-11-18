@@ -47,8 +47,6 @@ export const LIFE_STATE_DIR = real(
 );
 /** The desk's store (`apps/server/src/desk/`): his registered agents, their waits, turns and queued events. Host reads it read-only. */
 export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
-/** Each Codex turn's events, one file per run (`desk/runtimes/codex-runtime.ts`). */
-export const DESK_RUNS = join(LIFE_STATE_DIR, "desk", "runs");
 /** Where an agent started with no folder (and no repo of its project on the Mac) runs: a folder of its own, `<agt_…>`, made by the desk. */
 export const DESK_AGENT_FOLDERS = join(LIFE_STATE_DIR, "desk", "agents");
 // ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete

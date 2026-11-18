@@ -28,6 +28,21 @@ export const MAX_HANDED = RETRIES.length + 1;
  * starts from the packet. Growth, not size: a new session already holds 28,000 to 78,000 tokens (the runtime proofs).
  */
 export const GROWTH_LIMIT = 30_000;
+/**
+ * How much a session has grown since its first call: the context of its newest call that a turn kept, less its first
+ * call's (`session.context_at_first_call`). With either missing it is 0: the wake then sends into the session.
+ */
+export function growthOf(
+  session: { context_at_first_call: number | null } | null,
+  turns: Pick<TurnRow, "context_used">[]
+) {
+  const last = turns.find((t) => t.context_used !== null)?.context_used;
+  const first = session?.context_at_first_call;
+  return typeof last !== "number" || typeof first !== "number"
+    ? 0
+    : last - first;
+}
+
 /** At most this many turns start in one tick, his answers first, then the oldest deadline. */
 export const STARTS_PER_TICK = 3;
 /** His answer to an agent's decision, or its lapse: either wakes the agent at once. */
