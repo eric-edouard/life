@@ -33,6 +33,7 @@ import {
   dueOf,
   failuresOf,
   GROWTH_LIMIT,
+  growthOf,
   isBeginLate,
   MAX_HANDED,
   STARTS_PER_TICK,
@@ -47,6 +48,7 @@ import {
 } from "./matter-net";
 import type {
   Run,
+  RunEnd,
   Runtime,
   Agent as SessionAgent,
   Usage,
@@ -235,9 +237,9 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
     () => undefined
   );
   run.ended
-    .then(async ({ ok }) => {
+    .then(async (end) => {
       await begun;
-      return turnEnded(desk, id, !ok);
+      return turnEnded(desk, id, end);
     })
     .catch((error: unknown) =>
       log("desk.runtime", {
@@ -314,10 +316,7 @@ async function launch(
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
     }
-    const grown =
-      a.session && state === "idle"
-        ? ((await runtime.usage(a.session))?.grownBy ?? 0)
-        : 0;
+    const grown = a.session && state === "idle" ? growthIn(db, a.session) : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
       const s = await runtime.start(
         sessionAgentOf(a),
@@ -369,9 +368,24 @@ async function launch(
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, true, (error as Error).message);
+    await turnEnded(desk, a.id, { ok: false, why: (error as Error).message });
   }
 }
+
+/** How much session `ref` has grown (`growthOf`), from what its turns kept. */
+const growthIn = (db: Desk["db"], ref: string) =>
+  growthOf(
+    db
+      .query<{ context_at_first_call: number | null }, [string]>(
+        "select context_at_first_call from session where ref = ?"
+      )
+      .get(ref),
+    db
+      .query<{ context_used: number | null }, [string]>(
+        "select context_used from turn where session = ? order by id desc limit 8"
+      )
+      .all(ref)
+  );
 
 /**
  * Starts the turns due now: his answers and new agents' first turns first, then the oldest deadline, until 3 have
@@ -431,23 +445,31 @@ function close(
   desk: Desk,
   t: TurnRow,
   outcome: TurnOutcome,
-  usage: Usage | null
+  usage: Usage | undefined
 ) {
   const { db } = desk;
   watchedIn(db).delete(t.id);
   const ended = db.run(
-    "update turn set ended_at = ?, outcome = ?, tokens_in = ?, tokens_cached = ?, tokens_out = ? where id = ? and ended_at is null",
+    "update turn set ended_at = ?, outcome = ?, tokens_in = ?, tokens_cached = ?, tokens_out = ?, context_used = ? where id = ? and ended_at is null",
     [
       now(),
       outcome,
       usage?.tokensIn ?? null,
       usage?.tokensCached ?? null,
       usage?.tokensOut ?? null,
+      usage?.contextLast ?? null,
       t.id,
     ]
   ).changes;
   if (ended === 0) {
     return false;
+  }
+  // The session's first call, once: from its first turn's own run (a reminder's run starts later in the conversation).
+  if (typeof usage?.contextFirst === "number" && t.session && !t.reminded_at) {
+    db.run(
+      "update session set context_at_first_call = ? where ref = ? and context_at_first_call is null and not exists (select 1 from turn where session = ? and id < ?)",
+      [usage.contextFirst, t.session, t.session, t.id]
+    );
   }
   db.run(
     outcome === "waited" || outcome === "finished"
@@ -482,14 +504,9 @@ function afterFailure({ db }: Desk, a: AgentRow) {
 
 /**
  * The run of `id`'s open desk turn ended (`failed` when it did). A turn ends by `set_wait` or `finish`; with neither,
- * the desk reminds it once, then sets the default wait. The turn's tokens are read from its runtime.
+ * the desk reminds it once, then sets the default wait. The turn's tokens are the run's own (`RunEnd.usage`).
  */
-export async function turnEnded(
-  desk: Desk,
-  id: string,
-  failed = false,
-  why = "its first turn ended before it began"
-) {
+export async function turnEnded(desk: Desk, id: string, end: RunEnd) {
   const { db } = desk;
   const t = openTurn(db, id);
   const a = agentOf(db, id);
@@ -497,13 +514,17 @@ export async function turnEnded(
   if (!(t && a)) {
     return;
   }
-  const usage =
-    t.session && runtime
-      ? await runtime.usage(t.session).catch(() => null)
-      : null;
-  if (failed) {
+  const { usage } = end;
+  if (!end.ok) {
     db.transaction(() => {
-      if (close(desk, t, "failed", usage) && !endNotStarted(desk, t, why)) {
+      if (
+        close(desk, t, "failed", usage) &&
+        !endNotStarted(
+          desk,
+          t,
+          end.why ?? "its first turn ended before it began"
+        )
+      ) {
         afterFailure(desk, a);
       }
     })();
@@ -566,9 +587,9 @@ const stopRun = (runtime: Runtime | undefined, id: string, ref: string) =>
 
 /**
  * Ends the desk turns this process does not watch and whose runtime runs nothing now (started before the helper or the
- * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; the runtime forgets that run's
- * records. One still running is marked begun only when its runtime's own record says so (`hasBegun`), else the begin
- * limit ends it; a runtime that can't say now is looked at again at the next poll.
+ * Mac stopped): by its outcome when it set a wait or finished, else failed and retried. One still running (a session of
+ * his, or a killed turn's CLI not yet exited) is left to the begin limit; a runtime that can't say now is looked at
+ * again at the next poll.
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
@@ -580,12 +601,8 @@ export async function endLostTurns(desk: Desk) {
       t.session && runtime
         ? await runtime.state(t.session).catch(() => null)
         : "gone";
-    if (state === "running" && !t.begun_at && t.session && runtime) {
-      if (await runtime.hasBegun(t.session).catch(() => false)) {
-        markBegun(desk.db, t.id);
-      }
-    } else if (state === "idle" || state === "gone") {
-      await turnEnded(desk, a.id, !t.outcome);
+    if (state === "idle" || state === "gone") {
+      await turnEnded(desk, a.id, { ok: !!t.outcome });
       if (t.session) {
         await stopRun(runtime, a.id, t.session);
       }
@@ -595,32 +612,19 @@ export async function endLostTurns(desk: Desk) {
 
 /**
  * Ends each desk turn launched and not begun within `BEGIN_WITHIN_MS` (`isBeginLate`): a hung launch (a door that never
- * connects, a stuck CLI). A turn this process does not watch (launched before a restart) is first asked of its runtime's
- * own record (`hasBegun`): one that began while the helper was down is marked begun, never ended. Else the turn is ended
- * first (a first turn: its agent not started, its matter freed; a later one failed, retried), then its run stopped,
- * whose end then finds the turn closed.
+ * connects, a stuck adapter). The turn is ended first (a first turn: its agent not started, its matter freed; a later
+ * one failed, retried), then its run stopped, whose end then finds the turn closed.
  */
 export async function endUnbegunTurns(desk: Desk) {
   const at = clock().getTime();
-  const watching = watchedIn(desk.db);
   await eachOpenTurn(desk, async (a, t, runtime) => {
     if (!(runtime && isBeginLate(t, at))) {
       return;
     }
-    if (
-      !watching.has(t.id) &&
-      t.session &&
-      (await runtime.hasBegun(t.session).catch(() => false))
-    ) {
-      markBegun(desk.db, t.id);
-      return;
-    }
-    await turnEnded(
-      desk,
-      a.id,
-      true,
-      `it did not begin within ${BEGIN_WITHIN_MS / MIN} minutes`
-    );
+    await turnEnded(desk, a.id, {
+      ok: false,
+      why: `it did not begin within ${BEGIN_WITHIN_MS / MIN} minutes`,
+    });
     if (t.session) {
       await stopRun(runtime, a.id, t.session);
     }
