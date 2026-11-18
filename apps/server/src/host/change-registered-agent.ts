@@ -18,9 +18,9 @@ import {
   agentChangeOf,
   holderOf,
   modelOf,
-  NOT_STARTED,
+  projectHolderOf,
   readDesk,
-  startOf,
+  readStartFacts,
 } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
@@ -48,7 +48,7 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
     "A project id or name of his directory, as its subject"
   ),
   runtime: AgentChange.shape.runtime.describe(
-    "claude, codex or dsh; none: the desk's default"
+    "claude or codex; none: the desk's default"
   ),
   said: z
     .string()
@@ -159,8 +159,8 @@ export const START_STAGES = [
   "turn_begun",
 ] as const;
 
-/** The start's stages as the desk's store has written them so far (`startOf`): each with its time and detail. */
-function stagesOf(s: ReturnType<typeof startOf>) {
+/** The start's stages as the desk's store has written them so far (`readStartFacts`): each with its time and detail. */
+function stagesOf(s: ReturnType<typeof readStartFacts>) {
   const { change, session, turn } = s;
   return [
     ...(change?.agent_id && !change.error
@@ -187,20 +187,17 @@ function stagesOf(s: ReturnType<typeof startOf>) {
 }
 
 /** Why a start did not happen, from what the desk wrote: its refusal, or the agent it ended before its first turn began. */
-function startFailure(s: ReturnType<typeof startOf>) {
+function startFailure(s: ReturnType<typeof readStartFacts>) {
   if (s.change?.error) {
     return s.change.error;
   }
-  const outcome = s.agent?.outcome;
-  return s.agent?.status === "ended" && outcome?.startsWith(NOT_STARTED)
-    ? outcome.slice(NOT_STARTED.length)
-    : null;
+  return s.agent?.why_not_started ?? null;
 }
 
 /** A start's answer from the facts read: `started`, `not_started` (refused, or its agent ended before it began) or `unconfirmed`. */
 function startResult(
-  s: ReturnType<typeof startOf> | null,
-  isHeld: boolean,
+  s: ReturnType<typeof readStartFacts> | null,
+  isSubjectHeld: boolean,
   stages: ReturnType<typeof stagesOf>,
   askId: string,
   change: AgentChange,
@@ -225,8 +222,8 @@ function startResult(
           stage: START_STAGES[stages.length] ?? START_STAGES[2],
         },
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
-    // A matter held by an active agent has one running.
-    nothingRunning: state === "not_started" && !isHeld,
+    // A subject held by an active agent has one running.
+    nothingRunning: state === "not_started" && !isSubjectHeld,
     runtime: s?.agent?.runtime ?? change.runtime ?? null,
     stages,
     state,
@@ -244,15 +241,18 @@ async function waitForStart(
   for (let waited = 0; ; waited += POLL_MS) {
     const read = readDesk(
       (db) => ({
-        isHeld: holderOf(db, change.steps ?? []) !== null,
-        s: startOf(db, line.id),
+        isSubjectHeld:
+          (change.project
+            ? projectHolderOf(db, change.project)
+            : holderOf(db, change.steps ?? [])) !== null,
+        s: readStartFacts(db, line.id),
       }),
       null
     );
-    const { isHeld, s } =
+    const { isSubjectHeld, s } =
       read.state === "ok" && read.value
         ? read.value
-        : { isHeld: false, s: null };
+        : { isSubjectHeld: false, s: null };
     const stages = s ? stagesOf(s) : [];
     for (const { stage, ...detail } of stages.slice(reported)) {
       report({ step: stage, ...detail });
@@ -263,7 +263,7 @@ async function waitForStart(
       (s && startFailure(s)) ||
       waited >= limitMs
     ) {
-      return startResult(s, isHeld, stages, line.id, change, limitMs);
+      return startResult(s, isSubjectHeld, stages, line.id, change, limitMs);
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's facts
     await Bun.sleep(POLL_MS);

@@ -643,8 +643,9 @@ test("a runtime that cannot start ends a new agent, not started, and frees its m
   fake.isFailing = true;
   const id = await started(desk, "obs_00000000b002");
   expect(agentOf(desk.db, id)).toMatchObject({
-    outcome: "not started: cannot start",
+    outcome: null,
     status: "ended",
+    why_not_started: "cannot start",
   });
   expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
   // Not anchored for the inbox either: the new matter card comes back for another Start.
@@ -659,8 +660,8 @@ test("a first turn whose run ends before it began ends its agent; one that had b
   fake.exit(agentOf(desk.db, lost)?.session ?? "", false);
   await Bun.sleep(5);
   expect(agentOf(desk.db, lost)).toMatchObject({
-    outcome: "not started: its first turn ended before it began",
     status: "ended",
+    why_not_started: "its first turn ended before it began",
   });
 
   const begun = await started(desk, "obs_00000000b004");
@@ -699,15 +700,40 @@ test("a first turn that began in the instant its run failed is retried, not ende
   expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
 });
 
-test("after a restart a first turn still running is under way: it is not ended as not started when it fails later", async () => {
+test("after a restart a first turn still running is marked begun only when its runtime's record says so: then it is not ended as not started when it fails later", async () => {
   const { desk, fake, path } = setup();
   fake.holdBegun();
   const id = await started(desk, "obs_00000000b008");
   const ref = agentOf(desk.db, id)?.session ?? "";
   const again: Desk = { ...desk, db: openDesk(path) };
+  // Its process runs, its record shows no answer yet: not begun.
+  await endLostTurns(again);
+  expect(openTurn(again.db, id)?.begun_at).toBeNull();
+  fake.beganBefore(ref);
   await endLostTurns(again);
   expect(openTurn(again.db, id)?.begun_at).not.toBeNull();
   fake.exit(ref, false);
   await endLostTurns(again);
   expect(agentOf(again.db, id)?.status).toBe("active");
+});
+
+test("a runtime that can't say a lost turn's state leaves it alone this poll: never marked begun, never ended", async () => {
+  const { desk, fake, path } = setup();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b009");
+  const again: Desk = {
+    ...desk,
+    db: openDesk(path),
+    runtimes: {
+      fake: {
+        ...fake.runtime,
+        state: () => Promise.reject(new Error("pgrep: no answer")),
+      },
+    },
+  };
+  await endLostTurns(again);
+  expect(openTurn(again.db, id)).toMatchObject({
+    begun_at: null,
+    ended_at: null,
+  });
 });

@@ -9,16 +9,20 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { linesOf } from "../../core/files";
+import { DESK_RUNS } from "../../core/paths";
 import { CODEX_HOME } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import {
   codexArgsOf,
   codexHomeOf,
   codexRuntime,
+  hasAnswered,
   hasEvent,
   isRolloutTurnOpen,
   rolloutUsageOf,
 } from "./codex-runtime";
+import { programOf } from "./contract";
 
 // The codex runtime: the command it runs, a rollout's usage, and a start and a turn driven through a fake `codex` on
 // the PATH (made-up events). Nothing runs the real Codex.
@@ -144,10 +148,19 @@ test("a rollout's usage: growth since its first call, the last turn's calls coun
   expect(rolloutUsageOf([])).toBeNull();
 });
 
+/** Resolves once `isTrue` holds, looked at every few milliseconds (the fake's own events, written by another process). */
+async function until(isTrue: () => boolean) {
+  while (!isTrue()) {
+    // biome-ignore lint/performance/noAwaitInLoops: waits for another process's file
+    await Bun.sleep(5);
+  }
+}
+
 /**
  * A `codex` in `/bin/sh` on the PATH: `--version` answers, `app-server` gives a made-up thread, and a turn prints its
- * events from its message: "never" exits 1 at once, "quick" begins and ends at once; any other begins, then waits for the
- * test's `release()` (a `go` file) and ends, exiting 3 for "fail". What a turn was given is kept in files.
+ * events from its message: "never" exits 1 at once, "quick" begins and ends at once, "hang" is launched and never
+ * answers; any other begins (the model's first item), then waits for the test's `release()` (a `go` file) and ends,
+ * exiting 3 for "fail". What a turn was given is kept in files.
  */
 function fakeCodex() {
   const dir = mkdtempSync(join(tmpdir(), "fake-codex-"));
@@ -172,6 +185,7 @@ exec)
   [ "$m" = never ] && exit 1
   echo '{"type":"thread.started","thread_id":"${thread}"}'
   echo '{"type":"turn.started"}'
+  [ "$m" = hang ] || echo '{"type":"item.started","item":{"type":"agent_message"}}'
   if [ "$m" != quick ]; then
     while [ ! -e '${go}' ]; do sleep 0.01; done
     rm -f '${go}'
@@ -268,4 +282,50 @@ test("a session is running while its rollout's last turn is open and fresh (his 
   // A half-written last line never throws.
   write("ref-half", "jsonl", [ev("task_started"), '{"type":"event_ms'], 1);
   expect(await codexRuntime.usage("ref-half")).toBeNull();
+});
+
+test("a run begins at the model's first item, not at turn.started; stop ends a hung run and forgets its events; a restart reads begun from the run's file", async () => {
+  using fake = fakeCodex();
+  expect(hasAnswered(['{"type":"turn.started"}'])).toBe(false);
+  expect(
+    hasAnswered(['{"type":"turn.started"}', '{"type":"item.started"}'])
+  ).toBe(true);
+  await codexRuntime.send(a, fake.thread, "hang");
+  // Launched, `turn.started` written, no answer: not begun, and its record says so.
+  await until(() =>
+    [...new Bun.Glob(`${fake.thread}-*.jsonl`).scanSync(DESK_RUNS)].some((f) =>
+      hasEvent(linesOf(join(DESK_RUNS, f)), "turn.started")
+    )
+  );
+  expect(await codexRuntime.hasBegun(fake.thread)).toBe(false);
+  await codexRuntime.stop(fake.thread);
+  // Its process is gone and its events forgotten. (Its `ended` is not awaited: Bun may miss a killed detached child's
+  // exit; the desk ends the turn before it stops the run, so nothing waits on it.)
+  expect(
+    Bun.spawnSync(["pgrep", "-f", `exec resume ${fake.thread}`]).exitCode
+  ).toBe(1);
+  expect([...new Bun.Glob(`${fake.thread}-*`).scanSync(DESK_RUNS)]).toEqual([]);
+  const going = await codexRuntime.send(a, fake.thread, "go on");
+  await going.begun;
+  expect(await codexRuntime.hasBegun(fake.thread)).toBe(true);
+  fake.release();
+  expect(await going.ended).toEqual({ ok: true });
+});
+
+test("the desk launches the program on the PATH, never one in node_modules/.bin (Life's pinned Codex under `bun run`)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-path-"));
+  const pinned = join(dir, "node_modules", ".bin");
+  const his = join(dir, "his");
+  for (const d of [pinned, his]) {
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "codex"), "#!/bin/sh\n");
+    chmodSync(join(d, "codex"), 0o755);
+  }
+  const path = process.env.PATH;
+  process.env.PATH = `${pinned}:${his}:${path}`;
+  try {
+    expect(programOf("codex")).toBe(join(his, "codex"));
+  } finally {
+    process.env.PATH = path;
+  }
 });

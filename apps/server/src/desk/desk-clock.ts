@@ -1,4 +1,4 @@
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { DESK_AGENT } from "../core/names";
 import {
@@ -9,7 +9,6 @@ import {
   filtersOf,
   lastTurns,
   modelOf,
-  NOT_STARTED,
   openTurn,
   queuedEvents,
   readCursor,
@@ -33,6 +32,7 @@ import {
   dueOf,
   failuresOf,
   GROWTH_LIMIT,
+  isBeginLate,
   MAX_HANDED,
   STARTS_PER_TICK,
 } from "./agent-wait";
@@ -234,7 +234,7 @@ function watch(desk: Desk, id: string, turn: number, run: Run) {
  * runs into its session while that has grown under 30,000 tokens, else in a fresh session from its packet (the old
  * one's link kept). A runtime that fails ends it failed, tried again later.
  */
-async function wake(desk: Desk, a: AgentRow, cause: string) {
+async function wake(desk: Desk, a: AgentRow) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
   // null: the runtime can't say; the send then tells.
@@ -245,21 +245,50 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
   if (state === "running") {
     return false;
   }
-  const events = queuedEvents(db, a.id);
-  const turn = Number(
-    db.transaction(() => {
-      for (const e of events) {
-        db.run(
-          "update event set handed = handed + 1 where agent_id = ? and event_id = ?",
-          [a.id, e.event_id]
-        );
-      }
-      return db.run(
-        "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
-        [a.id, a.session, cause, now()]
-      ).lastInsertRowid;
-    })()
-  );
+  // Read again as its turn is written: since the tick listed it, the agent may have finished, set a later wait or been
+  // woken (a runtime's start can take 30 s).
+  const woken = db.transaction(() => {
+    const fresh = agentOf(db, a.id);
+    const events = queuedEvents(db, a.id);
+    const due =
+      fresh?.status === "active"
+        ? dueOf(fresh, lastTurns(db, a.id), events)
+        : null;
+    if (!(fresh && due) || due.at > clock().getTime()) {
+      return null;
+    }
+    for (const e of events) {
+      db.run(
+        "update event set handed = handed + 1 where agent_id = ? and event_id = ?",
+        [a.id, e.event_id]
+      );
+    }
+    const id = db.run(
+      "insert into turn (agent_id, session, cause, started_at) values (?, ?, ?, ?)",
+      [a.id, fresh.session, due.cause, now()]
+    ).lastInsertRowid;
+    return { a: fresh, cause: due.cause, events, turn: Number(id) };
+  })();
+  if (!woken) {
+    return false;
+  }
+  await launch(desk, woken, state);
+  return true;
+}
+
+/** Launches turn `turn` of `a` in its runtime, as `wake` wrote it; a launch that fails ends the turn failed. */
+async function launch(
+  desk: Desk,
+  {
+    a,
+    cause,
+    events,
+    turn,
+  }: { a: AgentRow; cause: string; events: EventRow[]; turn: number },
+  state: "running" | "idle" | "gone" | null
+) {
+  const { db } = desk;
+  const runtime = desk.runtimes[a.runtime];
   try {
     if (!runtime) {
       throw new Error(`no runtime ${a.runtime}`);
@@ -273,23 +302,33 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
         sessionAgentOf(a),
         await readPacket(desk, a.id)
       );
-      db.transaction(() => {
-        db.run(
-          "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
-          [now(), a.id]
-        );
-        db.run(
-          "insert into session (agent_id, runtime, ref, link, started_at) values (?, ?, ?, ?, ?)",
-          [a.id, a.runtime, s.ref, s.link, now()]
-        );
-        db.run("update agent set session = ?, link = ? where id = ?", [
-          s.ref,
-          s.link,
-          a.id,
-        ]);
-        db.run("update turn set session = ? where id = ?", [s.ref, turn]);
-      })();
+      // Watched first: its process runs, so a failed write below never ends it as not started.
       watch(desk, a.id, turn, s);
+      try {
+        db.transaction(() => {
+          db.run(
+            "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
+            [now(), a.id]
+          );
+          db.run(
+            "insert into session (agent_id, runtime, ref, link, started_at) values (?, ?, ?, ?, ?)",
+            [a.id, a.runtime, s.ref, s.link, now()]
+          );
+          db.run("update agent set session = ?, link = ? where id = ?", [
+            s.ref,
+            s.link,
+            a.id,
+          ]);
+          db.run("update turn set session = ? where id = ?", [s.ref, turn]);
+        })();
+      } catch (error) {
+        log("desk.runtime", {
+          agent: a.id,
+          error: String(error),
+          ok: false,
+          what: "session",
+        });
+      }
     } else {
       watch(
         desk,
@@ -311,49 +350,49 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
     });
     await turnEnded(desk, a.id, true, (error as Error).message);
   }
-  return true;
 }
 
 /**
- * Starts the turns due now: his answers first, then the oldest deadline, until 3 have started this tick (an agent
- * whose session runs a turn of his takes no place).
+ * Starts the turns due now: his answers and new agents' first turns first, then the oldest deadline, until 3 have
+ * started this tick (an agent whose session runs a turn of his takes no place). Each is read again as its turn is written.
  */
 export async function wakeDue(desk: Desk) {
   const t = clock().getTime();
   const due = activeAgents(desk.db)
     .flatMap((a) => {
-      const d = dueOf(a, lastTurns(desk.db, a.id), queuedEvents(desk.db, a.id));
-      return d && d.at <= t ? [{ a, ...d }] : [];
+      const turns = lastTurns(desk.db, a.id);
+      const d = dueOf(a, turns, queuedEvents(desk.db, a.id));
+      return d && d.at <= t
+        ? [{ a, at: d.at, isFirst: d.cause === "answer" || turns.length === 0 }]
+        : [];
     })
-    .toSorted(
-      (x, y) =>
-        Number(y.cause === "answer") - Number(x.cause === "answer") ||
-        x.at - y.at
-    );
+    .toSorted((x, y) => Number(y.isFirst) - Number(x.isFirst) || x.at - y.at);
   let started = 0;
   for (const d of due) {
     if (started === STARTS_PER_TICK) {
       break;
     }
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
-    started += (await wake(desk, d.a, d.cause)) ? 1 : 0;
+    started += (await wake(desk, d.a)) ? 1 : 0;
   }
 }
 
 /**
- * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages, the
- * recordings, the agents whose matter is done and the turns lost to a restart, then the turns due.
+ * One tick of the clock: his word about his agents, his answers, the turns that never began, then the turns due (a new
+ * agent's first turn never waits behind the polls), then, when their poll is due, the messages, the recordings, the
+ * agents whose matter is done and the turns lost to a restart (what they queue is woken next tick).
  */
 export async function tick(desk: Desk, isPollDue = true) {
   await applyAgentChanges(desk);
   pollAnswers(desk);
+  await endUnbegunTurns(desk);
+  await wakeDue(desk);
   if (isPollDue) {
     await pollMessages(desk);
     await pollRecordings(desk);
     await endAgentsOnDoneMatters(desk);
     await endLostTurns(desk);
   }
-  await wakeDue(desk);
 }
 
 /**
@@ -392,16 +431,16 @@ function close(
 }
 
 /**
- * An agent whose first turn failed before it began is ended (`not started: …`), not retried: nothing is left running,
- * its matter is free for a new start. Its only turn is `t`, which never began.
+ * An agent whose first turn failed before it began is ended, not retried, with why (`why_not_started`): nothing is left
+ * running, its matter is free for a new start. Its only turn is `t`, which never began.
  */
 function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
   if (lastTurns(db, t.agent_id, 2).length !== 1 || t.begun_at) {
     return false;
   }
   db.run(
-    "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ? and status = 'active'",
-    [now(), `${NOT_STARTED}${why}`, t.agent_id]
+    "update agent set status = 'ended', ended_at = ?, why_not_started = ? where id = ? and status = 'active'",
+    [now(), why, t.agent_id]
   );
   return true;
 }
@@ -446,7 +485,8 @@ export async function turnEnded(
     close(desk, t, t.outcome, usage);
     return;
   }
-  if (!t.reminded_at && a.session && runtime) {
+  // Only an agent still active is reminded: one he stopped mid-turn gets no extra run.
+  if (!t.reminded_at && a.status === "active" && a.session && runtime) {
     // Marked before it is sent, so a turn ending at once is never reminded twice.
     db.run("update turn set reminded_at = ? where id = ?", [now(), t.id]);
     try {
@@ -475,7 +515,9 @@ export async function turnEnded(
 
 /**
  * Ends the desk turns this process does not watch and whose runtime runs nothing now (started before the helper or the
- * Mac stopped): by its outcome when it set a wait or finished, else failed and retried.
+ * Mac stopped): by its outcome when it set a wait or finished, else failed and retried; the runtime forgets that run's
+ * records. One still running is marked begun only when its runtime's own record says so (`hasBegun`), else the begin
+ * limit ends it; a runtime that can't say now is looked at again at the next poll.
  */
 export async function endLostTurns(desk: Desk) {
   const watching = watchedIn(desk.db);
@@ -488,13 +530,58 @@ export async function endLostTurns(desk: Desk) {
       }
       const state =
         t.session && runtime
-          ? await runtime.state(t.session).catch(() => "running")
+          ? await runtime.state(t.session).catch(() => null)
           : "gone";
-      if (state !== "running") {
+      if (state === "running" && !t.begun_at && t.session && runtime) {
+        if (await runtime.hasBegun(t.session).catch(() => false)) {
+          markBegun(desk.db, t.id);
+        }
+      } else if (state === "idle" || state === "gone") {
         await turnEnded(desk, a.id, !t.outcome);
-      } else if (!t.begun_at) {
-        // Running after a restart that lost its watch: it is under way.
-        markBegun(desk.db, t.id);
+        if (t.session) {
+          await runtime?.stop(t.session).catch((error: unknown) =>
+            log("desk.runtime", {
+              agent: a.id,
+              error: String(error),
+              ok: false,
+              what: "stop",
+            })
+          );
+        }
+      }
+    })
+  );
+}
+
+/**
+ * Ends each desk turn launched and not begun within its runtime's limit (`isBeginLate`): a hung launch (a door that
+ * never connects, a stuck CLI). The turn is ended first (a first turn: its agent not started, its matter freed; a later
+ * one failed, retried), then its run stopped, whose end then finds the turn closed.
+ */
+export async function endUnbegunTurns(desk: Desk) {
+  const at = clock().getTime();
+  await Promise.all(
+    activeAgents(desk.db).map(async (a) => {
+      const t = openTurn(desk.db, a.id);
+      const runtime = desk.runtimes[a.runtime];
+      if (!(t && runtime && isBeginLate(t, runtime.beginWithinMs, at))) {
+        return;
+      }
+      await turnEnded(
+        desk,
+        a.id,
+        true,
+        `it did not begin within ${runtime.beginWithinMs / MIN} minutes`
+      );
+      if (t.session) {
+        await runtime.stop(t.session).catch((error: unknown) =>
+          log("desk.runtime", {
+            agent: a.id,
+            error: String(error),
+            ok: false,
+            what: "stop",
+          })
+        );
       }
     })
   );

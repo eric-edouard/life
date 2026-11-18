@@ -1,4 +1,4 @@
-import type { Runtime } from "./contract";
+import { BEGIN_WITHIN_MS, type Runtime } from "./contract";
 
 // A runtime for tests: sessions in memory. The test plays the agent (its door calls and its turn's end) and sets what
 // the runtime does: fail, report a session's growth, forget a session, run a turn of his, end a run.
@@ -13,16 +13,25 @@ export function fakeRuntime() {
     { fail: (e: Error) => void; ok: () => void }
   >();
   /** Set by `holdBegun`: a run is under way only when the test says. */
-  let isHeld = false;
+  let isBegunHeld = false;
+  /** The sessions whose last run has begun, as its own record would say (`hasBegun`). */
+  const begun = new Set<string>();
   const run = (ref: string) => ({
-    begun: isHeld
+    begun: (isBegunHeld
       ? new Promise<void>((ok, fail) => begins.set(ref, { fail, ok }))
-      : Promise.resolve(),
+      : Promise.resolve()
+    ).then(() => {
+      begun.add(ref);
+    }),
     ended: new Promise<{ ok: boolean }>((resolve) =>
       runs.set(ref, (ok) => resolve({ ok }))
     ),
   });
   const fake = {
+    /** Its record says the session's last run began, though no `begun` of this process heard it (a run before a restart). */
+    beganBefore(ref: string) {
+      begun.add(ref);
+    },
     /** Settles the session's last run as under way (after `holdBegun`). */
     begin(ref: string) {
       begins.get(ref)?.ok();
@@ -47,18 +56,21 @@ export function fakeRuntime() {
     },
     /** From now on a run is under way only on `begin(ref)` (else it fails on `exit`), not as it is launched. */
     holdBegun() {
-      isHeld = true;
+      isBegunHeld = true;
     },
     /** While set, `start` and `send` throw, as a CLI that fails. */
     isFailing: false as boolean,
     runtime: {
+      beginWithinMs: BEGIN_WITHIN_MS,
       block: (): Promise<string | undefined> => Promise.resolve(fake.blocked),
+      hasBegun: (ref: string) => Promise.resolve(begun.has(ref)),
       async send(_agent, ref, message) {
         const s = sessions.get(ref);
         if (fake.isFailing || !s || s.running) {
           throw new Error(`cannot run ${ref}`);
         }
         s.running = true;
+        begun.delete(ref);
         fake.said.push({ message, ref });
         await fake.duringSend?.();
         return run(ref);
@@ -79,6 +91,11 @@ export function fakeRuntime() {
         }
         return Promise.resolve(s.running ? "running" : "idle");
       },
+      stop(ref: string) {
+        fake.stopped.push(ref);
+        fake.exit(ref, false);
+        return Promise.resolve();
+      },
       usage(ref) {
         const s = sessions.get(ref);
         return Promise.resolve(
@@ -91,6 +108,8 @@ export function fakeRuntime() {
     /** Every message given to a session, in order: `start`'s brief and each `send`. */
     said: [] as { message: string; ref: string }[],
     sessions,
+    /** The sessions `stop` was called for, in order. */
+    stopped: [] as string[],
   };
   return fake;
 }

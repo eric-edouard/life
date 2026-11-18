@@ -32,6 +32,7 @@ create table if not exists agent (
   created_at text not null,
   ended_at text,
   outcome text,
+  why_not_started text,
   check (status <> 'active' or wait_until is not null)
 );
 create table if not exists session (
@@ -122,6 +123,18 @@ export function openDesk(path = DESK_STORE) {
   if (!hasBegun) {
     db.run("alter table turn add column begun_at text");
     db.run("update turn set begun_at = started_at");
+  }
+  // A store made before `agent.why_not_started`, when an agent never started was its outcome's "not started: " prefix.
+  const hasWhy = db
+    .query(
+      "select 1 from pragma_table_info('agent') where name = 'why_not_started'"
+    )
+    .get();
+  if (!hasWhy) {
+    db.run("alter table agent add column why_not_started text");
+    db.run(
+      "update agent set why_not_started = substr(outcome, 14), outcome = null where outcome like 'not started: %'"
+    );
   }
   return db;
 }

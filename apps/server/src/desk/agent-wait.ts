@@ -69,6 +69,10 @@ export const failuresOf = (turns: TurnRow[]) => {
   return n;
 };
 
+/** Whether desk turn `t` has gone `withinMs` since it was launched without beginning (its model never answered). */
+export const isBeginLate = (t: TurnRow, withinMs: number, now: number) =>
+  !(t.begun_at || t.ended_at) && now - at(t.started_at) > withinMs;
+
 /**
  * When an agent's next turn is due and why, or null while a desk turn runs: a failed turn's retry; else the soonest of
  * his answer (at once), another event (10 minutes after its last turn) and its deadline.

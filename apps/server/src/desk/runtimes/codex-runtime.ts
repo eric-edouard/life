@@ -15,17 +15,20 @@ import { firstLine, startDetached } from "../../core/proc";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF, toml } from "../../models/llm";
 import {
   type Agent,
+  BEGIN_WITHIN_MS,
   begunWhen,
-  blockOf,
+  cliBlockOf,
   isHeld,
+  programOf,
   type Run,
   type Runtime,
+  stopMatching,
   type Usage,
 } from "./contract";
 
 // The `codex` runtime: Codex's CLI, one `codex exec resume` process per turn (the desk spec, 5.3; its runtime proofs,
 // 18 Nov 2026). The session is made first through `codex app-server` (`thread/start`): unlike a thread `exec` makes, it
-// is listed in the Codex app. Its turn's events go to a file of their own, `begun` is `turn.started` in it and the
+// is listed in the Codex app. Its turn's events go to a file of their own, `begun` is the model's first item in it and the
 // turn's end is the process's exit. His real `~/.codex`, never Life's own Codex home (model calls, no tools). The door
 // reaches the session by `-c`, its key only through the environment; its tools are approved for the desk server alone
 // (`exec` auto-denies an MCP tool otherwise). Nothing is kept here: running is a process holding the id, idle a
@@ -123,6 +126,21 @@ interface Event {
 export const hasEvent = (lines: string[], type: string) =>
   eventsOf(lines).some((e) => e.type === type);
 
+/** Whether the model has answered in a run's events: its first item (a message, a tool call), not `turn.started`, which comes before any model call. */
+export const hasAnswered = (lines: string[]) =>
+  eventsOf(lines).some((e) => e.type?.startsWith("item."));
+
+/** The files of session `ref`'s runs, oldest first (one name each: `<ref>-<ms>.jsonl`). */
+const runFilesOf = (ref: string) => {
+  try {
+    return [...new Bun.Glob(`${ref}-*.jsonl`).scanSync(DESK_RUNS)]
+      .toSorted()
+      .map((f) => join(DESK_RUNS, f));
+  } catch {
+    return []; // no runs folder yet
+  }
+};
+
 /**
  * Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. `begun`
  * watches the events file and is settled before the file goes, so a turn that began and ended at once still began.
@@ -132,15 +150,16 @@ function run(a: Agent, ref: string, message: string): Run {
   const path = join(DESK_RUNS, `${ref}-${clock().getTime()}.jsonl`);
   // Made before the process, so `begunWhen` can watch it from the start.
   writeFileSync(path, "");
-  const exited = startDetached(codexArgsOf(a, ref, message), {
+  const [program = "", ...args] = codexArgsOf(a, ref, message);
+  const exited = startDetached([programOf(program), ...args], {
     cwd: a.folder,
     env: { ...envOf(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
   });
   const begun = begunWhen(
     exited,
-    () => hasEvent(linesOf(path), "turn.started"),
-    path
+    () => hasAnswered(linesOf(path)),
+    () => path
   );
   const ended = (async () => {
     const code = await exited;
@@ -165,7 +184,7 @@ function run(a: Agent, ref: string, message: string): Run {
 /** A new thread in `folder`, through a short-lived `codex app-server` (killed once it answers): its id. */
 async function newThread(folder: string) {
   const line = await firstLine(
-    ["codex", "app-server"],
+    [programOf("codex"), "app-server"],
     [
       {
         id: 1,
@@ -286,7 +305,12 @@ export function rolloutUsageOf(lines: string[]): Usage | null {
 }
 
 export const codexRuntime: Runtime = {
-  block: () => blockOf("codex"),
+  beginWithinMs: BEGIN_WITHIN_MS,
+  block: () => cliBlockOf("codex"),
+  hasBegun(ref) {
+    const last = runFilesOf(ref).at(-1);
+    return Promise.resolve(last ? hasAnswered(linesOf(last)) : false);
+  },
   async send(a, ref, message) {
     if ((await codexRuntime.state(ref)) === "running") {
       throw new Error(`session ${ref} is running`);
@@ -310,6 +334,13 @@ export const codexRuntime: Runtime = {
       return "gone";
     }
     return isOpenNow(path) ? "running" : "idle";
+  },
+  async stop(ref) {
+    // The desk's own runs only: his Codex app holds no process with the id.
+    await stopMatching(`exec resume ${ref}`);
+    for (const f of runFilesOf(ref)) {
+      rmSync(f, { force: true });
+    }
   },
   usage(ref) {
     const path = rolloutOf(ref);

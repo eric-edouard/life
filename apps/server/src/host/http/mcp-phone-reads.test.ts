@@ -49,6 +49,7 @@ test("the phone's reads: read_inbox, read_matters, read_matter and read_register
     link: "https://agents.example.test/s/1",
     model: "model-one",
     notes: "Gran's watch: the shop quotes by Friday.",
+    notStarted: null,
     outcome: null,
     project: null,
     runtime: "claude",

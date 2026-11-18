@@ -93,6 +93,7 @@ function partsOf(a: AgentNow & { matter?: RegisteredAgent["matter"] }) {
           ]
         : []),
       ...(a.outcome ? [`ended: ${a.outcome}`] : []),
+      ...(a.notStarted ? [`not started: ${a.notStarted}`] : []),
       ...(a.notes ? [`notes: ${a.notes}`] : []),
       ...(a.link ? [a.link] : []),
       ...(a.amber.length > 0 ? [`amber: ${a.amber.join(", ")}`] : []),
