@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { clock } from "../core/clock";
+import { requestDecision } from "../memory/decisions";
 import { waitOf } from "./agent-wait";
 import {
   agentOf,
@@ -13,6 +14,8 @@ import {
 // at once; a desk turn running notes that it was heard from (`heard_at`) and how it will end.
 
 const NOTES_MAX = 6000;
+/** Who asks his decisions for a registered agent (each stamped with the agent's id). */
+const DESK_ASKER = "desk";
 
 /** Registers an agent on his words: active, its first turn due now. */
 export function register(
@@ -55,11 +58,8 @@ export function setWait(desk: Desk, id: string, input: unknown) {
   return r;
 }
 
-/**
- * `finish`: the agent is ended with its outcome, its open decision withdrawn (its id returned: step 3 writes the
- * withdrawal to his decisions).
- */
-export function finish(desk: Desk, id: string, outcome: string) {
+/** `finish`: the agent is ended with its outcome, and its open decision withdrawn (the desk asked it, as `desk`). */
+export async function finish(desk: Desk, id: string, outcome: string) {
   const a = agentOf(desk.db, id);
   desk.db.transaction(() => {
     desk.db.run(
@@ -68,7 +68,16 @@ export function finish(desk: Desk, id: string, outcome: string) {
     );
     heard(desk, id, "finished");
   })();
-  return { withdrawn: a?.open_decision ?? null };
+  if (a?.open_decision) {
+    try {
+      await requestDecision(DESK_ASKER, {
+        why: "its agent finished",
+        withdraw: a.open_decision,
+      });
+    } catch {
+      // Answered or lapsed meanwhile: nothing left to withdraw.
+    }
+  }
 }
 
 /** `write_notes`: replaces the agent's notes, which open its next packet. */

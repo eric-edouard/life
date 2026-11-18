@@ -6,6 +6,7 @@ import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
 import { repoFiles } from "../core/proc";
 import type { Messaging } from "../host/events";
+import { decisionsNow, requestDecision } from "../memory/decisions";
 import { LOCK } from "../memory/memory-lock";
 import type { SourceEvent } from "../records/source";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
@@ -436,17 +437,31 @@ test("W19: nothing of Life imports the desk, so the night, the watcher and the c
 test("W20: finish ends the agent and withdraws its open decision", async () => {
   const { desk, end, turns, waiting } = setup();
   const id = await waiting();
-  desk.db.run(
-    "update agent set open_decision = 'dec_0123456789ab' where id = ?",
-    [id]
-  );
+  const asked = await requestDecision("desk", {
+    agent: id,
+    deadline: ahead(DAY),
+    options: [
+      { id: "yes", label: "Yes" },
+      { id: "no", label: "No" },
+    ],
+    question: "Test: send the made-up reply to Ana?",
+    recommended: ["yes"],
+    why: "a test",
+  });
+  desk.db.run("update agent set open_decision = ? where id = ?", [
+    asked.id,
+    id,
+  ]);
   advance(HOUR);
   await wakeDue(desk);
-  expect(finish(desk, id, "done")).toEqual({ withdrawn: "dec_0123456789ab" });
+  await finish(desk, id, "done");
   await end(id);
   const a = agentOf(desk.db, id);
   expect(a?.status).toBe("ended");
   expect(a?.open_decision).toBeNull();
+  expect(decisionsNow().find((d) => d.id === asked.id)?.state).toBe(
+    "withdrawn"
+  );
   expect(turns(id).at(-1)?.outcome).toBe("finished");
   advance(DAY);
   await wakeDue(desk);

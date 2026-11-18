@@ -45,7 +45,7 @@ export interface Night {
   backup: string;
   /** The birthdays of the coming week (`readBirthdaysNear`): a name and when. */
   birthdays: { name: string; relation: string }[];
-  /** What Life would like him to verify (`readChecksFor`: all but the ending checks), most load-bearing first: every one, none left out. */
+  /** What waits on his word (`readChecksFor`: all but the ending checks), the open decisions first: every one, none left out. */
   checks: Check[];
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
@@ -89,6 +89,23 @@ const ridesText = (r: Check["ridesOn"]) =>
   ]
     .filter(Boolean)
     .join(" and ")}`;
+
+/** A decision's row of Waiting on you: the question; what the agent recommends and why, by when, who asked, its link. */
+function decisionRow({
+  decision: d,
+  guess,
+}: Extract<Check, { kind: "decision" }>) {
+  const picks = d.options.filter((o) => d.recommended.includes(o.id));
+  return {
+    name: guess,
+    relation: [
+      `Recommended: ${picks.map((o) => o.label).join(", ")} (${d.why})`,
+      `by ${localTime(d.deadline)}`,
+      `asked by ${d.asker}`,
+      ...d.links.slice(0, 1),
+    ].join(" · "),
+  };
+}
 
 /** One row of a section as text. */
 function textLine(s: Section) {
@@ -150,6 +167,10 @@ export function successReport(day: string, ms: number, n: Night) {
   const { changes } = n.paged;
   const { actions: done, problems } = n.acted;
   const a = n.episodes.agreement;
+  const decisions = n.checks.flatMap((c) =>
+    c.kind === "decision" ? [decisionRow(c)] : []
+  );
+  const checks = n.checks.filter((c) => c.kind !== "decision");
   const models = [
     ...new Set([n.episodes, n.extracted, n.paged].map((s) => s.model)),
   ].join(", ");
@@ -161,7 +182,7 @@ export function successReport(day: string, ms: number, n: Night) {
       models,
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
-        ...(n.checks.length > 0
+        ...(checks.length > 0
           ? [
               "Checks: Life keeps using its guesses; to settle one, tell Life in a chat or the app.",
             ]
@@ -192,11 +213,12 @@ export function successReport(day: string, ms: number, n: Night) {
       ],
       preheader: `${count(n.keyObservations.length, "new key observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
+        { kind: "pairs", list: decisions, title: "Waiting on you" },
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
         { kind: "pairs", list: n.done, title: "Done" },
         {
           kind: "pairs",
-          list: n.checks.map((c) => ({
+          list: checks.map((c) => ({
             name: c.guess,
             relation: `${c.evidence ? `“${c.evidence.quote}” (${c.evidence.from}) · ` : ""}${ridesText(c.ridesOn)}`,
           })),
