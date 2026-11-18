@@ -13,8 +13,8 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { openReadOnly } from "../core/sqlite";
 import { ARCHIVE, archiveDb } from "./archived";
-import { AS_READ, insertVersions, openBridged, portalsOf } from "./bridged";
-import { BRIDGES } from "./matrix";
+import { asReadOf, insertVersions, openBridged, portalsOf } from "./bridged";
+import { BRIDGES, readHomeserverRooms } from "./matrix";
 
 // Instagram's own export of his account (Meta's "Download your information", JSON), brought into the Instagram
 // archive as export rows (docs/sources.md): each chat's messages land in the chat the bridge or Beeper already
@@ -262,14 +262,14 @@ function archiveFor(dir: string, dry: boolean | undefined) {
   return existsSync(file) ? openReadOnly(file) : undefined;
 }
 
-/** What the archive holds as read (`AS_READ`): its messages by chat, and its chats by message instant. */
+/** What the archive holds as read (`asReadOf`): its messages by chat, and its chats by message instant. */
 function heldIn(archive: Database | undefined) {
   const held =
     archive
       ?.query<Held, []>(
         `select m.chat, m.fromMe, cast(strftime('%s', m.at) as integer) * 1000 + cast(substr(m.at, 21, 3) as integer) as ms,
             m.sender, m.text
-           from messages m where ${AS_READ}`
+           from messages m where ${asReadOf(readHomeserverRooms())}`
       )
       .all() ?? [];
   const chatsAt = new Map<number, Set<string>>();

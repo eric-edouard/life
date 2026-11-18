@@ -4,6 +4,7 @@ import { copierOf } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
 import { isBridgeAdded, readBlock } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
+import { needsAppKeys } from "./app-keys";
 
 // `bun life bridge` (docs/use/bridges.md): every messaging connector he has, checked live and in parallel, one line
 // each: a spinner while it is checked, then ✓ or ✗ with what was found. A live probe of what each capability says now
@@ -75,7 +76,14 @@ async function bridgePart(n: Network): Promise<Part | undefined> {
   }
   const copier = n.readByItsApp ? "bridge" : copierOf(n.name);
   if (copier === "beeper") {
-    return { kind: "bridge", ok: true, text: "read from Beeper" };
+    // Added but not linked yet: Beeper is still the one copying, so no gap opens; linking ends its session.
+    return {
+      kind: "bridge",
+      ok: true,
+      text: isBridgeAdded(n.name)
+        ? `read from Beeper until linked: bun life bridge link ${n.name}`
+        : "read from Beeper",
+    };
   }
   if (copier === "beeper-closed") {
     return { kind: "bridge", ok: false, text: "Beeper is closed" };
@@ -88,6 +96,13 @@ async function bridgePart(n: Network): Promise<Part | undefined> {
     };
   }
   const why = await readBlock(n.name);
+  if (why && (await needsAppKeys(n))) {
+    return {
+      kind: "bridge",
+      ok: false,
+      text: `needs your keys: bun life bridge link ${n.name}`,
+    };
+  }
   return why
     ? { kind: "bridge", ok: false, text: why }
     : { kind: "bridge", ok: true, text: "bridge running" };

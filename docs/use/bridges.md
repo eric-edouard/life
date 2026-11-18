@@ -6,7 +6,7 @@ one more device, like WhatsApp Web.
 The bridges and their local Matrix server (Synapse) run on your Mac as one background job, talk to nothing but
 their network, and keep running when Life is closed: the server holds every message, deleted ones included, until Life copies it. Linking a
 bridge may be against a network's terms; for one personal account, bans are rare. LINE allows one
-Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
+session: linking its bridge signs LINE out of Beeper Desktop (and the Chrome extension).
 
 ## One command
 
@@ -37,4 +37,19 @@ the chat allows: its bridge says), on your answer to its send option, goes as yo
 one chat through the network's bridge (Instagram, Messenger, LinkedIn, Telegram once linked, and WhatsApp, whose bridge
 stays linked only for this: WhatsApp is read from its Mac app). A card can also start a one-to-one WhatsApp chat
 with a number the bridge never saw, as `<digits>@s.whatsapp.net`: Life asks WhatsApp whether the number has an account.
-A group the bridge never saw can't be opened. Other networks send only into a chat the bridge already holds. LINE (read from Beeper), iMessage and mail don't send.
+A group the bridge never saw can't be opened. Other networks send only into a chat the bridge already holds. LINE sends once linked; iMessage and mail don't send through a bridge.
+
+## LINE: from Beeper to its own bridge
+
+Life reads your LINE from Beeper Desktop until you link its own bridge, and nothing changes the day the bridge is
+added: `bun life bridge` shows LINE as "read from Beeper until linked". LINE allows one session, so linking is your step:
+
+1. Keep Beeper open until you have linked (Life keeps copying from it).
+2. Run `bun life bridge link line` and follow its login (your LINE email and password, then the code LINE shows).
+3. LINE signs Beeper's LINE out by itself. Never sign back in to LINE in Beeper: that would sign the bridge out.
+4. `bun life bridge` shows LINE as "bridge running".
+
+What Beeper copied stays as it is. From your link, each message is read once: Life reads Beeper's up to its last
+message and the bridge's after it. The bridge fetches the last 50 messages of each active chat when you link, so a
+message that reached LINE after Beeper's last copy is read only if it is among them. Beeper's copy of a message
+deleted or edited after the link is not updated.

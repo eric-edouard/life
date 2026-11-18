@@ -147,6 +147,22 @@ export const ghostOf = (bridge: string, localpart: string) =>
 export const isBridgeAdded = (network: string) =>
   existsSync(join(BRIDGES, network, "config.yaml"));
 
+/** His logins on a bridge, as its own database holds them (the network's ids); none when the bridge isn't on this Mac. */
+export const loginIdsOf = (bridge: string, bridges = BRIDGES) =>
+  withBridgeDb(
+    bridge,
+    (db) =>
+      db
+        .query<{ id: string }, []>("select id from user_login")
+        .all()
+        .map((l) => l.id),
+    bridges
+  ) ?? [];
+
+/** Whether he has linked a network's bridge: it holds a login. Until then another copier may still be the one reading it. */
+export const isBridgeLinked = (network: string) =>
+  loginIdsOf(network).length > 0;
+
 /** The bridge's own provisioning secret and address, read from its config: never copied. */
 function provisioning(bridge: string) {
   const { appservice, provisioning: p } = configOf(bridge);
