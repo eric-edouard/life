@@ -94,6 +94,7 @@ create table if not exists agent_change (
   error text,
   applied_at text not null
 );
+create index if not exists agent_change_by_applied on agent_change (applied_at);
 `;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */

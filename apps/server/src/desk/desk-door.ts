@@ -4,7 +4,7 @@ import { z } from "zod";
 import { same, secretIn } from "../core/secret";
 import { agentOf } from "../host/desk-read";
 import { DOOR_PORT, text } from "../host/http/http";
-import { tool, WRITES } from "../host/http/mcp-tool";
+import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
 import { DecisionRequest } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import {
@@ -63,7 +63,7 @@ function doorServer(desk: Desk, id: string) {
         }
         return (r as string | Record<string, unknown> | undefined) ?? "Done.";
       },
-      WRITES
+      name === "read_packet" ? READ_ONLY : WRITES
     );
   door(
     "set_wait",

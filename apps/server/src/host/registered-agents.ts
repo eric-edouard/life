@@ -1,4 +1,4 @@
-import { clock } from "../core/clock";
+import { clock, DAY, iso } from "../core/clock";
 import { holder } from "../core/lock";
 import { readMatterBook } from "../memory/matters";
 import { readPeople } from "../memory/who";
@@ -12,6 +12,7 @@ import {
   anchorsOf,
   type DeskRead,
   readDesk,
+  refusedSince,
   reportLinesSince,
 } from "./desk-read";
 
@@ -24,11 +25,15 @@ export type RegisteredAgent = AgentNow & {
   matter: { id: string; name: string; status: string } | null;
 };
 
-/** Every registered agent worth showing (`agentsNow`), whether the desk is on and readable, and whether its helper runs. */
+/**
+ * Every registered agent worth showing (`agentsNow`), his changes the desk refused in the last day, whether the desk is
+ * on and readable, and whether its helper runs.
+ */
 export interface RegisteredAgents {
   agents: RegisteredAgent[];
   desk: DeskRead<unknown>["state"];
   helper: "running" | "not running";
+  refused: ReturnType<typeof refusedSince>;
   /** Why its store could not be read. */
   why?: string;
 }
@@ -36,21 +41,29 @@ export interface RegisteredAgents {
 export async function readRegisteredAgents(
   now = clock()
 ): Promise<RegisteredAgents> {
-  const read = readDesk((db) => agentsNow(db, now.getTime()), []);
+  const read = readDesk(
+    (db) => ({
+      agents: agentsNow(db, now.getTime()),
+      refused: refusedSince(db, iso(now.getTime() - DAY)),
+    }),
+    { agents: [], refused: [] }
+  );
   const helper = holder("desk") ? "running" : "not running";
   if (read.state !== "ok") {
     return {
       agents: [],
       desk: read.state,
       helper,
+      refused: [],
       ...(read.state === "unreadable" ? { why: read.why } : {}),
     };
   }
-  const book = read.value.some((a) => a.steps.length > 0)
+  const { agents, refused } = read.value;
+  const book = agents.some((a) => a.steps.length > 0)
     ? await readMatterBook(await readPeople(), dayNow())
     : [];
   return {
-    agents: read.value.map((a) => {
+    agents: agents.map((a) => {
       // Found by its first anchor, then each later one.
       const v = a.steps
         .map((s) => book.find((m) => m.steps.some((x) => x.ref === s)))
@@ -62,31 +75,38 @@ export async function readRegisteredAgents(
     }),
     desk: "ok",
     helper,
+    refused,
   };
 }
 
-/** One line of an agent: what it works on, where it stands, what it waits for and until when, its last turn, its link. */
-export function agentLine(
-  a: AgentNow & { matter?: RegisteredAgent["matter"] }
-) {
+/** An agent in two parts: what it works on (with its id and status), then where it stands, what it waits for and until when, its last turn, its link. */
+function partsOf(a: AgentNow & { matter?: RegisteredAgent["matter"] }) {
   const last = a.lastTurn;
-  return [
-    `${a.id} [${a.status}] ${a.matter?.name ?? (a.project ? `project ${a.project}` : a.title)}`,
-    [a.runtime, a.model, a.effort].filter(Boolean).join(" "),
-    ...(a.wait
-      ? [`waits for ${a.wait.reason} until ${localTime(a.wait.until)}`]
-      : []),
-    ...(last
-      ? [
-          `last turn ${last.outcome ?? "running"} ${localTime(last.endedAt ?? last.startedAt)}`,
-        ]
-      : []),
-    ...(a.outcome ? [`ended: ${a.outcome}`] : []),
-    ...(a.notes ? [`notes: ${a.notes}`] : []),
-    ...(a.link ? [a.link] : []),
-    ...(a.amber.length > 0 ? [`amber: ${a.amber.join(", ")}`] : []),
-  ].join(" · ");
+  return {
+    detail: [
+      [a.runtime, a.model, a.effort].filter(Boolean).join(" "),
+      ...(a.wait
+        ? [`waits for ${a.wait.reason} until ${localTime(a.wait.until)}`]
+        : []),
+      ...(last
+        ? [
+            `last turn ${last.outcome ?? "running"} ${localTime(last.endedAt ?? last.startedAt)}`,
+          ]
+        : []),
+      ...(a.outcome ? [`ended: ${a.outcome}`] : []),
+      ...(a.notes ? [`notes: ${a.notes}`] : []),
+      ...(a.link ? [a.link] : []),
+      ...(a.amber.length > 0 ? [`amber: ${a.amber.join(", ")}`] : []),
+    ].join(" · "),
+    name: `${a.id} [${a.status}] ${a.matter?.name ?? (a.project ? `project ${a.project}` : a.title)}`,
+  };
 }
+
+/** One line of an agent (`partsOf`). */
+export const agentLine = (a: Parameters<typeof partsOf>[0]) => {
+  const { detail, name } = partsOf(a);
+  return `${name} · ${detail}`;
+};
 
 /** The lines of a read of the desk: nothing while it is off, one line saying so when its store is unreadable. */
 const linesOf = (read: DeskRead<AgentNow[]>) => {
@@ -137,8 +157,8 @@ export async function readAgentRows(since: string) {
       ? [{ name: "Desk", relation: "its helper is not running" }]
       : []),
     ...r.agents.map((a) => {
-      const [name = a.id, ...rest] = agentLine(a).split(" · ");
-      return { name, relation: rest.join(" · ") };
+      const { detail, name } = partsOf(a);
+      return { name, relation: detail };
     }),
     ...(lines.state === "ok" ? lines.value : []).map((l) => ({
       name: `${l.source} · ${l.day}`,

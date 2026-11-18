@@ -106,5 +106,5 @@ export async function changeRegisteredAgent({
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's answer
     await Bun.sleep(POLL_MS);
   }
-  return `Recorded (${line.id}); the desk has not acted on it yet: \`read_registered_agents\` shows when it has.`;
+  return `Recorded (${line.id}); the desk has not acted on it yet: \`read_registered_agents\` shows the agent once it has, or under \`refused\` why not.`;
 }

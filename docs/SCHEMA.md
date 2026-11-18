@@ -475,7 +475,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (the agent it is for, a key of the `agents` setting), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (the agent it is for, a key of the `agents` setting, or `desk`, the built-in agent his word about a registered agent goes to, with `agentChange`: the change `change_registered_agent` names, `AgentChange`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
@@ -593,8 +593,8 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 ## The desk's store (not in memory/)
 
 `LIFE_STATE_DIR/desk/desk.sqlite` (WAL; backed up whole with Life's state) is the desk's one state, written only by the
-desk helper (`apps/server/src/desk/desk-store.ts` holds its schema), read by host only read-only
-(`host/desk-read.ts`): table `agent` (a registered agent: `agt_…`, its
+desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
+through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
 brief, runtime, folder, `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no

@@ -402,7 +402,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_registered_agents",
-    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, handed_over, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
+    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, handed_over, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `refused`: his changes (`change_registered_agent`) the desk refused in the last day, and why. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
     z.object({}),
     async () => ({ ...(await readRegisteredAgents()) })
   );

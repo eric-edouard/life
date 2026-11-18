@@ -139,6 +139,17 @@ export const agentChangeOf = (db: Database, ask: string) =>
     )
     .get(ask);
 
+/** His changes the desk refused since `since` (`change_registered_agent`), newest first: one past the connector's wait shows here. */
+export const refusedSince = (db: Database, since: string) =>
+  db
+    .query<
+      { agent: string | null; applied_at: string; ask: string; error: string },
+      [string, number]
+    >(
+      "select ask, agent_id as agent, error, applied_at from agent_change where error is not null and applied_at >= ? order by applied_at desc limit ?"
+    )
+    .all(since, MAX_ACTIVE);
+
 /** The model and effort agent `a` runs with: its own, else its runtime's in the desk's settings, else the runtime's default (none). */
 export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   const runtimes: Partial<Record<string, { effort?: string; model?: string }>> =
@@ -207,7 +218,7 @@ export interface AgentNow {
   wait: { isDefault: boolean; reason: string; until: string } | null;
 }
 
-const firstLine = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
+const headOf = (s: string) => s.split("\n")[0]?.slice(0, 160) ?? "";
 
 /** Agent `a` as read now (`AgentNow`): its last turn, its anchors and its events dropped in the last day. */
 function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
@@ -245,13 +256,13 @@ function nowOf(db: Database, a: AgentRow, now: number): AgentNow {
         }
       : null,
     link: a.link,
-    notes: firstLine(a.notes),
+    notes: headOf(a.notes),
     outcome: a.outcome,
     project: a.project,
     runtime: a.runtime,
     status,
     steps: anchorsOf(db, a.id),
-    title: firstLine(a.brief),
+    title: headOf(a.brief),
     wait:
       isActive && a.wait_until
         ? {

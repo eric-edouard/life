@@ -73,12 +73,12 @@ function start(desk: Desk, c: AgentChange, brief: string) {
       };
 }
 
-/** Applies one change; what it touched, or why not. */
-async function apply(
+/** Applies one change in the store; what it touched, or why not. */
+function apply(
   desk: Desk,
   c: AgentChange,
   brief: string
-): Promise<{ error: string } | { id: string }> {
+): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
   const refusal = (allowed: string[]) => statusRefusal(desk, c.agent, allowed);
@@ -96,7 +96,6 @@ async function apply(
       if (!refused) {
         // ponytail: a turn under way ends on its own; `Runtime.stop` comes with the handover (step 5).
         db.run("update agent set status = 'stopped' where id = ?", [id]);
-        await withdrawOpenDecision(id, "he stopped its agent");
       }
       break;
     case "resume":
@@ -108,12 +107,10 @@ async function apply(
     case "re_point":
       refused = refusal(["active", "stopped"]) ?? subjectRefusal(desk, c, id);
       if (!refused) {
-        db.transaction(() => {
-          writeSubject(desk, id, c);
-          if (agentOf(db, id)?.status === "active") {
-            due("its subject changed");
-          }
-        })();
+        writeSubject(desk, id, c);
+        if (agentOf(db, id)?.status === "active") {
+          due("its subject changed");
+        }
       }
       break;
     case "change_model":
@@ -133,39 +130,63 @@ async function apply(
   return refused ? { error: refused } : { id };
 }
 
+/** What the desk does with one ask: why it is refused (spoken, stale, or the change refused), else the change applied. */
+function applyAsk(
+  desk: Desk,
+  ask: ReturnType<typeof asksFor>["asks"][number]
+): { agent?: string; error: string } | { agent?: string; id: string } {
+  const parsed = AgentChange.safeParse(ask.agentChange);
+  if (!parsed.success) {
+    return { error: "only a change from `change_registered_agent` is applied" };
+  }
+  if (clock().getTime() - Date.parse(ask.at) > STALE_AFTER) {
+    return {
+      agent: parsed.data.agent,
+      error: "asked over 10 minutes before the desk read it",
+    };
+  }
+  try {
+    return { agent: parsed.data.agent, ...apply(desk, parsed.data, ask.quote) };
+  } catch (e) {
+    return { agent: parsed.data.agent, error: (e as Error).message };
+  }
+}
+
 /**
- * Applies his new asks of the desk, each once: its row (`agent_change`) is written with the cursor past it, so a
- * restart neither applies one twice nor skips one. A spoken ask (no `agentChange` yet) or a stale one is refused.
+ * Applies his new asks of the desk, each once: a change and its row (`agent_change`) are written in one transaction,
+ * so a restart neither applies one twice nor skips one. A stopped agent's open decision is withdrawn after.
  */
 export async function applyAgentChanges(desk: Desk) {
   const { db } = desk;
   const page = asksFor(DESK_AGENT, readCursor(db, CURSOR) ?? undefined);
   for (const ask of page.asks) {
-    if (agentChangeOf(db, ask.id)) {
+    const r = db.transaction(() => {
+      if (agentChangeOf(db, ask.id)) {
+        return null;
+      }
+      const done = applyAsk(desk, ask);
+      const agent = "id" in done ? done.id : (done.agent ?? null);
+      db.run(
+        "insert into agent_change (ask, agent_id, error, applied_at) values (?, ?, ?, ?)",
+        [ask.id, agent, "error" in done ? done.error : null, now()]
+      );
+      return { ...done, agent };
+    })();
+    if (!r) {
       continue;
     }
-    const parsed = AgentChange.safeParse(ask.agentChange);
-    let r: { error: string } | { id: string };
-    if (!parsed.success) {
-      r = { error: "only a change from `change_registered_agent` is applied" };
-    } else if (clock().getTime() - Date.parse(ask.at) > STALE_AFTER) {
-      r = { error: "asked over 10 minutes before the desk read it" };
-    } else {
-      // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
-      r = await apply(desk, parsed.data, ask.quote).catch((e: Error) => ({
-        error: e.message,
-      }));
-    }
-    db.run(
-      "insert or ignore into agent_change (ask, agent_id, error, applied_at) values (?, ?, ?, ?)",
-      [
-        ask.id,
-        "id" in r ? r.id : (parsed.data?.agent ?? null),
-        "error" in r ? r.error : null,
-        now(),
-      ]
-    );
     log("desk.change", { ask: ask.id, ...r });
+    if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
+      // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
+      await withdrawOpenDecision(r.id, "he stopped its agent").catch(
+        (e: Error) =>
+          log("desk.change", {
+            ask: ask.id,
+            error: e.message,
+            what: "withdraw",
+          })
+      );
+    }
   }
   saveCursor(db, CURSOR, page.cursor);
 }

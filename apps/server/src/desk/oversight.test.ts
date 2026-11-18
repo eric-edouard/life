@@ -174,6 +174,10 @@ test("what his agents are doing: each with its matter, status, wait, link and am
     );
     const r = await readRegisteredAgents();
     expect(r.desk).toBe("ok");
+    // His changes the desk refused show, with why.
+    expect(r.refused.map((x) => x.error)).toContain(
+      "a handover comes with the desk's next step"
+    );
     expect(r.helper).toBe("not running");
     const onMatter = r.agents.find((a) => a.steps[0] === STEP);
     expect(onMatter).toMatchObject({
