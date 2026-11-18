@@ -32,7 +32,7 @@ const msg = (over: Partial<SourceEvent> = {}): SourceEvent => ({
 const reads = (over: Partial<ArrivalReads> = {}): ArrivalReads => ({
   draftChats: new Set(),
   lines: new Map(),
-  ownerNames: ["Alex"],
+  ownerNames: ["Ozren"],
   ...over,
 });
 
@@ -106,7 +106,7 @@ test("a group he wrote nothing in waits, unless a new line names him", () => {
   expect(gate([group("Who brings the rope on Sunday?")])).toEqual([
     "group-not-his",
   ]);
-  expect(gate([group("Alex, can you bring the rope?")])).toEqual(["due"]);
+  expect(gate([group("Ozren, can you bring the rope?")])).toEqual(["due"]);
 });
 
 test("a receipt from no one he knows and a stranger's message wait; a newsletter is the code rules' drop", () => {

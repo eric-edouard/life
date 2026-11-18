@@ -44,7 +44,7 @@ test("replay: one pass at a time; what arrives during a pass waits for the next;
   const r = replay({
     end: START + 2 * HOUR,
     events,
-    ownerNames: ["Alex"],
+    ownerNames: ["Ozren"],
     resolve: (h) => (h === SAM ? "person:sam" : null),
     start: START,
     talks: [],
