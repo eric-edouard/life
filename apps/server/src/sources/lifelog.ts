@@ -849,10 +849,6 @@ export async function notifyPhone(title: string, body: string) {
     return;
   }
   await writeLifelog("POST", "/notifications", { body, title }).catch((e) =>
-    log("lifelog.write", {
-      error: String(e),
-      path: "/notifications",
-      phase: "failed",
-    })
+    log("lifelog.write", { error: String(e), phase: "failed" })
   );
 }
