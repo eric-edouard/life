@@ -69,7 +69,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
-- Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn): a card's
+- Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn), or through the
+  Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
+  macOS grant is Automation, Life → Messages, asked at the first send): a card's
   draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
   his answer to its outgoing option (his decision of 18 Nov 2026; AGENTS.md). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.

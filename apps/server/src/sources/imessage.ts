@@ -135,7 +135,7 @@ export function readImessage(
 }
 
 /** A message's id, as `read` and `incoming` both give it. */
-const messageIdOf = (guid: string) => `imessage:${guid}`;
+export const messageIdOf = (guid: string) => `imessage:${guid}`;
 
 /** The messages Messages first stored from row `from` on (`incoming`): an edit changes its row in place. */
 export function incomingImessage(

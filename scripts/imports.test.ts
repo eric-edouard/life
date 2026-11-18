@@ -13,6 +13,7 @@ const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
+const MESSAGES_APP = /tell application "Messages"/;
 const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
@@ -121,6 +122,10 @@ test("only his answer to a decision sends: answerDecision alone calls sendDraft,
     "apps/server/src/sources/bridged.ts",
   ]);
   expect(running(MATRIX_SEND)).toEqual(["apps/server/src/sources/matrix.ts"]);
+  // The one iMessage send: only messages-app.ts tells Messages to send.
+  expect(running(MESSAGES_APP)).toEqual([
+    "apps/server/src/sources/messages-app.ts",
+  ]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.

@@ -37,7 +37,7 @@ the chat allows: its bridge says), on your answer to its send option, goes as yo
 one chat through the network's bridge (Instagram, Messenger, LinkedIn, Telegram once linked, and WhatsApp, whose bridge
 stays linked only for this: WhatsApp is read from its Mac app). A card can also start a one-to-one WhatsApp chat
 with a number the bridge never saw, as `<digits>@s.whatsapp.net`: Life asks WhatsApp whether the number has an account.
-A group the bridge never saw can't be opened. Other networks send only into a chat the bridge already holds. LINE sends once linked; iMessage and mail don't send through a bridge.
+A group the bridge never saw can't be opened. Other networks send only into a chat the bridge already holds. LINE sends once linked; mail doesn't send. iMessage sends through the Messages app, with no bridge: macOS asks once to let Life control Messages (System Settings → Privacy & Security → Automation).
 
 ## LINE: from Beeper to its own bridge
 
