@@ -297,5 +297,5 @@ test("a poll with nothing changed does not read the matter book again", async ()
   await tick(desk);
   setSystemTime(new Date(T0 + MIN));
   await tick(desk);
-  expect(book?.mock.calls).toHaveLength(1);
+  expect(book).toHaveBeenCalledTimes(1);
 });
