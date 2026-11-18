@@ -9,6 +9,7 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
+import { DAY } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
 import { OWNER_DATA_DIR } from "../../core/paths";
@@ -17,6 +18,7 @@ import {
   settings,
   connector as settingsOf,
 } from "../../core/settings";
+import { DECISIONS } from "../../memory/decisions";
 import { LEDGER } from "../../memory/memory-files";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
@@ -168,6 +170,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     name: string;
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
+    "answer_decision",
     "change_directory_entry",
     "change_todo_item",
     "correct_memory",
@@ -176,7 +179,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     "read_area_page",
     "read_chats",
     "read_day",
-    "read_fact_checks",
+    "read_inbox",
     "read_life_status",
     "read_matter",
     "read_matters",
@@ -187,6 +190,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     "read_person_page",
     "read_places_visited",
     "read_processing_runs",
+    "request_decision",
     "search",
     "tell_life",
   ]);
@@ -201,6 +205,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
       )
       .sort()
   ).toEqual([
+    "answer_decision(id,note,options)",
     "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,answer,correction,id,jobId,kind,label,name,newName,note,personId,ref,title,to,turnIndex)",
@@ -209,7 +214,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     "read_area_page(name)",
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
-    "read_fact_checks()",
+    "read_inbox()",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,person,project)",
@@ -220,6 +225,7 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     "read_person_page(before,name)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
+    "request_decision(context,deadline,links,onSilence,options,question,recommended,subject,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
   ]);
@@ -239,9 +245,11 @@ test("tools/list: the read-only tools; `correct_memory` asks for approval, `chan
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
   const writes = [
+    "answer_decision",
     "correct_memory",
     "change_directory_entry",
     "change_todo_item",
+    "request_decision",
     "tell_life",
   ];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
@@ -586,7 +594,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   }
 });
 
-test("read_fact_checks keeps its output keys: factChecks, each with doubts, from, quote, ref, text", async () => {
+test("read_inbox keeps its output keys: decisions, then factChecks, each with doubts, from, quote, ref, text", async () => {
   const checks = await import("../../memory/checks");
   const evidence = { from: "f", quote: "q" };
   const check = [{ evidence, guess: "g", kind: "ending", ref: "a" }];
@@ -594,16 +602,56 @@ test("read_fact_checks keeps its output keys: factChecks, each with doubts, from
   try {
     const { json } = await rpc(await token(), "tools/call", {
       arguments: {},
-      name: "read_fact_checks",
+      name: "read_inbox",
     });
     const body = JSON.parse(json.result.content[0].text);
-    expect(Object.keys(body)).toEqual(["factChecks"]);
+    expect(Object.keys(body)).toEqual(["decisions", "factChecks"]);
     expect(Object.keys(body.factChecks[0]).sort().join()).toBe(
       "doubts,from,quote,ref,text"
     );
   } finally {
     spy.mockRestore();
   }
+});
+
+test("an agent asks a decision, only he answers it, and read_inbox lists it until he has", async () => {
+  rmSync(DECISIONS, { force: true });
+  const call = async (name: string, args: object, over = {}) =>
+    (await rpc(await token(over), "tools/call", { arguments: args, name })).json
+      .result;
+  const decision = {
+    deadline: new Date(Date.now() + DAY).toISOString(),
+    options: [
+      { id: "yes", label: "Send it" },
+      { id: "no", label: "Not now" },
+    ],
+    question: "Send Kit the signed quote?",
+    recommended: ["yes"],
+    why: "He asked for it by Friday.",
+  };
+  expect(
+    await call("request_decision", decision, { agent: undefined })
+  ).toMatchObject({ isError: true });
+  const asked = await call("request_decision", decision);
+  expect(asked.isError).toBe(false);
+  const { id } = JSON.parse(asked.content[0].text);
+  const inbox = async () =>
+    JSON.parse((await call("read_inbox", {})).content[0].text).decisions;
+  expect(await inbox()).toMatchObject([
+    { asker: "Orbit", id, question: decision.question, recommended: ["yes"] },
+  ]);
+  expect(await call("answer_decision", { id, options: ["yes"] })).toMatchObject(
+    { isError: true }
+  );
+  expect(
+    await call(
+      "answer_decision",
+      { id, options: ["yes"] },
+      { agent: undefined }
+    )
+  ).toMatchObject({ isError: false });
+  expect(await inbox()).toEqual([]);
+  rmSync(DECISIONS, { force: true });
 });
 
 test("a fact check's answer is his: an agent's token is refused", async () => {

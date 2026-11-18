@@ -2,6 +2,7 @@ import { isEndingCheck } from "../records/fact-check";
 import type { InferredPerson, Unresolved } from "../records/observation";
 import { KEEP_AT } from "../records/unit";
 import { pagedNow } from "./closeness";
+import { type Decision, decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
 import { type MatterView, matterBookOf, matterPeopleOf } from "./matter-read";
 import { mattersNow, readMatterRecords, readMatters } from "./matters";
@@ -19,16 +20,35 @@ import {
 } from "./who";
 import { dayNow } from "./zones";
 
-// The checks: everything Life would like him to verify, in one shape and one list, with no limit. A check is one guess
-// of Life's that his word would settle, shown with its evidence; it exists only while something rides on the guess (a
-// kept line, an open matter, a page). Life keeps using its guess meanwhile. Derived when read, never stored: his answer
-// is a correction (a person), an `outdated` word (an ending) or a fact-check answer.
+// The checks: everything waiting on his word, in one shape and one list, with no limit. A check is one guess of Life's
+// that his word would settle, shown with its evidence; it exists only while something rides on the guess (a kept line,
+// an open matter, a page). Life keeps using its guess meanwhile. Or it is a decision an agent asks (`decisions.ts`),
+// listed while open, first. Derived when read, never stored: his answer is a correction (a person), an `outdated` word
+// (an ending), a fact-check answer or his answer to the decision.
 
-type CheckKind = "ending" | "person";
-/** What a check is, for counting: an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
-type CheckGroup = "ending" | "guessed person" | "card" | "name";
+type CheckKind = "decision" | "ending" | "person";
+/** What a check is, for counting: a decision, an ending, a guessed person, a Contacts card Life cannot place, a name it cannot place. */
+type CheckGroup = "decision" | "ending" | "guessed person" | "card" | "name";
 
-export interface Check {
+/** An open decision as its check carries it: the asked line less what the check's own fields say. */
+type DecisionShown = Omit<
+  Decision,
+  | "answer"
+  | "id"
+  | "kind"
+  | "question"
+  | "schemaVersion"
+  | "state"
+  | "withdrawn"
+>;
+
+export type Check = CheckFields &
+  (
+    | { kind: Exclude<CheckKind, "decision"> }
+    | { decision: DecisionShown; kind: "decision" }
+  );
+
+interface CheckFields {
   /** The names and handles the guess is about, as his answer takes them (`nameOrHandle`); none for an ending. */
   about: string[];
   /** The words of his answer that settle it, as `correct_memory` takes them. */
@@ -38,8 +58,7 @@ export interface Check {
   /** The guess, in a sentence worded by a template (no model). */
   group: CheckGroup;
   guess: string;
-  kind: CheckKind;
-  /** An observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
+  /** A decision's id, an observation id (ending), a person ref (a guessed person, a card), or `name:<nameKey>` (a name not placed). */
   ref: string;
   /** What uses the guess today, counted from what is stored. */
   ridesOn: { matters: number; observations: number; pages: number };
@@ -65,6 +84,8 @@ type Where = string;
 export interface CheckInputs {
   /** Refs of the fact-check answers he gave (any answer settles that line's check). */
   answered: ReadonlySet<string>;
+  /** The open decisions (`decisionsNow`). */
+  decisions: readonly Decision[];
   /** Refs of the old doubt lines drawn before 14 Nov 2026 (stored fact checks that are not ending checks): an answer by ref would land on them. */
   doubted: ReadonlySet<string>;
   /** Each step a link ended, not yet his word (`endingsRead`): it reads probably ended until he answers. */
@@ -152,8 +173,10 @@ export const isEndingOpen = (
 /** An ending check always has its evidence: the later step's words. */
 export const isEndingKind = (
   c: Check
-): c is Check & { evidence: NonNullable<Check["evidence"]> } =>
-  c.kind === "ending";
+): c is Check & {
+  evidence: NonNullable<Check["evidence"]>;
+  kind: "ending";
+} => c.kind === "ending";
 
 const whereOf = (l: Line): Where => `${l.source.channel}, ${plain(l.date)}`;
 
@@ -198,7 +221,8 @@ function ranked(
   evidence: { quote: string; where?: Where } | null
 ): Ranked[] {
   const rides = ridesOn(c, lines, refs);
-  const kind = group === "ending" ? "ending" : "person";
+  const kind: Exclude<CheckKind, "decision"> =
+    group === "ending" ? "ending" : "person";
   return rides.matters + rides.observations > 0
     ? [
         {
@@ -223,6 +247,41 @@ function ranked(
 
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
+  /** Every open decision; one on a matter step only while an open matter holds it. */
+  decision: (c) =>
+    c.decisions
+      .filter((d) => !isOnMatter(d.subject) || c.mattersByStep.has(d.subject))
+      .map(
+        ({
+          answer,
+          id,
+          kind,
+          question,
+          schemaVersion,
+          state,
+          withdrawn,
+          ...decision
+        }) => ({
+          check: {
+            about: [],
+            answers: decision.options.map((o) => o.id),
+            decision,
+            evidence: null,
+            group: "decision",
+            guess: question,
+            kind: "decision",
+            ref: id,
+            ridesOn: {
+              matters: isOnMatter(decision.subject)
+                ? (c.mattersByStep.get(decision.subject)?.size ?? 0)
+                : 0,
+              observations: 0,
+              pages: 0,
+            },
+          },
+          day: decision.at,
+        })
+      ),
   /** Every open step a link says ended and he has not answered. */
   ending: (c) =>
     [...c.endings].flatMap(([ref, link]) => {
@@ -314,13 +373,19 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   },
 };
 
-/** The checks, most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
+const deadlineOf = (c: Check) =>
+  c.kind === "decision" ? c.decision.deadline : "";
+
+/** The checks: decisions first, soonest deadline first; then most load-bearing first: matters, then lines, then pages, then newest. Pure over what is stored. */
 export const checksOf = (inputs: CheckInputs): Check[] => {
   const c = ctxOf(inputs);
   return Object.values(BUILDERS)
     .flatMap((build) => build(c))
     .toSorted(
       (a, b) =>
+        Number(b.check.kind === "decision") -
+          Number(a.check.kind === "decision") ||
+        deadlineOf(a.check).localeCompare(deadlineOf(b.check)) ||
         b.check.ridesOn.matters - a.check.ridesOn.matters ||
         b.check.ridesOn.observations - a.check.ridesOn.observations ||
         b.check.ridesOn.pages - a.check.ridesOn.pages ||
@@ -330,7 +395,7 @@ export const checksOf = (inputs: CheckInputs): Check[] => {
     .map((r) => r.check);
 };
 
-/** What Life would like him to verify now, over what is stored today: read-only, no model call. */
+/** What waits on his word now, over what is stored today: read-only, no model call. */
 export async function checksNow(): Promise<Check[]> {
   const people = await readPeople();
   const [records, unresolved, paged] = await Promise.all([
@@ -346,6 +411,7 @@ export async function checksNow(): Promise<Check[]> {
     answered: new Set(
       [...readFactCheckAnswers()].flatMap(([ref, a]) => (a.answer ? [ref] : []))
     ),
+    decisions: decisionsNow().filter((d) => d.state === "open"),
     doubted: new Set(
       readFactChecks()
         .filter((s) => !isEndingCheck(s))
@@ -374,6 +440,25 @@ export async function checksNow(): Promise<Check[]> {
       ]),
     ]),
   });
+}
+
+/** The inbox (`read_inbox`): the open decisions, then the ending checks as he is asked them (the step, why Life thinks it is done, the words it came from). */
+export async function readInbox() {
+  const list = await checksNow();
+  return {
+    decisions: list.flatMap((c) =>
+      c.kind === "decision"
+        ? [{ id: c.ref, question: c.guess, ...c.decision }]
+        : []
+    ),
+    factChecks: list.filter(isEndingKind).map((c) => ({
+      doubts: ["a later step seems to show it done"],
+      from: c.evidence.from,
+      quote: c.evidence.quote,
+      ref: c.ref,
+      text: c.guess,
+    })),
+  };
 }
 
 const BIG = 5;

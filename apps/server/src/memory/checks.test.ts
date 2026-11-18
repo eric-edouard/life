@@ -31,6 +31,7 @@ function inputs(lines: CheckInputs["lines"], over: Input = {}): CheckInputs {
   const isGuess = guessTestOf(over.corrections ?? []);
   return {
     answered: new Set(),
+    decisions: [],
     doubted: new Set(),
     endings: new Map(),
     kept: new Set(lines.map((l) => l.id)),
@@ -205,4 +206,65 @@ test("an ending rides on its open matter and goes with his answer", () => {
   expect(checksOf({ ...base, answered: new Set([o.id]) })).toEqual([]);
   // An old doubt line on the same ref: an answer by ref would land on it, so no ending check.
   expect(checksOf({ ...base, doubted: new Set([o.id]) })).toEqual([]);
+});
+
+const decision = (id: string, deadline: string, subject?: string) => ({
+  asker: "planner",
+  at: "2026-11-18T09:00:00.000Z",
+  context: "",
+  deadline,
+  id,
+  kind: "asked" as const,
+  links: [],
+  onSilence: null,
+  options: [
+    { id: "yes", label: "Yes" },
+    { id: "no", label: "No" },
+  ],
+  question: `Go ahead with ${id}?`,
+  recommended: ["yes"],
+  schemaVersion: 2 as const,
+  state: "open" as const,
+  ...(subject ? { subject } : {}),
+  why: "It is due.",
+});
+
+test("open decisions come first, soonest deadline first; one on a step leaves with its matter, one on a project stays", () => {
+  const o = line();
+  const matter = (open: boolean) => ({
+    open,
+    owedTo: [],
+    steps: [{ ref: o.id }],
+    told: [],
+    waitingOn: [],
+    with: [],
+  });
+  const base = inputs([about(REF), about(REF)], {
+    decisions: [
+      decision("dec_00000000000a", "2026-11-20T09:00:00.000Z", o.id),
+      decision(
+        "dec_00000000000b",
+        "2026-11-19T09:00:00.000Z",
+        "project:boiler"
+      ),
+    ],
+    inferred: [ID],
+    matters: [matter(true)],
+  });
+  const list = checksOf(base);
+  expect(list.map((c) => c.ref)).toEqual([
+    "dec_00000000000b",
+    "dec_00000000000a",
+    REF,
+  ]);
+  expect(list[1]).toMatchObject({
+    answers: ["yes", "no"],
+    decision: { asker: "planner", recommended: ["yes"], subject: o.id },
+    group: "decision",
+    guess: "Go ahead with dec_00000000000a?",
+    ridesOn: { matters: 1 },
+  });
+  expect(
+    checksOf({ ...base, matters: [matter(false)] }).map((c) => c.ref)
+  ).toEqual(["dec_00000000000b", REF]);
 });

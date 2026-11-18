@@ -61,8 +61,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026),
   and the to-do items with Google Tasks as the backend.
-- To his own lifelog server: his corrections about recordings, and a "heard you" notice for each voice ask (the agent's
-  name only, never his words), which lifelog pushes to his phone through Apple.
+- To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
+  name only, never his words), and "N decisions waiting" (a count, never a question) as a decision's deadline comes
+  within 24 hours, which lifelog pushes to his phone through Apple.
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 

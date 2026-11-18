@@ -275,6 +275,55 @@ test("the Checks section lists every row in the order given, after Birthdays, wi
   expect(html.match(/tell Life in a chat or the app/g)).toHaveLength(1);
 });
 
+test("Waiting on you comes first with every open decision; the Checks section holds none", () => {
+  const n = night(1);
+  expect(successReport("2026-10-15", 1000, n).text).not.toContain(
+    "Waiting on you"
+  );
+  const decision = (i: number): Check => ({
+    about: [],
+    answers: ["yes", "no"],
+    decision: {
+      asker: "planner",
+      at: "2026-10-15T08:00:00.000Z",
+      context: "",
+      deadline: "2026-10-16T08:00:00.000Z",
+      links: [`https://example.com/session/${i}`],
+      onSilence: null,
+      options: [
+        { id: "yes", label: "Book it" },
+        { id: "no", label: "Skip" },
+      ],
+      recommended: ["yes"],
+      why: "Cheapest quote",
+    },
+    evidence: null,
+    group: "decision",
+    guess: `Book plumber ${i}?`,
+    kind: "decision",
+    ref: `dec_00000000000${i}`,
+    ridesOn: { matters: 0, observations: 0, pages: 0 },
+  });
+  n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
+  n.checks = [
+    ...Array.from({ length: 9 }, (_, i) => decision(i)),
+    check("Life thinks this is Zed, a plumber (80% sure)", {
+      matters: 0,
+      observations: 1,
+      pages: 0,
+    }),
+  ];
+  const { text } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain(
+    "Waiting on you (9)\n- Book plumber 0?: Recommended: Book it (Cheapest quote) · by 2026-10-16 "
+  );
+  expect(text).toContain("· asked by planner · https://example.com/session/8");
+  expect(text.indexOf("Waiting on you")).toBeLessThan(
+    text.indexOf("Birthdays")
+  );
+  expect(text).toContain("Checks (1)\n- Life thinks this is Zed");
+});
+
 test("the Code section lists yesterday's rows and this night's new repos", () => {
   const n = night(1);
   expect(successReport("2026-10-15", 1000, n).html).not.toContain(

@@ -1,8 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { HOUR, MIN } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as proc from "../core/proc";
+import { DECISIONS, requestDecision } from "../memory/decisions";
 import { LEDGER, tasksOf } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
@@ -25,6 +26,7 @@ import {
   holdFor,
   mailStuckLock,
   type Pending,
+  pushDecisions,
   resumed,
   watch,
 } from "./watch";
@@ -216,5 +218,35 @@ test("a run holding the lock over 3 h is mailed by the watcher, never while offl
     for (const s of [held, sent, offline]) {
       s.mockRestore();
     }
+  }
+});
+
+test("a decision due within 24 hours pushes its count once, never its words", async () => {
+  const lifelog = await import("../sources/lifelog");
+  const push = spyOn(lifelog, "notifyPhone").mockResolvedValue(undefined);
+  rmSync(DECISIONS, { force: true });
+  try {
+    const now = clock();
+    await requestDecision(
+      "planner",
+      {
+        // Within 24 hours of its deadline 30 s from now.
+        deadline: new Date(now.getTime() + DAY + 30_000).toISOString(),
+        options: [
+          { id: "yes", label: "Pay Kit" },
+          { id: "no", label: "Wait" },
+        ],
+        question: "Pay Kit's invoice?",
+        recommended: ["yes"],
+        why: "It is due.",
+      },
+      now
+    );
+    await pushDecisions(new Date(now.getTime() + MIN));
+    await pushDecisions(new Date(now.getTime() + 2 * MIN));
+    expect(push.mock.calls).toEqual([["Life", "1 decision waiting"]]);
+  } finally {
+    push.mockRestore();
+    rmSync(DECISIONS, { force: true });
   }
 });
