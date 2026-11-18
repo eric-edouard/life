@@ -38,6 +38,8 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
     public struct Changed: Decodable, Sendable, Equatable {
         public let voices: Int?
         public let conversations: Int?
+        /// The person a typed name was read as. Picked from the card, or no person: absent.
+        public let recordedAs: String?
     }
 
     public let ref: String

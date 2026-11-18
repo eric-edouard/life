@@ -134,6 +134,7 @@ struct AnswerResultView: View {
 
     private func counts(_ proof: ActionProof) -> String? {
         guard case .answered(let result) = proof, let changed = result.changed else { return nil }
+        if let name = changed.recordedAs { return "Recorded as \(name)" }
         let parts = [
             changed.voices.map { "\($0) clip\($0 == 1 ? "" : "s")" },
             changed.conversations.map { "\($0) conversation\($0 == 1 ? "" : "s")" },
