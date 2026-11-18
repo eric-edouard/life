@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  setSystemTime,
+  spyOn,
+  test,
+} from "bun:test";
 import { appendFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { DAY, HOUR } from "../core/clock";
@@ -402,6 +409,32 @@ test("a request is checked: deadline 1 hour to 14 days ahead, options its ids, a
   await requestDecision("planner", ask({ subject: "project:boiler" }), NOW);
   await requestDecision("planner", ask({ onSilence: null }), NOW);
   expect(decisionsNow(NOW)).toHaveLength(2);
+});
+
+test("a matter's id as the subject rides on its newest step", async () => {
+  const book = spyOn(
+    await import("./matters"),
+    "readMatterBook"
+  ).mockResolvedValue([
+    {
+      id: "matter_aaaaaaaaaaaa",
+      open: true,
+      steps: [{ ref: "obs_000000000001" }, { ref: "obs_000000000002" }],
+    },
+  ] as never);
+  try {
+    await requestDecision(
+      "planner",
+      ask({ subject: "matter_aaaaaaaaaaaa" }),
+      NOW
+    );
+    await expect(
+      requestDecision("planner", ask({ subject: "matter_bbbbbbbbbbbb" }), NOW)
+    ).rejects.toThrow("no open matter is or holds");
+    expect(decisionsNow(NOW)[0]?.subject).toBe("obs_000000000002");
+  } finally {
+    book.mockRestore();
+  }
 });
 
 test("a deadline with an offset is stored in UTC, so deadlines sort as strings", async () => {

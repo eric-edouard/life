@@ -8,8 +8,8 @@ import { join } from "node:path";
 import { z } from "zod";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
-import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { CODEX, cliEnv, MACHINE_DIR } from "../core/platform";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { CODEX, cliEnv, isOwnLife, MACHINE_DIR } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 import {
@@ -90,9 +90,9 @@ export function llmOverride(
   if (!set) {
     return;
   }
-  if (isHis(data)) {
+  if (isOwnLife(data)) {
     throw new Error(
-      "LIFE_LLM is for a copy of the data (LIFE_OWNER_DATA_DIR), never ~/Life"
+      "LIFE_LLM is for a copy of the data (LIFE_OWNER_DATA_DIR), never his own"
     );
   }
   const [engine = "", ...rest] = set.split("/");

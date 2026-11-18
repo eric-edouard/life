@@ -21,6 +21,7 @@
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
+    "e2e:demo": "bun scripts/e2e-demo.ts",
     "events": "bun apps/lifelog/scripts/events.ts",
     "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/lifelog/apps/ios apps/lifelog/apps/mac-quiet",
     "host:app": "bun apps/lifelog/scripts/host-app.ts",
