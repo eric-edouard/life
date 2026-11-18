@@ -15,6 +15,7 @@ import { settings } from "../core/settings";
 import {
   type Answer,
   add,
+  type CallReads,
   extractJson,
   imageBlock,
   type Llm,
@@ -170,7 +171,6 @@ const ClaudeResult = z.object({
   is_error: z.boolean(),
   num_turns: z.number().optional(),
   result: z.string().default(""),
-  total_cost_usd: z.number().optional(),
   usage: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -277,7 +277,6 @@ async function askClaude({ dir, images, input, llm, system }: ModelCall) {
     JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
   );
   const fields = {
-    costUsd: res.total_cost_usd,
     tokens: claudeTokens(res.usage),
     turns: res.num_turns,
     usage: res.usage,
@@ -535,7 +534,8 @@ export const hasQuota = (engine?: Engine) =>
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
  * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
- * not, is one `model.run` line.
+ * not, is one `model.run` line, with what it read (`reads`, by source: a call that names none is refused before it is
+ * made) and, when its provider says, what it cost (`costUsd`; a call without it is unpriced).
  */
 export async function askOnce(opts: {
   context?: unknown;
@@ -546,11 +546,18 @@ export async function askOnce(opts: {
   /** The call parts it has on (`models/prompt-parts.ts`): their paragraphs are shown and its name says so. */
   callParts?: readonly string[];
   prompt: string;
+  /** The units it is shown, counted by source (`readsOf`, memory/run.ts). */
+  reads: CallReads;
   run: string;
   /** The one exception to "no tools": Life's connector, reads only, for the question cases' agent. */
   tools?: Tools;
 }) {
-  const { dir, llm } = opts;
+  const { dir, llm, reads } = opts;
+  if (!Object.values(reads).some((n) => (n ?? 0) > 0)) {
+    throw new Error(
+      `a model call names what it reads: ${opts.prompt} named nothing`
+    );
+  }
   if (opts.tools && !PROVIDERS[llm.engine].tools) {
     throw new Error(`${llm.engine} runs no tools: only Codex is given any`);
   }
@@ -562,6 +569,7 @@ export async function askOnce(opts: {
   const made = {
     ...stamp(llm, opts.prompt, opts.run, opts.callParts),
     effort: llm.effort,
+    reads,
   };
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));

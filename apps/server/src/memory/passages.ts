@@ -14,13 +14,8 @@ import {
   type Tables,
   tables,
 } from "./sources";
-import {
-  dayUnitId,
-  isLifeOutput,
-  normalize,
-  searchableMail,
-  textOf,
-} from "./units";
+import { dayUnitId } from "./unit-ids";
+import { isLifeOutput, normalize, searchableMail, textOf } from "./units";
 import { type DayRange, dayStart, localDate, type Window } from "./zones";
 
 // Rebuildable source text, independent of index.sqlite. Each passage belongs to its first message's unit.

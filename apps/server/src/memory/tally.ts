@@ -3,6 +3,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { askOnce, llmFor, llmSpec } from "../models/llm";
+import { readsOf } from "./run";
 
 /** What a judge may say of a fact against the memory lines. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;
@@ -90,6 +91,9 @@ export async function judge(
             },
             llm: llmFor("judge", o.engine),
             prompt: JUDGE_PROMPT,
+            reads: readsOf(
+              call.facts.map((f) => ({ source: "memory", unit: f.id }))
+            ),
             run: o.run,
           })
         ).grades

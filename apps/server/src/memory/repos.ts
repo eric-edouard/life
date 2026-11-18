@@ -23,7 +23,7 @@ import {
 } from "./memory-files";
 import { meContext } from "./model-context";
 import { loadTruth } from "./read-truth";
-import { begin, checkedEntries, chunks, inBatches } from "./run";
+import { begin, checkedEntries, chunks, inBatches, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf } from "./tags";
 import { clip, lineCounts } from "./units";
@@ -149,6 +149,7 @@ export async function mapRepos() {
         dir,
         input: { repos: batch },
         prompt: REPO_PROJECT_PROMPT,
+        reads: readsOf(batch.map((c) => ({ source: "git", unit: c.key }))),
       });
       const checked = parseInferredRepos(
         json,

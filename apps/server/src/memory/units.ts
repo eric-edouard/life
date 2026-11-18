@@ -45,6 +45,7 @@ import {
   safely,
   sourceOf,
 } from "./sources";
+import { dayUnitId, voiceUnitId } from "./unit-ids";
 import { dayStart, lastDays, localDate, time, type Window } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
@@ -91,11 +92,6 @@ export interface Built {
   unit: Unit;
 }
 
-export const unitId = (...parts: string[]) =>
-  `unit_${digest("sha1", parts.join("|"), 12)}`;
-/** The id of the chat-day (thread-day, note-day, repo-day, device-day, measurement-day or photo-day) an event is in. */
-export const dayUnitId = (e: SourceEvent) =>
-  unitId(e.source, e.chat, localDate(e.at));
 const contentHash = (s: string) => digest("sha256", s, 16);
 
 /**
@@ -249,7 +245,7 @@ export function lifelogUnits(
               date,
               end: c.endedAt < next ? c.endedAt : next,
               hash: contentHash([...turns.map(turnKey), ...marked].join("\n")),
-              id: unitId("lifelog", c.id, date),
+              id: voiceUnitId(c.id, date),
               key: c.id,
               ...(marked.length > 0 ? { marked } : {}),
               people: [

@@ -28,7 +28,8 @@ import {
 import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
 import type { Tie } from "./ties";
-import { dayUnitId, nameKey, PERSON, UNKNOWN } from "./units";
+import { dayUnitId } from "./unit-ids";
+import { nameKey, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people his Contacts name, the people Life inferred and the
 // owner's corrections, in that order of trust under his word. Every reader and step resolves people through here.

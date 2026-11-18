@@ -4,6 +4,7 @@ import { z } from "zod";
 import { readJson } from "../core/files";
 import { newestWithin, packed } from "../core/lists";
 import { log } from "../core/log";
+import type { SourceName } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import {
   directChats,
@@ -23,7 +24,8 @@ import {
 } from "../memory/exchanges";
 import { historyPath } from "../memory/memory-files";
 import { foundQuotes } from "../memory/quote-check";
-import { begin, inBatches, inputsOf, type Step } from "../memory/run";
+import { begin, inBatches, inputsOf, readsOf, type Step } from "../memory/run";
+import { dayUnitId } from "../memory/unit-ids";
 import { clip } from "../memory/units";
 import type { People } from "../memory/who";
 import { localDate, time } from "../memory/zones";
@@ -59,13 +61,15 @@ interface Call {
     with: string;
   };
   quotable: SourceEvent[];
+  /** The units the call is shown, as `readsOf` counts them. */
+  shows: { source: SourceName | "memory"; unit: string }[];
 }
 /** A conversation he had in person with the person, as its summary shows it (`currentSummaries`). */
-type InPerson = Pick<HeldSummary, "at" | "summary">;
+type InPerson = Pick<HeldSummary, "at" | "ref" | "summary">;
 /** What a month reads, in time order: an exchange of their messages, or a conversation in person. */
 type MonthItem =
   | { at: string; exchange: SourceEvent[] }
-  | { at: string; summary: string };
+  | { at: string; ref: string; summary: string };
 
 /** A batch of a month's items as the lines a call is shown: the exchanges numbered as `batchLines` numbers them, each conversation in person under its own heading. */
 function itemLines(batch: MonthItem[], who: (e: SourceEvent) => string) {
@@ -104,7 +108,7 @@ export function monthCallsOf(
 ): MonthCalls[] {
   const items: MonthItem[] = [
     ...exchangesOf(stream).map((x) => ({ at: x[0]?.at ?? "", exchange: x })),
-    ...inPerson.map((h) => ({ at: h.at, summary: h.summary })),
+    ...inPerson.map((h) => ({ at: h.at, ref: h.ref, summary: h.summary })),
   ].toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const byMonth = Map.groupBy(items, (x) => monthOf(x.at));
   const who = (e: SourceEvent) => (e.fromMe ? "me" : name);
@@ -134,6 +138,11 @@ export function monthCallsOf(
         },
         quotable: batch.flatMap((x) =>
           "exchange" in x ? x.exchange.filter((e) => !e.phoneCall) : []
+        ),
+        shows: batch.flatMap((x): Call["shows"] =>
+          "summary" in x
+            ? [{ source: "memory" as const, unit: x.ref }]
+            : x.exchange.map((e) => ({ source: e.source, unit: dayUnitId(e) }))
         ),
       }));
       return [
@@ -363,7 +372,17 @@ async function tellStory(
     step.error("the months do not fit one story call", { page: t.ref });
     return false;
   }
-  const reply = await step.ask({ dir, input, prompt: STORY_PROMPT });
+  const reply = await step.ask({
+    dir,
+    input,
+    prompt: STORY_PROMPT,
+    reads: readsOf(
+      input.months.map((m) => ({
+        source: "memory",
+        unit: `${t.ref}:${m.month}`,
+      }))
+    ),
+  });
   const text = z
     .string()
     .trim()
@@ -409,6 +428,7 @@ export async function histories(pending: NonNullable<HistoryWork>) {
               dir: join(dir, `${m.month}-${i + 1}`),
               input: call.input,
               prompt: MONTH_PROMPT,
+              reads: readsOf(call.shows),
             });
             parts.push(partOf(reply, call.quotable));
           }

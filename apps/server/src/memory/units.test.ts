@@ -36,6 +36,7 @@ import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import { normalizeTopics } from "./tags";
+import { unitId } from "./unit-ids";
 import { syncLifelogUnits, writeUnits } from "./unit-writer";
 import {
   applyRules,
@@ -48,7 +49,6 @@ import {
   messageUnits,
   oneToOne,
   speakerOf,
-  unitId,
 } from "./units";
 import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";

@@ -17,7 +17,8 @@ import {
   readReplyIndex,
   replyOf,
 } from "./read-replies";
-import { begin } from "./run";
+import { begin, readsOf } from "./run";
+import { dayUnitId } from "./unit-ids";
 import type { People } from "./who";
 import { dayStart } from "./zones";
 
@@ -49,6 +50,9 @@ export function callOf(batch: SourceEvent[][], withWhom: With) {
     firstAt: messages[0]?.at ?? "",
     input: { lines, with: withWhom },
     keys: messages.map(eventKey),
+    reads: readsOf(
+      batch.flat().map((e) => ({ source: e.source, unit: dayUnitId(e) }))
+    ),
     starts,
   };
 }
