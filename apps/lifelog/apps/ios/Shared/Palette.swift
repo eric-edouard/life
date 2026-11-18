@@ -1,43 +1,38 @@
 import SwiftUI
 import UIKit
 
-/// The owner-approved colors (docs/design.md), shared by the app, its widgets and the Watch: dark grayscale with one
-/// deep red. The app is dark-only. On the iPhone every token resolves to a stronger variant under Increase Contrast.
-/// Nonisolated: SwiftUI resolves dynamic colors on its async render thread, and a main-actor provider closure traps
+/// Life's palette (docs/brand.md, `assets/brand/tokens.css`), shared by the app, its widgets and the Watch, dark and
+/// light as the system says. This is the one copy on the phone: `scripts/brand.test.ts` fails when it drifts from
+/// tokens.css, so edit tokens.css first. Colour always means something: `flag` needs the owner, `ai` is an agent or
+/// Life's guess, `ok` is "it worked".
+/// Unspecified (the Watch, always dark) reads as dark. Nonisolated: SwiftUI resolves dynamic colors on its async render thread, and a main-actor provider closure traps
 /// there.
 nonisolated enum Palette {
-    static let ground = token(rgb(0x0B0A0A), high: rgb(0x000000))
-    static let surface1 = token(rgb(0x141312), high: rgb(0x1A1918))
-    static let surface2 = token(rgb(0x1C1A19), high: rgb(0x272524))
-    static let surface3 = token(rgb(0x232120), high: rgb(0x312E2D))
-    static let hairline = token(rgb(0xECE7E1, 0.08), high: rgb(0xECE7E1, 0.26))
+    static let bg = token(dark: 0x07080a, light: 0xf3f4f5)
+    static let fg = token(dark: 0xfff8ea, light: 0x0d0e11)
+    static let card = token(dark: 0x15161a, light: 0xe8e9eb)
+    static let tile = token(dark: 0x1d1e23, light: 0xe8e9eb)
+    static let sheet = token(dark: 0x101114, light: 0xf3f4f5)
+    static let paper = token(dark: 0x1b1c20, light: 0xfbfbfa)
+    static let muted = token(dark: 0x8a867e, light: 0x57544f)
+    static let faint = token(dark: 0x85817a, light: 0x6c6964)
+    static let line = token(dark: 0x1f2024, light: 0xd8d9dc)
+    static let flag = token(dark: 0xf0896f, light: 0xb3412b)
+    static let ai = token(dark: 0x9aa8ec, light: 0x33468f)
+    static let ok = token(dark: 0x74c9a9, light: 0x1d6b58)
+    static let on = token(dark: 0x07080a, light: 0xf3f4f5)
 
-    static let textPrimary = token(rgb(0xECE7E1), high: rgb(0xFFFFFF))
-    static let textBody = token(rgb(0xCFC8C0), high: rgb(0xE8E2DB))
-    static let textSecondary = token(rgb(0xA9A29B), high: rgb(0xD2CBC4))
-    static let textTertiary = token(rgb(0x8A837D), high: rgb(0xB8B1AA))
-
-    /// The one red for primary actions (play, export, save) and selection.
-    static let redFill = token(rgb(0x9B1B24), high: rgb(0xB3222C))
-    static let redText = token(rgb(0xE2626A), high: rgb(0xF4979D))
-    /// Text and glyphs on `redFill`, and the word being spoken.
-    static let textOnRed = token(rgb(0xFFF6F3), high: rgb(0xFFFFFF))
-    static let liveDot = token(rgb(0xD9363E), high: rgb(0xF04A52))
-    /// A battery charging, as iOS draws it. Only there.
-    static let charging = token(rgb(0x30D158), high: rgb(0x5BE07A))
-
-    private static func token(_ normal: UIColor, high: UIColor) -> Color {
+    private static func token(dark: UInt32, light: UInt32) -> Color {
         #if os(watchOS)
-            // The Watch has no Increase Contrast trait to follow.
-            Color(uiColor: normal)
+            Color(uiColor: rgb(dark))
         #else
-            Color(uiColor: UIColor { $0.accessibilityContrast == .high ? high : normal })
+            Color(uiColor: UIColor { $0.userInterfaceStyle == .light ? rgb(light) : rgb(dark) })
         #endif
     }
 
-    private static func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> UIColor {
+    private static func rgb(_ hex: UInt32) -> UIColor {
         UIColor(
             red: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+            blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
     }
 }

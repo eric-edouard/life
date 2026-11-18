@@ -191,7 +191,7 @@ const completeByWebhook = (
 
 test("owner token is required except for health and webhook", async () => {
   const app = appWith();
-  const usage = "/usage/summary";
+  const usage = "/switches";
   expect((await app.request(usage)).status).toBe(401);
   expect(
     (await app.request(usage, { headers: { Authorization: "Bearer nope" } }))

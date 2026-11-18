@@ -23,8 +23,6 @@
             })
 
         private static var seeding: Task<Void, Never>?
-        /// What the uploader would say the server doesn't have yet.
-        private(set) static var unsent: [Range<CaptureInstant>] = []
         private(set) static var uploads: UploadStatus?
 
         /// A fresh library, seeded in the background; `ready()` waits for the seeding.
@@ -54,11 +52,10 @@
                 let layouts = layouts()
                 try await library.apply(feed: try page(layouts)) { _ in }
                 let unsent = layouts.filter { $0.upload == .notUploaded }
-                Self.unsent = unsent.map(\.conversation.range)
                 uploads = UploadStatus(unsent: .milliseconds(unsent.reduce(0) { $0 + $1.conversation.range.millis }))
                 try await writeAudio(
                     layouts.prefix(FixtureConversation.all.count).map { ($0.recorded, $0.words) },
-                    deviceID: PlaybackStore.deviceID)
+                    deviceID: CaptureStore.deviceID)
             } catch {
                 print("Fixture library failed: \(error)")
             }

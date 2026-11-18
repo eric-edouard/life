@@ -7,7 +7,6 @@ import {
   events,
   heartbeatReasons,
   heartbeats,
-  ownerEdits,
   sources,
   timelineSpans,
   transcriptionJobs,
@@ -34,6 +33,7 @@ import {
   mapJob,
   OWNER_TOKEN,
   seedTranscript,
+  storeEdit,
   testConfig,
   testDb,
 } from "./testing";
@@ -373,9 +373,9 @@ test("a regroup logs only the turns whose conversation changed: a turn's convers
   expect(turnRefs()).toEqual([`${later}:0`]);
   // A split logs the turns it moves to the new conversation, not the one that stays.
   env.db.$client.run("delete from change_log");
-  await send("POST", "/edits", {
-    at: iso(20),
-    editedAt: iso(200),
+  storeEdit(env.db, {
+    at: new Date(at(20)),
+    editedAt: new Date(at(200)),
     id: randomUUID(),
     kind: "split",
   });
@@ -391,7 +391,7 @@ test("a regroup logs only the turns whose conversation changed: a turn's convers
   });
 });
 
-test("split, merge and undo regroup, retire and bring back; edits are idempotent", async () => {
+test("a stored merge and a stored split regroup and retire", async () => {
   await timeline(100, [
     span(
       0,
@@ -403,19 +403,12 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
     ),
   ]);
   expect(live().length).toBe(2);
-  const merge = randomUUID();
-  const body = {
-    editedAt: new Date().toISOString(),
-    from: iso(30),
-    id: merge,
+  storeEdit(env.db, {
+    editedAt: new Date(),
+    from: new Date(at(30)),
+    id: randomUUID(),
     kind: "merge",
-    to: iso(430),
-  };
-  expect(await (await send("POST", "/edits", body)).json()).toEqual({
-    stored: true,
-  });
-  expect(await (await send("POST", "/edits", body)).json()).toEqual({
-    stored: false,
+    to: new Date(at(430)),
   });
   expect(ranges()).toEqual([[at(0), at(0), at(460)]]);
   const [merged] = env.db
@@ -424,95 +417,6 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
     .where(eq(conversations.id, anchorId(at(400))))
     .all();
   expect(merged?.successorId).toBe(anchorId(at(0)));
-
-  const undo = {
-    edit: merge,
-    editedAt: new Date().toISOString(),
-    id: randomUUID(),
-    kind: "undo",
-  };
-  expect((await send("POST", "/edits", undo)).status).toBe(200);
-  expect(ranges()).toEqual([
-    [at(0), at(0), at(60)],
-    [at(400), at(400), at(460)],
-  ]);
-  expect(
-    (await send("POST", "/edits", { ...undo, edit: undo.id, id: randomUUID() }))
-      .status
-  ).toBe(400);
-  expect(
-    (
-      await send("POST", "/edits", {
-        ...undo,
-        edit: randomUUID(),
-        id: randomUUID(),
-      })
-    ).status
-  ).toBe(404);
-
-  const split = randomUUID();
-  await send("POST", "/edits", {
-    at: iso(30),
-    editedAt: new Date().toISOString(),
-    id: split,
-    kind: "split",
-  });
-  expect(ranges().map(([id]) => id)).toEqual([at(0), at(30), at(400)]);
-  await send("POST", "/edits", {
-    edit: split,
-    editedAt: new Date().toISOString(),
-    id: randomUUID(),
-    kind: "undo",
-  });
-  expect(ranges().map(([id]) => id)).toEqual([at(0), at(400)]);
-  const [gone] = env.db
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, anchorId(at(30))))
-    .all();
-  expect(gone?.successorId).toBe(anchorId(at(0)));
-  expect(
-    (
-      await send("POST", "/edits", {
-        editedAt: new Date().toISOString(),
-        from: iso(50),
-        id: randomUUID(),
-        kind: "merge",
-        to: iso(40),
-      })
-    ).status
-  ).toBe(400);
-});
-
-test("a split or merge inside an imported recording is refused, not stored", async () => {
-  await timeline(100, [span(0, [0, 100], [[0, 60]])]);
-  env.db
-    .insert(conversations)
-    .values({
-      captureEndedAt: new Date(at(1100)),
-      captureStartedAt: new Date(at(1000)),
-      id: randomUUID(),
-      kind: "imported",
-    })
-    .run();
-  const edit = (body: object) =>
-    send("POST", "/edits", {
-      editedAt: new Date().toISOString(),
-      id: randomUUID(),
-      ...body,
-    });
-  const refused = await Promise.all(
-    [
-      { at: iso(1050), kind: "split" },
-      { from: iso(50), kind: "merge", to: iso(1050) },
-      { from: iso(1000), kind: "merge", to: iso(1100) },
-    ].map(edit)
-  );
-  expect(refused.map((res) => res.status)).toEqual([400, 400, 400]);
-  expect(await refused[0]?.json()).toMatchObject({ error: "invalid_request" });
-  expect(env.db.select().from(ownerEdits).all()).toEqual([]);
-  // Outside it, a split is kept as always.
-  expect((await edit({ at: iso(30), kind: "split" })).status).toBe(200);
 });
 
 // A first pass of the states (conversation-state.ts) looks at every conversation.
@@ -602,9 +506,9 @@ test("forward-only: a change regroups up to the first closed conversation after 
   );
   const lastLogs = logged(anchorId(at(800)));
   // A split in the first: it and the one after regroup, the last stays as it was grouped.
-  await send("POST", "/edits", {
-    at: iso(30),
-    editedAt: iso(2000),
+  storeEdit(env.db, {
+    at: new Date(at(30)),
+    editedAt: new Date(at(2000)),
     id: randomUUID(),
     kind: "split",
   });
@@ -662,7 +566,7 @@ test("a title edit while grouping runs: every writer logs last, so neither waits
   expect(live()[0]?.ownerTitle).toStartWith("Title");
 });
 
-test("a conversation names the edits that made its edges, for Undo", async () => {
+test("a conversation names the edits that made its edges", async () => {
   await timeline(100, [
     span(
       0,
@@ -674,19 +578,19 @@ test("a conversation names the edits that made its edges, for Undo", async () =>
     ),
   ]);
   const split = randomUUID();
-  await send("POST", "/edits", {
-    at: iso(30),
-    editedAt: iso(100),
+  storeEdit(env.db, {
+    at: new Date(at(30)),
+    editedAt: new Date(at(100)),
     id: split,
     kind: "split",
   });
   const merge = randomUUID();
-  await send("POST", "/edits", {
-    editedAt: iso(101),
-    from: iso(40),
+  storeEdit(env.db, {
+    editedAt: new Date(at(101)),
+    from: new Date(at(40)),
     id: merge,
     kind: "merge",
-    to: iso(430),
+    to: new Date(at(430)),
   });
   const { conversations: rows } = feed(env.db, 0);
   const edges = (start: number) => {
@@ -695,17 +599,6 @@ test("a conversation names the edits that made its edges, for Undo", async () =>
   };
   expect(edges(0)).toEqual([null, split]);
   expect(edges(30)).toEqual([split, null]);
-  // Undo the split: the merged one names the merge.
-  await send("POST", "/edits", {
-    edit: split,
-    editedAt: iso(102),
-    id: randomUUID(),
-    kind: "undo",
-  });
-  const after = feed(env.db, 0).conversations.find(
-    (c) => c.id === anchorId(at(0)) && c.retired === null
-  );
-  expect([after?.startEdit, after?.endEdit]).toEqual([merge, null]);
 });
 
 test("phoneQuiet only while the conversation's own audio is behind", async () => {

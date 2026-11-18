@@ -9,14 +9,17 @@ import { clock } from "@life/server/src/core/clock";
 import { connect, type Db, migrateDb } from "@lifelog/db";
 import {
   conversations,
+  ownerEdits,
   type Turn,
   transcriptionJobs,
   transcripts,
   type Word,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { logChange } from "./change-log";
 import { type Config, loadConfig, sha256Hex } from "./config";
 import { PARSER_VERSION } from "./elevenlabs";
+import { markDirty, pendantSources, regroupAfterCommit } from "./grouping";
 import { requestRoll } from "./intelligence";
 import type { ModelCall, Provider } from "./providers";
 import type { Heard } from "./speech-service";
@@ -427,3 +430,27 @@ export const providerTranscript = {
     },
   ],
 };
+
+// An owner's grouping edit as it is stored (no route writes one now): its row, the feed's log of it
+// and its range regrouped.
+export function storeEdit(db: Db, row: typeof ownerEdits.$inferInsert) {
+  db.transaction((tx) => {
+    tx.insert(ownerEdits).values(row).run();
+    logChange(tx, "edit", [row.id as string]);
+    const from = row.at ?? row.from;
+    if (from) {
+      markDirty(tx, pendantSources(tx), [+from, +(row.to ?? from)]);
+    }
+  });
+  regroupAfterCommit(db, pendantSources(db));
+}
+
+// A conversation's words changed: the next drain rolls it.
+export async function roll(
+  db: Db,
+  rolling: { drain: () => Promise<void> },
+  id: string
+) {
+  logChange(db, "conversation", id);
+  await rolling.drain();
+}

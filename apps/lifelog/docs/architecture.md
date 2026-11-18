@@ -13,7 +13,7 @@ flowchart TB
     subgraph app["App stores (Lifelog/)"]
       CaptureStore
       SyncStore["SyncStore<br/>starts the run"]
-      Screens["Feature stores<br/>Library · Conversation · People"]
+      Screens["Feature stores<br/>Pendant"]
     end
     subgraph kit["LifelogKit (Kit/)"]
       Capture
@@ -82,9 +82,6 @@ flowchart TB
 
 **The app** (`Lifelog/`) is SwiftUI on top: one `@Observable` store per feature, no app model.
 
-The subscription Lock Screen dials read the app group only (`SubscriptionStorage`, types in `Glance`); how the
-readings get there is `docs/sync.md`.
-
 **The server** owns everything after capture: audio blocks in its audio store (a folder, or an S3 bucket), transcription jobs, words in capture time,
 grouping into conversations, speakers and people, chapters and summaries, places, search by meaning, and the REST
 surface for readers (`docs/voice-source.md`). `apps/identity` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
@@ -127,17 +124,11 @@ private backup; `upload/` stays out of it and of iCloud backups: a restored or n
 page holding the source's `sentThrough`, around the server's pages, as after a reinstall.
 
 **App stores.** `AppDelegate` builds the long-lived ones at launch and `LifelogApp` puts them in the environment:
-`CaptureStore`, the library (`\.library`), `SyncStore`, `NamingQueue` (voices to name),
-`PlaybackStore`, `ButtonActions` (the Pendant's button: the press on screen, which `PressOverlay` shows in its own
-window above every screen and sheet, and the finished presses the Presses tab lists, in `presses.json` in Caches). `SyncStore` owns the one run: it starts the Kit `Driver` on every trigger, one run at a time,
+`CaptureStore`, the library (`\.library`), `SyncStore` and `PlaybackStore` (the quiet-range marking). `SyncStore` owns the one run: it starts the Kit `Driver` on every trigger, one run at a time,
 long-polls the feed between runs, holds the status every tab shows, and takes the
 owner's edits (`perform`). Screens build
-their own store for their own data (`LibraryListStore`, `ConversationStore`, `PeopleStore`;
-each places a turn or a voice's clip in the conversation the server names, never by time),
-from the library and `SyncStore`; the Library's `LibraryListStore` holds the rows and its `LibrarySearch` the query. What only the server answers and the feed doesn't carry shows as last read and is read again in the background: spending
-in memory, and the voices to name (`naming-queue.json`) in Caches. That file is the one exception to "screens read the
-cache and the outbox": the server's answer kept as is, so "Who's this?" opens at once offline from the morning push,
-and safe to lose (iOS may clear Caches; the next answer fills it). People read the feed's people from the cache.
+their own store for their own data, from the library and `SyncStore`. The app has one tab, the Pendant; the Library,
+conversation, people and voice-naming screens are cut and come back as Life's screens.
 
 ## From a page to a chapter
 
@@ -165,7 +156,7 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 10. **Voices read.** Whenever a conversation's words change (one rule, `turns_fp`), the Mac rolls its tail in windows
     of about 24k characters, one call each, and reads who each unnamed voice is. No chapters, title or TLDR since 15 Nov 2026.
 11. **Back on the phone.** Every change is logged in the same transaction. The feed brings the rows into the cache,
-    `SyncStore.generation` moves, and the Library, Search and an open conversation read again. It moves only while
+    `SyncStore.generation` moves, and the screens read again. It moves only while
     the app is in front, and once when it comes forward: in the background nothing shows those screens. A silent
     push makes the phone pull as soon as words or a summary land.
 
@@ -222,9 +213,7 @@ Everything the owner reads is on the phone, so every screen works offline and op
    server refused.
 5. **Slow work comes last.** Waveforms, photos and estimates fill in after the rows, newest first.
 
-`screen.shown` events (`bun run events screen`) time each screen's first render on the phone. `bun run check:offline`
-launches the demo library with `-offline` (every server request fails, and the status says Offline) and checks that
-the Library shows rows and the status.
+`screen.shown` events (`bun run events screen`) time each screen's first render on the phone.
 
 ### Rules no feature may break
 

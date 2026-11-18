@@ -6,11 +6,10 @@ import ServerAPI
 import UserNotifications
 
 /// Local notifications: one per actionable capture incident (decided by `IncidentReducer`), changes made on the
-/// Pendant itself (`PendantChangeReducer`), and what the Pendant's button asked (`ButtonActions`). Never asks twice for
+/// Pendant itself (`PendantChangeReducer`). Never asks twice for
 /// permission and posts nothing when denied.
 final class IncidentNotifier: NSObject {
     private static let stateKey = "incidentReducer"
-    private static let quickQuestionCategory = "quickQuestion"
     private static let changesKey = "pendantChanges"
 
     private let center = UNUserNotificationCenter.current()
@@ -32,13 +31,6 @@ final class IncidentNotifier: NSObject {
         super.init()
         // Must be set before launch finishes so a response that relaunched the app is delivered.
         center.delegate = self
-        center.setNotificationCategories([
-            UNNotificationCategory(
-                identifier: Self.quickQuestionCategory,
-                actions: QuickQuestion.App.allCases.map {
-                    UNNotificationAction(identifier: $0.rawValue, title: $0.name, options: .foreground)
-                }, intentIdentifiers: [])
-        ])
     }
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
@@ -60,24 +52,6 @@ final class IncidentNotifier: NSObject {
         if changes != before { defaults.set(try? JSONEncoder().encode(changes), forKey: Self.changesKey) }
         guard !effects.isEmpty || !changeEffects.isEmpty else { return }
         Task { await perform(effects + changeEffects) }
-    }
-
-    /// One press's words, in the background: a tap opens them in lifelog, Claude and ChatGPT are its actions.
-    func quickQuestion(_ words: String, id: String) async {
-        let content = UNMutableNotificationContent()
-        content.title = "Quick question to AI"
-        content.body = words
-        content.categoryIdentifier = Self.quickQuestionCategory
-        content.userInfo = ["quickQuestion": words]
-        await add(UNNotificationRequest(identifier: "press-\(id)", content: content, trigger: nil))
-    }
-
-    /// A press that came to nothing, and why.
-    func pressFailed(_ reason: String, id: String) async {
-        let content = UNMutableNotificationContent()
-        content.title = "Quick question to AI failed"
-        content.body = reason
-        await add(UNNotificationRequest(identifier: "press-\(id)", content: content, trigger: nil))
     }
 
     private func perform(_ effects: [IncidentEffect]) async {
@@ -177,14 +151,8 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
-        let userInfo = response.notification.request.content.userInfo
-        if let words = userInfo["quickQuestion"] as? String,
-            let app = QuickQuestion.App(rawValue: response.actionIdentifier)
-        {
-            return await ButtonActions.ask(app, words)
-        }
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-            let route = NotificationRoute(userInfo: userInfo)
+            let route = NotificationRoute(userInfo: response.notification.request.content.userInfo)
         else { return }
         open?(route)
     }

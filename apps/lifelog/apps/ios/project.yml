@@ -95,8 +95,6 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: pairing
             CFBundleURLSchemes: [lifelog]
-    scheme:
-      testTargets: [LifelogUITests]
     entitlements:
       path: Lifelog/Lifelog.entitlements
       properties:
@@ -104,20 +102,6 @@ targets:
         # The server's silent push. Builds are development-signed, so APNs is the sandbox (APNS_ENVIRONMENT).
         aps-environment: development
         com.apple.developer.healthkit: true
-  # Launches the demo library offline and checks the Library shows rows: `bun run check:offline`.
-  LifelogUITests:
-    type: bundle.ui-testing
-    platform: iOS
-    sources: [UITests]
-    dependencies:
-      - target: Lifelog
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).uitests
-        GENERATE_INFOPLIST_FILE: YES
-        TEST_TARGET_NAME: Lifelog
-        # XCTestCase's initializers aren't on the main actor.
-        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
   LifelogWidgets:
     type: app-extension
     platform: iOS

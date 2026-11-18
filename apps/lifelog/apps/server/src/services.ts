@@ -22,7 +22,6 @@ import { reportError } from "./diagnostics";
 import { type ExcerptSampler, excerptSampler } from "./excerpts";
 import { type JobWorker, jobWorker } from "./jobs";
 import { type MacSocket, macSocket } from "./mac-socket";
-import { type MorningPush, morningPush } from "./naming-queue";
 import { type PageProcessor, pageProcessor } from "./page-processing";
 import { type VoiceUpkeep, voiceUpkeep } from "./people";
 import { macProvider, type Provider } from "./providers";
@@ -47,9 +46,8 @@ export function services(
     intelligence = macProvider(mac, () => !switches().ai),
     // Tells the phone a transcript or summary is ready (a silent push to the same app).
     nudge = phoneNudger(db, apns, config.APNS_TOPIC),
-    // The voices to name: the list, and its length in each morning's push.
+    // The voices to name.
     queue = queueCache(db),
-    morning = morningPush(db, apns, config.APNS_TOPIC, queue),
     // A visible push another app of the owner's asks for (Life: each voice ask it heard).
     notice = phoneNotice(db, apns, config.APNS_TOPIC),
     // The voices read, window by window as conversations go on, on the Mac.
@@ -71,7 +69,6 @@ export function services(
   }: {
     apns?: Pusher | null;
     audio?: AudioStore;
-    morning?: MorningPush;
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
     intelligence?: Provider | null;
@@ -129,7 +126,6 @@ export function services(
     health,
     intelligence,
     mac,
-    morning,
     notice,
     nudge,
     pages,

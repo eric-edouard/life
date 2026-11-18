@@ -74,19 +74,12 @@ private final class Reports: Sendable {
     let people = try await library.people()
     #expect(people.map(\.name) == ["Dave", "Marie-Jo"], "the person merged away is gone")
     #expect(people.contains { $0.isOwner } && people.contains { $0.aliases == ["Mari"] })
-    let edits = try await library.edits(
-        [8, 13, 14].map { UUID(uuidString: String(format: "00000000-0000-4000-8000-%012d", $0))! })
-    #expect(edits.map(\.kind) == [.split, .merge, .undo])
-    #expect(edits[1].from != nil && edits[1].to != nil && edits[1].undoneAt != nil)
     #expect(try await library.quietRanges(in: conversation.range).count == 1)
     #expect(try await library.waiting() == [.macAway: 1])
 
     let feed = try await library.feed()
     #expect(feed.switches?.engine == .claude && feed.pulledAt != nil)
     #expect(feed.mac?.llm != nil)
-    #expect(feed.mac?.subscriptions?.claude == nil)
-    #expect(feed.mac?.subscriptions?.codex?.sevenDay?.usedPercent == 42.5)
-    #expect(feed.mac?.subscriptions?.codex?.fiveHour?.usedPercent == 0)
     #expect(feed.vocabulary == ["Oakridge"])
     #expect(reports.errors.withLock { $0 }.isEmpty, "every row decodes")
 }

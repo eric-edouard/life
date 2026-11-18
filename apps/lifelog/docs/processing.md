@@ -191,8 +191,7 @@ service, a conversation with a block waiting for credits (`waitsForCredits`). Th
 
 ### No limits
 
-Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the
-presses of the Pendant's button transcribed at once (`quick_transcriptions`, `docs/pendant.md`).
+Nothing holds or caps transcription: every admitted job goes. Spending counts every job.
 
 ### Speakers
 
@@ -266,8 +265,7 @@ frozen copy of them, and the gate fails when a change moves its committed counts
   that person. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next,
   and at 0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
   answer. A turn's row, once written, is kept. The voice is nobody's evidence and never a
-  nearby reference; the clips the owner named are owner rows, and so evidence. The phone then asks Generate for its
-  conversations; nothing else re-runs.
+  nearby reference; the clips the owner named are owner rows, and so evidence. Nothing else re-runs.
 - Before the multi-select, "several people" named nobody and marked the speaker `mixed`. Those voices come
   back in "Who's this?", each on its own card (kind `several`, past the stranger and media checks) that opens with
   each clip to name; recognition leaves them as they are until then, and the column goes once none is left.
@@ -290,10 +288,8 @@ frozen copy of them, and the gate fails when a change moves its committed counts
 
 A named voice becomes a recheck when at least half its sampled turns first guess another person,
 without evidence from that voice's conversations; the named person must still have a profile.
-`GET /naming-queue/rechecks` lists these separately, highest share first, with the given and suggested people.
 The next answer, even the same name, settles that voice for good through `speaker_assignments.rechecked`.
-Rechecks add nothing to the morning push, badge or voice map. The phone asks them after the voices to name:
-"You named this X", with "Keep X" first and the person it sounds like next.
+Rechecks add nothing to the voice map; `GET /naming-queue/rechecks` is gone with the phone's screen, the queue's `rechecks()` stays for the voice map.
 
 On 9 Nov 2026 the owner replaced the age-based deletion promise: unnamed samples stay available until named or
 rejected, and rejected strangers remain negative references. The full retention rules are in
@@ -337,10 +333,6 @@ more after it.
   keeps its tokens and the turns it read.
 - A run writes no `owner_edits` and no `chapters` row. Grouping no longer takes AI splits from runs; an AI split already
   stored still cuts (`docs/timeline.md`). Old "Split here?" suggestions are gone: the feed's `splitSuggestions` is empty.
-- **Generate** (`POST /conversations/{id}/intelligence` with `after`, the run the owner saw; the phone's "Several
-  people" answer sends it too): when a run newer than it is valid, running or waiting, nothing happens (200). Otherwise
-  it reads the voices again from its first turn (202); the run shown stays until a newer run is valid. With the Mac away
-  a run waits for it, and starts from the first turn too.
 - The feed's `runId` is the latest valid run of any version, which the phone sends back as `after`; its `title` and
   `tldr` come from the latest run of version 11 or before. The state `summarized` is set by any valid run, so a new
   conversation reads "summarized" with no title or TLDR: a wart until the phone drops its summary views.

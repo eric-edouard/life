@@ -17,7 +17,7 @@ struct ConnectionSheet: View {
                         Label {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(state.title).font(.headline)
-                                Text(state.detail).font(.subheadline).foregroundStyle(Palette.textSecondary)
+                                Text(state.detail).font(.subheadline).foregroundStyle(Palette.muted)
                             }
                         } icon: {
                             Image(systemName: state.systemImage)
@@ -37,7 +37,7 @@ struct ConnectionSheet: View {
                             // It tries again on its own; the owner sees why it hasn't gone yet.
                             VStack(alignment: .leading, spacing: 4) {
                                 waits("Upload failing", systemImage: "exclamationmark.icloud", "")
-                                Text(error).font(.footnote).foregroundStyle(Palette.textSecondary)
+                                Text(error).font(.footnote).foregroundStyle(Palette.muted)
                             }
                         }
                         if summary.editsWaiting > 0 {
@@ -74,8 +74,8 @@ struct ConnectionSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Palette.ground)
-            .tint(Palette.textPrimary)
+            .background(Palette.bg)
+            .tint(Palette.fg)
             .navigationTitle("Sync")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
@@ -85,7 +85,7 @@ struct ConnectionSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(Palette.ground)
+        .presentationBackground(Palette.bg)
     }
 
     private func waits(_ title: String, systemImage: String, _ value: String) -> some View {
@@ -113,7 +113,7 @@ private struct RefusedEdit: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(Self.name(edit.intent)).font(.subheadline.weight(.semibold))
-                Text(edit.refused ?? "").font(.subheadline).foregroundStyle(Palette.textSecondary)
+                Text(edit.refused ?? "").font(.subheadline).foregroundStyle(Palette.muted)
             }
             Spacer(minLength: 8)
             Button("OK", action: dismiss)
@@ -124,15 +124,9 @@ private struct RefusedEdit: View {
 
     static func name(_ intent: OwnerIntent) -> String {
         switch intent {
-        case .split: "A split"
-        case .merge: "A merge"
-        case .undo: "An undo"
-        case .title: "A title"
-        case .speaker: "A speaker's name"
-        case .naming: "A name for a voice"
-        case .renamePerson, .aliases, .mergePerson: "A change to a person"
-        case .summarize: "A new summary"
-        default: "An edit"
+        case .switches: "A setting"
+        case .vocabulary: "The word list"
+        case .playbackQuiet: "A played-out stretch"
         }
     }
 }

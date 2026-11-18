@@ -42,12 +42,10 @@
         }
     }
 
-    private let spending = TranscriptionFacts.Spending(today: 0.84, monthTranscription: 3.12)
-
     /// Any state of the screen.
     private func pendant(
         _ status: CaptureStatus, connectionSince: Date = now.addingTimeInterval(-3_600),
-        incidents: [IncidentItem] = [], transcription: TranscriptionFacts = TranscriptionFacts(spending: spending),
+        incidents: [IncidentItem] = [], transcription: TranscriptionFacts = TranscriptionFacts(),
         invite: Bool = false, pairedKind: DeviceKind = .limitless, actions: PendantActions = .preview()
     ) -> some View {
         NavigationStack {
@@ -101,7 +99,7 @@
             BatteryGlyph(percent: nil, isCurrent: false)
         }
         .padding(16)
-        .background(Palette.ground)
+        .background(Palette.bg)
         .preferredColorScheme(.dark)
     }
 

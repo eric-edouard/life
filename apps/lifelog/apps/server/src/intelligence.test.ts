@@ -18,6 +18,7 @@ import type { Provider } from "./providers";
 import { type Rolling, rollingVoices } from "./rolling";
 import { latestValid } from "./runs";
 import { services } from "./services";
+import { setSwitches } from "./switches";
 import {
   fakeAnswer,
   fakeModel,
@@ -25,6 +26,7 @@ import {
   NO_WAIT,
   OWNER_TOKEN,
   rangeOf,
+  roll,
   rollNow,
   seedTranscript,
   speakerAnswer,
@@ -49,6 +51,7 @@ afterAll(() => {
 });
 beforeEach(() => {
   env.reset();
+  setSwitches(env.db, { ai: true });
   seeded = 0;
 });
 
@@ -97,27 +100,18 @@ function conversation(
     .values({
       captureEndedAt: new Date(start + 3_600_000),
       captureStartedAt: new Date(start),
+      closedAt: new Date(start + 3_600_000),
       id,
+      sourceId: "dev1",
     })
     .run();
   mapJob(env.db, jobId, [[start, start + 3_600_000]]);
   return id;
 }
 
-// The owner's Generate, as the phone sends it: `regenerate`, after the summary he sees (the latest
-// valid run); else as if he saw none.
-const post = (
-  app: ReturnType<typeof appWith>,
-  id: string,
-  regenerate = false
-) =>
-  app.request(`/conversations/${id}/intelligence`, {
-    body: JSON.stringify({
-      after: regenerate ? (latestValid(env.db, id)?.id ?? null) : null,
-    }),
-    headers: auth,
-    method: "POST",
-  });
+// The roll a due conversation gets from the app's rolling.
+const post = (_app: ReturnType<typeof appWith>, id: string) =>
+  roll(env.db, rolling as Rolling, id);
 
 // The job whose turns the conversation holds.
 const jobOf = (id: string) =>
@@ -156,20 +150,16 @@ test("the owner's title is given to the model and wins; a run writes no chapter 
     method: "PUT",
   });
 
-  expect((await post(app, id)).status).toBe(202);
+  const seen = latestSeq(env.db);
+  await post(app, id);
   await settled(id);
   // Not run twice by default. A run is one call: the voices.
-  expect((await post(app, id)).status).toBe(200);
-  expect(model.calls).toHaveLength(1);
-  const seen = latestSeq(env.db);
-
-  expect((await post(app, id, true)).status).toBe(202);
+  await post(app, id);
   const runs = await settled(id);
   // A new valid run logs its conversation: "Who's this?" and the feed's run id read it.
   expect(touchedSince(env.db, seen).ids).toContain(id);
-  // The owner's Generate rolls again from the first turn; the newest valid run is the latest.
-  expect(runs.map((r) => r.state)).toEqual(["valid", "valid"]);
-  expect(model.calls).toHaveLength(2);
+  expect(runs.map((r) => r.state)).toEqual(["valid"]);
+  expect(model.calls).toHaveLength(1);
   for (const call of model.calls) {
     expect(call.user).toContain('"Lunch with Ploy"');
   }
@@ -194,23 +184,6 @@ test("the owner's title is given to the model and wins; a run writes no chapter 
     await app.request(`/conversations/${id}`, { headers: auth })
   ).json();
   expect(cleared).toMatchObject({ title: null, titleSource: "none" });
-});
-
-test("a Generate that ends invalid leaves the run shown", async () => {
-  // The second answer, the Generate's, is unusable.
-  let asked = 0;
-  const model = fakeModel(() => {
-    asked += 1;
-    return asked > 1 ? { nonsense: true } : fakeAnswer();
-  });
-  const app = appWith(model);
-  const id = conversation(app, 4);
-  await post(app, id);
-  await settled(id);
-  const shown = latestValid(env.db, id)?.id;
-  expect((await post(app, id, true)).status).toBe(202);
-  await settled(id);
-  expect(latestValid(env.db, id)?.id).toBe(shown);
 });
 
 test("the call's schema is strict: every key required, no other key", async () => {
@@ -250,7 +223,7 @@ test("an unusable answer is asked again twice at most, inside the run, and every
   });
   const app = appWith(model);
   const id = conversation(app, 3);
-  // A run on top of the valid ones before it: the Generate's, from the first turn.
+  // A run on top of the valid ones before it: each new run, from the first turn.
   const run = async (...next: unknown[]) => {
     answers.push(...next);
     env.db
@@ -275,7 +248,7 @@ test("an unusable answer is asked again twice at most, inside the run, and every
   expect(recovered.raw.map((r) => r.stage)).toEqual(["voices", "voices"]);
   expect(recovered.costUsd).toBe(0);
   // Asked once by default: no new run, nothing bought.
-  expect((await post(app, id)).status).toBe(200);
+  await post(app, id);
   expect(model.calls).toHaveLength(3);
 
   const invalid = await run("not json", "not json", "still not json");
@@ -294,10 +267,6 @@ test("an unusable answer is asked again twice at most, inside the run, and every
     state: "failed",
   });
   expect(model.calls).toHaveLength(9);
-
-  // A failed run is never final: a plain request (the phone's) starts a new one.
-  expect((await post(app, id)).status).toBe(202);
-  expect((await settled(id))[0]?.state).toBe("valid");
 });
 
 test("a run still running is never started twice, however long it takes", () => {
@@ -364,7 +333,7 @@ test("speaker kinds map back to unnamed speakers; confirmed media leaves the inp
       .status
   ).toBe(200);
 
-  expect((await post(app, id)).status).toBe(202);
+  await post(app, id);
   const [first] = await settled(id);
   expect(first?.state).toBe("valid");
   // Ploy has a person and the made-up speaker isn't in the transcript.
@@ -372,10 +341,25 @@ test("speaker kinds map back to unnamed speakers; confirmed media leaves the inp
     { jobId, kind: "announcement", speakerLabel: "speaker_1" },
   ]);
 
-  // The owner confirms: speaker_1's turns are no longer sent.
-  expect((await name("speaker_1", { kind: "media" })).status).toBe(200);
-  expect((await post(app, id, true)).status).toBe(202);
-  const [second] = await settled(id);
+  // Another conversation, its speaker_1 confirmed as media: its turns are no longer sent.
+  const other = conversation(app, 4);
+  const otherJob = jobOf(other)?.id ?? "";
+  await Promise.all(
+    (
+      [
+        ["speaker_0", { id: randomUUID(), kind: "new", name: "Ploy" }],
+        ["speaker_1", { kind: "media" }],
+      ] as const
+    ).map(([label, target]) =>
+      app.request(`/transcripts/${otherJob}/speakers/${label}`, {
+        body: JSON.stringify({ target }),
+        headers: auth,
+        method: "PUT",
+      })
+    )
+  );
+  await post(app, other);
+  const [second] = await settled(other);
   expect(second?.turns.map((t) => t.turnIndex)).toEqual([0, 2]);
   const call = model.calls[1]?.user;
   expect(call).toContain('"speaker":"S1"');
@@ -407,7 +391,7 @@ test("the call says who unnamed speakers are, grounded in their turns", async ()
   }));
   const app = appWith(model);
   const id = conversation(app, 4);
-  expect((await post(app, id)).status).toBe(202);
+  await post(app, id);
   const [run] = await settled(id);
   const identities = (run?.result?.speakerIdentities ?? []) as {
     jobId: string;
@@ -466,7 +450,7 @@ test("a piece with a version-11 run and a newer voices run keeps its summary and
   const id = conversation(app, 4);
   const old = summarized(id);
   // The phone sends the run it shows (the old one) as `after`.
-  expect((await post(app, id, true)).status).toBe(202);
+  await post(app, id);
   const [run] = await settled(id);
   expect(run?.state).toBe("valid");
   // The voices come from the new run: the old one's turns were never taken for read.
@@ -554,15 +538,16 @@ test("a long transcript is read window after window, each turn once, and the voi
     .values({
       captureEndedAt: new Date("2026-10-01T01:00:00Z"),
       captureStartedAt: new Date("2026-10-01T00:00:00Z"),
+      closedAt: new Date("2026-10-01T01:00:00Z"),
       id,
+      sourceId: "dev1",
     })
     .run();
   mapJob(env.db, jobId, [
     [Date.parse("2026-10-01T00:00:00Z"), Date.parse("2026-10-01T01:00:00Z")],
   ]);
   const small = rollingVoices(env.db, { mac: model, windowChars: 600 });
-  small.generate(id);
-  await small.idle();
+  await roll(env.db, small, id);
   const runs = env.db.query.intelligenceRuns
     .findMany({
       orderBy: (r, { asc }) => asc(r.createdAt),
@@ -606,7 +591,9 @@ test("transcript text cannot close its fence", async () => {
     .values({
       captureEndedAt: new Date("2026-10-01T01:00:00Z"),
       captureStartedAt: new Date("2026-10-01T00:00:00Z"),
+      closedAt: new Date("2026-10-01T01:00:00Z"),
       id,
+      sourceId: "dev1",
     })
     .run();
   await rollNow(env.db, model, id);
@@ -632,7 +619,7 @@ test("speakers are tokens with a legend", async () => {
       })
     ).status
   ).toBe(200);
-  expect((await post(app, id)).status).toBe(202);
+  await post(app, id);
   const [run] = await settled(id);
   expect(run?.state).toBe("valid");
   const user = model.calls[0]?.user ?? "";

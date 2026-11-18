@@ -47,7 +47,11 @@ struct TranscriptionCards: View {
         default: "They go on once your Mac is awake and online."
         }
     }
+}
 
+/// "1 conversation", "5 conversations".
+func conversationCount(_ count: Int) -> String {
+    String(AttributedString(localized: "^[\(count) conversation](inflect: true)").characters)
 }
 
 #if DEBUG
@@ -56,7 +60,7 @@ struct TranscriptionCards: View {
             VStack(spacing: 12) { TranscriptionCards(facts: facts) }
                 .padding(16)
         }
-        .background(Palette.ground)
+        .background(Palette.bg)
         .preferredColorScheme(.dark)
     }
 

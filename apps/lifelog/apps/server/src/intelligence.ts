@@ -3,7 +3,7 @@
 // unnamed speaker is. Its answer is merged with the previous run's over the turns they share. A
 // roll is a run of its own: the Mac dropping it leaves it waiting, and it resumes in place, asking
 // only what it has no usable answer to (intelligence_calls). Rolling.ts decides when a
-// conversation rolls; the owner's Generate rolls it from its first turn. Runs are on the Mac's
+// conversation rolls. Runs are on the Mac's
 // subscription.
 // - A call whose answer is unusable is asked again, twice at most, with backoff. Each call keeps
 //   its stage, tokens and the turns it read.
@@ -43,7 +43,7 @@ import { type Input, loadInput, voiceOf, windows } from "./voices-input";
 
 // How often an unusable answer is asked again within a run, waiting delayMs, then 3× that.
 // ponytail: fixed; 5 s and 15 s ride out a provider hiccup, and a model that answers badly
-// three times is left invalid for the owner's Generate.
+// three times is left invalid until its words change.
 const RETRIES = { count: 2, delayMs: 5000 };
 export type Retries = typeof RETRIES;
 
@@ -368,8 +368,7 @@ async function rolled(
 // Starts a roll of a conversation, or resumes the one the Mac dropped: "busy" while one runs or
 // the Mac is away, null when there is nothing to roll: no words yet, none past the previous run's,
 // or an open conversation with less than a full window of new words. It goes on from the latest
-// valid run's turns (of this prompt version), or from the first turn when `fromScratch` (the
-// owner's Generate; its run waiting for the Mac never started, so it has no coverage yet). Its
+// valid run's turns (of this prompt version), or from the first turn. Its
 // work settles with the run and whether words are left past its window: the caller rolls them
 // next.
 export function requestRoll(
@@ -377,12 +376,10 @@ export function requestRoll(
   selectable: Provider,
   conversationId: string,
   {
-    fromScratch = false,
     open,
     retries = RETRIES,
     windowChars,
   }: {
-    fromScratch?: boolean;
     open: boolean;
     retries?: Retries;
     windowChars: number;
@@ -396,13 +393,11 @@ export function requestRoll(
   if (latest?.state === "running") {
     return "busy";
   }
-  const asked =
-    fromScratch || (latest?.state === "waiting" && latest.coverage === null);
   const input = loadInput(db, conversationId);
   if (!input) {
     return null;
   }
-  const valid = asked ? null : latestValid(db, conversationId);
+  const valid = latestValid(db, conversationId);
   const previous = valid?.promptVersion === PROMPT_VERSION ? valid : null;
   const prefix = previous ? commonPrefix(previous, input.refs) : 0;
   const [range, ...later] = windows(input.turns.slice(prefix), windowChars);

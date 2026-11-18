@@ -13,22 +13,22 @@
     body {
       padding: 24px;
       font: 15px / 1.45 var(--sans);
-      color: var(--text);
-      background: var(--ground);
+      color: var(--fg);
+      background: var(--bg);
     }
     figure {
       width: 880px;
       padding: 32px;
       margin-bottom: 48px;
-      background: var(--ground);
+      background: var(--bg);
     }
     h2 {
-      font: 600 22px / 1.2 var(--serif);
-      color: var(--ink);
+      font: 600 22px / 1.2 var(--sans);
+      color: var(--fg);
     }
     h3 {
-      font: 600 17px / 1.2 var(--serif);
-      color: var(--ink);
+      font: 600 17px / 1.2 var(--sans);
+      color: var(--fg);
     }
     .label {
       font: 500 11px / 1 var(--sans);
@@ -37,7 +37,7 @@
       letter-spacing: 0.08em;
     }
     .mono {
-      font-family: var(--mono);
+      font-family: var(--font-mono);
       font-size: 12px;
       color: var(--muted);
     }
@@ -75,14 +75,14 @@
     }
     li {
       padding: 5px 0;
-      border-top: 1px solid var(--rule);
+      border-top: 1px solid var(--line);
     }
     li:first-child {
       border-top: 0;
     }
     li b {
       font-weight: 500;
-      color: var(--ink);
+      color: var(--fg);
     }
     li span {
       font-size: 13px;
@@ -117,7 +117,7 @@
     }
     #pipeline .step p {
       font-size: 13px;
-      color: var(--text);
+      color: var(--fg);
     }
     #pipeline .outs {
       display: grid;
@@ -139,16 +139,16 @@
     }
     .clock div {
       padding-top: 8px;
-      border-top: 1.5px solid var(--ink);
+      border-top: 1.5px solid var(--fg);
     }
     .clock b {
       display: block;
-      font: 500 13px var(--mono);
-      color: var(--ink);
+      font: 500 13px var(--font-mono);
+      color: var(--fg);
     }
     .clock span {
       font-size: 13px;
-      color: var(--text);
+      color: var(--fg);
     }
 
     /* calendar */
@@ -163,13 +163,13 @@
     }
     #calendar .day b {
       display: block;
-      font: 600 20px var(--serif);
-      color: var(--ink);
+      font: 600 20px var(--sans);
+      color: var(--fg);
     }
     #calendar .col {
       position: relative;
       height: 504px;
-      border-left: 1px solid var(--rule);
+      border-left: 1px solid var(--line);
     }
     #calendar .hours {
       position: relative;
@@ -178,7 +178,7 @@
     #calendar .hours span {
       position: absolute;
       right: 8px;
-      font: 11px var(--mono);
+      font: 11px var(--font-mono);
       color: var(--muted);
       transform: translateY(-50%);
     }
@@ -191,8 +191,8 @@
       overflow: hidden;
       font-size: 12.5px;
       line-height: 1.25;
-      color: var(--card);
-      background: var(--ink);
+      color: var(--on);
+      background: var(--fg);
       border-radius: 8px;
     }
     #calendar .ev small {
@@ -202,9 +202,9 @@
       opacity: 0.75;
     }
     #calendar .ev.soft {
-      color: var(--ink);
+      color: var(--fg);
       background: var(--card);
-      box-shadow: inset 0 0 0 1.5px var(--ink);
+      box-shadow: inset 0 0 0 1.5px var(--fg);
     }
     #calendar .lines {
       position: absolute;
@@ -220,7 +220,7 @@
       position: absolute;
       right: 0;
       left: 0;
-      border-top: 1px solid var(--rule);
+      border-top: 1px solid var(--line);
     }
 
     /* stack */
@@ -239,7 +239,7 @@
     }
     #stack .box {
       padding: 12px;
-      background: var(--ground);
+      background: var(--bg);
       border-radius: var(--control-radius);
     }
     #stack .box h3 {
@@ -248,12 +248,12 @@
     }
     #stack .box p {
       font-size: 12.5px;
-      color: var(--text);
+      color: var(--fg);
     }
     #stack .box .mono {
       display: block;
       margin-top: 4px;
-      color: var(--text);
+      color: var(--fg);
     }
     #stack .two {
       display: grid;
@@ -265,7 +265,7 @@
     #person .lines li {
       padding: 8px 0;
       font-size: 14px;
-      color: var(--text);
+      color: var(--fg);
     }
     #person .lines li .mono {
       margin-left: 6px;

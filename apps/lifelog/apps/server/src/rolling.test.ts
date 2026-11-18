@@ -12,7 +12,7 @@ import {
 } from "@lifelog/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { PARSER_VERSION } from "./elevenlabs";
-import { anchorId, groupSource, markDirty } from "./grouping";
+import { groupSource, markDirty } from "./grouping";
 import { MacGone, type ModelCall } from "./providers";
 import { rollingVoices } from "./rolling";
 import { dueConversations, fingerprint } from "./runs";
@@ -208,26 +208,6 @@ test("summaries off: a due conversation makes no run and nothing is due; turned 
   await rolling.drain();
   const runs = env.db.select().from(intelligenceRuns).all();
   expect(runs.map((r) => r.state)).toEqual(["valid"]);
-});
-
-// The owner's Generate of the conversation at `id`, and every roll it leads to.
-async function generate(model: ReturnType<typeof fakeModel>, id: string) {
-  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
-  rolling.generate(id);
-  await rolling.idle();
-}
-
-test("Generate reads the voices again from the first turn", async () => {
-  const model = fakeModel();
-  block(0, 10, 1000);
-  const rolling = rollingVoices(env.db, { mac: model, windowChars: 100_000 });
-  await rolling.drain();
-  await generate(model, anchorId(at(0)));
-  expect(asked(model.calls)).toEqual([
-    [0, 9],
-    [0, 9],
-  ]);
-  expect(env.db.select().from(intelligenceRuns).all().length).toBe(2);
 });
 
 test("with the Mac away nothing is called; a roll it dropped resumes where it stopped", async () => {

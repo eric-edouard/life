@@ -1247,126 +1247,6 @@
           "words"
         ]
       },
-      "UsageSummary": {
-        "type": "object",
-        "properties": {
-          "days": {
-            "type": "array",
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/SpendPeriod"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "date": {
-                      "type": "string",
-                      "format": "date"
-                    }
-                  },
-                  "required": ["date"]
-                }
-              ]
-            },
-            "description": "The last 30 local days, oldest first, today last."
-          },
-          "elevenLabsThisMonth": {
-            "type": ["object", "null"],
-            "properties": {
-              "hours": {
-                "type": "number"
-              },
-              "usd": {
-                "type": "number"
-              }
-            },
-            "required": ["hours", "usd"],
-            "description": "Speech-to-text ElevenLabs itself reports this month for the whole workspace (every key and app). Null when it didn't answer."
-          },
-          "last30Days": {
-            "$ref": "#/components/schemas/SpendPeriod"
-          },
-          "monthStart": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "thisMonth": {
-            "$ref": "#/components/schemas/SpendPeriod"
-          },
-          "timeZone": {
-            "type": "string"
-          },
-          "today": {
-            "$ref": "#/components/schemas/SpendPeriod"
-          }
-        },
-        "required": [
-          "days",
-          "elevenLabsThisMonth",
-          "last30Days",
-          "monthStart",
-          "thisMonth",
-          "timeZone",
-          "today"
-        ]
-      },
-      "SpendPeriod": {
-        "type": "object",
-        "properties": {
-          "intelligence": {
-            "type": "object",
-            "properties": {
-              "byProvider": {
-                "type": "object",
-                "properties": {
-                  "anthropic": {
-                    "type": "number"
-                  },
-                  "claude-code": {
-                    "type": "number",
-                    "description": "Always 0: the Mac runs on the Max plan."
-                  },
-                  "codex": {
-                    "type": "number",
-                    "description": "Always 0: the Mac runs on the ChatGPT plan."
-                  },
-                  "openai": {
-                    "type": "number"
-                  }
-                },
-                "required": ["anthropic", "claude-code", "codex", "openai"]
-              },
-              "unpricedRuns": {
-                "type": "integer",
-                "description": "Runs on a model with no known price: not in usd."
-              },
-              "usd": {
-                "type": "number",
-                "description": "Estimated from tokens at list prices."
-              }
-            },
-            "required": ["byProvider", "unpricedRuns", "usd"]
-          },
-          "totalUsd": {
-            "type": "number"
-          },
-          "transcription": {
-            "type": "object",
-            "properties": {
-              "hours": {
-                "type": "number",
-                "description": "Billable hours at the base rate, keyterms included."
-              },
-              "usd": {
-                "type": "number"
-              }
-            },
-            "required": ["hours", "usd"]
-          }
-        },
-        "required": ["intelligence", "totalUsd", "transcription"]
-      },
       "SourceBlocks": {
         "type": "object",
         "properties": {
@@ -1467,15 +1347,6 @@
             "required": ["page"]
           }
         ]
-      },
-      "QuickTranscript": {
-        "type": "object",
-        "properties": {
-          "text": {
-            "type": "string"
-          }
-        },
-        "required": ["text"]
       },
       "BackupHeld": {
         "type": "object",
@@ -2213,14 +2084,11 @@
               "llm": {
                 "$ref": "#/components/schemas/MacLlm"
               },
-              "subscriptions": {
-                "$ref": "#/components/schemas/Subscriptions"
-              },
               "watch": {
                 "$ref": "#/components/schemas/MacWatch"
               }
             },
-            "required": ["dictatingSince", "llm", "subscriptions", "watch"]
+            "required": ["dictatingSince", "llm", "watch"]
           },
           "more": {
             "type": "boolean",
@@ -2343,7 +2211,7 @@
           "runId": {
             "type": ["string", "null"],
             "format": "uuid",
-            "description": "The summary its title, TLDR and chapters come from: Generate's `after`"
+            "description": "The summary its title, TLDR and chapters come from: the phone's `after`"
           },
           "splitSuggestions": {
             "type": "array",
@@ -2444,102 +2312,6 @@
           }
         },
         "required": ["able", "reason"]
-      },
-      "Subscriptions": {
-        "type": "object",
-        "properties": {
-          "claude": {
-            "type": ["object", "null"],
-            "properties": {
-              "fiveHour": {
-                "type": ["object", "null"],
-                "properties": {
-                  "resetsAt": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 253402300799
-                  },
-                  "usedPercent": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "default": null,
-                "required": ["resetsAt", "usedPercent"]
-              },
-              "observedAt": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 253402300799
-              },
-              "sevenDay": {
-                "type": ["object", "null"],
-                "properties": {
-                  "resetsAt": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 253402300799
-                  },
-                  "usedPercent": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "default": null,
-                "required": ["resetsAt", "usedPercent"]
-              }
-            },
-            "required": ["observedAt"]
-          },
-          "codex": {
-            "type": ["object", "null"],
-            "properties": {
-              "fiveHour": {
-                "type": ["object", "null"],
-                "properties": {
-                  "resetsAt": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 253402300799
-                  },
-                  "usedPercent": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "default": null,
-                "required": ["resetsAt", "usedPercent"]
-              },
-              "observedAt": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 253402300799
-              },
-              "sevenDay": {
-                "type": ["object", "null"],
-                "properties": {
-                  "resetsAt": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 253402300799
-                  },
-                  "usedPercent": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "default": null,
-                "required": ["resetsAt", "usedPercent"]
-              }
-            },
-            "required": ["observedAt"]
-          }
-        },
-        "required": ["claude", "codex"]
       },
       "MacWatch": {
         "type": ["object", "null"],
@@ -3571,102 +3343,6 @@
           "startAt",
           "unanalyzed"
         ]
-      },
-      "OwnerEdit": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "editedAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "kind": {
-                "type": "string",
-                "enum": ["split"]
-              }
-            },
-            "required": ["editedAt", "id", "at", "kind"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "editedAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "from": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "kind": {
-                "type": "string",
-                "enum": ["merge"]
-              },
-              "to": {
-                "type": "string",
-                "format": "date-time"
-              }
-            },
-            "required": ["editedAt", "id", "from", "kind", "to"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "editedAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "edit": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "kind": {
-                "type": "string",
-                "enum": ["undo"]
-              }
-            },
-            "required": ["editedAt", "id", "edit", "kind"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "editedAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "kind": {
-                "type": "string",
-                "enum": ["dismissSplit"]
-              }
-            },
-            "required": ["editedAt", "id", "at", "kind"]
-          }
-        ]
       }
     },
     "parameters": {}
@@ -4189,23 +3865,6 @@
         }
       }
     },
-    "/usage/summary": {
-      "get": {
-        "description": "What was spent, from our own ledgers at list prices: today, the last 30 days and this month (days in the owner's time zone), split by service.",
-        "responses": {
-          "200": {
-            "description": "Spending by day and service",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UsageSummary"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/webhooks/elevenlabs": {
       "post": {
         "description": "ElevenLabs transcription webhook. Verified with ElevenLabs-Signature over the raw body.",
@@ -4475,70 +4134,6 @@
           },
           "503": {
             "description": "The pages could not be stored (audio_store_unavailable): nothing was kept",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/quick-transcriptions": {
-      "post": {
-        "description": "Transcribes the audio before a press of the Pendant's button at once, with the blocks' keyterms, and answers its words. Nothing of it is stored but what it cost. Refused while transcription is off (409).",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "audio": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                },
-                "required": ["audio"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Its words",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QuickTranscript"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Audio that is not Ogg Opus of at most 2 minutes",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Transcription is off",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "ElevenLabs didn't transcribe it",
             "content": {
               "application/json": {
                 "schema": {
@@ -5193,26 +4788,6 @@
         }
       }
     },
-    "/naming-queue/rechecks": {
-      "get": {
-        "description": "Owner-named voices that sound like another person without their own conversations, offered once more. Highest other-person share first.",
-        "responses": {
-          "200": {
-            "description": "Voices to recheck",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/QueueItem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/naming-queue/answer": {
       "post": {
         "description": "The owner's answer for a queue item's voices: a new person (name), a person (personId), nobody they know (ignore), a video or TV playing (media), someone not worth naming (not_relevant: these voices are not asked again, and are no stranger), or several people (several: who; each turn is decided among them), then the rest of their turns as they read (rest). Each voice becomes the owner's correction of that speaker, so voice evidence moves with it; answered voices leave the queue.",
@@ -5533,88 +5108,6 @@
           },
           "404": {
             "description": "No such job or transcript",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/conversations/{id}/intelligence": {
-      "post": {
-        "description": "The owner's Generate: the voices of the conversation read again. `after` is the run he saw (the feed's `runId`, null for none): when a run newer than it is already valid, running or waiting, nothing happens and it answers 200 with that run, so a replay asks nothing twice. Otherwise it is read again from its first turn, window after window, on the Mac (the owner's subscription); with the Mac away it waits for it. The run shown stays until a newer run is valid. Answers 202 with the latest run as it stands; read the feed for the rest. Never on a paid API.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "after": {
-                    "type": ["string", "null"],
-                    "format": "uuid"
-                  }
-                },
-                "required": ["after"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "A run newer than `after`: nothing asked",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IntelligenceRun"
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "Generating: the latest run as it stands, if any",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/IntelligenceRun"
-                    },
-                    {
-                      "type": ["object", "null"]
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such job or transcript",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "No provider configured",
             "content": {
               "application/json": {
                 "schema": {
@@ -6016,59 +5509,6 @@
                     }
                   },
                   "required": ["heardThrough", "spans"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/edits": {
-      "post": {
-        "description": "An owner's grouping edit, idempotent by its id: split, merge, undo (of an earlier edit) or a dismissed split suggestion. Conversations are regrouped from where it applies.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OwnerEdit"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Kept (or already)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "stored": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["stored"]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "An undo of an undo, or a split or merge inside an imported recording",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "An undo of an edit the server doesn't have",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

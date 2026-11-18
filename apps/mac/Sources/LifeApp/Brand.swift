@@ -1,17 +1,17 @@
 import AppKit
 import SwiftUI
 
-/// Life's brand (docs/brand.md): a serif to read, mono to count, monochrome, colour for status only. The values are
+/// Life's brand (docs/brand.md): monochrome, colour for status only. The values are
 /// copied from `assets/brand/tokens.css`, light and dark (brand.test.ts checks them); the app follows the Mac's
 /// appearance.
 enum Brand {
-  static let ground = Color(light: 0xf6f6f6, dark: 0x1f1f1f)
-  static let card = Color(light: 0xffffff, dark: 0x2a2a2a)
-  static let rule = Color(light: 0xe3e3e3, dark: 0x3a3a3a)
-  static let ink = Color(light: 0x1f1f1f, dark: 0xf2f2f2)
-  static let muted = Color(light: 0x6b6b6b, dark: 0xa3a3a3)
+  static let ground = Color(light: 0xf3f4f5, dark: 0x07080a)
+  static let card = Color(light: 0xe8e9eb, dark: 0x15161a)
+  static let rule = Color(light: 0xd8d9dc, dark: 0x1f2024)
+  static let ink = Color(light: 0x0d0e11, dark: 0xfff8ea)
+  static let muted = Color(light: 0x57544f, dark: 0x8a867e)
   static let control: CGFloat = 12
-  static let panel: CGFloat = 18
+  static let panel: CGFloat = 22
 
   /// Source Serif 4 and IBM Plex Mono ship in the bundle (`apps/mac/Fonts`, `ATSApplicationFontsPath`).
   static func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
@@ -54,20 +54,17 @@ extension Text {
 extension Tone {
   var color: Color {
     switch self {
-    case .ok: Color(0x15803d)
-    case .warn: Color(0xf59e0b)
-    case .bad: Color(0xb42318)
-    case .busy: Color(0x3b82f6)
-    case .teal: Color(0x14b8a6)
-    case .idle: Color(0x8b8f97)
+    case .ok: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .warn: Color(light: 0xb3412b, dark: 0xf0896f)
+    case .bad: Color(light: 0xb3412b, dark: 0xf0896f)
+    case .busy: Color(light: 0x33468f, dark: 0x9aa8ec)
+    case .teal: Color(light: 0x1d6b58, dark: 0x74c9a9)
+    case .idle: Color(light: 0x6c6964, dark: 0x85817a)
     }
   }
 }
 
 extension Color {
-  /// The same colour in both appearances: a status colour.
-  init(_ hex: UInt32) { self.init(light: hex, dark: hex) }
-
   /// One colour for each appearance, picked by the Mac's light or dark setting.
   init(light: UInt32, dark: UInt32) {
     self.init(

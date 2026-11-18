@@ -212,7 +212,7 @@ extension IncidentResolution {
             }
             .padding(16)
         }
-        .background(Palette.ground)
+        .background(Palette.bg)
         .preferredColorScheme(.dark)
     }
 #endif

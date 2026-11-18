@@ -34,7 +34,6 @@ swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit --
 swift test --package-path apps/lifelog/apps/mac-quiet --scratch-path .build/mac-quiet  # the Mac helper and Host
 (cd apps/lifelog/apps/android && ./gradlew testDebugUnitTest assembleDebug)   # the Android app (parked)
 bun run ios:project                                # regenerate the Xcode project after editing project.yml
-bun run check:offline                              # the app's offline UI test in the simulator
 bun run host:app [out]                             # build Lifelog Host.app (needs librsvg)
 bun run events --since 30m [prefix]                # the server's, the phone's and the Mac's events in time order
 ```

@@ -36,7 +36,7 @@ public enum Backup {
         }
         let contents = BackupContents(sources: try packs(stores.appending(path: "source/source.sqlite")))
         return try ExportPackage.write(
-            [], formats: [], to: root, appVersion: appVersion, createdAt: createdAt, backup: contents)
+            to: root, appVersion: appVersion, createdAt: createdAt, backup: contents)
     }
 
     /// The backup as one ZIP in `work`, for the share sheet. The unzipped folder is removed, so the stores are

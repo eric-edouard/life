@@ -9,32 +9,12 @@ import {
   intelligenceRuns as runs,
   settled,
 } from "@lifelog/db/schema";
-import { and, desc, eq, inArray, lte, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, lte, type SQL, sql } from "drizzle-orm";
 import { TURN_REF } from "./change-log";
 import { renderSpeakers, tokenNames } from "./speaker-tokens";
 import { LAST_SUMMARY_VERSION, Result } from "./voices-call";
 
 export type Run = typeof runs.$inferSelect;
-
-// The latest run of the conversation newer than `after` (any, when null) that is valid, running or
-// waiting: what makes the owner's Generate, sent when he saw `after`, already answered.
-export const runAfter = (
-  db: Db,
-  conversationId: string,
-  after: string | null
-) =>
-  db.query.intelligenceRuns
-    .findFirst({
-      orderBy: desc(runs.createdAt),
-      where: and(
-        eq(runs.conversationId, conversationId),
-        inArray(runs.state, ["valid", "running", "waiting"]),
-        after
-          ? sql`${runs.createdAt} > coalesce((select r.created_at from intelligence_runs r where r.id = ${after}), 0)`
-          : undefined
-      ),
-    })
-    .sync();
 
 export const latestRun = (db: Db, conversationId: string) =>
   db.query.intelligenceRuns
@@ -114,7 +94,7 @@ const among = (ids: string[] | null) =>
 
 // The one rule: a live conversation grouped here, of talk, with words that differ from what its
 // last finished roll read (`turns_fp`), or that closed since; or any live one whose latest run
-// waits (the Mac left, or the owner's Generate came while it was away). A condition on `c`; the
+// waits (the Mac left). A condition on `c`; the
 // fingerprints are taken now, of the conversations among `ids` (null: every one).
 // ponytail: hashes every candidate's turn refs per call; keep a fingerprint per conversation,
 // updated by the turn writers, if a pass gets slow.

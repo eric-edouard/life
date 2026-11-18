@@ -1,6 +1,5 @@
 import { settings } from "../core/settings";
-// The nightly report as an HTML email in Life's brand (docs/brand.md): a white page, one ruled panel, serif to read,
-// mono to count; tables and inline styles only, no web fonts, no images, no links, no tracking. Light only.
+// The nightly report as an HTML email in Life's brand (docs/brand.md): a pale page, one panel, one sans; tables and inline styles only, no web fonts, no images, no links, no tracking. Light only.
 
 /** Life's own mail: its sender (the `mail` setting; none set, no mail is Life's), and how `compose` (report.ts) starts every subject. */
 export const LIFE_MAIL = {
@@ -47,24 +46,20 @@ export interface Digest {
   weekday: string;
 }
 
-// Copied from assets/brand/tokens.css (email takes no CSS variables; brand.test.ts checks them): the font stacks (single
+// Copied from assets/brand/tokens.css (email takes no CSS variables; brand.test.ts checks them): the font stack (single
 // quotes, inside a style attribute), the radii and the colours, light only. Mail loads no web font: most clients drop
-// it, so a title shows in Georgia and the text in the system sans. The serif is for titles, the sans for all text.
-// Status colours only mark (a dot), the words beside them stay ink.
-export const SERIF = "'Literata',Georgia,serif";
-export const SANS =
-  "'Atkinson Hyperlegible Next',system-ui,-apple-system,'Segoe UI',sans-serif";
-export const MONO = "'Atkinson Hyperlegible Mono',ui-monospace,Menlo,monospace";
-export const RADIUS = { control: 12, panel: 18 };
+// it, so Manrope shows only where installed and the system sans elsewhere. Status colours only mark (a dot), the words
+// beside them stay `fg`.
+export const SANS = "'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif";
+export const RADIUS = { control: 12, panel: 22 };
 export const C = {
-  card: "#ffffff",
-  error: "#b42318",
-  ground: "#f6f6f6",
-  ink: "#1f1f1f",
-  muted: "#6b6b6b",
-  rule: "#e3e3e3",
-  synced: "#15803d",
-  text: "#4a4a4a",
+  bg: "#f3f4f5",
+  card: "#e8e9eb",
+  fg: "#0d0e11",
+  flag: "#b3412b",
+  line: "#d8d9dc",
+  muted: "#57544f",
+  ok: "#1d6b58",
 };
 
 const ESCAPES: Record<string, string> = {
@@ -81,15 +76,15 @@ const row = (style: string, inner: string) =>
   `<tr><td style="${style}">${inner}</td></tr>`;
 /** A hairline-ruled line of the card. */
 const ruled = (inner: string, font = `15px/1.5 ${SANS}`) =>
-  `<div style="padding:9px 0;border-top:1px solid ${C.rule};font:${font};color:${C.ink}">${inner}</div>`;
+  `<div style="padding:9px 0;border-top:1px solid ${C.line};font:${font};color:${C.fg}">${inner}</div>`;
 
-/** A titled block of the card: a ruled serif title with its count in mono, then the body. */
+/** A titled block of the card: a ruled title with its count, then the body. */
 const section = (title: string, count: number, body: string) =>
   row(
     "padding:24px 24px 0",
     `<table ${TABLE}><tr>
-<td style="font:600 21px/1.2 ${SERIF};color:${C.ink}">${esc(title)}</td>
-<td align="right" style="font:500 13px/1 ${MONO};color:${C.muted}">${count}</td></tr></table><div style="height:8px;line-height:8px;font-size:0">&nbsp;</div>${body}`
+<td style="font:600 21px/1.2 ${SANS};color:${C.fg}">${esc(title)}</td>
+<td align="right" style="font:500 13px/1 ${SANS};color:${C.muted}">${count}</td></tr></table><div style="height:8px;line-height:8px;font-size:0">&nbsp;</div>${body}`
   );
 
 const observations = (all: ObservationLine[]) =>
@@ -113,15 +108,15 @@ const pairs = (items: Pair[]) =>
     .join("");
 
 const delta = (sign: string, n: number) =>
-  `<span style="color:${n > 0 ? C.ink : C.muted}">${sign}${n}</span>`;
+  `<span style="color:${n > 0 ? C.fg : C.muted}">${sign}${n}</span>`;
 
 const changes = (items: Change[]) =>
   `<div style="padding-bottom:6px;font:13px/1.4 ${SANS};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to Earlier&nbsp;&nbsp;− removed</div>${items
     .map(
       (c) =>
         `<table ${TABLE}><tr>
-<td style="padding:9px 0;border-top:1px solid ${C.rule};font:15px/1.4 ${SANS};color:${C.ink}">${esc(c.page)}</td>
-<td align="right" style="padding:9px 0;border-top:1px solid ${C.rule};font:500 13px/1.4 ${MONO};white-space:nowrap">${delta("+", c.added)}&nbsp;&nbsp;${delta("→", c.moved)}&nbsp;&nbsp;${delta("−", c.removed)}</td></tr></table>`
+<td style="padding:9px 0;border-top:1px solid ${C.line};font:15px/1.4 ${SANS};color:${C.fg}">${esc(c.page)}</td>
+<td align="right" style="padding:9px 0;border-top:1px solid ${C.line};font:500 13px/1.4 ${SANS};white-space:nowrap">${delta("+", c.added)}&nbsp;&nbsp;${delta("→", c.moved)}&nbsp;&nbsp;${delta("−", c.removed)}</td></tr></table>`
     )
     .join("")}`;
 
@@ -137,12 +132,12 @@ const rowsOf = (s: Section) => {
   }
 };
 
-/** The stats, three to a row: a rule on top, a mono figure, a small label. */
+/** The stats, three to a row: a rule on top, a figure, a small label. */
 const stats = (d: Digest) => {
   const cell = (s?: { label: string; value: string }) =>
     `<td width="33%" valign="top" style="padding:0 8px 16px">${
       s
-        ? `<div style="padding-top:8px;border-top:1px solid ${C.rule};font:500 24px/1.1 ${MONO};color:${C.ink}">${esc(s.value)}</div><div style="margin-top:3px;font:13px/1.3 ${SANS};color:${C.muted}">${esc(s.label)}</div>`
+        ? `<div style="padding-top:8px;border-top:1px solid ${C.line};font:500 24px/1.1 ${SANS};color:${C.fg}">${esc(s.value)}</div><div style="margin-top:3px;font:13px/1.3 ${SANS};color:${C.muted}">${esc(s.label)}</div>`
         : ""
     }</td>`;
   const rows: string[] = [];
@@ -154,7 +149,7 @@ const stats = (d: Digest) => {
     "padding:22px 16px 0",
     `<table ${TABLE}>${rows.join("")}</table>${
       d.models
-        ? `<div style="padding:0 8px;font:12px/1.5 ${MONO};color:${C.muted}">${esc(d.models)}</div>`
+        ? `<div style="padding:0 8px;font:12px/1.5 ${SANS};color:${C.muted}">${esc(d.models)}</div>`
         : ""
     }`
   );
@@ -163,11 +158,11 @@ const stats = (d: Digest) => {
 const failureBox = (f: NonNullable<Digest["failure"]>) =>
   row(
     "padding:22px 24px 0",
-    `<div style="font:600 15px/1.3 ${SERIF};color:${C.ink}"><span style="color:${C.error}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.ground};border-radius:${RADIUS.control}px;font:13px/1.55 ${MONO};color:${C.ink};word-break:break-word">${esc(f.error)}</div>`
+    `<div style="font:600 15px/1.3 ${SANS};color:${C.fg}"><span style="color:${C.flag}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.bg};border-radius:${RADIUS.control}px;font:13px/1.55 ${SANS};color:${C.fg};word-break:break-word">${esc(f.error)}</div>`
   );
 
 export function renderHtml(d: Digest) {
-  const status = d.failure ? C.error : C.synced;
+  const status = d.failure ? C.flag : C.ok;
   const body = [
     d.failure ? failureBox(d.failure) : "",
     stats(d),
@@ -188,14 +183,14 @@ export function renderHtml(d: Digest) {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>Life ${esc(d.date)}</title></head>
-<body style="margin:0;padding:0;background:${C.ground}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.ground}">${esc(d.preheader.slice(0, 140))}${"&zwnj;&nbsp;".repeat(60)}</div>
-<table ${TABLE} style="background:${C.ground}"><tr><td align="center" style="padding:28px 12px 32px">
+<body style="margin:0;padding:0;background:${C.bg}">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.bg}">${esc(d.preheader.slice(0, 140))}${"&zwnj;&nbsp;".repeat(60)}</div>
+<table ${TABLE} style="background:${C.bg}"><tr><td align="center" style="padding:28px 12px 32px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td style="padding:0 4px 20px">
 <div style="font:13px/1.3 ${SANS};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
-<div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
-<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.card};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
+<div style="margin-top:6px;font:600 36px/1.1 ${SANS};letter-spacing:-.01em;color:${C.fg}">${esc(d.date)}</div>
+<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.card};font:500 11.5px/1 ${SANS};color:${C.fg}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
 </td></tr>
 <tr><td style="background:${C.card};border-radius:${RADIUS.panel}px">
 <table ${TABLE}>

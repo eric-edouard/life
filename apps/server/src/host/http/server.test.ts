@@ -68,7 +68,7 @@ test("the public port refuses /mcp without a token, serves Life's brand to anyon
   expect((await get("/mcp")).status).toBe(401);
   expect((await get("/auth/oauth2/token")).status).toBe(404);
   const css = await get("/assets/brand/tokens.css");
-  expect([css.status, (await css.text()).includes("--ink")]).toEqual([
+  expect([css.status, (await css.text()).includes("--fg")]).toEqual([
     200,
     true,
   ]);

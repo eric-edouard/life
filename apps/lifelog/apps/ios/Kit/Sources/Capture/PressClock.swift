@@ -26,16 +26,6 @@ enum PressClock {
         return abs(stamp - receivedAtMillis) <= liveMillis
     }
 
-    /// When the press was made, in Unix milliseconds: the Pendant's own time when it is within the minute before
-    /// receipt (every cycle sets the clock), else receipt. A press can reach the phone seconds late, with the pages
-    /// held back alongside it (Oct 15: 11 s, while the app was suspended), and its window must still end at the press.
-    static func pressedAt(_ press: ButtonStatus, receivedAtMillis: Int64) -> Int64 {
-        guard let stamp = press.eventTimestampMillis.flatMap({ Int64(exactly: $0) }),
-            (receivedAtMillis - 60_000...receivedAtMillis + liveMillis).contains(stamp)
-        else { return receivedAtMillis }
-        return min(stamp, receivedAtMillis)
-    }
-
     /// RTC minus phone time, or `nil` when the press can't be trusted as a clock reading.
     static func offset(_ press: ButtonStatus, previousPresses: UInt64?, receivedAtMillis: Int64) -> Int64? {
         guard press.event == .short, let previousPresses, press.shortPressesSinceBoot > previousPresses,

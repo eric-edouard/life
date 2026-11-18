@@ -277,7 +277,7 @@ function loadConversations(db: Db, ids: string[]) {
       ownerTitleAt: iso(c.ownerTitleAt),
       place,
       retired: c.retiredAt ? { successorId: c.successorId } : null,
-      // The run shown: what the owner's Generate names as seen (`after`).
+      // The run shown: the latest valid run.
       runId: run?.id ?? null,
       // No run suggests splits any more.
       splitSuggestions: [],

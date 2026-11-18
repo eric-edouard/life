@@ -23,7 +23,7 @@ public struct ImportPlan: Sendable {
 public enum Importer {
     public static func plan(_ root: URL) throws -> ImportPlan {
         let manifest = try readManifest(root)
-        let listed = manifest.items.flatMap(\.files) + manifest.files
+        let listed = manifest.files
         for file in listed {
             // A path is only ever read below the root, and a restore writes it below its own area.
             guard !file.path.hasPrefix("/"), !file.path.split(separator: "/").contains("..") else {
@@ -53,10 +53,10 @@ public enum Importer {
         let header = try? JSONDecoder().decode(Header.self, from: data)
         guard header?.format == Manifest.format, let version = header?.version else { throw ImportError.notAnExport }
         guard version == Manifest.currentVersion else { throw ImportError.unsupportedVersion(version) }
-        return try ConversationDocument.decoder.decode(Manifest.self, from: data)
+        return try Manifest.decoder.decode(Manifest.self, from: data)
     }
 
     static func read<T: Decodable>(_ type: T.Type, _ root: URL, _ path: String) throws -> T {
-        try ConversationDocument.decoder.decode(type, from: Data(contentsOf: root.appending(path: path)))
+        try Manifest.decoder.decode(type, from: Data(contentsOf: root.appending(path: path)))
     }
 }

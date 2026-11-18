@@ -13,9 +13,8 @@ import {
   groupSource,
   markDirty,
   PIECES_BEFORE,
-  saveEdit,
 } from "./grouping";
-import { testDb } from "./testing";
+import { storeEdit, testDb } from "./testing";
 
 // Pieces made under the old rules (before PIECES_BEFORE) keep their ids; the one rule applies after.
 const SOURCE = "pendant-1";
@@ -98,14 +97,13 @@ test("the same pair after the instant is one conversation", () => {
 
 test("his merge joins the old pair", () => {
   pair(OLD);
-  saveEdit(env.db, {
-    editedAt: iso(0),
-    from: iso(OLD + 30),
+  storeEdit(env.db, {
+    editedAt: new Date(at(0)),
+    from: new Date(at(OLD + 30)),
     id: randomUUID(),
     kind: "merge",
-    to: iso(OLD + 150),
+    to: new Date(at(OLD + 150)),
   });
-  groupSource(env.db, SOURCE);
   expect(live()).toEqual([at(OLD)]);
 });
 

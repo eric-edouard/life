@@ -2,7 +2,7 @@ import Foundation
 import Incidents
 
 nonisolated extension PendantSnapshot {
-    /// The Pendant widget, the one widget a snapshot changes (the usage dials reload themselves).
+    /// The Pendant widget.
     static let widgetKind = "RecordingStatus"
 
     /// The last snapshot the app wrote, or `nil` before the first.

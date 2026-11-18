@@ -31,24 +31,8 @@ public enum Outbox {
     }
 }
 
-/// Something the owner did that the server must apply: grouping edits, titles, speaker and naming answers,
-/// people edits, a summary asked for, the switches, the vocabulary, a playback quiet range.
+/// Something the owner did that the server must apply: the switches, the vocabulary, a playback quiet range.
 public enum OwnerIntent: Sendable, Equatable, Codable {
-    case split(at: Date)
-    case merge(from: Date, to: Date)
-    /// Takes back a grouping edit, the owner's or the summary run's.
-    case undo(edit: UUID)
-    /// "Split here?" answered no: the suggestion at `at` goes.
-    case dismissSplit(at: Date)
-    /// `nil` clears the owner's title, which brings back the generated one.
-    case title(conversation: UUID, title: String?)
-    case speaker(job: UUID, label: String, target: ServerClient.SpeakerTarget, turnIndex: Int?)
-    case naming(item: ServerClient.NamingItem, answer: ServerClient.NamingAnswer)
-    case renamePerson(UUID, name: String)
-    case aliases(UUID, [String])
-    case mergePerson(UUID, into: UUID)
-    /// Generate: a new title and summary, run on the Mac, unless a run newer than `after` (the one shown) exists.
-    case summarize(conversation: UUID, after: UUID?)
     /// The owner turns transcription or AI on or off, picks the AI model, or sets when the server asks him to open the
     /// app; `nil` leaves one as it is.
     case switches(
@@ -59,48 +43,13 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
     /// A stretch this app played a recording out loud, padded: never transcription. Its id is the edit's.
     case playbackQuiet(from: Date, to: Date)
 
-    /// The request it becomes. `id` is the edit's uuid (a grouping edit's and a playback range's id); `at`, when the
+    /// The request it becomes. `id` is the edit's uuid (a playback range's id); `at`, when the
     /// owner made it.
     func request(id: UUID, at: Date) throws -> (method: String, path: String, body: Data?) {
         var method = "PUT"
         let path: String
         let body: (any Encodable)?
         switch self {
-        case .split(let instant):
-            (method, path) = ("POST", "edits")
-            body = Edit(id: id, kind: "split", at: instant, editedAt: at)
-        case .merge(let from, let to):
-            (method, path) = ("POST", "edits")
-            body = Edit(id: id, kind: "merge", from: from, to: to, editedAt: at)
-        case .undo(let edit):
-            (method, path) = ("POST", "edits")
-            body = Edit(id: id, kind: "undo", edit: edit, editedAt: at)
-        case .dismissSplit(let instant):
-            (method, path) = ("POST", "edits")
-            body = Edit(id: id, kind: "dismissSplit", at: instant, editedAt: at)
-        case .title(let conversation, let title):
-            path = "conversations/\(lower(conversation))/title"
-            body = Nullable(["title": title, "editedAt": at.formatted(LibraryStore.iso)])
-        case .speaker(let job, let label, let target, let turnIndex):
-            path = "transcripts/\(lower(job))/speakers/\(label)"
-            body = SpeakerBody(target: target, turnIndex: turnIndex)
-        case .naming(let item, let answer):
-            (method, path) = ("POST", "naming-queue/answer")
-            body = NamingBody(
-                answer: answer,
-                voices: item.voices.map { .init(jobId: lower($0.jobId), speakerLabel: $0.speakerLabel) })
-        case .renamePerson(let person, let name):
-            (method, path) = ("PATCH", "people/\(lower(person))")
-            body = ["name": name]
-        case .aliases(let person, let aliases):
-            (method, path) = ("PATCH", "people/\(lower(person))")
-            body = ["aliases": aliases]
-        case .mergePerson(let person, let target):
-            (method, path) = ("POST", "people/\(lower(target))/merge")
-            body = ["personId": lower(person)]
-        case .summarize(let conversation, let after):
-            (method, path) = ("POST", "conversations/\(lower(conversation))/intelligence")
-            body = Nullable(["after": after.map(lower)])
         case .switches(let transcription, let ai, let engine, let openAppAfterMinutes):
             path = "switches"
             body = SwitchesBody(
@@ -115,51 +64,6 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
         return (method, path, try body.map { try ServerClient.encode($0) })
     }
 
-    private struct Edit: Encodable {
-        var id: UUID
-        var kind: String
-        var at: Date?
-        var from: Date?
-        var to: Date?
-        var edit: UUID?
-        var editedAt: Date
-
-        func encode(to encoder: any Encoder) throws {
-            enum Keys: String, CodingKey { case id, kind, at, from, to, edit, editedAt }
-            var container = encoder.container(keyedBy: Keys.self)
-            try container.encode(lower(id), forKey: .id)
-            try container.encode(kind, forKey: .kind)
-            try container.encodeIfPresent(at, forKey: .at)
-            try container.encodeIfPresent(from, forKey: .from)
-            try container.encodeIfPresent(to, forKey: .to)
-            try container.encodeIfPresent(edit.map(lower), forKey: .edit)
-            try container.encode(editedAt, forKey: .editedAt)
-        }
-    }
-
-    /// An object whose `nil` values go as `null`, not left out: `null` clears a title, and says "no run shown".
-    private struct Nullable: Encodable {
-        var fields: [String: String?]
-        init(_ fields: [String: String?]) { self.fields = fields }
-
-        func encode(to encoder: any Encoder) throws {
-            var container = encoder.container(keyedBy: Key.self)
-            for (key, value) in fields { try container.encode(value, forKey: Key(stringValue: key)) }
-        }
-
-        private struct Key: CodingKey {
-            var stringValue: String
-            var intValue: Int? { nil }
-            init(stringValue: String) { self.stringValue = stringValue }
-            init?(intValue: Int) { nil }
-        }
-    }
-
-    private struct SpeakerBody: Encodable {
-        var target: ServerClient.SpeakerTarget
-        var turnIndex: Int?
-    }
-
     private struct SwitchesBody: Encodable {
         var transcription: Bool?
         var ai: Bool?
@@ -172,15 +76,6 @@ public enum OwnerIntent: Sendable, Equatable, Codable {
         var startedAt: Date
         var endedAt: Date
         var source = "playback"
-    }
-
-    private struct NamingBody: Encodable {
-        struct Voice: Encodable {
-            var jobId: String
-            var speakerLabel: String
-        }
-        var answer: ServerClient.NamingAnswer
-        var voices: [Voice]
     }
 }
 
@@ -247,8 +142,7 @@ extension LibraryStore {
     public func pendingEdits() throws -> PendingEdits { PendingEdits(try outbox()) }
 }
 
-/// The owner's edits the server hasn't accepted yet, as screens show them at once: a title, a grouping edit or a
-/// speaker answer waits with a "waiting to sync" mark. A refused one is shown with the server's message and
+/// The owner's edits the server hasn't accepted yet, as screens show them at once: a switch or the word list waits with a "waiting to sync" mark. A refused one is shown with the server's message and
 /// is no longer applied: the screen rolls back to what the feed says.
 public struct PendingEdits: Sendable, Equatable {
     /// Waiting, oldest first.
@@ -262,39 +156,6 @@ public struct PendingEdits: Sendable, Equatable {
     }
 
     private var intents: [OwnerIntent] { waiting.map(\.intent) }
-
-    /// The owner's title waiting for each conversation (`nil` inside: cleared).
-    public var titles: [UUID: String?] {
-        var titles: [UUID: String?] = [:]
-        for case .title(let id, let title) in intents { titles[id] = .some(title) }
-        return titles
-    }
-
-    /// Split, merge and undo waiting, oldest first.
-    public var grouping: [OwnerIntent] {
-        intents.filter {
-            switch $0 {
-            case .split, .merge, .undo: true
-            default: false
-            }
-        }
-    }
-
-    /// Whether a grouping edit waits inside `range`.
-    public func regrouping(_ range: Range<CaptureInstant>) -> Bool {
-        grouping.contains {
-            switch $0 {
-            case .split(let at): range.contains(CaptureInstant(at))
-            case .merge(let from, let to): range.overlaps(CaptureInstant(from)..<CaptureInstant(to))
-            default: false
-            }
-        }
-    }
-
-    /// Split suggestions dismissed and not on the server yet.
-    public var dismissedSplits: [Date] {
-        intents.compactMap { if case .dismissSplit(let at) = $0 { at } else { nil } }
-    }
 
     /// The word list waiting for the server, the latest whole; `nil` when none waits.
     public var vocabulary: [String]? {
@@ -312,52 +173,6 @@ public struct PendingEdits: Sendable, Equatable {
             shown.engine = engine ?? shown.engine
             shown.openAppAfterMinutes = openAppAfter ?? shown.openAppAfterMinutes
             return shown
-        }
-    }
-
-    /// A new summary of `conversation` was asked for and waits to be sent.
-    public func summarizing(_ conversation: UUID) -> Bool {
-        intents.contains { if case .summarize(conversation, _) = $0 { true } else { false } }
-    }
-
-    /// Speakers with an answer waiting, as `jobId|label`.
-    public var speakers: Set<String> {
-        Set(intents.compactMap { if case .speaker(let job, let label, _, _) = $0 { "\(job)|\(label)" } else { nil } })
-    }
-
-    /// Voices with a naming answer waiting, as `jobId|label` (the job id lowercase).
-    public var namedVoices: Set<String> {
-        Set(
-            intents.flatMap { intent -> [String] in
-                guard case .naming(let item, _) = intent else { return [] }
-                return item.voices.map { "\(lower($0.jobId))|\($0.speakerLabel)" }
-            })
-    }
-
-    /// People with a correction waiting: a rename, aliases or a merge.
-    public var people: Set<UUID> {
-        Set(
-            intents.flatMap { intent -> [UUID] in
-                switch intent {
-                case .renamePerson(let id, _), .aliases(let id, _): [id]
-                case .mergePerson(let id, let target): [id, target]
-                default: []
-                }
-            })
-    }
-
-    /// The feed's people with the waiting renames and other names applied, in order.
-    public func people(over cached: [CachedPerson]) -> [CachedPerson] {
-        intents.reduce(cached) { shown, intent in
-            shown.map { person in
-                var person = person
-                switch intent {
-                case .renamePerson(person.id, let name): person.name = name
-                case .aliases(person.id, let aliases): person.aliases = aliases
-                default: break
-                }
-                return person
-            }
         }
     }
 }

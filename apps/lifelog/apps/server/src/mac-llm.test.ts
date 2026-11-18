@@ -2,7 +2,6 @@
 // the server's `llm` calls; without it runs wait. Nothing reaches a paid API.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { countRows } from "@lifelog/db";
 import {
   conversations,
   events as eventRows,
@@ -17,14 +16,16 @@ import { sha256Hex } from "./config";
 import { MAC_KILL_MS, macAnswer } from "./mac-llm";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { macProvider } from "./providers";
-import { latestValid } from "./runs";
+import { rollingVoices } from "./rolling";
+import { fingerprint } from "./runs";
 import { services } from "./services";
-import { subscriptions } from "./subscriptions";
 import { setSwitches, switches } from "./switches";
 import {
   fakeAnswer,
   mapJob,
+  NO_WAIT,
   OWNER_TOKEN,
+  roll,
   seedTranscript,
   testConfig,
   testDb,
@@ -157,24 +158,6 @@ const away = async (ws: WebSocket) => {
   await until(mac.live, (live) => live === null);
 };
 
-test("the authenticated Mac relays subscription limits and closing its socket keeps them", async () => {
-  const ws = await fakeMac();
-  const reading = {
-    fiveHour: null,
-    observedAt: 1_750_000_000,
-    sevenDay: { resetsAt: 1_800_600_000, usedPercent: 42 },
-  };
-  ws.send(
-    JSON.stringify({ engine: "codex", reading, type: "subscription.usage" })
-  );
-  await until(
-    () => subscriptions(env.db),
-    (value) => value.codex !== null
-  );
-  await away(ws);
-  expect(subscriptions(env.db).codex).toEqual(reading);
-});
-
 const turns: Turn[] = Array.from({ length: 3 }, (_, i) => ({
   end: i * 2 + 1.5,
   speakerId: `speaker_${i % 2}`,
@@ -194,21 +177,15 @@ function conversation() {
     .values({
       captureEndedAt: new Date(start + 3_600_000),
       captureStartedAt: new Date(start),
+      closedAt: new Date(start + 3_600_000),
       id,
+      sourceId: "dev1",
     })
     .run();
   mapJob(env.db, jobId, [[start, start + 3_600_000]]);
   return id;
 }
-// The owner's Generate as the phone sends it: `regenerate`, after the summary he sees.
-const summarize = (id: string, { regenerate = false } = {}) =>
-  app.request(`/conversations/${id}/intelligence`, {
-    body: JSON.stringify({
-      after: regenerate ? (latestValid(env.db, id)?.id ?? null) : null,
-    }),
-    headers: auth,
-    method: "POST",
-  });
+const summarize = (id: string) => roll(env.db, s.rolling, id);
 const runsOf = (id: string) =>
   env.db.query.intelligenceRuns
     .findMany({
@@ -235,7 +212,7 @@ test("the Mac runs the calls: valid on claude-code, its tokens kept, nothing spe
   }));
   await until(mac.able, Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await summarize(id);
   const run = await settledRun(id);
   expect(run).toMatchObject({
     costUsd: 0,
@@ -267,17 +244,13 @@ test("the Mac runs the calls: valid on claude-code, its tokens kept, nothing spe
 
 test("without the Mac a run waits; the Mac waking drains it", async () => {
   const id = conversation();
-  const res = await summarize(id);
-  expect(res.status).toBe(202);
-  expect(await res.json()).toMatchObject({ state: "waiting" });
-  // Asking again changes nothing: the run he asked for waits.
-  expect((await summarize(id, { regenerate: true })).status).toBe(200);
-  expect(runsOf(id)).toHaveLength(1);
+  await summarize(id);
+  expect(runsOf(id)).toHaveLength(0);
 
   const ws = await fakeMac();
   const run = await settledRun(id);
   expect(run.provider).toBe("claude-code");
-  expect(runsOf(id)).toHaveLength(1); // the waiting run started in place
+  expect(runsOf(id)).toHaveLength(1);
   await until(
     () => nudged,
     (n) => n.includes("summary")
@@ -314,9 +287,8 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
   });
 
   const id = conversation();
-  expect(await (await summarize(id)).json()).toMatchObject({
-    state: "waiting",
-  });
+  await summarize(id);
+  expect(runsOf(id)).toHaveLength(0);
   expect(await put({ ai: true })).toEqual({
     ai: true,
     engine: "claude",
@@ -339,17 +311,22 @@ test("the socket closing mid-run puts the run back to waiting, not failed", asyn
   });
   await until(mac.able, Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await summarize(id);
   await settledRun(id, "waiting");
   await until(mac.live, (live) => live === null);
   expect(ws.readyState).toBe(WebSocket.CLOSED);
 });
 
-test("summaries never reach a paid API: what waits is counted, and only the Mac runs it", async () => {
+test("summaries never reach a paid API: only the Mac runs them", async () => {
   const waiting = conversation();
   await summarize(waiting);
   // Valid but on an older prompt version: left alone, the archive is never re-run.
   const older = conversation();
+  env.db
+    .update(conversations)
+    .set({ turnsFp: fingerprint(env.db, older) })
+    .where(is(conversations.id, older))
+    .run();
   env.db
     .insert(intelligenceRuns)
     .values({
@@ -363,14 +340,7 @@ test("summaries never reach a paid API: what waits is counted, and only the Mac 
     })
     .run();
 
-  expect(
-    countRows(env.db, intelligenceRuns, is(intelligenceRuns.state, "waiting"))
-  ).toBe(1);
-  const forced = await app.request("/intelligence/force", {
-    headers: auth,
-    method: "POST",
-  });
-  expect(forced.status).toBe(404);
+  expect(runsOf(waiting)).toHaveLength(0);
 
   const ws = await fakeMac();
   const run = await settledRun(waiting);
@@ -383,7 +353,14 @@ test("223-unreadable-answer: an answer in a shape the server can't read fails it
   const ws = await fakeMac((call) => ({ id: call.id, type: "llm.output" }));
   await until(mac.able, Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await roll(
+    env.db,
+    rollingVoices(env.db, {
+      mac: macProvider(mac, () => !switches().ai),
+      retries: NO_WAIT,
+    }),
+    id
+  );
   const named = (name: string) =>
     env.db.select().from(eventRows).where(is(eventRows.name, name)).all();
   const [failed] = await until(
@@ -407,7 +384,7 @@ test("a newer helper's frame carrying a call's id leaves that call alone", async
   });
   await until(mac.able, Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await summarize(id);
   expect((await settledRun(id)).state).toBe("valid");
   await away(ws);
 });
@@ -483,9 +460,8 @@ test("an auth failure makes the Mac unable: runs wait and the feed says why", as
   expect(feed.mac.watch).toMatchObject({ asleep: false });
   // Still unable, so the next request waits without asking the Mac.
   const other = conversation();
-  expect(await (await summarize(other)).json()).toMatchObject({
-    state: "waiting",
-  });
+  await summarize(other);
+  expect(runsOf(other)).toHaveLength(0);
   await away(ws);
 });
 
@@ -503,7 +479,7 @@ test("Codex uses medium reasoning and stamps every call; a switch doesn't rerun 
   const ws = await fakeMac();
   await until(() => mac.able("codex"), Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await summarize(id);
   const run = await settledRun(id);
   expect(run).toMatchObject({
     costUsd: 0,
@@ -531,7 +507,7 @@ test("Codex uses medium reasoning and stamps every call; a switch doesn't rerun 
     headers: auth,
     method: "PUT",
   });
-  expect((await summarize(id)).status).toBe(200);
+  await summarize(id);
   expect(runsOf(id)).toHaveLength(1);
   await away(ws);
 });
@@ -626,14 +602,14 @@ test("an answer after its call's timeout is kept, and the resumed run doesn't as
   });
   await until(mac.able, Boolean);
   const id = conversation();
-  expect((await summarize(id)).status).toBe(202);
+  await summarize(id);
   await settledRun(id, "waiting");
   await until(
     () => env.db.select().from(intelligenceCalls).all(),
     (kept) => kept.length === 1
   );
   // Asked again, the waiting run is the answer; the next drain resumes it.
-  expect((await summarize(id)).status).toBe(200);
+  await summarize(id);
   await s.rolling.drain();
   await settledRun(id);
   expect(calls).toHaveLength(1);

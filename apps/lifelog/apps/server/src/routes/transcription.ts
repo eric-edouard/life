@@ -1,4 +1,4 @@
-// Transcription: a job's transcript (readers read it), spending, the ElevenLabs webhook. Audio comes
+// Transcription: a job's transcript (readers read it), the ElevenLabs webhook. Audio comes
 // in as speech fragments (routes/speech.ts).
 import { createRoute, z } from "@hono/zod-openapi";
 import { transcripts } from "@lifelog/db/schema";
@@ -7,7 +7,6 @@ import { oggOpusSeconds } from "../audio";
 import { sha256Hex } from "../config";
 import { verifySignature } from "../elevenlabs";
 import type { Services } from "../services";
-import { usageSummary } from "../usage";
 import { type ApiError, IdParam, json, notFound, router } from "./common";
 
 export const MAX_PREPARED_SECONDS = 60 * 60; // the client sends ≤ ~30 min; leave headroom
@@ -40,54 +39,6 @@ const Transcript = z
     ),
   })
   .openapi("Transcript");
-
-const SpendPeriod = z
-  .object({
-    intelligence: z.object({
-      byProvider: z.object({
-        anthropic: z.number(),
-        "claude-code": z
-          .number()
-          .describe("Always 0: the Mac runs on the Max plan."),
-        codex: z
-          .number()
-          .describe("Always 0: the Mac runs on the ChatGPT plan."),
-        openai: z.number(),
-      }),
-      unpricedRuns: z
-        .int()
-        .describe("Runs on a model with no known price: not in usd."),
-      usd: z.number().describe("Estimated from tokens at list prices."),
-    }),
-    totalUsd: z.number(),
-    transcription: z.object({
-      hours: z
-        .number()
-        .describe("Billable hours at the base rate, keyterms included."),
-      usd: z.number(),
-    }),
-  })
-  .openapi("SpendPeriod");
-
-const UsageSummary = z
-  .object({
-    days: z
-      .array(SpendPeriod.extend({ date: z.iso.date() }))
-      .describe("The last 30 local days, oldest first, today last."),
-    elevenLabsThisMonth: z
-      .object({ hours: z.number(), usd: z.number() })
-      .nullable()
-      .describe(
-        "Speech-to-text ElevenLabs itself reports this month for the whole workspace " +
-          "(every key and app). Null when it didn't answer."
-      ),
-    last30Days: SpendPeriod,
-    monthStart: z.iso.datetime(),
-    thisMonth: SpendPeriod,
-    timeZone: z.string(),
-    today: SpendPeriod,
-  })
-  .openapi("UsageSummary");
 
 // The upload's measured duration, or why it is refused.
 export function measureUpload(
@@ -151,17 +102,6 @@ export function transcriptionRoutes({
               404
             );
       }
-    )
-    .openapi(
-      createRoute({
-        description:
-          "What was spent, from our own ledgers at list prices: today, the last 30 days and " +
-          "this month (days in the owner's time zone), split by service.",
-        method: "get",
-        path: "/usage/summary",
-        responses: { 200: json(UsageSummary, "Spending by day and service") },
-      }),
-      async (c) => c.json(await usageSummary(db, config), 200)
     )
     .openapi(
       createRoute({

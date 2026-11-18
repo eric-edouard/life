@@ -10,7 +10,7 @@ extension Font {
     static let cardTitle = serif(21, relativeTo: .title2).weight(.medium)
     /// A conversation title in the library.
     static let rowTitle = serif(19, relativeTo: .title3).weight(.medium)
-    /// A title that is still a placeholder ("Conversation at 13:52"); pair with `Palette.textBody`.
+    /// A title that is still a placeholder ("Conversation at 13:52"); pair with `Palette.fg`.
     static let placeholderTitle = serif(17, relativeTo: .body).italic()
 
     /// The Pendant's state in one word on the Pendant screen: "Recording."

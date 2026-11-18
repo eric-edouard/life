@@ -125,14 +125,12 @@ export const EXCERPTS = {
   maxSeconds: 30,
 } as const;
 
-// The voices to name and their morning push (naming-queue.ts). Values from Oct 10–11.
+// The voices to name (naming-queue.ts). Values from Oct 10–11.
 export const NAMING = {
   // A card plays up to `clips` clean turns of its voice, 5 to 20 s preferred, cut at 20 s.
   clipMinSeconds: 5,
   clipSeconds: 20,
   clips: 3,
-  // The morning push goes out from this hour in the owner's zone.
-  hour: 8,
   // A card needs this many turns traded with the owner and this much talk; anything less is a
   // stranger.
   minExchanges: 10,

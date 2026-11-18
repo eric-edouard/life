@@ -62,42 +62,6 @@ On power, the helper holds off idle sleep (an `IOPMAssertion`), so summaries run
 screen still sleeps, and closing the lid still sleeps the Mac. On battery, macOS decides. `pmset -g assertions` lists
 it as "lifelog: summaries run while the Mac is on power".
 
-## Subscription widgets
-
-The helper reports subscription limits over its existing socket every five minutes while awake and connected.
-Codex uses the dedicated login from `--setup-codex` and the documented `account/rateLimits/read` app-server request.
-It starts no thread and generates no tokens. The dial describes Codex's ChatGPT quota, not all ChatGPT features.
-
-Claude's `setup-token` cannot read account usage (it lacks `user:profile`). Use Claude Code's documented status-line
-payload instead; no cookie scraping, extra model requests or credentials copied to the server. Install this bridge
-beside the helper, then add it to the `statusLine.command` in your Claude Code settings:
-
-```sh
-cp apps/mac-quiet/claude-usage-statusline.sh ~/.local/bin/lifelog-claude-usage
-chmod 700 ~/.local/bin/lifelog-claude-usage
-```
-
-```json
-{"statusLine":{"type":"command","command":"~/.local/bin/lifelog-claude-usage"}}
-```
-
-If you already have a status-line renderer, preserve it by passing its command as arguments to the bridge, for
-example `~/.local/bin/lifelog-claude-usage sh -c 'your existing command'`. The bridge passes the original input to
-that renderer unchanged. It does not install or replace your settings automatically.
-
-After the first response in an interactive Pro or Max session, the bridge stores only `rate_limits.five_hour` and
-`rate_limits.seven_day` as percentages, reset times and an observation time, in the owner-only
-`~/Library/Application Support/lifelog-quiet/claude-usage.json`. The helper picks it up within five minutes.
-Without a running session or a new status-line observation, the last reading ages honestly. The existing isolated
-summary subprocesses still load no personal settings, status-line scripts or tools.
-
-How the dials show it: `docs/design.md`.
-
-Sources: [Codex account limits](https://developers.openai.com/codex/app-server),
-[Claude Code status-line fields](https://code.claude.com/docs/en/statusline),
-[setup-token scope limitation](https://github.com/anthropics/claude-code/issues/24200),
-[WidgetKit refresh budgets](https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date).
-
 ## Lifelog Host (lifelog on your own Mac)
 
 `Lifelog Host.app` runs all of lifelog on a Mac: a menu-bar app with the server, this helper,

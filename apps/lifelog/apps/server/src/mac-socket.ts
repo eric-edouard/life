@@ -58,7 +58,6 @@ import {
   settleMac,
   storeMacHeard,
 } from "./quiet-ranges";
-import { SubscriptionMessage, storeSubscriptionUsage } from "./subscriptions";
 import { switches } from "./switches";
 
 // The helper's socket protocol: 2 sends raw events and output (1 sent ranges and answers).
@@ -455,22 +454,10 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     ws.close(code, why);
   };
 
-  // Usage frames store facts; events go through the rules; hello and model output continue to the
-  // live dispatcher.
+  // Events go through the rules; hello and model output continue to the live dispatcher.
   const readFrame = (ws: Socket, raw: string | Buffer) => {
     try {
       const body: unknown = JSON.parse(String(raw));
-      const usage = SubscriptionMessage.safeParse(body);
-      if (usage.success) {
-        try {
-          storeSubscriptionUsage(db, usage.data);
-        } catch {
-          record(db, "mac.usage_store_failed", {
-            engine: usage.data.engine,
-          });
-        }
-        return null;
-      }
       const type = (body as { type?: unknown } | null)?.type;
       if (type === "mic" || type === "sleep") {
         event(ws, body);

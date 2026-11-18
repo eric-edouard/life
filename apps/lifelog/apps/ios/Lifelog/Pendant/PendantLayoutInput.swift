@@ -11,9 +11,6 @@ struct PendantLayoutInput {
     /// Battery, storage, saved today, backlog: each already classified current, last known or unknown.
     let glance: GlanceFacts
     let actions: PendantActions
-    /// Ends the conversation now. The frame confirms it with its toast and haptic, so the layout calls this, never
-    /// `actions.split`.
-    let split: () -> Void
     /// The tick this input was read at.
     let now: Date
 }

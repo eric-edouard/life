@@ -32,7 +32,6 @@ let package = Package(
             name: "Capture", dependencies: ["PendantProtocol", "SourceStore", "Timeline"], swiftSettings: settings),
         .target(name: "Timeline", swiftSettings: settings),
         .target(name: "Glance", swiftSettings: settings),
-        .testTarget(name: "GlanceTests", dependencies: ["Glance"], swiftSettings: settings),
         .target(name: "Incidents", dependencies: ["Capture", "Glance"], swiftSettings: settings),
         .target(name: "OwnerSettings", dependencies: ["Incidents"], swiftSettings: settings),
         .testTarget(
@@ -56,7 +55,6 @@ let package = Package(
             name: "LibraryTests", dependencies: ["Library", "SourceStore", "Timeline"], swiftSettings: settings),
         .testTarget(
             name: "ExportTests", dependencies: ["Export", "AudioPipeline", "Library", "SourceStore", "Timeline"],
-            exclude: ["Golden"],
             swiftSettings: settings),
         .target(
             name: "AudioPipeline", dependencies: ["PendantProtocol", "SourceStore", "Timeline"],

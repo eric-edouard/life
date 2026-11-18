@@ -35,11 +35,6 @@ struct PendantActions {
         }
     }
 
-    /// Durably records the owner's split at that moment; returns why it wasn't saved.
-    func split(at date: Date) async -> String? {
-        await sync.perform(.split(at: date))
-    }
-
     /// Settles every incident a card shows, each as its own card would.
     func resolve(_ ids: [IncidentItem.ID], _ resolution: IncidentResolution) async throws {
         try await capture.resolve(capture.openIncidents.filter { ids.contains($0.id) }, keeping: resolution)

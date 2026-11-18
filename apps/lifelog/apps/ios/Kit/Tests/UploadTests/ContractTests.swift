@@ -50,7 +50,6 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     #expect(Set(kinds) == Set(AppleHealthMeasurement.Kind.allCases.map(\.rawValue)).subtracting(["unknown"]))
     try mirrors(ServerClient.Switches.Engine.self, "Switches", "engine")
     try mirrors(ServerClient.MacLLM.Reason.self, "MacLlm", "reason")
-    try mirrors(ServerClient.NamingItem.Kind.self, "QueueItem", "kind")
     try mirrors(ConversationKind.self, "FeedConversation", "kind")
     try mirrors(ConversationState.self, "FeedConversation", "state", phoneOnly: ["notUploaded"])
     try mirrors(WaitingReason.self, "FeedConversation", "waiting", "reason")
@@ -78,7 +77,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let queued = /path: "([a-z][a-z\/-]*)", urgent/
     let literals = client.matches(of: call).map(\.output.1) + outbox.matches(of: queued).map(\.output.1)
     let called = Set(literals.map { String($0).replacing(/\\\([a-z][A-Za-z]*(?:\([a-z]+\))?\)/, with: "{}") })
-    #expect(called.count > 25, "the parser still finds the client's calls")
+    #expect(called.count > 12, "the parser still finds the client's calls")
     #expect(called.subtracting(paths).isEmpty, "\(called.subtracting(paths).sorted())")
 }
 

@@ -8,8 +8,7 @@ reporting their raw output. `README.md` explains how it works and how to install
 
 Rules live on the server, once: which apps are dictation and how events become quiet ranges (`dictation.ts`), what
 a CLI's output means and the call's timeout (`mac-llm.ts`). The helper keeps only what must run on the machine: the
-Core Audio and sleep readings, the outbox until acked, the empty folder and no-tools flags every call runs with, and
-the subscription readings, filtered to percentages before they leave. The socket protocol is `macProtocol` here and
+Core Audio and sleep readings, the outbox until acked, and the empty folder and no-tools flags every call runs with. The socket protocol is `macProtocol` here and
 `MAC_PROTOCOL` on the server; change both together. Its token opens only its socket.
 
 `LifelogHost` is the menu-bar app that runs all of lifelog on a Mac (`bun run host:app`, README "Lifelog Host"). Its

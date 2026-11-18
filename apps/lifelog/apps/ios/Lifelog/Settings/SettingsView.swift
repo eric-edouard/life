@@ -7,10 +7,10 @@ import ServerAPI
 import SwiftUI
 
 /// Settings, pushed from the gear on the Pendant screen: the processing switches and the vocabulary, alerts, the Lock
-/// Screen, the light, spending and your data.
+/// Screen, the light and your data.
 ///
 /// A push rather than a sheet: it has pages of its own (Light guide, Backup, Server), which push in the same
-/// stack with the usual back swipe, and the Spending sheet opens over it without stacking sheets.
+/// stack with the usual back swipe.
 struct SettingsView: View {
     let permissions: PermissionsStore
     let allowNotifications: () -> Void
@@ -19,7 +19,6 @@ struct SettingsView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
     @Bindable private var settings = Settings.shared
-    @State private var showsSpending = false
 
     var body: some View {
         let switches = sync.switches
@@ -40,9 +39,6 @@ struct SettingsView: View {
                         isOn: switches?.ai
                     ) { on in set(.switches(transcription: nil, ai: on, engine: nil)) }
                     .accessibilityIdentifier("settings.switch.ai")
-                    EnginePicker(engine: switches?.engine) { engine in
-                        set(.switches(transcription: nil, ai: nil, engine: engine))
-                    }
                     NavigationLink {
                         VocabularyView()
                     } label: {
@@ -64,7 +60,7 @@ struct SettingsView: View {
                                 Spacer()
                                 Text(settings.alerts.lowBatteryPercent.formatted(.percent)).font(.monoTime)
                                     .foregroundStyle(
-                                        Palette.textBody)
+                                        Palette.fg)
                             }
                         }
                         .accessibilityValue("\(settings.alerts.lowBatteryPercent) percent")
@@ -91,18 +87,6 @@ struct SettingsView: View {
                         }
                         .accessibilityIdentifier("pendant.settings.lightGuide")
                     }
-                }
-                SettingsGroup("Spending") {
-                    Button {
-                        showsSpending = true
-                    } label: {
-                        SettingsLink("Spending")
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("pendant.settings.spending")
-                }
-                .sheet(isPresented: $showsSpending) {
-                    SpendingSheet()
                 }
                 SettingsGroup("Your data") {
                     if AppleHealthReader.isAvailable {
@@ -148,8 +132,8 @@ struct SettingsView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .tint(Palette.redFill)
-        .background(Palette.ground)
+        .tint(Palette.fg)
+        .background(Palette.bg)
         .navigationTitle("Settings")
         .toolbarTitleDisplayMode(.inlineLarge)
     }
@@ -181,7 +165,7 @@ private struct SettingsGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.muted)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, 16)
             VStack(spacing: 0) {
@@ -198,12 +182,12 @@ private struct SettingsGroup<Content: View>: View {
                     }
                 }
             }
-            .foregroundStyle(Palette.textPrimary)
+            .foregroundStyle(Palette.fg)
             .card(radius: Metrics.Radius.group)
             if let footer {
                 Text(footer)
                     .font(.footnote)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
                     .padding(.horizontal, 16)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -224,12 +208,12 @@ private struct SettingsLink: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(title).foregroundStyle(Palette.textPrimary)
+            Text(title).foregroundStyle(Palette.fg)
             Spacer(minLength: 8)
-            if let value { Text(value).foregroundStyle(Palette.textSecondary) }
+            if let value { Text(value).foregroundStyle(Palette.muted) }
             Image(systemName: "chevron.forward")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 52)
@@ -274,7 +258,7 @@ struct PairingView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Palette.ground)
+        .background(Palette.bg)
         .navigationTitle("Server")
     }
 }
@@ -306,7 +290,7 @@ private struct SwitchToggle: View {
                 Text(title)
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
             }
         }
         .disabled(isOn == nil)
@@ -326,30 +310,5 @@ private struct OpenAppPicker: View {
         }
         .disabled(minutes == nil)
         .accessibilityIdentifier("settings.openAppAfter")
-    }
-}
-
-private struct EnginePicker: View {
-    let engine: ServerClient.Switches.Engine?
-    let set: (ServerClient.Switches.Engine) -> Void
-
-    var body: some View {
-        Picker(
-            "AI model",
-            selection: Binding(
-                get: { engine ?? .unknown },
-                set: { selected in
-                    guard selected != .unknown, selected != engine else { return }
-                    set(selected)
-                })
-        ) {
-            Text("Claude").tag(ServerClient.Switches.Engine.claude)
-            Text("ChatGPT").tag(ServerClient.Switches.Engine.codex)
-            if engine == nil || engine == .unknown {
-                Text("Unavailable").tag(ServerClient.Switches.Engine.unknown)
-            }
-        }
-        .disabled(engine == nil || engine == .unknown)
-        .accessibilityIdentifier("settings.switch.engine")
     }
 }

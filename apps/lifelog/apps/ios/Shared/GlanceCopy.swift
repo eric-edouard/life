@@ -168,7 +168,7 @@ struct StatusDot: View {
     var body: some View {
         ZStack {
             switch state {
-            case .live: Circle().fill(Palette.liveDot)
+            case .live: Circle().fill(Palette.flag)
             case .paused: Circle().strokeBorder(.secondary, lineWidth: 2)
             case .waiting: Circle().trim(from: 0, to: 0.7).stroke(.secondary, lineWidth: 2)
             case .unknown: Circle().strokeBorder(.secondary, style: StrokeStyle(lineWidth: 1.5, dash: [2.5, 2]))

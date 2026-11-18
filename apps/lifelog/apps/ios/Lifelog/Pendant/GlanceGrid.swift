@@ -84,28 +84,28 @@ struct TileFigure<Leading: View>: View {
                 if emphasis && withoutColor {
                     // Red alone would be the only sign; the caption says what is wrong.
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Palette.redText)
+                        .foregroundStyle(Palette.flag)
                         .accessibilityHidden(true)
                 }
                 value
                     .font(.monoFigure)
-                    .foregroundStyle(emphasis ? Palette.redText : Palette.textPrimary)
+                    .foregroundStyle(emphasis ? Palette.flag : Palette.fg)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .contentTransition(.numericText())
             }
             Text(caption)
                 .font(.caption)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .fixedSize(horizontal: false, vertical: true)
             if let fraction {
                 Capsule()
-                    .fill(Palette.hairline)
+                    .fill(Palette.line)
                     .frame(height: 3)
                     .overlay(alignment: .leading) {
                         GeometryReader { proxy in
                             Capsule()
-                                .fill(emphasis ? Palette.redText : Palette.textBody)
+                                .fill(emphasis ? Palette.flag : Palette.fg)
                                 .frame(width: proxy.size.width * min(max(fraction, 0), 1))
                         }
                     }
@@ -138,11 +138,11 @@ struct TileRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).foregroundStyle(Palette.textSecondary)
+            Text(label).foregroundStyle(Palette.muted)
             Spacer(minLength: 8)
             value
                 .font(.monoDetail)
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(Palette.fg)
                 .multilineTextAlignment(.trailing)
         }
         .font(.footnote)

@@ -44,8 +44,6 @@ final class SyncStore {
     private(set) var waiting: [WaitingReason: Int] = [:]
     /// The last pull got no answer from the network.
     private(set) var pullFailed = false
-    /// What was spent today and this month, refreshed when the app comes forward; `nil` until the server answered.
-    private(set) var spending: ServerClient.UsageSummary?
     /// The server this phone is paired with (`DeviceToken.paired`); nil until it is.
     private(set) var server: URL?
     var isPaired: Bool { server != nil }
@@ -196,7 +194,6 @@ final class SyncStore {
         #endif
         server = DeviceToken.paired
         generation += 1
-        Task { await refreshSpending() }
         #if DEBUG
             if FixtureLibrary.isRequested {
                 Task {
@@ -358,9 +355,6 @@ final class SyncStore {
         guard let library else { return }
         pending = (try? await library.pendingEdits()) ?? pending
         feed = (try? await library.feed()) ?? feed
-        // The Lock Screen dials read these from the app group.
-        SubscriptionService.claude.save(feed.mac?.subscriptions?.claude)
-        SubscriptionService.codex.save(feed.mac?.subscriptions?.codex)
         waiting = (try? await library.waiting()) ?? waiting
         if let uploader = driver?.uploader {
             uploads = (try? await uploader.status()) ?? uploads
@@ -370,23 +364,6 @@ final class SyncStore {
             if FixtureLibrary.isRequested { uploads = FixtureLibrary.uploads }
         #endif
         if changed, UIApplication.shared.applicationState != .background { generation += 1 }
-    }
-
-    /// The audio overlapping `range` the server doesn't have yet (`Uploader.unsent`).
-    func unsent(overlapping range: Range<CaptureInstant>) async -> [Range<CaptureInstant>] {
-        #if DEBUG
-            if FixtureLibrary.isRequested { return FixtureLibrary.unsent.filter { $0.overlaps(range) } }
-        #endif
-        return (try? await driver?.uploader?.unsent(overlapping: range)) ?? []
-    }
-
-    /// Reads what was spent again; returns whether the server answered. The last answer stays meanwhile.
-    @discardableResult
-    func refreshSpending() async -> Bool {
-        guard isPaired, let summary = try? await ServerClient.production.usageSummary()
-        else { return false }
-        spending = summary
-        return true
     }
 
     /// The raw backup sends up to 64 MB at a time: only on Wi-Fi or a wire, or while charging.
@@ -449,15 +426,6 @@ final class SyncStore {
             _ = report(error)
             return nil
         }
-    }
-
-    // MARK: Derived audio
-
-    /// Rebuilds the evicted playback files covering `range` from the source packs, so they can be played or exported.
-    func restorePlayback(covering range: Range<CaptureInstant>) async throws {
-        _ = setUp()
-        guard let worker else { return }
-        try await worker.rebuildPlayback(deviceID: CaptureStore.deviceID, covering: range)
     }
 }
 

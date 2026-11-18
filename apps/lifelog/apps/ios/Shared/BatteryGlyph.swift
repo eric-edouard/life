@@ -14,7 +14,7 @@ struct BatteryGlyph: View {
     var body: some View {
         let height = (width * 0.47).rounded()
         let fraction = Double(min(max(percent ?? 0, 0), 100)) / 100
-        let outline = isCurrent ? Palette.textPrimary.opacity(0.45) : Palette.textTertiary.opacity(0.6)
+        let outline = isCurrent ? Palette.fg.opacity(0.45) : Palette.faint.opacity(0.6)
         HStack(spacing: 1) {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height * 0.3)
@@ -26,8 +26,8 @@ struct BatteryGlyph: View {
                 if charging && isCurrent {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: height * 0.62, weight: .heavy))
-                        .foregroundStyle(Palette.textPrimary)
-                        .shadow(color: Palette.ground, radius: 0.5)
+                        .foregroundStyle(Palette.fg)
+                        .shadow(color: Palette.bg, radius: 0.5)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -40,8 +40,8 @@ struct BatteryGlyph: View {
     }
 
     private var fill: Color {
-        guard isCurrent else { return Palette.textTertiary.opacity(0.5) }
-        if charging { return Palette.charging }
-        return (percent ?? 100) <= Self.lowAtOrBelow ? Palette.redText : Palette.textPrimary
+        guard isCurrent else { return Palette.faint.opacity(0.5) }
+        if charging { return Palette.ok }
+        return (percent ?? 100) <= Self.lowAtOrBelow ? Palette.flag : Palette.fg
     }
 }

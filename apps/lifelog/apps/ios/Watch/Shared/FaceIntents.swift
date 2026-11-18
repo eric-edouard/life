@@ -44,25 +44,6 @@ struct FaceRecordingIntent: AppIntent {
     }
 }
 
-/// Splits the conversation here, as the iPhone's scissors do. Offered only while the Watch knows the Pendant records.
-struct FaceSplitIntent: AppIntent {
-    static let title: LocalizedStringResource = "Split from the Watch Face"
-    static let isDiscoverable = false
-    static var supportedModes: IntentModes { [.background, .foreground(.dynamic)] }
-    static var allowedExecutionTargets: IntentExecutionTargets { .main }
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        #if !WIDGET_EXTENSION
-            FaceNote.show("Sending…", for: 30)
-            try await reachPhone()
-            await PhoneLink.shared.split()
-            FaceNote.show(PhoneLink.shared.mark)
-        #endif
-        return .result()
-    }
-}
-
 #if !WIDGET_EXTENSION
     extension AppIntent {
         /// WatchConnectivity promises the iPhone only to a Watch app in the foreground or "running with a high
@@ -87,15 +68,6 @@ struct FaceSplitIntent: AppIntent {
         }
     }
 
-    extension FaceNote {
-        fileprivate static func show(_ mark: PhoneLink.Mark) {
-            switch mark {
-            case .marked(let at): show("Split at \(at.moment)")
-            case .failed(let reason): show("Not sent", detail: reason)
-            case .idle, .sending: clear()
-            }
-        }
-    }
 #endif
 
 /// What the last face tap did, for a minute on the face in place of the status: the Watch app writes it, the

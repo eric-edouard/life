@@ -8,11 +8,11 @@ import {
   type JobMap,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { latestRun, latestSummary, type Run, runAfter } from "../runs";
+import { latestRun, latestSummary, type Run } from "../runs";
 import type { Services } from "../services";
 import { setOwnerTitle } from "../titles";
 import { Result } from "../voices-call";
-import { ApiError, IdParam, json, notFound, router } from "./common";
+import { IdParam, json, notFound, router } from "./common";
 
 const EpochMs = z.int().nonnegative();
 const ConversationPart = z
@@ -156,11 +156,6 @@ function conversationView(
   };
 }
 
-const NO_PROVIDER = {
-  error: "intelligence_unavailable" as const,
-  message: "no summary provider is configured",
-};
-
 const findConversation = (db: Db, id: string) =>
   db.query.conversations.findFirst({ where: eq(conversations.id, id) }).sync();
 
@@ -169,11 +164,7 @@ const noConversation = {
   message: "no such conversation",
 };
 
-export function conversationRoutes({
-  db,
-  intelligence,
-  rolling,
-}: Pick<Services, "db" | "intelligence" | "rolling">) {
+export function conversationRoutes({ db }: Pick<Services, "db">) {
   return router()
     .openapi(
       createRoute({
@@ -226,57 +217,6 @@ export function conversationRoutes({
         return row
           ? c.json(conversationView(db, row), 200)
           : c.json(noConversation, 404);
-      }
-    )
-    .openapi(
-      createRoute({
-        description:
-          "The owner's Generate: the voices of the conversation read again. " +
-          "`after` is the run he saw (the feed's `runId`, null for none): when a run newer " +
-          "than it is already valid, running or waiting, nothing happens and it answers 200 with " +
-          "that run, so a replay asks nothing twice. Otherwise it is read again from its first " +
-          "turn, window after window, on the Mac (the owner's subscription); with the Mac away it " +
-          "waits for it. The run shown stays until a newer run is valid. Answers 202 with the latest " +
-          "run as it stands; read the feed for the rest. Never on a paid API.",
-        method: "post",
-        path: "/conversations/{id}/intelligence",
-        request: {
-          body: {
-            content: {
-              "application/json": {
-                schema: z.object({ after: z.uuid().nullable() }),
-              },
-            },
-            required: true,
-          },
-          params: IdParam,
-        },
-        responses: {
-          200: json(IntelligenceRun, "A run newer than `after`: nothing asked"),
-          202: json(
-            IntelligenceRun.nullable(),
-            "Generating: the latest run as it stands, if any"
-          ),
-          404: notFound,
-          503: json(ApiError, "No provider configured"),
-        },
-      }),
-      (c) => {
-        const { after } = c.req.valid("json");
-        const { id } = c.req.valid("param");
-        if (!intelligence) {
-          return c.json(NO_PROVIDER, 503);
-        }
-        if (!findConversation(db, id)) {
-          return c.json(noConversation, 404);
-        }
-        const newer = runAfter(db, id, after);
-        if (newer) {
-          return c.json(toRun(newer), 200);
-        }
-        rolling.generate(id);
-        const now = latestRun(db, id);
-        return c.json(now ? toRun(now) : null, 202);
       }
     );
 }

@@ -13,7 +13,6 @@ import { conversationRoutes } from "./routes/conversations";
 import { healthRoutes } from "./routes/health";
 import { pageRoutes } from "./routes/pages";
 import { placeRoutes } from "./routes/places";
-import { quickRoutes } from "./routes/quick";
 import { searchRoutes } from "./routes/search";
 import { speakerRoutes } from "./routes/speakers";
 import { speechRoutes } from "./routes/speech";
@@ -72,7 +71,6 @@ const UNSEARCHED = new Set([
   "/health/heartbeat",
   "/events",
   "/diagnostics",
-  "/quick-transcriptions",
   // It sweeps itself when AI comes back on.
   "/switches",
 ]);
@@ -172,7 +170,6 @@ export function createApp(s: Services) {
     .route("/", transcriptionRoutes(s))
     .route("/", speechRoutes(s))
     .route("/", pageRoutes(s))
-    .route("/", quickRoutes(s))
     .route("/", backupRoutes(s))
     .route("/", speakerRoutes(s))
     .route("/", syncRoutes(s))

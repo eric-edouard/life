@@ -476,16 +476,6 @@ export function speakerRoutes({
     .openapi(
       createRoute({
         description:
-          "Owner-named voices that sound like another person without their own conversations, offered once more. Highest other-person share first.",
-        method: "get",
-        path: "/naming-queue/rechecks",
-        responses: { 200: json(z.array(QueueItem), "Voices to recheck") },
-      }),
-      async (c) => c.json(await queue.rechecks(), 200)
-    )
-    .openapi(
-      createRoute({
-        description:
           "The owner's answer for a queue item's voices: a new person (name), a person " +
           "(personId), nobody they know (ignore), a video or TV playing (media), someone not worth naming " +
           "(not_relevant: these voices are not asked again, and are no stranger), or several people " +

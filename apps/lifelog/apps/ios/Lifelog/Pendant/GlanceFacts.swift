@@ -19,7 +19,6 @@ struct GlanceFacts: Equatable {
     var phoneFreeBytes: Int64?
     var archiveBytes: Int64?
     var today: SavedToday?
-    var spending: TranscriptionFacts.Spending?
     var isPaired: Bool
     var batteryLife = BatteryLife()
 

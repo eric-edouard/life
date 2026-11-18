@@ -14,7 +14,6 @@ import { feed, SEQ, waitForChange } from "../feed";
 import { MAC_PROTOCOL } from "../mac-socket";
 import { addQuietRange, quietRangeInput } from "../quiet-ranges";
 import type { Services } from "../services";
-import { Subscriptions, subscriptions } from "../subscriptions";
 import { switches } from "../switches";
 import { json, router, TimedWords } from "./common";
 import { Person } from "./speakers";
@@ -109,7 +108,7 @@ const Feed = z
             .uuid()
             .nullable()
             .describe(
-              "The summary its title, TLDR and chapters come from: Generate's `after`"
+              "The summary its title, TLDR and chapters come from: the phone's `after`"
             ),
           splitSuggestions: z
             .array(z.object({ at: Instant, confidence: z.enum(["medium"]) }))
@@ -178,7 +177,6 @@ const Feed = z
     mac: z.object({
       dictatingSince: z.iso.datetime({ offset: true }).nullable(),
       llm: MacLlmView,
-      subscriptions: Subscriptions,
       watch: MacWatchView.nullable(),
     }),
     more: z.boolean().describe("Ask again at once with the new cursor"),
@@ -326,7 +324,6 @@ export function syncRoutes({ db, mac }: Pick<Services, "db" | "mac">) {
             mac: {
               dictatingSince: mac.dictatingSince(),
               llm: mac.llmState(),
-              subscriptions: subscriptions(db),
               watch,
             },
             switches: switches(),

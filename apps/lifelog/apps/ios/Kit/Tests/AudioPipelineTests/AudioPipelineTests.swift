@@ -286,59 +286,6 @@ private func derivedArchive() async throws
     #expect(file.length == 12 * 16_000)
 }
 
-@Test func playbackTimelineMapsOffsetsToCaptureTimeAcrossFilesAndGaps() throws {
-    let directory = DerivedAudioDirectory(url: temporaryDirectory())
-    let start = CaptureInstant(millis: base)
-    let voice = signal(seconds: 10)
-    let first = try directory.writePlayback(deviceID: device, pages: 0...9, start: start, millis: 10_000) {
-        Array(voice[$0])
-    }
-    // 2 s not recorded, then a second file.
-    let second = try directory.writePlayback(
-        deviceID: device, pages: 10...14, start: start.advanced(by: 12_000), millis: 5_000
-    ) { Array(repeating: 0, count: $0.count) }
-    let manifest = try directory.manifest(deviceID: device)
-    #expect(manifest.segments == [first, second])
-    #expect(try AVAudioFile(forReading: directory.audioURL(file: first.file, deviceID: device)).length == 10 * 16_000)
-
-    // A conversation from 4 s into the first file to 1 s before the end of the second.
-    let range = start.advanced(by: 4_000)..<start.advanced(by: 16_000)
-    let timeline = PlaybackTimeline(range: range, manifest: manifest)
-
-    #expect(
-        timeline.pieces == [
-            .init(file: first.file, fileMillis: 4_000..<10_000, offset: 0),
-            .init(file: second.file, fileMillis: 0..<4_000, offset: 8_000),
-        ])
-    #expect(timeline.gaps == [start.advanced(by: 10_000)..<start.advanced(by: 12_000)])
-    #expect(timeline.durationMillis == 12_000)
-    let moment = start.advanced(by: 13_250)
-    #expect(timeline.offset(of: moment) == 9_250)
-    #expect(timeline.instant(atOffset: 9_250) == moment)
-    // Clamped at both ends.
-    #expect(timeline.offset(of: start) == 0)
-    #expect(timeline.instant(atOffset: 60_000) == range.upperBound)
-}
-
-@Test func playbackTimelineNeverPlaysOverlappingFilesTwice() {
-    let start = CaptureInstant(millis: base)
-    let segment = { (file: String, from: Int64, to: Int64) in
-        PlaybackSegment(
-            deviceID: device, file: file, pages: 0...0, interval: start.advanced(by: from)..<start.advanced(by: to),
-            decodeGaps: [], windows: [])
-    }
-    let manifest = PlaybackManifest(segments: [segment("a", 0, 6_000), segment("b", 5_000, 9_000)])
-
-    let timeline = PlaybackTimeline(range: start..<start.advanced(by: 10_000), manifest: manifest)
-
-    #expect(
-        timeline.pieces == [
-            .init(file: "a", fileMillis: 0..<6_000, offset: 0),
-            .init(file: "b", fileMillis: 1_000..<4_000, offset: 6_000),
-        ])
-    #expect(timeline.gaps == [start.advanced(by: 9_000)..<start.advanced(by: 10_000)])
-}
-
 /// Samples from an array, starting at `start`.
 private struct ArrayAudio: CaptureAudio {
     let start: CaptureInstant
@@ -348,49 +295,6 @@ private struct ArrayAudio: CaptureAudio {
         let first = Int(start.distance(to: interval.lowerBound)) * PendantAudio.samplesPerMilli
         return Array(samples[first..<first + Int(interval.millis) * PendantAudio.samplesPerMilli])
     }
-}
-
-/// A Who's this? clip plays a stretch of a job's Ogg Opus from the server, 15 minutes in. The bitrate there differs
-/// from the file's average, so a guessed position played 30 s early, and the lit words never matched (Oct 15).
-@Test func aClipFromOggOpusPlaysTheMomentAskedFor() async throws {
-    let directory = temporaryDirectory()
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let start = CaptureInstant(millis: base)
-    // Loud noise for 40 s, then silence with one tone, from 75 s to 76 s.
-    var seed: UInt64 = 7
-    let samples = (0..<90 * 16_000).map { index -> Float in
-        seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-        if index < 40 * 16_000 { return Float(seed >> 40) / Float(1 << 24) * 0.8 - 0.4 }
-        return (75 * 16_000..<76 * 16_000).contains(index) ? 0.5 * sin(Float(index) * 2 * .pi * 440 / 16_000) : 0
-    }
-    let part = try #require(TimeMap(segments: [start..<start.advanced(by: 90_000)]))
-    let file = try await PreparedAudio.render(
-        part, from: ArrayAudio(start: start, samples: samples), to: directory.appending(path: "job.ogg"))
-    // The clip: 74 s into the file, for 4 s, as `.file(url, fileMillis:)` plays it.
-    let range = start..<start.advanced(by: 4_000)
-    let timeline = PlaybackTimeline(
-        range: range, file: file.url.lastPathComponent, runs: [FileRun(interval: range, fileMillis: 74_000)])
-
-    let composition = try await timeline.composition { directory.appending(path: $0) }
-
-    let reader = try AVAssetReader(asset: composition)
-    let output = AVAssetReaderAudioMixOutput(
-        audioTracks: try await composition.loadTracks(withMediaType: .audio),
-        audioSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16_000, AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsNonInterleaved: false,
-        ])
-    let provider = reader.outputProvider(for: output)
-    try reader.start()
-    var bytes = Data()
-    while let buffer = try await provider.next() {
-        bytes += try buffer.withUnsafeSampleBuffer { try $0.dataBuffer?.dataBytes() } ?? Data()
-    }
-    let played = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-    // The tone starts 1 s in, give or take Opus's lookahead.
-    let onset = try #require(played.firstIndex { abs($0) > 0.1 })
-    #expect(abs(onset - 16_000) < 16 * 20)
 }
 
 /// The server joins speech fragments into one Ogg by moving their packets (`audio.ts` `joinOggOpus`); its map's
@@ -475,22 +379,6 @@ extension Array {
     #expect(try directory.manifest(deviceID: device).segments == [first, evicted])
     try FileManager.default.removeItem(at: directory.sidecarURL(device, pages: first.pages))
     #expect(try directory.manifest(deviceID: device).segments == [evicted])
-}
-
-@Test func recentAudioIsTheWindowBeforeTheEndFromTheNewestPages() async throws {
-    let directory = temporaryDirectory()
-    let (store, _) = try await store(seconds: 10, at: directory)
-    let end = CaptureInstant(millis: base + 10_000)
-    let file = try await RecentAudio.ogg(
-        last: 3, before: end.date, store: store, deviceID: device, to: directory.appending(path: "press.ogg"))
-    #expect(file.durationMillis == 3_000 && file.byteCount > 0)
-    let source = try await RecentAudio.source(seconds: 3, store: store, deviceID: device)
-    #expect(try await source.pcm(end.advanced(by: -3_000)..<end).contains { $0 != 0 })
-    #expect(try await source.pcm(end.advanced(by: 60_000)..<end.advanced(by: 62_000)).allSatisfy { $0 == 0 })
-    // The newest pages already reach the end: no wait.
-    let wait = ContinuousClock.now
-    try await RecentAudio.settle(until: end.date, store: store, deviceID: device, timeout: .seconds(2))
-    #expect(ContinuousClock.now - wait < .milliseconds(100))
 }
 
 @Test func aRecentWindowReadsOnlyTheClockSyncsFromItsPagesOn() async throws {

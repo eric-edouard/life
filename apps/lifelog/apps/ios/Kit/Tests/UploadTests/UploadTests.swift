@@ -756,15 +756,13 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     let host = "outbox-\(UUID().uuidString).test"
     let directory = FileManager.default.temporaryDirectory.appending(path: "outbox-\(UUID().uuidString)")
     var library = try LibraryStore(directory: directory)
-    let conversation = UUID()
     let ids = [UUID(), UUID(), UUID()]
-    try await library.enqueue(.split(at: at(1).date), id: ids[0])
-    try await library.enqueue(.title(conversation: conversation, title: "x"), id: ids[1])
+    try await library.enqueue(.playbackQuiet(from: at(1).date, to: at(2).date), id: ids[0])
+    try await library.enqueue(.switches(ai: false), id: ids[1])
     try await library.enqueue(.vocabulary(["Oakridge"]), id: ids[2])
-    try await library.enqueue(.split(at: at(1).date), id: ids[0])
-    let title = "/conversations/\(conversation.uuidString.lowercased())/title"
+    try await library.enqueue(.vocabulary(["Nok"]), id: ids[0])
     RebuildServer.hosts.withLock {
-        $0[host, default: .init()].failures = [title: [422], "/vocabulary": [503]]
+        $0[host, default: .init()].failures = ["/switches": [422], "/vocabulary": [503]]
     }
     let client = RebuildServer.client(host)
     await #expect(throws: ServerClient.ClientError.self) { try await Outbox.replay(library, client: client) }
@@ -778,7 +776,7 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     try await Outbox.replay(library, client: client)
     #expect(try await library.outbox().map(\.id) == [ids[1]], "the refusal waits for the owner")
     let sent = RebuildServer.hosts.withLock { $0[host]?.requests ?? [] }.map { "\($0.method) \($0.path)" }
-    #expect(sent == ["POST /edits", "PUT \(title)", "PUT /vocabulary", "PUT /vocabulary"])
+    #expect(sent == ["POST /quiet-ranges", "PUT /switches", "PUT /vocabulary", "PUT /vocabulary"])
 }
 
 // MARK: Driver
@@ -803,8 +801,7 @@ private func status(at seconds: Double) -> CaptureStatus {
     let uploader = try Uploader(
         source: fixture.source, scanner: try fixture.scanner(), client: RebuildServer.client(host),
         directory: fixture.directory.appending(path: "upload"), canRunHeavyWork: { true }, event: log)
-    let conversation = UUID()
-    try await fixture.library.enqueue(.title(conversation: conversation, title: "Plumber"))
+    try await fixture.library.enqueue(.vocabulary(["Plumber"]))
     try await fixture.library.record(PlaceObservation(at: at(100), latitude: 21.0, longitude: 105.8, accuracyMeters: 9))
     let driver = Driver(
         library: fixture.library, client: RebuildServer.client(host),
@@ -815,7 +812,7 @@ private func status(at seconds: Double) -> CaptureStatus {
     // there (a GET tries twice), the speech still goes, then the timeline saying it went, and the run stops.
     RebuildServer.hosts.withLock { $0[host, default: .init()].failures["/changes"] = [0, 0] }
     await #expect(throws: URLError.self) { try await driver.run(run) }
-    let title = "/conversations/\(conversation.uuidString.lowercased())/title"
+    let title = "/vocabulary"
     let first = RebuildServer.hosts.withLock { $0[host]?.requests ?? [] }.map(\.path)
     let steps = [title, "/changes", "/sources/pendant-1/speech/0", "/sources/pendant-1/timeline"]
     #expect(steps.compactMap { first.firstIndex(of: $0) } == steps.compactMap { first.firstIndex(of: $0) }.sorted())
@@ -969,86 +966,37 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
 @Test func anEditShowsAtOnceAndARefusedOneRollsBack() async throws {
     let library = try LibraryStore(
         directory: FileManager.default.temporaryDirectory.appending(path: "pending-\(UUID().uuidString)"))
-    let conversation = UUID()
-    try await library.enqueue(.title(conversation: conversation, title: "Lunch with Mai"))
-    try await library.enqueue(.split(at: at(30).date))
-    try await library.enqueue(
-        .speaker(job: conversation, label: "speaker_1", target: .new(name: "Mai"), turnIndex: nil))
+    try await library.enqueue(.switches(ai: false))
+    try await library.enqueue(.vocabulary(["Nok"]))
 
     var pending = try await library.pendingEdits()
-    #expect(pending.titles == [conversation: "Lunch with Mai"])
-    #expect(pending.regrouping(at(0)..<at(60)) && !pending.regrouping(at(60)..<at(90)))
-    #expect(pending.speakers == ["\(conversation)|speaker_1"])
+    #expect(pending.vocabulary == ["Nok"])
+    #expect(pending.switches(over: .init(transcription: true, ai: true, openAppAfterMinutes: 15))?.ai == false)
 
-    // The server refuses the title: it shows its message, and the feed's title again.
-    let title = try #require(pending.waiting.first)
-    try await library.settle(title.id, refused: "no such conversation")
+    // The server refuses the switch: it shows its message, and the feed's value again.
+    let first = try #require(pending.waiting.first)
+    try await library.settle(first.id, refused: "no such setting")
     pending = try await library.pendingEdits()
-    #expect(pending.titles.isEmpty)
-    #expect(pending.refused.map(\.refused) == ["no such conversation"])
-    #expect(pending.waiting.count == 2)
+    #expect(pending.switches(over: .init(transcription: true, ai: true, openAppAfterMinutes: 15))?.ai == true)
+    #expect(pending.refused.map(\.refused) == ["no such setting"])
+    #expect(pending.waiting.count == 1)
 }
 
 @Test func everyIntentKeepsInTheOutboxAndBecomesItsRequestWhenSent() async throws {
     let library = try LibraryStore(
         directory: FileManager.default.temporaryDirectory.appending(path: "intents-\(UUID().uuidString)"))
-    let named = ServerClient.NamingItem(
-        id: "w", kind: .several, conversations: 1, seconds: 2, exchanges: 0, evidence: [],
-        voices: [.init(conversationId: UUID(), jobId: UUID(), speakerLabel: "speaker_1")], clips: [])
     let intents: [OwnerIntent] = [
-        .split(at: at(1).date), .merge(from: at(1).date, to: at(2).date), .undo(edit: UUID()),
-        .title(conversation: UUID(), title: nil), .title(conversation: UUID(), title: "Lunch"),
-        .speaker(job: UUID(), label: "speaker_0", target: .person(UUID()), turnIndex: 3),
-        .speaker(job: UUID(), label: "speaker_1", target: .new(name: "Mai"), turnIndex: nil),
-        .dismissSplit(at: at(5).date), .vocabulary(["Nok", "Izipizi"]),
-        .summarize(conversation: UUID(), after: nil), .summarize(conversation: UUID(), after: UUID()),
-        .switches(transcription: nil, ai: false, engine: .codex), .renamePerson(UUID(), name: "Mai"),
-        .naming(
-            item: .init(
-                id: "v", kind: .newPerson, conversations: 1, seconds: 2, exchanges: 3, evidence: [],
-                voices: [.init(conversationId: UUID(), jobId: UUID(), speakerLabel: "speaker_0")], clips: []),
-            answer: .confirm(name: "Mai")),
+        .vocabulary(["Nok", "Izipizi"]), .switches(transcription: nil, ai: false, engine: .codex),
         .playbackQuiet(from: at(1).date, to: at(2).date),
-        .naming(item: named, answer: .several(people: [UUID()], unknown: true)),
     ]
     for intent in intents { try await library.enqueue(intent) }
     let kept = try await library.outbox()
-    #expect(kept.map(\.intent) == intents, "each keeps as the owner made it, a new person's id included")
+    #expect(kept.map(\.intent) == intents, "each keeps as the owner made it")
 
     func body(_ entry: OutboxEntry) throws -> [String: Any] {
         try json(try #require(try entry.intent.request(id: entry.id, at: entry.createdAt).body))
     }
-    #expect(try body(kept[3])["title"] is NSNull, "a cleared title is sent as null")
-    #expect(try body(kept[9])["after"] is NSNull, "Generate with no run shown")
-    let target = try #require(try body(kept[6])["target"] as? [String: Any])
-    #expect(target["id"] as? String != nil, "a new person goes under the phone's id, the same on a replay")
-    #expect(try body(kept[14])["id"] as? String == kept[14].id.uuidString.lowercased(), "the range's id is the edit's")
-    let pending = PendingEdits(kept)
-    #expect(pending.summarizing(intents.compactMap { if case .summarize(let c, nil) = $0 { c } else { nil } }[0]))
-    let several = try #require(try body(kept[15])["answer"] as? [String: Any])
-    #expect((several["people"] as? [String])?.count == 1 && several["unknown"] as? Bool == true)
-    #expect(
-        try JSONDecoder().decode(ServerClient.NamingAnswer.self, from: Data(#"{"kind":"several"}"#.utf8))
-            == .several(people: [], unknown: false), "an answer kept from before the multi-select")
-    #expect(
-        try JSONDecoder().decode(ServerClient.NamingAnswer.self, from: Data(#"{"kind":"rest"}"#.utf8)) == .rest,
-        "a waiting Assign the rest stays itself for the server to refuse, never not anyone I know")
-    #expect(
-        try JSONDecoder().decode(
-            ServerClient.NamingAnswer.self, from: JSONEncoder().encode(ServerClient.NamingAnswer.notRelevant))
-            == .notRelevant, "Not relevant survives the outbox as itself")
-    let both = ServerClient.SpeakerTarget.several(people: [UUID(), UUID()], unknown: false)
-    #expect(
-        try JSONDecoder().decode(ServerClient.SpeakerTarget.self, from: JSONEncoder().encode(both)) == both,
-        "a clip two people speak in survives the outbox as itself, never Don't know")
-    #expect(pending.namedVoices.count == 2 && pending.people.count == 1)
-    let mira = CachedPerson(id: UUID(), name: "Mira")
-    let renamed = PendingEdits([
-        OutboxEntry(intent: .renamePerson(mira.id, name: "Marie-Jo")), OutboxEntry(intent: .aliases(mira.id, ["Jojo"])),
-    ])
-    #expect(
-        renamed.people(over: [mira]) == [CachedPerson(id: mira.id, name: "Marie-Jo", aliases: ["Jojo"])],
-        "a waiting rename and other names show at once")
+    #expect(try body(kept[2])["id"] as? String == kept[2].id.uuidString.lowercased(), "the range's id is the edit's")
     let switches = PendingEdits([
         OutboxEntry(intent: .switches(transcription: false, ai: nil, engine: nil)),
         OutboxEntry(intent: .switches(transcription: nil, ai: false, engine: nil)),
