@@ -132,6 +132,8 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
         ]);
       })();
     } else {
+      // ponytail: a new ref (a runtime's copy of a running session) only moves the agent's current session; its
+      // `session` row and link come with the first runtime that makes copies (step 3).
       ({ ref } = await runtime.send(a.session, wakeMessageOf(cause, events)));
       db.run("update agent set session = ? where id = ?", [ref, a.id]);
     }
