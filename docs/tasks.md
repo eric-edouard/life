@@ -225,7 +225,7 @@ reads the rest of its settings. How the report and the alerts go out:
   he picks its one `outgoing` option alone through `answer_check` (`answerDecision`, `memory/draft-send.ts`), through
   Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first), or, for iMessage, through
   Messages.app (text, or one file then its text as a second message; no reply, reaction or mention; confirmed by the
-  sent row in chat.db). What the chat takes is its
+  sent row in chat.db), or, for mail, through gog's Gmail from one of his accounts (a new mail or a reply in the thread of one message; never reply-all, quote, signature or tracking; `gog auth add <account> --services=gmail --force-consent` if gog says it lacks Gmail send). What the chat takes is its
   bridge's room features, checked when asked and again before the send; a file is read once more and must match the
   digest the card showed. The outcome (`sent` with the sent message's id, or `send-failed` with why, which may
   say it may have gone) is written on the decision and reaches its asker in `decision.answered`. A failed send is

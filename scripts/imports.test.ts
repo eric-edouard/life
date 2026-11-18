@@ -12,6 +12,7 @@ const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
+const GOG_GMAIL = /gogCall\(\s*"gmail"/;
 const MONEY = /\["money",/;
 const MESSAGES_APP = /tell application "Messages"/;
 const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;
@@ -108,6 +109,8 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
+  // His mail is sent only by Gmail through gog, in one file.
+  expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
 });

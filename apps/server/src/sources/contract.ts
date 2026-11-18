@@ -38,12 +38,17 @@ export interface AppStore {
  * `read` gives them, each an `@name` of `text`).
  */
 export interface Outgoing {
+  cc?: string;
+  /** A mail's `to` is its addresses, and its `chat`. */
   chat: string;
   file?: { bytes: Uint8Array; mime: string; name: string };
+  from?: string;
   mentions?: { name: string; sender: string }[];
   onMessage?: string;
   reaction?: string;
+  subject?: string;
   text?: string;
+  to?: string;
 }
 
 /** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
