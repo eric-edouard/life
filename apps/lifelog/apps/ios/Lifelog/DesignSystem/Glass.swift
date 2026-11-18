@@ -11,6 +11,6 @@ extension View {
 
     /// The single red primary action on a screen (play, export, save).
     func primaryGlassButton() -> some View {
-        buttonStyle(.glassProminent).tint(Palette.redFill)
+        buttonStyle(.glassProminent).tint(Palette.fg)
     }
 }

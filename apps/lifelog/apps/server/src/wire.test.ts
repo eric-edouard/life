@@ -26,11 +26,11 @@ import { PARSER_VERSION } from "./elevenlabs";
 import { storeHistory } from "./location";
 import { addQuietRange, storeMacHeard } from "./quiet-ranges";
 import { services } from "./services";
-import { storeSubscriptionUsage } from "./subscriptions";
 import {
   mapJob,
   OWNER_TOKEN,
   oggOpus,
+  postEdit,
   storedResult,
   testConfig,
   testDb,
@@ -247,21 +247,21 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
     source: "com.apple.dictation",
     startedAt: iso(45),
   });
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     at: iso(20),
     editedAt: iso(400),
     id: id(8),
     kind: "split",
   });
   // A merge taken back: its row carries both ends and when it was undone.
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     editedAt: iso(410),
     from: iso(30),
     id: id(13),
     kind: "merge",
     to: iso(150),
   });
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     edit: id(13),
     editedAt: iso(420),
     id: id(14),
@@ -280,15 +280,6 @@ test("GET /changes: a page with each kind and every field, a retired conversatio
     visits: [],
   });
   storeMacHeard(env.db, new Date(iso(500)));
-  storeSubscriptionUsage(env.db, {
-    engine: "codex",
-    reading: {
-      fiveHour: { resetsAt: 1_800_010_000, usedPercent: 0 },
-      observedAt: 1_750_000_000,
-      sevenDay: { resetsAt: 1_800_600_000, usedPercent: 42.5 },
-    },
-    type: "subscription.usage",
-  });
   await send("PUT", "/vocabulary", { terms: ["Oakridge"] });
   // Set last: the routes above recompute it (conversation-state.ts).
   env.db

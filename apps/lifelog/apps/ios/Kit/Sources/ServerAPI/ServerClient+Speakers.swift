@@ -77,12 +77,6 @@ extension ServerClient {
         try decode([NamingItem].self, try await send(try request("naming-queue")))
     }
 
-    /// Voices the owner named that sound like someone else (openapi `/naming-queue/rechecks`), the most doubtful first.
-    /// Any answer settles one for good.
-    public func rechecks() async throws -> [NamingItem] {
-        try decode([NamingItem].self, try await send(try request("naming-queue/rechecks")))
-    }
-
     /// The owner's answer for a voice to name (openapi `/naming-queue/answer`).
     public enum NamingAnswer: Sendable, Equatable, Codable {
         /// Someone new, named so.

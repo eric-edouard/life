@@ -199,7 +199,7 @@ How to set it up, once, on the iPhone:
 
 | Gesture | Effect |
 | --- | --- |
-| Quick press | Quick question to AI: the last minute, transcribed by the server (ElevenLabs), to Claude or ChatGPT. While paused, it only resumes (below) |
+| Quick press | While paused, it resumes recording (below). Otherwise the app does nothing with it: the quick question to AI was cut for v1 (owner, 18 Nov 2026) |
 | Hold ~2 s | Recording on/off. The Pendant does this itself; the app only reflects it, never reverses it |
 | Hold until red, release | Recovery mode; hold again until off to leave |
 | Hold until red, release, hold until off, then press | 🟢 Restart: keeps every page; red ×3 until the phone sets the clock. A Pendant that stopped advertising after a link timeout came back at once. The "Pendant not answering" notice gives these steps |
@@ -223,31 +223,10 @@ the Pendant must confirm it, and nothing else happens. Only a fresh press counts
 connection or whose time is within 10 s of now, so a press replayed at connect never turns recording on or asks
 anything.
 
-Each live short press is one quick question (`QuickPress`); the same press replayed is dropped. The firmware's
-`double` event (raw 3) does nothing; the double press has no action. Every live press is a `press`
-event: `bun run events --since 30m press`.
-
-What a press does (`ButtonActions`, decisions in `docs/decisions.md`):
-- The press is placed at the Pendant's own time of it (`PressClock.pressedAt`), not when it arrived: a
-  press has reached the suspended app 11 s late, in one burst with 11 held-back pages, when a silent push woke it.
-- It waits until the newest stored audio reaches the press, at most 4 s, then renders the window (60 s before the
-  press) as Ogg Opus, as fragments are (`RecentAudio`): only the newest pages and the clock
-  syncs from them on, never the whole archive's. The server transcribes it at once with ElevenLabs
-  (`POST /quick-transcriptions`, under half a cent a minute, counted in the spending).
-- In the app, a card rises over whatever screen or sheet is open (`PressOverlay`, its own window) and shows each stage
-  as it happens: heard, listening back, transcribing, then the words with "Ask Claude" and "Ask ChatGPT". A failure says why, with Try again. The Pendant
-  screen's lens lights up and its ring follows the same stages. A tap outside or a swipe down puts the card away; the
-  outcome of a press still at work shows again.
-- In the background, the outcome is a notification instead: the words (a tap opens them in lifelog, its Claude and
-  ChatGPT actions open the app), or why it failed. Claude and ChatGPT open with the words filled in
-  (`https://claude.ai/new?q=`, `https://chatgpt.com/?q=`, universal links only), or, over about 6 KB, copied with the
-  app opened empty.
-- Each press ends with a `press.done` event: its outcome, `reason` when it failed, and each stage's
-  milliseconds since the press: `receivedMs`, `settledMs`, `renderedMs`, `transcribedMs` (upload and transcription;
-  the server's `quick_transcription` event has its own `ms`) and `doneMs`. In Debug, Diagnostics' "Press once in 3 s"
-  presses the simulated Pendant, with fixed words, so each stage shows in the simulator.
-- Each finished press is kept in the Presses tab (`presses.json` in Caches, the newest 200, never synced): its words
-  and outcome, one card per press, which asks Claude or ChatGPT.
+The app does nothing else with a press: the quick question to AI (the last minute transcribed and offered to Claude or
+ChatGPT), its card, notification and Presses tab, and the server's `POST /quick-transcriptions`, were cut for v1 (owner,
+18 Nov 2026). The press clock (`PressClock`) still tells a live press from a replayed one. The firmware's `double`
+event (raw 3) does nothing.
 
 ⚠️ LED brightness: the command exists and Omi sends it, but no source shows it working, whether 0 turns the
 recording light off, or whether it survives a reboot. It takes a level from 0 to 100. Settings offers Off (0) and four

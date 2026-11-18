@@ -94,7 +94,7 @@ struct PendantScreen: View {
             .scrollEdgeEffectStyle(.soft, for: .top)
             .stillWhileScrolling()
         }
-        .background(Palette.ground)
+        .background(Palette.bg)
         // Named for the back button on pages pushed from here, never shown on this one.
         .navigationTitle("Pendant")
         .toolbar(removing: .title)

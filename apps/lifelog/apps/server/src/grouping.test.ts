@@ -20,6 +20,7 @@ import {
   anchorId,
   anchorOf,
   type Edit,
+  type EditRequest,
   type GroupingInput,
   groupSource,
   markDirty,
@@ -33,6 +34,7 @@ import { setSwitches } from "./switches";
 import {
   mapJob,
   OWNER_TOKEN,
+  postEdit,
   seedTranscript,
   testConfig,
   testDb,
@@ -373,7 +375,7 @@ test("a regroup logs only the turns whose conversation changed: a turn's convers
   expect(turnRefs()).toEqual([`${later}:0`]);
   // A split logs the turns it moves to the new conversation, not the one that stays.
   env.db.$client.run("delete from change_log");
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     at: iso(20),
     editedAt: iso(200),
     id: randomUUID(),
@@ -408,13 +410,13 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
     editedAt: new Date().toISOString(),
     from: iso(30),
     id: merge,
-    kind: "merge",
+    kind: "merge" as const,
     to: iso(430),
   };
-  expect(await (await send("POST", "/edits", body)).json()).toEqual({
+  expect(await (await postEdit(env.db, body)).json()).toEqual({
     stored: true,
   });
-  expect(await (await send("POST", "/edits", body)).json()).toEqual({
+  expect(await (await postEdit(env.db, body)).json()).toEqual({
     stored: false,
   });
   expect(ranges()).toEqual([[at(0), at(0), at(460)]]);
@@ -429,20 +431,20 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
     edit: merge,
     editedAt: new Date().toISOString(),
     id: randomUUID(),
-    kind: "undo",
+    kind: "undo" as const,
   };
-  expect((await send("POST", "/edits", undo)).status).toBe(200);
+  expect((await postEdit(env.db, undo)).status).toBe(200);
   expect(ranges()).toEqual([
     [at(0), at(0), at(60)],
     [at(400), at(400), at(460)],
   ]);
   expect(
-    (await send("POST", "/edits", { ...undo, edit: undo.id, id: randomUUID() }))
+    (await postEdit(env.db, { ...undo, edit: undo.id, id: randomUUID() }))
       .status
   ).toBe(400);
   expect(
     (
-      await send("POST", "/edits", {
+      await postEdit(env.db, {
         ...undo,
         edit: randomUUID(),
         id: randomUUID(),
@@ -451,14 +453,14 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
   ).toBe(404);
 
   const split = randomUUID();
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     at: iso(30),
     editedAt: new Date().toISOString(),
     id: split,
     kind: "split",
   });
   expect(ranges().map(([id]) => id)).toEqual([at(0), at(30), at(400)]);
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     edit: split,
     editedAt: new Date().toISOString(),
     id: randomUUID(),
@@ -471,17 +473,6 @@ test("split, merge and undo regroup, retire and bring back; edits are idempotent
     .where(eq(conversations.id, anchorId(at(30))))
     .all();
   expect(gone?.successorId).toBe(anchorId(at(0)));
-  expect(
-    (
-      await send("POST", "/edits", {
-        editedAt: new Date().toISOString(),
-        from: iso(50),
-        id: randomUUID(),
-        kind: "merge",
-        to: iso(40),
-      })
-    ).status
-  ).toBe(400);
 });
 
 test("a split or merge inside an imported recording is refused, not stored", async () => {
@@ -496,11 +487,11 @@ test("a split or merge inside an imported recording is refused, not stored", asy
     })
     .run();
   const edit = (body: object) =>
-    send("POST", "/edits", {
+    postEdit(env.db, {
       editedAt: new Date().toISOString(),
       id: randomUUID(),
       ...body,
-    });
+    } as EditRequest);
   const refused = await Promise.all(
     [
       { at: iso(1050), kind: "split" },
@@ -602,7 +593,7 @@ test("forward-only: a change regroups up to the first closed conversation after 
   );
   const lastLogs = logged(anchorId(at(800)));
   // A split in the first: it and the one after regroup, the last stays as it was grouped.
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     at: iso(30),
     editedAt: iso(2000),
     id: randomUUID(),
@@ -674,14 +665,14 @@ test("a conversation names the edits that made its edges, for Undo", async () =>
     ),
   ]);
   const split = randomUUID();
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     at: iso(30),
     editedAt: iso(100),
     id: split,
     kind: "split",
   });
   const merge = randomUUID();
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     editedAt: iso(101),
     from: iso(40),
     id: merge,
@@ -696,7 +687,7 @@ test("a conversation names the edits that made its edges, for Undo", async () =>
   expect(edges(0)).toEqual([null, split]);
   expect(edges(30)).toEqual([split, null]);
   // Undo the split: the merged one names the merge.
-  await send("POST", "/edits", {
+  await postEdit(env.db, {
     edit: split,
     editedAt: iso(102),
     id: randomUUID(),

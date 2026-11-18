@@ -20,7 +20,7 @@ import { createApp } from "./app";
 import { logChange } from "./change-log";
 import { setOwnerTimeZone, sha256Hex } from "./config";
 import { queueCache } from "./naming-cache";
-import { answerVoices, morningPush, namingQueue } from "./naming-queue";
+import { answerVoices, namingQueue } from "./naming-queue";
 import { assign, keepServerSamples, recognize, weighProfiles } from "./people";
 import { services } from "./services";
 import { profilesWithout, soundsLikeOf } from "./speakers";
@@ -177,7 +177,7 @@ function setup() {
   return { first, second };
 }
 
-test("the existing answer settles either name, through the worker; push and map ignore rechecks", async () => {
+test("the existing answer settles either name, through the worker; the map ignores rechecks", async () => {
   const { first, second } = setup();
   const same = voice(first, [FIRST, SECOND]);
   const changed = voice(first, [SECOND, SECOND]);
@@ -199,9 +199,7 @@ test("the existing answer settles either name, through the worker; push and map 
     Authorization: `Bearer ${OWNER_TOKEN}`,
     "Content-Type": "application/json",
   };
-  const listed = await app.request("/naming-queue/rechecks", { headers });
-  expect(listed.status).toBe(200);
-  expect(await listed.json()).toMatchObject([
+  expect(await queue.rechecks()).toMatchObject([
     {
       clips: [expect.any(Object), expect.any(Object)],
       id: `${changed.jobId}/voice`,
@@ -222,19 +220,6 @@ test("the existing answer settles either name, through the worker; push and map 
   expect(evaluate(exportVoices(env.db)).rechecks).toBe(2);
   expect(await queue.items()).toEqual([]);
   expect(queue.map()?.cards).toEqual([]);
-  const at = clock();
-  at.setUTCHours(12, 0, 0, 0);
-  expect(await morningPush(env.db, null, "test", queue).morning(at)).toEqual({
-    count: 0,
-  });
-  const refused = await Promise.all(
-    ["reader", "corrector", "map"].map((token) =>
-      app.request("/naming-queue/rechecks", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    )
-  );
-  expect(refused.map((response) => response.status)).toEqual([403, 403, 403]);
   for (const [held, personId] of [
     [same, first],
     [changed, second],

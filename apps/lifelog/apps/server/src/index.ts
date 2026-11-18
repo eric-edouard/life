@@ -51,17 +51,7 @@ const s = services(config, db, {
   queue,
   search: searchFor(db),
 });
-const {
-  excerpts,
-  health,
-  mac,
-  morning,
-  nudge,
-  rolling,
-  search,
-  voices,
-  worker,
-} = s;
+const { excerpts, health, mac, nudge, rolling, search, voices, worker } = s;
 const app = createApp(s);
 
 // ponytail: in-process timer, assumes one replica; move to a cron service if scaled out.
@@ -111,10 +101,6 @@ setInterval(() => {
     .catch((error: unknown) => reportError(db, "archive health", error));
   // Where each conversation stands and why it waits (the Mac, credits, a switch), in the feed.
   logged(db, "conversation states", () => s.states.refresh());
-  // Once a morning: yesterday's people to name, and one notification.
-  morning
-    .morning()
-    .catch((error: unknown) => reportError(db, "people digest", error));
 }, TICK_MS);
 
 export default {

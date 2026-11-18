@@ -120,10 +120,10 @@ struct RecordingWidgetView: View {
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .foregroundStyle(Palette.textPrimary)
+        .foregroundStyle(Palette.fg)
         .containerBackground(for: .widget) {
             LinearGradient(
-                colors: [Palette.ground.mix(with: Palette.liveDot, by: 0.12), Palette.ground], startPoint: .topLeading,
+                colors: [Palette.bg.mix(with: Palette.flag, by: 0.12), Palette.bg], startPoint: .topLeading,
                 endPoint: .bottomTrailing)
         }
     }
@@ -225,7 +225,7 @@ private struct BatteryFigure: View {
             BatteryGlyph(percent: percent, isCurrent: isCurrent, width: 22)
             Text("\(percent)%")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(percent <= BatteryGlyph.lowAtOrBelow && isCurrent ? Palette.redText : .secondary)
+                .foregroundStyle(percent <= BatteryGlyph.lowAtOrBelow && isCurrent ? Palette.flag : .secondary)
         }
         .accessibilityHidden(true)
     }

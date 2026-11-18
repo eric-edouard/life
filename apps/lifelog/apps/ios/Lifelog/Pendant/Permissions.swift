@@ -77,9 +77,9 @@ struct PermissionRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(name).foregroundStyle(Palette.textPrimary)
+                    Text(name).foregroundStyle(Palette.fg)
                         .accessibilityIdentifier(identifier)
-                    Text(status).font(.footnote).foregroundStyle(Palette.textSecondary)
+                    Text(status).font(.footnote).foregroundStyle(Palette.muted)
                 }
                 Spacer(minLength: 8)
                 switch state {
@@ -99,7 +99,7 @@ struct PermissionRow: View {
             }
             Text(explanation)
                 .font(.caption)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 10)

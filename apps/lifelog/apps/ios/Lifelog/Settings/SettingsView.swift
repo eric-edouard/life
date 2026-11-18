@@ -60,7 +60,7 @@ struct SettingsView: View {
                                 Spacer()
                                 Text(settings.alerts.lowBatteryPercent.formatted(.percent)).font(.monoTime)
                                     .foregroundStyle(
-                                        Palette.textBody)
+                                        Palette.fg)
                             }
                         }
                         .accessibilityValue("\(settings.alerts.lowBatteryPercent) percent")
@@ -132,8 +132,8 @@ struct SettingsView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .tint(Palette.redFill)
-        .background(Palette.ground)
+        .tint(Palette.fg)
+        .background(Palette.bg)
         .navigationTitle("Settings")
         .toolbarTitleDisplayMode(.inlineLarge)
     }
@@ -165,7 +165,7 @@ private struct SettingsGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.muted)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, 16)
             VStack(spacing: 0) {
@@ -182,12 +182,12 @@ private struct SettingsGroup<Content: View>: View {
                     }
                 }
             }
-            .foregroundStyle(Palette.textPrimary)
+            .foregroundStyle(Palette.fg)
             .card(radius: Metrics.Radius.group)
             if let footer {
                 Text(footer)
                     .font(.footnote)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
                     .padding(.horizontal, 16)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -208,12 +208,12 @@ private struct SettingsLink: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(title).foregroundStyle(Palette.textPrimary)
+            Text(title).foregroundStyle(Palette.fg)
             Spacer(minLength: 8)
-            if let value { Text(value).foregroundStyle(Palette.textSecondary) }
+            if let value { Text(value).foregroundStyle(Palette.muted) }
             Image(systemName: "chevron.forward")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 52)
@@ -258,7 +258,7 @@ struct PairingView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Palette.ground)
+        .background(Palette.bg)
         .navigationTitle("Server")
     }
 }
@@ -290,7 +290,7 @@ private struct SwitchToggle: View {
                 Text(title)
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
             }
         }
         .disabled(isOn == nil)

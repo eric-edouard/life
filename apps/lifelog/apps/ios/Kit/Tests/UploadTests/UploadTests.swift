@@ -758,10 +758,11 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     var library = try LibraryStore(directory: directory)
     let conversation = UUID()
     let ids = [UUID(), UUID(), UUID()]
-    try await library.enqueue(.split(at: at(1).date), id: ids[0])
+    let person = UUID()
+    try await library.enqueue(.renamePerson(person, name: "Mai"), id: ids[0])
     try await library.enqueue(.title(conversation: conversation, title: "x"), id: ids[1])
     try await library.enqueue(.vocabulary(["Oakridge"]), id: ids[2])
-    try await library.enqueue(.split(at: at(1).date), id: ids[0])
+    try await library.enqueue(.renamePerson(UUID(), name: "Mai"), id: ids[0])
     let title = "/conversations/\(conversation.uuidString.lowercased())/title"
     RebuildServer.hosts.withLock {
         $0[host, default: .init()].failures = [title: [422], "/vocabulary": [503]]
@@ -778,7 +779,11 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     try await Outbox.replay(library, client: client)
     #expect(try await library.outbox().map(\.id) == [ids[1]], "the refusal waits for the owner")
     let sent = RebuildServer.hosts.withLock { $0[host]?.requests ?? [] }.map { "\($0.method) \($0.path)" }
-    #expect(sent == ["POST /edits", "PUT \(title)", "PUT /vocabulary", "PUT /vocabulary"])
+    #expect(
+        sent == [
+            "PATCH /people/\(person.uuidString.lowercased())", "PUT \(title)", "PUT /vocabulary",
+            "PUT /vocabulary",
+        ])
 }
 
 // MARK: Driver
@@ -971,13 +976,11 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
         directory: FileManager.default.temporaryDirectory.appending(path: "pending-\(UUID().uuidString)"))
     let conversation = UUID()
     try await library.enqueue(.title(conversation: conversation, title: "Lunch with Mai"))
-    try await library.enqueue(.split(at: at(30).date))
     try await library.enqueue(
         .speaker(job: conversation, label: "speaker_1", target: .new(name: "Mai"), turnIndex: nil))
 
     var pending = try await library.pendingEdits()
     #expect(pending.titles == [conversation: "Lunch with Mai"])
-    #expect(pending.regrouping(at(0)..<at(60)) && !pending.regrouping(at(60)..<at(90)))
     #expect(pending.speakers == ["\(conversation)|speaker_1"])
 
     // The server refuses the title: it shows its message, and the feed's title again.
@@ -986,7 +989,7 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
     pending = try await library.pendingEdits()
     #expect(pending.titles.isEmpty)
     #expect(pending.refused.map(\.refused) == ["no such conversation"])
-    #expect(pending.waiting.count == 2)
+    #expect(pending.waiting.count == 1)
 }
 
 @Test func everyIntentKeepsInTheOutboxAndBecomesItsRequestWhenSent() async throws {
@@ -996,12 +999,10 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
         id: "w", kind: .several, conversations: 1, seconds: 2, exchanges: 0, evidence: [],
         voices: [.init(conversationId: UUID(), jobId: UUID(), speakerLabel: "speaker_1")], clips: [])
     let intents: [OwnerIntent] = [
-        .split(at: at(1).date), .merge(from: at(1).date, to: at(2).date), .undo(edit: UUID()),
         .title(conversation: UUID(), title: nil), .title(conversation: UUID(), title: "Lunch"),
         .speaker(job: UUID(), label: "speaker_0", target: .person(UUID()), turnIndex: 3),
         .speaker(job: UUID(), label: "speaker_1", target: .new(name: "Mai"), turnIndex: nil),
-        .dismissSplit(at: at(5).date), .vocabulary(["Nok", "Izipizi"]),
-        .summarize(conversation: UUID(), after: nil), .summarize(conversation: UUID(), after: UUID()),
+        .vocabulary(["Nok", "Izipizi"]),
         .switches(transcription: nil, ai: false, engine: .codex), .renamePerson(UUID(), name: "Mai"),
         .naming(
             item: .init(
@@ -1018,14 +1019,12 @@ func aBackupItemInFlightNeverHoldsARunAndADroppedOneGoesNextRound() async throws
     func body(_ entry: OutboxEntry) throws -> [String: Any] {
         try json(try #require(try entry.intent.request(id: entry.id, at: entry.createdAt).body))
     }
-    #expect(try body(kept[3])["title"] is NSNull, "a cleared title is sent as null")
-    #expect(try body(kept[9])["after"] is NSNull, "Generate with no run shown")
-    let target = try #require(try body(kept[6])["target"] as? [String: Any])
+    #expect(try body(kept[0])["title"] is NSNull, "a cleared title is sent as null")
+    let target = try #require(try body(kept[3])["target"] as? [String: Any])
     #expect(target["id"] as? String != nil, "a new person goes under the phone's id, the same on a replay")
-    #expect(try body(kept[14])["id"] as? String == kept[14].id.uuidString.lowercased(), "the range's id is the edit's")
+    #expect(try body(kept[8])["id"] as? String == kept[8].id.uuidString.lowercased(), "the range's id is the edit's")
     let pending = PendingEdits(kept)
-    #expect(pending.summarizing(intents.compactMap { if case .summarize(let c, nil) = $0 { c } else { nil } }[0]))
-    let several = try #require(try body(kept[15])["answer"] as? [String: Any])
+    let several = try #require(try body(kept[9])["answer"] as? [String: Any])
     #expect((several["people"] as? [String])?.count == 1 && several["unknown"] as? Bool == true)
     #expect(
         try JSONDecoder().decode(ServerClient.NamingAnswer.self, from: Data(#"{"kind":"several"}"#.utf8))

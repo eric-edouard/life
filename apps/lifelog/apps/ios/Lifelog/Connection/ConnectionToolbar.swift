@@ -43,7 +43,7 @@ struct ConnectionButton: View {
             }
         }
         // Quiet unless offline; the words and the symbol carry the meaning, never the colour.
-        .tint(state == .offline ? Palette.textPrimary : Palette.textSecondary)
+        .tint(state == .offline ? Palette.fg : Palette.muted)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Shows what waits for the server and why")
         .accessibilityIdentifier("connection.status")

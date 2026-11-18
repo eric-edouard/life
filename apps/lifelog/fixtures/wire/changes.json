@@ -177,20 +177,6 @@
       "able": false,
       "reason": null
     },
-    "subscriptions": {
-      "claude": null,
-      "codex": {
-        "fiveHour": {
-          "resetsAt": 1800010000,
-          "usedPercent": 0
-        },
-        "observedAt": 1750000000,
-        "sevenDay": {
-          "resetsAt": 1800600000,
-          "usedPercent": 42.5
-        }
-      }
-    },
     "watch": {
       "asleep": false,
       "heardAt": "2026-10-14T10:08:20.000Z",

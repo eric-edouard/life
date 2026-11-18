@@ -46,7 +46,7 @@ struct RemoteView: View {
         TimelineView(.explicit([Date.now] + (phone.glance?.changeDates ?? []))) { context in
             Remote(glance: phone.glance, now: context.date)
         }
-        .containerBackground(Palette.ground.gradient, for: .navigation)
+        .containerBackground(Palette.bg.gradient, for: .navigation)
         .onOpenURL { url in
             if let request = RecordingGlance.Request(url: url) { Task { await phone.set(request) } }
         }
@@ -103,7 +103,7 @@ private struct StatusLine: View {
                 Label(battery, systemImage: low ? "battery.25percent" : "battery.75percent")
                     .labelStyle(.titleAndIcon)
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(low ? Palette.liveDot : .secondary)
+                    .foregroundStyle(low ? Palette.flag : .secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -144,7 +144,7 @@ private struct RecordingButton: View {
         }
         .buttonStyle(.glassProminent)
         .tint(
-            glance?.microphone == .recording && glance?.connected == true ? Palette.liveDot : Color.white.opacity(0.16)
+            glance?.microphone == .recording && glance?.connected == true ? Palette.flag : Color.white.opacity(0.16)
         )
         .disabled(request == nil)
     }

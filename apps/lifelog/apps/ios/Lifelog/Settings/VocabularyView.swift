@@ -47,7 +47,7 @@ struct VocabularyView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Palette.ground)
+        .background(Palette.bg)
         .navigationTitle("Vocabulary")
     }
 

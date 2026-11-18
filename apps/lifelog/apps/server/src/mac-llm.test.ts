@@ -17,12 +17,11 @@ import { sha256Hex } from "./config";
 import { MAC_KILL_MS, macAnswer } from "./mac-llm";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { macProvider } from "./providers";
-import { latestValid } from "./runs";
 import { services } from "./services";
-import { subscriptions } from "./subscriptions";
 import { setSwitches, switches } from "./switches";
 import {
   fakeAnswer,
+  generate,
   mapJob,
   OWNER_TOKEN,
   seedTranscript,
@@ -157,24 +156,6 @@ const away = async (ws: WebSocket) => {
   await until(mac.live, (live) => live === null);
 };
 
-test("the authenticated Mac relays subscription limits and closing its socket keeps them", async () => {
-  const ws = await fakeMac();
-  const reading = {
-    fiveHour: null,
-    observedAt: 1_750_000_000,
-    sevenDay: { resetsAt: 1_800_600_000, usedPercent: 42 },
-  };
-  ws.send(
-    JSON.stringify({ engine: "codex", reading, type: "subscription.usage" })
-  );
-  await until(
-    () => subscriptions(env.db),
-    (value) => value.codex !== null
-  );
-  await away(ws);
-  expect(subscriptions(env.db).codex).toEqual(reading);
-});
-
 const turns: Turn[] = Array.from({ length: 3 }, (_, i) => ({
   end: i * 2 + 1.5,
   speakerId: `speaker_${i % 2}`,
@@ -200,15 +181,8 @@ function conversation() {
   mapJob(env.db, jobId, [[start, start + 3_600_000]]);
   return id;
 }
-// The owner's Generate as the phone sends it: `regenerate`, after the summary he sees.
-const summarize = (id: string, { regenerate = false } = {}) =>
-  app.request(`/conversations/${id}/intelligence`, {
-    body: JSON.stringify({
-      after: regenerate ? (latestValid(env.db, id)?.id ?? null) : null,
-    }),
-    headers: auth,
-    method: "POST",
-  });
+const summarize = async (id: string, { regenerate = false } = {}) =>
+  generate(env.db, s.rolling, id, regenerate);
 const runsOf = (id: string) =>
   env.db.query.intelligenceRuns
     .findMany({

@@ -94,3 +94,12 @@ final class BackupStore {
         }
     }
 }
+
+extension Bundle {
+    /// "1.0 (12)", written into every backup's manifest.
+    var appVersion: String {
+        let short = object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "\(short) (\(build))"
+    }
+}

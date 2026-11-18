@@ -4,7 +4,7 @@
     private func bar(_ summary: ConnectionSummary) -> some View {
         NavigationStack {
             Color.clear
-                .background(Palette.ground)
+                .background(Palette.bg)
                 .navigationTitle("Library")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { ConnectionButton(summary: summary) {} }

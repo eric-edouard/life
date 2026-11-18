@@ -14,7 +14,7 @@ struct LightGuide: View {
                 ForEach(LightPattern.allCases.filter { !$0.isProblem }) { LightRow(pattern: $0, time: time) }
                 Text("When something's wrong")
                     .font(.footnote)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
                     .padding(.top, 14)
                     .padding(.bottom, 4)
                     .accessibilityAddTraits(.isHeader)
@@ -124,15 +124,15 @@ private struct LightRow: View {
         let lit = pattern.intensity(at: time)
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(Palette.textPrimary.opacity(0.08))
+                Circle().fill(Palette.fg.opacity(0.08))
                 LightDot(color: first, intensity: lit.first)
                 if let second { LightDot(color: second, intensity: lit.second) }
             }
             .frame(width: 10, height: 10)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
-                Text(pattern.label).font(.subheadline).foregroundStyle(Palette.textBody)
-                Text(pattern.pattern).font(.footnote).foregroundStyle(Palette.textTertiary)
+                Text(pattern.label).font(.subheadline).foregroundStyle(Palette.fg)
+                Text(pattern.pattern).font(.footnote).foregroundStyle(Palette.faint)
             }
             Spacer(minLength: 0)
         }
@@ -170,8 +170,8 @@ struct LightStrip: View {
             }
             .sensoryFeedback(.selection, trigger: selected)
             VStack(alignment: .leading, spacing: 2) {
-                Text(selected.label).font(.subheadline).foregroundStyle(Palette.textBody)
-                Text(selected.pattern).font(.footnote).foregroundStyle(Palette.textTertiary)
+                Text(selected.label).font(.subheadline).foregroundStyle(Palette.fg)
+                Text(selected.pattern).font(.footnote).foregroundStyle(Palette.faint)
             }
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityHidden(true)
@@ -189,11 +189,11 @@ private struct LightWell: View {
         let (first, second) = pattern.colors
         let lit = pattern.intensity(at: time)
         ZStack {
-            Circle().fill(Palette.ground)
+            Circle().fill(Palette.bg)
             Circle().strokeBorder(
-                isSelected ? Palette.textSecondary : Palette.hairline, lineWidth: isSelected ? 1.5 : 0.5)
+                isSelected ? Palette.muted : Palette.line, lineWidth: isSelected ? 1.5 : 0.5)
             ZStack {
-                Circle().fill(Palette.textPrimary.opacity(0.08))
+                Circle().fill(Palette.fg.opacity(0.08))
                 LightDot(color: first, intensity: lit.first)
                 if let second { LightDot(color: second, intensity: lit.second) }
             }
@@ -244,7 +244,7 @@ struct LightBrightnessRow: View {
             }
             Text(caption)
                 .font(.footnote)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 12)
@@ -304,7 +304,7 @@ struct LightGuideView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Tap a light to read it. They blink as the Pendant does.")
                         .font(.footnote)
-                        .foregroundStyle(Palette.textSecondary)
+                        .foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     LightStrip()
                 }
@@ -319,7 +319,7 @@ struct LightGuideView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
-        .background(Palette.ground)
+        .background(Palette.bg)
         .navigationTitle("Light guide")
         .toolbarTitleDisplayMode(.inline)
     }

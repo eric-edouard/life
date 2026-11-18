@@ -16,10 +16,10 @@ struct SectionHeader: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
         layout {
-            Text(title).fontWeight(.semibold).foregroundStyle(Palette.textPrimary)
-            if let detail { Text(detail).foregroundStyle(Palette.textSecondary) }
+            Text(title).fontWeight(.semibold).foregroundStyle(Palette.fg)
+            if let detail { Text(detail).foregroundStyle(Palette.muted) }
             if !stacked { Spacer(minLength: 8) }
-            if let trailing { Text(trailing).font(.monoDetail).foregroundStyle(Palette.textTertiary) }
+            if let trailing { Text(trailing).font(.monoDetail).foregroundStyle(Palette.faint) }
         }
         .font(.subheadline)
         .lineLimit(stacked ? nil : 1)
@@ -124,11 +124,11 @@ struct ProcessingBadge: View {
             Text(title)
         }
         .font(.caption)
-        .foregroundStyle(Palette.textBody)
+        .foregroundStyle(Palette.fg)
         .padding(.vertical, 4)
         .padding(.horizontal, 10)
-        .background(Palette.surface2, in: .capsule)
-        .overlay { Capsule().strokeBorder(Palette.hairline, lineWidth: 0.5) }
+        .background(Palette.tile, in: .capsule)
+        .overlay { Capsule().strokeBorder(Palette.line, lineWidth: 0.5) }
         .accessibilityElement(children: .combine)
     }
 
@@ -136,10 +136,10 @@ struct ProcessingBadge: View {
         switch glyph {
         case .working: ProgressView().controlSize(.mini)
         case .waiting:
-            Image(systemName: "circle.dashed").foregroundStyle(Palette.textSecondary).accessibilityHidden(true)
+            Image(systemName: "circle.dashed").foregroundStyle(Palette.muted).accessibilityHidden(true)
         case .recording: StatusDot(state: .live, size: 7)
         case .failed:
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.redText).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Palette.flag).accessibilityHidden(true)
         }
     }
 }
@@ -221,15 +221,15 @@ struct FlowLayout: Layout {
 extension View {
     /// The card surface: `surface1` with a hairline edge. Content sits on cards; glass stays for the controls.
     func card(radius: CGFloat = Metrics.Radius.card) -> some View {
-        background(Palette.surface1, in: .rect(cornerRadius: radius))
-            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.hairline, lineWidth: 0.5) }
+        background(Palette.card, in: .rect(cornerRadius: radius))
+            .overlay { RoundedRectangle(cornerRadius: radius).strokeBorder(Palette.line, lineWidth: 0.5) }
     }
 }
 
 /// The half-point rule between rows.
 struct Hairline: View {
     var body: some View {
-        Rectangle().fill(Palette.hairline).frame(height: 0.5)
+        Rectangle().fill(Palette.line).frame(height: 0.5)
     }
 }
 

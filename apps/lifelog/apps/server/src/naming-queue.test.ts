@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
-  alertPushToken,
   conversations,
   intelligenceRuns,
   people,
@@ -13,11 +12,10 @@ import {
   voiceSamples,
 } from "@lifelog/db/schema";
 import { eq as is } from "drizzle-orm";
-import type { PushRequest } from "./apns";
 import { createApp } from "./app";
 import { setOwnerTimeZone } from "./config";
 import { cardClips } from "./naming-clips";
-import { answerVoices, morningPush, namingQueue } from "./naming-queue";
+import { answerVoices, namingQueue } from "./naming-queue";
 import { assign, sweep } from "./people";
 import { services } from "./services";
 import {
@@ -44,9 +42,8 @@ beforeEach(() => {
   seeded = 0;
 });
 
-// Oct 10 at noon in the tests' zone (Asia/Jakarta, set below), and the next morning at 9.
+// Oct 10 at noon in the tests' zone (Asia/Jakarta, set below).
 const NOON = Date.parse("2026-10-10T05:00:00Z");
-const NEXT_MORNING = new Date("2026-10-11T02:00:00Z");
 const queued = () => namingQueue(env.db).items();
 
 // Conversations seeded in this test: each one starts an hour after the one before, so their
@@ -201,54 +198,6 @@ function twoCards() {
   ]);
   return nickname;
 }
-
-test("the morning pushes the queue's length once, the number the badge shows", async () => {
-  twoCards();
-  env.db.insert(alertPushToken).values({ pushToken: "abcdef" }).run();
-  const sent: PushRequest[] = [];
-  const queue = namingQueue(env.db);
-  const digest = morningPush(
-    env.db,
-    (request) => {
-      sent.push(request);
-      return Promise.resolve({ body: "", status: 200 });
-    },
-    "com.example.lifelog",
-    queue
-  );
-  // 6:00: too early.
-  expect(await digest.morning(new Date("2026-10-10T23:00:00Z"))).toBeNull();
-  const made = await digest.morning(NEXT_MORNING);
-  expect(made).toEqual({ count: queue.items().length });
-  expect(made?.count).toBe(2);
-  expect(await digest.morning(NEXT_MORNING)).toBeNull();
-  // A restart the same morning sends nothing more.
-  expect(
-    await morningPush(env.db, null, "app", queue).morning(NEXT_MORNING)
-  ).toBeNull();
-  expect(sent).toHaveLength(1);
-  expect(JSON.parse(sent[0]?.body ?? "{}")).toMatchObject({
-    aps: { alert: { body: "2 voices to name." } },
-    peopleDigest: "2026-10-11",
-  });
-});
-
-test("no voice waiting, no push", async () => {
-  owner();
-  env.db.insert(alertPushToken).values({ pushToken: "abcdef" }).run();
-  let sent = 0;
-  const digest = morningPush(
-    env.db,
-    () => {
-      sent += 1;
-      return Promise.resolve({ body: "", status: 200 });
-    },
-    "app",
-    namingQueue(env.db)
-  );
-  expect(await digest.morning(NEXT_MORNING)).toEqual({ count: 0 });
-  expect(sent).toBe(0);
-});
 
 test("the kept queue is always the one built afresh", async () => {
   const queue = namingQueue(env.db);

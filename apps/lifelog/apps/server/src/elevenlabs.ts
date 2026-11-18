@@ -10,7 +10,7 @@ import type {
   Word,
 } from "@lifelog/db/schema";
 import { z } from "zod";
-import { type Config, ownerTimeZone } from "./config";
+import type { Config } from "./config";
 
 // 2: each word keeps the provider spacing before it (Thai comes as one token per letter, unspaced).
 // 3: a pause splits a turn only where the provider put a space, never inside a Thai word.
@@ -82,8 +82,8 @@ export function submit(
   );
 }
 
-// Transcribes a press's audio at once (routes/quick.ts): no webhook, so the answer is the transcript, and no
-// diarization, which only slows it: a press asks about the words, not who said them. `billed` false: refused before
+// Transcribes an excerpt's audio at once (jobs.ts): no webhook, so the answer is the transcript, and no
+// diarization, which only slows it: an excerpt asks about the words, not who said them. `billed` false: refused before
 // it could cost anything; `later`: not taken now (no room, the account), fine to send again.
 export async function transcribeNow(
   config: Config,
@@ -195,11 +195,6 @@ export async function fetchTranscript(
   return res.ok ? res.json() : null;
 }
 
-const UsageTable = z.object({
-  columns: z.array(z.string()),
-  rows: z.array(z.array(z.unknown())),
-});
-
 const Subscription = z.object({
   character_count: z.number(),
   character_limit: z.number(),
@@ -223,56 +218,6 @@ export async function credits(
     return plan.success
       ? { limit: plan.data.character_limit, used: plan.data.character_count }
       : null;
-  } catch {
-    return null;
-  }
-}
-
-// What ElevenLabs itself reports for speech-to-text in [from, to): the whole workspace,
-// every key and app, not only this server's jobs. Null when it doesn't answer, so the
-// summary never waits on it or fails because of it.
-export async function workspaceSpeechToText(
-  config: Config,
-  from: Date,
-  to: Date
-): Promise<{ hours: number; usd: number } | null> {
-  try {
-    const res = await fetch(
-      `${config.ELEVENLABS_BASE_URL}/v1/workspace/analytics/query/usage-by-product-over-time`,
-      {
-        body: JSON.stringify({
-          end_time: to.getTime(),
-          filters: [
-            { column: "product_type", operation: "eq", values: ["STT"] },
-          ],
-          // Daily buckets from local midnight, so a range starting at midnight there is exact.
-          interval_seconds: 86_400,
-          start_time: from.getTime(),
-          time_zone: ownerTimeZone(),
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          "xi-api-key": config.ELEVENLABS_API_KEY,
-        },
-        method: "POST",
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-    const table = UsageTable.safeParse(res.ok ? await res.json() : null);
-    if (!table.success) {
-      return null;
-    }
-    const sum = (column: string) => {
-      const i = table.data.columns.indexOf(column);
-      return i < 0
-        ? null
-        : table.data.rows.reduce((s, row) => s + Number(row[i] ?? 0), 0);
-    };
-    const minutes = sum("total_minutes");
-    const usd = sum("total_cost");
-    return minutes === null || usd === null
-      ? null
-      : { hours: minutes / 60, usd };
   } catch {
     return null;
   }

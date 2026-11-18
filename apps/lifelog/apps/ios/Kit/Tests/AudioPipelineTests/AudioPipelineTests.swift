@@ -477,22 +477,6 @@ extension Array {
     #expect(try directory.manifest(deviceID: device).segments == [evicted])
 }
 
-@Test func recentAudioIsTheWindowBeforeTheEndFromTheNewestPages() async throws {
-    let directory = temporaryDirectory()
-    let (store, _) = try await store(seconds: 10, at: directory)
-    let end = CaptureInstant(millis: base + 10_000)
-    let file = try await RecentAudio.ogg(
-        last: 3, before: end.date, store: store, deviceID: device, to: directory.appending(path: "press.ogg"))
-    #expect(file.durationMillis == 3_000 && file.byteCount > 0)
-    let source = try await RecentAudio.source(seconds: 3, store: store, deviceID: device)
-    #expect(try await source.pcm(end.advanced(by: -3_000)..<end).contains { $0 != 0 })
-    #expect(try await source.pcm(end.advanced(by: 60_000)..<end.advanced(by: 62_000)).allSatisfy { $0 == 0 })
-    // The newest pages already reach the end: no wait.
-    let wait = ContinuousClock.now
-    try await RecentAudio.settle(until: end.date, store: store, deviceID: device, timeout: .seconds(2))
-    #expect(ContinuousClock.now - wait < .milliseconds(100))
-}
-
 @Test func aRecentWindowReadsOnlyTheClockSyncsFromItsPagesOn() async throws {
     let (store, _) = try await store(seconds: 10, at: temporaryDirectory())
     for index in [0, 4, 8] as [UInt64] {

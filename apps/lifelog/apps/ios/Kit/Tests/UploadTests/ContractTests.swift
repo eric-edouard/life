@@ -78,7 +78,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let queued = /path: "([a-z][a-z\/-]*)", urgent/
     let literals = client.matches(of: call).map(\.output.1) + outbox.matches(of: queued).map(\.output.1)
     let called = Set(literals.map { String($0).replacing(/\\\([a-z][A-Za-z]*(?:\([a-z]+\))?\)/, with: "{}") })
-    #expect(called.count > 25, "the parser still finds the client's calls")
+    #expect(called.count > 20, "the parser still finds the client's calls")
     #expect(called.subtracting(paths).isEmpty, "\(called.subtracting(paths).sorted())")
 }
 

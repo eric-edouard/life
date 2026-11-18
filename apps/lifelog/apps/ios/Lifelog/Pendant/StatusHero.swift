@@ -155,11 +155,11 @@ struct PendingRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(Palette.textPrimary.opacity(0.12), lineWidth: lineWidth)
+            Circle().stroke(Palette.fg.opacity(0.12), lineWidth: lineWidth)
             TimelineView(.animation(paused: reduceMotion)) { context in
                 Circle()
                     .trim(from: 0, to: 0.26)
-                    .stroke(Palette.textPrimary, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .stroke(Palette.fg, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(
                         .degrees(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1) * 360))
             }
@@ -196,7 +196,7 @@ struct RecordingButton: View {
             }
             .font(.headline)
             .foregroundStyle(
-                records ? Palette.textOnRed : isBusy || !isEnabled ? Palette.textSecondary : Palette.textPrimary
+                records ? Palette.on : isBusy || !isEnabled ? Palette.muted : Palette.fg
             )
             .padding(.horizontal, 20)
             .frame(maxWidth: .infinity, minHeight: 56)
@@ -206,11 +206,11 @@ struct RecordingButton: View {
         .disabled(!isEnabled)
         .background {
             if unlinked {
-                Capsule().strokeBorder(Palette.textTertiary, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                Capsule().strokeBorder(Palette.faint, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
         }
         .glassEffect(
-            records ? .regular.tint(Palette.redFill).interactive() : unlinked ? .identity : .regular.interactive(),
+            records ? .regular.tint(Palette.fg).interactive() : unlinked ? .identity : .regular.interactive(),
             in: .capsule
         )
         .motion(Motion.standard, value: control)

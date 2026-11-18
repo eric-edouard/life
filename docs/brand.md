@@ -5,12 +5,12 @@
 The image is a visual reference; the exact values are the brand guide's and `assets/brand/tokens.css`'s.
 
 A private memory. Calm by nature, personal by design. Everything Life shows follows this page: the nightly email,
-the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
+the pairing page, the Mac app (menu-bar panel, status window, settings, first run), the iPhone app and the icons.
 
 ## The values
 
 One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css), its fonts' `@import` included, so a page that
-inlines or links it first gets them. Pages inline it or link it (first, before any rule of their own); the two surfaces
+inlines or links it first gets them. Pages inline it or link it (first, before any rule of their own); the surfaces
 that can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when a copy drifts:
 
 | Surface | How it takes the tokens |
@@ -19,29 +19,28 @@ that can't read CSS variables copy its values, and `scripts/brand.test.ts` fails
 | What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
 | Every email (the nightly, the reports, the alerts) | `C`, `RADIUS`, `SERIF`, `SANS` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The Mac app (parked) | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`: its colours copied; its fonts are still the old ones |
+| The iPhone app, widgets and Watch | `Palette` in `apps/lifelog/apps/ios/Shared/Palette.swift`: the thirteen colours, dark and light, copied; the app follows the system's appearance |
 
-No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets` or `apps/mac/Sources`.
+No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets`, `apps/mac/Sources` or the iPhone app's `Shared`.
 
-- **Colour.** Grey does the work: ink `#1F1F1F` (titles, the one primary button), text `#4A4A4A`, muted `#6B6B6B`
-  (labels; passes on ground and on card), rule `#E3E3E3`, ground `#F6F6F6` (the page, never pure white), card white
-  `#FFFFFF` (what sits on the page, and the text on ink). Two status colours, each always
-  beside a word, never as text: green `#15803D` only for done (a check), red `#B42318` only for a problem (a dot).
-  The other status tokens mark only the parked Mac app's dots.
-- **Dark.** Derived, the calm inverse: ground `#1F1F1F`, ink `#F2F2F2`, text `#C9C9C9`, muted `#A3A3A3`, card
-  `#2A2A2A`, rule `#3A3A3A`; green `#4ADE80` and red `#F97066`, lightened to read on the dark ground. Each colour's pair
-  is one `light-dark()` in tokens.css. Pages follow the system; the email stays light.
-- **Type.** Literata (500, 600) for titles; Atkinson Hyperlegible Next (400, 500, 700),
-  drawn so no two letters are mistaken, for everything he reads and taps; Atkinson Hyperlegible Mono for times, money
-  and ids. Mail loads no web font: titles show in Georgia, text in the system sans.
-- **Hierarchy.** Size and weight carry it, not colour: one dark button for the primary action, the others outlined;
-  labels small and muted.
-- **Shape.** Controls 12 px radius, panels 18 px, icon strokes 1.5 px, spacing 8, 16, 24, 48. No paper texture,
-  gradients or decorative shadows.
-- **Cards have no border** (owner, 30 Oct 2026): a card, a panel, an option or a field stands out from the ground by
-  its white (card) only, and a field inside a card takes the ground (owner, 31 Oct 2026); a chosen one is filled (ink). A rule line separates rows
+- **The look is the app's** (owner's yes, 18 Nov 2026: the new app's look becomes Life's brand, replacing the grey
+  one). Dark and light, thirteen colours, each a `light-dark()` in tokens.css: `bg` the page, `fg` text and the main
+  filled button, `card` a fill (never a border), `tile` a block inside a sheet, `sheet` a bottom sheet, `paper` a draft
+  or a quote, `muted` secondary text, `faint` small labels on the page, `line` hairlines between rows, `on` text on a
+  filled button, and three that mean something: `flag` needs him, a deadline or a failure, `ai` an agent or a guess of
+  Life's, `ok` it worked. Most of a screen is black and cream (dark `bg` `#07080a`, `fg` `#fff8ea`; light `bg`
+  `#f3f4f5`, `fg` `#0d0e11`). Never a hex in a screen; the values are tokens.css's.
+- **Type.** Manrope only: thin (250) for a title, bold (650) for what matters, 15 px body, small labels in capitals (11 px,
+  600, 0.22em apart). Web pages load it from Google Fonts through tokens.css; mail loads no web font, so it shows
+  Manrope only where installed. The phone still draws its old fonts until its screens are redone.
+- **Hierarchy.** Size and weight carry it, not colour: one filled button for the primary action, the others quiet.
+- **Shape.** Controls 12 px radius, panels 22 px, buttons full pills in the app, icon strokes 1.5 px, spacing 8, 16, 24,
+  48. No paper texture, gradients or decorative shadows.
+- **Cards have no border** (owner, 30 Oct 2026): a card, a panel, an option or a field stands out from the page by
+  its `card` fill only, and a field inside a card takes the page's `bg` (owner, 31 Oct 2026); a chosen one is filled (`fg`). A rule line separates rows
   of a list, never draws a box.
-- **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; lifelog's apps
-  (iOS, Android) keep the old look until they are stripped; Android's `Brand.kt` and lifelog's `docs/design.md` describe that old look.
+- **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; Android keeps the
+  old look (`Brand.kt`, lifelog's `docs/design.md`).
 
 ## The mark
 
@@ -57,5 +56,5 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 
 Give the words room. Keep the source close: show where a memory came from. Make colour useful: status only.
 
-Fonts are under the SIL Open Font License. Web pages load Literata and Atkinson Hyperlegible from Google Fonts, through
+Fonts are under the SIL Open Font License. Web pages load Manrope from Google Fonts, through
 `tokens.css`; the parked Mac app still bundles its old fonts in `apps/mac/Fonts`.

@@ -72,7 +72,7 @@ private struct LensHeader: View {
             WholeWords(reading.sentence, centered: true)
                 .font(reading.voice == .word ? .statusWord : .statusSentence)
                 .italic(reading.voice == .waiting)
-                .foregroundStyle(reading.mode == .live ? Palette.textPrimary : Palette.textBody)
+                .foregroundStyle(reading.mode == .live ? Palette.fg : Palette.fg)
                 .id(reading.sentence)
                 .transition(.blurReplace(.upUp))
                 .padding(.top, 30)
@@ -86,7 +86,7 @@ private struct LensHeader: View {
                             .variableColor.iterative, isActive: line.isHearing && !reduceMotion && !isScrolling)
                 }
                 .font(.subheadline)
-                .foregroundStyle(Palette.textBody)
+                .foregroundStyle(Palette.fg)
                 .contentTransition(.opacity)
                 .id(line.systemImage)
                 .transition(.opacity)
@@ -97,7 +97,7 @@ private struct LensHeader: View {
                     "Mic on since \(since.moment) · \(Text(.currentDate, format: .offset(to: since, allowedFields: [.hour, .minute], sign: .never)))"
                 )
                 .font(.footnote)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
             if let left = catchUp?.left {
@@ -105,7 +105,7 @@ private struct LensHeader: View {
                     "≈ \(Text(left, format: .units(allowed: [.hours, .minutes], width: .abbreviated))) of audio still on the Pendant"
                 )
                 .font(.footnote)
-                .foregroundStyle(Palette.textTertiary)
+                .foregroundStyle(Palette.faint)
                 .padding(.top, 6)
             }
         }
@@ -146,7 +146,7 @@ private struct LensSection: View {
     var body: some View {
         Text(title)
             .font(.title3.weight(.semibold))
-            .foregroundStyle(Palette.textPrimary)
+            .foregroundStyle(Palette.fg)
             .padding(.top, 20)
             .padding(.horizontal, 4)
             .accessibilityAddTraits(.isHeader)
@@ -172,7 +172,7 @@ private struct LensFact<Figure: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.footnote)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.muted)
             figure
         }
         .lensCard()

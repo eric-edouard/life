@@ -45,13 +45,10 @@ the top; nothing is lost or sent twice.
 | Words (turns in capture time) | Server (`turns`) | Phone cache, read-only | Feed. A conversation's words are the turns starting in its range; each turn carries its `conversationId`, which the phone reads (a regroup logs the turns whose conversation it changed), and `words`, each word's time and length in its text, which playback lights |
 | Chapters, titles, summaries (runs of version 11 and before; none are made now) | Server | Phone cache | Feed |
 | Speakers, people, voice profiles | Server | Phone cache; answers are requests | Feed; answers through the outbox |
-| Voices to name | Server | The last answer, in Caches (`naming-queue.json`) | `GET /naming-queue`, not in the feed; the one server answer kept outside the cache, shown at once and read again in the background. People and their aliases come in the feed; rename, aliases and merge go through the outbox. A clip is the job's stored audio (`GET /transcripts/{jobId}/audio`, from `audio.start` seconds, never past its stretch of kept speech) or, from before the audio store, the phone's recording, `at` to `until`; its timed `words` count from `at` in both, and its turn (`jobId`, `speakerLabel`, `turnIndex`, `personId`). `likely` is his people with a voice profile, the most like this voice first, for the phone to order its names by. "Several people" names each clip's turn in place (`PUT /transcripts/{jobId}/speakers/{label}` with `turnIndex`), then sends `several` (`people`, `unknown`), all through the outbox; after `several` the phone sends Generate (`POST /conversations/{id}/intelligence`) for each of the voice's conversations |
-| Voices to recheck | Server, derived from named voices and other conversations | `NamingQueue` appends them after the voices to name, outside its count | Device-only `GET /naming-queue/rechecks`, same card shape with kind `recheck`, `namedPersonId` (the person the owner named) and `personId` (the suggested person); existing `POST /naming-queue/answer` settles it; excluded from push, badge and map |
-| Owner edits: split, merge, undo, dismissed suggestion, title, vocabulary, summary asked for | Server, as intents | Phone outbox until accepted | The outbox (`OwnerIntent`): `POST /edits`, `PUT /conversations/{id}/title`, `PUT /vocabulary`, `POST /conversations/{id}/intelligence` (`{ after }`: the run shown). Shown at once as "waiting to sync" (`PendingEdits`); a refused one shows the server's message and the screen goes back to the feed's value |
-| A press of the Pendant's button | Phone; nothing on the server | The words come back, never stored; only the call's cost (`quick_transcriptions`) | `POST /quick-transcriptions` (the window's Ogg Opus) answers `{ text }` |
+| Voices to name | Server | The last answer, in Caches (`naming-queue.json`) | `GET /naming-queue`, not in the feed; the one server answer kept outside the cache, shown at once and read again in the background. People and their aliases come in the feed; rename, aliases and merge go through the outbox. A clip is the job's stored audio (`GET /transcripts/{jobId}/audio`, from `audio.start` seconds, never past its stretch of kept speech) or, from before the audio store, the phone's recording, `at` to `until`; its timed `words` count from `at` in both, and its turn (`jobId`, `speakerLabel`, `turnIndex`, `personId`). `likely` is his people with a voice profile, the most like this voice first, for the phone to order its names by. "Several people" names each clip's turn in place (`PUT /transcripts/{jobId}/speakers/{label}` with `turnIndex`), then sends `several` (`people`, `unknown`), all through the outbox |
+| Owner edits: title, vocabulary, people, speakers, switches | Server, as intents | Phone outbox until accepted | The outbox (`OwnerIntent`): `PUT /conversations/{id}/title`, `PUT /vocabulary` and the speaker and people routes. Shown at once as "waiting to sync" (`PendingEdits`); a refused one shows the server's message and the screen goes back to the feed's value |
 | Location fixes and visits, with Apple's place names | Phone | Server `location_history` | `POST /location-history`, each sent once |
 | A conversation's place | Server (its most accurate named fix) | Phone cache | Feed (`place`) |
-| Split suggestions | Gone: the feed's `splitSuggestions` is always empty | Phone cache | Feed (`splitSuggestions`) |
 | Quiet ranges from the Mac | Server (made from the events on the Mac's socket) | Phone cache, left out of fragments | Feed |
 | Quiet ranges from playback | Phone | Server `quiet_ranges` (source `playback`) | Left out of fragments on the phone; a closed span goes through the outbox to `POST /quiet-ranges`, in pieces |
 | Mac watermark, Mac LLM state, dictating | Server, live | Phone cache (`feed_state`) | Kept from the last page of a complete pull, with when it ended (`pulledAt`, the last sync the status shows) |
@@ -127,7 +124,7 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
   closed the block on 30 s with nothing kept, `cutter.ts` rule 3; false: the cap or a pause closed it, whatever
   followed; null on jobs older than the field); the phone keeps no job rows. Each
   page also carries the owner's `vocabulary`, `mac.dictatingSince` (null once the dictation rules let a flag go,
-  at 10 minutes) and `mac.subscriptions` (the Mac's last subscription limits, below), whole.
+  at 10 minutes), whole.
 - `removed` lists rows that are gone: a turn a new map moved off, a person merged away, a chapter a new run dropped,
   a job withdrawn unsent because a quiet range touches it. A withdrawn speech fragment is listed the same way, kind
   `job` with the fragment's id, as is each fragment of a withdrawn job, with `firstPage` and `sourceId`: the phone
@@ -142,8 +139,7 @@ A reader (a program following the owner's speech, never the phone) uses the rout
 its own `read` or `corrections` token. Lifelog never calls it.
 
 `GET /status` is for the owner's own sessions: the archive's invariants, the Pendant, the phone, the Mac, summaries
-waiting, the backup, ElevenLabs and the last day's problems. Spending stays out of chats; the phone keeps
-`GET /usage/summary`.
+waiting, the backup, ElevenLabs and the last day's problems.  Spending stays out of chats.
 
 ## The archive's invariants
 
@@ -164,15 +160,6 @@ goes up like any other (`docs/processing.md`), except audio from before the Mac'
 covers. How ids are made and how a block maps back to capture time: `docs/formats.md`.
 
 ## The Mac helper's socket
-
-The same authenticated socket also accepts `subscription.usage` frames: `engine` (`claude` or `codex`) and a
-`reading` with `observedAt`, `fiveHour` and `sevenDay`. Each window is `null` or `{usedPercent, resetsAt}`; times are
-Unix seconds. The Mac reads Codex's account limits every five minutes while awake and connected. Claude's last
-status-line observation keeps its original time. Neither operation makes a model call. Only percentages and reset
-times leave the Mac. The server retains the latest observation for each engine across disconnects and restarts;
-older observations and clocks more than a minute ahead cannot overwrite it. The feed's `mac.subscriptions` carries
-them (`{claude, codex}`, each a reading or `null`), like the Mac's other state; the app writes them to the app group
-after each pull, and the Lock Screen dials read only that.
 
 The Mac helper (`apps/mac-quiet`) opens one WebSocket at `GET /quiet-ranges/socket?protocol=2` with the Mac's token
 as a bearer (`MAC_TOKEN_HASH`). It pings every 30 s. The server's side is `mac-socket.ts`. Another protocol (a

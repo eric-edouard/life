@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
-import { C, MONO, RADIUS, SANS, SERIF } from "@life/server/src/memory/email";
+import { C, RADIUS, SANS } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
@@ -29,14 +29,20 @@ test("the email's colours are tokens.css's", () => {
 });
 
 // The tokens the app copies, by their own names, then each Tone's status token.
-const copied = ["card", "ground", "ink", "muted", "rule"];
+const copied: Record<string, string> = {
+  card: "card",
+  ground: "bg",
+  ink: "fg",
+  muted: "muted",
+  rule: "line",
+};
 const tones: Record<string, string> = {
-  bad: "error",
-  busy: "progress",
-  idle: "unknown",
-  ok: "synced",
-  teal: "confirmation",
-  warn: "open",
+  bad: "flag",
+  busy: "ai",
+  idle: "faint",
+  ok: "ok",
+  teal: "ok",
+  warn: "flag",
 };
 
 test("the app's colours are tokens.css's, light and dark", async () => {
@@ -46,12 +52,15 @@ test("the app's colours are tokens.css's, light and dark", async () => {
       /static let (\w+) = Color\(light: (0x\w+), dark: (0x\w+)\)/g
     ),
   ];
-  expect(pairs.map((m) => m[1]).toSorted()).toEqual(copied);
+  expect(pairs.map((m) => m[1]).toSorted()).toEqual(
+    Object.keys(copied).toSorted()
+  );
   for (const [, name = "", l = "", d = ""] of pairs) {
+    const token = copied[name] ?? "";
     expect([name, hex(l), hex(d)]).toEqual([
       name,
-      light[name],
-      dark[name] ?? light[name],
+      light[token],
+      dark[token] ?? light[token],
     ]);
   }
   const statuses = [...swift.matchAll(/case \.(\w+): Color\((0x\w+)\)/g)];
@@ -61,7 +70,21 @@ test("the app's colours are tokens.css's, light and dark", async () => {
   }
 });
 
-test("the email's and the app's radii and the email's font stacks are tokens.css's", async () => {
+test("the phone's palette is tokens.css's, light and dark", async () => {
+  const swift = await asset("apps/lifelog/apps/ios/Shared/Palette.swift");
+  const pairs = [
+    ...swift.matchAll(
+      /static let (\w+) = token\(dark: (0x\w+), light: (0x\w+)\)/g
+    ),
+  ];
+  const names = Object.keys(light).filter((n) => n in dark);
+  expect(pairs.map((m) => m[1]).toSorted()).toEqual(names.toSorted());
+  for (const [, name = "", d = "", l = ""] of pairs) {
+    expect([name, hex(d), hex(l)]).toEqual([name, dark[name], light[name]]);
+  }
+});
+
+test("the email's and the app's radii and the email's font stack are tokens.css's", async () => {
   const value = (name: string) =>
     tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1] ?? "";
   const px = (name: string) => Number.parseFloat(value(name));
@@ -70,11 +93,7 @@ test("the email's and the app's radii and the email's font stacks are tokens.css
     panel: px("panel-radius"),
   });
   const stack = (s: string) => s.replaceAll(/["'\s]/g, "");
-  expect([stack(SERIF), stack(SANS), stack(MONO)]).toEqual([
-    stack(value("serif")),
-    stack(value("sans")),
-    stack(value("mono")),
-  ]);
+  expect(stack(SANS)).toEqual(stack(value("sans")));
   const swift = await asset("apps/mac/Sources/LifeApp/Brand.swift");
   const radius = (name: string) =>
     Number(
@@ -90,10 +109,16 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
     "apps/mac/Sources/LifeApp/Brand.swift",
     "assets/brand/tokens.css",
     "apps/server/src/memory/email.ts",
+    "apps/lifelog/apps/ios/Shared/Palette.swift",
   ]);
   const read = repoFiles(
     LIFE_CODE_DIR,
-    ["apps/server/src", "assets", "apps/mac/Sources"],
+    [
+      "apps/server/src",
+      "assets",
+      "apps/mac/Sources",
+      "apps/lifelog/apps/ios/Shared",
+    ],
     ".ts .tsx .js .css .html .swift .json .jsonl .md".split(" ")
   );
   expect(read).toContain("apps/server/src/memory/email.ts");

@@ -10,7 +10,7 @@ struct RecordingControl: ControlWidget {
             ControlWidgetToggle("Recording", isOn: value.isOn, action: SetRecordingIntent()) { _ in
                 Label(value.label, systemImage: value.symbol)
             }
-            .tint(Palette.liveDot)
+            .tint(Palette.flag)
         }
         .displayName("Pendant Recording")
         .description("Shows and toggles recording on your Pendant.")

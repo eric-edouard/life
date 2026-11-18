@@ -366,14 +366,6 @@ final class SyncStore {
         if changed, UIApplication.shared.applicationState != .background { generation += 1 }
     }
 
-    /// The audio overlapping `range` the server doesn't have yet (`Uploader.unsent`).
-    func unsent(overlapping range: Range<CaptureInstant>) async -> [Range<CaptureInstant>] {
-        #if DEBUG
-            if FixtureLibrary.isRequested { return FixtureLibrary.unsent.filter { $0.overlaps(range) } }
-        #endif
-        return (try? await driver?.uploader?.unsent(overlapping: range)) ?? []
-    }
-
     /// The raw backup sends up to 64 MB at a time: only on Wi-Fi or a wire, or while charging.
     private var mayBackUp: Bool {
         UIDevice.current.isBatteryMonitoringEnabled = true
@@ -434,15 +426,6 @@ final class SyncStore {
             _ = report(error)
             return nil
         }
-    }
-
-    // MARK: Derived audio
-
-    /// Rebuilds the evicted playback files covering `range` from the source packs, so they can be played or exported.
-    func restorePlayback(covering range: Range<CaptureInstant>) async throws {
-        _ = setUp()
-        guard let worker else { return }
-        try await worker.rebuildPlayback(deviceID: CaptureStore.deviceID, covering: range)
     }
 }
 

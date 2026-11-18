@@ -191,8 +191,7 @@ service, a conversation with a block waiting for credits (`waitsForCredits`). Th
 
 ### No limits
 
-Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the
-presses of the Pendant's button transcribed at once (`quick_transcriptions`, `docs/pendant.md`).
+Nothing holds or caps transcription: every admitted job goes. Spending counts every job.
 
 ### Speakers
 
@@ -290,7 +289,6 @@ frozen copy of them, and the gate fails when a change moves its committed counts
 
 A named voice becomes a recheck when at least half its sampled turns first guess another person,
 without evidence from that voice's conversations; the named person must still have a profile.
-`GET /naming-queue/rechecks` lists these separately, highest share first, with the given and suggested people.
 The next answer, even the same name, settles that voice for good through `speaker_assignments.rechecked`.
 Rechecks add nothing to the morning push, badge or voice map. The phone asks them after the voices to name:
 "You named this X", with "Keep X" first and the person it sounds like next.
@@ -337,9 +335,7 @@ more after it.
   keeps its tokens and the turns it read.
 - A run writes no `owner_edits` and no `chapters` row. Grouping no longer takes AI splits from runs; an AI split already
   stored still cuts (`docs/timeline.md`). Old "Split here?" suggestions are gone: the feed's `splitSuggestions` is empty.
-- **Generate** (`POST /conversations/{id}/intelligence` with `after`, the run the owner saw; the phone's "Several
-  people" answer sends it too): when a run newer than it is valid, running or waiting, nothing happens (200). Otherwise
-  it reads the voices again from its first turn (202); the run shown stays until a newer run is valid. With the Mac away
+- **Generate** (`rolling.generate`, no route since the owner's app dropped it): it reads the voices again from its first turn; the run shown stays until a newer run is valid. With the Mac away
   a run waits for it, and starts from the first turn too.
 - The feed's `runId` is the latest valid run of any version, which the phone sends back as `after`; its `title` and
   `tldr` come from the latest run of version 11 or before. The state `summarized` is set by any valid run, so a new

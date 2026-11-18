@@ -21,6 +21,7 @@ import { services } from "./services";
 import {
   fakeAnswer,
   fakeModel,
+  generate,
   mapJob,
   NO_WAIT,
   OWNER_TOKEN,
@@ -104,20 +105,11 @@ function conversation(
   return id;
 }
 
-// The owner's Generate, as the phone sends it: `regenerate`, after the summary he sees (the latest
-// valid run); else as if he saw none.
-const post = (
-  app: ReturnType<typeof appWith>,
+const post = async (
+  _app: ReturnType<typeof appWith>,
   id: string,
   regenerate = false
-) =>
-  app.request(`/conversations/${id}/intelligence`, {
-    body: JSON.stringify({
-      after: regenerate ? (latestValid(env.db, id)?.id ?? null) : null,
-    }),
-    headers: auth,
-    method: "POST",
-  });
+) => generate(env.db, rolling as Rolling, id, regenerate);
 
 // The job whose turns the conversation holds.
 const jobOf = (id: string) =>

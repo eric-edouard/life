@@ -34,20 +34,20 @@ struct AttentionCard<Actions: View>: View {
                     .accessibilityIdentifier(id)
             } icon: {
                 Image(systemName: systemImage)
-                    .foregroundStyle(Palette.redText)
+                    .foregroundStyle(Palette.flag)
                     .accessibilityHidden(true)
             }
             .font(.headline)
-            .foregroundStyle(Palette.textPrimary)
+            .foregroundStyle(Palette.fg)
             .accessibilityAddTraits(.isHeader)
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(Palette.textBody)
+                .foregroundStyle(Palette.fg)
                 .fixedSize(horizontal: false, vertical: true)
             if let footnote {
                 Text(footnote)
                     .font(.caption)
-                    .foregroundStyle(Palette.textTertiary)
+                    .foregroundStyle(Palette.faint)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { actions }

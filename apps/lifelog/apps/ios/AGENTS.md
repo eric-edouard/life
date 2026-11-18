@@ -3,7 +3,10 @@
 `Lifelog/` is the SwiftUI app: one `@Observable` store per feature, the long-lived ones built at launch. `Kit/` is the
 Swift package with everything that doesn't need UIKit, so it builds and tests on the Mac in seconds. `Watch/` and
 `Widgets/` are the glances; `Shared/` holds code and copy that the app and its extensions share. `project.yml`
-generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
+generates the gitignored `.xcodeproj`.
+The app is a minimal shell (the Pendant tab alone) until Life's screens land; the old Library, Conversation, People, Presses and
+Spending screens are cut. `Shared/Palette.swift` is the phone's one copy of Life's brand (`assets/brand/tokens.css`), checked by
+`scripts/brand.test.ts`: no colour literal elsewhere. `docs/architecture.md` names every store and owner and says where a new screen or derived value goes.
 
 ## How to
 
@@ -28,7 +31,7 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
   service is `<bundle id>.server` (`DeviceToken`), which for the owner's build is the name it always had, so his
   stored token stays readable; changing the bundle id starts unpaired.
 - Screens read the library's cache of the server's feed and the outbox, never the server first (`docs/architecture.md`,
-  "Local first"). `bun run check:offline` checks it.
+  "Local first").
 - A source's `sentThrough` (on the server) means everything before it was sent or decided. A new install's uploader
   starts there (`Uploader.restore`) and never reads derived files below it: `derived/` and `upload/` are kept out of
   backups, `timeline.sqlite` is not, so a migrated phone has an index of sidecars it lacks. A lost sidecar is

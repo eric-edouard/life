@@ -97,9 +97,6 @@ func loadSecrets() -> Secrets {
     }
 }
 
-let claudeUsageFile = FileManager.default.homeDirectoryForCurrentUser
-    .appending(path: "Library/Application Support/lifelog-quiet/claude-usage.json")
-
 // MARK: The helper
 
 /// Everything runs on `queue`: Core Audio's listeners, timers, sleep, the socket and network answers all land there,
@@ -185,7 +182,6 @@ final class Helper: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
             timer.schedule(deadline: .now() + 30, repeating: 30, leeway: .seconds(5))
             timer.setEventHandler { [self] in
                 ping()
-                refreshUsage()
             }
             timer.resume()
             pinger = timer
@@ -361,7 +357,6 @@ final class Helper: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
             guard let error else { return }
             queue.async { [self] in drop(task, error.localizedDescription) }
         }
-        refreshUsage()
         unsent.forEach(answer)
         unsent = []
     }
@@ -430,35 +425,6 @@ final class Helper: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
     }
 
     // MARK: Model calls
-
-    /// Usage reads never generate model calls. The status-line bridge writes Claude's observed limits locally;
-    /// Codex's app-server can read its account limits even while no model call is running.
-    private var usageReadAt = Date.distantPast
-    private var readingUsage = false
-
-    private func refreshUsage() {
-        guard isOpen, !asleep, !readingUsage, Date.now.timeIntervalSince(usageReadAt) >= 5 * 60 else { return }
-        readingUsage = true
-        usageReadAt = .now
-        // Not beside a model call: two Codex processes on one CODEX_HOME could both refresh its login token.
-        let codexFree = running.isEmpty
-        DispatchQueue.global(qos: .utility).async { [self] in
-            let claude = (try? Data(contentsOf: claudeUsageFile)).flatMap {
-                try? JSONDecoder().decode(SubscriptionReading.self, from: $0)
-            }
-            let codex =
-                codexFree && Summaries.codexSignedIn
-                ? Summaries.codexBinary().flatMap { CodexUsageReader.read(binary: $0, home: Summaries.codexHome) } : nil
-            queue.async { [self] in
-                readingUsage = false
-                guard isOpen, let socket else { return }
-                for (engine, reading) in [("claude", claude), ("codex", codex)] {
-                    guard let message = reading?.message(engine: engine) else { continue }
-                    socket.send(.string(message)) { _ in }
-                }
-            }
-        }
-    }
 
     /// Runs one call and answers it on whichever socket is open then (the server keeps a call across a reconnect and
     /// takes even a late answer). The server sends no more calls than it wants run at once.
@@ -558,19 +524,6 @@ final class Helper: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
 }
 
 // MARK: Main
-
-// The documented Claude Code statusLine payload enters here, before secrets or audio monitoring are loaded.
-// Only the limits are written, and nothing is printed: an existing status line can call this alongside its renderer.
-if CommandLine.arguments.contains("--claude-usage") {
-    let input = FileHandle.standardInput.readDataToEndOfFile()
-    guard let reading = SubscriptionReading.claude(input) else { exit(0) }
-    let folder = claudeUsageFile.deletingLastPathComponent()
-    try FileManager.default.createDirectory(
-        at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-    try JSONEncoder().encode(reading).write(to: claudeUsageFile, options: .atomic)
-    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: claudeUsageFile.path)
-    exit(0)
-}
 
 if CommandLine.arguments.contains("--list") {
     for process in Audio.processes() {

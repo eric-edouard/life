@@ -146,7 +146,7 @@ private struct LensCanvas: View {
             let shimmer = 0.07 + 0.05 * sin((time ?? 0) * 0.8 + step * 1.7)
             let width: CGFloat = index > 3 ? 1.1 : 0.8
             glass.stroke(
-                circle(radius * scale), with: .color(Palette.textPrimary.opacity(0.045 * (1 - lit))), lineWidth: width)
+                circle(radius * scale), with: .color(Palette.fg.opacity(0.045 * (1 - lit))), lineWidth: width)
             glass.stroke(
                 circle(radius * scale),
                 with: .color(
@@ -174,18 +174,18 @@ private struct LensCanvas: View {
         // 6. Outside the bezel: the catch-up ring, or the dashed ring of an unknown state.
         let outer = circle(bezel + 5)
         if ring > 0 {
-            context.stroke(outer, with: .color(Palette.textPrimary.opacity(0.1 * ring)), lineWidth: 2.5)
+            context.stroke(outer, with: .color(Palette.fg.opacity(0.1 * ring)), lineWidth: 2.5)
             var filled = Path()
             filled.addRelativeArc(
                 center: center, radius: bezel + 5, startAngle: .degrees(-90),
                 delta: .degrees(360 * min(max(progress, 0), 1)))
             context.stroke(
-                filled, with: .color(Palette.textPrimary.opacity(ring)),
+                filled, with: .color(Palette.fg.opacity(ring)),
                 style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
         }
         if dash > 0 {
             context.stroke(
-                outer, with: .color(Palette.textPrimary.opacity(0.28 * dash)),
+                outer, with: .color(Palette.fg.opacity(0.28 * dash)),
                 style: StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
         }
     }

@@ -1,32 +1,35 @@
 /* Life's brand (docs/brand.md): the one source of its values. Pages inline or link this file first (its @import must
-   come before any rule); the email (apps/server/src/memory/email.ts) and the app (apps/mac/Sources/LifeApp/Brand.swift)
-   copy its values, and brand.test.ts fails when a copy drifts. */
-@import url("https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600;7..72,700&family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap");
+   come before any rule); the email (apps/server/src/memory/email.ts), the Mac app (apps/mac/Sources/LifeApp/Brand.swift)
+   and the phone (apps/lifelog/apps/ios/Shared/Palette.swift) copy its values, and brand.test.ts fails when a copy
+   drifts. Colour always means something; most of a screen is black and cream. */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap");
 :root {
-  --ink: light-dark(#1f1f1f, #f2f2f2);
-  --text: light-dark(#4a4a4a, #c9c9c9);
-  --muted: light-dark(#6b6b6b, #a3a3a3);
-  --rule: light-dark(#e3e3e3, #3a3a3a);
-  --ground: light-dark(#f6f6f6, #1f1f1f);
-  --card: light-dark(#ffffff, #2a2a2a);
-  /* Status: done and a problem, always beside a word; the others mark the parked Mac app's dots. */
-  --synced: light-dark(#15803d, #4ade80);
-  --error: light-dark(#b42318, #f97066);
-  --open: #f59e0b;
-  --progress: #3b82f6;
-  --confirmation: #14b8a6;
-  --unknown: #8b8f97;
-  --serif: "Literata", Georgia, serif;
-  --sans:
-    "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-  --mono: "Atkinson Hyperlegible Mono", ui-monospace, Menlo, monospace;
+  --bg: light-dark(#f3f4f5, #07080a);
+  --fg: light-dark(#0d0e11, #fff8ea);
+  --card: light-dark(#e8e9eb, #15161a);
+  --tile: light-dark(#e8e9eb, #1d1e23);
+  --sheet: light-dark(#f3f4f5, #101114);
+  --paper: light-dark(#fbfbfa, #1b1c20);
+  --muted: light-dark(#57544f, #8a867e);
+  --faint: light-dark(#6c6964, #85817a);
+  --line: light-dark(#d8d9dc, #1f2024);
+  /* Needs the owner, a deadline, a failure. */
+  --flag: light-dark(#b3412b, #f0896f);
+  /* An agent, or a guess of Life's. */
+  --ai: light-dark(#33468f, #9aa8ec);
+  /* It worked. */
+  --ok: light-dark(#1d6b58, #74c9a9);
+  /* Text on a filled button. */
+  --on: light-dark(#f3f4f5, #07080a);
+  /* Manrope only: thin (250) for a title, bold (650) for what matters, 15px body, small labels in capitals (11px, 600,
+     0.22em apart). */
+  --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   --control-radius: 12px;
-  --panel-radius: 18px;
+  --panel-radius: 22px;
   color-scheme: light dark;
 }
-/* Dark is each colour's second value (light-dark): the calm inverse, green and red lightened to read on the dark
-   ground. The system's choice unless a page sets data-theme (the decisions page's switcher). */
+/* Dark is each colour's second value (light-dark). The system's choice unless a page sets data-theme (the decisions
+   page's switcher). */
 :root[data-theme="light"] {
   color-scheme: light;
 }

@@ -1,3 +1,4 @@
+import Incidents
 import LifeConnector
 import ServerAPI
 import SwiftUI
@@ -56,7 +57,7 @@ struct RootView: View {
         } message: { offer in
             Text(pairingMessage(offer))
         }
-        .tint(Palette.redText)
+        .tint(Palette.flag)
     }
 
     /// A server as the owner reads it: its host, and its port when it isn't the usual one.

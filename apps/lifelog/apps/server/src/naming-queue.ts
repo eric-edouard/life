@@ -5,13 +5,10 @@
 //
 // - A card is only a suggestion. An answer is the owner's correction (people.ts `assign`), so
 //   only the owner creates people or adds voice evidence.
-// - One notification a morning, and only when voices wait: its number is the queue's length,
-//   the same the app's badge shows.
 // - Names come from the summary runs (intelligence.ts `speakerIdentities`): recorded speech is
 //   content, never a command, and a name is shown with the turns it was heard in.
 
 import { randomUUID } from "node:crypto";
-import { clock } from "@life/server/src/core/clock";
 import type { Db } from "@lifelog/db";
 import {
   conversationJobs,
@@ -23,10 +20,9 @@ import {
   voiceSamples,
 } from "@lifelog/db/schema";
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import { alertOf, type Pusher, sendPush } from "./apns";
 import { touchedSince, turnRef } from "./change-log";
-import { NAMING, ownerClock } from "./config";
-import { record, recordedOn } from "./events";
+import { NAMING } from "./config";
+import { record } from "./events";
 import { type Clip, cardClips, readClip } from "./naming-clips";
 
 import {
@@ -752,51 +748,3 @@ export function answerVoices(
   });
   return answered > 0 ? { personId } : null;
 }
-
-// Once a morning, from NAMING.hour in the owner's zone: one notification with how many voices wait
-// to be named, the queue's length, which is the number the app's badge shows. Nothing when none
-// waits. Recorded as an event, so a restart the same morning sends nothing twice.
-// ponytail: in-process, polled by the server's 5-minute loop; one replica, like the others.
-export function morningPush(
-  db: Db,
-  push: Pusher | null,
-  bundleId: string,
-  queue: { items: () => Card[] | Promise<Card[]> }
-) {
-  let busy = false;
-  const notify = (day: string, count: number) =>
-    sendPush(
-      db,
-      push,
-      "people_digest",
-      alertOf(
-        bundleId,
-        "New people",
-        `${count} ${count === 1 ? "voice" : "voices"} to name.`,
-        { peopleDigest: day }
-      )
-    );
-  return {
-    async morning(at = clock()) {
-      const { date, hour } = ownerClock(at);
-      if (busy || hour < NAMING.hour) {
-        return null;
-      }
-      busy = true;
-      try {
-        if (recordedOn(db, "voices.digest", date)) {
-          return null;
-        }
-        const count = (await queue.items()).length;
-        record(db, "voices.digest", { count, day: date });
-        if (count > 0) {
-          await notify(date, count);
-        }
-        return { count };
-      } finally {
-        busy = false;
-      }
-    },
-  };
-}
-export type MorningPush = ReturnType<typeof morningPush>;

@@ -1,15 +1,15 @@
 // What the phone sends for grouping (rebuild contract): each source's timeline facts and
-// heard-through and the owner's grouping edits. All idempotent; a write that can move a boundary
+// heard-through. All idempotent; a write that can move a boundary
 // regroups after it commits (grouping.ts).
 import { createRoute, z } from "@hono/zod-openapi";
 import { DAY } from "@life/server/src/core/clock";
 import { hasRawPages, sources } from "@lifelog/db/schema";
 import { sql } from "drizzle-orm";
 import { record } from "../events";
-import { pendantSources, regroupAfterCommit, saveEdit } from "../grouping";
+import { regroupAfterCommit } from "../grouping";
 import type { Services } from "../services";
 import { Instant, recorded, saveSpans, TimelineSpan } from "../timeline-spans";
-import { ApiError, json, router, sizeLimit } from "./common";
+import { json, router, sizeLimit } from "./common";
 
 const Timeline = z
   .object({
@@ -24,28 +24,6 @@ const Timeline = z
     spans: z.array(TimelineSpan).max(2000),
   })
   .openapi("Timeline");
-
-const editBase = { editedAt: Instant, id: z.uuid() };
-const Edit = z
-  .discriminatedUnion("kind", [
-    z.object({ ...editBase, at: Instant, kind: z.literal("split") }),
-    z.object({
-      ...editBase,
-      from: Instant,
-      kind: z.literal("merge"),
-      to: Instant,
-    }),
-    z.object({ ...editBase, edit: z.uuid(), kind: z.literal("undo") }),
-    z.object({ ...editBase, at: Instant, kind: z.literal("dismissSplit") }),
-  ])
-  .refine(
-    (e) => e.kind !== "merge" || Date.parse(e.from) < Date.parse(e.to),
-    "a merge ends after it starts"
-  )
-  .openapi("OwnerEdit");
-
-const notFound = (message: string) =>
-  ({ error: "not_found", message }) as const;
 
 export function timelineRoutes({
   db,
@@ -171,50 +149,6 @@ export function timelineRoutes({
           },
           200
         );
-      }
-    )
-    .openapi(
-      createRoute({
-        description:
-          "An owner's grouping edit, idempotent by its id: split, merge, undo (of an earlier edit) or a " +
-          "dismissed split suggestion. Conversations are regrouped from where it applies.",
-        method: "post",
-        path: "/edits",
-        request: {
-          body: {
-            content: { "application/json": { schema: Edit } },
-            required: true,
-          },
-        },
-        responses: {
-          200: json(z.object({ stored: z.boolean() }), "Kept (or already)"),
-          400: json(
-            ApiError,
-            "An undo of an undo, or a split or merge inside an imported recording"
-          ),
-          404: json(ApiError, "An undo of an edit the server doesn't have"),
-        },
-      }),
-      (c) => {
-        const edit = c.req.valid("json");
-        const result = saveEdit(db, edit);
-        if ("refused" in result) {
-          return result.refused === "unknown"
-            ? c.json(notFound("No such edit"), 404)
-            : c.json(
-                {
-                  error: "invalid_request" as const,
-                  message:
-                    result.refused === "imported"
-                      ? "A recording imported from the old app can't be split or merged"
-                      : "An undo can't be undone; edit again instead",
-                },
-                400
-              );
-        }
-        // A replay regroups too: the first try may have stopped before it did.
-        regroup(pendantSources(db));
-        return c.json({ stored: result.stored }, 200);
       }
     );
 }

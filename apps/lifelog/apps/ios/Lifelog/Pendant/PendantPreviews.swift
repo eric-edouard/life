@@ -42,7 +42,6 @@
         }
     }
 
-
     /// Any state of the screen.
     private func pendant(
         _ status: CaptureStatus, connectionSince: Date = now.addingTimeInterval(-3_600),
@@ -100,7 +99,7 @@
             BatteryGlyph(percent: nil, isCurrent: false)
         }
         .padding(16)
-        .background(Palette.ground)
+        .background(Palette.bg)
         .preferredColorScheme(.dark)
     }
 
