@@ -214,8 +214,12 @@ export const readObservations = async () =>
     )
   );
 
-/** Every episode line in memory/episodes/, oldest day first. */
-export const readEpisodes = () => readFolder(EPISODES, Episode);
+/** One day's episode lines, kept until its file changes: the matters' readers (polled by his app) parse only the days rewritten since. */
+const episodeDay = keptReader((path) => rowsOf(path, Episode));
+
+/** Every episode line in memory/episodes/, oldest day first. Rows are shared between calls: callers never mutate them. */
+export const readEpisodes = async () =>
+  (await filesIn(EPISODES)).flatMap((n) => episodeDay(join(EPISODES, n)));
 
 /** The first and last day an episode covers: its start (else the day that read it) to its end (else its start). */
 export const daysOf = (m: Episode) =>
@@ -772,8 +776,8 @@ export const verdictOf = (verdicts: Verdicts, u: Unit) =>
   u.drop ? undefined : verdicts.get(verdictKey(u.id, u.hash));
 
 /** The episodes as they stand now that `keep` keeps, by when they happen. */
-// ponytail: every episode line is read (≈25 MB at 10 years): `person` and `day` need them all (a person's history,
-// `readBy`); index the episodes if a read of them shows up.
+// ponytail: every episode line is held (≈25 MB at 10 years, parsed once per changed day, `readEpisodes`) and every day
+// file is stat'ed per read: `person` and `day` need them all (a person's history, `readBy`); index them if a read shows up.
 export const episodesWhere = async (keep: (m: Episode) => boolean) => {
   const [lines, corrections] = await Promise.all([
     readEpisodes(),
