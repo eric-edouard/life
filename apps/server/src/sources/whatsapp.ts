@@ -96,6 +96,11 @@ export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
 
 const PHONE_JID = /@s\.whatsapp\.net$/;
+const PERSON_JID = /^\d+@(s\.whatsapp\.net|lid)$/;
+/** The id the bridge opens a 1:1 chat by: the chat's own id when it is a person's (a phone's or a `@lid`), none for a group. */
+export const whatsappHandleOf = (chat: string) =>
+  PERSON_JID.test(chat) ? chat : undefined;
+
 /**
  * A chat's room in the WhatsApp bridge (his send path, kept linked on 16 Nov 2026): its portal by the chat's id, a
  * `<phone>@s.whatsapp.net` one through the bridge's own map of phones to WhatsApp's `@lid` ids. None when the bridge

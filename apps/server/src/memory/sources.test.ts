@@ -8,6 +8,7 @@ import { Unit } from "../records/unit";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import type { Descriptor } from "../sources/contract";
 import { DB } from "../sources/imessage";
+import { NETWORKS } from "../sources/networks";
 import { NOTES } from "../sources/notes";
 import { PHONE } from "../sources/phone";
 import { WHATSAPP } from "../sources/whatsapp";
@@ -187,4 +188,14 @@ test("table readers forward the exclusive storage end", () => {
   } as unknown as Descriptor;
   tablesOf([source]).CHATS.imessage?.(new Date(0), before);
   expect(received).toBe(before);
+});
+
+test("WhatsApp is a network on a bridge and still the Mac app's own source: one source, which can send and open a chat", () => {
+  expect(NETWORKS.find((n) => n.name === "whatsapp")).toMatchObject({
+    readByItsApp: true,
+  });
+  const named = SOURCES.filter((s) => s.name === "whatsapp");
+  expect(named).toHaveLength(1);
+  expect(named[0]?.store?.app).toBe("WhatsApp");
+  expect(named[0]?.send?.opens).toBeDefined();
 });

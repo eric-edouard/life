@@ -11,7 +11,6 @@ import { execOk, untilAnswers } from "../core/proc";
 import { writeSecret } from "../core/secret";
 import { keepRunning } from "../core/service";
 import { setSettings, settings } from "../core/settings";
-import { NETWORKS, type Network } from "../sources/bridged";
 import {
   BRIDGES,
   type CookieStep,
@@ -30,6 +29,7 @@ import {
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
+import { NETWORKS, type Network } from "../sources/networks";
 import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
@@ -399,7 +399,7 @@ async function link(n: Network, flow?: string) {
     show,
     value: (f) => ask(f.name, f.hidden),
   });
-  if (!settings().sources.includes(n.name)) {
+  if (!(n.readByItsApp || settings().sources.includes(n.name))) {
     setSettings({ sources: [...settings().sources, n.name] });
     console.log(
       `${n.label} is on: Life copies it once it restarts (menu bar → Restart).`
@@ -421,7 +421,9 @@ async function remove(n: Network) {
     setRegistration(n.name, false);
     await restartBridges();
   }
-  setSettings({ sources: settings().sources.filter((s) => s !== n.name) });
+  if (!n.readByItsApp) {
+    setSettings({ sources: settings().sources.filter((s) => s !== n.name) });
+  }
   console.log(`${n.label} removed; what Life archived of it stays.`);
 }
 

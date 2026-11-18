@@ -10,13 +10,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { incomingArchived } from "./archived";
-import { NETWORKS, type Network, openBridged, readBridged } from "./bridged";
+import { openBridged, readBridged } from "./bridged";
 import {
   copyInstagramExport,
   decoded,
   isInstagramExport,
   readExportChats,
 } from "./instagram-export";
+import { NETWORKS, type Network } from "./networks";
 
 const INSTAGRAM = NETWORKS.find((n) => n.name === "instagram") as Network;
 const ME = "Sam Rivera";

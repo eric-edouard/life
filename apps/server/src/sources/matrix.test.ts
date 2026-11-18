@@ -1,17 +1,17 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   BRIDGES,
   blockOf,
   cookieValues,
   hasStates,
-  isOwnRoom,
   linkBridge,
+  matrixSend,
   pastedValues,
   readBlock,
-  sendText,
+  readHomeserverRooms,
 } from "./matrix";
 
 test("a bridge that isn't set up or running is a reason it is blocked, never a throw", async () => {
@@ -189,10 +189,10 @@ function fakeHomeserver(joined = 200) {
 }
 
 /** A made-up bridge's database: the events it says it sent. */
-function bridgeWith(events: string[]) {
+function bridgeWith(events: string[], bridge = "fake") {
   const bridges = join(BRIDGES, "..", `send-${crypto.randomUUID()}`);
-  mkdirSync(join(bridges, "fake"), { recursive: true });
-  const db = new Database(join(bridges, "fake", "fake.db"));
+  mkdirSync(join(bridges, bridge), { recursive: true });
+  const db = new Database(join(bridges, bridge, `${bridge}.db`));
   db.run("create table message (mxid text not null)");
   for (const e of events) {
     db.run("insert into message (mxid) values (?)", [e]);
@@ -211,12 +211,9 @@ test("a send joins the room, then puts exactly the text once under its transacti
   };
   try {
     expect(
-      await sendText(
-        "fake",
-        "!r:life.local",
-        "See you at 8",
-        "dec_000000000001",
-        at
+      await matrixSend("fake", () => (c) => c, undefined, at).send(
+        { chat: "!r:life.local", text: "See you at 8" },
+        "dec_000000000001"
       )
     ).toBe("$ev1");
   } finally {
@@ -236,30 +233,29 @@ test("a send joins the room, then puts exactly the text once under its transacti
   expect(seen[1]?.auth).toBe("Bearer made-up");
 });
 
+const send = (at: Parameters<typeof matrixSend>[3], txn: string) =>
+  matrixSend("fake", () => (c) => c, undefined, at).send(
+    { chat: "!r:life.local", text: "hi" },
+    txn
+  );
+
 test("a send says whether anything left: a room it can't join sends nothing, an event the bridge never confirms may have gone", async () => {
   const refused = fakeHomeserver(403);
   const silent = fakeHomeserver();
   const at = { bridges: bridgeWith([]), confirmMs: 500, token: "made-up" };
   try {
     await expect(
-      sendText("fake", "!r:life.local", "hi", "dec_000000000002", {
-        ...at,
-        homeserver: refused.server.url.origin,
-      })
+      send({ ...at, homeserver: refused.server.url.origin }, "dec_000000000002")
     ).rejects.toThrow("not sent: fake room not joined: 403");
     expect(refused.seen).toHaveLength(1);
     await expect(
-      sendText("fake", "!r:life.local", "hi", "dec_000000000003", {
-        ...at,
-        homeserver: silent.server.url.origin,
-      })
+      send({ ...at, homeserver: silent.server.url.origin }, "dec_000000000003")
     ).rejects.toThrow("may have gone: the homeserver took it ($ev1)");
     await expect(
-      sendText("fake", "!r:life.local", "hi", "dec_000000000004", {
-        ...at,
-        homeserver: silent.server.url.origin,
-        token: undefined,
-      })
+      send(
+        { ...at, homeserver: silent.server.url.origin, token: undefined },
+        "dec_000000000004"
+      )
     ).rejects.toThrow("not sent");
   } finally {
     refused.server.stop();
@@ -267,8 +263,84 @@ test("a send says whether anything left: a room it can't join sends nothing, an 
   }
 });
 
-test("only a room on Life's own homeserver is a bridge's room", () => {
-  expect(isOwnRoom("!abc:life.local")).toBe(true);
-  expect(isOwnRoom("!abc:beeper.local")).toBe(false);
-  expect(isOwnRoom("340282366841710300949128")).toBe(false);
+test("the homeserver's rooms are the ones it holds: a room version 12 id has no server part, a Beeper chat key is not one", () => {
+  const dir = join(BRIDGES, "..", `hs-${crypto.randomUUID()}`);
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, "homeserver.db");
+  expect(readHomeserverRooms(file)).toEqual([]);
+  const db = new Database(file);
+  db.run("create table rooms (room_id text not null)");
+  db.run("insert into rooms values ('!AbCdEf123'), ('!OldRoom:life.local')");
+  db.close();
+  const rooms = readHomeserverRooms(file);
+  expect(rooms).toContain("!AbCdEf123");
+});
+
+/** A made-up bridge provisioning API: knows one handle (`+15550100`), answers 404 for any other. */
+function fakeProvisioning() {
+  const seen: string[] = [];
+  const server = Bun.serve({
+    fetch: (req) => {
+      const { pathname } = new URL(req.url);
+      seen.push(`${req.method} ${decodeURIComponent(pathname)}`);
+      if (!pathname.endsWith("%2B15550100")) {
+        return Response.json({ errcode: "M_NOT_FOUND" }, { status: 404 });
+      }
+      return Response.json(
+        pathname.includes("create_dm")
+          ? { dm_room_mxid: "!NewDm0001", id: "15550100", name: "Test Kit" }
+          : { id: "15550100", name: "Test Kit" },
+        { status: pathname.includes("create_dm") ? 201 : 200 }
+      );
+    },
+    port: 0,
+  });
+  mkdirSync(join(BRIDGES, "provnet"), { recursive: true });
+  writeFileSync(
+    join(BRIDGES, "provnet", "config.yaml"),
+    `appservice:\n  port: ${server.port}\nprovisioning:\n  shared_secret: s3cret\n`
+  );
+  return { seen, server };
+}
+
+test("a chat the bridge holds no room for opens by its handle: the network says whether it exists, a send opens it first", async () => {
+  const { seen, server } = fakeProvisioning();
+  const homeserver = fakeHomeserver();
+  const handles: Record<string, string> = {
+    "kit-chat": "+15550100",
+    nobody: "+15550101",
+  };
+  const handleOf = (c: string) => handles[c];
+  const path = matrixSend("provnet", () => () => undefined, handleOf, {
+    bridges: bridgeWith(["$ev1"], "provnet"),
+    confirmMs: 1000,
+    homeserver: homeserver.server.url.origin,
+    token: "made-up",
+  });
+  try {
+    expect(path.holds(["kit-chat"])).toEqual([]);
+    expect(await path.opens?.("kit-chat")).toBe("Test Kit");
+    expect(await path.opens?.("nobody")).toBeUndefined();
+    expect(await path.opens?.("a-group")).toBeUndefined();
+    expect(
+      await path.send({ chat: "kit-chat", text: "hi" }, "dec_000000000005")
+    ).toBe("$ev1");
+    expect(homeserver.seen.map((r) => r.path)).toContain(
+      "/_matrix/client/v3/rooms/!NewDm0001/send/m.room.message/dec_000000000005"
+    );
+    await expect(
+      path.send({ chat: "nobody", text: "hi" }, "dec_000000000006")
+    ).rejects.toThrow("not sent: provnet chat not opened: 404");
+    await expect(
+      path.send({ chat: "a-group", text: "hi" }, "dec_000000000007")
+    ).rejects.toThrow("not sent: provnet holds no room");
+  } finally {
+    server.stop();
+    homeserver.server.stop();
+    rmSync(join(BRIDGES, "provnet"), { force: true, recursive: true });
+  }
+  expect(seen.filter((r) => r.includes("create_dm"))).toEqual([
+    "POST /_matrix/provision/v3/create_dm/+15550100",
+    "POST /_matrix/provision/v3/create_dm/+15550101",
+  ]);
 });

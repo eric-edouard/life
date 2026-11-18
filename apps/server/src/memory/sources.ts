@@ -22,7 +22,7 @@ import {
   readAssistant,
   readEarliestAssistant,
 } from "../sources/assistants";
-import { bridgedSource, NETWORKS } from "../sources/bridged";
+import { bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readEarliestCommit, readGit } from "../sources/git";
 import {
@@ -42,6 +42,8 @@ import {
   readEarliestMail,
   readMail,
 } from "../sources/mail";
+import { matrixSend } from "../sources/matrix";
+import { NETWORKS, type Network } from "../sources/networks";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyPhone,
@@ -62,6 +64,7 @@ import {
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
+  whatsappHandleOf,
   whatsappRoomOf,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
@@ -127,7 +130,7 @@ const LISTED: Descriptor[] = [
     name: "whatsapp",
     newest: newestWhatsapp,
     read: (since, before) => readWhatsapp(since, undefined, undefined, before),
-    roomOf: whatsappRoomOf,
+    send: matrixSend("whatsapp", () => whatsappRoomOf, whatsappHandleOf),
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",
@@ -149,7 +152,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 72 * HOUR,
     store: { copies: "calls", copy: copyPhone },
   },
-  ...NETWORKS.map(bridgedSource),
+  ...NETWORKS.filter((n: Network) => !n.readByItsApp).map(bridgedSource),
   {
     capturesOnItsOwn: true,
     earliest: readEarliestMail,
