@@ -58,7 +58,6 @@ const app = () => {
       queue: {
         items: () => queue.items(),
         map: () => map,
-        rechecks: () => queue.rechecks(),
       },
     })
   );
@@ -290,7 +289,6 @@ test("map read keeps queue cards/order, ranks through speakers and separates mod
   const queue = {
     items: () => cards,
     map: () => readVoiceMap(env.db, cards),
-    rechecks: () => [],
   };
   const server = createApp(
     services(config(), env.db, { intelligence: null, queue })
@@ -652,7 +650,6 @@ test("map names clips in place before the existing several answer, retaining eac
   const queue = {
     items: () => cards,
     map: () => readVoiceMap(env.db, cards),
-    rechecks: () => [],
   };
   const server = createApp(
     services(config(), env.db, { intelligence: null, queue })
