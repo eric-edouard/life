@@ -415,7 +415,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "change_registered_agent",
-    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words, verbatim, are its brief and goal); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words, verbatim, are its brief, and on a matter its goal, saved as his); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
     (a, agent, call) => {
       if (agent) {
@@ -443,7 +443,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim), `person` (`person:<id>`, when the option says to give who it is), `name` (a voice's new person). Life acts on it at once (a voice is named for every turn of it in lifelog; a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter's `start`, the goal he saw), `person` (`person:<id>`, when the option says to give who it is), `name` (a voice's new person). Life acts on it at once (a voice is named for every turn of it in lifelog; a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
     z.object({
       name: z
         .string()

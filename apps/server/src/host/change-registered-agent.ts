@@ -1,12 +1,15 @@
 import { z } from "zod";
+import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { off } from "../core/outputs";
 import { matterOfSteps } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
+import { recordCorrection } from "../memory/memory-files";
 import { areaFor } from "../memory/read-area-page";
 import { loadTruth, type Truth } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
+import { GoalText } from "../records/matter";
 import { AgentChange } from "../records/registered-agent";
 import { listRepos } from "../sources/git";
 import { ask } from "./asks";
@@ -51,7 +54,9 @@ export const RegisteredAgentChange = AgentChange.omit({ steps: true }).extend({
     .string()
     .min(1)
     .max(8000)
-    .describe("His own words, verbatim: a start's are its brief"),
+    .describe(
+      "His own words, verbatim: a start's are its brief, and on a matter its goal (at most 200 characters)"
+    ),
   step: z
     .string()
     .min(1)
@@ -64,7 +69,7 @@ export type RegisteredAgentChange = z.infer<typeof RegisteredAgentChange>;
 export const WAIT_MS = 20_000;
 const POLL_MS = 500;
 
-/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps) and its projects. */
+/** The matter `step` names (its id, or a step's): its anchors (that step first, then the rest of its steps), its steps as listed, its goal and its projects. */
 async function matterNamed(step: string) {
   const v = matterOfSteps(await readMatterBook(await readPeople(), dayNow()), [
     step,
@@ -74,7 +79,9 @@ async function matterNamed(step: string) {
   }
   const refs = v.steps.map((s) => s.ref);
   return {
+    goal: v.goal,
     projects: v.projects,
+    refs,
     steps: refs.includes(step)
       ? [step, ...refs.filter((r) => r !== step)]
       : refs,
@@ -96,12 +103,12 @@ function readRepoFolder(projects: string[], truth: Truth) {
 
 /**
  * His change with its Life-side facts read: his project's id, the matter's anchors and, for a start with no folder,
- * the folder of its project's repo (`readRepoFolder`). Throws when the project or the matter is not his.
+ * the folder of its project's repo (`readRepoFolder`); and the matter named. Throws when the project or the matter is not his.
  */
 async function withSubject({
   step,
   ...rest
-}: Omit<RegisteredAgentChange, "said">): Promise<AgentChange> {
+}: Omit<RegisteredAgentChange, "said">) {
   const change: AgentChange = { ...rest };
   const hasNoFolder = change.action === "start" && !change.folder;
   const truth = rest.project || hasNoFolder ? await loadTruth() : undefined;
@@ -123,10 +130,29 @@ async function withSubject({
       truth
     );
   }
-  return change;
+  return { change, matter };
 }
 
-/** What the connector reports for a start, in order: the desk's three facts (`goal_saved`, before them, is the phone's own call or a new matter's Start writer). */
+/** A matter start's words become his goal for it (his `matter-direction`, pinned to its steps), unless they already are. */
+async function saveGoal(
+  matter: Awaited<ReturnType<typeof matterNamed>>,
+  said: string
+) {
+  if (!GoalText.safeParse(said).success) {
+    throw new Error(
+      "Not done: on a matter, `said` is its goal too: at most 200 characters."
+    );
+  }
+  if (!(matter.goal?.by === "owner" && matter.goal.text === said)) {
+    await recordCorrection({
+      goal: said,
+      kind: "matter-direction",
+      steps: matter.refs,
+    });
+  }
+}
+
+/** What the connector reports for a start, in order: the desk's three facts (a matter start's `goal_saved` comes before them). */
 export const START_STAGES = [
   "runtime_answers",
   "session_open",
@@ -214,7 +240,6 @@ async function waitForStart(
   { report }: ToolCall,
   limitMs: number
 ) {
-  report({ limitSeconds: limitMs / 1000, plan: [...START_STAGES] });
   let reported = 0;
   for (let waited = 0; ; waited += POLL_MS) {
     const read = readDesk(
@@ -277,7 +302,8 @@ async function waitForChange(
 /**
  * Records his word as an ask of the desk, then reports what the desk did with it (JSON): a start's stages, each as its
  * fact is written (`report`), then `started`, `not_started` or `unconfirmed`; another change `done`, `unconfirmed`, or
- * refused (a throw). Each call is a new ask: a repeated start for a matter its agent already holds answers with that agent.
+ * refused (a throw). A start on a matter first saves his words as its goal (`goal_saved`): the one place a start's goal
+ * is written. Each call is a new ask: a repeated start for a matter its agent already holds answers with that agent.
  */
 export async function changeRegisteredAgent(
   { said, ...rest }: RegisteredAgentChange,
@@ -288,14 +314,25 @@ export async function changeRegisteredAgent(
   if (why) {
     throw new Error(`Not done: ${why}`);
   }
-  const change = await withSubject(rest);
+  const { change, matter } = await withSubject(rest);
+  const isStart = change.action === "start";
+  if (isStart) {
+    call.report({
+      limitSeconds: limitMs / 1000,
+      plan: [...(matter ? ["goal_saved"] : []), ...START_STAGES],
+    });
+    if (matter) {
+      await saveGoal(matter, said);
+      call.report({ at: clock().toISOString(), step: "goal_saved" });
+    }
+  }
   const line = ask(
     requested("connector", said),
     { agent: DESK_AGENT, agentChange: change, confidence: "high" },
     "connector",
     "asked in a chat"
   );
-  return change.action === "start"
+  return isStart
     ? waitForStart(line, change, call, limitMs)
     : waitForChange(line, change, limitMs);
 }

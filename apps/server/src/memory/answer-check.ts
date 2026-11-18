@@ -22,7 +22,7 @@ import { dayNow } from "./zones";
 export interface CheckAnswer {
   /** A voice's new person: their name. */
   name?: string;
-  /** His words, verbatim. */
+  /** His words, verbatim; on a new matter's Start, the goal he saw. */
   note?: string;
   /** The option ids he picked: one for a guess of Life's; a decision takes several, or none with `note`. */
   options: string[];
@@ -30,7 +30,7 @@ export interface CheckAnswer {
   person?: string;
 }
 
-/** Asks the desk to start an agent on the new matter `c`, its goal as the brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
+/** Asks the desk to start an agent on the new matter `c` with the goal he saw, saved as his goal and its brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
 export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
 
 /** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his app's tap only). */
@@ -189,24 +189,14 @@ const WRITERS: {
         }),
       ];
     },
-    // The goal he saw becomes his word (the phone's start does the same), then the desk is asked with it as the brief.
-    start: async (c, _a, x) => {
+    // The goal he saw (his app sends it as `note`; else the goal as it reads now) is the start's words: the desk's start saves it as his goal.
+    start: async (c, a, x) => {
       if (!x.startAgent) {
         throw new Error("Not done: Start is his tap in his app.");
       }
-      const { goal, steps } = await newMatterOf(c);
-      const saved =
-        goal.by === "owner"
-          ? []
-          : [
-              await recordCorrection({
-                goal: goal.text,
-                kind: "matter-direction",
-                steps,
-              }),
-            ];
-      x.onStep?.("goal_saved");
-      return [...saved, await x.startAgent(c, goal.text)];
+      return [
+        await x.startAgent(c, a.note ?? (await newMatterOf(c)).goal.text),
+      ];
     },
   },
   voice: {
