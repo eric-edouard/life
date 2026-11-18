@@ -30,7 +30,7 @@ function metaCallOf(text: string): CallNotice | undefined {
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * what he calls it, the bridge's repository and command to build, how its notices say a call (`callOf`), and whether its
+ * what he calls it, the bridge's repository and command to build, how its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), and whether its
  * app is what Life reads (`readByItsApp`: WhatsApp's). The one list.
  */
 export const NETWORKS = [
@@ -66,6 +66,8 @@ export const NETWORKS = [
     repo: "mautrix/meta",
   },
   {
+    // Its bridge exits until its config holds his own keys from my.telegram.org (`bun life bridge link`).
+    appKeys: ["network.api_id", "network.api_hash"],
     cmd: "cmd/mautrix-telegram",
     label: "Telegram",
     name: "telegram",
@@ -88,6 +90,7 @@ export const NETWORKS = [
 ] as const;
 // The literal entries keep their names typed; a network with no calls has no `callOf`.
 export type Network = (typeof NETWORKS)[number] & {
+  appKeys?: readonly string[];
   callOf?: (text: string) => CallNotice | undefined;
   readByItsApp?: true;
 };

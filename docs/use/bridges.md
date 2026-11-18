@@ -27,6 +27,11 @@ cookies another browser signed in for). Without Chrome, it asks you to paste one
 the developer tools' Network tab); LinkedIn revokes those within minutes. A linked network is turned on as a
 source; Life copies it once it restarts.
 
+Telegram needs two keys of your own first, once: at https://my.telegram.org (log in with your phone number) open
+"API development tools" and make an app; `link telegram` asks for its `api_id` and `api_hash` (the hash hidden as you
+type) and writes them into the bridge's config. Until then the bridge isn't running, and `add` and the daily heal don't
+wait for it. Then it logs in with your phone number and the code Telegram sends you (a QR code is the other way).
+
 The bridges are also the only way Life sends: a card's draft, on your answer to its send option, goes as you into its
 one chat through the network's bridge (Instagram, Messenger, LinkedIn, Telegram once linked, and WhatsApp, whose bridge
 stays linked only for this: WhatsApp is read from its Mac app). A card can also start a one-to-one WhatsApp chat
