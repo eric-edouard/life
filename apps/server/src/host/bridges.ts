@@ -1,10 +1,12 @@
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
@@ -50,6 +52,70 @@ const writeYaml = (path: string, value: unknown) =>
   writeFileSync(path, Bun.YAML.stringify(value, null, 2));
 
 const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
+
+const valueAt = (c: unknown, path: string) =>
+  path
+    .split(".")
+    .reduce<unknown>(
+      (o, k) => (o as Record<string, unknown> | undefined)?.[k],
+      c
+    );
+
+/** The keys still holding the example config's value (a placeholder), and whether that value is a number. */
+export const pendingKeysOf = (
+  paths: readonly string[],
+  config: unknown,
+  example: unknown
+) =>
+  paths
+    .filter((p) => valueAt(config, p) === valueAt(example, p))
+    .map((path) => ({
+      isNumber: typeof valueAt(example, path) === "number",
+      path,
+    }));
+
+/** The config with each key set (a dotted path), the rest kept. */
+export function withKeys(config: unknown, values: Record<string, unknown>) {
+  const out = structuredClone(config) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  for (const [path, value] of Object.entries(values)) {
+    const keys = path.split(".");
+    const last = keys.pop() as string;
+    let o: Record<string, unknown> = out;
+    for (const k of keys) {
+      o[k] ??= {};
+      o = o[k] as Record<string, unknown>;
+    }
+    o[last] = value;
+  }
+  return out;
+}
+
+/** Its `appKeys` still the example's: the example is the one the bridge itself writes (`-e`), so Life holds no placeholder. */
+async function pendingAppKeys(n: Network) {
+  if (!n.appKeys) {
+    return [];
+  }
+  const tmp = mkdtempSync(join(tmpdir(), "bridge-example-"));
+  try {
+    const example = join(tmp, "config.yaml");
+    await execOk([join(BRIDGES, n.name, "bridge"), "-c", example, "-e"], {
+      cwd: tmp,
+    });
+    return pendingKeysOf(
+      n.appKeys.paths,
+      readYaml(configPath(n)),
+      readYaml(example)
+    );
+  } finally {
+    rmSync(tmp, { force: true, recursive: true });
+  }
+}
+
+/** A bridge that exits until he fills in its keys: its login can't be waited for (the one job restarts it every 10 s). */
+const needsAppKeys = async (n: Network) => (await pendingAppKeys(n)).length > 0;
 const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /**
@@ -91,11 +157,13 @@ export async function healBridges() {
   }
   await restartBridges();
   await Promise.all(
-    NETWORKS.filter(isAdded).map((n) =>
-      untilAnswers(
-        async () => hasStates(await readLogins(n.name)) || undefined,
-        `the ${n.label} bridge`
-      )
+    NETWORKS.filter(isAdded).map(
+      async (n) =>
+        !(await needsAppKeys(n)) &&
+        (await untilAnswers(
+          async () => hasStates(await readLogins(n.name)) || undefined,
+          `the ${n.label} bridge`
+        ))
     )
   );
 }
@@ -299,12 +367,19 @@ async function add(n: Network) {
     await writeConfig(n, bin, dir);
   }
   await restartBridges();
-  await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
-  console.log(`${n.label} bridge running.`);
-  if (!(await readBlock(n.name))) {
+  const keys = await needsAppKeys(n);
+  if (!keys) {
+    await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
+    console.log(`${n.label} bridge running.`);
+  }
+  if (!(keys || (await readBlock(n.name)))) {
     console.log(`${n.label} is linked already.`);
   } else if (process.stdin.isTTY) {
     await link(n);
+  } else if (keys) {
+    console.log(
+      `${n.label} needs your own keys first: bun life bridge link ${n.name}`
+    );
   } else {
     console.log(`Link it in a terminal: bun life bridge link ${n.name}`);
   }
@@ -386,6 +461,23 @@ async function signIn(step: CookieStep) {
 
 /** Links a network: its first way to log in unless `flow` names another; then its source on. */
 async function link(n: Network, flow?: string) {
+  const pending = await pendingAppKeys(n);
+  if (pending.length > 0) {
+    console.log(`${n.label} needs your own keys. ${n.appKeys?.hint}`);
+    const values = Object.fromEntries(
+      pending.map(({ isNumber, path }) => {
+        const key = path.split(".").pop() as string;
+        const text = ask(key, n.appKeys?.secret.includes(path) ?? false).trim();
+        if (!text || (isNumber && Number.isNaN(Number(text)))) {
+          throw new Error(`${key}: nothing usable typed`);
+        }
+        return [path, isNumber ? Number(text) : text];
+      })
+    );
+    writeYaml(configPath(n), withKeys(readYaml(configPath(n)), values));
+    await restartBridges();
+    await untilAnswers(() => readLogins(n.name), `the ${n.label} bridge`);
+  }
   const flows = await loginFlows(n.name);
   const chosen = flows.find((f) => f.id === flow) ?? flows[0];
   if (!chosen) {

@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { untilAnswers } from "../core/proc";
-import { RUN_BRIDGES } from "./bridges";
+import { pendingKeysOf, RUN_BRIDGES, withKeys } from "./bridges";
 
 // A made-up program: says it started, and that it was stopped on TERM.
 const program = (name: string) =>
@@ -43,4 +43,22 @@ test("the one job runs the homeserver and every added bridge, and stops each on 
   job.kill("SIGTERM");
   await job.exited;
   expect(has("synapse.stopped") && has("line.stopped")).toBe(true);
+});
+
+test("a key still the example's is pending; one he set is not; writing keys keeps the rest of the config", () => {
+  const example = { network: { api_hash: "x", api_id: 1, device: "d" } };
+  const keys = ["network.api_id", "network.api_hash"];
+  expect(pendingKeysOf(keys, example, example)).toEqual([
+    { isNumber: true, path: "network.api_id" },
+    { isNumber: false, path: "network.api_hash" },
+  ]);
+  const set = withKeys(example, {
+    "network.api_hash": "abcdef0123",
+    "network.api_id": 123_456,
+  });
+  expect(pendingKeysOf(keys, set, example)).toEqual([]);
+  expect(set).toEqual({
+    network: { api_hash: "abcdef0123", api_id: 123_456, device: "d" },
+  });
+  expect(example.network.api_id).toBe(1);
 });
