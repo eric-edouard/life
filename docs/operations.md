@@ -314,6 +314,12 @@ first.
   timeline (about 40 minutes;
   writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
   `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
+- **Arrival gate:** `bun scripts/arrival-gate-count.ts --from <day> --to <day> [--store <folder>]` replays his
+  sources' events in 2-minute steps through the arrival gate, one 10-minute pass at a time, and prints counts only:
+  arrivals, how many the gate let through and why it held the rest, passes a day with their tokens, and how many of
+  the night's promises, waits and to-dos came from a line no day pass read. No model, no lock, nothing of his written;
+  run it with `LIFE_STATE_DIR` on a copy of the state (its `settings.json` and a `sqlite3 .backup` of
+  `watch/lifelog.sqlite` set to `journal_mode=delete`), since a failed read logs.
 - **Exchange sizes:** `bun scripts/exchange-sizes.ts [person…]` counts how his chats and mail with people cut into
   exchanges, over every year, by source and year: messages, exchanges, their size, how many have one side only, and
   for the chats both sides wrote in their characters, at most how many tokens that is, and the calls that read them

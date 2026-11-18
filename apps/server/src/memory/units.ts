@@ -134,11 +134,9 @@ export const clip = (s: string, max = SUMMARY_MAX) =>
     ? s
     : `${s.slice(0, s.lastIndexOf(" ", max - 1) > 0 ? s.lastIndexOf(" ", max - 1) : max - 1)}…`;
 
-/** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
-const agentReports = () => [
-  ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
-  ...settings().agentReportSenders,
-];
+/** Whether a sender is one of his agents mailing him a report: Life's own sender or the `reports` setting. */
+export const isAgentReport = (sender: string) =>
+  sender === LIFE_MAIL.from || settings().agentReportSenders.includes(sender);
 
 /** A no-reply address: mail no one answers. */
 const NO_REPLY =
@@ -146,7 +144,7 @@ const NO_REPLY =
 
 /** Whether a mail handle is a sender no one answers or owes: a no-reply address, or his agents' reports. */
 export const isMailerHandle = (handle: string) =>
-  agentReports().includes(handle) || NO_REPLY.test(handle.split("@")[0] ?? "");
+  isAgentReport(handle) || NO_REPLY.test(handle.split("@")[0] ?? "");
 
 /** What a unit holding his marks adds to its text (`voiceText`, words.ts): kept, not weighed. */
 export const MARKED = "[He asked Life to keep what he says here.]";
@@ -584,7 +582,7 @@ interface Thread {
 /** Mail the owner never wrote in on that day, other than his agents' reports (the model judges those: he asked for their to-dos). */
 const isMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
-  !t.messages.some((m) => m.fromMe || agentReports().includes(m.sender));
+  !t.messages.some((m) => m.fromMe || isAgentReport(m.sender));
 /**
  * Life's own mail, its nightly report and alerts, by sender and subject: reading it back would turn its own output into
  * facts. An agent's report, sent from the same address, is not.
