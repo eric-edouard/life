@@ -1,0 +1,42 @@
+{
+  "asker": {
+    "name": "planner",
+    "told": "not_told"
+  },
+  "changed": {
+    "decision": "dec_000000000001",
+    "options": ["send"],
+    "state": "open"
+  },
+  "done": [
+    {
+      "answerKey": "tap-1",
+      "at": "2026-11-18T10:00:02.000Z",
+      "id": "dec_000000000001",
+      "kind": "answered",
+      "options": ["send"],
+      "schemaVersion": 3,
+      "via": "connector"
+    },
+    {
+      "at": "2026-11-18T10:00:02.000Z",
+      "id": "dec_000000000001",
+      "schemaVersion": 3,
+      "error": "not sent: someone wrote in Kit Moreau since this card was asked",
+      "kind": "send-failed"
+    }
+  ],
+  "inbox": {
+    "deadlinesToday": 0,
+    "left": false,
+    "total": 1
+  },
+  "kind": "decision",
+  "ref": "dec_000000000001",
+  "send": {
+    "at": "2026-11-18T10:00:02.000Z",
+    "canRetry": true,
+    "reason": "not sent: someone wrote in Kit Moreau since this card was asked",
+    "state": "not_sent"
+  }
+}

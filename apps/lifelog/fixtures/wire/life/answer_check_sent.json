@@ -1,0 +1,43 @@
+{
+  "asker": {
+    "name": "planner",
+    "told": "on_its_next_poll"
+  },
+  "changed": {
+    "decision": "dec_000000000001",
+    "options": ["send"],
+    "state": "answered"
+  },
+  "done": [
+    {
+      "answerKey": "tap-1",
+      "at": "2026-11-18T10:00:02.000Z",
+      "id": "dec_000000000001",
+      "kind": "answered",
+      "options": ["send"],
+      "schemaVersion": 3,
+      "via": "connector"
+    },
+    {
+      "at": "2026-11-18T10:00:02.000Z",
+      "eventId": "$ev1",
+      "id": "dec_000000000001",
+      "kind": "sent",
+      "schemaVersion": 3
+    }
+  ],
+  "inbox": {
+    "deadlinesToday": 0,
+    "left": true,
+    "total": 0
+  },
+  "kind": "decision",
+  "ref": "dec_000000000001",
+  "send": {
+    "at": "2026-11-18T10:00:02.000Z",
+    "channel": "whatsapp",
+    "eventId": "$ev1",
+    "state": "sent",
+    "to": "Kit Moreau"
+  }
+}

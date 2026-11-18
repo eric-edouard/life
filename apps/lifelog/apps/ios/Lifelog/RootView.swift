@@ -131,6 +131,8 @@ struct RootView: View {
             screen = .library
             libraryPath = [.naming]
         case .quickQuestion(let words): buttons.showQuestion(words)
+        case .card(let pushId): Task { await life.open(pushId: pushId) }
+        case .inbox: Task { await life.refreshInbox() }
         }
     }
 }

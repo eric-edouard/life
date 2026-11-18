@@ -16,6 +16,7 @@ import {
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import { answerWithResult } from "./answer-result";
+import { expectWire } from "./http/wire-fixture";
 
 // Made-up people, chats and ids throughout.
 
@@ -106,6 +107,7 @@ test("a send: the plan first, the steps in order, the lines written, the send, t
   const { id } = await card();
   const { result, steps } = call(id, ["send"], "tap-1");
   const r = await result;
+  expectWire("answer_check_sent", r, true);
   expect(steps.map((s) => s.plan ?? s.step)).toEqual([
     [
       "recorded",
@@ -151,6 +153,7 @@ test("a not-sent outcome reopens the card: the result says so and whether to try
   );
   const { id } = await card();
   const first = await call(id, ["send"], "tap-1").result;
+  expectWire("answer_check_not_sent", first, true);
   expect(first).toMatchObject({
     asker: { told: "not_told" },
     changed: { options: ["send"], state: "open" },

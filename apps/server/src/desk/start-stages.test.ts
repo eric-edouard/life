@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { changeRegisteredAgent } from "../host/change-registered-agent";
+import { expectWire } from "../host/http/wire-fixture";
 import { type Desk, openDesk } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { ticking } from "./test-ticker";
@@ -91,6 +92,7 @@ test("a start reports its plan, then each stage as the desk writes it, and answe
     "turn_begun",
   ]);
   expect(r.stages[1]?.session).toBe(`${r.agent}-1`);
+  expectWire("change_registered_agent_started", result, true);
 });
 
 test("a repeat of the same start answers with the same agent's stages and starts nothing", async () => {
@@ -118,6 +120,7 @@ test("a runtime that does not answer is not_started at its stage, with nothing r
     stages: [],
     state: "not_started",
   });
+  expectWire("change_registered_agent_not_started", result, true);
 });
 
 test("a first turn that never begins is not_started at turn_begun: its agent is ended", async () => {

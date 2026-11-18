@@ -1,25 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import type { InboxCheck } from "../../memory/checks";
 import { rpc, token } from "./mcp-test-harness";
+import { expectWire } from "./wire-fixture";
 
-// The phone's reads, as real answers: what each read tool says on made-up data is `apps/lifelog/fixtures/wire/life/<tool>.json`,
-// and Kit's `LifeConnector` tests decode the same files. `WRITE_WIRE=1` rewrites them (as lifelog's `wire.test.ts` does for its own; then `bun run fix`).
-const LIFE_WIRE = join(
-  import.meta.dir,
-  "../../../../lifelog/fixtures/wire/life"
-);
-
-function expectWire(name: string, text: string) {
-  const file = join(LIFE_WIRE, `${name}.json`);
-  const value = JSON.parse(text);
-  if (process.env.WRITE_WIRE) {
-    writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-    return;
-  }
-  expect(value).toEqual(JSON.parse(readFileSync(file, "utf8")));
-}
+// The phone's reads, as real answers (`wire-fixture.ts`).
 
 test("the phone's reads: read_inbox, read_matters, read_matter and read_registered_agents answer what Kit's models decode", async () => {
   const checks = await import("../../memory/checks");

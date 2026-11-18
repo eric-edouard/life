@@ -18,7 +18,7 @@ import { HEADERS, TOKENS, text } from "./http";
 // Life's sign-in for one owner, the only issuer of its tokens: the endpoints ChatGPT and Claude look for, under
 // `<origin>/auth`. An app is approved by a pairing code shown on the Mac (Life's panel, "Pair an app"):
 // whoever holds the Mac approves. PKCE is required, an authorization code serves once, a refresh token is replaced each
-// time it is used, and every token is for this one resource and owner.
+// time it is used (and works once more for a minute, for an answer that never arrived), and every token is for this one resource and owner.
 
 /** The one subject the issuer signs for. */
 const SUB = "owner";
@@ -27,6 +27,8 @@ const ACCESS_S = 3600;
 const CODE_MS = MIN;
 const PAIRING_MS = 5 * MIN;
 const PAIRING_TRIES = 5;
+/** How long a refresh token still works after its first use. */
+const GRACE_MS = MIN;
 /** How many registered apps may wait for their pairing at once. */
 const PENDING = 20;
 /** Where a client may be sent back: ChatGPT's and Claude's callbacks, and a desktop app's loopback. */
@@ -363,10 +365,16 @@ export function createIssuer(
     if (f.grant_type === "refresh_token") {
       const key = hash(f.refresh_token ?? "");
       const r = read().refresh[key];
-      update((s) => {
-        const { [key]: _, ...rest } = s.refresh;
-        return { ...s, refresh: rest };
-      });
+      // Used, it lives on for a minute: an app that missed the answer (a dropped connection) asks again and still has its pairing.
+      update((s) => ({
+        ...s,
+        refresh: r
+          ? {
+              ...s.refresh,
+              [key]: { ...r, expires: Math.min(r.expires, now() + GRACE_MS) },
+            }
+          : s.refresh,
+      }));
       if (!r || r.expires < now() || r.client !== f.client_id) {
         return Response.json({ error: "invalid_grant" }, { status: 400 });
       }

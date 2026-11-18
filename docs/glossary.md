@@ -251,6 +251,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | read state | What one read of Life is on the phone (`ReadState`, Kit's `LifeConnector`): its last good value, when it was read, and what the latest try is doing. A screen shows `shown`: loading, loaded, empty, stale (a failed refresh after a good read), unreachable (the Mac is out of reach), failed or not paired. | |
+| action state | Where one of his actions on Life stands on the phone (`ActionState`, Kit's `LifeConnector`): running with its steps, succeeded with its proof, or failed with the step, the reason and whether a retry is allowed. Only the server ends it. | |
+| action step | One stage of an action as Life reports it (`ActionStep`): passed with its time, or still to come. | |
 
 ## Folders
 
