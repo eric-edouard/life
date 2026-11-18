@@ -206,20 +206,27 @@ export const NamingQueueItem = z.object({
 });
 export type NamingQueueItem = z.infer<typeof NamingQueueItem>;
 
-/** The queue as lifelog gives it; none when lifelog is not set up; throws when it fails (the watcher keeps its last list). */
-export const fetchNamingQueue = async () =>
-  lifelogMissing()
-    ? []
-    : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+/** The last queue lifelog gave, and whether its last read failed. */
+let lastQueue: NamingQueueItem[] = [];
+let isDown = false;
 
-/** The voices lifelog asks him to name (`GET /naming-queue`); none when lifelog is not set up or fails (logged), so the inbox never fails with it. */
+/**
+ * The voices lifelog asks him to name (`GET /naming-queue`); none when lifelog is not set up. While it fails the last
+ * list stands, logged once, so the inbox never fails with it and a minute's look neither loses its voices nor logs.
+ */
 export async function readNamingQueue() {
   try {
-    return await fetchNamingQueue();
+    lastQueue = lifelogMissing()
+      ? []
+      : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
+    isDown = false;
   } catch (e) {
-    log("run.error", { error: (e as Error).message, step: "naming-queue" });
-    return [];
+    if (!isDown) {
+      log("run.error", { error: (e as Error).message, step: "naming-queue" });
+    }
+    isDown = true;
   }
+  return lastQueue;
 }
 
 /** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */

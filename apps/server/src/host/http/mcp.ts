@@ -48,6 +48,7 @@ import {
   autoAddTodoItem,
   changeAskedTodoItem,
 } from "../change-todo-item";
+import { correctMatter } from "../correct-matter";
 import {
   DECISION_ANSWERED,
   DECISION_LAPSED,
@@ -166,7 +167,7 @@ const Correct = Fix.extend({
     .record(z.string(), z.unknown())
     .optional()
     .describe(
-      "memory: a Life correction as `bun life memory correct` takes it, e.g. {kind:'wrong', observations:['<obs_ or ep_ id>']}"
+      "memory: a Life correction as `bun life memory correct` takes it, e.g. {kind:'wrong', observations:['<obs_ or ep_ id>']}; on a whole matter, `matter` (its id) instead of `observations` or `steps`"
     ),
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
@@ -175,8 +176,14 @@ const Correct = Fix.extend({
 const NOT_HIS =
   "Not done: this app was paired as an agent, and an agent's words are not his.";
 
-/** Applies one correction the owner asked for: a Life memory correction, or one of lifelog's four. */
-export async function correct(a: z.infer<typeof Correct>) {
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id: his token only), or one of lifelog's four. */
+export async function correct(a: z.infer<typeof Correct>, agent?: string) {
+  if (a.kind === "memory" && a.correction?.matter !== undefined) {
+    if (agent) {
+      throw new Error(NOT_HIS);
+    }
+    return { done: await correctMatter(a.correction) };
+  }
   await (a.kind === "memory"
     ? recordCorrection(a.correction)
     : forward(a.kind, a));
@@ -391,7 +398,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "correct_memory",
-    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: `outdated` over its open steps' obs_ ids; his goal or next step for a matter: kind `matter-direction`, `steps` every step id `read_matter` lists, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
+    "Change something. An agent that finished a step of a matter closes it itself, without asking him: a promise, a wait or a to-do note with kind `outdated`, its observation id and a note of what was done (his to-do items go through `change_todo_item`). Anything else changes only when he asked for it: `memory` (a correction to Life's memory, e.g. a fact wrong, kind `wrong`, or no longer true or already done, kind `outdated`, with its obs_ ids; a matter he says is done: kind `outdated` with `matter`, its id (Life closes every open step: its observations, and its to-do items ticked); his goal or next step for a matter: kind `matter-direction`, `matter` its id, `goal` (text) and/or `nextStep` ({kind, text, waitsOn})), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
     correct,
     WRITES
@@ -399,7 +406,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_inbox",
-    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), who someone is (`guessed person`, a Contacts `card`, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, and `likelyPeople`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (each saying what choosing it does; with two or more, the first is recommended), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence`, `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
+    "What waits on the owner's word (JSON): `checks`, the first `limit` (default 50), most pressing first (deadlines first, then what rides on each), `counts` by group, `total`, and `deadlinesToday` (how many are due by the end of his day). Every kind in one shape: an agent's decision, a step Life thinks is done (`ending`), a running matter Life found that an agent could move (`new matter`: start one on it, edit its goal, or dismiss it), who someone is (`guessed person`, a `contacts card` Life cannot place, a `name`; a voice to name: `voice`, its `clips`, each a span of a recording the app plays from lifelog, and `likelyPeople`). Each is one card: its `ref`, `title` (what it is trying to do), `question`, `draft` (what Life sends if he approves, exactly as shown: `to`, `text`, a `file` (name, size), the message it replies or reacts to (`quoted`), `mentions`; for mail `from`, `cc`, `subject`), `options` (`id`, `label`, his button's words, `takes`, what his answer must carry besides it: `person`, `person or name`, `note` or null, and `outgoing` on one that acts outward; with two or more, the first is recommended; what each does: `answer_check`), `context` (folded detail), `evidence` (the words it rests on), `asker`, `deadline` and `onSilence` (the option an agent takes if he doesn't answer; null: nothing is taken), `subject`, `matter` (the matter it belongs to: id, name), `links`. Put them to him one at a time, always with a way to answer in his own words; record each answer with `answer_check`, and anything new he says with `tell_life`. Answered ones leave: read again for the next.",
     z.object({
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
@@ -443,7 +450,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "answer_check",
-    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter's `start`, the goal he saw), `person` (`person:<id>`, when the option says to give who it is), `name` (a voice's new person). Life acts on it at once (a voice is named for every turn of it in lifelog; a decision's asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat: only on his own answer in this chat; a step closes or reopens; who someone is is recorded) and returns the lines written.",
+    "Record the owner's answer to a check `read_inbox` lists, only as he gave it in this chat: `ref`, `options` (the option ids he picked: one for Life's own checks; a decision may take several, or none when he answered in his own words, which go to its agent), `note` (his words, verbatim; on a new matter's `start`, the goal he saw), and what the option `takes`: `person` (`person:<id>`), for a voice `person` or `name` (a new person's name), or `note`. Life acts on it at once and returns the lines written. A decision: its asker is told, and his pick of a draft's one outgoing option alone sends that draft, exactly, into its chat (only on his own answer in this chat). An ending: `outdated` closes the step, `false` removes the link and the step stays open. A guessed person: `this-is` keeps Life's guess as his word, `not-this-person` drops it, `same-person` makes the two one. A `contacts card` (`same-person`) or a name (`this-is`): it is that person from now on. A voice: `this-is` names every turn of it in lifelog, `not-anyone-i-know` is never asked again, `media` is a video or TV playing, `not-relevant` is not worth naming. A new matter: `start` makes the goal he saw his and asks the desk to start an agent with it as its brief (its start stages come as it starts), `edit-goal` makes his `note` the goal and keeps the card for Start or Dismiss, `dismiss` never asks again for this matter.",
     z.object({
       name: z
         .string()

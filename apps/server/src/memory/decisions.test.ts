@@ -8,7 +8,7 @@ import {
 } from "bun:test";
 import { appendFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
-import { DAY, HOUR } from "../core/clock";
+import { DAY, HOUR, MIN } from "../core/clock";
 import {
   answerDecision,
   DECISIONS,
@@ -17,6 +17,8 @@ import {
   settledBetween,
 } from "./decisions";
 import type { StoredDraft } from "./draft";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as draftSend from "./draft-send";
 
 const DECISION_ID = /^dec_[0-9a-f]{12}$/;
 const NOW = new Date("2026-11-18T09:00:00.000Z");
@@ -380,14 +382,18 @@ test("an answer's key is kept on its line", async () => {
   expect(decisionsNow(NOW)[0]?.answer?.answerKey).toBe("tap-7");
 });
 
-test("a send that never ended (a crash) is told as such five minutes after his answer", async () => {
+// 19 Nov 2026 (review A, B1): a fixed 5 minutes declared a slow mail "may have gone" while gog still sent it.
+test("a send that never ended (a crash) is told as such a minute past its path's own limit, however long that is", async () => {
+  const limit = spyOn(draftSend, "sendLimitMs").mockReturnValue(5 * MIN);
   const { id } = await draftCard();
   appendFileSync(
     DECISIONS,
     `${JSON.stringify({ at: later(HOUR).toISOString(), id, kind: "answered", options: ["send"], schemaVersion: 3, via: "connector" })}\n`
   );
-  expect(decisionsNow(later(HOUR + 4 * 60_000))[0]?.send).toBeUndefined();
-  const [d] = decisionsNow(later(HOUR + 5 * 60_000));
+  expect(decisionsNow(later(HOUR + 5 * MIN))[0]?.send).toBeUndefined();
+  expect(decisionsNow(later(HOUR + 6 * MIN - 1))[0]?.send).toBeUndefined();
+  const [d] = decisionsNow(later(HOUR + 6 * MIN));
+  limit.mockRestore();
   expect(d?.send).toMatchObject({
     error: expect.stringContaining("never ended"),
   });
