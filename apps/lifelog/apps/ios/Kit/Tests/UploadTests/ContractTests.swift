@@ -1,5 +1,6 @@
 import Foundation
 import Library
+import LifeConnector
 import Testing
 
 @testable import Upload
@@ -80,6 +81,18 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
     let called = Set(literals.map { String($0).replacing(/\\\([a-z][A-Za-z]*(?:\([a-z]+\))?\)/, with: "{}") })
     #expect(called.count > 20, "the parser still finds the client's calls")
     #expect(called.subtracting(paths).isEmpty, "\(called.subtracting(paths).sorted())")
+}
+
+/// The providers the Start sheet offers are the runtimes the desk drives, by the desk's own names (`desk-helper.ts`),
+/// and a runtime the app does not know reads as `unknown`, never a failure.
+@Test func providersAreTheDesksRuntimes() throws {
+    let source = try String(
+        contentsOf: apps.deletingLastPathComponent().deletingLastPathComponent().appending(
+            path: "server/src/desk/desk-helper.ts"), encoding: .utf8)
+    let desk = Set(source.matches(of: /\n  ([a-z]+): [a-z]+Runtime,/).map { String($0.output.1) })
+    #expect(desk == Set(Provider.allCases.map(\.rawValue)).subtracting(["unknown"]))
+    #expect(Provider(rawValue: "dsh") == nil)
+    #expect(try JSONDecoder().decode(Provider.self, from: Data(#""dsh""#.utf8)) == .unknown)
 }
 
 @Test func unknownServerValuesNeverFailTheFeedsState() throws {

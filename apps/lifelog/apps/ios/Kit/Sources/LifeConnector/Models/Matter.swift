@@ -79,9 +79,63 @@ public struct MatterList: Decodable, Sendable, Equatable {
         }
     }
 
-    /// How many matters each status holds: the filter's counts.
+    /// How many matters each status holds.
     public var statusCounts: [MatterStatus: Int] {
         matters.reduce(into: [:]) { $0[$1.status, default: 0] += 1 }
+    }
+
+    /// The matters `filter` and the search let through, in the list's order.
+    public func shown(query: String, filter: MatterFilter) -> [MatterRow] {
+        matching(query).filter(filter.passes)
+    }
+
+    /// The filter sheet's counts, over every running matter: each area (most matters first), each kind of wait, and the
+    /// ones with an agent.
+    public var areaCounts: [(area: String, count: Int)] {
+        let counts = matters.flatMap { $0.areas ?? [] }.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
+        return counts.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map { ($0.key, $0.value) }
+    }
+    public var waitCounts: [MatterWait: Int] {
+        matters.reduce(into: [:]) { counts, row in if let wait = row.wait { counts[wait, default: 0] += 1 } }
+    }
+    public var agentCount: Int { matters.count { $0.agent != nil } }
+}
+
+/// What a matter waits on, as the filter sheet names it: its next step's kind, or stuck.
+public enum MatterWait: String, CaseIterable, Sendable {
+    case decision, owner, ready, event, stuck
+}
+
+extension MatterRow {
+    /// A stuck matter is stuck whatever its next step says; one with no next step waits on nothing known.
+    public var wait: MatterWait? {
+        if status == .stuck { return .stuck }
+        switch nextStep?.kind {
+        case .waitDecision?: return .decision
+        case .waitOwner?: return .owner
+        case .do?: return .ready
+        case .waitEvent?: return .event
+        case .unknown?, nil: return nil
+        }
+    }
+}
+
+/// The Matters list's three filters: an area, the kinds of wait (any of them), and only matters with an agent.
+public struct MatterFilter: Sendable, Equatable {
+    public var area: String?
+    public var waits: Set<MatterWait> = []
+    public var withAgent = false
+
+    public init(area: String? = nil, waits: Set<MatterWait> = [], withAgent: Bool = false) {
+        (self.area, self.waits, self.withAgent) = (area, waits, withAgent)
+    }
+
+    public var isEmpty: Bool { self == MatterFilter() }
+
+    func passes(_ row: MatterRow) -> Bool {
+        (area.map { row.areas?.contains($0) == true } ?? true)
+            && (waits.isEmpty || row.wait.map(waits.contains) == true)
+            && (!withAgent || row.agent != nil)
     }
 }
 

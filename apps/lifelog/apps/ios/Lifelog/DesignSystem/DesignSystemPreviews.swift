@@ -40,9 +40,9 @@ import SwiftUI
 
     #Preview("Type") {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lunch with Julien — French").font(.readerTitle)
-            Text("Standup: Pendant sync bug").font(.rowTitle)
-            Text("Conversation at 13:52").font(.placeholderTitle).foregroundStyle(Palette.fg)
+            Text("Lunch with Julien — French").font(.matterTitle)
+            Text("Standup: Pendant sync bug").font(.rowName)
+            Text("Conversation at 13:52").font(.cardHeadline).foregroundStyle(Palette.fg)
             Text("Pages drop when the phone sleeps; Pim retries reads with backoff by Friday.")
                 .font(.subheadline).foregroundStyle(Palette.muted)
             Text("14:18").font(.monoTime)

@@ -39,9 +39,7 @@
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Newsreader.ttf</string>
-		<string>Newsreader-Italic.ttf</string>
-		<string>GeistMono.ttf</string>
+		<string>Manrope.ttf</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

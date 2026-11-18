@@ -18,8 +18,17 @@ final class LifeStore {
     private(set) var matter: [String: ReadState<Matter>] = [:]
     private(set) var agents = ReadState<RegisteredAgents>()
 
-    /// Every action, by what it acts on (`answer:<ref>`, `start:<matter>`, `agent:<id>`, `matter:<id>`): its steps as they stream, then its proof or why not.
-    private(set) var actions: [String: ActionState<ActionProof>] = [:]
+    /// What an action acts on: the store makes every key itself, so a screen asks for the state of what it shows.
+    enum ActionKey: Hashable {
+        case answer(ref: String)
+        case start(matter: String)
+        case agent(String)
+        case edit(matter: String, Edit)
+        enum Edit: Hashable { case goal, next, done }
+    }
+
+    /// Every action by what it acts on: its steps as they stream, then its proof or why not.
+    private(set) var actions: [ActionKey: ActionState<ActionProof>] = [:]
     /// The card a tapped push opened, for the screen to show (`wasAnswered`: it had left the inbox).
     private(set) var openedCard: InboxOpening?
 
@@ -56,6 +65,16 @@ final class LifeStore {
     }
 
     var isPaired: Bool { tokens.load() != nil }
+
+    func state(of key: ActionKey) -> ActionState<ActionProof> { actions[key] ?? .idle }
+
+    /// Forgets an action's result once the screen has shown it (the next card is up, the sheet is closed).
+    func forget(_ key: ActionKey) {
+        if actions[key]?.isRunning != true { actions[key] = nil }
+    }
+
+    /// The card a tapped push opened has been shown.
+    func clearOpenedCard() { openedCard = nil }
 
     // MARK: Reads
 
@@ -120,7 +139,8 @@ final class LifeStore {
     // MARK: Actions
 
     /// Runs one action under `key`: its events are applied in the order they came, and a second tap while it runs is ignored.
-    private func perform(_ key: String, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void) async {
+    private func perform(_ key: ActionKey, _ body: @escaping @Sendable (@escaping LifeActions.Emit) async -> Void) async
+    {
         guard actions[key]?.isRunning != true else { return }
         let (events, emit) = AsyncStream.makeStream(of: ActionState<ActionProof>.Event.self)
         actions[key] = .running(steps: [], limit: nil)
@@ -133,7 +153,7 @@ final class LifeStore {
     /// His answer to a check. A call that failed on the connection is repeated as the same tap; a result Life gave
     /// (a send that was not sent included) makes the next tap a new one.
     func answer(_ request: AnswerRequest) async {
-        let key = "answer:\(request.ref)"
+        let key = ActionKey.answer(ref: request.ref)
         guard actions[key]?.isRunning != true else { return }
         let tap = taps.key(for: request.ref)
         await perform(key) { [runner] in await runner.answer(request, key: tap, emit: $0) }
@@ -144,7 +164,7 @@ final class LifeStore {
     /// Saves `goal` as the matter's goal, then starts an agent on it: `goal_saved`, then the desk's stages.
     func startAgent(on matter: Matter, goal: String, runtime: String? = nil, model: String? = nil) async {
         let (id, steps) = (matter.row.id, matter.steps.map(\.ref))
-        await perform("start:\(id)") { [runner] in
+        await perform(.start(matter: id)) { [runner] in
             await runner.startAgent(
                 matter: id, steps: steps, goal: goal, runtime: runtime, model: model, emit: $0)
         }
@@ -167,30 +187,32 @@ final class LifeStore {
     }
 
     private func change(_ agent: String, _ request: AgentRequest) async {
-        await perform("agent:\(agent)") { [runner] in await runner.changeAgent(request, emit: $0) }
+        await perform(.agent(agent)) { [runner] in await runner.changeAgent(request, emit: $0) }
         await refreshAgents()
     }
 
     /// His goal for a matter (`matter-direction`, pinned to every step `read_matter` lists).
     func setGoal(of matter: Matter, _ goal: String) async {
         let (api, steps) = (api, matter.steps.map(\.ref))
-        await edit(matter, "goal") { try await api.setMatterDirection(steps: steps, goal: goal, nextStep: nil) }
+        await edit(matter, .goal) { try await api.setMatterDirection(steps: steps, goal: goal, nextStep: nil) }
     }
 
     func setNextStep(of matter: Matter, _ nextStep: NextStepRequest) async {
         let (api, steps) = (api, matter.steps.map(\.ref))
-        await edit(matter, "next") { try await api.setMatterDirection(steps: steps, goal: nil, nextStep: nextStep) }
+        await edit(matter, .next) { try await api.setMatterDirection(steps: steps, goal: nil, nextStep: nextStep) }
     }
 
     /// His word that the matter is done: its open steps are outdated.
     func markDone(_ matter: Matter) async {
         let (api, open) = (api, matter.steps.filter { $0.ending == nil && $0.ref.hasPrefix("obs_") }.map(\.ref))
-        await edit(matter, "done") { try await api.markDone(observations: open, note: "Marked done in the Life app.") }
+        await edit(matter, .done) { try await api.markDone(observations: open, note: "Marked done in the Life app.") }
     }
 
-    private func edit(_ matter: Matter, _ what: String, _ change: @escaping @Sendable () async throws -> String) async {
+    private func edit(_ matter: Matter, _ what: ActionKey.Edit, _ change: @escaping @Sendable () async throws -> String)
+        async
+    {
         let id = matter.row.id
-        await perform("matter:\(id):\(what)") { [runner] in await runner.record(emit: $0, change) }
+        await perform(.edit(matter: id, what)) { [runner] in await runner.record(emit: $0, change) }
         async let a: Void = refreshMatter(id)
         async let b: Void = refreshMatters()
         _ = await (a, b)

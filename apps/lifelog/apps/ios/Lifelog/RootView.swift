@@ -4,12 +4,14 @@ import ServerAPI
 import SwiftUI
 import UIKit
 
-/// The Pendant tab alone: the minimal shell until the new screens replace it.
+/// Two tabs, Inbox (home) and Matters, with the Settings and Pendant sheets over them.
 struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
     @Environment(LifeStore.self) private var life
     @Environment(\.scenePhase) private var scenePhase
+    @State private var router = AppRouter()
+    @AppStorage("appearance") private var appearance = Appearance.auto
     /// A pairing link the owner is asked to confirm, once any sheet is out of the way: the lifelog server, Life, or both.
     @State private var confirming = Offer()
 
@@ -20,10 +22,25 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView {
-            Tab("Pendant", systemImage: "record.circle") { PendantView() }
+        TabView(selection: $router.tab) {
+            Tab("Inbox", systemImage: "tray", value: AppRouter.Tab.inbox) {
+                InboxScreen().safeAreaInset(edge: .top, spacing: 0) { TopBar(label: "Inbox") }
+            }
+            .badge(life.inbox.value?.total ?? 0)
+            Tab("Matters", systemImage: "list.bullet.indent", value: AppRouter.Tab.matters) { MattersScreen() }
         }
+        .environment(router)
+        .sheet(item: $router.sheet) { sheet in
+            switch sheet {
+            case .pendant: PendantView()
+            case .settings: SettingsSheet()
+            }
+        }
+        .preferredColorScheme(appearance.scheme)
         // A tapped notification, from a cold launch, the background or the foreground.
+        #if DEBUG
+            .task { await showFixtureScreen() }
+        #endif
         .onChange(of: capture.routeToOpen, initial: true) { _, route in
             guard let route else { return }
             capture.routeToOpen = nil
@@ -36,7 +53,7 @@ struct RootView: View {
             #if DEBUG
                 await life.importFromEnvironment()
             #endif
-            if life.isPaired { await life.refresh() }
+            await life.refresh()
         }
         // A pairing link (`lifelog://pair?…`), from the Camera or pasted in Settings: a link could come from anywhere, so
         // it is asked here, over whatever was showing, and never repoints the app on its own.
@@ -57,7 +74,7 @@ struct RootView: View {
         } message: { offer in
             Text(pairingMessage(offer))
         }
-        .tint(Palette.flag)
+        .tint(Palette.fg)
     }
 
     /// A server as the owner reads it: its host, and its port when it isn't the usual one.
@@ -99,6 +116,32 @@ struct RootView: View {
             case .card(let pushId): Task { await life.open(pushId: pushId) }
             case .inbox: Task { await life.refreshInbox() }
             }
+        }
+    }
+}
+
+#if DEBUG
+    extension RootView {
+        /// `-fixtureTab`, `-fixtureCard`, `-fixtureMatter`, `-fixtureSheet`: open the screen a launch asked to see.
+        fileprivate func showFixtureScreen() async {
+            try? await Task.sleep(for: .milliseconds(1_200))
+            if LifeFixture.tab == "matters" { router.tab = .matters }
+            if let id = LifeFixture.matter { router.open(matter: id) }
+            if let ref = LifeFixture.card { router.answer(card: ref) }
+            if let sheet = LifeFixture.sheet.flatMap(AppRouter.Sheet.init(rawValue:)) { router.sheet = sheet }
+        }
+    }
+#endif
+
+/// Dark, light, or whatever the phone says.
+enum Appearance: String {
+    case auto, light, dark
+
+    var scheme: ColorScheme? {
+        switch self {
+        case .auto: nil
+        case .light: .light
+        case .dark: .dark
         }
     }
 }

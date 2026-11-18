@@ -35,8 +35,15 @@ public struct AnswerResult: Decodable, Sendable, Equatable {
         public let deadlinesToday: Int
     }
 
+    /// What changed, for a voice named: the clips and conversations that now carry the name.
+    public struct Changed: Decodable, Sendable, Equatable {
+        public let voices: Int?
+        public let conversations: Int?
+    }
+
     public let ref: String
     public let kind: String
+    public let changed: Changed?
     /// Nothing to send: absent.
     public let send: Send?
     public let asker: Asker?

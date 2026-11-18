@@ -32,7 +32,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   `#f3f4f5`, `fg` `#0d0e11`). Never a hex in a screen; the values are tokens.css's.
 - **Type.** Manrope only: thin (250) for a title, bold (650) for what matters, 15 px body, small labels in capitals (11 px,
   600, 0.22em apart). Web pages load it from Google Fonts through tokens.css; mail loads no web font, so it shows
-  Manrope only where installed. The phone still draws its old fonts until its screens are redone.
+  Manrope only where installed. The phone bundles Manrope.
 - **Hierarchy.** Size and weight carry it, not colour: one filled button for the primary action, the others quiet.
 - **Shape.** Controls 12 px radius, panels 22 px, buttons full pills in the app, icon strokes 1.5 px, spacing 8, 16, 24,
   48. No paper texture, gradients or decorative shadows.

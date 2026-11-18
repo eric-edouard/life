@@ -7,6 +7,24 @@ public enum AgentStatus: String, UnknownTolerant, Sendable {
     case unknown
 }
 
+/// The runtime an agent works in, by the desk's own name for it (`RUNTIMES` in `desk-helper.ts`, checked by `ContractTests`).
+public enum Provider: String, UnknownTolerant, Sendable {
+    case claude, codex
+    case unknown
+
+    /// What the owner reads: the app's name for the runtime.
+    public var name: String {
+        switch self {
+        case .claude: "Claude Code"
+        case .codex: "Codex"
+        case .unknown: "its runtime"
+        }
+    }
+
+    /// What the Start sheet offers (DSH is out of v1).
+    public static let offered: [Provider] = [.claude, .codex]
+}
+
 /// A registered agent as the desk reads it now (`read_registered_agents`, and `agents` of `read_matter`).
 public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public struct Wait: Decodable, Sendable, Equatable {
@@ -42,6 +60,8 @@ public struct RegisteredAgent: Decodable, Sendable, Equatable, Identifiable {
     public let wait: Wait?
     public let lastTurn: Turn?
     public let amber: [String]
+
+    public var provider: Provider { Provider(rawValue: runtime) ?? .unknown }
 }
 
 /// `read_registered_agents`: what the desk keeps, and whether it is on and its helper runs.

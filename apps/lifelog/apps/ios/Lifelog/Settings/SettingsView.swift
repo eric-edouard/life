@@ -6,11 +6,9 @@ import PendantProtocol
 import ServerAPI
 import SwiftUI
 
-/// Settings, pushed from the gear on the Pendant screen: the processing switches and the vocabulary, alerts, the Lock
-/// Screen, the light and your data.
-///
-/// A push rather than a sheet: it has pages of its own (Light guide, Backup, Server), which push in the same
-/// stack with the usual back swipe.
+/// Settings, the sheet over the app: appearance, the Inbox's push and pairing, the processing switches and the
+/// vocabulary, alerts, the light and your data. It has pages of its own (Light guide, Backup, Server), which push in the
+/// sheet's own stack.
 struct SettingsView: View {
     let permissions: PermissionsStore
     let allowNotifications: () -> Void
@@ -18,12 +16,34 @@ struct SettingsView: View {
     @Environment(SyncStore.self) private var sync
     @Environment(CaptureStore.self) private var capture
     @Environment(AppleHealthReader.self) private var appleHealth
+    @Environment(LifeStore.self) private var life
+    @AppStorage("appearance") private var appearance = Appearance.auto
     @Bindable private var settings = Settings.shared
 
     var body: some View {
         let switches = sync.switches
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                SettingsGroup("Appearance") {
+                    Picker("Appearance", selection: $appearance) {
+                        Text("Auto").tag(Appearance.auto)
+                        Text("Light").tag(Appearance.light)
+                        Text("Dark").tag(Appearance.dark)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("settings.appearance")
+                }
+                SettingsGroup("Inbox") {
+                    PermissionRow(
+                        name: "A push for every new card", state: permissions.notifications,
+                        explanation: "The moment something needs you.", ask: allowNotifications)
+                    NavigationLink {
+                        PairingView(server: sync.server)
+                    } label: {
+                        SettingsLink("Life", value: life.isPaired ? "Paired" : "Not paired")
+                    }
+                    .accessibilityIdentifier("settings.life")
+                }
                 SettingsGroup("Processing", footer: switchesWaiting ? "Waiting to sync." : nil) {
                     SwitchToggle(
                         title: "Transcription",
@@ -310,5 +330,30 @@ private struct OpenAppPicker: View {
         }
         .disabled(minutes == nil)
         .accessibilityIdentifier("settings.openAppAfter")
+    }
+}
+
+/// Settings as a sheet: its own stack, a close button, and the permissions it reads.
+struct SettingsSheet: View {
+    @Environment(CaptureStore.self) private var capture
+    @Environment(\.dismiss) private var dismiss
+    @State private var permissions = PermissionsStore()
+
+    var body: some View {
+        NavigationStack {
+            SettingsView(
+                permissions: permissions,
+                allowNotifications: {
+                    Task {
+                        await capture.notifier.requestPermission()
+                        await permissions.refresh()
+                    }
+                }
+            )
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("Close", systemImage: "xmark") { dismiss() } }
+            }
+        }
+        .task { await permissions.refresh() }
     }
 }

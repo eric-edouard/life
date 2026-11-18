@@ -19,6 +19,7 @@ final class PlaybackStore {
     @ObservationIgnored private let player = PlaybackStore.makePlayer()
     @ObservationIgnored private var observers: [Any] = []
     @ObservationIgnored private var statusWatch: Task<Void, Never>?
+    @ObservationIgnored private var clipEnd: Task<Void, Never>?
     /// Playing out loud, the Pendant hears it: the span is kept from transcription (`PlaybackQuiet`).
     @ObservationIgnored private var quiet = PlaybackQuiet()
     @ObservationIgnored private var outLoud = PlaybackStore.routeIsOutLoud()
@@ -36,13 +37,23 @@ final class PlaybackStore {
         observeRoute()
     }
 
-    /// Plays `file` from its start.
-    func play(_ file: URL) {
-        player.replaceCurrentItem(with: AVPlayerItem(url: file))
+    /// Plays `file` from `start` seconds, and for `length` seconds when given (a clip is a span of its job's audio).
+    func play(_ file: URL, from start: Double = 0, for length: Double? = nil) {
+        let item = AVPlayerItem(url: file)
+        player.replaceCurrentItem(with: item)
+        if start > 0 { player.seek(to: CMTime(seconds: start, preferredTimescale: 600)) }
         player.play()
+        clipEnd?.cancel()
+        clipEnd = length.map { length in
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(length))
+                if !Task.isCancelled { self?.stop() }
+            }
+        }
     }
 
     func stop() {
+        clipEnd?.cancel()
         player.pause()
         player.replaceCurrentItem(with: nil)
     }
