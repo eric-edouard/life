@@ -243,14 +243,9 @@ struct CheckCard: View {
 
     private func shown(_ option: Check.Option) -> String { check.shown(option) }
 
-    /// The goal the card offers, between "Goal: " and " Work on it?".
-    private var goal: String {
-        check.question.replacingOccurrences(of: "Goal: ", with: "").replacingOccurrences(of: ". Work on it?", with: "")
-    }
-
     private func tap(_ option: Check.Option) {
         if check.group == .newMatter, option.id == "edit-goal" {
-            words = goal
+            words = check.offeredGoal
             isWritingOwnWords = true
             return
         }
@@ -398,13 +393,5 @@ private struct ClipBlock: View {
             guard let file else { return failed = true }
             playback.play(file, from: audio.start, for: audio.end - audio.start)
         }
-    }
-}
-
-extension Check {
-    /// An option as its button says it. A new matter's options say what they do after a colon, or how to give the goal in brackets: the button keeps the first words.
-    func shown(_ option: Option) -> String {
-        guard group == .newMatter else { return option.label }
-        return String(option.label.prefix { $0 != ":" && $0 != "(" }).trimmingCharacters(in: .whitespaces)
     }
 }

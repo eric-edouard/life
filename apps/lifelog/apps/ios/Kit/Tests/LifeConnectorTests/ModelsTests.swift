@@ -30,6 +30,8 @@ private func decoded<V: Decodable>(_ type: V.Type, _ text: String) throws -> V {
     #expect(found.group == .newMatter)
     #expect(found.options.map(\.id) == ["start", "edit-goal", "dismiss"])
     #expect(found.deadline == nil)
+    #expect(found.options.map(found.shown) == ["Start", "Edit goal", "Dismiss"])
+    #expect(found.offeredGoal == "Gran's photo is framed")
     #expect(inbox.checks[3].draft == nil)
 
     let list = try decoded(MatterList.self, wireText("life/read_matters.json"))
