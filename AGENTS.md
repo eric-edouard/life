@@ -124,7 +124,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   before: its own `onAsk` command (its setting), once per new ask, detached and with no words (his OK, 3 Nov 2026), and
   the question cases' headless agent by a developer's script (his word, 10 Nov 2026); it pulls its own asks
   (`read_agent_asks`) and keeps its own list. A registered agent's state (its subject, its wait, its sessions, its
-  turns) lives in the desk's store only (`desk.sqlite`), never in `memory/`. An agent whose first turn never began is ended (`not started: …`), never retried. On the connector an agent is known by its
+  turns) lives in the desk's store only (`desk.sqlite`), never in `memory/`. An agent whose first turn never began (or not within its runtime's begin limit, its run then stopped) is ended, why in `why_not_started`, never retried. On the connector an agent is known by its
   pairing (its grant's agent claim); at the desk's door a registered agent is known by the key the desk gave its
   session; never by what it says. Nothing in Life branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todoList`

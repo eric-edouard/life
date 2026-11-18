@@ -1,4 +1,4 @@
-import { afterEach, expect, setSystemTime, test } from "bun:test";
+import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,12 +23,14 @@ import type { SourceEvent } from "../records/source";
 import { finish, register, setWait, writeNotes } from "./agent-actions";
 import {
   endLostTurns,
+  endUnbegunTurns,
   pollAnswers,
   pollMessages,
   turnEnded,
   wakeDue,
 } from "./desk-clock";
 import { type Desk, openDesk } from "./desk-store";
+import { BEGIN_WITHIN_MS } from "./runtimes/contract";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 
 // The wait contract's cases (the desk spec, section 6, W1 to W20): a fake runtime, the clock faked, made-up agents and
@@ -736,4 +738,128 @@ test("a runtime that can't say a lost turn's state leaves it alone this poll: ne
     begun_at: null,
     ended_at: null,
   });
+});
+
+test("a first turn not begun within its runtime's limit ends its agent not started, its run stopped and its matter freed; a later one is retried", async () => {
+  const { desk, fake, turns, waiting } = setup();
+  const later = await waiting();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b010");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  advance(BEGIN_WITHIN_MS - MIN);
+  await endUnbegunTurns(desk);
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+  advance(2 * MIN);
+  await endUnbegunTurns(desk);
+  expect(agentOf(desk.db, id)).toMatchObject({
+    status: "ended",
+    why_not_started: "it did not begin within 5 minutes",
+  });
+  expect(fake.stopped).toEqual([ref]);
+  expect(holderOf(desk.db, ["obs_00000000b010"])).toBeNull();
+  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b010");
+  // An agent that had begun before: its turn that never begins fails and is retried; it stays active.
+  advance(HOUR);
+  await wakeDue(desk);
+  advance(BEGIN_WITHIN_MS + MIN);
+  await endUnbegunTurns(desk);
+  expect(agentOf(desk.db, later)?.status).toBe("active");
+  expect(turns(later).at(-1)).toEqual({ cause: "deadline", outcome: "failed" });
+});
+
+test("an agent that finished in its own words, even 'not started: …', keeps its matter: only the desk's field frees it", async () => {
+  const { desk } = setup();
+  const id = await started(desk, "obs_00000000b011");
+  await finish(desk, id, "not started: the client never replied");
+  expect(agentOf(desk.db, id)?.why_not_started).toBeNull();
+  expect(anchoredSteps(desk.db)).toContain("obs_00000000b011");
+});
+
+test("the inbox's anchored steps read live agents and those ended within the new matter window only", async () => {
+  const { desk } = setup();
+  const id = await started(desk, "obs_00000000b012");
+  await finish(desk, id, "done");
+  advance(6 * DAY);
+  expect(anchoredSteps(desk.db)).toContain("obs_00000000b012");
+  advance(2 * DAY);
+  expect(anchoredSteps(desk.db)).not.toContain("obs_00000000b012");
+});
+
+test("an agent that finished while another's wake was launching gets no turn: each is read again as its turn is written", async () => {
+  const { desk, fake, turns, waiting } = setup();
+  const first = await waiting();
+  const second = await waiting();
+  advance(HOUR + MIN);
+  let isFinished = false;
+  fake.duringSend = async () => {
+    if (!isFinished) {
+      isFinished = true;
+      await finish(desk, second, "done in his own session");
+    }
+  };
+  await wakeDue(desk);
+  expect(turns(first)).toHaveLength(2);
+  expect(turns(second)).toHaveLength(1);
+});
+
+test("an agent he stopped mid-turn gets no reminder when that turn ends without set_wait", async () => {
+  const { desk, end, fake, turns, waiting } = setup();
+  const id = await waiting();
+  advance(HOUR + MIN);
+  await wakeDue(desk);
+  const said = fake.said.length;
+  desk.db.run("update agent set status = 'stopped' where id = ?", [id]);
+  await end(id);
+  expect(fake.said).toHaveLength(said);
+  expect(turns(id).at(-1)?.outcome).toBe("default_wait");
+});
+
+test("a run launched whose session write fails is still watched: its turn is not failed, and ends when the run does", async () => {
+  const { desk, fake, turns } = setup();
+  const run = desk.db.run.bind(desk.db);
+  const failing = spyOn(desk.db, "run").mockImplementation(((
+    sql: string,
+    ...rest: never[]
+  ) => {
+    if (sql.startsWith("insert into session")) {
+      throw new Error("database is locked");
+    }
+    return run(sql, ...rest);
+  }) as never);
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b013");
+  failing.mockRestore();
+  expect(agentOf(desk.db, id)?.status).toBe("active");
+  const [ref] = [...fake.sessions.keys()];
+  fake.begin(ref ?? "");
+  fake.exit(ref ?? "", true);
+  await Bun.sleep(5);
+  expect(turns(id)).toEqual([{ cause: "deadline", outcome: "default_wait" }]);
+});
+
+test("a lost turn's run records are forgotten when it is ended", async () => {
+  const { desk, fake, path, waiting } = setup();
+  const id = await waiting();
+  advance(HOUR + MIN);
+  await wakeDue(desk);
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  fake.sessions.clear();
+  await endLostTurns({ ...desk, db: openDesk(path) });
+  expect(fake.stopped).toEqual([ref]);
+});
+
+test("a new agent's first turn ranks with his answers, ahead of older deadlines, within a tick's 3 starts", async () => {
+  const { desk, turns, waiting } = setup();
+  for (let i = 0; i < 3; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: agents made in order
+    await waiting();
+  }
+  advance(2 * HOUR);
+  const id = register(desk, {
+    brief: "Test brief: a new start",
+    folder: tmpdir(),
+    runtime: "fake",
+  });
+  await wakeDue(desk);
+  expect(turns(id)).toHaveLength(1);
 });

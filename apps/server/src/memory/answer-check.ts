@@ -34,7 +34,7 @@ export interface CheckAnswer {
 /** Asks the desk to start an agent on the new matter `c` with the goal he saw, saved as his goal and its brief (host: `changeRegisteredAgent`); gives the ask's ledger line id. */
 export type StartAgent = (c: Check, goal: string) => Promise<{ ask: string }>;
 
-/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his app's tap only). */
+/** What a writer is given besides the check and his answer: a voice's queue item, the steps to report, the desk's start (his own token's `answer_check` only). */
 interface WriterExtras {
   item?: NamingQueueItem;
   onStep?: (step: string, detail?: Record<string, unknown>) => void;
@@ -193,7 +193,9 @@ const WRITERS: {
     // The goal he saw (his app sends it as `note`; else the goal as it reads now) is the start's words: the desk's start saves it as his goal.
     start: async (c, a, x) => {
       if (!x.startAgent) {
-        throw new Error("Not done: Start is his tap in his app.");
+        throw new Error(
+          "Not done: Start comes only through his own answer_check."
+        );
       }
       return [
         await x.startAgent(c, a.note ?? (await newMatterOf(c)).goal.text),
@@ -215,7 +217,7 @@ const WRITERS: {
  * Records his answer to the open check `check` (host finds it: `openCheckOf`) through its kind's writer (a decision's
  * draft is sent only `via` his app); returns the check, the lines written and, for a voice, its queue item. `onStep`
  * hears `recorded` once they are, and a send's or a start's own steps; `answerKey` is his app's key for this tap, kept on a
- * decision's answer; `startAgent` is a new matter's Start, given only for his app's tap (`answer_check`). Throws when the
+ * decision's answer; `startAgent` is a new matter's Start, given only for his own token's `answer_check`. Throws when the
  * option is not one of its own.
  */
 export async function answerCheck(

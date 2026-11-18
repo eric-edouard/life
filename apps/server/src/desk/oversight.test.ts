@@ -405,6 +405,14 @@ test("change_registered_agent records his word and answers with what the desk di
       })
     ).agent;
     expect(agentOf(desk.db, shop ?? "")?.folder).toBe(folder);
+    // The same start again (a retried call): the same agent, not a second one on the project.
+    const again = await changeRegisteredAgent({
+      action: "start",
+      project: "test-shop",
+      runtime: "claude",
+      said: "Keep the shop's site up to date",
+    });
+    expect(again.agent).toBe(shop);
   } finally {
     await stopTicking?.();
     book.mockRestore();

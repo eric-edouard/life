@@ -133,7 +133,7 @@ export function feedPage<R, T>(
   const items: T[] = [];
   let remaining = 0;
   for (const s of sources) {
-    const from = startOf(s, cursor);
+    const from = pageStartOf(s, cursor);
     let taken = from;
     let full = false;
     for (const [n, row] of s.end > from ? s.rows(from) : []) {
@@ -154,7 +154,7 @@ export function feedPage<R, T>(
 }
 
 /** Where a source's page starts: its place in the cursor, never past its end. */
-function startOf(s: Source<unknown>, cursor: Cursor) {
+function pageStartOf(s: Source<unknown>, cursor: Cursor) {
   const from = cursor[s.name] ?? 0;
   if (s.end < from) {
     throw new Error(

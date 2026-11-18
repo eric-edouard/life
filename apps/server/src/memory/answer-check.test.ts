@@ -219,7 +219,7 @@ test("a new matter: Edit goal makes his words its goal, Dismiss is his no, Start
     // Only his app's tap starts an agent: a session's answer (the CLI) cannot.
     await expect(
       answerWith(matter, { options: ["start"] }, "session")
-    ).rejects.toThrow("his tap");
+    ).rejects.toThrow("his own answer_check");
     const { done } = await answerCheck(matter, { options: ["start"] });
     expect(done).toEqual([{ ask: "entry_000000000001" }]);
     // The goal he saw, sent with his tap, wins over one re-drafted since (the desk's start saves it as his).

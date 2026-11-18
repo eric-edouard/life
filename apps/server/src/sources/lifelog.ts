@@ -299,7 +299,7 @@ const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
 /** A stored conversation's or turn's start: where the units built from it begin. */
-const startOf = (db: Database) => ({
+const storedStartOf = (db: Database) => ({
   conversation: (id: string) =>
     db
       .query<{ at: string }, [string]>(
@@ -317,14 +317,14 @@ const startOf = (db: Database) => ({
 /** Deletes what the feed says went: a conversation or a turn (`<job>:<turn>`). Returns its stored start. */
 function drop(db: Database, r: Page["removed"][number]) {
   if (r.kind === "conversation") {
-    const at = startOf(db).conversation(r.ref);
+    const at = storedStartOf(db).conversation(r.ref);
     db.run("delete from conversations where id = ?", [r.ref]);
     return at;
   }
   if (r.kind === "turn") {
     const cut = r.ref.lastIndexOf(":");
     const [job, index] = [r.ref.slice(0, cut), Number(r.ref.slice(cut + 1))];
-    const at = startOf(db).turn(job, index);
+    const at = storedStartOf(db).turn(job, index);
     db.run("delete from turns where job_id = ? and turn_index = ?", [
       job,
       index,
@@ -340,7 +340,7 @@ function drop(db: Database, r: Page["removed"][number]) {
  */
 export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const { db } = store;
-  const stored = startOf(db);
+  const stored = storedStartOf(db);
   const starts: (string | undefined)[] = [];
   const conversation = db.prepare(
     `insert or replace into conversations (id, start_at, end_at, kind, state, successor, closed)
