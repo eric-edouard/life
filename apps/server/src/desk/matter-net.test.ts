@@ -1,12 +1,18 @@
 import { afterEach, expect, setSystemTime, spyOn, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, MIN } from "../core/clock";
 import type { Embedder } from "../core/embedder";
 import { agentOf, queuedEvents } from "../host/desk-read";
 import type { Messaging } from "../host/events";
-import { recordCorrection } from "../memory/memory-files";
+import { CORRECTIONS, recordCorrection } from "../memory/memory-files";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { register } from "./agent-actions";
@@ -273,12 +279,22 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
   await mocked("done");
   // His Mark as done records a correction: the next poll sees the change, a minute later, not 10.
   setSystemTime(new Date(T0 + MIN));
-  await recordCorrection({
-    kind: "outdated",
-    note: "done",
-    observations: [STEP],
-  });
-  await tick(desk);
+  // The corrections are every test's: put back as they were after.
+  const before = existsSync(CORRECTIONS) ? readFileSync(CORRECTIONS) : null;
+  try {
+    await recordCorrection({
+      kind: "outdated",
+      note: "done",
+      observations: [STEP],
+    });
+    await tick(desk);
+  } finally {
+    if (before) {
+      writeFileSync(CORRECTIONS, before);
+    } else {
+      rmSync(CORRECTIONS, { force: true });
+    }
+  }
   expect(agentOf(desk.db, agent)).toMatchObject({
     outcome: "its matter is done",
     status: "ended",
