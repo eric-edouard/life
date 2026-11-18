@@ -1,12 +1,21 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOME } from "../../core/platform";
 import { doorOf } from "../desk-door";
 import {
   codexArgsOf,
   codexRuntime,
   hasEvent,
+  isRolloutTurnOpen,
   rolloutUsageOf,
 } from "./codex-runtime";
 
@@ -54,10 +63,17 @@ test("the codex runtime puts the door's key in the environment, never the comman
 });
 
 test("a run's events: a type is in when a whole line says so", () => {
-  const events =
-    '{"type":"thread.started"}\n{"type":"turn.started"}\n{"type":"item.complete';
+  const events = [
+    '{"type":"thread.started"}',
+    '{"type":"turn.started"}',
+    '{"type":"item.complete',
+  ];
   expect(hasEvent(events, "turn.started")).toBe(true);
   expect(hasEvent(events, "turn.completed")).toBe(false);
+  // Not by substring: an agent's message that mentions the event.
+  expect(
+    hasEvent(['{"type":"item","text":"turn.completed"}'], "turn.completed")
+  ).toBe(false);
 });
 
 test("a rollout's usage: growth since its first call, the last turn's calls counted once each", () => {
@@ -93,14 +109,15 @@ test("a rollout's usage: growth since its first call, the last turn's calls coun
     event("task_complete"),
   ]
     .map((l) => JSON.stringify(l))
-    .join("\n");
+    // A line half written by a turn running now is skipped, never thrown.
+    .concat('{"type":"event_ms');
   expect(rolloutUsageOf(lines)).toEqual({
     grownBy: 3000,
     tokensCached: 58_000,
     tokensIn: 3000,
     tokensOut: 10,
   });
-  expect(rolloutUsageOf("")).toBeNull();
+  expect(rolloutUsageOf([])).toBeNull();
 });
 
 /** A `codex` that answers `app-server` with a made-up thread and runs a turn from its message: "fail" exits 3 mid-turn, "never" exits 1 at once. */
@@ -170,4 +187,45 @@ test("a turn that dies mid-way ended not ok; one that dies before it began never
   } finally {
     process.env.PATH = path;
   }
+});
+
+test("a session is running while its rollout's last turn is open and fresh (his own turn in the app); a compressed rollout is not gone", async () => {
+  const dir = join(HOME, ".codex", "sessions", "2026", "01", "01");
+  mkdirSync(dir, { recursive: true });
+  const ev = (type: string) =>
+    JSON.stringify({ payload: { type }, type: "event_msg" });
+  const write = (ref: string, ext: string, lines: string[], ageMin: number) => {
+    const path = join(dir, `rollout-2026-01-01T00-00-00-${ref}.${ext}`);
+    const text = `${lines.join("\n")}\n`;
+    writeFileSync(
+      path,
+      ext.endsWith("zst") ? Bun.zstdCompressSync(text) : text
+    );
+    const at = new Date(Date.now() - ageMin * 60_000);
+    utimesSync(path, at, at);
+  };
+  expect(isRolloutTurnOpen([ev("task_started")])).toBe(true);
+  expect(isRolloutTurnOpen([ev("task_started"), ev("task_complete")])).toBe(
+    false
+  );
+  expect(isRolloutTurnOpen([ev("task_started"), ev("turn_aborted")])).toBe(
+    false
+  );
+  write("ref-open-fresh", "jsonl", [ev("task_started")], 1);
+  write("ref-open-stale", "jsonl", [ev("task_started")], 30);
+  write("ref-done", "jsonl", [ev("task_started"), ev("task_complete")], 1);
+  write(
+    "ref-packed",
+    "jsonl.zst",
+    [ev("task_started"), ev("task_complete")],
+    20_000
+  );
+  expect(await codexRuntime.state("ref-open-fresh")).toBe("running");
+  expect(await codexRuntime.state("ref-open-stale")).toBe("idle");
+  expect(await codexRuntime.state("ref-done")).toBe("idle");
+  expect(await codexRuntime.state("ref-packed")).toBe("idle");
+  expect(await codexRuntime.state("ref-none")).toBe("gone");
+  // A half-written last line never throws.
+  write("ref-half", "jsonl", [ev("task_started"), '{"type":"event_ms'], 1);
+  expect(await codexRuntime.usage("ref-half")).toBeNull();
 });

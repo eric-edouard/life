@@ -6,7 +6,9 @@ import { HOME, WINDOWS } from "../../core/platform";
 import { exec, startDetached } from "../../core/proc";
 import {
   type Agent,
+  begunWhen,
   blockOf,
+  isHeld,
   type Run,
   type Runtime,
   type Usage,
@@ -55,8 +57,6 @@ export const argsOf = (
 const transcriptOf = (ref: string) =>
   new Bun.Glob(`*/${ref}.jsonl`).scanSync(PROJECTS).next().value;
 
-const BEGUN_POLL_MS = 250;
-
 /**
  * Whether a turn has begun, from its transcript's lines (none: Claude wrote none yet): its prompt is in and its last turn
  * open. A first turn whose run is over (`isOver`) with a transcript began and was done before anyone looked.
@@ -67,38 +67,16 @@ export const hasBegun = (
   isOver: boolean
 ) => lines !== undefined && ((isFirst && isOver) || isTurnOpen(lines));
 
-/**
- * Settles when the turn's prompt is in the transcript (its last turn open); rejects when the run ended first, except a
- * first turn (`isFirst`) whose transcript exists: it began and was done before this looked.
- */
-async function begunIn(ref: string, isFirst: boolean, ended: Promise<unknown>) {
-  let isOver = false;
-  ended.then(
-    () => {
-      isOver = true;
-    },
-    () => {
-      isOver = true;
-    }
-  );
-  for (;;) {
+/** Settles when the turn's prompt is in the transcript (its last turn open), or a first turn's is over with one. */
+const begunIn = (ref: string, isFirst: boolean, ended: Promise<unknown>) =>
+  begunWhen(ended, (isOver) => {
     const path = transcriptOf(ref);
-    if (
-      hasBegun(
-        path ? readFileSync(join(PROJECTS, path), "utf8") : undefined,
-        isFirst,
-        isOver
-      )
-    ) {
-      return;
-    }
-    if (isOver) {
-      throw new Error("its process ended before the turn began");
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: polls the transcript
-    await Bun.sleep(BEGUN_POLL_MS);
-  }
-}
+    return hasBegun(
+      path ? readFileSync(join(PROJECTS, path), "utf8") : undefined,
+      isFirst,
+      isOver
+    );
+  });
 
 /** Runs one turn in `a.folder`: its process's exit is the turn's end. */
 function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
@@ -107,16 +85,6 @@ function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
     env: { LIFE_DESK_KEY: a.door.key },
   }).then((code) => ({ ok: code === 0 }));
   return { begun: begunIn(ref, isFirst, ended), ended };
-}
-
-/** Whether some process holds session `ref`: the desk's turn, his in the app, or the app's idle warm process. */
-async function isHeld(ref: string) {
-  const { code, stderr } = await exec(["pgrep", "-f", ref]);
-  // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
-  if (code !== 0 && code !== 1) {
-    throw new Error(`pgrep: ${stderr}`);
-  }
-  return code === 0;
 }
 
 /**

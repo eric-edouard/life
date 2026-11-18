@@ -1,12 +1,17 @@
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../../core/clock";
+import { clock, MIN } from "../../core/clock";
+import { linesOf } from "../../core/files";
+import { log } from "../../core/log";
 import { DESK_RUNS } from "../../core/paths";
 import { cliEnv, HOME } from "../../core/platform";
-import { exec, firstLine, startDetached } from "../../core/proc";
+import { firstLine, startDetached } from "../../core/proc";
+import { toml } from "../../models/llm";
 import {
   type Agent,
+  begunWhen,
   blockOf,
+  isHeld,
   type Run,
   type Runtime,
   type Usage,
@@ -19,13 +24,12 @@ import {
 // reaches the session by `-c`, its key only through the environment; its tools are approved for the desk server alone
 // (`exec` auto-denies an MCP tool otherwise). Nothing is kept here: running is a process holding the id, idle a
 // rollout on disk.
-// ponytail: a turn of his in the Codex app holds no process with the id, so it looks idle; the desk may send beside it.
+// ponytail: his own turn in the Codex app holds no process with the id; it counts as running while the rollout's last
+// turn is open and was written in the last 10 minutes (`isOpenNow`), so a tool call silent for longer reads idle and the
+// desk may send beside it. And the app holding the thread open while idle keeps its own copy: his next message there may
+// continue from it, missing the desk's turn (as the claude runtime's warm process does).
 
 const SESSIONS = join(HOME, ".codex", "sessions");
-const BEGUN_POLL_MS = 250;
-
-/** A TOML string for `-c key=value`. */
-const toml = (s: string) => JSON.stringify(s);
 
 /** The command that runs one turn of session `ref`: its key is never in it. */
 export const codexArgsOf = (a: Agent, ref: string, message: string) => [
@@ -47,43 +51,34 @@ export const codexArgsOf = (a: Agent, ref: string, message: string) => [
   message,
 ];
 
-/** Whether a run's events hold `type`'s line. */
-export const hasEvent = (events: string, type: string) =>
-  events
-    .split("\n")
-    .some((l) => l.startsWith('{"type":') && l.includes(`"${type}"`));
+/** The events in complete JSON lines: a line that is not one is skipped. */
+const eventsOf = (lines: string[]) =>
+  lines.flatMap((l) => {
+    try {
+      return [JSON.parse(l) as Event];
+    } catch {
+      return [];
+    }
+  });
 
-const read = (path: string) => {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    return "";
-  }
-};
-
-/** Settles when the run's events show `turn.started`; rejects when the process ended without it. */
-async function begunIn(path: string, ended: Promise<unknown>) {
-  let isOver = false;
-  ended.then(
-    () => {
-      isOver = true;
-    },
-    () => {
-      isOver = true;
-    }
-  );
-  for (;;) {
-    const isOverNow = isOver;
-    if (hasEvent(read(path), "turn.started")) {
-      return;
-    }
-    if (isOverNow) {
-      throw new Error("its process ended before the turn began");
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: polls the run's events
-    await Bun.sleep(BEGUN_POLL_MS);
-  }
+interface Event {
+  payload?: {
+    info?: {
+      last_token_usage?: {
+        cached_input_tokens?: number;
+        input_tokens?: number;
+        output_tokens?: number;
+      };
+      total_token_usage?: { total_tokens?: number };
+    } | null;
+    type?: string;
+  };
+  type?: string;
 }
+
+/** Whether a run's events (its `--json` lines) hold `type`. */
+export const hasEvent = (lines: string[], type: string) =>
+  eventsOf(lines).some((e) => e.type === type);
 
 /** Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. */
 function run(a: Agent, ref: string, message: string): Run {
@@ -94,14 +89,24 @@ function run(a: Agent, ref: string, message: string): Run {
     env: { LIFE_DESK_KEY: a.door.key },
     stdout: path,
   }).then((code) => {
-    const isOk = code === 0 && hasEvent(read(path), "turn.completed");
-    // A failed run's events stay for whoever looks.
-    if (isOk) {
-      rmSync(path, { force: true });
+    const lines = linesOf(path);
+    const isOk = code === 0 && hasEvent(lines, "turn.completed");
+    // Its events hold what the agent read: never kept; a failure logs the last of them.
+    if (!isOk) {
+      log("desk.runtime", {
+        agent: a.id,
+        error: lines.join("\n").slice(-300),
+        ok: false,
+        what: "turn",
+      });
     }
+    rmSync(path, { force: true });
     return { ok: isOk };
   });
-  return { begun: begunIn(path, ended), ended };
+  return {
+    begun: begunWhen(ended, () => hasEvent(linesOf(path), "turn.started")),
+    ended,
+  };
 }
 
 /** A new thread in `folder`, through a short-lived `codex app-server` (killed once it answers): its id. */
@@ -132,10 +137,10 @@ async function newThread(folder: string) {
   return id;
 }
 
-/** The session's rollout, if Codex wrote one (an archived thread has none here). */
+/** The session's rollout, plain or compressed (Codex compresses idle ones; `exec resume` takes both), if Codex has one. */
 const rolloutOf = (ref: string) => {
   try {
-    return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl`)
+    return new Bun.Glob(`*/*/*/rollout-*-${ref}.jsonl{,.zst}`)
       .scanSync(SESSIONS)
       .next().value;
   } catch {
@@ -143,26 +148,47 @@ const rolloutOf = (ref: string) => {
   }
 };
 
-interface Rollout {
-  payload?: {
-    info?: {
-      last_token_usage?: {
-        cached_input_tokens?: number;
-        input_tokens?: number;
-        output_tokens?: number;
-      };
-      total_token_usage?: { total_tokens?: number };
-    } | null;
-    type?: string;
-  };
-  type?: string;
+/** A rollout's complete lines. */
+function rolloutLines(path: string) {
+  const file = join(SESSIONS, path);
+  if (!path.endsWith(".zst")) {
+    return linesOf(file);
+  }
+  const lines = new TextDecoder()
+    .decode(Bun.zstdDecompressSync(readFileSync(file)))
+    .split("\n");
+  lines.pop();
+  return lines;
+}
+
+/** How long a rollout's open turn counts as his running turn, written to or not. */
+const OPEN_FOR = 10 * MIN;
+
+/** Whether a rollout's last turn is open: `task_started` is the last of its turn events (a killed turn leaves one open). */
+export const isRolloutTurnOpen = (lines: string[]) =>
+  eventsOf(lines).findLast((e) =>
+    ["task_started", "task_complete", "turn_aborted"].includes(
+      e.payload?.type ?? ""
+    )
+  )?.payload?.type === "task_started";
+
+/** Whether the rollout holds his running turn: open and written to within `OPEN_FOR`. A file gone or being rewritten is not. */
+function isOpenNow(path: string) {
+  try {
+    return (
+      clock().getTime() - statSync(join(SESSIONS, path)).mtimeMs < OPEN_FOR &&
+      isRolloutTurnOpen(rolloutLines(path))
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
  * A rollout's usage: its growth (the last call's context less the first's; `input_tokens` already counts the cached
  * ones) and its last turn's tokens, summed over its calls. A `token_count` repeating the previous total is the same call.
  */
-export function rolloutUsageOf(lines: string): Usage | null {
+export function rolloutUsageOf(lines: string[]): Usage | null {
   const calls: {
     cached: number;
     context: number;
@@ -171,8 +197,7 @@ export function rolloutUsageOf(lines: string): Usage | null {
   }[] = [];
   let turn = 0;
   let total: number | undefined;
-  for (const l of lines.split("\n").filter(Boolean)) {
-    const { payload: p, type } = JSON.parse(l) as Rollout;
+  for (const { payload: p, type } of eventsOf(lines)) {
     if (type !== "event_msg") {
       continue;
     }
@@ -224,20 +249,21 @@ export const codexRuntime: Runtime = {
     };
   },
   async state(ref) {
-    // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
-    const { code, stderr } = await exec(["pgrep", "-f", ref]);
-    if (code !== 0 && code !== 1) {
-      throw new Error(`pgrep: ${stderr}`);
-    }
-    if (code === 0) {
+    if (await isHeld(ref)) {
       return "running";
     }
-    return rolloutOf(ref) ? "idle" : "gone";
+    const path = rolloutOf(ref);
+    if (!path) {
+      return "gone";
+    }
+    return isOpenNow(path) ? "running" : "idle";
   },
   usage(ref) {
     const path = rolloutOf(ref);
-    return Promise.resolve(
-      path ? rolloutUsageOf(readFileSync(join(SESSIONS, path), "utf8")) : null
-    );
+    try {
+      return Promise.resolve(path ? rolloutUsageOf(rolloutLines(path)) : null);
+    } catch {
+      return Promise.resolve(null); // a file Codex is compressing or rewriting: the wake sends into it
+    }
   },
 };

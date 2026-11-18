@@ -210,7 +210,7 @@ export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
 });
 
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
-const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
+export const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({

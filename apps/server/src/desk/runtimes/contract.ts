@@ -52,3 +52,41 @@ export async function blockOf(program: string) {
     ? undefined
     : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
 }
+
+const BEGUN_POLL_MS = 250;
+
+/**
+ * Settles when `isBegun` says the turn is under way, polled; `isOver` tells it the run has ended (looked at once more
+ * before giving up). Rejects when the run ended without it.
+ */
+export async function begunWhen(
+  ended: Promise<unknown>,
+  isBegun: (isOver: boolean) => boolean
+) {
+  let isOver = false;
+  const over = () => {
+    isOver = true;
+  };
+  ended.then(over, over);
+  for (;;) {
+    const wasOver = isOver;
+    if (isBegun(wasOver)) {
+      return;
+    }
+    if (wasOver) {
+      throw new Error("its process ended before the turn began");
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: polls the run's own record
+    await Bun.sleep(BEGUN_POLL_MS);
+  }
+}
+
+/** Whether some process holds session `ref` (its id is in the command line): the desk's turn, his, or an app's warm one. */
+export async function isHeld(ref: string) {
+  const { code, stderr } = await exec(["pgrep", "-f", ref]);
+  // 1: no process; anything else (-1: pgrep could not start) is no answer, never "free".
+  if (code !== 0 && code !== 1) {
+    throw new Error(`pgrep: ${stderr}`);
+  }
+  return code === 0;
+}
