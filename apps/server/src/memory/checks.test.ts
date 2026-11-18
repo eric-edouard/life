@@ -86,12 +86,12 @@ test("a guess nothing rides on gives no check; three lines on one guess give one
   });
   expect(check?.question).toStartWith("Life thinks this is ");
   expect(check?.question).toContain("the plumber");
-  // Life's guess is its recommendation, kept on silence.
+  // Life's guess is its recommendation; on silence nothing is taken.
   expect(check).toMatchObject({
     asker: "life",
-    onSilence: "this-is",
+    onSilence: null,
     recommended: ["this-is"],
-    why: "70% sure",
+    why: null,
   });
   expect(check?.options.map((o) => o.id)).toEqual([
     "this-is",

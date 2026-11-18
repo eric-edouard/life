@@ -249,7 +249,7 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   group: "guessed person",
   kind: "person",
   links: [],
-  onSilence: "this-is",
+  onSilence: null,
   options: [
     { id: "this-is", label: "It is them" },
     { id: "not-this-person", label: "Not them" },

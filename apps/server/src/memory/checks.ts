@@ -58,7 +58,7 @@ export interface Check {
   kind: CheckKind;
   /** Where to look or act (the agent's link first). */
   links: string[];
-  /** The option taken when he does not answer: Life keeps its guess, or the agent takes the one it named; null: nothing happens. */
+  /** The option the agent takes when he does not answer; null: none is taken (Life keeps using its guess, never writing it). */
   onSilence: string | null;
   /** What he can answer, each with what choosing it does. */
   options: CheckOption[];
@@ -240,8 +240,8 @@ function ranked(
   c: Ctx,
   group: CheckGroup,
   fields: Pick<Check, "about" | "question" | "ref"> & {
-    /** Life's own guess, when it has one (an option id), and why. */
-    guessed?: { option: string; why: string };
+    /** Life's own guess, when it has one (an option id), and why, when its question does not say. */
+    guessed?: { option: string; why?: string };
   },
   lines: Line[],
   refs: string[],
@@ -265,8 +265,7 @@ function ranked(
             group,
             kind,
             links: [],
-            // Life keeps using its guess until he answers.
-            onSilence: fields.guessed?.option ?? null,
+            onSilence: null,
             options: OPTIONS[kind],
             question: fields.question,
             recommended: fields.guessed ? [fields.guessed.option] : [],
@@ -363,10 +362,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
             "guessed person",
             {
               about: p.namesAndHandles,
-              guessed: {
-                option: "this-is",
-                why: `${Math.round(p.confidence * 100)}% sure`,
-              },
+              guessed: { option: "this-is" },
               question: `Life thinks this is ${p.name}, ${p.relation} (${Math.round(p.confidence * 100)}% sure)`,
               ref,
             },
