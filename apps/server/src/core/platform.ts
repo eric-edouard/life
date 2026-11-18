@@ -1,7 +1,7 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
-import { LIFE_STATE_DIR, TEST } from "./paths";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR, real, TEST } from "./paths";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in
@@ -26,16 +26,39 @@ export const APP_DATA = WINDOWS
   ? winDir("APPDATA", "AppData", "Roaming")
   : join(HOME, "Library", "Application Support");
 
+/** Life.app's own folder on this computer: its data, its state, the archive, Codex's home, the backup's staging and the services' locks. Local AppData on Windows: it is never synced to another PC. */
+const APP_MACHINE_DIR = WINDOWS
+  ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
+  : join(APP_DATA, "Life");
+/** Life.app's own data and state folders (`Helper.swift` passes them to every helper). */
+export const APP_FOLDERS = {
+  data: join(APP_MACHINE_DIR, "data"),
+  state: join(APP_MACHINE_DIR, "state"),
+};
+
 /**
- * Life's folder on this computer, shared by every install on it (the checkout's and the app's): the archive, Codex's
- * home, the backup's staging and the services' locks. Local AppData on Windows: it is never synced to another PC.
- * `LIFE_MACHINE_DIR` gives a second Life on this Mac (a demo) its own, so it takes none of the app's locks.
+ * Is `data` his own Life, not a second Life beside it (a demo, a copy to experiment on, a test's): the app's data folder,
+ * or `~/Life` (a checkout's default). What only a second Life may take (`LIFE_LLM`, `LIFE_MACHINE_DIR`, `LIFE_PORT`)
+ * or must not have (a desk agent's run as he set Claude up) asks this.
  */
-export const MACHINE_DIR =
-  process.env.LIFE_MACHINE_DIR ??
-  (WINDOWS
-    ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
-    : join(APP_DATA, "Life"));
+export const isOwnLife = (data = OWNER_DATA_DIR) =>
+  [APP_FOLDERS.data, join(homedir(), "Life")].some(
+    (p) => real(p) === real(data)
+  );
+
+/**
+ * Life's folder on this computer, shared by every install on it (the checkout's and the app's). `LIFE_MACHINE_DIR`
+ * gives a second Life its own, so it takes none of the app's locks; never with his own data.
+ */
+export const MACHINE_DIR = (() => {
+  const set = process.env.LIFE_MACHINE_DIR;
+  if (set && isOwnLife()) {
+    throw new Error(
+      "LIFE_MACHINE_DIR is for a second Life, never his own data"
+    );
+  }
+  return set ?? APP_MACHINE_DIR;
+})();
 
 /** The pinned codex's native binary for this system, under Life's files (`node_modules`, or the app's helper). */
 export const CODEX = (() => {

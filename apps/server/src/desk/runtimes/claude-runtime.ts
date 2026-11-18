@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../../core/log";
-import { isHis } from "../../core/paths";
-import { HOME, WINDOWS } from "../../core/platform";
+import { HOME, isOwnLife, WINDOWS } from "../../core/platform";
 import { exec, startDetached } from "../../core/proc";
 import {
   type Agent,
@@ -23,8 +22,23 @@ import {
 // opened session's process warm, idle, up to 30 minutes (18 Nov 2026), and an answer must wake the agent at once.
 // ponytail: that warm process keeps its own copy of the conversation; his message typed into it after a desk turn,
 // before the app reloads it, branches the conversation (the desk's turn stays in the transcript).
-// A copy's agent (a demo Life, `isHis` false) runs apart from his setup: only its door as MCP (none of his connectors,
-// which reach his own Life), none of his CLAUDE.md files, and never handed to his Claude app.
+// A second Life's agent (a demo, `isOwnLife` false) runs apart from his setup, since his connectors and files reach his
+// own Life: its door alone (`SECOND_LIFE`), and never handed to his Claude app.
+
+/**
+ * A second Life's agent: none of his settings (hooks, plugins, permissions), no MCP server but the door, no built-in tool
+ * (no shell, no file), the door's tools approved as the Codex runtime approves them; none of his CLAUDE.md or memory.
+ */
+const SECOND_LIFE = {
+  args: [
+    ...["--setting-sources", "", "--strict-mcp-config"],
+    ...["--tools", "", "--allowedTools", "mcp__desk"],
+  ],
+  env: {
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS: "1",
+  },
+};
 
 const PROJECTS = join(HOME, ".claude", "projects");
 
@@ -33,7 +47,7 @@ export const argsOf = (
   a: Agent,
   message: string,
   session: { resume: string } | { start: string },
-  isCopy = !isHis()
+  isOwn = isOwnLife()
 ) => [
   "claude",
   "-p",
@@ -42,7 +56,7 @@ export const argsOf = (
     : ["--resume", session.resume]),
   ...(a.model ? ["--model", a.model] : []),
   ...(a.effort ? ["--effort", a.effort] : []),
-  ...(isCopy ? ["--strict-mcp-config"] : []),
+  ...(isOwn ? [] : SECOND_LIFE.args),
   "--mcp-config",
   JSON.stringify({
     mcpServers: {
@@ -89,7 +103,7 @@ function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
     cwd: a.folder,
     env: {
       LIFE_DESK_KEY: a.door.key,
-      ...(isHis() ? {} : { CLAUDE_CODE_DISABLE_CLAUDE_MDS: "1" }),
+      ...(isOwnLife() ? {} : SECOND_LIFE.env),
     },
   }).then((code) => ({ ok: code === 0 }));
   return { begun: begunIn(ref, isFirst, ended), ended };
@@ -234,7 +248,7 @@ export const claudeRuntime: Runtime = {
       // The first turn's end waits for the hand-off, so no next turn runs beside it.
       // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
       ended: ended.then(async (end) => {
-        if (!WINDOWS && isHis()) {
+        if (!WINDOWS && isOwnLife()) {
           await handOff(a, ref);
         }
         return end;

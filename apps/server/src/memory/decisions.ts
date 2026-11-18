@@ -7,6 +7,7 @@ import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import { isSendable, MessageDraft, oneLine, StoredDraft } from "./draft";
 import { resolveDraft, sendDraft } from "./draft-send";
+import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
 import { MEMORY } from "./memory-files";
 import { readPeople } from "./who";
@@ -351,10 +352,11 @@ export async function requestDecision(
   // A step no open matter holds would never be listed: refused, so no question goes unseen. A matter's own id rides on
   // its newest step: a step outlives a re-group, a matter id doesn't.
   const matter = isOnMatter(ask.subject)
-    ? (await readMatterBook(await readPeople(), dayNow())).find(
-        (m) =>
-          m.open &&
-          (m.id === ask.subject || m.steps.some((x) => x.ref === ask.subject))
+    ? matterOfSteps(
+        (await readMatterBook(await readPeople(), dayNow())).filter(
+          (m) => m.open
+        ),
+        [ask.subject]
       )
     : undefined;
   if (isOnMatter(ask.subject) && !matter) {

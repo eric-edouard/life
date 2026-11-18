@@ -57,7 +57,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   expect(() => llmOverride("gemini/x", copy)).toThrow();
   expect(() =>
     llmOverride("codex/gpt-6.1-sol", join(homedir(), "Life"))
-  ).toThrow("never ~/Life");
+  ).toThrow("never his own");
 });
 
 test("an API engine: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a garbled reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused; a router that fails for good gives way to the next router", async () => {

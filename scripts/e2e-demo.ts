@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { cliEnv } from "@life/server/src/core/platform";
 import { exec, execOk, untilAnswers } from "@life/server/src/core/proc";
 
 // The demo's stress test, `bun run e2e:demo [scenario]`: a made-up Life (`scripts/demo.ts`) runs as a second Life on this
@@ -90,14 +91,16 @@ if (!steps) {
   process.exit(2);
 }
 const REPO = join(import.meta.dir, "..");
-const PORT = Number(process.env.LIFE_PORT ?? 46_500);
+/** The demo's public port (its local and door ports follow); the demo's own `portOf` checks it. */
+const PORT = Number(process.env.LIFE_E2E_PORT ?? 46_500);
 // Its real path: Life and Claude name folders by it.
 const root = realpathSync(mkdtempSync(join(tmpdir(), "life-e2e-")));
 const shots = join(root, "screens");
 mkdirSync(shots);
 const demo = join(root, "demo");
+// The demo's services and its agent get no secret of his: the variables a CLI needs and the demo's own.
 const env = {
-  ...process.env,
+  ...cliEnv(),
   LIFE_MACHINE_DIR: join(demo, "machine"),
   LIFE_OWNER_DATA_DIR: join(demo, "data"),
   LIFE_PORT: String(PORT),
@@ -249,13 +252,22 @@ async function run(step: Step) {
   );
 }
 
-/** Stops and removes everything the run started: the agent, the services, the simulator, the demo and its transcripts. */
-async function tearDown() {
-  await exec(["agent-device", "close", "--session", session]);
-  await exec(["pkill", "-f", door]);
+/**
+ * Stops and removes everything the run started, once: the services first (so the desk starts no new turn), then the
+ * agent, the simulator, the demo and its transcripts.
+ */
+let down: Promise<void> | undefined;
+const tearDown = () => {
+  down ??= stopAll();
+  return down;
+};
+async function stopAll() {
   for (const s of services) {
     s.kill();
   }
+  await Promise.all(services.map((s) => s.exited));
+  await exec(["pkill", "-f", door]);
+  await exec(["agent-device", "close", "--session", session]);
   if (sim) {
     await exec(["xcrun", "simctl", "shutdown", sim]);
     await exec(["xcrun", "simctl", "delete", sim]);
@@ -273,7 +285,12 @@ async function tearDown() {
   rmSync(join(root, "dd"), { force: true, recursive: true });
 }
 
-process.on("SIGINT", () => tearDown().then(() => process.exit(130)));
+for (const [signal, code] of [
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+] as const) {
+  process.on(signal, () => tearDown().then(() => process.exit(code)));
+}
 const results = join(root, "results.txt");
 const say = (line: string) => {
   console.log(line);

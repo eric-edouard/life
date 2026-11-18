@@ -1,10 +1,14 @@
-import { expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { afterAll, expect, test } from "bun:test";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
+/** One demo for the tests that read it, removed after them. */
+const folder = mkdtempSync(join(tmpdir(), "life-demo-"));
+const out = join(folder, "demo");
+afterAll(() => rmSync(folder, { force: true, recursive: true }));
+
 test("every fact and episode the README and the examples cite is in the demo scripts/demo.ts writes", () => {
-  const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
   const run = Bun.spawnSync(["bun", join(import.meta.dir, "demo.ts"), out]);
   expect(run.exitCode).toBe(0);
   const memory = join(out, "data/memory");
@@ -30,10 +34,6 @@ test("every fact and episode the README and the examples cite is in the demo scr
 });
 
 test("the demo's inbox offers its new matter, the one `bun run e2e:demo` starts an agent on", () => {
-  const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
-  expect(
-    Bun.spawnSync(["bun", join(import.meta.dir, "demo.ts"), out]).exitCode
-  ).toBe(0);
   const checks = Bun.spawnSync(
     [
       "bun",

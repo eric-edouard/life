@@ -89,18 +89,26 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 ## Demo stress tests
 
 `bun run e2e:demo [scenario]` (`scripts/e2e-demo.ts`) proves the phone app end to end on made-up data: it writes the demo
-Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on this Mac (`LIFE_PORT`, default 46500, and
-its own `LIFE_MACHINE_DIR`: the app's Life, its ports and locks are never touched), builds the app in Debug, installs it
-on a fresh iPhone 17 Pro simulator, pairs it by its link (loopback HTTP, which only a pairing to this device's own
-loopback takes) and drives a scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the
-new matter, Start, the agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a
-numbered screenshot and a PASS or FAIL line to the folder it prints; the simulator, the services, the agent and its
-transcripts are removed, on failure too. A scenario is a list of steps in the script: add one beside it.
+Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on this Mac, with its own ports (`LIFE_PORT`,
+46500 unless `LIFE_E2E_PORT` says otherwise) and machine folder (`LIFE_MACHINE_DIR`), so the app's Life, ports and locks
+are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
+never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh iPhone 17 Pro
+simulator, pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
+scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
+agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
+PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
+failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
+
+What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his. A second Life's
+Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but the door (none
+of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
+memory (`claude-runtime.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
+sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services
+get only the variables a CLI needs and the demo's own, none of his keys.
 
 Run it after a change to the app's flows, the desk or the inbox, one at a time and with the Mac's load under 20: about
-10 minutes (most of it the build and the agent's two turns) and a real Claude agent on Sonnet, about $0.40 of his
-subscription per run. A copy's agent has only its door (no connector of his, no CLAUDE.md: `claude-runtime.ts`). It is
-kept out of `bun run check` and the pre-push hook for that time and cost.
+5 to 10 minutes (most of it the build and the agent's two turns) and two real Claude turns on Sonnet, about $0.40 of his
+subscription per run. It is kept out of `bun run check` and the pre-push hook for that time and cost.
 
 ## The schedule
 

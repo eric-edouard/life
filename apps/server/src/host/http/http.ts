@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "../../core/paths";
+import { isOwnLife } from "../../core/platform";
 
 /** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
 export const TOKENS = readFileSync(
@@ -24,11 +25,28 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
+const DIGITS = /^\d+$/;
+/** Life's own public port: the one its tunnel forwards to (`tailscale.ts`). */
+export const OWN_PORT = 46_200;
+/** `LIFE_PORT` as a port with room for the two after it; unset, Life's own. A second Life only: never with his own data. */
+export function portOf(set = process.env.LIFE_PORT, isOwn = isOwnLife()) {
+  if (set === undefined) {
+    return OWN_PORT;
+  }
+  const port = Number(set);
+  if (!(DIGITS.test(set) && port >= 1024 && port <= 65_533)) {
+    throw new Error(`LIFE_PORT ${set} is not a port from 1024 to 65533`);
+  }
+  if (isOwn && port !== OWN_PORT) {
+    throw new Error("LIFE_PORT is for a second Life, never his own data");
+  }
+  return port;
+}
 /**
  * Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp). `LIFE_PORT` moves it and the
- * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`); the app keeps 46200.
+ * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`).
  */
-export const PUBLIC_PORT = Number(process.env.LIFE_PORT ?? 46_200);
+export const PUBLIC_PORT = portOf();
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = PUBLIC_PORT + 1;
 /** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */

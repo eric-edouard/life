@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { clock, daysBefore } from "@life/server/src/core/clock";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
-import { MACHINE_DIR } from "@life/server/src/core/platform";
+import { APP_FOLDERS, MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
@@ -23,8 +23,9 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 // apps/server/src/test-data, plus a week of invented memory: a landlord, a plumber, a friend, runs, a side project and the owner's goals) and builds its search index.
 // It reads no source: its settings turn every source off. `demo.test.ts` checks the ids both cite against it.
 // It also holds a new matter dated from the day it is made (the leaking tap, with a goal and a `do` next step), so its
-// inbox offers "Work on it?", with the desk on and the connector on loopback: run it as a second Life on this Mac with
-// `LIFE_PORT=46500 LIFE_MACHINE_DIR=<out>/machine` beside the two folders below, and pair the phone with `bun life pair --link`.
+// inbox offers "Work on it?", with the desk on and the connector on loopback. Written and run as a second Life on this Mac
+// with `LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state LIFE_MACHINE_DIR=<out>/machine LIFE_PORT=46500`, the
+// phone paired by `bun life pair --link`: `bun run e2e:demo` does all of it.
 //
 // Their transcripts are Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
@@ -41,6 +42,7 @@ const live = [
   OWNER_DATA_DIR,
   LIFE_STATE_DIR,
   MACHINE_DIR,
+  ...Object.values(APP_FOLDERS),
   join(homedir(), "Life"),
 ];
 if (!process.argv[2] || existsSync(out) || live.some(inside)) {
