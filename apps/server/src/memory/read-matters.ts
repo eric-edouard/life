@@ -111,8 +111,8 @@ export async function openMatters(
 }
 
 /**
- * One matter, found by `refs` (its id, or its steps' ids, the first that finds one: an agent anchored on records finds
- * its matter again after a re-group, `matterOfSteps`): where it stands, its goal and next step, its people by role, projects and
+ * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
+ * agent anchored on records finds its matter again after a re-group): where it stands, its goal and next step, its people by role, projects and
  * areas, and its steps in time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it
  * now and before, from host).
  */

@@ -436,14 +436,17 @@ interface Found {
 
 /**
  * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
- * unit can be a step of several matters), on a tie the first holder of the earliest ref (an agent's anchors, a pinned
- * direction, a single id). Pure; built once for many lookups.
+ * unit can be a step of several matters), on a tie the one with the fewest steps (a matter inside a bigger one keeps
+ * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). Pure;
+ * built once for many lookups.
  */
 export function matterFinderOf<V extends Found>(book: readonly V[]) {
   const holders = new Map<string, V[]>();
   for (const v of book) {
     for (const ref of new Set([v.id, ...v.steps.map((s) => s.ref)])) {
-      holders.set(ref, [...(holders.get(ref) ?? []), v]);
+      const held = holders.get(ref) ?? [];
+      held.push(v);
+      holders.set(ref, held);
     }
   }
   return (refs: readonly string[]) => {
@@ -455,7 +458,11 @@ export function matterFinderOf<V extends Found>(book: readonly V[]) {
     }
     let best: [V, number] | undefined;
     for (const [v, n] of held) {
-      if (!best || n > best[1]) {
+      if (
+        !best ||
+        n > best[1] ||
+        (n === best[1] && v.steps.length < best[0].steps.length)
+      ) {
         best = [v, n];
       }
     }

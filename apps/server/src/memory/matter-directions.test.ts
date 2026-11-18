@@ -242,7 +242,22 @@ test("a direction goes to the matter holding most of its pinned steps, though it
     id: "matter_000000000011",
     steps: [shared, ...own].map((ref) => ({ ref })),
   };
-  const read = directionsOf([other, mine], [pin]);
-  expect(read.get(mine)?.goal?.text).toBe("The parcel is home");
-  expect(read.has(other)).toBe(false);
+  for (const book of [
+    [other, mine],
+    [mine, other],
+  ]) {
+    const read = directionsOf(book, [pin]);
+    expect(read.get(mine)?.goal?.text).toBe("The parcel is home");
+    expect(read.has(other)).toBe(false);
+  }
+  // The smaller matter's own pin stays with it, whatever the order: a tie goes to the one with the fewest steps.
+  const small = { ...pin, goal: "The courier calls back", steps: [shared] };
+  for (const book of [
+    [other, mine],
+    [mine, other],
+  ]) {
+    expect(directionsOf(book, [small]).get(other)?.goal?.text).toBe(
+      "The courier calls back"
+    );
+  }
 });
