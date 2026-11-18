@@ -18,6 +18,7 @@ import {
   decisionsNow,
   requestDecision,
 } from "../memory/decisions";
+import { oneMatter } from "../memory/read-matters";
 import { readPeople } from "../memory/who";
 import { waitOf } from "./agent-wait";
 import { type Desk, writeWait } from "./desk-store";
@@ -180,8 +181,12 @@ export function askDecision(
 const contractOf = (id: string) =>
   `You are ${id}, a registered agent of the owner's desk. Your door (the \`desk\` MCP server) has your tools: call \`read_packet\` when you start; before you stop, call \`set_wait\` (what you wait for, until when) or \`finish\`; ask him only through \`request_decision\`, one at a time; write your notes (\`write_notes\`) before you stop. His own rules apply as in any session of his. Never send, reply, post or forward to anyone but him, pay, buy, transfer or refund, book, accept, sign or cancel, delete, or change an account or a setting without his yes on that exact thing through \`request_decision\`. Your first turn only reads (\`read_packet\`, your subject) and asks your plan ("Here is what I'll do", options Go, Change, Stop): act only after his Go.`;
 
-/** `read_packet`: what a fresh session starts from: the brief, its subject, its notes, its queued events (facts only), its open decision. */
-export function readPacket({ db }: Desk, id: string) {
+/**
+ * `read_packet`: what a fresh session starts from: its matter as read now (`oneMatter`: where it stands, its goal and
+ * next step, its steps so far), or its project; then the brief, the contract, its notes, its queued events (facts only)
+ * and its open decision.
+ */
+export async function readPacket({ db }: Desk, id: string) {
   const a = agentOf(db, id);
   if (!a) {
     return "";
@@ -189,11 +194,11 @@ export function readPacket({ db }: Desk, id: string) {
   const events = queuedEvents(db, id).map((e) => e.payload);
   const steps = anchorsOf(db, id);
   return [
-    a.brief,
-    contractOf(a.id),
     a.project
       ? `Your subject: the project ${a.project} (\`read_area_page\`).`
-      : `Your subject: the matter holding ${steps.join(", ") || "(none)"} (\`read_matter\` with the first).`,
+      : `Your subject, the matter as read now (\`read_matter\` with ${steps[0] ?? "its step"} reads it again):\n${await oneMatter(steps)}`,
+    a.brief,
+    contractOf(a.id),
     `Your notes:\n${a.notes || "(none yet)"}`,
     `Events waiting:\n${events.join("\n") || "(none)"}`,
     `Your open decision: ${openDecisionOf(id) ?? "none"}`,

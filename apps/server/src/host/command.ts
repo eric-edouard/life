@@ -20,10 +20,12 @@ import { extract } from "../memory/extract";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readEndings, readLinkWork } from "../memory/links";
+import { dueDirectionsOf, matterDirections } from "../memory/matter-directions";
 import {
   callsOf,
   matterLines,
   matters,
+  readMatterBook,
   readMatterRecords,
   readMatterWork,
 } from "../memory/matters";
@@ -63,6 +65,7 @@ import { lifeStatus } from "./status/life";
 const OPTIONS = {
   about: { type: "string" },
   again: { type: "boolean" },
+  all: { type: "boolean" },
   at: { type: "string" },
   before: { type: "string" },
   chat: { type: "string" },
@@ -318,6 +321,19 @@ const HANDLERS: Record<string, Handler> = {
     })(values, rest);
   },
   /**
+   * `matter-directions [--force] [--all]`: how many running matters are due a direction tonight, with no model;
+   * `--force` drafts them as the night does, `--all` every due one past the night's size (the first fill).
+   */
+  "matter-directions": step(async (values) => {
+    const people = await readPeople();
+    return values.force
+      ? await matterDirections(people, { all: values.all })
+      : {
+          due: dueDirectionsOf(await readMatterBook(people, dayNow())).length,
+          failed: 0,
+        };
+  }),
+  /**
    * `matters [list] [--force] [--since YYYY-MM-DD]`: what the matters step would place in the night's days (calls,
    * episodes, to-do items), with no model; `--force` places it, as the night does;
    * `--since` places every week from that day to today, in order (each week sees the matters of the weeks before);
@@ -448,7 +464,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
+    "usage: bun life memory episodes [--days 7 | --from d [--to d]] | extract [--days 7 | --from d [--to d]] | appointments | historical-units [--from d --to d] | passages [--from d --to d] | closeness | communication-styles | contact-people | exchange-counts | exchange-reads [--days 7] [--force] | conversation-summaries [--from d] [--force] | voice-naming [--from d] [--force] [--again] | mentions | recorded-days | histories [--from YYYY-MM] [--force] | links [<matter id>] [--force] | matters [list] [--force] [--since YYYY-MM-DD] | matter-directions [--force] [--all] | personas | pages [--only <id>] [--rebuild] | nightly [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | answer-check <ref> <option> [why] [--person person:<id>] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] [--part now|page|persona|story|year|month|evidence|conversation] [--span YYYY[-MM]] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | checks | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | observation <obs_id>"
   );
   return Promise.resolve(2);
 }

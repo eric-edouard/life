@@ -37,6 +37,12 @@ import {
 } from "./agent-wait";
 import { doorOf } from "./desk-door";
 import { type Desk, saveCursor, writeWait } from "./desk-store";
+import {
+  MATTER_RELATED,
+  netsOf,
+  relatedMessages,
+  relatedRecordings,
+} from "./matter-net";
 import type { Run, Agent as SessionAgent, Usage } from "./runtimes/contract";
 
 // The desk's clock (the desk spec, sections 6 and 7): one tick polls his answers and the messages its agents wait for
@@ -48,18 +54,35 @@ const REMINDER =
 
 const now = () => clock().toISOString();
 
+/** Queues `wakes` (one event each, kept once per agent and id) as `name`. */
+function queue(
+  db: Desk["db"],
+  name: string,
+  wakes: { agent: string; eventId: string; payload: unknown }[]
+) {
+  for (const w of wakes) {
+    db.run(
+      "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
+      [w.agent, w.eventId, name, JSON.stringify(w.payload), now()]
+    );
+  }
+}
+
 /**
- * Reads the new messages once and queues each for every active agent waiting for it, in the transaction that saves
- * the cursor (its name, `message.received`): delivered at least once, never twice (an event id is kept once per
- * agent). With no agent active, nothing is read, and the next read starts at that time.
+ * Reads the new messages once and queues each for every active agent waiting for it, then for every agent on a matter
+ * it relates to (`relatedMessages`, `matter.related`: a message its wait already queued is not queued again), in the
+ * transaction that saves the cursor (its name, `message.received`): delivered at least once, never twice (an event id
+ * is kept once per agent). With no agent active, nothing is read, and the next read starts at that time.
  */
-export async function pollMessages({ db, sources }: Desk) {
+export async function pollMessages(desk: Desk) {
+  const { db, sources } = desk;
   const agents = activeAgents(db);
   if (agents.length === 0) {
     saveCursor(db, MESSAGE_RECEIVED, null);
     return;
   }
   const people = await readPeople();
+  const nets = await netsOf(desk, people);
   const matchers = agents.flatMap((a) =>
     filtersOf(a).flatMap((f) => {
       const isMatch = matcherOf(f, people);
@@ -74,21 +97,38 @@ export async function pollMessages({ db, sources }: Desk) {
       const ids = new Set(
         matchers.filter((x) => x.isMatch(m, e)).map((x) => x.id)
       );
-      return ids.size ? { ids, m } : null;
+      return ids.size || nets.length
+        ? { fromMe: e.fromMe, ids, m, text: e.text }
+        : null;
     },
     sources
   );
+  const related = await relatedMessages(desk, nets, read.items);
   db.transaction(() => {
-    for (const { ids, m } of read.items) {
-      for (const id of ids) {
-        db.run(
-          "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
-          [id, m.id, MESSAGE_RECEIVED, JSON.stringify(m), now()]
-        );
-      }
-    }
+    queue(
+      db,
+      MESSAGE_RECEIVED,
+      read.items.flatMap(({ ids, m }) =>
+        [...ids].map((agent) => ({ agent, eventId: m.id, payload: m }))
+      )
+    );
+    queue(db, MATTER_RELATED, related);
     saveCursor(db, MESSAGE_RECEIVED, read.cursor);
   })();
+}
+
+/** Queues his pendant's new recordings for every agent on a matter they relate to (`relatedRecordings`). */
+export async function pollRecordings(desk: Desk) {
+  if (activeAgents(desk.db).length === 0) {
+    return;
+  }
+  const people = await readPeople();
+  const wakes = await relatedRecordings(
+    desk,
+    await netsOf(desk, people),
+    people
+  );
+  desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
 }
 
 /**
@@ -105,15 +145,16 @@ export function pollAnswers({ db }: Desk) {
   const askedBy = new Map(decisionsNow().map((d) => [d.id, d.agent]));
   for (const { name, read } of reads) {
     db.transaction(() => {
-      for (const e of read.events) {
-        const id = askedBy.get(e.data.id);
-        if (id && active.has(id)) {
-          db.run(
-            "insert or ignore into event (agent_id, event_id, name, payload, received_at) values (?, ?, ?, ?, ?)",
-            [id, e.eventId, name, JSON.stringify(e.data), now()]
-          );
-        }
-      }
+      queue(
+        db,
+        name,
+        read.events.flatMap((e) => {
+          const agent = askedBy.get(e.data.id);
+          return agent && active.has(agent)
+            ? [{ agent, eventId: e.eventId, payload: e.data }]
+            : [];
+        })
+      );
       saveCursor(db, name, read.cursor);
     })();
   }
@@ -199,7 +240,10 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
         ? ((await runtime.usage(a.session))?.grownBy ?? 0)
         : 0;
     if (!a.session || state === "gone" || grown >= GROWTH_LIMIT) {
-      const s = await runtime.start(sessionAgentOf(a), readPacket(desk, a.id));
+      const s = await runtime.start(
+        sessionAgentOf(a),
+        await readPacket(desk, a.id)
+      );
       db.transaction(() => {
         db.run(
           "update session set ended_at = ?, why_ended = 'fresh' where agent_id = ? and ended_at is null",
@@ -268,7 +312,7 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages and the turns lost to a restart, then
+ * One tick of the clock: his word about his agents, his answers, then (when their poll is due) the messages, the recordings and the turns lost to a restart, then
  * the turns due.
  */
 export async function tick(desk: Desk, isPollDue = true) {
@@ -276,6 +320,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   pollAnswers(desk);
   if (isPollDue) {
     await pollMessages(desk);
+    await pollRecordings(desk);
     await endLostTurns(desk);
   }
   await wakeDue(desk);

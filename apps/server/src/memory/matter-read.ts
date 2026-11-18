@@ -6,7 +6,7 @@ import {
   type LedgerEntry,
   stands,
 } from "../records/ledger-entry";
-import type { Matter } from "../records/matter";
+import type { DirectionPin, Matter, NextStep } from "../records/matter";
 import type { Observation } from "../records/observation";
 import { KEEP_AT, TOP_AT } from "../records/unit";
 import {
@@ -66,6 +66,8 @@ type Line = Pick<Matter, "areas" | "id" | "name" | "projects"> & {
 export interface MatterRecords {
   /** Every record id as it stands now: observations and episodes (what a link's two ends must be). */
   current: ReadonlySet<string>;
+  /** The directions pinned to matters' steps: Life's drafts (memory/matter-directions.jsonl) and his word (`matter-direction`). */
+  directions: readonly DirectionPin[];
   /** Each unit's episode (`readBy`). */
   episodeOf: ReadonlyMap<string, Episode>;
   /** A person ref that is a mail sender no one answers: a no-reply address or his agents' reports (`isMailerHandle`). */
@@ -87,6 +89,9 @@ export interface MatterRecords {
   /** Every to-do item the ledger holds, open or not. */
   todoItems: readonly StepTodoItem[];
 }
+
+/** A matter's goal or next step as it reads now, who said it (Life's draft or his word) and when. */
+export type ByWhom<T> = T & { at: string; by: "life" | "owner" };
 
 /** How a step ended, and when (`at`, the instant of the evidence, never of the run that found it): its observation retired (replaced, or a word that it is done), its to-do item ticked or removed, or a link (`quote`: the later step's words), not yet his word. */
 type StepEnding = { at: string } & (
@@ -113,12 +118,16 @@ export interface MatterStepNow {
 
 export interface MatterView {
   areas: string[];
+  /** Where it is going (`directionsOf`); none until Life drafts one or he says it. */
+  goal?: ByWhom<{ text: string }>;
   id: string;
   /** A matter of one: no matter line holds its record. */
   lone: boolean;
   name: string;
-  /** The newest open step: what is next. */
-  next?: MatterStepNow;
+  /** The newest open step: a record, never what to do (that is `nextStep`). */
+  newestOpenStep?: MatterStepNow;
+  /** What moves it now (`directionsOf`); none until Life drafts one or he says it. */
+  nextStep?: ByWhom<NextStep>;
   open: boolean;
   /** Its to-dos, promises, waits and to-do items with no ending, oldest first. */
   openSteps: MatterStepNow[];
@@ -208,11 +217,11 @@ function recordsOf(line: Line, ix: Index) {
   };
 }
 
-/** Where a matter stands on `today`: done when ended, probably done when a link ended one of its steps; stuck when the next step's date has passed, or another open step's within `STUCK_DAYS`; waiting when the next step is a wait; moving with a step in `MOVING_DAYS`; else dormant. Silence alone is never stuck. */
+/** Where a matter stands on `today`: done when ended, probably done when a link ended one of its steps; stuck when the newest open step's date has passed, or another open step's within `STUCK_DAYS`; waiting when the newest open step is a wait (never the drafted `nextStep`); moving with a step in `MOVING_DAYS`; else dormant. Silence alone is never stuck. */
 function statusOf(
   open: boolean,
   steps: MatterStepNow[],
-  next: MatterStepNow | undefined,
+  newestOpen: MatterStepNow | undefined,
   today: string
 ): MatterStatus {
   if (!open) {
@@ -222,7 +231,7 @@ function statusOf(
   }
   const passed = (s: MatterStepNow) => Boolean(s.when && s.when < today);
   if (
-    (next && passed(next)) ||
+    (newestOpen && passed(newestOpen)) ||
     steps.some(
       (s) =>
         isOpenStep(s) &&
@@ -232,7 +241,7 @@ function statusOf(
   ) {
     return "stuck";
   }
-  if (next?.kind === "waiting_on_someone") {
+  if (newestOpen?.kind === "waiting_on_someone") {
     return "waiting_on_someone";
   }
   const newest = steps.at(-1) as MatterStepNow;
@@ -333,7 +342,7 @@ const isGoingOn = (steps: MatterStepNow[], today: string) =>
 
 /**
  * One matter as it reads on `today` (a day): its steps in time order (`stepsOf`), whether it is open, its people by
- * role, projects and areas, matter status and next step. Null when none of its records is left. Pure.
+ * role, projects and areas, matter status and newest open step. Null when none of its records is left. Pure.
  */
 export function matterOf(
   line: Line,
@@ -351,7 +360,7 @@ export function matterOf(
   const openSteps = steps.filter(isOpenStep);
   const hasAction = steps.some((s) => ACTIONABLE.includes(s.kind));
   const open = hasAction ? openSteps.length > 0 : isGoingOn(steps, today);
-  const next = openSteps.at(-1);
+  const newestOpenStep = openSteps.at(-1);
   const roleOf = (
     kinds: MatterStepNow["kind"][],
     byOthers: (s: MatterStepNow) => boolean = () => true
@@ -380,7 +389,7 @@ export function matterOf(
     id: line.id,
     lone,
     name: line.name,
-    next,
+    newestOpenStep,
     open,
     openSteps,
     owedTo: roleOf(
@@ -395,7 +404,7 @@ export function matterOf(
           .map((s) => s.slice(8))
       ),
     ]),
-    status: statusOf(open, steps, next, today),
+    status: statusOf(open, steps, newestOpenStep, today),
     steps,
     told: peopleOf("told"),
     waitingOn: roleOf(["waiting_on_someone"]),
@@ -418,6 +427,143 @@ const isOpenKind = (o: StepObservation) =>
   (o.type === "promise" ||
     o.type === "waiting_on_someone" ||
     (o.type === "to_do" && o.speaker === OWNER));
+
+/** What a matter is to its finder: its id and its steps' ids. */
+interface Found {
+  id: string;
+  steps: readonly { ref: string }[];
+}
+
+/**
+ * The finder of the matter `refs` name, over `book`: the one holding the most of them (as its id or its steps' ids: a
+ * unit can be a step of several matters), on a tie the one with the fewest steps (a matter inside a bigger one keeps
+ * its own), then the first holder of the earliest ref (an agent's anchors, a pinned direction, a single id). Pure;
+ * built once for many lookups.
+ */
+export function matterFinderOf<V extends Found>(book: readonly V[]) {
+  const holders = new Map<string, V[]>();
+  for (const v of book) {
+    for (const ref of new Set([v.id, ...v.steps.map((s) => s.ref)])) {
+      const held = holders.get(ref) ?? [];
+      held.push(v);
+      holders.set(ref, held);
+    }
+  }
+  return (refs: readonly string[]) => {
+    const held = new Map<V, number>();
+    for (const ref of new Set(refs)) {
+      for (const v of holders.get(ref) ?? []) {
+        held.set(v, (held.get(v) ?? 0) + 1);
+      }
+    }
+    let best: [V, number] | undefined;
+    for (const [v, n] of held) {
+      if (
+        !best ||
+        n > best[1] ||
+        (n === best[1] && v.steps.length < best[0].steps.length)
+      ) {
+        best = [v, n];
+      }
+    }
+    return best?.[0];
+  };
+}
+
+/** The matter `refs` name (`matterFinderOf`), for one lookup. */
+export const matterOfSteps = <V extends Found>(
+  book: readonly V[],
+  refs: readonly string[]
+) => matterFinderOf(book)(refs);
+
+/** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
+const isNewerThan = (
+  v: { steps: readonly MatterStepNow[] },
+  pin: DirectionPin
+) =>
+  v.steps.some(
+    (s) => !pin.steps.includes(s.ref) || (s.ending && s.ending.at > pin.at)
+  );
+
+/**
+ * Each matter's goal and next step from the pins as written (`directionsOf`): a pin belongs to the matter its steps find
+ * (`matterFinderOf`), so a re-group keeps it. The goal: his latest word, else Life's latest draft. The next step: the
+ * latest pin's, his or Life's (Life drafts again only once the matter got a step newer than the latest, `isDirectionDue`).
+ * Pure.
+ */
+export function directionsOf<V extends Found>(
+  book: readonly V[],
+  pins: readonly DirectionPin[]
+) {
+  const find = matterFinderOf(book);
+  const out = new Map<
+    V,
+    Pick<MatterView, "goal" | "nextStep"> & { latest?: DirectionPin }
+  >();
+  for (const p of pins.toSorted((a, b) => a.at.localeCompare(b.at))) {
+    const v = find(p.steps);
+    if (!v) {
+      continue;
+    }
+    const was = out.get(v) ?? {};
+    out.set(v, {
+      goal:
+        p.goal && !(was.goal?.by === "owner" && p.by === "life")
+          ? { at: p.at, by: p.by, text: p.goal }
+          : was.goal,
+      ...(p.nextStep
+        ? { latest: p, nextStep: { ...p.nextStep, at: p.at, by: p.by } }
+        : { latest: was.latest, nextStep: was.nextStep }),
+    });
+  }
+  return out;
+}
+
+/** Whether Life drafts `v`'s direction: running and grouped, with none yet or a step newer than its latest next step. Pure. */
+export const isDirectionDue = (
+  v: MatterView,
+  latest: DirectionPin | undefined
+) => !v.lone && isRunning(v) && (!(latest && v.goal) || isNewerThan(v, latest));
+
+/** How many of a matter's newest steps its net compares with. */
+const NET_STEPS = 8;
+
+/**
+ * A matter's net (the desk's wide net, `desk/matter-net.ts`): who it is with in any role, and the texts a new message
+ * or recording is compared with in meaning: its name and goal, its next step, its newest steps' words. Pure.
+ */
+export const netOf = (v: MatterView) => ({
+  people: new Set(matterPeopleOf(v)),
+  texts: [
+    v.goal ? `${v.name}: ${v.goal.text}` : v.name,
+    ...(v.nextStep ? [v.nextStep.text] : []),
+    ...v.steps.slice(-NET_STEPS).map((s) => s.text),
+  ],
+});
+
+/**
+ * `v`'s next step as it reads now: waiting on his decision while one he has not answered is about one of its steps
+ * (`wait_decision`, never stored), else its `nextStep`. Pure.
+ */
+export function nextStepNow(
+  v: MatterView,
+  openDecisions: readonly { question: string; subject?: string }[]
+):
+  | (Omit<NextStep, "kind"> & {
+      by?: "life" | "owner";
+      kind: NextStep["kind"] | "wait_decision";
+    })
+  | undefined {
+  const refs = new Set(v.steps.map((s) => s.ref));
+  const d = openDecisions.find((x) => x.subject && refs.has(x.subject));
+  return d
+    ? {
+        kind: "wait_decision" as const,
+        text: d.question,
+        waitsOn: "his decision",
+      }
+    : v.nextStep;
+}
 
 /**
  * Every matter as it reads on `today`, the newest step first: the stored ones (`mattersNow`'s), then a matter of one for each
@@ -458,9 +604,22 @@ export function matterBookOf(
   const loneItems = rec.todoItems
     .filter((t) => isOpenTodoItem(t) && !held.has(t.key))
     .flatMap((t) => lone(t.key, String(t.fields.title ?? "")));
-  return [...views, ...loneObservations, ...loneItems].toSorted((a, b) =>
-    (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
-  );
+  const book = [...views, ...loneObservations, ...loneItems];
+  const directions = directionsOf(book, rec.directions);
+  return book
+    .map((v) => {
+      const d = directions.get(v);
+      return d
+        ? {
+            ...v,
+            ...(d.goal ? { goal: d.goal } : {}),
+            ...(d.nextStep ? { nextStep: d.nextStep } : {}),
+          }
+        : v;
+    })
+    .toSorted((a, b) =>
+      (b.steps.at(-1)?.day ?? "").localeCompare(a.steps.at(-1)?.day ?? "")
+    );
 }
 
 /**

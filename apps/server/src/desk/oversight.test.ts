@@ -19,6 +19,7 @@ import {
 } from "../host/registered-agents";
 import { deskCard } from "../host/status/desk-card";
 import type { AgentChange } from "../records/registered-agent";
+import { readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
 import { fakeRuntime } from "./runtimes/fake-runtime";
@@ -165,10 +166,35 @@ test("what his agents are doing: each with its matter, status, wait, link and am
   const matters = await import("../memory/matters");
   const book = spyOn(matters, "readMatterBook").mockResolvedValue([
     {
+      areas: [],
+      goal: {
+        at: "2026-11-18T02:00:00.000Z",
+        by: "owner",
+        text: "The cake is collected",
+      },
       id: "matter_00000000a001",
       name: "Test bakery order",
+      nextStep: {
+        at: "2026-11-18T02:00:00.000Z",
+        by: "life",
+        kind: "do",
+        text: "Ask the bakery for the pickup day",
+      },
+      owedTo: [],
+      projects: [],
       status: "moving",
-      steps: [{ ref: STEP }],
+      steps: [
+        {
+          day: "2026-11-17",
+          kind: "to_do",
+          quote: "",
+          ref: STEP,
+          text: "Order the cake",
+        },
+      ],
+      told: [],
+      waitingOn: [],
+      with: [],
     },
   ] as never);
   try {
@@ -205,6 +231,14 @@ test("what his agents are doing: each with its matter, status, wait, link and am
       "amber: default wait"
     );
     expect(readAgentMarks()([STEP])).toBe(`agent ${onMatter?.id}`);
+    // Its packet opens with its matter as read now: its goal and next step first.
+    expect(
+      (await readPacket(desk, onMatter?.id ?? "")).split("\n").slice(1, 4)
+    ).toEqual([
+      "matter_00000000a001 Test bakery order [moving]",
+      "Goal: The cake is collected",
+      "Next step: do: Ask the bakery for the pickup day (Life's draft)",
+    ]);
     expect(readAgentMarks()(["obs_00000000a999"])).toBe("");
 
     const since = new Date(clock().getTime() - MIN).toISOString();

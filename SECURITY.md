@@ -32,7 +32,11 @@ the Mac by a local model (llama.cpp, `describePhotos` setting); no image goes to
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents: a registered agent is started by
-Life, unattended, on a message from anyone in its subject, his answer or its deadline, and acts with his access. Its
+Life, unattended, on a message from anyone in its subject, his answer or its deadline, and acts with his access. An
+agent on a matter is also woken by anything new related to it (the wide net, his word of 18 Nov 2026): a message from
+one of the matter's people, or a message or recording of his close to the matter in meaning, as the Mac's embedder
+reads it (`desk/matter-net.ts`: no model call, nothing leaves the Mac). The wake hands it only the facts (which
+message or recording, when, why); it reads the words itself, as data. Its
 only guards are its runtime's permissions and his rules; Life adds none (his yes to the desk, 18 Nov 2026). Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches its session only in its environment.
 Besides the desk, Life starts no agent, except an agent's own `onAsk` command, once per new ask, with no words and none of Life's

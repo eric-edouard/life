@@ -1,5 +1,6 @@
 import { clock, DAY, iso } from "../core/clock";
 import { holder } from "../core/lock";
+import { matterFinderOf } from "../memory/matter-read";
 import { readMatterBook } from "../memory/matters";
 import { readPeople } from "../memory/who";
 import { dayNow, localTime } from "../memory/zones";
@@ -62,12 +63,10 @@ export async function readRegisteredAgents(
   const book = agents.some((a) => a.steps.length > 0)
     ? await readMatterBook(await readPeople(), dayNow())
     : [];
+  const find = matterFinderOf(book);
   return {
     agents: agents.map((a) => {
-      // Found by its first anchor, then each later one.
-      const v = a.steps
-        .map((s) => book.find((m) => m.steps.some((x) => x.ref === s)))
-        .find(Boolean);
+      const v = find(a.steps);
       return {
         ...a,
         matter: v ? { id: v.id, name: v.name, status: v.status } : null,

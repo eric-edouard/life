@@ -291,7 +291,19 @@ to-do item key the call was asked to place: one placed nowhere is so known as as
 version is a new grouping, every record offered again and every matter a new id, the older lines kept as stored (a
 bump re-groups his whole history: ask first). A matter is worked out when read (`mattersNow`): the latest line naming it gives its name,
 areas and projects, its steps are the union over the lines, a later line's placement of a record winning. A line holds
-its steps only, never a status. What is open, a matter's status, next step and people by role are worked out when read (`matterOf`); the readers are `read_matters`, `read_matter`, `read_day`'s Due, a person's page and `bun life memory matters list`.
+its steps only, never a status. What is open, a matter's status, newest open step and people by role are worked out when read (`matterOf`); the readers are `read_matters`, `read_matter`, `read_day`'s Due, a person's page and `bun life memory matters list`.
+
+## matter-directions.jsonl
+
+Life's drafts of the matters' directions (`memory/matter-directions.ts`, its only writer), one line per call,
+append-only: `directions` (each `goal`, one line: where the matter is going; `nextStep`, what moves it now: `kind`
+`do`, `wait_event` or `wait_owner`, `text`, one line, and `waitsOn`, what a wait waits on; `steps`, the matter's step
+ids when drafted: the pin, never its id, so a re-group keeps it), `at`, `madeBy`, `schemaVersion`. A running matter is
+drafted when it has none, or once it has a step, or a step's ending, newer than its latest next step
+(`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
+`goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
+steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
+its steps) is worked out when read (`nextStepNow`), never stored.
 
 ## read-replies/<YYYY-MM>.jsonl
 
@@ -338,6 +350,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `not-this-person` | `nameOrHandle`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
 | `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's episodes are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). An episode filed under the wrong person needs `wrong` on its `ep_` too |
+| `matter-direction` | `steps` (all of a matter's step ids, as `read_matter` lists them), `goal` and/or `nextStep` (`kind`, `text`, `waitsOn`) | His goal or next step for the matter those steps find (`directionsOf`): his goal wins over every draft; his next step until Life drafts again, once the matter has a step newer than his word |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -607,7 +620,7 @@ brief, runtime, folder (named at its start, else its matter's or project's repo 
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` or `ended`, its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an active agent with no
 `wait_until`), its notes; its open decision is read from `decisions.jsonl` by its id), `session` (every session it had, with its link; append-only), `event` (its
-queued events, one row per agent and event id, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
+queued events, one row per agent and event id, `name` `message.received`, `decision.answered`, `decision.lapsed` or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn: its
 cause, its end, its outcome, its tokens), `anchor` (an agent's matter steps, in order), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer and ask reads stopped). Never deleted by hand.

@@ -48,3 +48,57 @@ export const MatterBatch = z
   })
   .strict();
 export type MatterBatch = z.infer<typeof MatterBatch>;
+
+/** A matter's goal in words: one line, where it is going (Life's draft or his word). */
+export const GoalText = z.string().trim().min(1).max(200);
+
+/**
+ * What a next step is: `do` (nothing blocks it: it can be done now), `wait_event` (something must arrive: a message, a
+ * mail, a delivery, a date), `wait_owner` (something only he does: a call, a visit, a payment by his hand). The fourth
+ * kind, `wait_decision` (an open decision he has not answered), is worked out when read (`nextStepNow`), never stored.
+ */
+export const NextStepKind = z.enum(["do", "wait_event", "wait_owner"]);
+
+/** A matter's next step: one line saying what moves it now, its kind, and for a wait what it waits on. */
+export const NextStep = z
+  .object({
+    kind: NextStepKind,
+    text: z.string().trim().min(1).max(200),
+    waitsOn: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict()
+  .refine((n) => n.kind === "do" || n.waitsOn, "a wait says what it waits on");
+export type NextStep = z.infer<typeof NextStep>;
+
+/**
+ * A matter's direction as Life drafts it: its goal and its next step. Pinned to the matter's steps when drafted, never
+ * to its id: a re-group keeps it (`directionsOf`).
+ */
+export const MatterDirectionDraft = z
+  .object({
+    goal: GoalText,
+    nextStep: NextStep,
+    steps: z.array(z.string().min(1)).min(1),
+  })
+  .strict();
+export type MatterDirectionDraft = z.infer<typeof MatterDirectionDraft>;
+
+/** One call's line of memory/matter-directions.jsonl: the directions it drafted. */
+export const MatterDirectionBatch = z
+  .object({
+    at: isoDateTime,
+    directions: z.array(MatterDirectionDraft),
+    madeBy: MadeBy,
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+export type MatterDirectionBatch = z.infer<typeof MatterDirectionBatch>;
+
+/** A direction as stored, pinned to the steps of its matter: Life's draft (both parts), or his word (`matter-direction`: either or both). */
+export interface DirectionPin {
+  at: string;
+  by: "life" | "owner";
+  goal?: string;
+  nextStep?: NextStep;
+  steps: readonly string[];
+}

@@ -269,7 +269,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on, what is next and the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), its goal and next step (`do`, or a wait: `wait_event`, `wait_owner`, `wait_decision`), who it is owed to, who is waited on, its newest open step and the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
@@ -280,7 +280,7 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, every step in time order with its day and words (the episodes, observations and to-do items that belong to it), and its Agents: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
+    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, its goal and next step, every step in time order with its day and words (the episodes, observations and to-do items that belong to it), and its Agents: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -289,7 +289,7 @@ export function buildServer(readsOnly = false) {
           "A matter id, or the id of one of its steps (an observation or a to-do item)."
         ),
     }),
-    ({ id }) => oneMatter(id, agentLinesOnSteps)
+    ({ id }) => oneMatter([id], agentLinesOnSteps)
   );
   tool(
     server,

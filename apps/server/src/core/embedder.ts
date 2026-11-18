@@ -128,14 +128,16 @@ export const CANDIDATES = 200;
  */
 const MIN_SIMILARITY = 0.25;
 
-function cosine(a: Float32Array, b: Float32Array) {
-  let [dot, bb] = [0, 0];
+/** How close two texts are in meaning: the cosine of their vectors, from -1 to 1. */
+export function similarityOf(a: ArrayLike<number>, b: ArrayLike<number>) {
+  let [dot, aa, bb] = [0, 0, 0];
   for (let i = 0; i < a.length; i += 1) {
     const [x, y] = [a[i] ?? 0, b[i] ?? 0];
     dot += x * y;
+    aa += x * x;
     bb += y * y;
   }
-  return dot / Math.sqrt(bb);
+  return dot / Math.sqrt(aa * bb);
 }
 
 /** The ids nearest `query`: at least `MIN_SIMILARITY`, keeping only `CANDIDATES` scores in memory. */
@@ -143,11 +145,9 @@ export function nearest(
   query: readonly number[],
   items: Iterable<readonly [string, Float32Array]>
 ) {
-  const length = Math.hypot(...query);
-  const q = Float32Array.from(query, (n) => n / length);
   const best: { id: string; similarity: number }[] = [];
   for (const [id, vector] of items) {
-    const similarity = cosine(q, vector);
+    const similarity = similarityOf(query, vector);
     if (!(similarity >= MIN_SIMILARITY)) {
       continue;
     }

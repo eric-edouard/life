@@ -1,4 +1,11 @@
-import { isRunning, type MatterStepNow, type MatterView } from "./matter-read";
+import { decisionsNow } from "./decisions";
+import {
+  isRunning,
+  type MatterStepNow,
+  type MatterView,
+  matterOfSteps,
+  nextStepNow,
+} from "./matter-read";
 import { readMatterBook } from "./matters";
 import {
   endingWords,
@@ -27,12 +34,28 @@ const WHO = [
 const stepLine = (s: MatterStepNow) =>
   `- ${s.day} ${s.kind} ${s.ref}: ${s.text}${s.when ? ` (for ${s.when})` : ""}${endingWords(s)} "${oneLine(s.quote)}"`;
 
+/** Life's mark on what it drafted; his own word bears none. */
+const drafted = (by?: string) => (by === "life" ? " (Life's draft)" : "");
+
+/** The decisions he has not answered yet, for `nextStepNow`. */
+const openDecisions = () => decisionsNow().filter((d) => d.state === "open");
+
+/** A matter's next step in words: its kind, what a wait waits on, the line. */
+function nextStepWords(v: MatterView, open: ReturnType<typeof openDecisions>) {
+  const n = nextStepNow(v, open);
+  if (!n) {
+    return;
+  }
+  const waits = n.waitsOn ? ` (${n.waitsOn})` : "";
+  return `${n.kind}${waits}: ${n.text}${drafted(n.by)}`;
+}
+
 /** A matter's steps' ids: what an agent working on it is anchored on. */
 const refsOf = (v: MatterView) => v.steps.map((s) => s.ref);
 
 /**
  * The running matters (open, not dormant), ranked as `read_day`'s Due (`rankedMattersOf`, those with no open step last), of one `person`, `project` or `area` when given: each with its matter
- * status, who it is owed to, who is waited on, what is next, and `markOf`'s mark (the agent on it, from host).
+ * status, its goal and next step, who it is owed to, who is waited on, and `markOf`'s mark (the agent on it, from host).
  */
 export async function openMatters(
   q: {
@@ -70,41 +93,44 @@ export async function openMatters(
     today,
     rankContextOf(people)
   );
+  const decisions = openDecisions();
   return open.length === 0
     ? "No running matter."
     : open
         .map((v) => {
+          const next = nextStepWords(v, decisions);
           const who = WHO.slice(0, 2).flatMap(([label, of]) =>
             of(v).length > 0
               ? [`${label} ${of(v).map(people.nameOf).join(", ")}`]
               : []
           );
           const mark = markOf(refsOf(v));
-          return `- ${v.id} ${v.name} [${v.status}]${who.map((w) => `; ${w}`).join("")}${v.next ? `; next: ${v.next.text} (${v.next.day})` : ""}${mark ? `; ${mark}` : ""}`;
+          return `- ${v.id} ${v.name} [${v.status}]${v.goal ? `; goal: ${v.goal.text}${drafted(v.goal.by)}` : ""}${next ? `; next step: ${next}` : ""}${who.map((w) => `; ${w}`).join("")}${v.newestOpenStep ? `; newest open step: ${v.newestOpenStep.text} (${v.newestOpenStep.day})` : ""}${mark ? `; ${mark}` : ""}`;
         })
         .join("\n");
 }
 
 /**
- * One matter, by its id or the id of one of its steps (an observation or a to-do item key: an agent anchored on a record
- * finds its matter again after a re-group): where it stands, its people by role, projects and areas, and its steps in
- * time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it now and before, from host).
+ * One matter, found by `refs` (its id, or its steps' ids: the matter holding the most of them, `matterOfSteps`, so an
+ * agent anchored on records finds its matter again after a re-group): where it stands, its goal and next step, its people by role, projects and
+ * areas, and its steps in time order, each with its day and words; then `agentLinesOf`'s Agents part (who works on it
+ * now and before, from host).
  */
 export async function oneMatter(
-  id: string,
+  refs: readonly string[],
   agentLinesOf: (steps: string[]) => string[] = () => []
 ) {
   const people = await readPeople();
-  const book = await readMatterBook(people, dayNow());
-  const v =
-    book.find((m) => m.id === id) ??
-    book.find((m) => m.steps.some((s) => s.ref === id));
+  const v = matterOfSteps(await readMatterBook(people, dayNow()), refs);
   if (!v) {
-    return `No matter ${id}.`;
+    return `No matter ${refs.join(", ")}.`;
   }
   const agents = agentLinesOf(refsOf(v));
+  const next = nextStepWords(v, openDecisions());
   return [
     `${v.id} ${v.name} [${v.status}]`,
+    ...(v.goal ? [`Goal: ${v.goal.text}${drafted(v.goal.by)}`] : []),
+    ...(next ? [`Next step: ${next}`] : []),
     ...WHO.flatMap(([label, of]) =>
       of(v).length > 0
         ? [`${label}: ${of(v).map(people.nameOf).join(", ")}`]
@@ -112,7 +138,7 @@ export async function oneMatter(
     ),
     ...(v.projects.length > 0 ? [`Projects: ${v.projects.join(", ")}`] : []),
     ...(v.areas.length > 0 ? [`Areas: ${v.areas.join(", ")}`] : []),
-    ...(v.next ? [`Next: ${v.next.text}`] : []),
+    ...(v.newestOpenStep ? [`Newest open step: ${v.newestOpenStep.text}`] : []),
     "Steps, oldest first:",
     ...v.steps.map(stepLine),
     ...(agents.length > 0 ? ["Agents:", ...agents] : []),

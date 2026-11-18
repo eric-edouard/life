@@ -33,6 +33,7 @@ import {
 import { extract } from "../memory/extract";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
+import { matterDirections } from "../memory/matter-directions";
 import {
   matters,
   readMatterBook,
@@ -510,6 +511,12 @@ export async function runNight(
     steps.at = "matters";
     await placeMatters(window, evidence.failed).catch((e: Error) =>
       log("run.error", { error: e.message, step: "memory.matters" })
+    );
+    // Where each running matter is going and what moves it now, drafted again only for a matter with a new step. A
+    // failure is logged and never stops the night.
+    steps.at = "matter directions";
+    await matterDirections(await readPeople()).catch((e: Error) =>
+      log("run.error", { error: e.message, step: "memory.matter-directions" })
     );
     // Who is close decides who has a page: judged before the pages and the report's homes.
     // The days the pendant recorded, for coverage (derived; a failure is logged and the last file stands).
