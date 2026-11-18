@@ -67,7 +67,7 @@ export const cut = (args: unknown) =>
   );
 
 /** Who asked, on every `mcp.call` line: the OAuth client and its grant's agent claim. */
-export const who = (auth?: AuthInfo) => ({
+export const callerOf = (auth?: AuthInfo) => ({
   agent: agentIn(auth),
   client: auth?.clientId,
 });
@@ -141,7 +141,7 @@ export function tool<S extends z.ZodObject>(
       await sent;
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
-        ...who(ctx.http?.authInfo),
+        ...callerOf(ctx.http?.authInfo),
         args: cut(args),
         chars: body.length,
         error: result.isError,

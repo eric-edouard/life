@@ -45,17 +45,52 @@ export const argsOf = (
   message,
 ];
 
-/** Runs one turn in `a.folder`: its process's exit is the turn's end. */
-const run = (a: Agent, argv: string[]): Run => ({
-  ended: startDetached(argv, {
-    cwd: a.folder,
-    env: { LIFE_DESK_KEY: a.door.key },
-  }).then((code) => ({ ok: code === 0 })),
-});
-
 /** The session's transcript, if Claude wrote one. */
 const transcriptOf = (ref: string) =>
   new Bun.Glob(`*/${ref}.jsonl`).scanSync(PROJECTS).next().value;
+
+const BEGUN_POLL_MS = 250;
+
+/**
+ * Settles when the turn's prompt is in the transcript (its last turn open); rejects when the run ended first, except a
+ * first turn (`isFirst`) whose transcript exists: it began and was done before this looked.
+ */
+async function begunIn(ref: string, isFirst: boolean, ended: Promise<unknown>) {
+  let isOver = false;
+  ended.then(
+    () => {
+      isOver = true;
+    },
+    () => {
+      isOver = true;
+    }
+  );
+  for (;;) {
+    const path = transcriptOf(ref);
+    if (
+      path &&
+      (isFirst && isOver
+        ? true
+        : isTurnOpen(readFileSync(join(PROJECTS, path), "utf8")))
+    ) {
+      return;
+    }
+    if (isOver) {
+      throw new Error("its process ended before the turn began");
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: polls the transcript
+    await Bun.sleep(BEGUN_POLL_MS);
+  }
+}
+
+/** Runs one turn in `a.folder`: its process's exit is the turn's end. */
+function run(a: Agent, argv: string[], ref: string, isFirst = false): Run {
+  const ended = startDetached(argv, {
+    cwd: a.folder,
+    env: { LIFE_DESK_KEY: a.door.key },
+  }).then((code) => ({ ok: code === 0 }));
+  return { begun: begunIn(ref, isFirst, ended), ended };
+}
 
 /** Whether some process holds session `ref`: the desk's turn, his in the app, or the app's idle warm process. */
 async function isHeld(ref: string) {
@@ -185,17 +220,29 @@ export function usageOf(lines: string): Usage | null {
 }
 
 export const claudeRuntime: Runtime = {
+  async block() {
+    const r = await exec(["claude", "--version"], { timeout: 5000 });
+    return r.code === 0
+      ? undefined
+      : `claude --version failed: ${r.stderr.slice(-200) || r.code}`;
+  },
   async send(a, ref, message) {
     // A turn running beside his would branch the conversation.
     if ((await claudeRuntime.state(ref)) === "running") {
       throw new Error(`session ${ref} is running`);
     }
-    return run(a, argsOf(a, message, { resume: ref }));
+    return run(a, argsOf(a, message, { resume: ref }), ref);
   },
   start(a, brief) {
     const ref = randomUUID();
-    const { ended } = run(a, argsOf(a, brief, { start: ref }));
+    const { begun, ended } = run(
+      a,
+      argsOf(a, brief, { start: ref }),
+      ref,
+      true
+    );
     return Promise.resolve({
+      begun,
       // The first turn's end waits for the hand-off, so no next turn runs beside it.
       // ponytail: the Claude app's hand-off is the Mac's; a Windows link waits for a Windows install.
       ended: ended.then(async (end) => {

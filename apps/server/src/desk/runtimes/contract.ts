@@ -2,8 +2,9 @@
 // `dsh`; one file each). Each turn is one run the runtime starts; its end is that run's end (`ended`), which the desk's
 // clock takes as the turn's end (`turnEnded`, `desk-clock.ts`).
 
-/** A turn under way: settled when it ends, `ok` false when it failed. */
+/** A turn the runtime launched: `begun` settles when it is under way (rejects with why when it ended first), `ended` when it ends, `ok` false when it failed. */
 export interface Run {
+  begun: Promise<void>;
   ended: Promise<{ ok: boolean }>;
 }
 
@@ -27,9 +28,11 @@ export interface Agent {
 }
 
 export interface Runtime {
-  /** Runs `message` in the session now, answering once the turn is under way; refused while anything else runs it. */
+  /** Why the program can't run now (not installed, not answering); none when it can: the same meaning as `SendPath.block`. */
+  block: () => Promise<string | undefined>;
+  /** Launches `message` in the session now, answering once the run is launched (`Run.begun` says when the turn is under way); refused while anything else runs it. */
   send: (agent: Agent, ref: string, message: string) => Promise<Run>;
-  /** Starts a session in `agent.folder` with `brief` as its first message, answering once it is under way: its ref, and a link that opens it. */
+  /** Starts a session in `agent.folder` with `brief` as its first message, answering once its run is launched: its ref, and a link that opens it. */
   start: (
     agent: Agent,
     brief: string

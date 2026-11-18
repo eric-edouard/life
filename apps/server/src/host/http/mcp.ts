@@ -69,12 +69,12 @@ import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import {
   agentIn,
+  callerOf,
   cut,
   READERS,
   REVERSIBLE,
   tool,
   WRITES,
-  who,
 } from "./mcp-tool";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
@@ -417,11 +417,11 @@ export function buildServer(readsOnly = false) {
     "change_registered_agent",
     "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project (in `folder`, else its project's repo, else a folder of its own; `runtime`, `model`, `effort`, else the desk's defaults; his words, verbatim, are its brief and goal); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
     RegisteredAgentChange,
-    (a, agent) => {
+    (a, agent, call) => {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      return changeRegisteredAgent(a);
+      return changeRegisteredAgent(a, call);
     },
     WRITES
   );
@@ -584,7 +584,7 @@ export function buildServer(readsOnly = false) {
       const started = performance.now();
       const result = await pollEvents(params, agentIn(ctx.http?.authInfo));
       log("mcp.call", {
-        ...who(ctx.http?.authInfo),
+        ...callerOf(ctx.http?.authInfo),
         args: cut(params),
         ids: result.events.map((e) => e.eventId),
         ms: Math.round(performance.now() - started),

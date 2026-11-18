@@ -187,6 +187,15 @@ function watchedIn(db: Desk["db"]) {
 /** Ends turn `turn` of `id` when `run` does: failed when it did. */
 function watch(desk: Desk, id: string, turn: number, run: Run) {
   watchedIn(desk.db).add(turn);
+  // A run that ends before it begins is `ended`'s to say.
+  run.begun.then(
+    () =>
+      desk.db.run(
+        "update turn set begun_at = ? where id = ? and begun_at is null",
+        [now(), turn]
+      ),
+    () => undefined
+  );
   run.ended
     .then(({ ok }) => turnEnded(desk, id, !ok))
     .catch((error: unknown) =>
@@ -280,7 +289,7 @@ async function wake(desk: Desk, a: AgentRow, cause: string) {
       ok: false,
       what: "wake",
     });
-    await turnEnded(desk, a.id, true);
+    await turnEnded(desk, a.id, true, (error as Error).message);
   }
   return true;
 }
@@ -361,6 +370,27 @@ function close(
   return true;
 }
 
+/**
+ * An agent whose first turn failed before it began is ended (`not started: …`), not retried: nothing is left running,
+ * its matter is free for a new start. Its only turn is `t`, which never began.
+ */
+function endNotStarted({ db }: Desk, t: TurnRow, why: string) {
+  const isFirst =
+    db
+      .query<{ n: number }, [string]>(
+        "select count(*) as n from turn where agent_id = ?"
+      )
+      .get(t.agent_id)?.n === 1;
+  if (!isFirst || t.begun_at) {
+    return false;
+  }
+  db.run(
+    "update agent set status = 'ended', ended_at = ?, outcome = ? where id = ? and status = 'active'",
+    [now(), `not started: ${why}`, t.agent_id]
+  );
+  return true;
+}
+
 /** After a failed turn: once the retries are spent, the default wait stands. */
 function afterFailure({ db }: Desk, a: AgentRow) {
   if (a.status === "active" && failuresOf(lastTurns(db, a.id)) >= MAX_HANDED) {
@@ -372,7 +402,12 @@ function afterFailure({ db }: Desk, a: AgentRow) {
  * The run of `id`'s open desk turn ended (`failed` when it did). A turn ends by `set_wait` or `finish`; with neither,
  * the desk reminds it once, then sets the default wait. The turn's tokens are read from its runtime.
  */
-export async function turnEnded(desk: Desk, id: string, failed = false) {
+export async function turnEnded(
+  desk: Desk,
+  id: string,
+  failed = false,
+  why = "its first turn ended before it began"
+) {
   const { db } = desk;
   const t = openTurn(db, id);
   const a = agentOf(db, id);
@@ -386,7 +421,7 @@ export async function turnEnded(desk: Desk, id: string, failed = false) {
       : null;
   if (failed) {
     db.transaction(() => {
-      if (close(desk, t, "failed", usage)) {
+      if (close(desk, t, "failed", usage) && !endNotStarted(desk, t, why)) {
         afterFailure(desk, a);
       }
     })();

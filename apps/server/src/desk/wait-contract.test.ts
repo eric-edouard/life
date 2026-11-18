@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { take } from "../core/lock";
-import { agentOf, flagsOf, openTurn } from "../host/desk-read";
+import { agentOf, flagsOf, holderOf, openTurn } from "../host/desk-read";
 import type { Messaging } from "../host/events";
 import { DECISION_ANSWERED, DECISION_LAPSED } from "../host/events";
 import {
@@ -605,4 +605,76 @@ test("with `desk` unset, the desk helper runs nothing: no lock, no store", () =>
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
+});
+
+// A first turn that never begins: the agent is ended, not retried (his yes of 18 Nov 2026).
+
+/** A new agent on a made-up matter, its first turn launched. */
+async function started(desk: Desk, step: string) {
+  const id = register(desk, {
+    brief: "Test brief: watch the repair",
+    folder: tmpdir(),
+    runtime: "fake",
+    steps: [step],
+  });
+  await wakeDue(desk);
+  return id;
+}
+
+test("a run reporting begun writes the turn's begun_at once", async () => {
+  const { desk, fake } = setup();
+  fake.holdBegun();
+  const id = await started(desk, "obs_00000000b001");
+  const ref = agentOf(desk.db, id)?.session ?? "";
+  expect(openTurn(desk.db, id)?.begun_at).toBeNull();
+  fake.begin(ref);
+  await Bun.sleep(0);
+  expect(openTurn(desk.db, id)?.begun_at).toBe(clock().toISOString());
+});
+
+test("a runtime that cannot start ends a new agent, not started, and frees its matter", async () => {
+  const { desk, fake, turns } = setup();
+  fake.isFailing = true;
+  const id = await started(desk, "obs_00000000b002");
+  expect(agentOf(desk.db, id)).toMatchObject({
+    outcome: "not started: cannot start",
+    status: "ended",
+  });
+  expect(holderOf(desk.db, ["obs_00000000b002"])).toBeNull();
+  expect(turns(id)).toEqual([{ cause: "deadline", outcome: "failed" }]);
+});
+
+test("a first turn whose run ends before it began ends its agent; one that had begun is retried", async () => {
+  const { desk, fake, turns } = setup();
+  fake.holdBegun();
+  const lost = await started(desk, "obs_00000000b003");
+  fake.exit(agentOf(desk.db, lost)?.session ?? "", false);
+  await Bun.sleep(5);
+  expect(agentOf(desk.db, lost)).toMatchObject({
+    outcome: "not started: its first turn ended before it began",
+    status: "ended",
+  });
+
+  const begun = await started(desk, "obs_00000000b004");
+  const ref = agentOf(desk.db, begun)?.session ?? "";
+  fake.begin(ref);
+  await Bun.sleep(0);
+  fake.exit(ref, false);
+  await Bun.sleep(5);
+  expect(agentOf(desk.db, begun)?.status).toBe("active");
+  expect(turns(begun)).toEqual([{ cause: "deadline", outcome: "failed" }]);
+});
+
+test("a restart never ends an agent whose first turn had begun, and ends one whose first turn had not", async () => {
+  const { desk, fake, path } = setup();
+  fake.holdBegun();
+  const never = await started(desk, "obs_00000000b005");
+  const did = await started(desk, "obs_00000000b006");
+  fake.begin(agentOf(desk.db, did)?.session ?? "");
+  await Bun.sleep(0);
+  fake.sessions.clear();
+  const again: Desk = { ...desk, db: openDesk(path) };
+  await endLostTurns(again);
+  expect(agentOf(again.db, never)?.status).toBe("ended");
+  expect(agentOf(again.db, did)?.status).toBe("active");
 });

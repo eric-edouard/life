@@ -46,9 +46,21 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
     : null;
 }
 
-/** Starts an agent on his words (`brief`): his subject, a runtime the desk drives, a folder that exists when one is named. */
-function start(desk: Desk, c: AgentChange, brief: string) {
-  const runtime = c.runtime ?? settings().desk?.defaultRuntime;
+/** The runtime a start names, else the desk's default. */
+const runtimeOf = (c: AgentChange) =>
+  c.runtime ?? settings().desk?.defaultRuntime;
+
+/**
+ * Starts an agent on his words (`brief`): his subject, a runtime the desk drives that answers (`blocked`: why it can't
+ * now), a folder that exists when one is named. A repeat (the matter already held by an active agent started on the same
+ * words) is that agent, not a refusal.
+ */
+function start(desk: Desk, c: AgentChange, brief: string, blocked?: string) {
+  const runtime = runtimeOf(c);
+  const holder = holderOf(desk.db, c.steps ?? []);
+  if (holder && agentOf(desk.db, holder)?.brief === brief) {
+    return { id: holder };
+  }
   if (!(runtime && desk.runtimes[runtime])) {
     return {
       error: `name a runtime: ${Object.keys(desk.runtimes).join(", ")}`,
@@ -58,6 +70,9 @@ function start(desk: Desk, c: AgentChange, brief: string) {
     return {
       error: "the folder its sessions start in must be absolute and exist",
     };
+  }
+  if (blocked) {
+    return { error: `${runtime} does not answer: ${blocked}` };
   }
   const refused = subjectRefusal(desk, c);
   return refused
@@ -79,7 +94,8 @@ function start(desk: Desk, c: AgentChange, brief: string) {
 function apply(
   desk: Desk,
   c: AgentChange,
-  brief: string
+  brief: string,
+  blocked?: string
 ): { error: string } | { id: string } {
   const { db } = desk;
   const id = c.agent ?? "";
@@ -92,7 +108,7 @@ function apply(
   let refused: string | null;
   switch (c.action) {
     case "start":
-      return start(desk, c, brief);
+      return start(desk, c, brief, blocked);
     case "stop":
       refused = refusal(["active"]);
       if (!refused) {
@@ -135,7 +151,8 @@ function apply(
 /** What the desk does with one ask: why it is refused (spoken, stale, or the change refused), else the change applied. */
 function applyAsk(
   desk: Desk,
-  ask: ReturnType<typeof asksFor>["asks"][number]
+  ask: ReturnType<typeof asksFor>["asks"][number],
+  blocked?: string
 ): { agent?: string; error: string } | { agent?: string; id: string } {
   const parsed = AgentChange.safeParse(ask.agentChange);
   if (!parsed.success) {
@@ -151,7 +168,9 @@ function applyAsk(
   try {
     return {
       agent: parsed.data.agent,
-      ...desk.db.transaction(() => apply(desk, parsed.data, ask.quote))(),
+      ...desk.db.transaction(() =>
+        apply(desk, parsed.data, ask.quote, blocked)
+      )(),
     };
   } catch (e) {
     return { agent: parsed.data.agent, error: (e as Error).message };
@@ -166,11 +185,17 @@ export async function applyAgentChanges(desk: Desk) {
   const { db } = desk;
   const page = asksFor(DESK_AGENT, readCursor(db, CURSOR) ?? undefined);
   for (const ask of page.asks) {
+    // A start asks its runtime first (a process, never inside the transaction).
+    const c = AgentChange.safeParse(ask.agentChange);
+    const runtime =
+      c.success && c.data.action === "start" ? runtimeOf(c.data) : undefined;
+    // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
+    const blocked = runtime ? await desk.runtimes[runtime]?.block() : undefined;
     const r = db.transaction(() => {
       if (agentChangeOf(db, ask.id)) {
         return null;
       }
-      const done = applyAsk(desk, ask);
+      const done = applyAsk(desk, ask, blocked);
       const agent = "id" in done ? done.id : (done.agent ?? null);
       db.run(
         "insert into agent_change (ask, agent_id, error, applied_at) values (?, ?, ?, ?)",
@@ -183,7 +208,6 @@ export async function applyAgentChanges(desk: Desk) {
     }
     log("desk.change", { ask: ask.id, ...r });
     if ("id" in r && (ask.agentChange as AgentChange).action === "stop") {
-      // biome-ignore lint/performance/noAwaitInLoops: his asks apply in the order he gave them
       await withdrawOpenDecision(r.id, "he stopped its agent").catch(
         (e: Error) =>
           log("desk.change", {

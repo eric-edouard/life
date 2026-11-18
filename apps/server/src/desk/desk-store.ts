@@ -60,6 +60,7 @@ create table if not exists turn (
   session text,
   cause text not null,
   started_at text not null,
+  begun_at text,
   heard_at text,
   reminded_at text,
   ended_at text,
@@ -114,6 +115,13 @@ export function openDesk(path = DESK_STORE) {
   db.run("pragma journal_mode = wal");
   db.run("pragma busy_timeout = 5000");
   db.run(SCHEMA);
+  // A store made before `turn.begun_at`: its old turns truly lack it, nothing is backfilled.
+  const hasBegun = db
+    .query("select 1 from pragma_table_info('turn') where name = 'begun_at'")
+    .get();
+  if (!hasBegun) {
+    db.run("alter table turn add column begun_at text");
+  }
   return db;
 }
 
