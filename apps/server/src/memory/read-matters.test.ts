@@ -110,7 +110,7 @@ test("read_matters lists the open matters, of one project when asked; read_matte
         owedTo: ["gran"],
         with: ["partner"],
       },
-      projects: ["shop-fit-out"],
+      projects: ["Shop fit-out"],
       status: "moving",
     };
     // Empty fields are left out of the JSON a model reads.
