@@ -597,10 +597,10 @@ export const isLifeOutput = (
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
   t.messages.every((m) => isLifeMail(m.sender, t.unit.title));
-/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
 /** No line from him or from anyone he knows, in a thread he never wrote in. */
 export const isFromStrangers = (t: Pick<Thread, "messages">) =>
   !t.messages.some((m) => m.known || m.fromMe || m.hasOwnerWrittenInThread);
+/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered that day. */
 const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
 /** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
 export const searchableMail = (events: SourceEvent[]) =>
