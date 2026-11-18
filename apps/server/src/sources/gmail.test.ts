@@ -57,7 +57,9 @@ const mail = {
 test("a new mail: exact argv, never reply-all, quote, signature or tracking", async () => {
   const g = gog();
   expect(await g.path.refusal(mail)).toBeUndefined();
-  expect(await g.path.send({ ...mail, cc: "bo@example.com" }, "t")).toBe("g2");
+  expect(await g.path.send({ ...mail, cc: "bo@example.com" }, "t")).toBe(
+    "gmail:g2"
+  );
   const send = g.calls.at(-1) as string[];
   expect(send).toEqual([
     "gog",
@@ -65,6 +67,7 @@ test("a new mail: exact argv, never reply-all, quote, signature or tracking", as
     "send",
     "--to=ana@example.com",
     "--cc=bo@example.com",
+    `--from=${ME}`,
     "--subject=Friday",
     "--body=Can you come?",
     `--account=${ME}`,
@@ -136,5 +139,36 @@ test("a failure after gog started may have gone; a missing gog or a scope error 
   });
   await expect(scope.path.send(mail, "t")).rejects.toThrow(
     "not sent: gog can't use me@example.com"
+  );
+});
+
+test("a Message-ID that could widen the search is refused before it", async () => {
+  const g = gog();
+  expect(await g.path.refusal({ ...mail, onMessage: "mail:a b@x" })).toContain(
+    "isn't a mail's id"
+  );
+  expect(
+    await g.path.refusal({ ...mail, onMessage: 'mail:a"@x OR in:anywhere' })
+  ).toContain("isn't a mail's id");
+  expect(g.calls).toEqual([]);
+});
+
+test("an answer that isn't JSON still counts as sent; a comma in a file name and a file over 25 MB do not reach gog", async () => {
+  const g = gog(FOUND, { stdout: "Sent." });
+  const file = {
+    bytes: new Uint8Array([1]),
+    mime: "text/plain",
+    name: "a,b.txt",
+  };
+  expect(await g.path.send({ ...mail, file }, "t")).toBe(
+    "gmail: no id came back"
+  );
+  const staged = (g.calls.at(-1) as string[]).find((a) =>
+    a.startsWith("--attach=")
+  );
+  expect(staged).toEndWith("a_b.txt");
+  const big = { ...file, bytes: new Uint8Array(25_000_001) };
+  expect(await g.path.refusal({ ...mail, file: big })).toContain(
+    "at most 25 MB"
   );
 });

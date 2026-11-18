@@ -81,7 +81,7 @@ const outgoingOf = (d: StoredDraft, bytes?: Uint8Array): Outgoing => ({
 });
 
 /** A source whose messages a draft goes into: chat or mail. */
-type Mailing = Descriptor & { kind: "chat" | "mail" };
+type Sending = Descriptor & { kind: "chat" | "mail" };
 
 interface ChatSource {
   name: string;
@@ -130,9 +130,9 @@ async function chatOf(
  * Where a draft goes and the message it answers: a chat's (`chatOf`), or a mail's, which has no chat (`to` is
  * addresses) and reads the source only for the message a reply quotes. `there` are the events a mention may name.
  */
-async function whereOf(
+async function readWhere(
   draft: MessageDraft,
-  s: Mailing,
+  s: Sending,
   send: SendPath,
   now: Date
 ) {
@@ -181,7 +181,7 @@ export async function resolveDraft(
   sources = enabledSources()
 ): Promise<StoredDraft> {
   const sending = sources.filter(
-    (x): x is Mailing =>
+    (x): x is Sending =>
       Boolean(x.send) && (x.kind === "chat" || x.kind === "mail")
   );
   const s = sending.find((x) => x.name === draft.channel);
@@ -198,7 +198,7 @@ export async function resolveDraft(
   if (block) {
     throw new Error(`Not done: ${block}.`);
   }
-  const { chat, name, quoted } = await whereOf(draft, s, s.send, now);
+  const { chat, name, quoted } = await readWhere(draft, s, s.send, now);
   const { file: path, ...fields } = draft;
   const file = path ? await stampFile(path) : undefined;
   const stored: StoredDraft = {

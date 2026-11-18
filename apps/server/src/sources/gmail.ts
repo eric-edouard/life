@@ -5,7 +5,7 @@ import { MIN } from "../core/clock";
 import { gogCall } from "../core/gog";
 import { exec } from "../core/proc";
 import type { Outgoing, SendPath } from "./contract";
-import { mailAccounts } from "./mail";
+import { mailAccounts, messageIdOfMail } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
 // `scripts/imports.test.ts`). A new mail, or a reply in the thread of one message of his; never reply-all, a quote, a
@@ -29,8 +29,10 @@ interface Options {
   staging?: string;
 }
 
-/** The start of a mail event's id (`mail:<Message-ID>`). */
-const MAIL = "mail:";
+/** What a Message-ID may hold in a Gmail search: no space, quote, brace or paren. */
+const MESSAGE_ID = /^[\w.!#$%&'*+/=?^`|~@-]+$/;
+/** Gmail takes 35 MB a message, its encoding included. ponytail: 25 MB of file; raise it if one is ever refused wrongly. */
+const FILE_MAX = 25_000_000;
 const ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 const AUTH =
   /auth|token|scope|credential|insufficient|invalid_grant|keyring|permission/i;
@@ -45,7 +47,7 @@ const reauthorize = (account: string) =>
   `gog can't use ${account} for Gmail: run \`gog auth add ${account} --services=gmail --force-consent\` and sign in`;
 
 /** gog's answer to the send: the sent id, or `not sent` (gog didn't start, or can't act for the account) or `may have gone`. */
-function answerOf(r: Run, from: string, txn: string) {
+function answerOf(r: Run, from: string) {
   if (r.killed) {
     throw new Error("may have gone: gog didn't answer: read Sent");
   }
@@ -59,12 +61,15 @@ function answerOf(r: Run, from: string, txn: string) {
       `may have gone: gog failed (${r.stderr.trim().slice(-200)}): read Sent`
     );
   }
-  const out = JSON.parse(r.stdout || "{}") as {
-    id?: string;
-    messageId?: string;
-  };
-  // ponytail: the sent id is gog's; the txn stands in when its answer has none.
-  return out.messageId ?? out.id ?? `gmail:${txn}`;
+  // It went (exit 0): an answer that isn't JSON, or holds no id, still counts as sent.
+  let out: { id?: string; messageId?: string } = {};
+  try {
+    out = JSON.parse(r.stdout);
+  } catch {
+    // no id came back
+  }
+  const id = out.messageId ?? out.id;
+  return id ? `gmail:${id}` : "gmail: no id came back";
 }
 
 /**
@@ -85,10 +90,8 @@ export function gmailSend({
     d: Outgoing
   ): Promise<{ id?: string; problem?: string }> => {
     const from = d.from as string;
-    const rfc = d.onMessage?.startsWith(MAIL)
-      ? d.onMessage.slice(MAIL.length)
-      : undefined;
-    if (d.onMessage && !rfc) {
+    const rfc = d.onMessage && messageIdOfMail(d.onMessage);
+    if (d.onMessage && !(rfc && MESSAGE_ID.test(rfc))) {
       return { problem: "`onMessage` isn't a mail's id (`mail:<Message-ID>`)" };
     }
     const r = await gog(from, [
@@ -124,6 +127,9 @@ export function gmailSend({
       if (!(d.from && d.to && d.subject)) {
         return "a mail needs `from`, `to` and `subject`";
       }
+      if (d.file && d.file.bytes.length > FILE_MAX) {
+        return `a mail's file is at most ${FILE_MAX / 1e6} MB`;
+      }
       if (!addresses().some((a) => a.toLowerCase() === d.from?.toLowerCase())) {
         return `${d.from} isn't one of his mail addresses`;
       }
@@ -132,7 +138,7 @@ export function gmailSend({
       }
       return (await lookup(d)).problem;
     },
-    send: async (d, txn) => {
+    send: async (d) => {
       const found = await lookup(d);
       if (found.problem) {
         throw new Error(`not sent: ${found.problem}`);
@@ -144,7 +150,7 @@ export function gmailSend({
       try {
         let attach: string[] = [];
         if (d.file && folder) {
-          const path = join(folder, basename(d.file.name));
+          const path = join(folder, basename(d.file.name).replaceAll(",", "_"));
           await Bun.write(path, d.file.bytes);
           attach = [`--attach=${path}`];
         }
@@ -154,6 +160,7 @@ export function gmailSend({
             "send",
             `--to=${d.to}`,
             ...(d.cc ? [`--cc=${d.cc}`] : []),
+            `--from=${from}`,
             `--subject=${d.subject}`,
             `--body=${d.text ?? ""}`,
             ...(found.id ? [`--reply-to-message-id=${found.id}`] : []),
@@ -161,7 +168,7 @@ export function gmailSend({
           ],
           3 * MIN
         );
-        return answerOf(r, from, txn);
+        return answerOf(r, from);
       } finally {
         if (folder) {
           await rm(folder, { force: true, recursive: true });
