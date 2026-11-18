@@ -333,6 +333,19 @@ test("change_registered_agent records his word and answers with what the desk di
       brief: "The shop sign is up by Friday",
       folder,
     });
+    // A project with no folder named: its repo too.
+    setTimeout(() => applyAgentChanges(desk), 300);
+    const shop = (
+      await changeRegisteredAgent({
+        action: "start",
+        project: "test-shop",
+        runtime: "claude",
+        said: "Keep the shop's site up to date",
+      })
+    )
+      .split(" ")
+      .at(-1);
+    expect(agentOf(desk.db, shop ?? "")?.folder).toBe(folder);
   } finally {
     book.mockRestore();
     truth.mockRestore();

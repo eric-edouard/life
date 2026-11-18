@@ -78,7 +78,7 @@ async function matterNamed(step: string) {
  * from his directory's `repos:` only (never Life's guessed repos: an agent runs where he said the project lives), by its key as the repo map reads it (`owner/name` is on GitHub only); none: the desk
  * makes a folder of its own for it.
  */
-function repoFolderOf(projects: string[], truth: Truth) {
+function readRepoFolder(projects: string[], truth: Truth) {
   const here = new Map(listRepos().map((r) => [r.key, r.path]));
   return projects
     .flatMap((id) => truth.projects.find((p) => p.id === id)?.repos ?? [])
@@ -88,7 +88,7 @@ function repoFolderOf(projects: string[], truth: Truth) {
 
 /**
  * His change with its Life-side facts read: his project's id, the matter's anchors and, for a start with no folder,
- * the folder of its project's repo (`repoFolderOf`). Throws when the project or the matter is not his.
+ * the folder of its project's repo (`readRepoFolder`). Throws when the project or the matter is not his.
  */
 async function withSubject({
   step,
@@ -107,7 +107,7 @@ async function withSubject({
   const matter = step ? await matterNamed(step) : undefined;
   change.steps = matter?.steps;
   if (hasNoFolder && truth) {
-    change.folder = repoFolderOf(
+    change.folder = readRepoFolder(
       [
         ...(matter?.projects ?? []),
         ...(change.project ? [change.project] : []),
