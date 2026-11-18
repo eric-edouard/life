@@ -15,6 +15,7 @@ import {
   agentChangeOf,
   holderOf,
   modelOf,
+  NOT_STARTED,
   readDesk,
   startOf,
 } from "./desk-read";
@@ -165,8 +166,8 @@ function startFailure(s: ReturnType<typeof startOf>) {
     return s.change.error;
   }
   const outcome = s.agent?.outcome;
-  return s.agent?.status === "ended" && outcome?.startsWith("not started: ")
-    ? outcome.slice("not started: ".length)
+  return s.agent?.status === "ended" && outcome?.startsWith(NOT_STARTED)
+    ? outcome.slice(NOT_STARTED.length)
     : null;
 }
 
