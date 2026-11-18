@@ -34,6 +34,7 @@ import { readHealth } from "../health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
+import { deskCard } from "./desk-card";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -1153,6 +1154,7 @@ export async function snapshot(now = clock()) {
     ...pipelineCards(r),
     ...memoryCards(r),
     ...outputCards(r),
+    deskCard(r.t),
     ...macCards(r),
   ];
   // One rule for a card in trouble: the app's menu and window list them.

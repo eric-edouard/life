@@ -40,6 +40,10 @@ import {
   DirectoryEntryChange,
 } from "../change-directory-entry";
 import {
+  changeRegisteredAgent,
+  RegisteredAgentChange,
+} from "../change-registered-agent";
+import {
   Asked,
   AutoAdded,
   autoAddTodoItem,
@@ -54,6 +58,12 @@ import {
   PollParams,
   pollEvents,
 } from "../events";
+import {
+  agentLinesOnProjects,
+  agentLinesOnSteps,
+  readAgentMarks,
+  readRegisteredAgents,
+} from "../registered-agents";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
@@ -259,18 +269,18 @@ export function buildServer(readsOnly = false) {
   tool(
     server,
     "read_matters",
-    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on and what is next. Optionally of one person, project or area. `read_matter` opens one.",
+    "For what is open in his life as running things (an errand for someone, a purchase, a repair, a trip being arranged): the running matters (open, not dormant), newest first, each with its id, name, matter status (waiting_on_someone, moving, stuck), who it is owed to, who is waited on, what is next and the registered agent working on it. Optionally of one person, project or area. `read_matter` opens one.",
     z.object({
       area: z.string().optional().describe("Area id or name"),
       person: z.string().optional().describe("Name, alias or id"),
       project: z.string().optional().describe("Project id or name"),
     }),
-    (q) => openMatters(q)
+    (q) => openMatters(q, readAgentMarks())
   );
   tool(
     server,
     "read_matter",
-    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, and every step in time order with its day and words (the episodes, observations and to-do items that belong to it).",
+    "One matter, by the id `read_matters` or `read_day` gives: where it stands, its people by role (owed to, waiting on, with, told), projects and areas, what is next, every step in time order with its day and words (the episodes, observations and to-do items that belong to it), and its Agents: the registered agents working on it now and before (status, what each waits for and until when, last turn, link).",
     z.object({
       id: z
         .string()
@@ -279,16 +289,16 @@ export function buildServer(readsOnly = false) {
           "A matter id, or the id of one of its steps (an observation or a to-do item)."
         ),
     }),
-    ({ id }) => oneMatter(id)
+    ({ id }) => oneMatter(id, agentLinesOnSteps)
   );
   tool(
     server,
     "read_area_page",
-    "For a project or a part of his life (a business, the house, health): its area page and its latest observations. A project's id or name reads its area, after the project's line; a name that is neither lists the ids.",
+    "For a project or a part of his life (a business, the house, health): its area page and its latest observations, then the registered agents on it. A project's id or name reads its area, after the project's line; a name that is neither lists the ids.",
     z.object({
       name: z.string().min(1).describe("Area or project id or name"),
     }),
-    ({ name }) => area(name)
+    ({ name }) => area(name, agentLinesOnProjects)
   );
   tool(
     server,
@@ -388,6 +398,26 @@ export function buildServer(readsOnly = false) {
       limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
     }),
     ({ limit = 50 }) => readInbox(limit)
+  );
+  tool(
+    server,
+    "read_registered_agents",
+    "What his agents are doing (JSON): every registered agent the desk keeps (active, stopped, and those ended in the last 7 days): what it works on (its matter, or a project), status (running, waiting, stopped, handed_over, ended), its runtime and model, what it waits for and until when, its last turn, its notes' first line, its link (opens its session) and what shows amber. `desk` says whether the desk is on and readable, `helper` whether it runs. What waits on him: `read_inbox`.",
+    z.object({}),
+    async () => ({ ...(await readRegisteredAgents()) })
+  );
+  tool(
+    server,
+    "change_registered_agent",
+    "Only for what he asked in this chat, `said` his own words verbatim: start a registered agent on a matter (`step`: the matter's id or a step's) or a project, with `folder` (and `runtime`, `model`, `effort`, else the desk's defaults; his words are its brief); `stop` or `resume` one; `re_point` it to another subject; `change_model`; `hand_over` it to another runtime. Recorded as his ask of the desk, which acts within seconds; returns what it did or why not.",
+    RegisteredAgentChange,
+    (a, agent) => {
+      if (agent) {
+        throw new Error(NOT_HIS);
+      }
+      return changeRegisteredAgent(a);
+    },
+    WRITES
   );
   tool(
     server,

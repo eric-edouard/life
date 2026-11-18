@@ -163,7 +163,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
+test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `change_registered_agent` ask for approval, `change_directory_entry`, `change_todo_item` and `tell_life` write but are not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -172,6 +172,7 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
   expect(tools.map((t) => t.name).sort()).toEqual([
     "answer_check",
     "change_directory_entry",
+    "change_registered_agent",
     "change_todo_item",
     "correct_memory",
     "fetch",
@@ -190,6 +191,7 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
     "read_person_page",
     "read_places_visited",
     "read_processing_runs",
+    "read_registered_agents",
     "request_decision",
     "search",
     "tell_life",
@@ -207,6 +209,7 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
   ).toEqual([
     "answer_check(note,options,person,ref)",
     "change_directory_entry(action,aliases,area,handles,id,kind,language,name,number,people,relation,repos,said,status,text)",
+    "change_registered_agent(action,agent,effort,folder,model,project,runtime,said,step)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "fetch(fromTurn,id,limit)",
@@ -225,6 +228,7 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
     "read_person_page(before,name)",
     "read_places_visited(at,from,latitude,longitude,place,radiusM,to)",
     "read_processing_runs(cursor,limit,steps)",
+    "read_registered_agents()",
     "request_decision(context,deadline,links,onSilence,options,question,recommended,subject,why,withdraw)",
     "search(from,query,to)",
     "tell_life(asked,said)",
@@ -248,6 +252,7 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
     "answer_check",
     "correct_memory",
     "change_directory_entry",
+    "change_registered_agent",
     "change_todo_item",
     "request_decision",
     "tell_life",
@@ -260,7 +265,11 @@ test("tools/list: the read-only tools; `correct_memory` and `answer_check` ask f
   }
   for (const name of writes) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
-      destructiveHint: name === "correct_memory" || name === "answer_check",
+      destructiveHint: [
+        "correct_memory",
+        "answer_check",
+        "change_registered_agent",
+      ].includes(name),
       openWorldHint: false,
       readOnlyHint: false,
     });

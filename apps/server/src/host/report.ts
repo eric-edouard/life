@@ -39,6 +39,8 @@ export interface Night {
     actions: readonly LedgerEntry[];
     problems: string[];
   };
+  /** The Agents section (`readAgentRows`): one row per registered agent, then the report lines posted since the last night; none while the desk is off. */
+  agents: { name: string; relation: string }[];
   /** The archive's failures since the last night (`archiveLine`). */
   archive: string;
   /** The last backup (`backupLine`). */
@@ -215,6 +217,7 @@ export function successReport(day: string, ms: number, n: Night) {
       preheader: `${count(n.keyObservations.length, "new key observation")} on ${count(changes.length, "page")}, ${count(n.episodes.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
       sections: [
         { kind: "pairs", list: decisions, title: "Waiting on you" },
+        { kind: "pairs", list: n.agents, title: "Agents" },
         { kind: "pairs", list: n.birthdays, title: "Birthdays" },
         { kind: "pairs", list: n.done, title: "Done" },
         {

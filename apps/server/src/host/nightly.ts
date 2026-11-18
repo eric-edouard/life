@@ -97,6 +97,7 @@ import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
 import { syncPast } from "./past-calendar";
+import { readAgentRows } from "./registered-agents";
 import {
   failureReport,
   type Mail,
@@ -152,6 +153,16 @@ export async function readChecksFor(rec: Pick<RunRecorder, "error">) {
     return (await checksNow()).filter((c) => !isEndingKind(c));
   } catch (e) {
     rec.error((e as Error).message, { step: "memory.nightly.checks" });
+    return [];
+  }
+}
+
+/** The report's Agents section since the last night. Never fails the night: a failure is logged and it has no rows. */
+async function readAgentsFor(rec: Pick<RunRecorder, "error">, since: string) {
+  try {
+    return await readAgentRows(since);
+  } catch (e) {
+    rec.error((e as Error).message, { step: "memory.nightly.agents" });
     return [];
   }
 }
@@ -568,6 +579,7 @@ export async function runNight(
     const q = await quota();
     mail = successReport(day, rec.ms(), {
       acted: report,
+      agents: await readAgentsFor(rec, since),
       archive,
       backup: backupLine(now),
       birthdays: (await readBirthdaysNear(await readPeople(), dayNow())).map(
