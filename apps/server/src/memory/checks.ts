@@ -104,7 +104,7 @@ export interface Check {
   goal: string | null;
   group: CheckGroup;
   kind: CheckKind;
-  /** Who a voice may be, as Life knows them; none but a voice's. */
+  /** Who it may be, as Life knows them: a voice's likely people, a Contacts card's candidates; none for other kinds. */
   likelyPeople: { name: string; person: string }[];
   /** Where to look or act (the agent's link first). */
   links: string[];
@@ -499,25 +499,26 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
     const byRef = keptBy(c, (l) =>
       [l.about ?? "", ...l.subjects].map(people.refOf)
     );
-    const cards = people.ambiguousCards.flatMap((a) =>
-      ranked(
+    const cards = people.ambiguousCards.flatMap((a) => {
+      // The people its name and handles say, named once: his answer is one of them.
+      const likelyPeople = a.people.map((p) => ({
+        name: people.nameOf(p),
+        person: p,
+      }));
+      return ranked(
         c,
         "contacts card",
         {
           about: people.contacts.find((x) => x.id === a.card)?.handles ?? [],
-          // The people its name and handles say: his answer is one of them.
-          likelyPeople: a.people.map((p) => ({
-            name: people.names.get(p) ?? p,
-            person: p,
-          })),
-          question: `Life cannot place the Contacts card ${people.names.get(a.card) ?? a.card}: its name and handles say ${a.people.map((p) => people.names.get(p) ?? p).join(" and ")}`,
+          likelyPeople,
+          question: `Life cannot place the Contacts card ${people.nameOf(a.card)}: its name and handles say ${likelyPeople.map((p) => p.name).join(" and ")}`,
           ref: a.card,
         },
         byRef.get(a.card) ?? [],
         [a.card],
         null
-      )
-    );
+      );
+    });
     const open = c.unresolved.filter(
       (r) => r.observation && !people.resolve(r.nameAsWritten)
     );

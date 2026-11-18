@@ -10,7 +10,7 @@ import { loadTruth, type Truth } from "../memory/read-truth";
 import { readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { GoalText } from "../records/matter";
-import { AgentChange, runtimeOf } from "../records/registered-agent";
+import { AgentChange } from "../records/registered-agent";
 import { listRepos } from "../sources/git";
 import { ask } from "./asks";
 import { requested } from "./change-todo-item";
@@ -21,6 +21,7 @@ import {
   projectHolderOf,
   readDesk,
   readStartFacts,
+  runtimeOf,
 } from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 

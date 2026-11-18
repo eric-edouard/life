@@ -6,7 +6,11 @@ import { DESK_STORE } from "../core/paths";
 import { settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import { NEW_MATTER_DAYS } from "../memory/checks";
-import type { AgentStatus, MessageFilter } from "../records/registered-agent";
+import type {
+  AgentChange,
+  AgentStatus,
+  MessageFilter,
+} from "../records/registered-agent";
 
 // Every read of the desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`), its rows' shapes and the rules worked out from
 // them: the desk reads through these, and host reads the store read-only (`readDesk`), so the desk off or its store
@@ -204,6 +208,10 @@ export const refusedSince = (db: Database, since: string) =>
     .all(since, MAX_ACTIVE);
 
 /** The model and effort agent `a` runs with: its own, else its runtime's in the desk's settings, else the runtime's default (none). */
+/** The runtime a start names, else the desk's default. */
+export const runtimeOf = (c: Pick<AgentChange, "runtime">) =>
+  c.runtime ?? settings().desk?.defaultRuntime;
+
 export function modelOf(a: Pick<AgentRow, "effort" | "model" | "runtime">) {
   const runtimes: Partial<Record<string, { effort?: string; model?: string }>> =
     settings().desk?.runtimes ?? {};

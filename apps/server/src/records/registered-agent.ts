@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { settings } from "../core/settings";
 
 // The desk's shapes (apps/server/src/desk/, docs/glossary.md): a registered agent's wait and what its turns report.
 
@@ -75,7 +74,3 @@ export const AgentChange = z
   })
   .strict();
 export type AgentChange = z.infer<typeof AgentChange>;
-
-/** The runtime a start names, else the desk's default. */
-export const runtimeOf = (c: Pick<AgentChange, "runtime">) =>
-  c.runtime ?? settings().desk?.defaultRuntime;

@@ -209,11 +209,11 @@
       "kind": "person",
       "likelyPeople": [
         {
-          "name": "person:gran",
+          "name": "Gran",
           "person": "person:gran"
         },
         {
-          "name": "person:partner",
+          "name": "Robin",
           "person": "person:partner"
         }
       ],
@@ -227,7 +227,7 @@
           "takes": "person"
         }
       ],
-      "question": "Life cannot place the Contacts card Lou: its name and handles say person:gran and person:partner",
+      "question": "Life cannot place the Contacts card Lou: its name and handles say Gran and Robin",
       "ref": "person:con_lou",
       "ridesOn": {
         "matters": 0,

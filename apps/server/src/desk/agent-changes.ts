@@ -10,8 +10,9 @@ import {
   holderOf,
   projectHolderOf,
   readCursor,
+  runtimeOf,
 } from "../host/desk-read";
-import { AgentChange, runtimeOf } from "../records/registered-agent";
+import { AgentChange } from "../records/registered-agent";
 import { register, withdrawOpenDecision, writeSubject } from "./agent-actions";
 import { type Desk, saveCursor } from "./desk-store";
 

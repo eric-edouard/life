@@ -207,7 +207,7 @@ test("a start refused because the matter is already held says something runs the
   expect(result).toMatchObject({
     failed: { stage: "desk_accepted" },
     nothingRunning: false,
-    // It named none: the desk's default, the one its refusal is about.
+    // It named none: the runtime the desk took is its default (the refusal is about the matter, not the runtime).
     runtime: "claude",
     state: "not_started",
   });
