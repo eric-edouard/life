@@ -259,7 +259,7 @@ outside the lock, schemaVersion 3, by `kind`:
   (4,000 chars), `links`, `deadline` (1 hour to 14 days after `at`, in UTC), `onSilence` (an option id, never an
   outgoing one, or null). A `draft` needs exactly one outgoing option.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
-  (`connector`, his app; `cli`, which never sends). The first answer stands.
+  (`connector`, his app; `session`, a session's `bun life` command, which never sends). The first answer stands.
 - `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
   Matrix `eventId` once the bridge took it, or the `error` (which says whether it may have gone). The first stands; with
   neither 2 minutes after his answer, the send never ended (worked out when read).

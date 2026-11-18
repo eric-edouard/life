@@ -310,6 +310,7 @@ test("his answer that sends a card's draft wakes its asker with the send's outco
     );
     await answerDecision(id, ["send"], undefined, {
       deliver: () => Promise.resolve("$event1"),
+      via: "connector",
     });
     setSystemTime(new Date(start.getTime() + 1000));
     const answered = await pollEvents(

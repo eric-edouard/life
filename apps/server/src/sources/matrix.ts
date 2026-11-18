@@ -334,7 +334,8 @@ export async function unlinkBridge(bridge: string) {
   }
 }
 
-const HTTP_STATUS = /^\d{3} /;
+/** A refusal before the homeserver stored anything: a 4xx. A 5xx may come after it stored the event. */
+const REFUSED = /^4\d\d /;
 
 /**
  * Sends `text` as him into `room` through `bridge`, once per `txn` (the homeserver keeps a resend of the same
@@ -372,7 +373,7 @@ export async function sendText(
     { body: JSON.stringify({ body: text, msgtype: "m.text" }), method: "PUT" }
   ).catch((e: Error) => {
     throw new Error(
-      HTTP_STATUS.test(e.message)
+      REFUSED.test(e.message)
         ? `not sent: the homeserver refused it: ${e.message}`
         : `may have gone: the homeserver didn't answer (${e.message}): read the chat`
     );

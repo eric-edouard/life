@@ -139,7 +139,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Life sends only the exact draft text of a card, on his answer to its outgoing option, into the one chat named,
   through its own bridges** (his decision of 18 Nov 2026): Life resolves the chat when the card is asked (refused
   unless exactly one); it sends once, on his pick of that option alone through `answer_check` (his app's token: never a
-  paired agent, the command line or the desk), by `answerDecision` alone (`scripts/imports.test.ts` checks), never on
+  paired agent, a session's command or the desk), by `answerDecision` alone (`scripts/imports.test.ts` checks), never on
   silence, never with his words added, never retried. Agents hold no send tool. Its only other mail and notifications
   are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.

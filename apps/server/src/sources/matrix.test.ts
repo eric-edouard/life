@@ -159,7 +159,7 @@ test("a bridge just started has logins with no state yet: not settled until each
 });
 
 /** A made-up homeserver: answers a join (or refuses it) and a send, and keeps each request. */
-function fakeHomeserver(join = 200) {
+function fakeHomeserver(joined = 200) {
   const seen: {
     auth: string | null;
     body: string;
@@ -177,8 +177,8 @@ function fakeHomeserver(join = 200) {
       });
       if (path.includes("/join/")) {
         return Response.json(
-          join === 200 ? { room_id: "!r" } : { errcode: "M_FORBIDDEN" },
-          { status: join }
+          joined === 200 ? { room_id: "!r" } : { errcode: "M_FORBIDDEN" },
+          { status: joined }
         );
       }
       return Response.json({ event_id: "$ev1" });

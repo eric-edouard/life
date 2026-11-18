@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
@@ -86,7 +87,7 @@ export const DecisionRequest = Ask.omit({ agent: true })
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
 export const CARD =
-  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source, `to` a chat key from `read_chats` or a person with one 1:1 chat there, `text`; Life sends exactly `text` there when he picks its one `outgoing` option alone, and `decision.answered` carries `send`, its event or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter step's id: it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
+  "One card: `title` (what you are trying to do, one line, 80 characters), `question` (what he decides, one line, 120), `draft` (the exact message to approve, shown to him in full: `channel` the source, `to` a chat key from `read_chats` or a person with one 1:1 chat there, `text`; Life sends exactly `text` there when he picks its one `outgoing` option alone (with his words added, or another option, nothing is sent), and `decision.answered` carries `send`, its event or its error; a failed send is never retried: ask a new card), `options` (2 to 4 `{id, label}`, one line each, the recommended one first, `outgoing: true` on one that sends, pays, books, deletes or changes something), `context` (why, what was tried, what it rests on, with links: folded, about 10 lines), `links` (yours first), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, never an outgoing one, or null), `subject` (a matter step's id: it leaves his list when the matter ends; or `project:<id>`, `area:<id>`). He can always answer in his own words instead (the answer's `note`).";
 
 const Asked = Ask.extend({
   asker: z.string().min(1),
@@ -106,8 +107,8 @@ const Answered = z
     /** The option ids he picked; none when he answered in words. */
     options: z.array(z.string()),
     schemaVersion: z.literal(VERSION),
-    /** His app through the connector, or the command line, which never sends. */
-    via: z.enum(["cli", "connector"]),
+    /** His app through the connector, or a session's `bun life` command, which never sends. */
+    via: z.enum(["connector", "session"]),
   })
   .strict();
 const Withdrawn = z
@@ -372,7 +373,7 @@ export async function answerDecision(
   {
     deliver = sendDraft,
     now = clock(),
-    via = "connector",
+    via = "session",
   }: {
     deliver?: typeof sendDraft;
     now?: Date;
@@ -408,7 +409,7 @@ export async function answerDecision(
   };
   appendJsonl(DECISIONS, Answered, [line]);
   const stored = readAll().get(id);
-  if (!stored || JSON.stringify(stored.answer) !== JSON.stringify(line)) {
+  if (!(stored && isDeepStrictEqual(stored.answer, line))) {
     throw new Error(`Not done: ${id} was answered already.`);
   }
   if (!(isSendDue(stored) && stored.draft?.chat && stored.draft.channel)) {

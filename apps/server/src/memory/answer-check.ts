@@ -95,7 +95,7 @@ const WRITERS: {
 export async function answerCheck(
   ref: string,
   a: CheckAnswer,
-  via: "cli" | "connector" = "connector"
+  via: "connector" | "session" = "session"
 ) {
   const check = (await checksNow()).find((c) => c.ref === ref);
   if (!check) {

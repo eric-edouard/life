@@ -160,7 +160,14 @@ export function pollDecisions(
           id: d.id,
           onSilence: d.onSilence,
           question: d.question,
-          ...(d.send ? { send: d.send } : {}),
+          ...(d.send
+            ? {
+                send:
+                  d.send.kind === "sent"
+                    ? { eventId: d.send.eventId }
+                    : { error: d.send.error },
+              }
+            : {}),
         } satisfies z.infer<typeof DecisionPayload>,
         eventId: `${d.id}.${state}`,
         name,

@@ -448,7 +448,7 @@ export function buildServer(readsOnly = false) {
       if (agent) {
         throw new Error(NOT_HIS);
       }
-      return answerCheck(ref, a);
+      return answerCheck(ref, a, "connector");
     },
     WRITES
   );

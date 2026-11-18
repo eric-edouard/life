@@ -162,13 +162,18 @@ test("his answer to a draft's outgoing option alone sends its exact text once, i
   const done = await answerDecision(id, ["send"], undefined, {
     deliver,
     now: later(HOUR),
+    via: "connector",
   });
   expect(sent).toEqual([
     ["whatsapp", "155@s.whatsapp.net", "Can you come Friday?", id],
   ]);
   expect(done.at(-1)).toMatchObject({ eventId: "$event1", kind: "sent" });
   await expect(
-    answerDecision(id, ["send"], undefined, { deliver, now: later(HOUR) })
+    answerDecision(id, ["send"], undefined, {
+      deliver,
+      now: later(HOUR),
+      via: "connector",
+    })
   ).rejects.toThrow("answered");
   expect(sent).toHaveLength(1);
   expect(decisionsNow(later(HOUR))[0]?.send).toMatchObject({
@@ -184,10 +189,11 @@ test("nothing is sent for another option, his words added, the command line, a l
   await answerDecision(noted.id, ["send"], "say Saturday instead", {
     deliver,
     now: NOW,
+    via: "connector",
   });
   const cli = await draftCard();
   await expect(
-    answerDecision(cli.id, ["send"], undefined, { deliver, via: "cli" })
+    answerDecision(cli.id, ["send"], undefined, { deliver })
   ).rejects.toThrow("his own answer");
   const lapsed = await draftCard();
   expect(stateOf(lapsed.id, later(3 * DAY))).toBe("lapsed");
@@ -212,6 +218,7 @@ test("nothing is sent for another option, his words added, the command line, a l
   await answerDecision("dec_00000000000b", ["send"], undefined, {
     deliver,
     now: NOW,
+    via: "connector",
   });
   expect(decisionsNow(later(DAY)).filter((d) => d.send)).toEqual([]);
 });
@@ -222,8 +229,12 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
   setSystemTime(answered);
   let release = (_: string) => undefined as unknown;
   const pending = answerDecision(id, ["send"], undefined, {
-    deliver: () => new Promise((resolve) => (release = resolve)),
+    deliver: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
     now: answered,
+    via: "connector",
   });
   // While the send runs, his answer is not yet settled for its asker.
   expect(settledBetween(decisionsNow(answered), NOW, later(DAY))).toEqual([]);
@@ -236,6 +247,7 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
   await answerDecision(failed.id, ["send"], undefined, {
     deliver: () => Promise.reject(new Error("not sent: room not joined")),
     now: answered,
+    via: "connector",
   });
   expect(decisionsNow().find((d) => d.id === failed.id)?.send).toMatchObject({
     error: "not sent: room not joined",

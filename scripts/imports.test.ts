@@ -13,6 +13,7 @@ const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const MONEY = /\["money",/;
+const MATRIX_SEND = /\/send\/m\.room\.message/;
 const BARE_IMPORTANCE = /importance\s*(?:[<>=!]=?=?)\s*\d|importance,\s*\d\)/;
 const DIRECT_CLOCK = /Date\.now\(\)|new Date\(\)/;
 const UTC_DAY = /toISOString\(\)\.slice\(0, ?10\)/;
@@ -118,9 +119,7 @@ test("only his answer to a decision sends: answerDecision alone calls sendDraft,
   expect(importers(["sendText"], "matrix")).toEqual([
     "apps/server/src/memory/draft-send.ts",
   ]);
-  expect(running(/\/send\/m\.room\.message|m\.room\.message\//)).toEqual([
-    "apps/server/src/sources/matrix.ts",
-  ]);
+  expect(running(MATRIX_SEND)).toEqual(["apps/server/src/sources/matrix.ts"]);
 });
 
 // Life reads his payments only through money's `tx` contract, behind `payments()`.

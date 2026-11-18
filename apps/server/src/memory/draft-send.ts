@@ -32,7 +32,7 @@ export async function readDraftChat(
   now = clock(),
   sources = enabledSources()
 ) {
-  const sending = sources.filter((s) => s.roomOf && s.kind === "chat");
+  const sending = sources.filter((x) => x.roomOf && x.kind === "chat");
   const s = sending.find((x) => x.name === draft.channel);
   if (!(s?.roomOf && s.kind === "chat")) {
     throw new Error(
