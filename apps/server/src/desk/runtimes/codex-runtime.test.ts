@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { CODEX_HOME } from "../../models/llm";
 import { doorOf } from "../desk-door";
 import {
@@ -133,75 +133,89 @@ test("a rollout's usage: growth since its first call, the last turn's calls coun
   expect(rolloutUsageOf([])).toBeNull();
 });
 
-/** A `codex` that answers `app-server` with a made-up thread and runs a turn from its message: "fail" exits 3 mid-turn, "never" exits 1 at once. */
+/**
+ * A `codex` in `/bin/sh` on the PATH: `--version` answers, `app-server` gives a made-up thread, and a turn prints its
+ * events from its message: "never" exits 1 at once, "quick" begins and ends at once; any other begins, then waits for the
+ * test's `release()` (a `go` file) and ends, exiting 3 for "fail". What a turn was given is kept in files.
+ */
 function fakeCodex() {
   const dir = mkdtempSync(join(tmpdir(), "fake-codex-"));
   const bin = join(dir, "codex");
+  const go = join(dir, "go");
+  // Its own thread id: the runtime asks the whole Mac (`pgrep`) whether a process holds it, and other runs may be there.
+  const thread = `th-${basename(dir)}`;
   writeFileSync(
     bin,
-    `#!/usr/bin/env bun
-const [, , cmd, , , , ...rest] = process.argv;
-if (cmd === "app-server") {
-  for await (const c of Bun.stdin.stream()) {
-    if (new TextDecoder().decode(c).includes('"id":2')) {
-      console.log(JSON.stringify({ id: 2, result: { thread: { id: "th-fake-1" } } }));
-    }
-  }
-} else if (cmd === "exec") {
-  const message = process.argv.at(-1);
-  await Bun.write(${JSON.stringify(join(dir, "seen.json"))}, JSON.stringify({ argv: process.argv.slice(2), key: process.env.LIFE_DESK_KEY, home: process.env.CODEX_HOME, cwd: process.cwd() }));
-  if (message === "never") process.exit(1);
-  console.log('{"type":"thread.started","thread_id":"th-fake-1"}');
-  console.log('{"type":"turn.started"}');
-  await Bun.sleep(300);
-  if (message === "fail") process.exit(3);
-  console.log('{"type":"turn.completed","usage":{}}');
-} else process.exit(2);
+    `#!/bin/sh
+case "$1" in
+--version) echo "codex-cli 0.0.0-fake" ;;
+app-server)
+  while read -r line; do
+    case "$line" in *'"id":2'*) echo '{"id":2,"result":{"thread":{"id":"${thread}"}}}' ;; esac
+  done ;;
+exec)
+  for m; do :; done
+  printf '%s\\n' "$@" > '${dir}/argv'
+  printf '%s' "$LIFE_DESK_KEY" > '${dir}/key'
+  printf '%s' "$CODEX_HOME" > '${dir}/home'
+  [ "$m" = never ] && exit 1
+  echo '{"type":"thread.started","thread_id":"${thread}"}'
+  echo '{"type":"turn.started"}'
+  if [ "$m" != quick ]; then
+    while [ ! -e '${go}' ]; do sleep 0.01; done
+    rm -f '${go}'
+  fi
+  [ "$m" = fail ] && exit 3
+  echo '{"type":"turn.completed","usage":{}}' ;;
+*) exit 2 ;;
+esac
 `
   );
   chmodSync(bin, 0o755);
+  const path = process.env.PATH;
+  process.env.PATH = `${dir}:${path}`;
+  const read = (f: string) => readFileSync(join(dir, f), "utf8");
   return {
-    dir,
-    seen: () => JSON.parse(readFileSync(join(dir, "seen.json"), "utf8")),
+    argv: () => read("argv").split("\n").slice(0, -1),
+    home: () => read("home"),
+    key: () => read("key"),
+    release: () => writeFileSync(go, ""),
+    thread,
+    [Symbol.dispose]: () => {
+      process.env.PATH = path;
+    },
   };
 }
 
-test("a start makes the thread, runs its first turn with the key in the environment, and links it", async () => {
-  const fake = fakeCodex();
-  const path = process.env.PATH;
-  process.env.PATH = `${fake.dir}:${path}`;
-  try {
-    const s = await codexRuntime.start(a, "the brief");
-    expect(s.ref).toBe("th-fake-1");
-    expect(s.link).toBe("codex://threads/th-fake-1");
-    await s.begun;
-    expect(await s.ended).toEqual({ ok: true });
-    const seen = fake.seen();
-    expect(seen.key).toBe(a.door.key);
-    // A test's Life is a copy: its agent runs in Life's own Codex home, never his.
-    expect(seen.home).toBe(CODEX_HOME);
-    expect(seen.argv).toContain("th-fake-1");
-    expect(seen.argv.at(-1)).toBe("the brief");
-    expect(await codexRuntime.block()).toBeUndefined();
-  } finally {
-    process.env.PATH = path;
-  }
+test("a start makes the thread, runs its first turn with the key in the environment, and links it; block asks the codex on the PATH", async () => {
+  using fake = fakeCodex();
+  const s = await codexRuntime.start(a, "the brief");
+  expect(s.ref).toBe(fake.thread);
+  expect(s.link).toBe(`codex://threads/${fake.thread}`);
+  await s.begun;
+  fake.release();
+  expect(await s.ended).toEqual({ ok: true });
+  expect(fake.key()).toBe(a.door.key);
+  // A test's Life is a copy: its agent runs in Life's own Codex home, never his.
+  expect(fake.home()).toBe(CODEX_HOME);
+  expect(fake.argv()).toContain(fake.thread);
+  expect(fake.argv().at(-1)).toBe("the brief");
+  expect(await codexRuntime.block()).toBeUndefined();
 });
 
-test("a turn that dies mid-way ended not ok; one that dies before it began never begun", async () => {
-  const fake = fakeCodex();
-  const path = process.env.PATH;
-  process.env.PATH = `${fake.dir}:${path}`;
-  try {
-    const failing = await codexRuntime.send(a, "th-fake-1", "fail");
-    await failing.begun;
-    expect(await failing.ended).toEqual({ ok: false });
-    const never = await codexRuntime.send(a, "th-fake-1", "never");
-    await expect(never.begun).rejects.toThrow("before the turn began");
-    expect(await never.ended).toEqual({ ok: false });
-  } finally {
-    process.env.PATH = path;
-  }
+test("a turn that dies mid-way ended not ok; one that dies before it began never begun; one that begins and ends at once began", async () => {
+  using fake = fakeCodex();
+  const failing = await codexRuntime.send(a, fake.thread, "fail");
+  await failing.begun;
+  fake.release();
+  expect(await failing.ended).toEqual({ ok: false });
+  const never = await codexRuntime.send(a, fake.thread, "never");
+  await expect(never.begun).rejects.toThrow("before the turn began");
+  expect(await never.ended).toEqual({ ok: false });
+  // Its events file is read for `begun` before it goes.
+  const quick = await codexRuntime.send(a, fake.thread, "quick");
+  await quick.begun;
+  expect(await quick.ended).toEqual({ ok: true });
 });
 
 test("a session is running while its rollout's last turn is open and fresh (his own turn in the app); a compressed rollout is not gone", async () => {

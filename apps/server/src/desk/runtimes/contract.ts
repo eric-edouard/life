@@ -2,6 +2,8 @@
 // `dsh`; one file each). Each turn is one run the runtime starts; its end is that run's end (`ended`), which the desk's
 // clock takes as the turn's end (`turnEnded`, `desk-clock.ts`).
 
+import { type FSWatcher, watch } from "node:fs";
+import { cliEnv } from "../../core/platform";
 import { exec } from "../../core/proc";
 
 /** A turn the runtime launched: `begun` settles when it is under way (rejects with why when it ended first), `ended` when it ends, `ok` false when it failed. */
@@ -47,7 +49,11 @@ export interface Runtime {
 
 /** `Runtime.block` for a CLI: why `<program> --version` fails, none when it answers. */
 export async function blockOf(program: string) {
-  const r = await exec([program, "--version"], { timeout: 5000 });
+  // The PATH as it is now (`cliEnv`), as a run's: the program the desk would launch.
+  const r = await exec([program, "--version"], {
+    env: cliEnv(),
+    timeout: 5000,
+  });
   return r.code === 0
     ? undefined
     : `${program} --version failed: ${r.stderr.slice(-200) || r.code}`;
@@ -56,28 +62,45 @@ export async function blockOf(program: string) {
 const BEGUN_POLL_MS = 250;
 
 /**
- * Settles when `isBegun` says the turn is under way, polled; `isOver` tells it the run has ended (looked at once more
- * before giving up). Rejects when the run ended without it.
+ * Settles when `isBegun` says the turn is under way: looked at again whenever `watched` (the run's own record) changes,
+ * else polled; `isOver` tells it the run has ended (looked at once more before giving up). Rejects when the run ended
+ * without it.
  */
 export async function begunWhen(
   ended: Promise<unknown>,
-  isBegun: (isOver: boolean) => boolean
+  isBegun: (isOver: boolean) => boolean,
+  watched?: string
 ) {
   let isOver = false;
+  let wake = () => undefined as void;
   const over = () => {
     isOver = true;
+    wake();
   };
   ended.then(over, over);
-  for (;;) {
-    const wasOver = isOver;
-    if (isBegun(wasOver)) {
-      return;
+  let watcher: FSWatcher | undefined;
+  try {
+    watcher = watched ? watch(watched, () => wake()) : undefined;
+  } catch {
+    // no file to watch: the poll alone
+  }
+  try {
+    for (;;) {
+      const wasOver = isOver;
+      if (isBegun(wasOver)) {
+        return;
+      }
+      if (wasOver) {
+        throw new Error("its process ended before the turn began");
+      }
+      // biome-ignore lint/performance/noAwaitInLoops: waits for the run's own record to change
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+        setTimeout(resolve, BEGUN_POLL_MS);
+      });
     }
-    if (wasOver) {
-      throw new Error("its process ended before the turn began");
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: polls the run's own record
-    await Bun.sleep(BEGUN_POLL_MS);
+  } finally {
+    watcher?.close();
   }
 }
 

@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
@@ -104,15 +110,27 @@ interface Event {
 export const hasEvent = (lines: string[], type: string) =>
   eventsOf(lines).some((e) => e.type === type);
 
-/** Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. */
+/**
+ * Runs one turn in `a.folder`: its process's exit is the turn's end, ok with a `turn.completed` in its events. `begun`
+ * watches the events file and is settled before the file goes, so a turn that began and ended at once still began.
+ */
 function run(a: Agent, ref: string, message: string): Run {
   mkdirSync(DESK_RUNS, { recursive: true });
   const path = join(DESK_RUNS, `${ref}-${clock().getTime()}.jsonl`);
-  const ended = startDetached(codexArgsOf(a, ref, message), {
+  // Made before the process, so `begunWhen` can watch it from the start.
+  writeFileSync(path, "");
+  const exited = startDetached(codexArgsOf(a, ref, message), {
     cwd: a.folder,
     env: { ...homeEnv(), LIFE_DESK_KEY: a.door.key },
     stdout: path,
-  }).then((code) => {
+  });
+  const begun = begunWhen(
+    exited,
+    () => hasEvent(linesOf(path), "turn.started"),
+    path
+  );
+  const ended = exited.then(async (code) => {
+    await begun.catch(() => undefined);
     const lines = linesOf(path);
     const isOk = code === 0 && hasEvent(lines, "turn.completed");
     // Its events hold what the agent read: never kept; a failure logs the last of them.
@@ -127,10 +145,7 @@ function run(a: Agent, ref: string, message: string): Run {
     rmSync(path, { force: true });
     return { ok: isOk };
   });
-  return {
-    begun: begunWhen(ended, () => hasEvent(linesOf(path), "turn.started")),
-    ended,
-  };
+  return { begun, ended };
 }
 
 /** A new thread in `folder`, through a short-lived `codex app-server` (killed once it answers): its id. */
