@@ -254,7 +254,7 @@ const lineChat = (text: string, deleted = false) => ({
   text,
 });
 
-const MEET_LINE = /: meet at 10 \[id whatsapp:120@g\.us\/S2[^\]]*\]$/;
+const MEET_LINE = /: meet at 10 \[id whatsapp:120@g\.us\/S2\]$/;
 
 test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked, today included", async () => {
   const wa = whatsappFixture();
@@ -282,7 +282,7 @@ test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked
   expect(team).toContain(
     ": pay the carpenter (deleted) [id whatsapp:120@g.us/S1"
   );
-  // Each line ends with the id a draft's `onMessage` takes, and beside a name, the raw sender a mention takes.
+  // Each line ends with the id a draft's `onMessage` takes; an unresolved sender is its own id, so nothing is added.
   expect(team).toMatch(MEET_LINE);
   expect(team).not.toContain("send the invoice");
   // A sender found in two apps: both chats, by handle.
