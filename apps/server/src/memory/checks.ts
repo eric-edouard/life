@@ -30,31 +30,22 @@ import {
   matterPeopleOf,
   nextStepNow,
 } from "./matter-read";
-import { mattersNow, readMatterRecords, readMatters } from "./matters";
+import {
+  MATTER_BOOK_READS,
+  mattersNow,
+  readMatterRecords,
+  readMatters,
+} from "./matters";
 import {
   CLOSENESS,
-  CONTACT_PEOPLE,
-  CORRECTIONS,
-  EPISODES,
-  FACT_CHECK_ANSWERS,
-  FACT_CHECKS,
-  INFERRED,
-  LEDGER,
-  LINKS,
-  MATTER_DIRECTIONS,
-  MATTERS,
-  OBSERVATIONS,
   PAGES,
   readDismissedMatterPins,
   readFactCheckAnswers,
   readFactChecks,
   readUnitsFor,
-  SUPERSESSIONS,
-  UNRESOLVED,
   ZONES,
 } from "./memory-files";
 import { isLocked } from "./memory-lock";
-import { TRUTH } from "./read-truth";
 import { nameKey } from "./units";
 import {
   type People,
@@ -639,26 +630,7 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
  * Every file the checks read as stored (truth/ included), never units or their publications: the watcher's syncs write
  * those every few minutes, and the checks don't read them but for an inferred person's evidence (where it was said).
  */
-const CHECKS_READ = [
-  CLOSENESS,
-  CONTACT_PEOPLE,
-  CORRECTIONS,
-  DECISIONS,
-  EPISODES,
-  FACT_CHECK_ANSWERS,
-  FACT_CHECKS,
-  INFERRED,
-  LEDGER,
-  LINKS,
-  MATTER_DIRECTIONS,
-  MATTERS,
-  OBSERVATIONS,
-  PAGES,
-  SUPERSESSIONS,
-  TRUTH,
-  UNRESOLVED,
-  ZONES,
-];
+const CHECKS_READ = [...MATTER_BOOK_READS, CLOSENESS, DECISIONS, PAGES, ZONES];
 
 /**
  * What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open

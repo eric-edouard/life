@@ -39,6 +39,9 @@ struct MattersScreen: View {
         // Side by side at every regular width, upright too; the system's own sidebar button stays, so the list can never
         // be lost if the system overlays it anyway.
         .navigationSplitViewStyle(.balanced)
+        // The tabs hide while a matter fills a compact width and come back with the list. Set here, above both columns:
+        // set on the matter's page, the hidden bar outlived the page, and the Inbox could no longer be reached.
+        .toolbarVisibility(sizeClass != .regular && router.matterColumn == .detail ? .hidden : .automatic, for: .tabBar)
         // The split view can drop the selection when it expands: a regular width always shows a matter.
         .onChange(of: sizeClass, initial: true) { fillSelection() }
         .onChange(of: life.matters.value) { fillSelection() }

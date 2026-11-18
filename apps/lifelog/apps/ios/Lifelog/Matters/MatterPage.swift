@@ -19,7 +19,6 @@ struct MatterPage: View {
             content: { matter in page(matter) }
         )
         .background(Palette.bg)
-        .toolbarVisibility(sizeClass == .regular ? .automatic : .hidden, for: .tabBar)
         // Beside the list the Pendant is already in the list's bar.
         .shellBar("Matter", hasSettings: false, hasPendant: sizeClass != .regular)
         .task { await life.refreshMatter(id) }

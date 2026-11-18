@@ -120,26 +120,34 @@ const services: Bun.Subprocess[] = [];
 const NOT_WORD = /[^A-Za-z0-9]/g;
 let sim = "";
 
-/** A fresh iPhone 17 Pro on the newest iOS runtime that takes one. */
+/** The newest iOS runtime's first iPhone: an older runtime may be a beta that lacks the SDK's APIs, and the app dies. */
 async function newSimulator() {
   const { runtimes } = JSON.parse(
     await execOk(["xcrun", "simctl", "list", "runtimes", "-j"])
-  ) as { runtimes: { identifier: string; platform: string }[] };
-  for (const r of runtimes.filter((x) => x.platform === "iOS").reverse()) {
-    // biome-ignore lint/performance/noAwaitInLoops: the first runtime that takes the device
-    const made = await exec([
+  ) as {
+    runtimes: {
+      identifier: string;
+      platform: string;
+      supportedDeviceTypes: { identifier: string; productFamily: string }[];
+    }[];
+  };
+  const newest = runtimes.filter((r) => r.platform === "iOS").at(-1);
+  const phone = newest?.supportedDeviceTypes.find(
+    (d) => d.productFamily === "iPhone"
+  );
+  if (!(newest && phone)) {
+    throw new Error("no iOS runtime with an iPhone");
+  }
+  return (
+    await execOk([
       "xcrun",
       "simctl",
       "create",
       session,
-      "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
-      r.identifier,
-    ]);
-    if (made.code === 0) {
-      return made.stdout.trim();
-    }
-  }
-  throw new Error("no iOS runtime takes an iPhone 17 Pro");
+      phone.identifier,
+      newest.identifier,
+    ])
+  ).trim();
 }
 
 async function setUp() {
@@ -222,16 +230,29 @@ async function run(step: Step) {
   if (step.tap) {
     await device(["press", `label="${step.tap}"`]);
   }
-  if (step.open) {
-    await device(["find", step.open, "click", "--first"]);
+  const row = step.open;
+  if (row) {
+    // A row below a short screen (the iPhone Duo's) is scrolled to first.
+    await device(["find", row, "click", "--first"]).catch(async () => {
+      await device(["scroll", "down"]);
+      await device(["find", row, "click", "--first"]);
+    });
   }
   if (step.back) {
-    await device(["back"]);
+    // The system's back button by name: agent-device's `back` pressed the Pendant pill on the iPhone Duo.
+    await device(["find", "BackButton", "click"]);
   }
   await untilAnswers(
     async () => {
       if (step.refresh) {
-        await device(["home"]);
+        // Another app in front sends the app to the background; Home doesn't on the iPhone Duo.
+        await execOk([
+          "xcrun",
+          "simctl",
+          "launch",
+          sim,
+          "com.apple.Preferences",
+        ]);
         await device(["open", "com.ericedouard.lifelog"]);
       }
       const ok =
@@ -311,10 +332,11 @@ try {
       () => null,
       (e: Error) => e.message
     );
-    await device([
-      "screenshot",
+    // simctl names the display: agent-device's screenshot fails on a phone with two (the iPhone Duo).
+    await exec([
+      ...["xcrun", "simctl", "io", sim, "screenshot", "--display=primary"],
       join(shots, `${n}-${step.name.replace(/\W+/g, "-")}.png`),
-    ]).catch(() => undefined);
+    ]);
     say(
       `${error ? "FAIL" : "PASS"} ${n} ${step.name} (${Math.round((performance.now() - t) / 1000)} s)${error ? `: ${error}` : ""}`
     );

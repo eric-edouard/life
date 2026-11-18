@@ -92,8 +92,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 Life (`scripts/demo.ts`) to a temporary folder and runs it as a second Life on this Mac, with its own ports (`LIFE_PORT`,
 46500 unless `LIFE_E2E_PORT` says otherwise) and machine folder (`LIFE_MACHINE_DIR`), so the app's Life, ports and locks
 are never touched. Both are refused with his own data (`isOwnLife`: the app's data folder or `~/Life`), and a second Life
-never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh iPhone 17 Pro
-simulator, pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
+never takes the tailnet name (`bun life connect`). It builds the app in Debug, installs it on a fresh simulator
+(the newest iOS runtime's first iPhone), pairs it by its link (loopback HTTP, which the phone takes only for a Life on its own loopback) and drives a
 scenario's steps with agent-device. `found-to-closed`, the one so far: the inbox offers the new matter, Start, the
 agent's plan card, Go, its work, Mark as done, the matter and its cards gone. Each step writes a numbered screenshot and a
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
