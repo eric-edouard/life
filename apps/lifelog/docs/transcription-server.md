@@ -147,15 +147,9 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
 
 ## Spending
 
-`GET /usage/summary` adds up what was spent, per day in the owner's zone, from our own ledgers at
-list prices: transcription (billable hours of every job that is not `failed`, keyterms counted at their extra price), titles and summaries (the
-token cost on each intelligence run). Jobs marked `maybe_billed` count. Days and months are the owner's, in
-the time zone of the iPhone's latest heartbeat (UTC until one names it). Prices live in `apps/server/src/config.ts`.
-
-Beside it, ElevenLabs' own speech-to-text figure for the month, from its workspace analytics
-(`POST /v1/workspace/analytics/query/usage-by-product-over-time`, product `STT`). That covers the
-whole workspace, every key and app, so it can be higher than ours. It is left out when ElevenLabs
-doesn't answer.
+No route serves it since PR 595 cut the phone's spending screen. The ledgers stay: `transcription_jobs.billable_seconds`
+(keyterms at their extra price; `maybe_billed` jobs count) and the token cost on each intelligence run, at the prices in
+`apps/server/src/config.ts`.
 
 ## Running the server
 

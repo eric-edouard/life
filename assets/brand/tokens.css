@@ -24,6 +24,8 @@
   /* Manrope only: thin (250) for a title, bold (650) for what matters, 15px body, small labels in capitals (11px, 600,
      0.22em apart). */
   --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Code, figures and the pairing code. */
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --control-radius: 12px;
   --panel-radius: 22px;
   color-scheme: light dark;

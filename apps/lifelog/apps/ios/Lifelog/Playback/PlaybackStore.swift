@@ -4,7 +4,7 @@ import Library
 import Observation
 import Timeline
 
-/// Plays one clip file, app-wide: the cut of a voice a card asks about (`ClipAudio`). Played out loud, the Pendant hears
+/// Plays one clip file, app-wide: the cut of a voice a card asks about. Played out loud, the Pendant hears
 /// it, so the span is kept from transcription (`PlaybackQuiet`): stored in the library, where the uploader leaves its
 /// audio out, and sent to the server when it closes.
 @Observable

@@ -5,12 +5,11 @@
 // covered; then its fingerprint is kept. A roll that waits (the Mac left) leaves it due, so the next
 // drain resumes it; one that failed is tried again after a backoff, at most once an hour. A drain
 // looks only at what the change log touched since the last one, and at what was left due. The
-// owner's Generate rolls it again from its first turn; the summary shown stays until a newer valid
-// run replaces it. Only the Mac runs a roll (its subscription); nothing here reaches a paid API.
+// summary shown stays until a newer valid run replaces it. Only the Mac runs a roll (its subscription); nothing here reaches a paid API.
 
 import type { Db } from "@lifelog/db";
-import { conversations, intelligenceRuns, isSettled } from "@lifelog/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { conversations, isSettled } from "@lifelog/db/schema";
+import { eq } from "drizzle-orm";
 import type { Nudge } from "./apns";
 import { touchedSince } from "./change-log";
 import { singleFlight } from "./config";
@@ -19,7 +18,6 @@ import { type Retries, requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
 import { dueConversations, fingerprint, type Run } from "./runs";
 import { switches } from "./switches";
-import { PROMPT_VERSION } from "./voices-call";
 
 // What a roll reads: about 20 minutes of talk, some 6k tokens.
 const WINDOW_CHARS = 24_000;
@@ -27,8 +25,7 @@ const WINDOW_CHARS = 24_000;
 // only keeps a backlog from starting every run at once. ponytail: fixed.
 const AT_ONCE = 3;
 
-// Rolls a conversation window after window, `settled` after each run, the first from its first
-// turn when `fromScratch`. True once its words are covered; false while it can't go on (the Mac
+// Rolls a conversation window after window, `settled` after each run. True once its words are covered; false while it can't go on (the Mac
 // away, a run in flight, one that waits or failed): it stays due.
 async function rollWindows(
   db: Db,
@@ -37,11 +34,8 @@ async function rollWindows(
   options: Parameters<typeof requestRoll>[3],
   settled: (run: Run) => Promise<void>
 ) {
-  for (let first = true; ; first = false) {
-    const started = requestRoll(db, mac, id, {
-      ...options,
-      fromScratch: options.fromScratch && first,
-    });
+  for (;;) {
+    const started = requestRoll(db, mac, id, options);
     if (started === null) {
       return true;
     }
@@ -75,13 +69,8 @@ export function rollingVoices(
     windowChars?: number;
   }
 ) {
-  // Conversations the owner's Generate asked for, rolled from the first turn on their next round.
-  const asked = new Set<string>();
-
-  // Rolls one conversation until its words are covered, then keeps what it read. Generate: from
-  // the first turn.
+  // Rolls one conversation until its words are covered, then keeps what it read.
   const once = async (id: string) => {
-    const generate = asked.delete(id);
     const conversation = db.query.conversations
       .findFirst({
         where: (c, { eq: is }) => is(c.id, id),
@@ -91,12 +80,12 @@ export function rollingVoices(
       return;
     }
     const fp = fingerprint(db, id);
-    const open = !(generate || isSettled(conversation));
+    const open = !isSettled(conversation);
     const covered = await rollWindows(
       db,
       mac,
       id,
-      { fromScratch: generate, open, retries, windowChars },
+      { open, retries, windowChars },
       async (run) => {
         if (run.state === "valid") {
           // The phone collects it now.
@@ -164,41 +153,6 @@ export function rollingVoices(
     drain,
     // The conversations whose read is due or waits, as the last drain found them.
     due: () => [...due],
-    // The owner's Generate: it rolls from its first turn; the run shown
-    // stays until the new run is valid. With the Mac away a run waits for it (the next drain takes
-    // it, from the first turn too).
-    generate(id: string) {
-      if (!mac) {
-        return;
-      }
-      db.transaction((tx) => {
-        tx.update(conversations)
-          .set({ turnsFp: null })
-          .where(eq(conversations.id, id))
-          .run();
-        const latest = tx
-          .select({ state: intelligenceRuns.state })
-          .from(intelligenceRuns)
-          .where(eq(intelligenceRuns.conversationId, id))
-          .orderBy(desc(intelligenceRuns.createdAt))
-          .limit(1)
-          .get();
-        if (!able() && latest?.state !== "waiting") {
-          tx.insert(intelligenceRuns)
-            .values({
-              conversationId: id,
-              model: mac.model,
-              promptVersion: PROMPT_VERSION,
-              provider: mac.name,
-              state: "waiting",
-              turns: [],
-            })
-            .run();
-        }
-      });
-      asked.add(id);
-      roll(id);
-    },
     // Tests: resolves once nothing rolls.
     idle: () => Promise.all([roll.idle(), draining.idle()]),
   };

@@ -9,24 +9,19 @@ import { clock } from "@life/server/src/core/clock";
 import { connect, type Db, migrateDb } from "@lifelog/db";
 import {
   conversations,
+  ownerEdits,
   type Turn,
   transcriptionJobs,
   transcripts,
   type Word,
 } from "@lifelog/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { logChange } from "./change-log";
 import { type Config, loadConfig, sha256Hex } from "./config";
 import { PARSER_VERSION } from "./elevenlabs";
-import {
-  type EditRequest,
-  pendantSources,
-  regroupAfterCommit,
-  saveEdit,
-} from "./grouping";
+import { markDirty, pendantSources, regroupAfterCommit } from "./grouping";
 import { requestRoll } from "./intelligence";
 import type { ModelCall, Provider } from "./providers";
-import type { Rolling } from "./rolling";
-import { latestRun, latestValid, runAfter } from "./runs";
 import type { Heard } from "./speech-service";
 import { rebuildTurns } from "./turns";
 
@@ -436,37 +431,33 @@ export const providerTranscript = {
   ],
 };
 
-// The owner's Generate, as the removed route answered it: 200 with the run when one newer than the
-// one he saw exists, else it rolls again from the first turn and answers 202 with the latest run.
-export function generate(
-  db: Db,
-  rolling: Rolling,
-  id: string,
-  regenerate = false
-): Response {
-  const newer = runAfter(
-    db,
-    id,
-    regenerate ? (latestValid(db, id)?.id ?? null) : null
-  );
-  if (newer) {
-    return Response.json({ state: newer.state }, { status: 200 });
-  }
-  rolling.generate(id);
-  const now = latestRun(db, id);
-  return Response.json(now ? { state: now.state } : null, { status: 202 });
+// An owner's grouping edit as it is stored (no route writes one now): its row, the feed's log of it
+// and its range regrouped.
+export function storeEdit(db: Db, row: typeof ownerEdits.$inferInsert) {
+  db.transaction((tx) => {
+    tx.insert(ownerEdits).values(row).run();
+    logChange(tx, "edit", [row.id as string]);
+    const from = row.at ?? row.from;
+    if (from) {
+      markDirty(tx, pendantSources(tx), [+from, +(row.to ?? from)]);
+    }
+  });
+  regroupAfterCommit(db, pendantSources(db));
 }
 
-// An owner's grouping edit as the removed route stored it: 200 `{ stored }`, 404 for an undo of an
-// edit not held, 400 for an undo of an undo or an edit inside an imported recording.
-export function postEdit(db: Db, edit: EditRequest): Response {
-  const result = saveEdit(db, edit);
-  if ("refused" in result) {
-    return Response.json(
-      { error: "invalid_request" },
-      { status: result.refused === "unknown" ? 404 : 400 }
-    );
+// A conversation's words changed (again: its last roll forgotten): the next drain rolls it.
+export async function roll(
+  db: Db,
+  rolling: { drain: () => Promise<void> },
+  id: string,
+  again = false
+) {
+  if (again) {
+    db.update(conversations)
+      .set({ turnsFp: null })
+      .where(eq(conversations.id, id))
+      .run();
   }
-  regroupAfterCommit(db, pendantSources(db));
-  return Response.json({ stored: result.stored }, { status: 200 });
+  logChange(db, "conversation", id);
+  await rolling.drain();
 }

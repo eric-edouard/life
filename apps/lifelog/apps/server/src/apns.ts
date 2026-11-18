@@ -210,7 +210,7 @@ export const NoticeRequest = z
 export type NoticeRequest = z.infer<typeof NoticeRequest>;
 
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
-// beside `aps` (the morning digest's `peopleDigest`, Life's `pushId`, which the phone routes on). A badge marks Life's
+// beside `aps` (Life's `pushId`, which the phone routes on). A badge marks Life's
 // card pushes: they join the thread `life-cards`, passive when `quiet`. Quiet and badge-only ones go at priority 5, as
 // Apple asks of what need not wake him; the rest at 10, never held.
 export const alertOf = (

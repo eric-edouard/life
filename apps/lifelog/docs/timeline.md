@@ -145,7 +145,7 @@ late PUT of audio) never merges them and retires ids Life cites. His merge still
 after. His undo of a split inside such a piece no longer rejoins it, and after he merges two old pieces under
 5 minutes apart, undoing the merge leaves them joined (the retired one is no longer pinned).
 
-**Edits** (`POST /edits`: split, merge, undo, dismissed suggestion; kept by the phone's uuid). Stored AI splits (and the pins above) are applied first, like the automatic boundaries, so the owner's merge undoes one for good. The owner's
+**Edits** (stored `owner_edits` rows: split, merge, undo, dismissed suggestion; no route writes one since PR 595 cut `POST /edits`, the rows already held still apply). Stored AI splits (and the pins above) are applied first, like the automatic boundaries, so the owner's merge undoes one for good. The owner's
 follow in edit order and win. An undone edit is skipped, and a dismissed suggestion groups nothing. An edit regroups
 every Pendant source (one today).
 

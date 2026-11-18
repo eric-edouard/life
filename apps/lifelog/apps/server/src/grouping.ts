@@ -26,14 +26,12 @@ import {
   desc,
   eq,
   gt,
-  gte,
   inArray,
   isNotNull,
   isNull,
   lt,
   lte,
   ne,
-  or,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -690,79 +688,6 @@ function closeAndClassify(
   written.conversations.push(...rows.map((r) => r.id));
 }
 
-// ---- Owner edits ---------------------------------------------------------------
-
-export type EditRequest = { editedAt: string; id: string } & (
-  | { at: string; kind: "split" | "dismissSplit" }
-  | { from: string; kind: "merge"; to: string }
-  | { edit: string; kind: "undo" }
-);
-
-const date = (iso: string | undefined) => (iso ? new Date(iso) : null);
-
-// The range an edit moves boundaries in; null for a dismissed suggestion, which groups nothing.
-const editRange = (e: {
-  at: Date | null;
-  from: Date | null;
-  kind: string;
-  to: Date | null;
-}): [Date, Date] | null => {
-  if (e.kind === "dismissSplit") {
-    return null;
-  }
-  const from = e.at ?? e.from;
-  return from ? [from, e.to ?? from] : null;
-};
-
-interface Undoing {
-  refused?: "unknown" | "undoOfUndo";
-  target: typeof ownerEdits.$inferSelect | null;
-}
-
-// The edit an undo undoes: one the server has, and not an undo itself.
-function undone(tx: Tx, id: string): Undoing {
-  const target = tx
-    .select()
-    .from(ownerEdits)
-    .where(eq(ownerEdits.id, id))
-    .get();
-  if (!target) {
-    return { refused: "unknown", target: null };
-  }
-  return target.kind === "undo"
-    ? { refused: "undoOfUndo", target: null }
-    : { target };
-}
-
-// Whether a split or merge touches an imported recording (old-app audio is never regrouped, its
-// pieces could not play): an instant of the edit lies in one.
-function touchesImported(tx: Tx, edit: EditRequest) {
-  if (edit.kind === "undo" || edit.kind === "dismissSplit") {
-    return false;
-  }
-  const instants = edit.kind === "merge" ? [edit.from, edit.to] : [edit.at];
-  const hit = tx
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(
-      and(
-        eq(conversations.kind, "imported"),
-        isNull(conversations.retiredAt),
-        or(
-          ...instants.map((at) =>
-            and(
-              lte(conversations.captureStartedAt, new Date(at)),
-              gte(conversations.captureEndedAt, new Date(at))
-            )
-          )
-        )
-      )
-    )
-    .limit(1)
-    .get();
-  return hit !== undefined;
-}
-
 // Every Pendant source: an edit is in capture time, which any of them may hold. Imported
 // recordings stay as handed over.
 // ponytail: one Pendant today; find the source by the edit's instant when there are several.
@@ -773,60 +698,3 @@ export const pendantSources = (db: Pick<Db, "select">) =>
     .where(isPendant)
     .all()
     .map((r) => r.id);
-
-// Keeps an owner's edit once, by its id; an undo marks the edit it undoes. The range it moves is
-// marked dirty on every Pendant source in the same transaction, so the regroup after it (or the
-// tick's) always comes. Refused: an undo of an unknown edit or of an undo, and a split or merge
-// inside an imported recording.
-export function saveEdit(db: Db, edit: EditRequest) {
-  return db.transaction((tx) => {
-    if (touchesImported(tx, edit)) {
-      return { refused: "imported" as const };
-    }
-    const undoing: Undoing =
-      edit.kind === "undo" ? undone(tx, edit.edit) : { target: null };
-    if (undoing.refused) {
-      return { refused: undoing.refused };
-    }
-    const row = rowOf(edit, undoing.target?.id ?? null);
-    const inserted = tx
-      .insert(ownerEdits)
-      .values(row)
-      .onConflictDoNothing()
-      .returning({ id: ownerEdits.id })
-      .get();
-    if (inserted) {
-      applyEdit(tx, row, undoing);
-    }
-    return { stored: inserted !== undefined };
-  });
-}
-
-// A new edit's effects: the edit it undoes marked, its range dirty, then the feed's logs.
-function applyEdit(tx: Tx, row: ReturnType<typeof rowOf>, undoing: Undoing) {
-  const undoneIds = row.target ? [row.target] : [];
-  tx.update(ownerEdits)
-    .set({ undoneAt: row.editedAt })
-    .where(and(inArray(ownerEdits.id, undoneIds), isNull(ownerEdits.undoneAt)))
-    .run();
-  const range = editRange(undoing.target ?? row);
-  if (range) {
-    markDirty(tx, pendantSources(tx), range);
-  }
-  logChange(tx, "edit", [row.id, ...undoneIds]);
-}
-
-function rowOf(edit: EditRequest, target: string | null) {
-  const { at, from, to } = edit as Partial<
-    Record<"at" | "from" | "to", string>
-  >;
-  return {
-    at: date(at),
-    editedAt: new Date(edit.editedAt),
-    from: date(from),
-    id: edit.id,
-    kind: edit.kind,
-    target,
-    to: date(to),
-  };
-}

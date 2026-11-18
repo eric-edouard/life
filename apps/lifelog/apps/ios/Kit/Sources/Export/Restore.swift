@@ -115,10 +115,7 @@ extension Importer {
         var report = RestoreReport(
             location: area.appending(path: "backup-\(id)", directoryHint: .isDirectory), alreadyRestored: true,
             conversations: 0, pages: 0,
-            unsupported: plan.unsupported
-                + plan.manifest.items.map {
-                    .init(item: $0.id, what: "conversation folder", reason: "A backup restores its stores only.")
-                })
+            unsupported: plan.unsupported)
         let files = FileManager.default
         if files.fileExists(atPath: report.location.path) { return report }
 

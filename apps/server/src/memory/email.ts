@@ -78,7 +78,7 @@ const row = (style: string, inner: string) =>
 const ruled = (inner: string, font = `15px/1.5 ${SANS}`) =>
   `<div style="padding:9px 0;border-top:1px solid ${C.line};font:${font};color:${C.fg}">${inner}</div>`;
 
-/** A titled block of the card: a ruled serif title with its count in mono, then the body. */
+/** A titled block of the card: a ruled title with its count, then the body. */
 const section = (title: string, count: number, body: string) =>
   row(
     "padding:24px 24px 0",
@@ -132,7 +132,7 @@ const rowsOf = (s: Section) => {
   }
 };
 
-/** The stats, three to a row: a rule on top, a mono figure, a small label. */
+/** The stats, three to a row: a rule on top, a figure, a small label. */
 const stats = (d: Digest) => {
   const cell = (s?: { label: string; value: string }) =>
     `<td width="33%" valign="top" style="padding:0 8px 16px">${
