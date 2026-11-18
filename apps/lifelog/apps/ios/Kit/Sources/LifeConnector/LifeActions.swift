@@ -1,0 +1,175 @@
+import Foundation
+import Library
+
+/// What an action proves when it succeeds.
+public enum ActionProof: Sendable, Equatable {
+    case answered(AnswerResult)
+    case agent(AgentChangeResult)
+    /// A change recorded (a goal, a next step, a matter done, a to-do item).
+    case recorded
+}
+
+/// His actions on Life, as one machine each: they run the calls, turn progress and results into `ActionState` events and
+/// decide what may be tried again. No state of its own: the store owns each action's state and applies the events in order.
+public struct LifeActions: Sendable {
+    public typealias Emit = @Sendable (ActionState<ActionProof>.Event) -> Void
+
+    /// A call dropped or unreachable is repeated (the same tap, the same key) up to this many tries, `pause` apart.
+    static let tries = 3
+
+    private let api: any LifeAPI
+    private let now: @Sendable () -> Date
+    private let pause: @Sendable (Duration) async -> Void
+
+    public init(
+        api: any LifeAPI, now: @escaping @Sendable () -> Date = { Date() },
+        pause: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+    ) {
+        (self.api, self.now, self.pause) = (api, now, pause)
+    }
+
+    private func progress(_ emit: @escaping Emit) -> @Sendable (Data) -> Void {
+        { data in
+            if let message = ActionProgress(data) { emit(message.event(at: now())) }
+        }
+    }
+
+    private func decode<V: Decodable>(_ type: V.Type, _ text: String) -> V? {
+        try? LibraryStore.feedDecoder.decode(type, from: Data(text.utf8))
+    }
+
+    // MARK: Answer
+
+    /// His answer to a check. `key` is made once at his tap and given again to every repeat of it: Life then returns the
+    /// first call's result and sends nothing twice. A connection that drops is repeated; a `not sent` is a new tap.
+    public func answer(_ request: AnswerRequest, key: String, emit: @escaping Emit) async {
+        emit(.started)
+        var dropped = ActionFailure(reason: "", retry: .allowed)
+        for attempt in 0..<Self.tries {
+            if attempt > 0 { await pause(.seconds(2)) }
+            do {
+                let text = try await api.answerCheck(request, answerKey: key, onProgress: progress(emit))
+                guard let result = decode(AnswerResult.self, text) else {
+                    return emit(.failed(Self.unreadable))
+                }
+                return emit(Self.ending(of: result))
+            } catch MCPError.unreachable {
+                dropped = ActionFailure(.unreachable)
+            } catch MCPError.streamDropped {
+                dropped = ActionFailure(.streamDropped)
+            } catch {
+                return emit(.failed(ActionFailure(MCPError.of(error))))
+            }
+        }
+        emit(.failed(dropped))
+    }
+
+    private static let unreadable = ActionFailure(
+        reason: "Life answered, but not in a way this app reads. Check the card before answering again.",
+        retry: .no, mayHaveHappened: true)
+
+    static func ending(of result: AnswerResult) -> ActionState<ActionProof>.Event {
+        guard let send = result.send else { return .succeeded(.answered(result)) }
+        switch send.state {
+        case .notSent:
+            return .failed(
+                ActionFailure(reason: send.reason ?? "It was not sent.", retry: send.canRetry == true ? .allowed : .no))
+        case .mayHaveGone:
+            return .failed(ActionFailure(reason: send.reason ?? "It may have gone.", retry: .no, mayHaveHappened: true))
+        case .pending:
+            return .failed(
+                ActionFailure(
+                    reason: "The send had not ended when Life answered. Check the chat before sending again.",
+                    retry: .no, mayHaveHappened: true))
+        case .sent: return .succeeded(.answered(result))
+        case .unknown:
+            return .failed(
+                ActionFailure(
+                    reason: "Life answered in a way this app does not read. It may have gone.",
+                    retry: .no, mayHaveHappened: true))
+        }
+    }
+
+    // MARK: Agents
+
+    /// A matter's goal, then an agent started on it, its stages as Life reports them. When Life does not confirm, the
+    /// matter is read: an agent on it is the proof, none is a start that may have happened.
+    public func startAgent(
+        matter: String, steps: [String], goal: String, runtime: String?, model: String?, emit: @escaping Emit
+    ) async {
+        emit(.started)
+        emit(.planned(["goal_saved"], limitSeconds: nil, at: now()))
+        do {
+            _ = try await api.setMatterDirection(steps: steps, goal: goal, nextStep: nil)
+        } catch {
+            var failure = ActionFailure(MCPError.of(error), step: "goal_saved")
+            failure.retry = .allowed
+            return emit(.failed(failure))
+        }
+        emit(.passed("goal_saved", at: now(), detail: [:]))
+        let request = AgentRequest(action: .start, step: matter, runtime: runtime, model: model, said: goal)
+        do {
+            let text = try await api.changeAgent(request, onProgress: progress(emit))
+            guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
+            switch result.state {
+            case .started: return emit(.succeeded(.agent(result)))
+            case .notStarted:
+                let why = result.failed
+                return emit(
+                    .failed(
+                        ActionFailure(
+                            step: why?.stage, reason: why?.reason ?? "The agent did not start.",
+                            // An agent already holds the matter: starting again would only be refused again.
+                            retry: result.nothingRunning == false ? .no : .allowed)))
+            default: break
+            }
+        } catch MCPError.refused(let why) {
+            return emit(.failed(ActionFailure(reason: why, retry: .no)))
+        } catch {}
+        emit(await resolved(matter: matter))
+    }
+
+    private func resolved(matter id: String) async -> ActionState<ActionProof>.Event {
+        if let text = try? await api.readMatter(id), let matter = decode(Matter.self, text),
+            let agent = matter.row.agent ?? matter.agents.first?.id
+        {
+            return .succeeded(.agent(AgentChangeResult(action: "start", state: .started, agent: agent)))
+        }
+        return .failed(
+            ActionFailure(
+                reason: "Life did not confirm that the agent started, and none shows on this matter.", retry: .no,
+                mayHaveHappened: true))
+    }
+
+    /// Stop, resume or change the model of an agent.
+    public func changeAgent(_ request: AgentRequest, emit: @escaping Emit) async {
+        emit(.started)
+        do {
+            let text = try await api.changeAgent(request, onProgress: progress(emit))
+            guard let result = decode(AgentChangeResult.self, text) else { return emit(.failed(Self.unreadable)) }
+            emit(
+                result.state == .done
+                    ? .succeeded(.agent(result))
+                    : .failed(
+                        ActionFailure(
+                            reason: "The desk did not confirm it in time.", retry: .allowed, mayHaveHappened: true)))
+        } catch {
+            emit(.failed(ActionFailure(MCPError.of(error))))
+        }
+    }
+
+    // MARK: His edits
+
+    /// One recorded change (his goal, next step, a matter done, a to-do item): a single step.
+    public func record(emit: @escaping Emit, _ change: @Sendable () async throws -> String) async {
+        emit(.started)
+        emit(.planned(["recorded"], limitSeconds: nil, at: now()))
+        do {
+            _ = try await change()
+            emit(.passed("recorded", at: now(), detail: [:]))
+            emit(.succeeded(.recorded))
+        } catch {
+            emit(.failed(ActionFailure(MCPError.of(error), step: "recorded")))
+        }
+    }
+}

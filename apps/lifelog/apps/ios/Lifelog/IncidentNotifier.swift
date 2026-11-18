@@ -16,6 +16,8 @@ final class IncidentNotifier: NSObject {
     private let defaults: UserDefaults
     private var reducer: IncidentReducer
     private var changes: PendantChangeReducer
+    /// Opens what a tapped notification points to. Set by the capture store.
+    var open: ((NotificationRoute) -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -33,7 +35,7 @@ final class IncidentNotifier: NSObject {
 
     /// Asks once; iOS never shows the prompt again after the owner answers.
     func requestPermission() async {
-        _ = try? await center.requestAuthorization(options: [.alert, .sound])
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
     /// The owner asked lifelog (app, Shortcut or control) to pause or resume: its outcome won't notify.
@@ -142,5 +144,16 @@ extension IncidentNotifier: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .list, .sound]
+    }
+
+    /// On the main actor: iOS calls this method's completion when it returns, and UIKit throws (a crash) when that
+    /// happens off the main thread.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    ) async {
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+            let route = NotificationRoute(userInfo: response.notification.request.content.userInfo)
+        else { return }
+        open?(route)
     }
 }

@@ -92,6 +92,26 @@ private func life(host: String, code: String = "ABC234") -> @Sendable (Seen) -> 
     await #expect(throws: MCPError.notPaired) { try await oauth.refresh(credentials(host: host)) }
 }
 
+@Test func aRefreshWhoseReplyWasLostIsAskedOnceMore() async throws {
+    let host = newHost()
+    let calls = Mutex(0)
+    let inner = life(host: host)
+    let session = Stub.session(host: host) { request in
+        guard request.form["grant_type"] == "refresh_token" else { return inner(request) }
+        return calls.withLock { n in
+            n += 1
+            return n == 1 ? Reply(failure: .networkConnectionLost) : tokenReply(access: "access-9")
+        }
+    }
+    let stored = credentials(host: host)
+    let oauth = LifeOAuth(session: session, now: { epoch })
+    let again = try await oauth.refresh(
+        LifeCredentials(
+            endpoint: stored.endpoint, tokens: LifeTokens(access: "a", refresh: "refresh-2", expiresAt: epoch)))
+    #expect(again.access == "access-9")
+    #expect(calls.withLock { $0 } == 2)
+}
+
 @Test func theApprovalsRedirectIsDeclinedNotFollowed() async throws {
     let session = URLSession(configuration: .ephemeral)
     let task = session.dataTask(with: URL(string: "https://life.test/authorize")!)

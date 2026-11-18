@@ -1,0 +1,14 @@
+{
+  "action": "start",
+  "agent": null,
+  "ask": "entry_000000000001",
+  "failed": {
+    "reason": "claude does not answer: claude: command not found",
+    "stage": "runtime_answers"
+  },
+  "model": null,
+  "nothingRunning": true,
+  "runtime": null,
+  "stages": [],
+  "state": "not_started"
+}

@@ -117,7 +117,8 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 **Life.** `LifeStore` (built at launch, in the environment) is the phone's side of Life's connector: the inbox, the
 matters, a matter in full and the agents, each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
 the code its Mac shows, through Life's own sign-in, and calls the connector like any app; the fixtures of what it reads
-are written by Life's server tests (`fixtures/wire/life/`).
+are written by Life's server tests (`fixtures/wire/life/`). His actions (answer, agents, his edits of a matter) are
+`ActionState`s in `LifeStore.actions`, run by `LifeActions`; a push opens its card by `pushId` and sets the badge.
 
 **Databases.** `source.sqlite` is the audio itself and gates ACK: losing a row there loses recordings.
 `library.sqlite` is what the owner sees and edits. `timeline.sqlite` is the scanned timeline, and `upload.sqlite` how far uploads went: one cursor;

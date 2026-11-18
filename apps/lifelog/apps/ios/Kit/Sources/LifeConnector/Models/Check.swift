@@ -75,6 +75,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
 
     public var id: String { ref }
     public let ref: String
+    /// An opaque id of this card that a push carries (never its `ref`).
+    public let pushId: String?
     public let group: CheckGroup
     public let title: String
     public let question: String

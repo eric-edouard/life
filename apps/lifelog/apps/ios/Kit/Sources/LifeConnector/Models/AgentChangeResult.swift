@@ -1,0 +1,37 @@
+import Foundation
+import Library
+
+/// What `change_registered_agent` returns (`host/change-registered-agent.ts`): a start's stages and how it ended, or
+/// another change's `done` / `unconfirmed`.
+public struct AgentChangeResult: Decodable, Sendable, Equatable {
+    public enum State: String, UnknownTolerant, Sendable {
+        case started, done, unconfirmed
+        case notStarted = "not_started"
+        case unknown
+    }
+
+    public struct Stage: Decodable, Sendable, Equatable {
+        public let stage: String
+        public let at: Date?
+        public let session: String?
+        public let link: String?
+    }
+
+    public struct Failure: Decodable, Sendable, Equatable {
+        public let stage: String
+        public let reason: String
+    }
+
+    public let action: String
+    public let state: State
+    public let agent: String?
+    public let stages: [Stage]?
+    public let failed: Failure?
+    /// A start that did not happen left nothing running.
+    public let nothingRunning: Bool?
+
+    public init(action: String, state: State, agent: String?) {
+        (self.action, self.state, self.agent) = (action, state, agent)
+        (stages, failed, nothingRunning) = (nil, nil, nil)
+    }
+}

@@ -95,14 +95,28 @@ test("an app connects only with the pairing code, and gets the owner's tokens fo
     clientId: client_id,
   });
 
-  // A refresh token serves once: the second use is refused.
-  const refresh = (token: string) =>
-    call(
-      "/auth/oauth2/token",
-      form({ client_id, grant_type: "refresh_token", refresh_token: token })
-    );
+  const refresh = (token: string, issuer = life) =>
+    issuer.app.request(
+      new Request(`${ORIGIN}/auth/oauth2/token`, {
+        ...form({
+          client_id,
+          grant_type: "refresh_token",
+          refresh_token: token,
+        }),
+      })
+    ) as Promise<Response>;
+  // A used refresh token serves one more time within a minute (an app that missed the answer), then never.
+  const next = (await (await refresh(tokens.refresh_token)).json()) as {
+    refresh_token: string;
+  };
   expect((await refresh(tokens.refresh_token)).status).toBe(200);
   expect((await refresh(tokens.refresh_token)).status).toBe(400);
+  // And not after the minute, even for its one more time.
+  expect((await refresh(next.refresh_token)).status).toBe(200);
+  const later = createIssuer(ORIGIN, RESOURCE, {
+    now: () => Date.now() + 2 * 60_000,
+  });
+  expect((await refresh(next.refresh_token, later)).status).toBe(400);
 });
 
 test("a pairing code is spent once, and a few wrong tries end it", async () => {

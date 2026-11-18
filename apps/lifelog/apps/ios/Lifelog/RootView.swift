@@ -5,6 +5,7 @@ import UIKit
 
 /// The Pendant tab alone: the minimal shell until the new screens replace it.
 struct RootView: View {
+    @Environment(CaptureStore.self) private var capture
     @Environment(SyncStore.self) private var sync
     @Environment(LifeStore.self) private var life
     @Environment(\.scenePhase) private var scenePhase
@@ -20,6 +21,12 @@ struct RootView: View {
     var body: some View {
         TabView {
             Tab("Pendant", systemImage: "record.circle") { PendantView() }
+        }
+        // A tapped notification, from a cold launch, the background or the foreground.
+        .onChange(of: capture.routeToOpen, initial: true) { _, route in
+            guard let route else { return }
+            capture.routeToOpen = nil
+            open(route)
         }
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
@@ -82,5 +89,15 @@ struct RootView: View {
             .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController?.presentedViewController }.first
         guard let presented else { return then() }
         presented.dismiss(animated: true, completion: then)
+    }
+
+    /// Closes any sheet first, as Mail and Messages do, so what opens is in view whatever sheet was showing.
+    private func open(_ route: NotificationRoute) {
+        dismissSheet {
+            switch route {
+            case .card(let pushId): Task { await life.open(pushId: pushId) }
+            case .inbox: Task { await life.refreshInbox() }
+            }
+        }
     }
 }

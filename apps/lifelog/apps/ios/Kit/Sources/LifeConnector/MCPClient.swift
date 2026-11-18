@@ -14,13 +14,15 @@ public struct MCPClient: Sendable {
         http = LifeHTTP(session: urlSession)
     }
 
-    /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream.
+    /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream. `answerKey`
+    /// is the one key of one tap of his, the same on every repeat of it: Life then answers a repeat with the first answer's result.
     public func call(
-        _ tool: String, _ arguments: some Encodable & Sendable = [String: String](),
+        _ tool: String, _ arguments: some Encodable & Sendable = [String: String](), answerKey: String? = nil,
         onProgress: (@Sendable (Data) -> Void)? = nil
     ) async throws -> String {
         let token = onProgress == nil ? nil : UUID().uuidString
-        let body = try JSONEncoder().encode(Envelope(tool: tool, arguments: arguments, progressToken: token))
+        let body = try JSONEncoder().encode(
+            Envelope(tool: tool, arguments: arguments, progressToken: token, answerKey: answerKey))
         let url = try await session.origin().appending(path: "mcp")
         var bearer = try await session.bearer()
         for attempt in 0...1 {
@@ -42,14 +44,29 @@ public struct MCPClient: Sendable {
 
     private struct Unauthorized: Error {}
 
+    private static func check(_ answer: HTTPURLResponse) throws {
+        guard answer.statusCode != 401 else { throw Unauthorized() }
+        guard (200..<300).contains(answer.statusCode) else {
+            throw MCPError.failed("Life answered \(answer.statusCode).")
+        }
+    }
+
     private func send(_ request: URLRequest, progressToken: String?, onProgress: (@Sendable (Data) -> Void)?)
         async throws -> String
     {
+        // A call with no progress to give is one JSON body: read whole (`AsyncBytes` is slow byte by byte, and the inbox is large).
+        guard let onProgress else {
+            let (data, answer) = try await http.data(for: request)
+            try Self.check(answer)
+            guard let result = try Self.message(data, progressToken: nil, onProgress: nil) else {
+                throw MCPError.failed("Life's answer holds no result.")
+            }
+            return result
+        }
         let (bytes, response): (URLSession.AsyncBytes, URLResponse)
         do { (bytes, response) = try await http.session.bytes(for: request) } catch { throw MCPError.of(error) }
         guard let http = response as? HTTPURLResponse else { throw MCPError.failed("Not an HTTP answer.") }
-        guard http.statusCode != 401 else { throw Unauthorized() }
-        guard (200..<300).contains(http.statusCode) else { throw MCPError.failed("Life answered \(http.statusCode).") }
+        try Self.check(http)
         let isStream = http.value(forHTTPHeaderField: "content-type")?.contains("text/event-stream") == true
         var parser = SSEParser()
         var whole = Data()
@@ -97,6 +114,7 @@ public struct MCPClient: Sendable {
         let tool: String
         let arguments: Arguments
         let progressToken: String?
+        let answerKey: String?
 
         func encode(to encoder: any Encoder) throws {
             var root = encoder.container(keyedBy: Key.self)
@@ -111,6 +129,7 @@ public struct MCPClient: Sendable {
             try meta.encode(["name": "Life for iPhone", "version": "1"], forKey: .clientInfo)
             try meta.encode(MCPClient.protocolVersion, forKey: .protocolVersion)
             try meta.encodeIfPresent(progressToken, forKey: .progressToken)
+            try meta.encodeIfPresent(answerKey, forKey: .answerKey)
         }
 
         enum Key: String, CodingKey {
@@ -120,6 +139,7 @@ public struct MCPClient: Sendable {
             case clientInfo = "io.modelcontextprotocol/clientInfo"
             case protocolVersion = "io.modelcontextprotocol/protocolVersion"
             case progressToken
+            case answerKey = "life/answerKey"
         }
     }
 

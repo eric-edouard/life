@@ -36,6 +36,8 @@ final class CaptureStore {
     private(set) var connectionSince = Date.now
     /// The last time a sync finished with nothing left on the Pendant to save.
     private(set) var lastCaughtUp: Date?
+    /// Where a tapped notification leads: `RootView` opens it and clears this.
+    var routeToOpen: NotificationRoute?
     /// Free space on the archive's volume, refreshed when a sync settles and when the app comes forward, at most once a
     /// minute (`refreshPhoneFreeSpace`).
     private(set) var phoneFreeBytes: Int64?
@@ -114,6 +116,7 @@ final class CaptureStore {
 
     /// Starts capture. Call once at launch, in the foreground or a background relaunch.
     func start() {
+        notifier.open = { [weak self] in self?.routeToOpen = $0 }
         // Pause or Resume on the Watch, through the same request as Shortcuts: pending until the Pendant confirms.
         snapshots.watch.setRecording = { [weak self] recording in
             let intent: RecordingIntent = recording ? .resume : .pause
