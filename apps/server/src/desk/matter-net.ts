@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { clock, daysBefore, MIN } from "../core/clock";
-import { type Embedder, embedAll, similarityOf } from "../core/embedder";
+import { closestOf, type Embedder, embedAll } from "../core/embedder";
 import { packed } from "../core/lists";
 import { log } from "../core/log";
 import { activeAgents, anchorsOf } from "../host/desk-read";
@@ -126,10 +126,6 @@ export async function netsOf(desk: Desk, people: People) {
 /** Why a text is related to a net: its person, else its meaning (with how close), else not. */
 type Why = { why: "person" } | { similarity: number; why: "meaning" };
 
-/** How close `vector` is to `net`: the best of its texts. */
-const closeness = (net: Net, vector: number[]) =>
-  Math.max(-1, ...net.vectors.map((v) => similarityOf(v, vector)));
-
 /**
  * For each text (`person`: who wrote or said it, none for his own), each net it relates to and why: by its person, or by
  * its meaning at `CLOSE_AT` or more. The texts are embedded as passages, once; when the embedder is missing or fails
@@ -162,7 +158,7 @@ async function relatedOf(
         return [{ agent: net.agent, why: "person" }];
       }
       const vector = vectorOf.get(t);
-      const similarity = vector ? closeness(net, vector) : -1;
+      const similarity = vector ? closestOf(net.vectors, vector) : -1;
       return similarity >= CLOSE_AT
         ? [
             {

@@ -140,6 +140,12 @@ export function similarityOf(a: ArrayLike<number>, b: ArrayLike<number>) {
   return dot / Math.sqrt(aa * bb);
 }
 
+/** How close `vector` is to the nearest of `vectors`: the best similarity, -1 when there are none. */
+export const closestOf = (
+  vectors: ArrayLike<number>[],
+  vector: ArrayLike<number>
+) => Math.max(-1, ...vectors.map((x) => similarityOf(x, vector)));
+
 /** The ids nearest `query`: at least `MIN_SIMILARITY`, keeping only `CANDIDATES` scores in memory. */
 export function nearest(
   query: readonly number[],
