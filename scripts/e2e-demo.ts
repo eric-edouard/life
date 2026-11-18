@@ -120,26 +120,34 @@ const services: Bun.Subprocess[] = [];
 const NOT_WORD = /[^A-Za-z0-9]/g;
 let sim = "";
 
-/** A fresh iPhone 17 Pro on the newest iOS runtime that takes one. */
+/** The newest iOS runtime's first iPhone: an older runtime may be a beta that lacks the SDK's APIs, and the app dies. */
 async function newSimulator() {
   const { runtimes } = JSON.parse(
     await execOk(["xcrun", "simctl", "list", "runtimes", "-j"])
-  ) as { runtimes: { identifier: string; platform: string }[] };
-  for (const r of runtimes.filter((x) => x.platform === "iOS").reverse()) {
-    // biome-ignore lint/performance/noAwaitInLoops: the first runtime that takes the device
-    const made = await exec([
+  ) as {
+    runtimes: {
+      identifier: string;
+      platform: string;
+      supportedDeviceTypes: { identifier: string; productFamily: string }[];
+    }[];
+  };
+  const newest = runtimes.filter((r) => r.platform === "iOS").at(-1);
+  const phone = newest?.supportedDeviceTypes.find(
+    (d) => d.productFamily === "iPhone"
+  );
+  if (!(newest && phone)) {
+    throw new Error("no iOS runtime with an iPhone");
+  }
+  return (
+    await execOk([
       "xcrun",
       "simctl",
       "create",
       session,
-      "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
-      r.identifier,
-    ]);
-    if (made.code === 0) {
-      return made.stdout.trim();
-    }
-  }
-  throw new Error("no iOS runtime takes an iPhone 17 Pro");
+      phone.identifier,
+      newest.identifier,
+    ])
+  ).trim();
 }
 
 async function setUp() {
