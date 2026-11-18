@@ -40,6 +40,20 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Beeper | Beeper Desktop, his messaging app: Life copies a network from its store (`copyBeeper`) when that network has no bridge on the Mac (LINE allows one session, and he keeps LINE in Beeper, 6 Nov 2026). Never its API or MCP: only its store keeps what a deletion blanks long enough for the archive's copy. | |
 | auto-add permission | The owner's standing permission for Life to add the to-dos he says aloud to his to-do list (`setAutoAdd`; its ledger lines are `auto_add`). | |
 
+## The desk
+
+| Word | Means | Planned |
+|---|---|---|
+| desk | The part of Life that starts and wakes his registered agents (`apps/server/src/desk/`, its own helper, store and lock; off until the `desk` setting). Holds no rule about what an agent may do. Not the watcher or a night step. | |
+| registered agent | An agent the desk keeps: an id `agt_…`, a brief, an agent wait, its sessions. Its sessions and runtime may change; its id does not. Active (a turn running or waiting), `stopped`, `handed_over` or `ended`. Not a session. | |
+| runtime | The program a registered agent's sessions run in (`claude`, `codex`, `dsh`), behind one contract (`desk/runtimes/contract.ts`). | |
+| session | One conversation of a runtime, with a link that opens it. A registered agent has one current session and its past ones. | |
+| agent wait | What an active registered agent waits for: messages (`MessageFilter`), one deadline 5 minutes to 7 days ahead, and a reason. Exactly one, always. The **default wait** (24 hours, flagged) is the desk's when a turn ends with neither `set_wait` nor `finish`. Not a matter's wait step. | |
+| agent wake | The desk starting an agent turn, for a cause: his answer, an event, the deadline, a retry. Not a wake word. | |
+| agent turn | One run of a session, from a message to the model stopping. `his_own` when he typed it. Not a spoken turn. | |
+| packet | What a fresh session starts from: the brief, the agent's notes, its queued events, its open decision (`readPacket`). | |
+| door | The desk's loopback MCP server, one key per registered agent: the only thing the desk adds to a session. | |
+
 ## The ledger and the to-do list
 
 | Word | Means | Planned |

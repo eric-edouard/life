@@ -21,7 +21,7 @@ test("the memory verbs renamed in the names pass are gone under their old names"
 
 test("`bun life act` and `bun life grant` are gone", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-cli-"));
-  const cli = join(import.meta.dir, "cli.ts");
+  const cli = join(import.meta.dir, "../desk/life-entry.ts");
   try {
     for (const old of ["act", "grant"]) {
       const run = Bun.spawnSync(["bun", cli, old], {
@@ -40,7 +40,12 @@ test("an unknown flag is a usage mistake, never a crash in the run log", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-cli-"));
   try {
     const run = Bun.spawnSync(
-      ["bun", join(import.meta.dir, "cli.ts"), "memory", "--help"],
+      [
+        "bun",
+        join(import.meta.dir, "../desk/life-entry.ts"),
+        "memory",
+        "--help",
+      ],
       {
         env: { ...process.env, LIFE_OWNER_DATA_DIR: dir, LIFE_STATE_DIR: dir },
       }

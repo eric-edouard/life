@@ -45,6 +45,8 @@ export const LIFE_STATE_DIR = real(
     ? join(OWNER_DATA_DIR, "state")
     : (process.env.LIFE_STATE_DIR ?? join(LIFE_CODE_DIR, "derived"))
 );
+/** The desk's store (`apps/server/src/desk/`): his registered agents, their waits, turns and queued events. Host reads it read-only. */
+export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`) asks this. */
 export function isHis(data = OWNER_DATA_DIR) {
   return real(data) === real(join(homedir(), "Life"));

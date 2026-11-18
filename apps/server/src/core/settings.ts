@@ -80,6 +80,11 @@ export const Settings = z
      * model, no image leaves it. Without it, none.
      */
     describePhotos: z.object({ from: z.iso.date() }).strict().optional(),
+    /**
+     * The desk (`apps/server/src/desk/`): Life starts and wakes his registered agents. Absent means off: the app starts
+     * no desk helper and no desk code runs. Its fields come with the steps that read them.
+     */
+    desk: z.object({}).strict().optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** The model runner the memory steps use. */

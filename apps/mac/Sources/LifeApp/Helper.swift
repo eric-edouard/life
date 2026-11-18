@@ -62,6 +62,8 @@ enum Helper {
 /// The helper's `app` answer.
 struct Info: Decodable {
   let started: Bool
+  /// Whether the desk is on (the `desk` setting): its helper runs only then.
+  let desk: Bool
   /// The keys each engine takes, by engine (`PROVIDERS` in llm.ts): the subscription engines take none.
   let engineKeys: [String: [String]]
   let lastReport: String?

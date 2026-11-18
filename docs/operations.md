@@ -63,9 +63,10 @@ every Keychain secret in its environment:
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears `hey <agent>`, runs the minute pass, serves the connector. |
+| `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer, an event, a deadline, a retry), at most 3 a tick; every 30 s reads the new messages into their queues. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
-**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
+**One Life per Mac.** The archive, the watcher and the desk each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would sync Reminders twice. On the owner's data a nightly tick runs only for the install whose watcher holds
 the lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads

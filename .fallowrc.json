@@ -54,6 +54,10 @@
       {
         "name": "host",
         "patterns": ["apps/server/src/host/**"]
+      },
+      {
+        "name": "desk",
+        "patterns": ["apps/server/src/desk/**"]
       }
     ],
     "rules": [
@@ -115,6 +119,20 @@
           "memory",
           "personal",
           "records"
+        ]
+      },
+      {
+        "from": "desk",
+        "allow": [
+          "core",
+          "models",
+          "sources",
+          "todo-list",
+          "payments",
+          "memory",
+          "personal",
+          "records",
+          "host"
         ]
       }
     ]
