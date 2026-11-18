@@ -11,7 +11,13 @@ import { AgentChange } from "../records/registered-agent";
 import { listRepos } from "../sources/git";
 import { ask } from "./asks";
 import { requested } from "./change-todo-item";
-import { agentChangeOf, modelOf, readDesk, startOf } from "./desk-read";
+import {
+  agentChangeOf,
+  holderOf,
+  modelOf,
+  readDesk,
+  startOf,
+} from "./desk-read";
 import type { ToolCall } from "./http/mcp-tool";
 
 // His word about a registered agent, from a chat (`change_registered_agent`): one ask of the desk (`DESK_AGENT`) in
@@ -157,6 +163,7 @@ function startFailure(s: ReturnType<typeof startOf>) {
 /** A start's answer from the facts read: `started`, `not_started` (refused, or its agent ended before it began) or `unconfirmed`. */
 function startResult(
   s: ReturnType<typeof startOf> | null,
+  isHeld: boolean,
   stages: ReturnType<typeof stagesOf>,
   askId: string,
   change: AgentChange,
@@ -181,9 +188,8 @@ function startResult(
           stage: STAGES[stages.length] ?? STAGES[2],
         },
     model: s?.agent ? modelOf(s.agent).model : (change.model ?? null),
-    // A matter already held by an agent has one running.
-    nothingRunning:
-      state === "not_started" && !reason?.includes("already held"),
+    // A matter held by an active agent has one running.
+    nothingRunning: state === "not_started" && !isHeld,
     runtime: s?.agent?.runtime ?? change.runtime ?? null,
     stages,
     state,
@@ -200,8 +206,17 @@ async function waitForStart(
   report({ limitSeconds: limitMs / 1000, plan: [...STAGES] });
   let reported = 0;
   for (let waited = 0; ; waited += POLL_MS) {
-    const read = readDesk((db) => startOf(db, line.id), null);
-    const s = read.state === "ok" ? read.value : null;
+    const read = readDesk(
+      (db) => ({
+        isHeld: holderOf(db, change.steps ?? []) !== null,
+        s: startOf(db, line.id),
+      }),
+      null
+    );
+    const { isHeld, s } =
+      read.state === "ok" && read.value
+        ? read.value
+        : { isHeld: false, s: null };
     const stages = s ? stagesOf(s) : [];
     for (const { stage, ...detail } of stages.slice(reported)) {
       report({ step: stage, ...detail });
@@ -212,7 +227,7 @@ async function waitForStart(
       (s && startFailure(s)) ||
       waited >= limitMs
     ) {
-      return startResult(s, stages, line.id, change, limitMs);
+      return startResult(s, isHeld, stages, line.id, change, limitMs);
     }
     // biome-ignore lint/performance/noAwaitInLoops: polls the desk's facts
     await Bun.sleep(POLL_MS);
