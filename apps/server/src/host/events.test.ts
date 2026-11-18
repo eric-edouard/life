@@ -253,8 +253,7 @@ test("a decision that lapsed wakes its own asker once, with what it said it take
         { id: "wait", label: "Wait" },
       ],
       question: "Book Kit?",
-      recommended: ["yes"],
-      why: "Cheapest.",
+      title: "Cheapest.",
     });
     const poll = (agent: string | undefined, cursor: string | null) =>
       pollEvents({ arguments: {}, cursor, name: DECISION_LAPSED }, agent);

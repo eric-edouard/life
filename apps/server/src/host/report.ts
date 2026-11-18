@@ -92,17 +92,15 @@ const ridesText = (r: Check["ridesOn"]) =>
     .filter(Boolean)
     .join(" and ")}`;
 
-/** A row of Waiting on you: the question; what is recommended and why, by when, who asked, its link. */
+/** A row of Waiting on you: its title and question; the draft in full, what is recommended, by when, who asked, its link. */
 function waitingRow(c: Check) {
-  const picks = c.options.filter((o) => c.recommended.includes(o.id));
+  const [first] = c.options;
   return {
-    name: c.question,
+    name: c.title,
     relation: [
-      ...(picks.length > 0
-        ? [
-            `Recommended: ${picks.map((o) => o.label).join(", ")}${c.why ? ` (${c.why})` : ""}`,
-          ]
-        : []),
+      c.question,
+      ...(c.draft ? [`Draft to ${c.draft.to}: "${c.draft.text}"`] : []),
+      ...(first && c.options.length > 1 ? [`Recommended: ${first.label}`] : []),
       ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
       `asked by ${c.asker}`,
       ...c.links.slice(0, 1),

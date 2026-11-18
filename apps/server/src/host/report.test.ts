@@ -246,6 +246,7 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
   at: null,
   context: null,
   deadline: null,
+  draft: null,
   evidence: { from: "whatsapp, 7 Sep", quote: "see you Friday" },
   group: "guessed person",
   kind: "person",
@@ -256,11 +257,10 @@ const check = (guess: string, ridesOn: Check["ridesOn"]): Check => ({
     { id: "not-this-person", label: "Not them" },
   ],
   question: guess,
-  recommended: ["this-is"],
   ref: `person:${guess}`,
   ridesOn,
   subject: null,
-  why: "80% sure",
+  title: "Know who someone is",
 });
 
 test("the Checks section lists every row in the order given, after Birthdays, with one note; left out when none", () => {
@@ -299,6 +299,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
     at: "2026-10-15T08:00:00.000Z",
     context: null,
     deadline: "2026-10-16T08:00:00.000Z",
+    draft: i === 0 ? { text: "Can you come Friday?", to: "Kit" } : null,
     evidence: null,
     group: "decision",
     kind: "decision",
@@ -309,11 +310,10 @@ test("Waiting on you comes first with every open decision; the Checks section ho
       { id: "no", label: "Skip" },
     ],
     question: `Book plumber ${i}?`,
-    recommended: ["yes"],
     ref: `dec_00000000000${i}`,
     ridesOn: { matters: 0, observations: 0, pages: 0 },
     subject: null,
-    why: "Cheapest quote",
+    title: `Fix the boiler ${i}`,
   });
   n.birthdays = [{ name: "Ana", relation: "17 Oct" }];
   n.checks = [
@@ -326,7 +326,7 @@ test("Waiting on you comes first with every open decision; the Checks section ho
   ];
   const { text } = successReport("2026-10-15", 1000, n);
   expect(text).toContain(
-    "Waiting on you (9)\n- Book plumber 0?: Recommended: Book it (Cheapest quote) · by 2026-10-16 "
+    'Waiting on you (9)\n- Fix the boiler 0: Book plumber 0? · Draft to Kit: "Can you come Friday?" · Recommended: Book it · by 2026-10-16 '
   );
   expect(text).toContain("· asked by planner · https://example.com/session/8");
   expect(text.indexOf("Waiting on you")).toBeLessThan(

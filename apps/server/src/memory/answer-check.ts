@@ -1,5 +1,10 @@
 import { PersonRef } from "../records/fields";
-import { type Check, type CheckGroup, checksNow, type OPTIONS } from "./checks";
+import {
+  type Check,
+  type CheckGroup,
+  checksNow,
+  type LIFE_CHECKS,
+} from "./checks";
 import { answerDecision } from "./decisions";
 import { recordFactCheckAnswer } from "./fact-checks";
 import { recordCorrection } from "./memory-files";
@@ -35,10 +40,10 @@ const correct = (said: object[], a: CheckAnswer) =>
     )
   );
 
-/** What each option of Life's guesses writes, by group; typed by `OPTIONS`, so every option has its writer. */
+/** What each option of Life's guesses writes, by group; typed by `LIFE_CHECKS`, so every option has its writer. */
 const WRITERS: {
-  [G in keyof typeof OPTIONS]: Record<
-    (typeof OPTIONS)[G][number]["id"],
+  [G in keyof typeof LIFE_CHECKS]: Record<
+    (typeof LIFE_CHECKS)[G]["options"][number]["id"],
     Writer
   >;
 } = {

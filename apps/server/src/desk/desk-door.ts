@@ -5,11 +5,12 @@ import { same, secretIn } from "../core/secret";
 import { agentOf } from "../host/desk-read";
 import { DOOR_PORT, text } from "../host/http/http";
 import { READ_ONLY, tool, WRITES } from "../host/http/mcp-tool";
-import { DecisionRequest } from "../memory/decisions";
+import { CARD, DecisionRequest } from "../memory/decisions";
 import { AgentWait } from "../records/registered-agent";
 import {
   askDecision,
   finish,
+  hasAsked,
   readPacket,
   setWait,
   writeNotes,
@@ -57,6 +58,12 @@ function doorServer(desk: Desk, id: string) {
         ) {
           throw new Error(`Not done: ${id} is not active.`);
         }
+        // His rule: a new agent's first turn ends on its plan, asked; it waits or finishes only after.
+        if ((name === "set_wait" || name === "finish") && !hasAsked(id)) {
+          throw new Error(
+            'Not done: ask your plan first (`request_decision`: "Here is what I\'ll do", options Go, Change, Stop).'
+          );
+        }
         const r = await run(args);
         if (typeof r === "object" && r !== null && "error" in r) {
           throw new Error(String(r.error));
@@ -85,7 +92,7 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "request_decision",
-    "Ask the owner one decision (one open at a time): `question`, 2 to 4 `options` (`id`, `label`), `recommended` (option ids), `why`, `context` (what was done, what each option leads to, the exact text and recipient of any message to approve), `deadline` (1 hour to 14 days ahead), `onSilence` (the option you take if he doesn't answer, or null), `subject`. Or `withdraw` (your decision's id) with `why`. His answer wakes you.",
+    `Ask the owner one decision (one open at a time). ${CARD} Or \`withdraw\` (your decision's id) with \`why\`. His answer wakes you.`,
     DecisionRequest,
     (ask) => askDecision(desk, id, ask)
   );
