@@ -5,6 +5,7 @@ import {
   type AgentRow,
   activeAgents,
   agentOf,
+  anchorsOf,
   type EventRow,
   filtersOf,
   lastTurns,
@@ -22,7 +23,10 @@ import {
 } from "../host/events";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
+import { matterFinderOf } from "../memory/matter-read";
+import { readMatterBook } from "../memory/matters";
 import { type People, readPeople } from "../memory/who";
+import { dayNow } from "../memory/zones";
 import type { TurnOutcome } from "../records/registered-agent";
 import { finish, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -150,18 +154,27 @@ export async function pollRecordings(desk: Desk, readPeopleNow: ReadPeople) {
   desk.db.transaction(() => queue(desk.db, MATTER_RELATED, wakes))();
 }
 
-/** Ends each active agent whose matter is done (`netsOf`'s read of the matters): nothing is left for it to do or wait for. */
+/**
+ * Ends each active agent whose matter is done (by his word or its own steps' endings, never a link's "probably"),
+ * which withdraws its open decision. Read fresh on every poll, never from `netsOf`'s kept nets: his Mark as done
+ * changes no anchor, so they would hide it for up to `NETS_FOR` and leave its card in his inbox.
+ */
 export async function endAgentsOnDoneMatters(
   desk: Desk,
   readPeopleNow: ReadPeople
 ) {
-  if (activeAgents(desk.db).length === 0) {
+  const agents = activeAgents(desk.db);
+  if (agents.length === 0) {
     return;
   }
-  const nets = await netsOf(desk, await readPeopleNow());
-  for (const n of nets.filter((x) => x.isDone)) {
-    // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
-    await finish(desk, n.agent, "its matter is done");
+  const find = matterFinderOf(
+    await readMatterBook(await readPeopleNow(), dayNow())
+  );
+  for (const a of agents) {
+    if (find(anchorsOf(desk.db, a.id))?.status === "done") {
+      // biome-ignore lint/performance/noAwaitInLoops: one agent's decision withdrawn at a time
+      await finish(desk, a.id, "its matter is done");
+    }
   }
 }
 

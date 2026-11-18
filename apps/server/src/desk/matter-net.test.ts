@@ -270,8 +270,8 @@ test("an agent whose matter is done is ended; one only probably done (a link's) 
     s.mockRestore();
   }
   await mocked("done");
-  // The nets are read again once `NETS_FOR` passed.
-  setSystemTime(new Date(T0 + 11 * MIN));
+  // Seen on the next poll, though the kept nets (`NETS_FOR`) still hold: his Mark as done must not wait 10 minutes.
+  setSystemTime(new Date(T0 + MIN));
   await tick(desk);
   expect(agentOf(desk.db, agent)).toMatchObject({
     outcome: "its matter is done",
